@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from galpy.orbit_src.OrbitTop import OrbitTop
-from galpy.potential_src.linearPotential import evaluatelinearForces,\
+from galpy.potential_src.linearPotential import _evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -92,12 +92,13 @@ class linearOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatelinearPotentials(thiso[0],pot,
-                                            t=t)\
+            return evaluatelinearPotentials(pot,thiso[0],
+                                            t=t,use_physical=False)\
                                             +thiso[1]**2./2.
         else:
-            return nu.array([evaluatelinearPotentials(thiso[0,ii],pot,
-                                                      t=t[ii])\
+            return nu.array([evaluatelinearPotentials(pot,thiso[0,ii],
+                                                      t=t[ii],
+                                                      use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  for ii in range(len(t))])
 
@@ -146,8 +147,10 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
         else:
             method= 'odeint'
     if method.lower() == 'leapfrog':
-        return symplecticode.leapfrog(evaluatelinearForces,nu.array(vxvv),
-                                      t,args=(pot,),rtol=10.**-8)
+        return symplecticode.leapfrog(lambda x,t=t: _evaluatelinearForces(pot,x,
+                                                                         t=t),
+                                      nu.array(vxvv),
+                                      t,rtol=10.**-8)
     elif method.lower() == 'odeint':
         return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=10.**-8.)
 
@@ -166,4 +169,4 @@ def _linearEOM(y,t,pot):
     HISTORY:
        2010-07-13 - Bovy (NYU)
     """
-    return [y[1],evaluatelinearForces(y[0],pot,t=t)]
+    return [y[1],_evaluatelinearForces(pot,y[0],t=t)]

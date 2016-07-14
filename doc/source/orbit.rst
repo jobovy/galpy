@@ -3,8 +3,8 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-Orbit initialization
----------------------
+**UPDATED in v1.2**: Orbit initialization
+-------------------------------------------
 
 Standard initialization
 ***********************
@@ -38,7 +38,7 @@ azimuth and initialize with ``o= Orbit(vxvv=[R,vR,vT])``.
 
 In one dimension we simply initialize with ``o= Orbit(vxvv=[x,vx])``.
 
-Initialization with physical scales
+Initialization with physical units
 ************************************
 
 Orbits are normally used in galpy's *natural coordinates*. When Orbits
@@ -55,13 +55,30 @@ energies and the Jacobi integral, km/s kpc for the angular momentum
 o.L() and actions, 1/Gyr for frequencies, and Gyr for times and
 periods. See below for examples of this.
 
-Physical units are only used for outputs: internally natural units are
-still used and inputs have to also be specified in natural units (for
-example, integration times or the time at which an output is requested
-must be specified in natural units). If for any output you do *not*
-want the output in physical units, you can specify this by supplying
-the keyword argument ``use_physical=False``.
+The actual initial condition can also be specified in physical
+units. For example, the Orbit above can be initialized as
 
+>>> from astropy import units
+>>> op= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242*units.km/units.s,0.*units.kpc,22.*units.km/units.s,0.*units.deg])
+
+In this case, it is unnecessary to specify the ``ro=`` and ``vo=``
+scales; when they are not specified, ``ro`` and ``vo`` are set to the
+default values from the :ref:`configuration file
+<configfile>`. However, if they are specified, then those values
+rather than the ones from the configuration file are used.
+
+.. TIP::
+   If you do input and output in physical units, the internal unit conversion specified by ``ro=`` and ``vo=`` does not matter!
+
+Inputs to any Orbit method can also be specified with units as an
+astropy Quantity. galpy's natural units are still used under the hood,
+as explained in the section on :ref:`physical units in galpy
+<physunits>`. For example, integration times can be specified in Gyr
+if you want to integrate for a specific time period.
+
+If for any output you do *not* want the output in physical units, you
+can specify this by supplying the keyword argument
+``use_physical=False``.
 
 Initialization from observed coordinates
 ****************************************
@@ -105,6 +122,9 @@ However, the internally stored position/velocity vector is
 
 and is therefore in *natural* units.
 
+.. TIP::
+   Initialization using observed coordinates can also use units. So, for example, proper motions can be specified as ``2*units.mas/units.yr``.
+
 Similarly, one can also initialize orbits from Galactic coordinates
 using ``o= Orbit(vxvv=[glon,glat,distance,pmll,pmbb,Vlos],lb=True)``,
 where glon and glat are Galactic longitude and latitude expressed in
@@ -133,8 +153,8 @@ you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
-Orbit integration
----------------------
+**UPDATED in v1.2**: Orbit integration
+----------------------------------------
 
 After an orbit is initialized, we can integrate it for a set of times
 ``ts``, given as a numpy array. For example, in a simple logarithmic
@@ -148,15 +168,18 @@ potential we can do the following
 >>> o.integrate(ts,lp)
 
 to integrate the orbit from ``t=0`` to ``t=100``, saving the orbit at
-10000 instances.
+10000 instances. In physical units, we can integrate for 10 Gyr as follows
+
+>>> from astropy import units
+>>> ts= numpy.linspace(0,10.,10000)*units.Gyr
+>>> o.integrate(ts,lp)
 
 If we initialize the Orbit using a distance scale ``ro=`` and a
 velocity scale ``vo=``, then Orbit plots and outputs will use physical
 coordinates (currently, times, positions, and velocities)
 
 >>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
->>> op.integrate(ts,lp) #times are still specified in natural coordinates
-
+>>> op.integrate(ts,lp) 
 
 Displaying the orbit
 ---------------------

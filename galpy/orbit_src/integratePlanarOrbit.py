@@ -147,6 +147,18 @@ def _parse_pot(pot):
                  and isinstance(p._RZPot,potential.PlummerPotential):
             pot_type.append(17)
             pot_args.extend([p._RZPot._amp,p._RZPot._b])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.PseudoIsothermalPotential):
+            pot_type.append(18)
+            pot_args.extend([p._RZPot._amp,p._RZPot._a])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.KuzminDiskPotential):
+            pot_type.append(19)
+            pot_args.extend([p._RZPot._amp,p._RZPot._a])
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+                 and isinstance(p._RZPot,potential.BurkertPotential):
+            pot_type.append(20)
+            pot_args.extend([p._RZPot._amp,p._RZPot.a])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -250,6 +262,9 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
 
+    if err.value == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
@@ -327,6 +342,9 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+
+    if err.value == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)

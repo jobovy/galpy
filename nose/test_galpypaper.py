@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import os
 import numpy
+from test_streamdf import expected_failure
 
 def test_overview():
     from galpy.potential import NFWPotential
@@ -34,11 +35,11 @@ def test_units():
     print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
     print(conversion.dens_in_msolpc3(220.,8.))#Msolar/pc^3
-    assert numpy.fabs(conversion.dens_in_msolpc3(220.,8.)-0.175790330079) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.dens_in_msolpc3(220.,8.)-0.175790330079)/0.175790330079) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.surfdens_in_msolpc2(220.,8.))#Msolar/pc^2
-    assert numpy.fabs(conversion.surfdens_in_msolpc2(220.,8.)-1406.32264063) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.surfdens_in_msolpc2(220.,8.)-1406.32264063)/1406.32264063) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.mass_in_1010msol(220.,8.))#10^10 Msolar
-    assert numpy.fabs(conversion.mass_in_1010msol(220.,8.)-9.00046490005) < 10.**-4., 'unit conversion has changed'
+    assert numpy.fabs((conversion.mass_in_1010msol(220.,8.)-9.00046490005)/9.00046490005) < 5.*10.**-5., 'unit conversion has changed'
     print(conversion.freq_in_Gyr(220.,8.))#1/Gyr
     assert numpy.fabs(conversion.freq_in_Gyr(220.,8.)-28.1245845523) < 10.**-4., 'unit conversion has changed'
     print(conversion.time_in_Gyr(220.,8.))#Gyr
@@ -123,17 +124,33 @@ def test_TimeInterpPotential():
     assert numpy.fabs(tip.Rforce(1.,0.1,t=200.)-mp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
     return None
 
+@expected_failure
+def test_potentialAPIChange_warning():
+    # Test that a warning is displayed about the API change for evaluatePotentials etc. functions from what is given in the galpy paper
+    #Turn warnings into errors to test for them
+    import warnings
+    from galpy.util import galpyWarning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        import galpy.potential
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "A major change in versions > 1.1 is that all galpy.potential functions and methods take the potential as the first argument; previously methods such as evaluatePotentials, evaluateDensities, etc. would be called with (R,z,Pot), now they are called as (Pot,R,z) for greater consistency across the codebase")
+            if raisedWarning: break
+        assert raisedWarning, "Importing galpy.potential does not raise warning about evaluatePotentials API change"
+    return None
+
 def test_orbitint():
     import numpy
     from galpy.potential import MWPotential2014
     from galpy.potential import evaluatePotentials as evalPot
     from galpy.orbit import Orbit
     E, Lz= -1.25, 0.6
-    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.)),0.])
+    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(MWPotential2014,0.8,0.)-(Lz/0.8)**2./2.)),0.])
     ts= numpy.linspace(0.,100.,2001)
     o1.integrate(ts,MWPotential2014)
     o1.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
-    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
+    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(MWPotential2014,0.8,0.)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
     o2.integrate(ts,MWPotential2014)
     o2.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
     return None
@@ -164,8 +181,10 @@ def test_orbmethods():
     o.vR(5.,vo=220.) # Cyl. rad. velocity at time 5. in km/s
     assert numpy.fabs(o.vR(5.,vo=220.)-45.202530965094553) < 10.**-3., 'Orbit method does not work as expected'
     o.ra(1.), o.dec(1.) # RA and Dec at t=1. (default settings)
-    assert numpy.fabs(o.ra(1.)-numpy.array([ 288.19277])) < 10.**-3., 'Orbit method does not work as expected'
-    assert numpy.fabs(o.dec(1.)-numpy.array([ 18.98069155])) < 10.**-3., 'Orbit method does not work as expected'
+    # 5/12/2016: test weakened, because improved galcen<->heliocen 
+    #            transformation has changed these, but still close
+    assert numpy.fabs(o.ra(1.)-numpy.array([ 288.19277])) < 10.**-1., 'Orbit method does not work as expected'
+    assert numpy.fabs(o.dec(1.)-numpy.array([ 18.98069155])) < 10.**-1., 'Orbit method does not work as expected'
     o.jr(type='adiabatic'), o.jz() # R/z actions (ad. approx.)
     assert numpy.fabs(o.jr(type='adiabatic')-0.05285302231137586) < 10.**-3., 'Orbit method does not work as expected'
     assert numpy.fabs(o.jz()-0.006637988850751242) < 10.**-3., 'Orbit method does not work as expected'
@@ -189,10 +208,10 @@ def test_surfacesection():
     from galpy.potential import evaluatePotentials as evalPot
     from galpy.orbit import Orbit
     E, Lz= -1.25, 0.6
-    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.)),0.])
+    o1= Orbit([0.8,0.,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(MWPotential2014,0.8,0.)-(Lz/0.8)**2./2.)),0.])
     ts= numpy.linspace(0.,100.,2001)
     o1.integrate(ts,MWPotential2014)
-    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(0.8,0.,MWPotential2014)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
+    o2= Orbit([0.8,0.3,Lz/0.8,0.,numpy.sqrt(2.*(E-evalPot(MWPotential2014,0.8,0.)-(Lz/0.8)**2./2.-0.3**2./2.)),0.])
     o2.integrate(ts,MWPotential2014)
     def surface_section(Rs,zs,vRs):
         # Find points where the orbit crosses z from - to +
@@ -407,10 +426,13 @@ def test_coords():
     # Assuming Sun's distance to GC is (8,0.025) in (R,z)
     R,phi,z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
     vR,vT,vz= bovy_coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
-    assert numpy.fabs(R-12.51328515156942) < 10.**-4., 'Coordinate transformation has changed'
-    assert numpy.fabs(phi-0.12177409073433249) < 10.**-4., 'Coordinate transformation has changed'
-    assert numpy.fabs(z-7.1241282354856228) < 10.**-4., 'Coordinate transformation has changed'
-    assert numpy.fabs(vR-78.961682923035966) < 10.**-4., 'Coordinate transformation has changed'
-    assert numpy.fabs(vT+241.49247772351964) < 10.**-4., 'Coordinate transformation has changed'
-    assert numpy.fabs(vz+102.83965442188689) < 10.**-4., 'Coordinate transformation has changed'
+    # 5/12/2016: test weakened, because improved galcen<->heliocen 
+    #            transformation has changed these, but still close
+    print(R,phi,z,vR,vT,vz)
+    assert numpy.fabs(R-12.51328515156942) < 10.**-1., 'Coordinate transformation has changed'
+    assert numpy.fabs(phi-0.12177409073433249) < 10.**-1., 'Coordinate transformation has changed'
+    assert numpy.fabs(z-7.1241282354856228) < 10.**-1., 'Coordinate transformation has changed'
+    assert numpy.fabs(vR-78.961682923035966) < 10.**-1., 'Coordinate transformation has changed'
+    assert numpy.fabs(vT+241.49247772351964) < 10.**-1., 'Coordinate transformation has changed'
+    assert numpy.fabs(vz+102.83965442188689) < 10.**-1., 'Coordinate transformation has changed'
     return None

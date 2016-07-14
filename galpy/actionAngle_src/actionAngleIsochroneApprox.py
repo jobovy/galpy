@@ -19,11 +19,19 @@ import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc
 from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
+from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, time_in_Gyr
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
-class actionAngleIsochroneApprox(object):
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+class actionAngleIsochroneApprox(actionAngle):
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
         """
@@ -35,7 +43,7 @@ class actionAngleIsochroneApprox(object):
 
            Either:
 
-              b= scale parameter of the isochrone parameter
+              b= scale parameter of the isochrone parameter (can be Quantity)
 
               ip= instance of a IsochronePotential
 
@@ -43,16 +51,25 @@ class actionAngleIsochroneApprox(object):
 
            pot= potential to calculate action-angle variables for
 
-           tintJ= (default: 100) time to integrate orbits for to estimate actions
+           tintJ= (default: 100) time to integrate orbits for to estimate actions (can be Quantity)
 
            ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
@@ -72,9 +89,16 @@ class actionAngleIsochroneApprox(object):
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
-            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=kwargs['b'],
+            if _APY_LOADED and isinstance(kwargs['b'],units.Quantity):
+                b= kwargs['b'].to(units.kpc).value/self._ro
+            else:
+                b= kwargs['b']
+            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=b,
                                                                   normalize=1.))
         self._tintJ= kwargs.get('tintJ',100.)
+        if _APY_LOADED and isinstance(self._tintJ,units.Quantity):
+            self._tintJ= self._tintJ.to(units.Gyr).value\
+                /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
@@ -85,12 +109,14 @@ class actionAngleIsochroneApprox(object):
             self._c= True
         else:
             self._c= False
+        # Check the units
+        self._check_consistent_units()
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -115,12 +141,12 @@ class actionAngleIsochroneApprox(object):
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                               vR.flatten(),
-                                               vT.flatten(),
-                                               z.flatten(),
-                                               vz.flatten(),
-                                               phi.flatten())
+            acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                vR.flatten(),
+                                                vT.flatten(),
+                                                z.flatten(),
+                                                vz.flatten(),
+                                                phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -151,10 +177,10 @@ class actionAngleIsochroneApprox(object):
                 lz= R[:,0]*vT[:,0]
             return (jr,lz,jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -172,13 +198,13 @@ class actionAngleIsochroneApprox(object):
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        acfs= self.actionsFreqsAngles(*args,**kwargs)
+        acfs= self._actionsFreqsAngles(*args,**kwargs)
         return (acfs[0],acfs[1],acfs[2],acfs[3],acfs[4],acfs[5])
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
@@ -215,6 +241,9 @@ class actionAngleIsochroneApprox(object):
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
+            if _APY_LOADED and isinstance(ts,units.Quantity):
+                ts= ts.to(units.Gyr).value\
+                    /time_in_Gyr(self._vo,self._ro)
         else:
             ts= nu.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
@@ -226,12 +255,12 @@ class actionAngleIsochroneApprox(object):
             #Use self._aAI to calculate the actions and angles in the isochrone potential
             if '_acfs' in kwargs: acfs= kwargs['_acfs']
             else:
-                acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                                   vR.flatten(),
-                                                   vT.flatten(),
-                                                   z.flatten(),
-                                                   vz.flatten(),
-                                                   phi.flatten())
+                acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                    vR.flatten(),
+                                                    vT.flatten(),
+                                                    z.flatten(),
+                                                    vz.flatten(),
+                                                    phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -352,12 +381,12 @@ class actionAngleIsochroneApprox(object):
         #Parse input
         R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
-        acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                           vR.flatten(),
-                                           vT.flatten(),
-                                           z.flatten(),
-                                           vz.flatten(),
-                                           phi.flatten())
+        acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                            vR.flatten(),
+                                            vT.flatten(),
+                                            z.flatten(),
+                                            vz.flatten(),
+                                            phi.flatten())
         if type == 'jr' or type == 'lz' or type == 'jz':
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
@@ -565,6 +594,7 @@ class actionAngleIsochroneApprox(object):
                 os= args[0]
                 if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
+            self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0]._orb,'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
@@ -656,32 +686,36 @@ class actionAngleIsochroneApprox(object):
         else:
             return (R,vR,vT,z,vz,phi)
 
-def estimateBIsochrone(R,z,pot=None):
+@potential_physical_input
+@physical_conversion('position',pop=True)
+def estimateBIsochrone(pot,R,z):
     """
     NAME:
        estimateBIsochrone
     PURPOSE:
        Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
     INPUT:
-       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       pot= Potential instance or list thereof
+       pot- Potential instance or list thereof
+       R,z - coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
     OUTPUT:
        b if 1 R,Z given
        bmin,bmedian,bmax if multiple R given       
     HISTORY:
        2013-09-12 - Written - Bovy (IAS)
+       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
     """
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
-        bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
-        return (nu.amin(bs[True-nu.isnan(bs)]),
-                nu.median(bs[True-nu.isnan(bs)]),
-                nu.amax(bs[True-nu.isnan(bs)]))
+        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],use_physical=False)
+                      for ii in range(len(R))])
+        return nu.array([nu.amin(bs[True-nu.isnan(bs)]),
+                         nu.median(bs[True-nu.isnan(bs)]),
+                         nu.amax(bs[True-nu.isnan(bs)])])
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)
-        dlvcdlr= dvcircdR(pot,r)/vcirc(pot,r)*r
+        dlvcdlr= dvcircdR(pot,r,use_physical=False)/vcirc(pot,r,use_physical=False)*r
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)

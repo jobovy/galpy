@@ -59,6 +59,29 @@ from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D
+try:
+    import seaborn as sns
+except: pass
+else:
+    sns.set_style('ticks',
+                  {'xtick.direction': u'in',
+                   'ytick.direction': u'in',
+                   'axes.labelsize': 18.0,
+                   'axes.titlesize': 18.0,
+                   'figure.figsize': sc.array([ 6.64,  4.  ]),
+                   'grid.linewidth': 2.0,
+                   'legend.fontsize': 18.0,
+                   'lines.linewidth': 2.0,
+                   'lines.markeredgewidth': 0.0,
+                   'lines.markersize': 14.0,
+                   'patch.linewidth': 0.6,
+                   'xtick.labelsize': 16.0,
+                   'xtick.major.pad': 14.0,
+                   'xtick.major.width': 2.0,
+                   'xtick.minor.width': 1.0,
+                   'ytick.labelsize': 16.0,
+                   'ytick.major.pad': 14.0,
+                   'ytick.major.width': 2.0,})
 _DEFAULTNCNTR= 10
 def bovy_end_print(filename,**kwargs):
     """
@@ -466,6 +489,8 @@ def bovy_dens2d(X,**kwargs):
 
        conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
 
+       gcf=True does not start a new figure (does change the ranges and labels)
+
        Contours:
        
        justcontours - if True, only draw contours
@@ -504,7 +529,8 @@ def bovy_dens2d(X,**kwargs):
 
     """
     overplot= kwargs.pop('overplot',False)
-    if not overplot:
+    gcf= kwargs.pop('gcf',False)
+    if not overplot and not gcf:
         pyplot.figure()
     xlabel= kwargs.pop('xlabel',None)
     ylabel= kwargs.pop('ylabel',None)
@@ -512,8 +538,8 @@ def bovy_dens2d(X,**kwargs):
     if 'extent' in kwargs:
         extent= kwargs.pop('extent')
     else:
-        xlimits= kwargs.pop('xrange',[0,X.shape[0]])
-        ylimits= kwargs.pop('yrange',[0,X.shape[1]])
+        xlimits= kwargs.pop('xrange',[0,X.shape[1]])
+        ylimits= kwargs.pop('yrange',[0,X.shape[0]])
         extent= xlimits+ylimits
     if not 'aspect' in kwargs:
         kwargs['aspect']= (xlimits[1]-xlimits[0])/float(ylimits[1]-ylimits[0])
@@ -554,7 +580,7 @@ def bovy_dens2d(X,**kwargs):
     retAxes= kwargs.pop('retAxes',False)
     retCont= kwargs.pop('retCont',False)
     if onedhists:
-        if overplot: fig= pyplot.gcf()
+        if overplot or gcf: fig= pyplot.gcf()
         else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
         # definitions for the axes
@@ -805,6 +831,8 @@ def scatterplot(x,y,*args,**kwargs):
 
        conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
 
+       gcf=True does not start a new figure (does change the ranges and labels)
+
        contours - if False, don't plot contours
 
        justcontours - if True, only draw contours, no density
@@ -879,6 +907,7 @@ def scatterplot(x,y,*args,**kwargs):
     onedhistlw= kwargs.pop('onedhistlw',None)
     onedhistsbins= kwargs.pop('onedhistsbins',round(0.3*sc.sqrt(ndata)))
     overplot= kwargs.pop('overplot',False)
+    gcf= kwargs.pop('gcf',False)
     cmap= kwargs.pop('cmap',cm.gist_yarg)
     onedhistxnormed= kwargs.pop('onedhistxnormed',True)
     onedhistynormed= kwargs.pop('onedhistynormed',True)
@@ -886,7 +915,7 @@ def scatterplot(x,y,*args,**kwargs):
     onedhistyweights= kwargs.pop('onedhistyweights',weights)
     retAxes= kwargs.pop('retAxes',False)
     if onedhists or onedhistx or onedhisty:
-        if overplot: fig= pyplot.gcf()
+        if overplot or gcf: fig= pyplot.gcf()
         else: fig= pyplot.figure()
         nullfmt   = NullFormatter()         # no labels
         # definitions for the axes
@@ -927,7 +956,7 @@ def scatterplot(x,y,*args,**kwargs):
                               conditional=conditional,
                               cntrlw=cntrlw,cntrls=cntrls,
                               justcontours=justcontours,zorder=5*justcontours,
-                              overplot=(onedhists or overplot or onedhistx or onedhisty))
+                              overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
     else:
         cumimage= bovy_dens2d(hist.T,contours=contours,
                               cntrcolors=cntrcolors,
@@ -937,7 +966,7 @@ def scatterplot(x,y,*args,**kwargs):
                               conditional=conditional,
                               retCumImage=True,aspect=aspect,
                               cntrlw=cntrlw,cntrls=cntrls,
-                              overplot=(onedhists or overplot or onedhistx or onedhisty))
+                              overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
     #Set axes and labels
     pyplot.axis(list(xrange)+list(yrange))
     if not overplot:

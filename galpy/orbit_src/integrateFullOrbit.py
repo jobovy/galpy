@@ -115,6 +115,15 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.PlummerPotential):
             pot_type.append(17)
             pot_args.extend([p._amp,p._b])
+        elif isinstance(p,potential.PseudoIsothermalPotential):
+            pot_type.append(18)
+            pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.KuzminDiskPotential):
+            pot_type.append(19)
+            pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.BurkertPotential):
+            pot_type.append(20)
+            pot_args.extend([p._amp,p.a])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -186,6 +195,9 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+    
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
@@ -257,6 +269,9 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)

@@ -503,6 +503,16 @@ def test_vmomentsurfacemass():
     assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1,1)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (1,1) is not equal to zero'
     return None
 
+def test_vmomentsurfacemass_physical():
+    #Test that vmomentsurfacemass gives correct physical results
+    from galpy.util import bovy_conversion
+    dfc= dehnendf(beta=0.,profileParams=(1./4.,1.,0.2))
+    ro,vo=7.,230.
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,0.,0.,use_physical=True,ro=ro,vo=vo)-dfc.vmomentsurfacemass(0.9,0.,0.)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1.,0.,use_physical=True,ro=ro,vo=vo)-dfc.vmomentsurfacemass(0.9,1.,0.)*vo*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
+    assert numpy.fabs(dfc.vmomentsurfacemass(0.9,1.,2.,use_physical=True,ro=ro,vo=vo)-dfc.vmomentsurfacemass(0.9,1.,2.)*vo**3.*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'vmomentsurfacemass with (n,m) = (0,0) is not equal to surfacemass'
+    return None
+
 def test_cold_surfacemassLOS():
     dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                   beta=0.,correct=False)

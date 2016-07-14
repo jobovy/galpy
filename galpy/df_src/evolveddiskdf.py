@@ -20,12 +20,17 @@ from scipy import integrate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
+from galpy.df_src.df import df, _APY_LOADED
 from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, time_in_Gyr
+if _APY_LOADED:
+    from astropy import units
 _DEGTORAD= math.pi/180.
 _RADTODEG= 180./math.pi
 _NAN= nu.nan
-class evolveddiskdf(object):
+class evolveddiskdf(df):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
         """
@@ -39,11 +44,11 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           initdf - the df at the start of the evolution (at to)
+           initdf - the df at the start of the evolution (at to) (units are transferred)
 
            pot - potential to integrate orbits in
 
-           to= initial time (time at which initdf is evaluated; orbits are integrated from current t back to to)
+           to= initial time (time at which initdf is evaluated; orbits are integrated from current t back to to) (can be Quantity)
 
         OUTPUT:
 
@@ -54,10 +59,18 @@ class evolveddiskdf(object):
            2011-03-30 - Written - Bovy (NYU)
 
         """
+        if initdf._roSet: ro= initdf._ro
+        else: ro= None
+        if initdf._voSet: vo= initdf._vo
+        else: vo= None
+        df.__init__(self,ro=ro,vo=vo)
         self._initdf= initdf
         self._pot= pot
+        if _APY_LOADED and isinstance(to,units.Quantity):
+            to= to.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
         self._to= to
 
+    @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -74,7 +87,7 @@ class evolveddiskdf(object):
 
               a) Orbit instance alone: use initial state and t=0
 
-              b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself)
+              b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself), t can be Quantity
 
                  If t is a list of t, DF is returned for each t, times must be in descending order and equally spaced (does not work with marginalize...)
 
@@ -111,8 +124,12 @@ class evolveddiskdf(object):
         if isinstance(t,list):
             t= nu.array(t)
             tlist= True
-        elif isinstance(t,nu.ndarray): tlist= True
+        elif isinstance(t,nu.ndarray) and \
+                not (hasattr(t,'isscalar') and t.isscalar):
+            tlist= True
         else: tlist= False
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
         if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):
@@ -129,9 +146,9 @@ class evolveddiskdf(object):
         if tlist:
             if self._to == t[0]:
                 if kwargs.get('log',False):
-                    return nu.log([self._initdf(args[0])])
+                    return nu.log([self._initdf(args[0],use_physical=False)])
                 else:
-                    return [self._initdf(args[0])]
+                    return [self._initdf(args[0],use_physical=False)]
             ts= self._create_ts_tlist(t,integrate_method)
             o= args[0]
             #integrate orbit
@@ -141,13 +158,13 @@ class evolveddiskdf(object):
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
-                    tmp= o.R()+dderiv
-                    dderiv= tmp-o.R()
+                    tmp= o.R(use_physical=False)+dderiv
+                    dderiv= tmp-o.R(use_physical=False)
                     msg= o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
-                    tmp= o.phi()+dderiv
-                    dderiv= tmp-o.phi()
+                    tmp= o.phi(use_physical=False)+dderiv
+                    dderiv= tmp-o.phi(use_physical=False)
                     msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if msg > 0.: # pragma: no cover
                     print("Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ...")
@@ -163,15 +180,15 @@ class evolveddiskdf(object):
                 start= time_module.time()
             if integrate_method == 'odeint':
                 retval= []
-                os= [o(self._to+t[0]-ti) for ti in t]
-                retval= nu.array(self._initdf(os))
+                os= [o(self._to+t[0]-ti,use_physical=False) for ti in t]
+                retval= nu.array(self._initdf(os,use_physical=False))
             else:
                 if len(t) == 1:
                     orb_array= o.getOrbit().T
                     orb_array= orb_array[:,1]
                 else:
                     orb_array= o.getOrbit().T
-                retval= self._initdf(orb_array)
+                retval= self._initdf(orb_array,use_physical=False)
                 if (isinstance(retval,float) or len(retval.shape) == 0) \
                         and nu.isnan(retval):
                     retval= 0.
@@ -184,17 +201,17 @@ class evolveddiskdf(object):
                 print(int_time/tot_time, df_time/tot_time, tot_time)
             if not deriv is None:
                 if integrate_method == 'odeint':
-                    dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti),
-                                                            o.vR(self._to+t[0]-ti),
-                                                            o.vT(self._to+t[0]-ti))
+                    dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti,use_physical=False),
+                                                            o.vR(self._to+t[0]-ti,use_physical=False),
+                                                            o.vT(self._to+t[0]-ti,use_physical=False))
                                        for ti in t])
-                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(o.R(self._to+t[0]-ti),
-                                                              o.vR(self._to+t[0]-ti),
-                                                              o.vT(self._to+t[0]-ti))
+                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(o.R(self._to+t[0]-ti,use_physical=False),
+                                                              o.vR(self._to+t[0]-ti,use_physical=False),
+                                                              o.vT(self._to+t[0]-ti,use_physical=False))
                                         for ti in t])
-                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(o.R(self._to+t[0]-ti),
-                                                              o.vR(self._to+t[0]-ti),
-                                                              o.vT(self._to+t[0]-ti))
+                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(o.R(self._to+t[0]-ti,use_physical=False),
+                                                              o.vR(self._to+t[0]-ti,use_physical=False),
+                                                              o.vT(self._to+t[0]-ti,use_physical=False))
                                         for ti in t])
                     dRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),4] for ti in t])/dderiv
                     dvRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),5] for ti in t])/dderiv
@@ -238,9 +255,9 @@ class evolveddiskdf(object):
         else:
             if self._to == t and deriv is None:
                 if kwargs.get('log',False):
-                    return nu.log(self._initdf(args[0]))
+                    return nu.log(self._initdf(args[0],use_physical=False))
                 else:
-                    return self._initdf(args[0])
+                    return self._initdf(args[0],use_physical=False)
             elif self._to == t and not deriv is None:
                 if deriv.lower() == 'r':
                     return self._initdf(args[0])*self._initdf._dlnfdR(args[0]._orb.vxvv[0],
@@ -259,26 +276,27 @@ class evolveddiskdf(object):
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
-                    tmp= o.R()+dderiv
-                    dderiv= tmp-o.R()
+                    tmp= o.R(use_physical=False)+dderiv
+                    dderiv= tmp-o.R(use_physical=False)
                     o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
-                    tmp= o.phi()+dderiv
-                    dderiv= tmp-o.phi()
+                    tmp= o.phi(use_physical=False)+dderiv
+                    dderiv= tmp-o.phi(use_physical=False)
                     o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
             #Now evaluate the DF
-            if o.R(self._to-t) <= 0.: 
+            if o.R(self._to-t,use_physical=False) <= 0.: 
                 if kwargs.get('log',False):
                     return -nu.finfo(nu.dtype(nu.float64)).max
                 else:
                     return nu.finfo(nu.dtype(nu.float64)).eps
             #start= time.time()
-            retval= self._initdf(o(self._to-t))
+            retval= self._initdf(o(self._to-t,use_physical=False),
+                                 use_physical=False)
             #print( int_time/(time.time()-start))
             if nu.isnan(retval): print(retval, o._orb.vxvv, o(self._to-t)._orb.vxvv)
             if not deriv is None:
@@ -327,7 +345,7 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (in natural units)
 
            phi= azimuth (rad unless deg=True)
 
@@ -361,7 +379,7 @@ class evolveddiskdf(object):
 
         OUTPUT:
 
-           <vR^n vT^m  x surface-mass> at R,phi
+           <vR^n vT^m  x surface-mass> at R,phi (no support for units)
 
         COMMENT:
 
@@ -402,10 +420,10 @@ class evolveddiskdf(object):
         else:
             warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                           galpyWarning)
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az))
-            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az))
-            meanvR= self._initdf.meanvR(R,phi=az)
-            meanvT= self._initdf.meanvT(R,phi=az)
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az,use_physical=False))
+            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az,use_physical=False))
+            meanvR= self._initdf.meanvR(R,phi=az,use_physical=False)
+            meanvT= self._initdf.meanvT(R,phi=az,use_physical=False)
         if _PROFILE: #pragma: no cover
             setup_time= (time_module.time()-start)
         if not grid is None and isinstance(grid,bool) and grid:
@@ -454,6 +472,8 @@ class evolveddiskdf(object):
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
+    @potential_physical_input
+    @physical_conversion('angle_deg',pop=True)
     def vertexdev(self,R,t=0.,nsigma=None,deg=False,
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
@@ -471,17 +491,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            sigmaR2, sigmaT2, sigmaRT= if set the vertex deviation is simply calculated using these
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
 
@@ -532,7 +552,9 @@ class evolveddiskdf(object):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if sigmaT2 is None:
             sigmaT2= self.sigmaT2(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -540,7 +562,9 @@ class evolveddiskdf(object):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if sigmaRT is None:
             sigmaRT= self.sigmaRT(R,deg=deg,t=t,phi=phi,
                                   nsigma=nsigma,epsrel=epsrel,
@@ -548,7 +572,9 @@ class evolveddiskdf(object):
                                   gridpoints=gridpoints,
                                   returnGrid=False,
                                   hierarchgrid=hierarchgrid,
-                                  nlevels=nlevels,integrate_method=integrate_method)
+                                  nlevels=nlevels,
+                                  integrate_method=integrate_method,
+                                  use_physical=False)
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
@@ -557,6 +583,8 @@ class evolveddiskdf(object):
         else:
             return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG
 
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def meanvR(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
@@ -573,17 +601,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment(/ro) (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass= if set use this pre-calculated surfacemass
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
 
@@ -657,6 +685,8 @@ class evolveddiskdf(object):
         else:
             return out
 
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
     def meanvT(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                epsrel=1.e-02,epsabs=1.e-05,
                grid=None,gridpoints=101,returnGrid=False,
@@ -673,17 +703,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass= if set use this pre-calculated surfacemass
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
 
@@ -758,6 +788,8 @@ class evolveddiskdf(object):
         else:
             return out
 
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)
     def sigmaR2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -775,17 +807,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvR= if set use this pre-calculated surfacemass and mean vR
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
 
@@ -873,6 +905,8 @@ class evolveddiskdf(object):
         else:
             return out
 
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)
     def sigmaT2(self,R,t=0.,nsigma=None,deg=False,phi=0.,
                 epsrel=1.e-02,epsabs=1.e-05,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -890,17 +924,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvT= if set use this pre-calculated surfacemass and mean tangential velocity
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
 
@@ -986,6 +1020,8 @@ class evolveddiskdf(object):
         else:
             return out
 
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)
     def sigmaRT(self,R,t=0.,nsigma=None,deg=False,
                 epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                 grid=None,gridpoints=101,returnGrid=False,
@@ -1003,17 +1039,17 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate the moment(/ro)
+           R - radius at which to calculate the moment (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            surfacemass, meanvR, meavT= if set use this pre-calculated surfacemass and mean vR and vT
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords (the integration calculates the ration of this vmoment to that of the initial DF)
 
@@ -1110,6 +1146,8 @@ class evolveddiskdf(object):
         else:
             return out
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortA(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1127,15 +1165,15 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate A (/ro)
+           R - radius at which to calculate A (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords
 
@@ -1231,7 +1269,8 @@ class evolveddiskdf(object):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvRdphi= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1274,6 +1313,8 @@ class evolveddiskdf(object):
         else:
             return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortB(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1291,15 +1332,15 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate B (/ro)
+           R - radius at which to calculate B (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords
 
@@ -1395,7 +1436,8 @@ class evolveddiskdf(object):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvRdphi= (self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1438,6 +1480,8 @@ class evolveddiskdf(object):
         else:
             return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortC(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1455,15 +1499,15 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate C (/ro)
+           R - radius at which to calculate C (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords
 
@@ -1559,7 +1603,8 @@ class evolveddiskdf(object):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvTdphi= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1602,6 +1647,8 @@ class evolveddiskdf(object):
         else:
             return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
 
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
     def oortK(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1619,15 +1666,15 @@ class evolveddiskdf(object):
 
         INPUT:
 
-           R - radius at which to calculate K (/ro)
+           R - radius at which to calculate K (can be Quantity)
 
-           phi= azimuth (rad unless deg=True)
+           phi= azimuth (rad unless deg=True; can be Quantity)
 
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
+           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
-           deg= azimuth is in degree (default=False)
+           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
 
            epsrel, epsabs - scipy.integrate keywords
 
@@ -1723,7 +1770,8 @@ class evolveddiskdf(object):
                             grid=grid,gridpoints=gridpoints,returnGrid=False,
                             surfacemass=surfacemass,
                             hierarchgrid=hierarchgrid,
-                            nlevels=nlevels,integrate_method=integrate_method)
+                            nlevels=nlevels,integrate_method=integrate_method,
+                            use_physical=False)
         dmeanvTdphi= (self.vmomentsurfacemass(R,0,1,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,epsrel=epsrel,
                                               epsabs=epsabs,grid=derivphiGrid,
@@ -1806,7 +1854,7 @@ class evolveddiskdf(object):
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
                                           integrate_method=integrate_method,
-                                          deriv=deriv)
+                                          deriv=deriv,use_physical=False)
                     out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
@@ -1820,7 +1868,7 @@ class evolveddiskdf(object):
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
                     out.df[ii,jj]= self(thiso,t,
                                         integrate_method=integrate_method,
-                                        deriv=deriv)
+                                        deriv=deriv,use_physical=False)
                     if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         return out
@@ -1851,8 +1899,8 @@ class evolveddiskdf(object):
         #Get d, l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
         if isinstance(self._pot,list):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
@@ -1869,7 +1917,8 @@ class evolveddiskdf(object):
         kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
         if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #Slight abuse
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+                                                  use_physical=False)) #Slight abuse
             cosalphalos= math.cos(alphalos)
             tanalphalos= math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
@@ -1879,7 +1928,8 @@ class evolveddiskdf(object):
                                         sigmaR1,phi),
                                   **kwargs)[0]/math.fabs(cosalphalos)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+                                                  use_physical=False))
             sinalphalos= math.sin(alphalos)
             cotalphalos= 1./math.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
@@ -1893,8 +1943,8 @@ class evolveddiskdf(object):
         #Get d, l, vperp
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
-        R= o.R()
-        phi= o.phi()
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         if isinstance(self._pot,list):
@@ -1911,8 +1961,9 @@ class evolveddiskdf(object):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi)) #slight abuse
-            va= vcirc-self._initdf.meanvT(R,phi=phi)
+            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+                                                  use_physical=False)) #slight abuse
+            va= vcirc-self._initdf.meanvT(R,phi=phi,use_physical=False)
             cosalphaperp= math.cos(alphaperp)
             tanalphaperp= math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
@@ -1924,7 +1975,8 @@ class evolveddiskdf(object):
                                         sigmaR1,phi),
                                   **kwargs)[0]/math.fabs(cosalphaperp)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi))
+            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+                                                  use_physical=False))
             sinalphaperp= math.sin(alphaperp)
             cotalphaperp= 1./math.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle

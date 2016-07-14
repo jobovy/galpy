@@ -21,23 +21,39 @@ from galpy.actionAngle_src.actionAngle import actionAngle
 import galpy.actionAngle_src.actionAngleAdiabatic_c as actionAngleAdiabatic_c
 from galpy.actionAngle_src.actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
-class actionAngleAdiabatic(object):
+class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleAdiabatic object
+
         INPUT:
 
            pot= potential or list of potentials (planarPotentials)
 
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+        
+           instance
+
         HISTORY:
+
             2012-07-26 - Written - Bovy (IAS@MPIA)
+
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
@@ -51,12 +67,14 @@ class actionAngleAdiabatic(object):
         else:
             self._c= False
         self._gamma= kwargs.get('gamma',1.)
+        # Check the units
+        self._check_consistent_units()
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -79,12 +97,12 @@ class actionAngleAdiabatic(object):
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
-                meta= actionAngle(*args)
-                R= meta._R
-                vR= meta._vR
-                vT= meta._vT
-                z= meta._z
-                vz= meta._vz
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
             if isinstance(R,float):
                 R= nu.array([R])
                 vR= nu.array([vR])
@@ -121,15 +139,15 @@ class actionAngleAdiabatic(object):
                 return (ojr,olz,ojz)
             else:
                 #Set up the actionAngleAxi object
-                meta= actionAngle(*args)
+                self._parse_eval_args(*args)
                 if isinstance(self._pot,list):
                     thispot= [p.toPlanar() for p in self._pot]
                 else:
                     thispot= self._pot.toPlanar()
                 if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(meta._R) for p in self._pot]
+                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
                 else:
-                    thisverticalpot= self._pot.toVertical(meta._R)
+                    thisverticalpot= self._pot.toVertical(self._eval_R)
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
@@ -187,15 +205,15 @@ class actionAngleAdiabatic(object):
            2012-06-01 - Written - Bovy (IAS)
         """
         #Set up the actionAngleAxi object
-        meta= actionAngle(*args)
+        self._parse_eval_args(*args)
         if isinstance(self._pot,list):
             thispot= [p.toPlanar() for p in self._pot]
         else:
             thispot= self._pot.toPlanar()
         if isinstance(self._pot,list):
-            thisverticalpot= [p.toVertical(meta._R) for p in self._pot]
+            thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
         else:
-            thisverticalpot= self._pot.toVertical(meta._R)
+            thisverticalpot= self._pot.toVertical(self._eval_R)
         aAAxi= actionAngleAxi(*args,pot=thispot,
                                verticalPot=thisverticalpot,
                                gamma=self._gamma)

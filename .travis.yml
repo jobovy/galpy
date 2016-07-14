@@ -7,12 +7,14 @@ python:
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
+    - REQUIRES_ASTROPY=false
   matrix:
-    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_evolveddiskdf|test_nemo' REQUIRES_PYNBODY=true
-    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='test_qdf|test_pv2qdf|test_diskdf|test_orbit|test_streamdf|test_streamgapdf|test_evolveddiskdf|test_quantity|test_nemo|test_coords' REQUIRES_PYNBODY=true
+    - NOSE_IGNORE_FILES='^((?!test_quantity|test_coords).)*$' REQUIRES_ASTROPY=true # needs to be separate for different config
+    - NOSE_IGNORE_FILES='^((?!test_orbit).)*$' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
     - NOSE_IGNORE_FILES='^((?!test_evolveddiskdf).)*$'
     - NOSE_IGNORE_FILES='^((?!test_diskdf).)*$'
-    - NOSE_IGNORE_FILES='^((?!(test_qdf|test_pv2qdf)).)*$'
+    - NOSE_IGNORE_FILES='^((?!(test_qdf|test_pv2qdf|test_streamgapdf)).)*$'
     - NOSE_IGNORE_FILES='^((?!test_streamdf).)*$'
 addons:
   apt:
@@ -47,13 +49,13 @@ install:
  - gem install coveralls-lcov
  - easy_install --upgrade requests
  - easy_install --upgrade coveralls
- - pip install codecov
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code
  - git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
  - cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
  - git checkout galpy
  - cd -
+ - if $REQUIRES_ASTROPY; then pip install astropy; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 script:
@@ -62,7 +64,6 @@ after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
  # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then codecov; fi
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -v; fi
  # coveralls: combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json

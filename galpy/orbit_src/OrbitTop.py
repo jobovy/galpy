@@ -1,11 +1,26 @@
+import warnings
 import math as m
 import numpy as nu
-from scipy import interpolate, optimize
+import scipy
+from scipy import interpolate
+_APY_LOADED= True
+try:
+    from astropy import units, coordinates
+except ImportError:
+    _APY_LOADED= False
 from galpy import actionAngle
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.potential_src.planarPotential import RZToplanarPotential
+from galpy.util import bovy_conversion, galpyWarning
+from galpy.util import config
+if int(scipy.__version__.split('.')[0]) < 1 and \
+        int(scipy.__version__.split('.')[1]) < 15: #pragma: no cover
+    _OLD_SCIPY= True
+    _KWINTERP= {}  #for scipy version <1.15
+else:
+    _OLD_SCIPY= False
+    _KWINTERP= {'ext':2}  #for scipy version >=1.15
 class OrbitTop(object):
     """General class that holds orbits and integrates them"""
     def __init__(self,vxvv=None,vo=None,ro=None,zo=0.025,
@@ -44,13 +59,13 @@ class OrbitTop(object):
         # the methods that return Orbits
         self.vxvv= vxvv
         if vo is None:
-            self._vo= 220.
+            self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
             self._vo= vo
             self._voSet= True
         if ro is None:
-            self._ro= 8.
+            self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
             self._ro= ro
@@ -74,6 +89,28 @@ class OrbitTop(object):
         """
         self._roSet= False
         self._voSet= False
+        return None
+
+    def turn_physical_on(self,ro=None,vo=None):
+        """
+        NAME:
+           turn_physical_on
+        PURPOSE:
+           turn on automatic returning of outputs in physical units
+        INPUT:
+           ro= reference distance (kpc)
+           vo= reference velocity (km/s)
+        OUTPUT:
+           (none)
+        HISTORY:
+           2016-01-19 - Written - Bovy (UofT)
+        """
+        self._roSet= True
+        self._voSet= True
+        if not ro is None:
+            self._ro= ro
+        if not vo is None:
+            self._vo= vo
         return None
 
     def integrate(self,t,pot,method='symplec4_c',dt=None):
@@ -167,6 +204,27 @@ class OrbitTop(object):
         if onet: return thiso[0]
         else: return thiso[0,:]
 
+    @physical_conversion('position')
+    def r(self,*args,**kwargs):
+        """
+        NAME:
+           r
+        PURPOSE:
+           return spherical radius at time t
+        INPUT:
+           t - (optional) time at which to get the radius
+           ro= (Object-wide default) physical scale for distances to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+        OUTPUT:
+           r(t)
+        HISTORY:
+           2016-04-19 - Written - Bovy (UofT)
+        """
+        thiso= self(*args,**kwargs)
+        onet= (len(thiso.shape) == 1)
+        if onet: return nu.sqrt(thiso[0]**2.+thiso[3]**2.)
+        else: return nu.sqrt(thiso[0,:]**2.+thiso[3,:]**2.)
+
     @physical_conversion('velocity')
     def vR(self,*args,**kwargs):
         """
@@ -254,7 +312,8 @@ class OrbitTop(object):
         onet= (len(thiso.shape) == 1)
         if onet: return thiso[4]
         else: return thiso[4,:]
-
+        
+    @physical_conversion('angle')
     def phi(self,*args,**kwargs):
         """
         NAME:
@@ -401,6 +460,7 @@ class OrbitTop(object):
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         return thiso[2,:]/thiso[0,:]
 
+    @physical_conversion('angle_deg')
     def ra(self,*args,**kwargs):
         """
         NAME:
@@ -413,15 +473,18 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            ra(t)
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'ra')
         radec= self._radec(*args,**kwargs)
         return radec[:,0]
 
+    @physical_conversion('angle_deg')
     def dec(self,*args,**kwargs):
         """
         NAME:
@@ -434,15 +497,18 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
         OUTPUT:
            dec(t)
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'dec')
         radec= self._radec(*args,**kwargs)
         return radec[:,1]
 
+    @physical_conversion('angle_deg')
     def ll(self,*args,**kwargs):
         """
         NAME:
@@ -455,15 +521,18 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            l(t)
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'ll')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,0]
 
+    @physical_conversion('angle_deg')
     def bb(self,*args,**kwargs):
         """
         NAME:
@@ -476,15 +545,18 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            b(t)
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'bb')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,1]
 
+    @physical_conversion('position_kpc')
     def dist(self,*args,**kwargs):
         """
         NAME:
@@ -497,15 +569,18 @@ class OrbitTop(object):
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            dist(t) in kpc
         HISTORY:
            2011-02-23 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'dist')
         lbd= self._lbd(*args,**kwargs)
         return lbd[:,2].astype('float64')
 
+    @physical_conversion('proper-motion_masyr')
     def pmra(self,*args,**kwargs):
         """
         NAME:
@@ -518,6 +593,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -525,9 +601,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmra')
+        _check_voSet(self,kwargs,'pmra')
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,0]
 
+    @physical_conversion('proper-motion_masyr')
     def pmdec(self,*args,**kwargs):
         """
         NAME:
@@ -540,6 +619,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -547,9 +627,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmdec')
+        _check_voSet(self,kwargs,'pmdec')
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         return pmrapmdec[:,1]
 
+    @physical_conversion('proper-motion_masyr')
     def pmll(self,*args,**kwargs):
         """
         NAME:
@@ -562,6 +645,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -569,9 +653,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmll')
+        _check_voSet(self,kwargs,'pmll')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,4]
 
+    @physical_conversion('proper-motion_masyr')
     def pmbb(self,*args,**kwargs):
         """
         NAME:
@@ -584,6 +671,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -591,9 +679,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'pmbb')
+        _check_voSet(self,kwargs,'pmbb')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,5]
 
+    @physical_conversion('velocity_kms')
     def vlos(self,*args,**kwargs):
         """
         NAME:
@@ -606,6 +697,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -613,9 +705,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'vlos')
+        _check_voSet(self,kwargs,'vlos')
         lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
         return lbdvrpmllpmbb[:,3]
 
+    @physical_conversion('position_kpc')
     def helioX(self,*args,**kwargs):
         """
         NAME:
@@ -628,15 +723,18 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioX(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioX')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return X
 
+    @physical_conversion('position_kpc')
     def helioY(self,*args,**kwargs):
         """
         NAME:
@@ -649,15 +747,18 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioY(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioY')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Y
 
+    @physical_conversion('position_kpc')
     def helioZ(self,*args,**kwargs):
         """
         NAME:
@@ -670,15 +771,18 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
         OUTPUT:
            helioZ(t) in kpc
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'helioZ')
         X, Y, Z= self._helioXYZ(*args,**kwargs)
         return Z
 
+    @physical_conversion('velocity_kms')
     def U(self,*args,**kwargs):
         """
         NAME:
@@ -691,6 +795,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -698,9 +803,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'U')
+        _check_voSet(self,kwargs,'U')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return U
 
+    @physical_conversion('velocity_kms')
     def V(self,*args,**kwargs):
         """
         NAME:
@@ -713,6 +821,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -720,9 +829,12 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'V')
+        _check_voSet(self,kwargs,'V')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return V
 
+    @physical_conversion('velocity_kms')
     def W(self,*args,**kwargs):
         """
         NAME:
@@ -735,6 +847,7 @@ class OrbitTop(object):
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
+                         Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
@@ -742,8 +855,37 @@ class OrbitTop(object):
         HISTORY:
            2011-02-24 - Written - Bovy (NYU)
         """
+        _check_roSet(self,kwargs,'W')
+        _check_voSet(self,kwargs,'W')
         X, Y, Z, U, V, W= self._XYZvxvyvz(*args,**kwargs)
         return W
+
+    def SkyCoord(self,*args,**kwargs):
+        """
+        NAME:
+           SkyCoord
+        PURPOSE:
+           return the position as an astropy SkyCoord
+        INPUT:
+           t - (optional) time at which to get the position
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+        OUTPUT:
+           SkyCoord(t)
+        HISTORY:
+           2015-06-02 - Written - Bovy (IAS)
+        """
+        _check_roSet(self,kwargs,'SkyCoord')
+        radec= self._radec(*args,**kwargs)
+        tdist= self.dist(*args,**kwargs)
+        return coordinates.SkyCoord(radec[:,0]*units.degree,
+                                    radec[:,1]*units.degree,
+                                    distance=tdist*units.kpc,
+                                    frame='fk5',equinox='J2000')
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
@@ -778,39 +920,37 @@ class OrbitTop(object):
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
+                obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                 thiso[3,:],
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
+                obs.turn_physical_on()
         return (X,Y,Z)
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
@@ -833,30 +973,30 @@ class OrbitTop(object):
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],thiso[2,:],0.,
                                                       thiso[3,:],
                                                       vsun=nu.array(\
-                        obs[3:6])/vo)
+                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
                                                           thiso[3,:],
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]))
+                                nu.zeros(len(thiso[0,:]))]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
@@ -864,40 +1004,41 @@ class OrbitTop(object):
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]))
+                                obs.vz(*args,**kwargs)]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=obs.z(*args,**kwargs)).T
+                obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
                 X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                 thiso[3,:],
                                                 Xsun=obs[0]/ro,
-                                                Ysun=obs[1]/ro,
-                                                Zsun=obs[2]/ro)
+                                                Zsun=obs[2]/ro).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                       thiso[2,:],
                                                       thiso[4,:],
                                                       thiso[5,:],
                                                       vsun=nu.array(\
-                        obs[3:6])/vo)
+                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
+                obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=0.)
+                                                    Zsun=0.).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
                                                           thiso[5,:],
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]))
+                                nu.zeros(len(thiso[0,:]))]),Xsun=obs.x(*args,**kwargs),Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
                                                     thiso[3,:],
                                                     Xsun=obs.x(*args,**kwargs),
-                                                    Ysun=obs.y(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs))
+                                                    Zsun=obs.z(*args,**kwargs)).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           thiso[4,:],
@@ -905,7 +1046,10 @@ class OrbitTop(object):
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),
                                 obs.vy(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]))
+                                obs.vz(*args,**kwargs)]),
+                                                          Xsun=obs.x(*args,**kwargs),
+                                                          Zsun=obs.z(*args,**kwargs)).T
+                obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
     def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
@@ -918,6 +1062,12 @@ class OrbitTop(object):
                     obs= [obs[0],obs[1],0.]
                 elif len(obs) == 4:
                     obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+                for ii in range(len(obs)):
+                    if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                        if ii < 3:
+                            obs[ii]= obs[ii].to(units.kpc).value
+                        else:
+                            obs[ii]= obs[ii].to(units.km/units.s).value
         else:
             if vel:
                 obs= [self._ro,0.,self._zo,
@@ -927,12 +1077,16 @@ class OrbitTop(object):
                 obs= [self._ro,0.,self._zo]
         if 'ro' in kwargs:
             ro= kwargs['ro']
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
             if not dontpop:
                 kwargs.pop('ro')
         else:
             ro= self._ro
         if 'vo' in kwargs:
             vo= kwargs['vo']
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
             if not dontpop:
                 kwargs.pop('vo')
         else:
@@ -1123,6 +1277,14 @@ class OrbitTop(object):
             return nu.array(self.vxvv)
         else:
             t= args[0]
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        elif hasattr(self,'_integrate_t_asQuantity') \
+                    and self._integrate_t_asQuantity \
+                    and not nu.all(t == self.t):
+            warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
@@ -1146,6 +1308,10 @@ class OrbitTop(object):
                         out[ii,jj]= self.orbit[indx,ii]
                 return out #should always have nt > 1, bc otherwise covered by above
             out= []
+            if _OLD_SCIPY and not isinstance(self._orbInterp[0],_fakeInterp) \
+                    and nu.any((nu.array(t) < self._orbInterp[0]._data[3])\
+                               +(nu.array(t) > self._orbInterp[0]._data[4])): #pragma: no cover
+                raise ValueError("One or more requested time is not within the integrated range")
             if dim == 4 or dim == 6:
                 #Unpack interpolated x and y to R and phi
                 x= self._orbInterp[0](t)
@@ -1233,6 +1399,8 @@ class OrbitTop(object):
                           'U':r'$U\ (\mathrm{km\,s}^{-1})$',
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
         #Defaults
         if not 'd1' in kwargs and not 'd2' in kwargs:
             if len(self.vxvv) == 3:
@@ -1403,6 +1571,7 @@ class OrbitTop(object):
         kwargs.pop('use_physical',None)
         kwargs.pop('pot',None)
         kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
@@ -1463,6 +1632,8 @@ class OrbitTop(object):
                           'U':r'$U\ (\mathrm{km\,s}^{-1})$',
                           'V':r'$V\ (\mathrm{km\,s}^{-1})$',
                           'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
         #Defaults
         if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
             if len(self.vxvv) == 3:
@@ -1656,6 +1827,7 @@ class OrbitTop(object):
         kwargs.pop('vo',None)
         kwargs.pop('obs',None)
         kwargs.pop('use_physical',None)
+        kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
@@ -1881,20 +2053,21 @@ class OrbitTop(object):
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.cos(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.cos(self.orbit[:,-1]),
+                                **_KWINTERP))
                 elif (len(self.vxvv) == 4 or len(self.vxvv) == 6) and \
                         ii == len(self.vxvv)-1:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[0]*nu.sin(self.vxvv[-1])))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1])))
+                                self.t,self.orbit[:,0]*nu.sin(self.orbit[:,-1]),**_KWINTERP))
                 else:
                     if not hasattr(self,"t"): #Orbit has not been integrated
                         orbInterp.append(_fakeInterp(self.vxvv[ii]))
                     else:
                         orbInterp.append(interpolate.InterpolatedUnivariateSpline(\
-                                self.t,self.orbit[:,ii]))
+                                self.t,self.orbit[:,ii],**_KWINTERP))
             self._orbInterp= orbInterp
             try: #unsort
                 self.t= self.t[usindx]
@@ -1908,5 +2081,19 @@ class _fakeInterp(object):
     def __init__(self,x):
         self.x= x
     def __call__(self,t):
-        return self.x
+        if nu.any(nu.array(t) != 0.):
+            raise ValueError("Integrate instance before evaluating it at non-zero time")
+        else:
+            return nu.array([self.x for i in t])
 
+def _check_roSet(orb,kwargs,funcName):
+    """Function to check whether ro is set, because it's required for funcName"""
+    if not orb._roSet and kwargs.get('ro',None) is None:
+        warnings.warn("Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,orb._ro),
+                      galpyWarning)
+
+def _check_voSet(orb,kwargs,funcName):
+    """Function to check whether vo is set, because it's required for funcName"""
+    if not orb._voSet and kwargs.get('vo',None) is None:
+        warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
+                      galpyWarning)

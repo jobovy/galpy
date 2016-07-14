@@ -17,9 +17,15 @@ from galpy.actionAngle_src.actionAngle import actionAngle
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
+from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
-class actionAngleStaeckelGrid(object):
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
                  nE=25,npsi=25,nLz=30,numcores=1,
@@ -32,19 +38,29 @@ class actionAngleStaeckelGrid(object):
         INPUT:
            pot= potential or list of potentials
 
-           delta= focus of prolate confocal coordinate system
+           delta= focus of prolate confocal coordinate system (can be Quantity)
 
-           Rmax = Rmax for building grids
+           Rmax = Rmax for building grids (natural units)
 
            nE=, npsi=, nLz= grid size
 
            numcores= number of cpus to use to parallellize
 
-           +scipy.integrate.quad keywords
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+         
+           instance
+
         HISTORY:
+
             2012-11-29 - Written - Bovy (IAS)
+
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if pot is None:
             raise IOError("Must specify pot= for actionAngleStaeckelGrid")
         self._pot= pot
@@ -55,6 +71,8 @@ class actionAngleStaeckelGrid(object):
         else:
             self._c= False
         self._delta= delta
+        if _APY_LOADED and isinstance(self._delta,units.Quantity):
+            self._delta= self._delta.to(units.kpc).value/self._ro
         self._Rmax= Rmax
         self._Rmin= 0.01
         #Set up the actionAngleStaeckel object that we will use to interpolate
@@ -72,12 +90,14 @@ class actionAngleStaeckelGrid(object):
         self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
-        self._ERL= galpy.potential.evaluatePotentials(self._RL,numpy.zeros(self._nLz),self._pot) +self._Lzs**2./2./self._RL**2.
+        self._ERL= _evaluatePotentials(self._pot,self._RL,
+                                       numpy.zeros(self._nLz))\
+                                       +self._Lzs**2./2./self._RL**2.
         self._ERLmax= numpy.amax(self._ERL)+1.
         self._ERLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
-        self._ERa= galpy.potential.evaluatePotentials(self._Ramax,0.,self._pot) +self._Lzs**2./2./self._Ramax**2.
+        self._ERa= _evaluatePotentials(self._pot,self._Ramax,0.) +self._Lzs**2./2./self._Ramax**2.
         #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
@@ -179,12 +199,14 @@ class actionAngleStaeckelGrid(object):
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
         self._jrFiltered= ndimage.spline_filter(numpy.log(self._jr+10.**-10.),order=3)
         self._jzFiltered= ndimage.spline_filter(numpy.log(self._jz+10.**-10.),order=3)
+        # Check the units
+        self._check_consistent_units()
         return None
 
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -201,14 +223,14 @@ class actionAngleStaeckelGrid(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         Lz= R*vT
-        Phi= galpy.potential.evaluatePotentials(R,z,self._pot)
+        Phi= _evaluatePotentials(self._pot,R,z)
         E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
         thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
         thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax

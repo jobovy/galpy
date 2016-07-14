@@ -23,7 +23,8 @@ class SnapshotRZPotential(Potential):
     request matches a previously computed hash, the previous results
     are returned and not recalculated.
     """
-    def __init__(self, s, num_threads=None,nazimuths=4):
+    def __init__(self, s, num_threads=None,nazimuths=4,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -42,6 +43,8 @@ class SnapshotRZPotential(Potential):
 
            nazimuths= (4) number of azimuths to average over
 
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            instance
@@ -55,7 +58,7 @@ class SnapshotRZPotential(Potential):
         """
         if not _PYNBODY_LOADED:
             raise ImportError("The SnapShotRZPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
-        Potential.__init__(self,amp=1.0)
+        Potential.__init__(self,amp=1.0,ro=ro,vo=vo)
         self._s = s
         self._point_hash = {}
         if num_threads is None:
@@ -136,6 +139,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
     Interpolated axisymmetrized potential extracted from a simulation output (see ``interpRZPotential`` and ``SnapshotRZPotential``)
     """   
     def __init__(self, s, 
+                 ro=None,vo=None,
                  rgrid=(np.log(0.01),np.log(20.),101),
                  zgrid=(0.,1.,101),
                  interpepifreq = False, interpverticalfreq = False, 
@@ -173,6 +177,8 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
 
            use_pkdgrav= (False) use PKDGRAV to calculate the snapshot's potential and forces (CURRENTLY NOT IMPLEMENTED)
 
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            instance
@@ -188,7 +194,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
             raise ImportError("The InterpSnapRZShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
         
         # inititalize using the base class
-        Potential.__init__(self,amp=1.0)
+        Potential.__init__(self,amp=1.0,ro=ro,vo=vo)
 
         # other properties
         if numcores is None:

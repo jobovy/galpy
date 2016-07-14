@@ -13,7 +13,7 @@ galpy
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
-  :target: http://galpy.readthedocs.org/en/latest/
+  :target: http://galpy.readthedocs.io/en/latest/
 
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
@@ -23,6 +23,9 @@ galpy
 
 .. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
    :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
+
+.. image:: http://depsy.org/api/package/pypi/galpy/badge.svg
+   :target: http://depsy.org/package/python/galpy
 
 AUTHOR
 -------
@@ -39,14 +42,14 @@ know. **If you use galpy in a publication, please cite** `Bovy (2015)
 http://github.com/jobovy/galpy**. Please also send me a reference to
 the paper or send a pull request including your paper in the list of
 galpy papers on `this page
-<http://galpy.readthedocs.org/en/latest/>`__ (this page is at
+<http://galpy.readthedocs.io/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 
 
 DOCUMENTATION
 --------------
 
-The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
+The latest documentation can be found `here <http://galpy.readthedocs.io/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
 
 PYTHON VERSIONS AND DEPENDENCIES
 ---------------------------------
@@ -72,7 +75,7 @@ If you find *any* bug in the code, please report these using the `Issue Tracker 
 
 If you are having issues with the installation of ``galpy``, please
 first consult the `Installation FAQ
-<http://galpy.readthedocs.org/en/latest/installation.html#installation-faq>`__.
+<http://galpy.readthedocs.io/en/latest/installation.html#installation-faq>`__.
 
 CONTRIBUTING TO GALPY
 ----------------------
@@ -100,7 +103,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/master/
+  :target: http://galpy.readthedocs.io/en/master/
 
 
 **development branch** (if it exists):
@@ -115,7 +118,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://codecov.io/github/jobovy/galpy?branch=dev
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/dev/
+  :target: http://galpy.readthedocs.io/en/dev/
 
 DISK DF CORRECTIONS
 --------------------

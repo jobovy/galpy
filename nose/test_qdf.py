@@ -314,7 +314,7 @@ def test_estimate_hz():
     from scipy import integrate
     from galpy.potential import evaluateDensities
     expec_hz= 0.1**2./2.\
-        /integrate.quad(lambda x: evaluateDensities(0.9,x,MWPotential),
+        /integrate.quad(lambda x: evaluateDensities(MWPotential,0.9,x),
                         0.,0.125)[0]/2./numpy.pi
     assert numpy.fabs((qdf.estimate_hz(0.9,z=0.125)-expec_hz)/expec_hz) < 0.1, 'estimated scale height not as expected'
     assert qdf.estimate_hz(0.9,z=0.) > 1., 'estimated scale height at z=0 not very large'
@@ -322,7 +322,7 @@ def test_estimate_hz():
     qdf= quasiisothermaldf(1./4.,0.3,0.2,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     expec_hz= 0.2**2./2.\
-        /integrate.quad(lambda x: evaluateDensities(0.9,x,MWPotential),
+        /integrate.quad(lambda x: evaluateDensities(MWPotential,0.9,x),
                         0.,0.125)[0]/2./numpy.pi
     assert numpy.fabs((qdf.estimate_hz(0.9,z=0.125)-expec_hz)/expec_hz) < 0.15, 'estimated scale height not as expected'
     return None
@@ -615,7 +615,7 @@ def test_setup_diffsetups():
     qdfnpc= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                               pot=MWPotential,aA=aAS,cutcounter=True,
                               _precomputerg=False)
-    assert numpy.fabs(qdf.rg(1.1)-qdfnpc.rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
+    assert numpy.fabs(qdf._rg(1.1)-qdfnpc._rg(1.1)) < 10.**-5., 'rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set'
 
 def test_call_diffinoutputs():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
@@ -716,6 +716,16 @@ def test_vmomentdensity_diffinoutputs():
                                                              _vzs=vzs))) < 0.0001, 'qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
     return None
 
+def test_vmomentdensity_physical():
+    # Test physical output of vmomentdensity
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    R, z= 0.8, 0.1
+    ro,vo= 7.,230.
+    assert numpy.fabs(qdf.vmomentdensity(R,z,0,0,0,gl=True,ngl=12,ro=ro,vo=vo)-qdf.vmomentdensity(R,z,0,0,0,gl=True,ngl=12)/ro**3) < 10.**-8., 'vmomentdensity with use_physical does not correspond to vmomentdensity without physical'
+    assert numpy.fabs(qdf.vmomentdensity(R,z,0,1,0,gl=True,ngl=12,ro=ro,vo=vo)-qdf.vmomentdensity(R,z,0,1,0,gl=True,ngl=12)*vo/ro**3) < 10.**-8., 'vmomentdensity with use_physical does not correspond to vmomentdensity without physical'
+    return None
+
 def test_jmomentdensity_diffinoutputs():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
@@ -728,6 +738,15 @@ def test_jmomentdensity_diffinoutputs():
                                                              _vrs=vrs,
                                                              _vts=vts,
                                                              _vzs=vzs))) < 0.0001, 'qdf.jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples'
+    return None
+
+def test_jmomentdensity_physical():
+    # Test physical output of jmomentdensity
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    ro,vo= 7.,230.
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,0,0,0,nmc=100000,ro=ro,vo=vo)-qdf.jmomentdensity(1.1,0.1,0,0,0,nmc=100000)/ro**3*(ro*vo)**0) < 10.**-4., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
+    assert numpy.fabs(qdf.jmomentdensity(1.1,0.1,1,0,0,nmc=100000,ro=ro,vo=vo,use_physical=True)-qdf.jmomentdensity(1.1,0.1,1,0,0,nmc=100000)/ro**3*(ro*vo)**1) < 10.**-2., 'quasiisothermaldf method jmomentdensity does not return correct Quantity'
     return None
 
 def test_pvz_diffinoutput():

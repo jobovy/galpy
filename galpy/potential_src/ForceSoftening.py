@@ -1,6 +1,7 @@
 ###############################################################################
 #   ForceSoftening: class representing a force softening kernel
 ###############################################################################
+import numpy as nu
 class ForceSoftening:
     """class representing a force softening kernel"""
     def __init__(self): #pragma: no cover
@@ -110,5 +111,5 @@ class PlummerSoftening (ForceSoftening):
         HISTORY:
            2011-04-13 - Written - Bovy (NYU)
         """
-        return self._softening_length**2.\
+        return 3./4./nu.pi*self._softening_length**2.\
             *(d**2.+self._softening_length**2.)**-2.5

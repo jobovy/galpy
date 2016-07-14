@@ -1,3 +1,6 @@
+import warnings
+from galpy.util import galpyWarning
+warnings.warn("A major change in versions > 1.1 is that all galpy.potential functions and methods take the potential as the first argument; previously methods such as evaluatePotentials, evaluateDensities, etc. would be called with (R,z,Pot), now they are called as (Pot,R,z) for greater consistency across the codebase",galpyWarning)
 from galpy.potential_src import Potential
 from galpy.potential_src import planarPotential
 from galpy.potential_src import linearPotential
@@ -27,6 +30,8 @@ from galpy.potential_src import BurkertPotential
 from galpy.potential_src import MN3ExponentialDiskPotential
 from galpy.potential_src import KuzminKutuzovStaeckelPotential
 from galpy.potential_src import PlummerPotential
+from galpy.potential_src import PseudoIsothermalPotential
+from galpy.potential_src import KuzminDiskPotential
 #
 # Functions
 #
@@ -68,6 +73,9 @@ PotentialError= Potential.PotentialError
 LinShuReductionFactor= planarPotential.LinShuReductionFactor
 nemo_accname= Potential.nemo_accname
 nemo_accpars= Potential.nemo_accpars
+turn_physical_off= Potential.turn_physical_off
+turn_physical_on= Potential.turn_physical_on
+_dim= Potential._dim
 #
 # Classes
 #
@@ -103,7 +111,8 @@ BurkertPotential= BurkertPotential.BurkertPotential
 MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
 KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
 PlummerPotential = PlummerPotential.PlummerPotential
-
+PseudoIsothermalPotential = PseudoIsothermalPotential.PseudoIsothermalPotential
+KuzminDiskPotential = KuzminDiskPotential.KuzminDiskPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
