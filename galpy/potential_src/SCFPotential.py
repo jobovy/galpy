@@ -584,14 +584,14 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        Ksample = [max(N + 3*L/2 + 1, 20) ,  max(L + 1,20) ]
+        Ksample = [max(N + 3*L//2 + 1, 20) ,  max(L + 1,20) ]
         if radial_order != None:
             Ksample[0] = radial_order
         if costheta_order != None:
             Ksample[1] = costheta_order
             
         
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
+        integrated = gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -700,7 +700,7 @@ def cartesian(arraySizes, out=None):
     out[:,0] = nu.repeat(arrays[0], m)
     if arrays[1:]:
         cartesian(arraySizes[1:], out=out[0:m,1:])
-        for j in xrange(1, arrays[0].size):
+        for j in range(1, arrays[0].size):
             out[j*m:(j+1)*m,1:] = out[0:m,1:]
     return out
                 
