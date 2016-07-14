@@ -2141,10 +2141,11 @@ def axi_density1(R, z=0, phi=0.):
     
 def axi_density2(R, z=0, phi=0.):
     r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
-    return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
+    return rho_Zeeuw(R,z,phi)*(1 +numpy.cos(theta) + numpy.cos(theta)**2)
     
 def scf_density(R, z=0, phi=0.):
-    return axi_density2(R,z,phi)*(1 + numpy.cos(phi) + numpy.sin(phi))
+    eps = .1
+    return axi_density2(R,z,phi)*(1 + eps*(numpy.cos(phi) + numpy.sin(phi)))
 
 ##Mock SCF class                                                         
 class mockSCFZeeuwPotential(potential.SCFPotential):
@@ -2172,7 +2173,7 @@ class mockSCFAxiDensity2Potential(potential.SCFPotential):
         
 class mockSCFDensityPotential(potential.SCFPotential):
     def __init__(self):
-        Acos, Asin = potential.scf_compute_coeffs(scf_density,20,20,phi_order=30)
+        Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
 #Class to test potentials given as lists, st we can use their methods as class.
