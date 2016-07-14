@@ -182,8 +182,7 @@ def _parse_pot(pot):
                                             *p._Pot._glx[ii]**2.))
                              for ii in range(p._Pot._glorder)])
             pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([0.,0.,0.,0.,0.,0.])
-            pot_args.extend([p._RZPot._amp,p._RZPot._a])  
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) 
         elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
             pot_type.append(24)
