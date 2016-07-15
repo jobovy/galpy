@@ -294,7 +294,7 @@ double TriaxialNFWPotentialEval(double R,double z, double phi,
   if ( !aligned ) 
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++)
-    out+= *(glw+ii)							\
+    out+= *(glw+ii) * a * a						\
       * TriaxialNFWPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 						    a,b2,c2);
   return amp * out;
@@ -335,7 +335,7 @@ double TriaxialHernquistPotentialEval(double R,double z, double phi,
   if ( !aligned ) 
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++)
-    out+= *(glw+ii)							\
+    out+= *(glw+ii) * a * a						\
       * TriaxialHernquistPotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 							  a,b2,c2);
   return amp * out;
@@ -376,7 +376,7 @@ double TriaxialJaffePotentialEval(double R,double z, double phi,
   if ( !aligned ) 
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++)
-    out+= *(glw+ii)							\
+    out+= *(glw+ii) * a * a						\
       * TriaxialJaffePotentialpotential_xyz_integrand(*(glx+ii),x,y,z,
 						      a,b2,c2);
   return amp * out;

@@ -139,9 +139,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.append(p._glorder)
             pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**(3.-2.*potforactions)\
-                                 /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
-                                          *(1.+(p._c2-1.)*p._glx[ii]**2.))
+            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**3.\
+                                  /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+                                           *(1.+(p._c2-1.)*p._glx[ii]**2.))
                              for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')

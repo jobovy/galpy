@@ -178,6 +178,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 18: //PseudoIsothermalPotential, 2 arguments
       potentialArgs->potentialEval= &PseudoIsothermalPotentialEval;
+      potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
+      potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -185,6 +187,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 19: //KuzminDiskPotential, 2 arguments
       potentialArgs->potentialEval= &KuzminDiskPotentialEval;
+      potentialArgs->Rforce= &KuzminDiskPotentialRforce;
+      potentialArgs->zforce= &KuzminDiskPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -192,6 +196,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 20: //BurkertPotential, 2 arguments
       potentialArgs->potentialEval= &BurkertPotentialEval;
+      potentialArgs->Rforce= &BurkertPotentialRforce;
+      potentialArgs->zforce= &BurkertPotentialzforce;
       potentialArgs->nargs= 2;
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -199,6 +205,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 21: //TriaxialHernquistPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialHernquistPotentialEval;
+      potentialArgs->Rforce= &TriaxialHernquistPotentialRforce;
+      potentialArgs->zforce= &TriaxialHernquistPotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -206,6 +214,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialNFWPotentialEval;
+      potentialArgs->Rforce= &TriaxialNFWPotentialRforce;
+      potentialArgs->zforce= &TriaxialNFWPotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
@@ -213,6 +223,8 @@ void parse_actionAngleArgs(int npot,
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialJaffePotentialEval;
+      potentialArgs->Rforce= &TriaxialJaffePotentialRforce;
+      potentialArgs->zforce= &TriaxialJaffePotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
