@@ -68,7 +68,7 @@ class actionAngleTorus(object):
            anglez - vertical angle (array [N])
            tol= (object-wide value) goal for |dJ|/|J| along the torus
         OUTPUT:
-           (R,vR,vT,z,vz,phi)
+           [R,vR,vT,z,vz,phi]
         HISTORY:
            2015-08-07 - Written - Bovy (UofT)
         """
@@ -80,7 +80,7 @@ class actionAngleTorus(object):
         if out[9] != 0:
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[9],_autofit_errvals[out[9]]),
                           galpyWarning)
-        return out[:6]
+        return numpy.array(out[:6]).T
 
     def xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
@@ -97,7 +97,7 @@ class actionAngleTorus(object):
            anglez - vertical angle (array [N])
            tol= (object-wide value) goal for |dJ|/|J| along the torus
         OUTPUT:
-           (R,vR,vT,z,vz,phi,OmegaR,Omegaphi,Omegaz)
+           ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz,AutoFit error message)
         HISTORY:
            2015-08-07 - Written - Bovy (UofT)
         """
@@ -109,7 +109,7 @@ class actionAngleTorus(object):
         if out[9] != 0:
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[9],_autofit_errvals[out[9]]),
                           galpyWarning)
-        return out
+        return (numpy.array(out[:6]).T,out[6],out[7],out[8],out[9])
 
     def Freqs(self,jr,jphi,jz,**kwargs):
         """
