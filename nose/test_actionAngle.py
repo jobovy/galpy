@@ -1910,6 +1910,17 @@ def test_actionAngleTorus_isochroneApprox_freqsAngles():
     assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for az at %f' % (numpy.nanmax(daz))
     return None
 
+# Test that the frequencies returned by hessianFreqs are the same as those returned by Freqs
+def test_actionAngleTorus_hessian_freqs():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    fO= aAT.Freqs(jr,jphi,jz)[:3]
+    hO= aAT.hessianFreqs(jr,jphi,jz)[1:4]
+    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
+    return None
+
 #Test error when potential is not implemented in C
 def test_actionAngleTorus_nocerr():
     from galpy.actionAngle import actionAngleTorus

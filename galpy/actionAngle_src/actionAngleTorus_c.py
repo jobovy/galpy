@@ -264,5 +264,5 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
                               Omegar,Omegaphi,Omegaz,
                               ctypes.byref(flag))
 
-    return (dOdJT.reshape((3,3)).T,Omegar,Omegaphi,Omegaz,flag.value)
+    return (dOdJT.reshape((3,3)).T,Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
