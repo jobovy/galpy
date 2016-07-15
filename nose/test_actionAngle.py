@@ -1566,7 +1566,7 @@ def test_actionAngleTorus_basic():
     angler= numpy.linspace(0.,2.*numpy.pi,101)
     anglephi= numpy.linspace(0.,2.*numpy.pi,101)+1.
     anglez= numpy.linspace(0.,2.*numpy.pi,101)+2.
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
         'circular orbit does not have constant radius for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
@@ -1582,7 +1582,7 @@ def test_actionAngleTorus_basic():
     pp= PlummerPotential(normalize=1.)
     aAT= actionAngleTorus(pot=pp)
     jphi= 1.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     assert numpy.all(numpy.fabs(RvR[0]-rl(pp,jphi)) < 10.**tol), \
         'circular orbit does not have constant radius for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
@@ -1598,7 +1598,7 @@ def test_actionAngleTorus_basic():
     fp= FlattenedPowerPotential(normalize=1.)
     aAT= actionAngleTorus(pot=fp)
     jphi= 0.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     assert numpy.all(numpy.fabs(RvR[0]-rl(fp,jphi)) < 10.**tol), \
         'circular orbit does not have constant radius for actionAngleTorus'
     assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
@@ -1668,17 +1668,17 @@ def test_actionAngleTorus_orbit():
                        numpy.array([0.]),
                        numpy.array([1.]),
                        numpy.array([2.]))
-    om= RvRom[6:]
+    om= RvRom[1:]
     # Angles along an orbit
     ts= numpy.linspace(0.,100.,1001)
     angler= ts*om[0]
     anglephi= 1.+ts*om[1]
     anglez= 2.+ts*om[2]
     # Calculate the orbit using actionAngleTorus
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0],RvRom[1],RvRom[2],
-                RvRom[3],RvRom[4],RvRom[5]])
+    orb= Orbit([RvRom[0][:,0],RvRom[0][:,1],RvRom[0][:,2],
+                RvRom[0][:,3],RvRom[0][:,4],RvRom[0][:,5]])
     orb.integrate(ts,MWPotential2014)
     # Compare
     tol= -3.
@@ -1729,7 +1729,7 @@ def test_actionAngleTorus_Isochrone_actions():
     anglephi= numpy.array([numpy.pi])
     anglez= numpy.array([numpy.pi/2.])
     # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate actions from aAI
     ji= aAI(*RvR)
     djr= numpy.fabs((ji[0]-jr)/jr)
@@ -1759,10 +1759,10 @@ def test_actionAngleTorus_Isochrone_freqsAngles():
     # Calculate position from aAT
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
-    ws= aAI.actionsFreqsAngles(*RvRom[:6])
-    dOr= numpy.fabs((ws[3]-RvRom[6]))
-    dOp= numpy.fabs((ws[4]-RvRom[7]))
-    dOz= numpy.fabs((ws[5]-RvRom[8]))
+    ws= aAI.actionsFreqsAngles(*RvRom[0].T)
+    dOr= numpy.fabs((ws[3]-RvRom[1]))
+    dOp= numpy.fabs((ws[4]-RvRom[2]))
+    dOz= numpy.fabs((ws[5]-RvRom[3]))
     dar= numpy.fabs((ws[6]-angler))
     dap= numpy.fabs((ws[7]-anglephi))
     daz= numpy.fabs((ws[8]-anglez))
@@ -1795,7 +1795,7 @@ def test_actionAngleTorus_Staeckel_actions():
     anglephi= numpy.array([numpy.pi])
     anglez= numpy.array([numpy.pi/2.])
     # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate actions from aAI
     ji= aAS(*RvR)
     djr= numpy.fabs((ji[0]-jr)/jr)
@@ -1826,10 +1826,10 @@ def test_actionAngleTorus_Staeckel_freqsAngles():
     # Calculate position from aAT
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
-    ws= aAS.actionsFreqsAngles(*RvRom[:6])
-    dOr= numpy.fabs((ws[3]-RvRom[6]))
-    dOp= numpy.fabs((ws[4]-RvRom[7]))
-    dOz= numpy.fabs((ws[5]-RvRom[8]))
+    ws= aAS.actionsFreqsAngles(*RvRom[0].T)
+    dOr= numpy.fabs((ws[3]-RvRom[1]))
+    dOp= numpy.fabs((ws[4]-RvRom[2]))
+    dOz= numpy.fabs((ws[5]-RvRom[3]))
     dar= numpy.fabs((ws[6]-angler))
     dap= numpy.fabs((ws[7]-anglephi))
     daz= numpy.fabs((ws[8]-anglez))
@@ -1860,7 +1860,7 @@ def test_actionAngleTorus_isochroneApprox_actions():
     anglephi= numpy.array([numpy.pi])
     anglez= numpy.array([numpy.pi/2.])
     # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate actions from aAIA
     ji= aAIA(*RvR)
     djr= numpy.fabs((ji[0]-jr)/jr)
@@ -1889,10 +1889,10 @@ def test_actionAngleTorus_isochroneApprox_freqsAngles():
     # Calculate position from aAT
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
-    ws= aAIA.actionsFreqsAngles(*RvRom[:6])
-    dOr= numpy.fabs((ws[3]-RvRom[6]))
-    dOp= numpy.fabs((ws[4]-RvRom[7]))
-    dOz= numpy.fabs((ws[5]-RvRom[8]))
+    ws= aAIA.actionsFreqsAngles(*RvRom[0].T)
+    dOr= numpy.fabs((ws[3]-RvRom[1]))
+    dOp= numpy.fabs((ws[4]-RvRom[2]))
+    dOz= numpy.fabs((ws[5]-RvRom[3]))
     dar= numpy.fabs((ws[6]-angler))
     dap= numpy.fabs((ws[7]-anglephi))
     daz= numpy.fabs((ws[8]-anglez))
@@ -1921,7 +1921,8 @@ def test_actionAngleTorus_hessian_freqs():
     assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
     return None
 
-#Test error when potential is not implemented in C
+#Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
+@expected_failure
 def test_actionAngleTorus_nocerr():
     from galpy.actionAngle import actionAngleTorus
     from galpy.potential import BurkertPotential
@@ -1938,30 +1939,40 @@ def test_actionAngleTorus_AutoFitWarning():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleTorus
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    aAT= actionAngleTorus(pot=lp,tol=10.**-6.)
+    aAT= actionAngleTorus(pot=lp,tol=10.**-8.)
     # These should give warnings
     jr, jp, jz= 0.27209033, 1.80253892, 0.6078445
     ar, ap, az= numpy.array([1.95732492]), numpy.array([6.16753224]), \
         numpy.array([4.08233059])
-    # Turn warnings into errors to test them
-    warnings.simplefilter("error",galpyWarning)
-    try:
+    #Turn warnings into errors to test for them
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAT(jr,jp,jz,ar,ap,az)
-    except: pass
-    else:
-        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
-    try:
+        # Should raise warning bc of Autofit, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAT.xvFreqs(jr,jp,jz,ar,ap,az)
-    except: pass
-    else:
-        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
-    try:
+        # Should raise warning bc of Autofit, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
         aAT.Freqs(jr,jp,jz)
-    except: pass
-    else:
-        raise AssertionError("actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+        # Should raise warning bc of Autofit, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     return None
 
 #Test the Orbit interface
