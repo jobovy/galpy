@@ -50,7 +50,7 @@ class actionAngleTorus(object):
                 raise RuntimeError('The given potential is not fully implemented in C; using the actionAngleTorus code is not supported in pure Python')
         else:# pragma: no cover
             raise RuntimeError('actionAngleTorus instances cannot be used, because the actionAngleTorus_c extension failed to load')
-        self._tol= kwargs.get('tol',0.003)
+        self._tol= kwargs.get('tol',0.001)
         return None
     
     def __call__(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
@@ -135,3 +135,32 @@ class actionAngleTorus(object):
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[3],_autofit_errvals[out[3]]),
                           galpyWarning)
         return out
+
+    def hessianFreqs(self,jr,jphi,jz,**kwargs):
+        """
+        NAME:
+           hessianFreqs
+        PURPOSE:
+           return the Hessian d Omega / d J and frequencies Omega corresponding to a torus
+        INPUT:
+           jr - radial action (scalar)
+           jphi - azimuthal action (scalar)
+           jz - vertical action (scalar)
+           tol= (object-wide value) goal for |dJ|/|J| along the torus
+           nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
+        OUTPUT:
+           (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error message)
+        HISTORY:
+           2016-07-15 - Written - Bovy (UofT)
+        """
+        out= actionAngleTorus_c.actionAngleTorus_hessian_c(\
+            self._pot,
+            jr,jphi,jz,
+            tol=kwargs.get('tol',self._tol))
+        if out[4] != 0:
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[4],_autofit_errvals[out[4]]),
+                          galpyWarning)
+        if kwargs.get('nosym',False):
+            return out
+        else :# explicitly symmetrize
+            return (0.5*(out[0]+out[0].T),out[1],out[2],out[3],out[4])

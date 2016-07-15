@@ -200,5 +200,69 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
 
     return (Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
+def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
+                               tol=0.003):
+    """
+    NAME:
+       actionAngleTorus_hessian_c
+    PURPOSE:
+       compute dO/dJ on a single torus
+    INPUT:
+       pot - Potential object or list thereof
+       jr - radial action (scalar)
+       jphi - azimuthal action (scalar)
+       jz - vertical action (scalar)
+       tol= (0.003) goal for |dJ|/|J| along the torus
+    OUTPUT:
+       (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error flag)
+       Note: dO/dJ is *not* symmetrized here
+    HISTORY:
+       2016-07-15 - Written - Bovy (UofT)
+    """
+    #Parse the potential
+    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
+    #Set up result
+    dOdJT= numpy.empty(9)
+    Omegar= numpy.empty(1)
+    Omegaphi= numpy.empty(1)
+    Omegaz= numpy.empty(1)
+    flag= ctypes.c_int(0)
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    actionAngleTorus_HessFunc= _lib.actionAngleTorus_hessianFreqs
+    actionAngleTorus_HessFunc.argtypes=\
+        [ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_double,
+         ctypes.c_int,
+         ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_double,
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.POINTER(ctypes.c_int)]
+
+    #Array requirements
+    dOdJT= numpy.require(dOdJT,dtype=numpy.float64,requirements=['C','W'])
+    Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
+    Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
+    Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
+    
+    #Run the C code
+    actionAngleTorus_HessFunc(ctypes.c_double(jr),
+                              ctypes.c_double(jphi),
+                              ctypes.c_double(jz),
+                              ctypes.c_int(npot),
+                              pot_type,
+                              pot_args,
+                              ctypes.c_double(tol),
+                              dOdJT,
+                              Omegar,Omegaphi,Omegaz,
+                              ctypes.byref(flag))
+
+    return (dOdJT.reshape((3,3)).T,Omegar,Omegaphi,Omegaz,flag.value)
 
