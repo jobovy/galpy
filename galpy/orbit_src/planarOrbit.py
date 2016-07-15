@@ -2,12 +2,11 @@ import math as m
 import warnings
 import numpy as nu
 from scipy import integrate
-import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
-    RZToplanarPotential, _evaluateplanarphiforces,\
+    RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
     _evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential
 from galpy.util import galpyWarning
@@ -362,7 +361,7 @@ class planarOrbit(planarOrbitTop):
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        thispot= RZToplanarPotential(pot)
+        thispot= toPlanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method,dt)
@@ -393,7 +392,7 @@ class planarOrbit(planarOrbitTop):
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        thispot= RZToplanarPotential(pot)
+        thispot= toPlanarPotential(pot)
         self.t= nu.array(t)
         self._pot_dxdv= thispot
         self._pot= thispot
@@ -427,11 +426,11 @@ class planarOrbit(planarOrbitTop):
         else:
             pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
+            thispot= toPlanarPotential(pot)
         elif isinstance(pot,list):
             thispot= []
             for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                if isinstance(p,Potential): thispot.append(toPlanarPotential(p))
                 else: thispot.append(p)
         else:
             thispot= pot

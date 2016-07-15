@@ -284,7 +284,7 @@ class Potential(object):
 
         PURPOSE:
 
-           evaluate radial force F_R  (R,z)
+           evaluate cylindrical radial force F_R  (R,z)
 
         INPUT:
 
@@ -354,6 +354,41 @@ class Potential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_zforce' function not implemented for this potential")
 
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
+    def rforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+
+           rforce
+
+        PURPOSE:
+
+           evaluate spherical radial force F_r  (R,z)
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius (can be Quantity)
+
+           z - vertical height (can be Quantity)
+
+           phi - azimuth (optional; can be Quantity)
+
+           t - time (optional; can be Quantity)
+
+        OUTPUT:
+
+           F_r (R,z,phi,t)
+
+        HISTORY:
+
+           2016-06-20 - Written - Bovy (UofT)
+
+        """
+        r= nu.sqrt(R**2.+z**2.)
+        return self.Rforce(R,z,phi=phi,t=t,use_physical=False)*R/r\
+            +self.zforce(R,z,phi=phi,t=t,use_physical=False)*z/r
+        
     @potential_physical_input
     @physical_conversion('density',pop=True)
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
@@ -673,6 +708,8 @@ class Potential(object):
         try:
             return self._amp*self._phiforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -709,6 +746,8 @@ class Potential(object):
         try:
             return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -745,61 +784,9 @@ class Potential(object):
         try:
             return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
             return 0.
-
-    def _phiforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phiforce
-        PURPOSE:
-           evaluate the azimuthal force F_phi  (R,z,phi,t)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           F_phi (R,z,phi,t)
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
-        return 0. #default is to assume axisymmetry
-
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the azimuthal second derivative of the potential
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           d2Phi/dphi2
-        HISTORY:
-           2013-09-24 - Written - Bovy (NYU)
-        """
-        return 0. #default is to assume axisymmetry
-
-    def _Rphideriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial and azimuthal derivative of the potential
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth (rad)
-           t - time (optional)
-        OUTPUT:
-           d2Phi/dphidR
-        HISTORY:
-           2014-06-30 - Written - Bovy (IAS)
-        """
-        return 0. #default is to assume axisymmetry
 
     def toPlanar(self):
         """
@@ -824,8 +811,8 @@ class Potential(object):
            unknown
 
         """
-        from galpy.potential import RZToplanarPotential
-        return RZToplanarPotential(self)
+        from galpy.potential import toPlanarPotential
+        return toPlanarPotential(self)
 
     def toVertical(self,R):
         """
@@ -856,7 +843,7 @@ class Potential(object):
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-             effective=False,Lz=None,
+             effective=False,Lz=None,phi=None,
              xrange=None,yrange=None,
              justcontours=False,
              ncontours=21,savefilename=None):
@@ -884,6 +871,8 @@ class Potential(object):
            zmax= maximum z (can be Quantity)
 
            nzs= grid in z
+
+           phi= (None) azimuth to use for non-axisymmetric potentials
 
            effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
 
@@ -934,7 +923,9 @@ class Potential(object):
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= self._evaluate(Rs[ii],zs[jj],t=t)
+                    potRz[ii,jj]= evaluatePotentials(self,
+                                                     Rs[ii],zs[jj],t=t,phi=phi,
+                                                     use_physical=False)
                 if effective:
                     potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
             #Don't plot outside of the desired range
@@ -960,6 +951,7 @@ class Potential(object):
                                                    ncontours))
         
     def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                    phi=None,
                     ncontours=21,savefilename=None,aspect=None,log=False,
                     justcontours=False):
         """
@@ -985,6 +977,8 @@ class Potential(object):
 
            nzs= grid in z
 
+           phi= (None) azimuth to use for non-axisymmetric potentials
+
            ncontours= number of contours
 
            justcontours= (False) if True, just plot contours
@@ -1003,14 +997,14 @@ class Potential(object):
 
         """
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                             zmin=zmin,zmax=zmax,nzs=nzs,
+                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
                              aspect=aspect,log=log)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vcirc(self,R):
+    def vcirc(self,R,phi=None):
         """
         
         NAME:
@@ -1025,6 +1019,8 @@ class Potential(object):
         
             R - Galactocentric radius (can be Quantity)
         
+            phi= (None) azimuth to use for non-axisymmetric potentials
+
         OUTPUT:
         
             circular rotation velocity
@@ -1033,12 +1029,14 @@ class Potential(object):
         
             2011-10-09 - Written - Bovy (IAS)
         
+       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
         """
-        return nu.sqrt(R*-self.Rforce(R,0.,use_physical=False))
+        return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def dvcircdR(self,R):
+    def dvcircdR(self,R,phi=None):
         """
         
         NAME:
@@ -1054,6 +1052,8 @@ class Potential(object):
         
             R - Galactocentric radius (can be Quantity)
         
+            phi= (None) azimuth to use for non-axisymmetric potentials
+
         OUTPUT:
         
             derivative of the circular rotation velocity wrt R
@@ -1063,9 +1063,9 @@ class Potential(object):
             2013-01-08 - Written - Bovy (IAS)
         
         """
-        return 0.5*(-self.Rforce(R,0.,use_physical=False)\
-                         +R*self.R2deriv(R,0.,use_physical=False))\
-                         /self.vcirc(R,use_physical=False)
+        return 0.5*(-self.Rforce(R,0.,phi=phi,use_physical=False)\
+                         +R*self.R2deriv(R,0.,phi=phi,use_physical=False))\
+                         /self.vcirc(R,phi=phi,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
@@ -1485,7 +1485,7 @@ class PotentialError(Exception): #pragma: no cover
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
+def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """
     NAME:
 
@@ -1520,9 +1520,13 @@ def evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
     """
     return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
 
-def _evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
+def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    isList= isinstance(Pot,list)
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
@@ -1534,7 +1538,7 @@ def _evaluatePotentials(Pot,R,z,phi=0.,t=0.,dR=0,dphi=0):
 
 @potential_physical_input
 @physical_conversion('density',pop=True)
-def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
+def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     """
     NAME:
 
@@ -1569,7 +1573,11 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
        2013-12-28 - Added forcepoisson - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
@@ -1583,7 +1591,7 @@ def evaluateDensities(Pot,R,z,phi=0.,t=0.,forcepoisson=False):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluateRforces(Pot,R,z,phi=0.,t=0.):
+def evaluateRforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1616,9 +1624,13 @@ def evaluateRforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluateRforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluateRforces(Pot,R,z,phi=0.,t=0.):
+def _evaluateRforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
@@ -1630,7 +1642,7 @@ def _evaluateRforces(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
+def evaluatephiforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1662,9 +1674,13 @@ def evaluatephiforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluatephiforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluatephiforces(Pot,R,z,phi=0.,t=0.):
+def _evaluatephiforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
@@ -1676,7 +1692,7 @@ def _evaluatephiforces(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatezforces(Pot,R,z,phi=0.,t=0.):
+def evaluatezforces(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1709,9 +1725,13 @@ def evaluatezforces(Pot,R,z,phi=0.,t=0.):
     """
     return _evaluatezforces(Pot,R,z,phi=phi,t=t)
 
-def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
+def _evaluatezforces(Pot,R,z,phi=None,t=0.):
     """Raw, undecorated function for internal use"""
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
@@ -1722,8 +1742,55 @@ def _evaluatezforces(Pot,R,z,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
+@physical_conversion('force',pop=True)
+def evaluaterforces(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluaterforces
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       F_r(R,z,phi,t)
+
+    HISTORY:
+
+       2016-06-10 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
+def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1754,7 +1821,11 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
        2012-07-25 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1766,7 +1837,7 @@ def evaluateR2derivs(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
+def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1797,7 +1868,11 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
        2012-07-25 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1809,7 +1884,7 @@ def evaluatez2derivs(Pot,R,z,phi=0.,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
+def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
 
@@ -1840,7 +1915,11 @@ def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
        2013-08-28 - Written - Bovy (IAS)
 
     """
-    if isinstance(Pot,list):
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
         sum= 0.
         for pot in Pot:
             sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
@@ -1851,7 +1930,7 @@ def evaluateRzderivs(Pot,R,z,phi=0.,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   ncontours=21,savefilename=None,aspect=None,
+                   phi=None,ncontours=21,savefilename=None,aspect=None,
                    justcontours=False):
         """
         NAME:
@@ -1877,6 +1956,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            zmax= maximum z (can be Quantity)
 
            nzs= grid in z
+
+           phi= (None) azimuth to use for non-axisymmetric potentials
 
            ncontours= number of contours
 
@@ -1920,7 +2001,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(Rs[ii]),
-                                                     zs[jj],use_physical=False)
+                                                     zs[jj],phi=phi,
+                                                     use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -1941,6 +2023,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+                  phi=None,
                   ncontours=21,savefilename=None,aspect=None,log=False,
                   justcontours=False):
         """
@@ -1967,6 +2050,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            zmax= maximum z (can be Quantity)
 
            nzs= grid in z
+
+           phi= (None) azimuth to use for non-axisymmetric potentials
 
            ncontours= number of contours
 
@@ -2012,7 +2097,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(Rs[ii]),
-                                                    zs[jj],use_physical=False)
+                                                    zs[jj],phi=phi,
+                                                    use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -2542,6 +2628,37 @@ def _dim(Pot):
         return nu.amin(nu.array([p.dim for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
         return Pot.dim
+
+def _isNonAxi(Pot):
+    """
+    NAME:
+
+       _isNonAxi
+
+    PURPOSE:
+
+       Determine whether this potential is non-axisymmetric
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+    OUTPUT:
+
+       True or False depending on whether the potential is non-axisymmetric (note that some potentials might return True, even though for some parameter values they are axisymmetric)
+
+    HISTORY:
+
+       2016-06-16 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    if isList:
+        isAxis= [not p.isNonAxi for p in Pot]
+        nonAxi= not nu.prod(nu.array(isAxis))
+    else:
+        nonAxi= Pot.isNonAxi
+    return nonAxi
 
 def kms_to_kpcGyrDecorator(func):
     """Decorator to convert velocities from km/s to kpc/Gyr"""

@@ -860,7 +860,9 @@ def test_actionAngleStaeckel_conserved_actions_ecc():
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
-        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential
+        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
+        TriaxialHernquistPotential, TriaxialJaffePotential, \
+        TriaxialNFWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
@@ -873,6 +875,9 @@ def test_actionAngleStaeckel_conserved_actions_c():
            FlattenedPowerPotential(normalize=1.),
            FlattenedPowerPotential(normalize=1.,alpha=0.),
            KuzminDiskPotential(normalize=1.,a=1./8.),
+           TriaxialHernquistPotential(normalize=1.,c=0.2,pa=1.1), # tests rot, but not well
+           TriaxialNFWPotential(normalize=1.,c=0.3,pa=1.1),
+           TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
@@ -1509,11 +1514,38 @@ def test_actionAngleIsochroneApprox_bovy14():
     times= numpy.linspace(0.,100.,51)
     obs.integrate(times,lp,method='dopr54_c')
     js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-            obs.vz(times),obs.phi(times),nonaxi=True) #nonaxi to test that part of the code
+            obs.vz(times),obs.phi(times))
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 3.*10.**-2., 'Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**-2., 'Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[1])
     assert maxdj[2] < 2.*10.**-2., 'Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[2])
+    return None
+
+#Test the actionAngleIsochroneApprox for a triaxial potential
+def test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions():   
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    tnp= TriaxialNFWPotential(b=.9,c=.8,normalize=1.)
+    aAI= actionAngleIsochroneApprox(pot=tnp,b=0.8,tintJ=200.)
+    obs= Orbit([1.,0.2,1.1,0.1,0.1,0.])
+    check_actionAngle_conserved_actions(aAI,obs,tnp,
+                                        -1.7,-2.,-1.7,ntimes=51,inclphi=True)
+    return None
+
+def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():   
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    tnp= TriaxialNFWPotential(b=.9,c=.8,normalize=1.)
+    aAI= actionAngleIsochroneApprox(pot=tnp,b=0.8,tintJ=200.)
+    obs= Orbit([1.,0.2,1.1,0.1,0.1,0.])
+    check_actionAngle_linear_angles(aAI,obs,tnp,
+                                    -5.,-5.,-5.,
+                                    -5.,-5.,-5.,
+                                    -4.,-4.,-4.,
+                                    separate_times=True, # otherwise, memory issues on travis
+                                    maxt=4.,ntimes=51) # quick, essentially tests that nothing is grossly wrong
     return None
 
 def test_actionAngleIsochroneApprox_plotting():   
@@ -2337,11 +2369,11 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     tolinitar,tolinitap,tolinitaz,
                                     tolor,tolop,toloz,
                                     toldar,toldap,toldaz,
-                                    ntimes=1001,
+                                    maxt=100.,ntimes=1001,separate_times=False,
                                     fixed_quad=False,
                                     u0=None):
     from galpy.actionAngle import dePeriod
-    times= numpy.linspace(0.,100.,ntimes)
+    times= numpy.linspace(0.,maxt,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
     if fixed_quad:
         acfs_init= aA.actionsFreqsAngles(obs,fixed_quad=True) #to check the init. angles
@@ -2354,9 +2386,19 @@ def check_actionAngle_linear_angles(aA,obs,pot,
                                     obs.z(times),obs.vz(times),obs.phi(times),
                                     u0=(u0+times*0.)) #array
     else:
-        acfs_init= aA.actionsFreqsAngles(obs) #to check the init. angles
-        acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),obs.vT(times),
-                                    obs.z(times),obs.vz(times),obs.phi(times))
+        acfs_init= aA.actionsFreqsAngles(obs()) #to check the init. angles
+        if separate_times:
+            acfs= numpy.array([aA.actionsFreqsAngles(obs.R(t),obs.vR(t),
+                                                     obs.vT(t),obs.z(t),
+                                                     obs.vz(t),obs.phi(t))
+                               for t in times])[:,:,0].T
+            acfs= (acfs[0],acfs[1],acfs[2],
+                   acfs[3],acfs[4],acfs[5],
+                   acfs[6],acfs[7],acfs[8])
+        else:
+            acfs= aA.actionsFreqsAngles(obs.R(times),obs.vR(times),
+                                        obs.vT(times),obs.z(times),
+                                        obs.vz(times),obs.phi(times))
     ar= dePeriod(numpy.reshape(acfs[6],(1,len(times)))).flatten()
     ap= dePeriod(numpy.reshape(acfs[7],(1,len(times)))).flatten()
     az= dePeriod(numpy.reshape(acfs[8],(1,len(times)))).flatten()
