@@ -1921,6 +1921,30 @@ def test_actionAngleTorus_hessian_freqs():
     assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
     return None
 
+# Test that the Hessian is approximately symmetric
+def test_actionAngleTorus_hessian_symm():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
+    assert numpy.all(numpy.fabs((h-h.T)/h) < 0.03), 'actionAngleTorus Hessian is not symmetric'
+    return None
+
+# Test that the Hessian is approximately correct
+def test_actionAngleTorus_hessian_linear():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
+    dj= 0.003
+    do_fromhessian= numpy.dot(h,numpy.array([dj,dj,dj]))
+    O= numpy.array(aAT.Freqs(jr,jphi,jz)[:3])
+    do= numpy.array(aAT.Freqs(jr+dj,jphi+dj,jz+dj)[:3])-O
+    assert numpy.all(numpy.fabs((do_fromhessian-do)/O)< 0.02), 'actionAngleTorus Hessian does not return good approximation to dO/dJ'
+    return None
+
 #Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
 @expected_failure
 def test_actionAngleTorus_nocerr():
