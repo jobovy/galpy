@@ -63,7 +63,8 @@ script:
  - if [[ $NOSE_IGNORE_FILES == '^((?!test_orbit).)*$' ]]; then travis_wait 30 nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis; else nosetests -v -w nose/ --with-cov --cov galpy --cov-config .coveragerc_travis; fi
 after_success:
  # Generate lcov output 
- - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --output-file coverage.info
+ - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --no-external --output-file coverage_full.info
+ - lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info
  # Codecov
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -v; fi
  # coveralls: combine, generate json, and upload

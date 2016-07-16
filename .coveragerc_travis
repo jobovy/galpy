@@ -18,8 +18,6 @@ omit =
     galpy/util/bovy_plot.py
     galpy/util/bovy_ars.py
     galpy/util/multi.py
-    galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*
-    /usr/include/*
 
 ignore_errors = True
 
