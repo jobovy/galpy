@@ -12,7 +12,6 @@ from numpy.polynomial.legendre import leggauss
 from scipy.special import gammaln
 
 import hashlib
-import inspect
 
 
 class SCFPotential(Potential):
@@ -29,15 +28,15 @@ class SCFPotential(Potential):
 
         INPUT:
 
-            amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp  - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-            Acos - The real part of the expansion coefficent  (NxLxL matrix)
+           Acos - The real part of the expansion coefficent  (NxLxL matrix)
             
-            Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
+           Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
             
-            a - scale length (can be Quantity)
+           a - scale length (can be Quantity)
     
-            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -48,7 +47,6 @@ class SCFPotential(Potential):
         HISTORY:
 
            2016-05-13 - Written - Aladdin 
-
         """        
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='unitless')
         if _APY_LOADED and isinstance(a,units.Quantity): 
@@ -192,33 +190,6 @@ class SCFPotential(Potential):
         func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]
         return func
         
-    def _getShape(self, R, z, phi):
-        """
-        NAME:
-           _getShape
-        PURPOSE:
-           get the shape of R, z and phi
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-        OUTPUT:
-           R, z and phi as numpy arrays
-        HISTORY:
-           2016-06-02 - Written - Aladdin 
-        """
-        shape=None
-        ##Determine which of these are arrays
-        if type(R).__name__ == nu.ndarray.__name__:
-            shape = R.shape
-        elif type(z).__name__ == nu.ndarray.__name__:
-            shape = z.shape
-        elif type(phi).__name__ == nu.ndarray.__name__:
-            shape = phi.shape
-        else:
-            shape = None
-            
-        return shape
         
     def _computeArray(self, funcTilde, R, z, phi):
         """
@@ -236,13 +207,14 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        shape = self._getShape(R,z,phi) 
-        if shape == None: return nu.sum(self._compute(funcTilde, R,z,phi))
+        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        shape = (R*z*phi).shape
+        if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
         R *= nu.ones(shape); z *= nu.ones(shape); phi *= nu.ones(shape);
         func = nu.zeros(shape, float)
        
           
-        li = cartesian(shape)
+        li = _cartesian(shape)
         for i in range(li.shape[0]):
             func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
         return func
@@ -327,7 +299,7 @@ class SCFPotential(Potential):
            phi - azimuth
            t - time
         OUTPUT:
-           the derivative of phiTilde with respect to r
+           The force in the x direction
         HISTORY:
            2016-06-07 - Written - Aladdin 
         """
@@ -376,12 +348,13 @@ class SCFPotential(Potential):
            phi - azimuth
            t - time
         OUTPUT:
-           density or potential evaluated at (R,z, phi)
+           The forces in the x direction
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        shape = self._getShape(R,z,phi)  
-        if shape == None: 
+        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        shape = (R*z*phi).shape
+        if shape == (): 
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R,z,phi)
             return dr_dx*dPhi_dr + dtheta_dx*dPhi_dtheta +dPhi_dphi*dphi_dx
@@ -390,7 +363,7 @@ class SCFPotential(Potential):
         force = nu.zeros(shape, float)
        
           
-        li = cartesian(shape)
+        li = _cartesian(shape)
        
         for i in range(li.shape[0]):
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
@@ -466,8 +439,11 @@ class SCFPotential(Potential):
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
         return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)
         
+    def OmegaP(self):
+        return 0
+
         
-def xiToR(xi, a =1):
+def _xiToR(xi, a =1):
     return a*nu.divide((1. + xi),(1. - xi))    
         
         
@@ -546,7 +522,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
         
         
         def integrand(xi):
-            r = xiToR(xi, a)
+            r = _xiToR(xi, a)
             R = r
             param[0] = R
             return a**3. * dens(*param)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
@@ -555,7 +531,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
         Asin = nu.zeros((N,1,1), float)
         
         Ksample = [max(N + 1, 20)]
-        integrated = gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
+        integrated = _gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
         Acos[n,0,0] = 2*K*integrated
@@ -600,7 +576,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         param = [0]*numOfParam;
         def integrand(xi, costheta):
             l = nu.arange(0, L)[nu.newaxis, :]
-            r = xiToR(xi,a)
+            r = _xiToR(xi,a)
             R = r*nu.sqrt(1 - costheta**2.)
             z = r*costheta
             Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
@@ -615,14 +591,14 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         Asin = nu.zeros((N,L,L), float)
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
-        Ksample = [max(N + 3*L/2 + 1, 20) ,  max(L + 1,20) ]
+        Ksample = [max(N + 3*L//2 + 1, 20) ,  max(L + 1,20) ]
         if radial_order != None:
             Ksample[0] = radial_order
         if costheta_order != None:
             Ksample[1] = costheta_order
             
         
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
+        integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
         n = nu.arange(0,N)[:,nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
@@ -672,7 +648,7 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
         def integrand(xi, costheta, phi):
             l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
             m = nu.arange(0, L)[nu.newaxis,nu.newaxis,:]
-            r = xiToR(xi, a)
+            r = _xiToR(xi, a)
             R = r*nu.sqrt(1 - costheta**2.)
             z = r*costheta
             Legandre = lpmn(L - 1,L-1,costheta)[0].T[nu.newaxis,:,:]
@@ -687,7 +663,7 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
         Acos = nu.zeros((N,L,L), float)
         Asin = nu.zeros((N,L,L), float)
         
-        ##This should save us some computation time since we're only taking the Triple integral once, rather then L times
+       
         Ksample = [max(N + 3*L//2 + 1,20), max(L + 1,20 ), max(L + 1,20)]
         if radial_order != None:
             Ksample[0] = radial_order
@@ -695,7 +671,7 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
             Ksample[1] = costheta_order
         if phi_order != None:
             Ksample[2] = phi_order
-        integrated = gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*nu.pi]], Ksample = Ksample)
+        integrated = _gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*nu.pi]], Ksample = Ksample)
         n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
         l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
         m = nu.arange(0,L)[nu.newaxis,nu.newaxis,:]
@@ -715,7 +691,7 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
         
         return Acos, Asin
 
-def cartesian(arraySizes, out=None):
+def _cartesian(arraySizes, out=None):
     """
     NAME:
         cartesian
@@ -745,12 +721,12 @@ def cartesian(arraySizes, out=None):
     m = n / arrays[0].size
     out[:,0] = nu.repeat(arrays[0], m)
     if arrays[1:]:
-        cartesian(arraySizes[1:], out=out[0:m,1:])
-        for j in xrange(1, arrays[0].size):
+        _cartesian(arraySizes[1:], out=out[0:m,1:])
+        for j in range(1, arrays[0].size):
             out[j*m:(j+1)*m,1:] = out[0:m,1:]
     return out
                 
-def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
+def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     """
         NAME:
            _gaussianQuadrature
@@ -791,7 +767,7 @@ def gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     
 
     #gets all combinations of indices from each integrand 
-    li = cartesian(Ksample)
+    li = _cartesian(Ksample)
     
     ##Performs the actual integration
     for i in range(li.shape[0]):
