@@ -70,7 +70,7 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-        self.isNonAxi= True
+        self.isNonAxi= self._Acos.shape[2] != 1
         return None
 
     def _Nroot(self, L):
@@ -263,9 +263,10 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= nu.zeros_like(R)
         return self._computeArray(self._rhoTilde, R,z,phi)
-        
-       
+              
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -282,7 +283,10 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         return self._computeArray(self._phiTilde, R,z,phi)
+
     def _dphiTilde(self, r, N, L):
         """
         NAME:
@@ -409,6 +413,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
         dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
@@ -430,6 +436,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
         dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
@@ -451,6 +459,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = phi
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
