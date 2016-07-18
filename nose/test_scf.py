@@ -275,7 +275,7 @@ def sphericalHernquistDensity(R, z=0, phi=0):
     h = potential.HernquistPotential()
     return h.dens(R,z,phi)
 
-def rho_Zeeuw(R, z=0., phi=0., a=1.):
+def rho_Zeeuw(R,z,phi,a=1.):
     r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
     return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
     
