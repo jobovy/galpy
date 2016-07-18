@@ -510,16 +510,27 @@ def _dC(xi, N, L):
 def scf_compute_coeffs_spherical(dens, N, a=1.):
         """
         NAME:
-           _compute_coeffs_spherical
+
+           scf_compute_coeffs_spherical
+
         PURPOSE:
+
            Numerically compute the expansion coefficients for a given spherical density
+
         INPUT:
+
            dens - A density function that takes a parameter R
+
            N - size of expansion coefficients
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-18 - Written - Aladdin 
+
         """
         numOfParam = 0
         try:
@@ -553,18 +564,31 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
 def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=None):
         """
         NAME:
-           _compute_coeffs_axi
+
+           scf_compute_coeffs_axi
+
         PURPOSE:
+
            Numerically compute the expansion coefficients for a given axi-symmetric density
+
         INPUT:
+
            dens - A density function that takes a parameter R and z
+
            N - size of the Nth dimension of the expansion coefficients
+
            L - size of the Lth dimension of the expansion coefficients
+
            radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+
            costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-20 - Written - Aladdin 
         """
         numOfParam = 0
@@ -615,20 +639,35 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
         """
         NAME:
-           _compute_coeffs
+
+           scf_compute_coeffs
+
         PURPOSE:
-           Numerically compute the expansion coefficients for a given density
+
+           Numerically compute the expansion coefficients for a given triaxial density
+
         INPUT:
+
            dens - A density function that takes a parameter R, z and phi
+
            N - size of the Nth dimension of the expansion coefficients
+
            L - size of the Lth and Mth dimension of the expansion coefficients
+
            radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+
            costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+
            phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L )
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-27 - Written - Aladdin 
+
         """
         def integrand(xi, costheta, phi):
             l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
