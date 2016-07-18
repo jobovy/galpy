@@ -28,7 +28,7 @@ class SCFPotential(Potential):
 
         INPUT:
 
-           amp  - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
            Acos - The real part of the expansion coefficent  (NxLxL matrix)
             
@@ -48,7 +48,7 @@ class SCFPotential(Potential):
 
            2016-05-13 - Written - Aladdin 
         """        
-        Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='unitless')
+        Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
             
