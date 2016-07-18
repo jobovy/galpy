@@ -1617,6 +1617,10 @@ def test_potential_ampunits():
                                         b=1.3,c=0.4)
     # Check density at r=a
     assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "TriaxialNFWPotential w/ amp w/ units does not behave as expected"
+    # SCFPotential, default = spherical Hernquist
+    pot= potential.SCFPotential(amp=20.*units.Msun,a=2.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "SCFPotential w/ amp w/ units does not behave as expected"
     # FlattenedPowerPotential
     pot= potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s**2,
                                            r1=1.,q=0.9,alpha=0.5,core=0.,
@@ -1726,6 +1730,10 @@ def test_potential_ampunits_altunits():
     pot= potential.NFWPotential(amp=20.*units.Msun*constants.G,a=2.,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ amp w/ units does not behave as expected"
+    # SCFPotential, default = Hernquist
+    pot= potential.SCFPotential(amp=20.*units.Msun*constants.G,a=2.,ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(2.,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "SCFPotential w/ amp w/ units does not behave as expected"
     # TwoPowerTriaxialPotential
     pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun*constants.G,a=2.,
                                              b=0.3,c=1.4,
@@ -1844,6 +1852,9 @@ def test_potential_ampunits_wrongunits():
     # NFWPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.NFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
+    # SCFPotential, default = Hernquist
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.SCFPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
     # TwoPowerTriaxialPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.TwoPowerTriaxialPotential(amp=20.*units.Msun/units.pc**3,a=2.,
@@ -1956,6 +1967,11 @@ def test_potential_paramunits():
     pot= potential.NFWPotential(amp=20.*units.Msun,a=15.*units.kpc,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(15./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ parameters w/ units does not behave as expected"
+    # SCFPotential, default = Hernquist
+    pot= potential.SCFPotential(amp=20.*units.Msun,a=10.*units.kpc,
+                                      ro=ro,vo=vo)
+    # Check density at r=a
+    assert numpy.fabs(pot.dens(10./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./8.) < 10.**-8., "SCFPotential w/ parameters w/ units does not behave as expected"
     # TwoPowerTriaxialPotential
     pot= potential.TwoPowerTriaxialPotential(amp=20.*units.Msun,
                                               a=10.*units.kpc,
