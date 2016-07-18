@@ -59,7 +59,8 @@ def test_scf_compute_axi_density1():
 
 ##Tests that the numerically calculated results from axi_density2 matches with the analytic results
 def test_scf_compute_axi_density2():
-    A = potential.scf_compute_coeffs_axi(axi_density2, 10,10)
+    A = potential.scf_compute_coeffs_axi(axi_density2, 10,10,
+                                         radial_order=30,costheta_order=12)
     axi_coeffsTest(A[0], A[1])
     analytically_calculated = 2*numpy.array([[1., 7.* 3**(-3/2.) /4., 3*11*5**(-5./2)/2., 0],
                                             [0,0,0,0], ##I never did analytically solve for n=1
@@ -105,7 +106,8 @@ def test_scf_HernquistCoeffs_ReducesToSpherical():
 ## Tests whether scf_compute reduces to scf_compute_spherical for Zeeuw's Potential   
 def test_scf_ZeeuwCoeffs_ReducesToSpherical():
     Aspherical = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 5)
-    Aaxi = potential.scf_compute_coeffs(rho_Zeeuw, 5,5)
+    Aaxi = potential.scf_compute_coeffs(rho_Zeeuw, 5,5,radial_order=20,
+                                        costheta_order=20)
     reducesto_spherical(Aspherical,Aaxi, "Zeeuw Potential")
     
 ## Tests whether scf density matches with Hernquist density
