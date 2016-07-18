@@ -28,8 +28,6 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockSCFNFWPotential, \
     mockSCFAxiDensity1Potential, \
     mockSCFAxiDensity2Potential, \
-    mockSCFAcosPotential, \
-    mockSCFAsinPotential, \
     mockSCFDensityPotential, \
     specialFlattenedPowerPotential, \
     specialMiyamotoNagaiPotential, \
@@ -96,8 +94,6 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
-    pots.append('mockSCFAcosPotential')
-    pots.append('mockSCFAsinPotential')
     pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -432,8 +428,6 @@ def test_liouville_planar():
     pots.append('mockSCFNFWPotential')
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
-    pots.append('mockSCFAcosPotential')
-    pots.append('mockSCFAsinPotential')
     pots.append('mockSCFDensityPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
