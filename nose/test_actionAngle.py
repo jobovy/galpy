@@ -2031,6 +2031,24 @@ def test_actionAngleTorus_jacobian_detone():
     assert numpy.fabs(jf[0][1,0]*numpy.fabs(numpy.linalg.det(jf[1][1]))-1) < 0.01, 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant'
     return None
 
+# Test that Jacobian returned by xvJacobianFreqs is approximately correct
+def test_actionAngleTorus_jacobian_linear():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.5])
+    anglephi= numpy.array([1.])
+    anglez= numpy.array([2.])
+    jf= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)
+    xv= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    dja= 2.*numpy.array([0.001,0.002,0.003,-0.002,0.004,0.002])
+    xv_direct= aAT(jr+dja[0],jphi+dja[1],jz+dja[2],
+                   angler+dja[3],anglephi+dja[4],anglez+dja[5])
+    xv_fromjac= xv+numpy.dot(jf[1],dja)
+    assert numpy.all(numpy.fabs((xv_fromjac-xv_direct)/xv_direct) < 0.01), 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not appear to be correct'
+    return None
+
 #Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
 @expected_failure
 def test_actionAngleTorus_nocerr():
