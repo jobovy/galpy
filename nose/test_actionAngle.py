@@ -2049,12 +2049,11 @@ def test_actionAngleTorus_jacobian_linear():
     assert numpy.all(numpy.fabs((xv_fromjac-xv_direct)/xv_direct) < 0.01), 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not appear to be correct'
     return None
 
-#Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
-@expected_failure
+#Test error when potential is not implemented in C
 def test_actionAngleTorus_nocerr():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import BurkertPotential
-    bp= BurkertPotential(normalize=1.)
+    from test_potential import BurkertPotentialNoC
+    bp= BurkertPotentialNoC()
     try:
         aAT= actionAngleTorus(pot=bp)
     except RuntimeError: pass
