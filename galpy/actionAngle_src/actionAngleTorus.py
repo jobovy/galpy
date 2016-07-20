@@ -169,6 +169,9 @@ class actionAngleTorus(object):
         if out[4] != 0:
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[4],_autofit_errvals[out[4]]),
                           galpyWarning)
+        # Re-arrange frequencies and actions to r,phi,z
+        out[0][:,:]= out[0][:,[0,2,1]]
+        out[0][:,:]= out[0][[0,2,1]]
         if kwargs.get('nosym',False):
             return out
         else :# explicitly symmetrize
