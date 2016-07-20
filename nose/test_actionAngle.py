@@ -2101,6 +2101,24 @@ def test_actionAngleTorus_AutoFitWarning():
             raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
             if raisedWarning: break
         assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        aAT.hessianFreqs(jr,jp,jz)
+        # Should raise warning bc of Autofit, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        aAT.xvJacobianFreqs(jr,jp,jz,ar,ap,az)
+        # Should raise warning bc of Autofit, might raise others
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     return None
 
 #Test the Orbit interface
