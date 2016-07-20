@@ -1970,11 +1970,11 @@ def test_actionAngleTorus_hessian_linear():
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
-    dj= 0.003
-    do_fromhessian= numpy.dot(h,numpy.array([dj,dj,dj]))
+    dj= numpy.array([0.02,0.005,-0.01])
+    do_fromhessian= numpy.dot(h,dj)
     O= numpy.array(aAT.Freqs(jr,jphi,jz)[:3])
-    do= numpy.array(aAT.Freqs(jr+dj,jphi+dj,jz+dj)[:3])-O
-    assert numpy.all(numpy.fabs((do_fromhessian-do)/O)< 0.02), 'actionAngleTorus Hessian does not return good approximation to dO/dJ'
+    do= numpy.array(aAT.Freqs(jr+dj[0],jphi+dj[1],jz+dj[2])[:3])-O
+    assert numpy.all(numpy.fabs((do_fromhessian-do)/O)< 0.001), 'actionAngleTorus Hessian does not return good approximation to dO/dJ'
     return None
 
 #Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
