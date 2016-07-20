@@ -176,3 +176,46 @@ class actionAngleTorus(object):
             return out
         else :# explicitly symmetrize
             return (0.5*(out[0]+out[0].T),out[1],out[2],out[3],out[4])
+
+    def xvJacobianFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
+        """
+        NAME:
+           xvJacobianFreqs
+        PURPOSE:
+           return [R,vR,vT,z,vz,phi], the Jacobian d [R,vR,vT,z,vz,phi] / d (J,angle), the Hessian dO/dJ, and frequencies Omega corresponding to a torus at multiple sets of angles
+        INPUT:
+           jr - radial action (scalar)
+           jphi - azimuthal action (scalar)
+           jz - vertical action (scalar)
+           angler - radial angle (array [N])
+           anglephi - azimuthal angle (array [N])
+           anglez - vertical angle (array [N])
+           tol= (object-wide value) goal for |dJ|/|J| along the torus
+           nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
+        OUTPUT:
+           ([R,vR,vT,z,vz,phi], [N] arrays
+            d[R,vR,vT,z,vz,phi]/d[J,angle], --> (N,6,6) array
+            dO/dJ, --> (3,3) array
+            Omegar,Omegaphi,Omegaz,
+            Autofit error message)
+        HISTORY:
+           2016-07-19 - Written - Bovy (UofT)
+        """
+        out= actionAngleTorus_c.actionAngleTorus_jacobian_c(\
+            self._pot,
+            jr,jphi,jz,
+            angler,anglephi,anglez,
+            tol=kwargs.get('tol',self._tol))
+        if out[11] != 0:
+            warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[11],_autofit_errvals[out[11]]),
+                          galpyWarning)
+        # Re-arrange actions,angles to r,phi,z
+        out[6][:,:,:]= out[6][:,:,[0,2,1,3,5,4]]
+        out[7][:,:]= out[7][:,[0,2,1]]
+        out[7][:,:]= out[7][[0,2,1]]
+        # Re-arrange x,v to R,vR,vT,z,vz,phi
+        out[6][:,:]= out[6][:,[0,3,5,1,4,2]]
+        if not kwargs.get('nosym',False):
+            # explicitly symmetrize
+            out[7][:]= 0.5*(out[7]+out[7].T)
+        return out
