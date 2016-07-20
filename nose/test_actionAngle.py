@@ -1977,6 +1977,46 @@ def test_actionAngleTorus_hessian_linear():
     assert numpy.all(numpy.fabs((do_fromhessian-do)/O)< 0.001), 'actionAngleTorus Hessian does not return good approximation to dO/dJ'
     return None
 
+# Test that the frequencies returned by xvJacobianFreqs are the same as those returned by Freqs
+def test_actionAngleTorus_jacobian_freqs():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    fO= aAT.Freqs(jr,jphi,jz)[:3]
+    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
+                            numpy.array([0.]),numpy.array([1.]),
+                            numpy.array([2.]))[3:6]
+    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and xvJacobianFreqs return different frequencies'
+    return None
+
+# Test that the Hessian returned by xvJacobianFreqs are the same as those returned by hessianFreqs
+def test_actionAngleTorus_jacobian_hessian():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    fO= aAT.hessianFreqs(jr,jphi,jz)[0]
+    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
+                            numpy.array([0.]),numpy.array([1.]),
+                            numpy.array([2.]))[2]
+    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians'
+    return None
+
+# Test that the xv returned by xvJacobianFreqs are the same as those returned by __call__
+def test_actionAngleTorus_jacobian_xv():
+    from galpy.potential import MWPotential2014
+    from galpy.actionAngle import actionAngleTorus
+    aAT= actionAngleTorus(pot=MWPotential2014)
+    jr,jphi,jz= 0.075,1.1,0.05
+    angler= numpy.array([0.,1.])
+    anglephi= numpy.array([1.,2.])
+    anglez= numpy.array([2.,3.])
+    fO= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    hO= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)[0]
+    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods __call__ and xvJacobianFreqs return different xv'
+    return None
+
 #Test error when potential is not implemented in C, expected failure until merged with latest branch that has BurkertNoc
 @expected_failure
 def test_actionAngleTorus_nocerr():
