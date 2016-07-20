@@ -193,10 +193,10 @@ class actionAngleTorus(object):
            tol= (object-wide value) goal for |dJ|/|J| along the torus
            nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
         OUTPUT:
-           ([R,vR,vT,z,vz,phi], [N] arrays
+           ([R,vR,vT,z,vz,phi], [N,6] array
             d[R,vR,vT,z,vz,phi]/d[J,angle], --> (N,6,6) array
             dO/dJ, --> (3,3) array
-            Omegar,Omegaphi,Omegaz,
+            Omegar,Omegaphi,Omegaz, [N] arrays
             Autofit error message)
         HISTORY:
            2016-07-19 - Written - Bovy (UofT)
@@ -218,4 +218,5 @@ class actionAngleTorus(object):
         if not kwargs.get('nosym',False):
             # explicitly symmetrize
             out[7][:]= 0.5*(out[7]+out[7].T)
-        return out
+        return (numpy.array(out[:6]).T,out[6],out[7],
+                out[8],out[9],out[10],out[11])
