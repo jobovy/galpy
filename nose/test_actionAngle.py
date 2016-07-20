@@ -2062,6 +2062,18 @@ def test_actionAngleTorus_nocerr():
         raise AssertionError("actionAngleTorus initialization with potential w/o C should have given a RuntimeError, but didn't")
     return None
 
+#Test error when potential is not axisymmetric
+def test_actionAngleTorus_nonaxierr():
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import TriaxialNFWPotential
+    np= TriaxialNFWPotential(normalize=1.,b=0.9)
+    try:
+        aAT= actionAngleTorus(pot=np)
+    except RuntimeError: pass
+    else:
+        raise AssertionError("actionAngleTorus initialization with non-axisymmetric potential should have given a RuntimeError, but didn't")
+    return None
+
 # Test the Autofit torus warnings
 def test_actionAngleTorus_AutoFitWarning():
     from galpy.potential import LogarithmicHaloPotential
