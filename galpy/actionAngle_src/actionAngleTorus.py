@@ -8,7 +8,7 @@
 ###############################################################################
 import warnings
 import numpy
-from galpy.potential import MWPotential
+from galpy.potential import MWPotential, _isNonAxi
 from galpy.util import galpyWarning
 import galpy.actionAngle_src.actionAngleTorus_c as actionAngleTorus_c
 from galpy.actionAngle_src.actionAngleTorus_c import _ext_loaded as ext_loaded
@@ -48,6 +48,8 @@ class actionAngleTorus(object):
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleTorus")
         self._pot= kwargs['pot']
+        if _isNonAxi(self._pot):
+            raise RuntimeError("actionAngleTorus for non-axisymmetric potentials is not supported")
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
