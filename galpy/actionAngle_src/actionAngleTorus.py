@@ -23,10 +23,15 @@ class actionAngleTorus(object):
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleTorus object
+
         INPUT:
+
            pot= potential or list of potentials (3D)
 
            tol= default tolerance to use when fitting tori (|dJ|/J)
@@ -36,7 +41,9 @@ class actionAngleTorus(object):
            instance
 
         HISTORY:
+
            2015-08-07 - Written - Bovy (UofT)
+
         """
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleTorus")
