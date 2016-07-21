@@ -919,11 +919,11 @@ class streamdf(df):
         if self._nTrackChunks < 4: self._nTrackChunks= 4
         if not hasattr(self,'nInterpolatedTrackChunks'):
             self.nInterpolatedTrackChunks= 1001
-        if self._useTM:
-            return self._determine_stream_track_TM()
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
+        if self._useTM:
+            return self._determine_stream_track_TM()
         #Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
         prog_stream_offset=\
             _determine_stream_track_single(self._aA,
