@@ -10,6 +10,9 @@ v1.2 (2016-XX-XX)
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
   configuration parameter.
 
+- Support for flipping the velocities of an orbit in-place (useful for
+  backwards integration).
+
 - quasiisothermaldf input ro replaced by refr to avoid clash with ro
   that specifies units (see above).
 

@@ -21,6 +21,10 @@ v1.2
   stream track for a perturbed stream from Bovy, Erkal, & Sanders
   (2016, in preparation).
 
+* ``Orbit.flip`` can now flip the velocities of an orbit in-place by
+  specifying ``inplace=True``. This allows correct velocities to be
+  easily obtained for backwards-integrated orbits.
+
 * ``galpy.potential.PseudoIsothermalPotential``, a standard
   pseudo-isothermal-sphere potential.
 
