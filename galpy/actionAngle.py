@@ -7,6 +7,7 @@ from galpy.actionAngle_src import actionAngleStaeckelGrid
 from galpy.actionAngle_src import actionAngleIsochrone
 from galpy.actionAngle_src import actionAngleIsochroneApprox
 from galpy.actionAngle_src import actionAngleSpherical
+from galpy.actionAngle_src import actionAngleTorus
 
 #
 # Exceptions
@@ -33,3 +34,4 @@ actionAngleIsochrone= actionAngleIsochrone.actionAngleIsochrone
 actionAngleIsochroneApprox=\
     actionAngleIsochroneApprox.actionAngleIsochroneApprox
 actionAngleSpherical= actionAngleSpherical.actionAngleSpherical
+actionAngleTorus= actionAngleTorus.actionAngleTorus

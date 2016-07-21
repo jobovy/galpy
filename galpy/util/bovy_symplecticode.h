@@ -31,6 +31,9 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef __BOVY_SYMPLECTICODE_H__
 #define __BOVY_SYMPLECTICODE_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "signal.h"
 #include <galpy_potentials.h>
 /*
@@ -80,4 +83,7 @@ double symplec6_estimate_step(void (*func)(double , double *, double *,int, stru
 			      double, double *,
 			      int,struct potentialArg *,
 			      double,double);
+#ifdef __cplusplus
+}
+#endif
 #endif /* bovy_symplecticode.h */

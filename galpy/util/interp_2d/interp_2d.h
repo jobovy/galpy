@@ -1,5 +1,8 @@
 #ifndef __INTERP_2D_H__
 #define __INTERP_2D_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <string.h>
 //#include <gsl/gsl_vector.h>
@@ -35,5 +38,8 @@ double interp_2d_eval(interp_2d  * i2d, double x, double y, gsl_interp_accel * a
 void interp_2d_eval_grad(interp_2d * i2d, double x, double y, double * grad, gsl_interp_accel * accx, gsl_interp_accel * accy);
 double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_interp_accel * accx,gsl_interp_accel * accy);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
 

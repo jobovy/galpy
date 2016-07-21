@@ -115,10 +115,43 @@ orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
                      'galpy/potential_src/potential_c_ext']
 
+#actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
+actionAngleTorus_c_src= \
+    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/*.cc')
+actionAngleTorus_c_src.extend(\
+    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/*.cc'))
+actionAngleTorus_c_src.extend(\
+    ['galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/CHB.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Err.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
+actionAngleTorus_c_src.append(\
+    'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
+actionAngleTorus_c_src.extend(\
+    glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+actionAngleTorus_c_src.extend(\
+    glob.glob('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c'))
+actionAngleTorus_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
+actionAngleTorus_c_src.extend(glob.glob('galpy/util/*.c'))
+
+actionAngleTorus_include_dirs= \
+    ['galpy/actionAngle_src/actionAngleTorus_c_ext',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src',
+     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils',
+     'galpy/actionAngle_src/actionAngle_c_ext',
+     'galpy/util/interp_2d',
+     'galpy/util',
+     'galpy/orbit_src/orbit_c_ext',
+     'galpy/potential_src/potential_c_ext']
+
 if single_ext: #add the code and libraries for the other extensions
     #src
     orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
     orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+    # Add Torus code
+    orbit_int_c_src.extend(actionAngleTorus_c_src)
+    orbit_int_c_src= list(set(orbit_int_c_src))
     #libraries
     for lib in pot_libraries:
         if not lib in orbit_libraries:
@@ -133,6 +166,8 @@ if single_ext: #add the code and libraries for the other extensions
                                'galpy/actionAngle_src/actionAngle_c_ext',
                                'galpy/orbit_src/orbit_c_ext',
                                'galpy/potential_src/interppotential_c_ext'])
+    # Add Torus code
+    orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
 
 orbit_int_c= Extension('galpy_integrate_c',
@@ -203,6 +238,24 @@ if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
 else:
     interppotential_c_incl= False
 
+# Add the actionAngleTorus extension (src and include specified above)
+#Installation of this extension using the GSL may (silently) fail, if the GSL
+#is built for the wrong architecture, on Mac you can install the GSL correctly
+#using
+#brew install gsl --universal
+actionAngleTorus_c= Extension('galpy_actionAngleTorus_c',
+                              sources=actionAngleTorus_c_src,
+                              libraries=pot_libraries,
+                              include_dirs=actionAngleTorus_include_dirs,
+                              extra_compile_args=extra_compile_args,
+                              extra_link_args=extra_link_args)
+if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+        not orbit_ext and not interppotential_ext and not single_ext:
+    actionAngleTorus_c_incl= True
+    ext_modules.append(actionAngleTorus_c)
+else:
+    actionAngleTorus_c_incl= False
+    
 setup(name='galpy',
       version='1.2',
       description='Galactic Dynamics in python',
@@ -251,6 +304,9 @@ if not actionAngle_c_incl and not single_ext:
 if not interppotential_c_incl and not single_ext:
     num_gsl_warn+= 1
     print('\033[91;1m'+'WARNING: Potential-interpolation C library not installed because your GSL version < 1.14'+'\033[0m')
+if not actionAngleTorus_c_incl and not single_ext:
+    num_gsl_warn+= 1
+    print('\033[91;1m'+'WARNING: action-angle-torus C library not installed because your GSL version < 1.14'+'\033[0m')
 
 if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
@@ -270,3 +326,6 @@ if single_ext:
     if not os.path.exists('galpy_interppotential_c%s' % _ext_suffix):
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_interppotential_c%s' % _ext_suffix)
+    if not os.path.exists('galpy_actionAngleTorus_c%s' % _ext_suffix):
+        os.symlink('galpy_integrate_c%s' % _ext_suffix,
+                   'galpy_actionAngleTorus_c%s' % _ext_suffix)

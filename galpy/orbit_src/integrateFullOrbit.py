@@ -37,7 +37,7 @@ if _lib is None: #pragma: no cover
 else:
     _ext_loaded= True
 
-def _parse_pot(pot,potforactions=False):
+def _parse_pot(pot,potforactions=False,potfortorus=False):
     """Parse the potential so it can be fed to C"""
     #Figure out what's in pot
     if not isinstance(pot,list):
@@ -87,9 +87,9 @@ def _parse_pot(pot,potforactions=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            if potforactions:
+            if potforactions or potfortorus:
                 pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            else:
+            if not potforactions:
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])
@@ -139,9 +139,9 @@ def _parse_pot(pot,potforactions=False):
             pot_args.append(p._glorder)
             pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**(3.-2.*potforactions)\
-                                 /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
-                                          *(1.+(p._c2-1.)*p._glx[ii]**2.))
+            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**3.\
+                                  /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+                                           *(1.+(p._c2-1.)*p._glx[ii]**2.))
                              for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
