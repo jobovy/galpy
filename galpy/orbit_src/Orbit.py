@@ -532,11 +532,16 @@ class Orbit(object):
         """
         if inplace:
             self._orb.vxvv[1]= -self._orb.vxvv[1]
-            self._orb.vxvv[2]= -self._orb.vxvv[2]
-            self._orb.vxvv[4]= -self._orb.vxvv[4]
+            if len(self._orb.vxvv) > 2:
+                self._orb.vxvv[2]= -self._orb.vxvv[2]
+            if len(self._orb.vxvv) > 4:
+                self._orb.vxvv[4]= -self._orb.vxvv[4]
             if hasattr(self._orb,'orbit'):
-                indx= nu.array([1,2,4],dtype='int')
-                self._orb.orbit[:,indx]= -self._orb.orbit[:,indx]
+                self._orb.orbit[:,1]= -self._orb.orbit[:,1]
+                if len(self._orb.vxvv) > 2:
+                    self._orb.orbit[:,2]= -self._orb.orbit[:,2]
+                if len(self._orb.vxvv) > 4:
+                    self._orb.orbit[:,4]= -self._orb.orbit[:,4]
             return None
         orbSetupKwargs= {'ro':None,
                          'vo':None,
