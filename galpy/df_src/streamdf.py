@@ -41,7 +41,7 @@ _labelDict= {'x': r'$X$',
              'vlos':r'$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$'}
 class streamdf(df):
     """The DF of a tidal stream"""
-    def __init__(self,sigv,progenitor=None,pot=None,aA=None,
+    def __init__(self,sigv,progenitor=None,pot=None,aA=None,useTM=False,
                  tdisrupt=None,sigMeanOffset=6.,leading=True,
                  sigangle=None,
                  deltaAngleTrack=None,nTrackChunks=None,nTrackIterations=None,
@@ -77,6 +77,8 @@ class streamdf(df):
            pot= Potential instance or list thereof
 
            aA= actionAngle instance used to convert (x,v) to actions
+
+           useTM= (False) if set to an actionAngleTorus instance, use this to speed up calculations
 
            sigMeanOffset= (6.) offset between the mean of the frequencies
                           and the progenitor, in units of the largest 
@@ -155,6 +157,11 @@ class streamdf(df):
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
+        if useTM:
+            self._useTM= True
+            self._aAT= useTM # confusing, no?
+            if not self._aAT._pot == self._pot:
+                raise IOError("Potential in useTM=actionAngleTorus instance does not appear to be the same as given potential pot")
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
@@ -214,9 +221,23 @@ class streamdf(df):
         self._progenitor_anglez= acfs[8]
         self._progenitor_angle= numpy.array([acfs[6],acfs[7],acfs[8]]).reshape(3)
         #Calculate dO/dJ Jacobian at the progenitor
-        self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
-                               self._aA,dxv=None,dOdJ=True,
-                               _initacfs=acfs)
+        if self._useTM:
+            h, fr,fp,fz,e= self._aAT.hessianFreqs(self._progenitor_jr,
+                                                  self._progenitor_lz,
+                                                  self._progenitor_jz)
+            self._dOdJp= h
+            self._dOdJpInv= numpy.linalg.inv(self._dOdJp)
+            # Replace frequencies with TM frequencies
+            self._progenitor_Omegar= fr
+            self._progenitor_Omegaphi= fp
+            self._progenitor_Omegaz= fz
+            self._progenitor_Omega= numpy.array([self._progenitor_Omegar,
+                                                 self._progenitor_Omegaphi,
+                                                 self._progenitor_Omegaz]).reshape(3)
+        else:
+            self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
+                                   self._aA,dxv=None,dOdJ=True,
+                                   _initacfs=acfs)
         self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
         return None
 
@@ -895,6 +916,8 @@ class streamdf(df):
         if self._nTrackChunks < 4: self._nTrackChunks= 4
         if not hasattr(self,'nInterpolatedTrackChunks'):
             self.nInterpolatedTrackChunks= 1001
+        if self._useTM:
+            return self._determine_stream_track_TM()
         dt= self._deltaAngleTrack\
             /self._progenitor_Omega_along_dOmega
         self._trackts= numpy.linspace(0.,2*dt,2*self._nTrackChunks-1) #to be sure that we cover it
@@ -1013,6 +1036,84 @@ class streamdf(df):
         self._ObsTrack= ObsTrack
         self._ObsTrackAA= ObsTrackAA
         self._allAcfsTrack= allAcfsTrack
+        self._alljacsTrack= alljacsTrack
+        self._allinvjacsTrack= allinvjacsTrack
+        self._detdOdJps= detdOdJps
+        self._meandetdOdJp= numpy.mean(self._detdOdJps)
+        self._logmeandetdOdJp= numpy.log(self._meandetdOdJp)
+        #Also calculate _ObsTrackXY in XYZ,vXYZ coordinates
+        self._ObsTrackXY= numpy.empty_like(self._ObsTrack)
+        TrackX= self._ObsTrack[:,0]*numpy.cos(self._ObsTrack[:,5])
+        TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
+        TrackZ= self._ObsTrack[:,3]
+        TrackvX, TrackvY, TrackvZ=\
+            bovy_coords.cyl_to_rect_vec(self._ObsTrack[:,1],
+                                        self._ObsTrack[:,2],
+                                        self._ObsTrack[:,4],
+                                        self._ObsTrack[:,5])
+        self._ObsTrackXY[:,0]= TrackX
+        self._ObsTrackXY[:,1]= TrackY
+        self._ObsTrackXY[:,2]= TrackZ
+        self._ObsTrackXY[:,3]= TrackvX
+        self._ObsTrackXY[:,4]= TrackvY
+        self._ObsTrackXY[:,5]= TrackvZ
+        return None
+
+    def _determine_stream_track_TM(self):
+        # With TM, can get the track in a single shot
+        #Now calculate the actions, frequencies, and angles + Jacobian for each chunk
+        alljacsTrack= numpy.empty((self._nTrackChunks,6,6))
+        allinvjacsTrack= numpy.empty((self._nTrackChunks,6,6))
+        thetasTrack= numpy.linspace(0.,self._deltaAngleTrack,
+                                    self._nTrackChunks)
+        ObsTrack= numpy.empty((self._nTrackChunks,6))
+        ObsTrackAA= numpy.empty((self._nTrackChunks,6))
+        detdOdJps= numpy.empty((self._nTrackChunks))
+        if self._multi is None:
+            for ii in range(self._nTrackChunks):
+                multiOut= _determine_stream_track_TM_single(\
+                    self._aAT,
+                    numpy.array([self._progenitor_jr,self._progenitor_lz,
+                                 self._progenitor_jz]),
+                    self._progenitor_Omega,
+                    self._progenitor_angle,
+                    self._dOdJpInv,
+                    self._sigMeanSign,
+                    self._dsigomeanProgDirection,
+                    lambda x: self.meanOmega(x,use_physical=False),
+                    thetasTrack[ii])
+                alljacsTrack[ii,:,:]= multiOut[0]
+                allinvjacsTrack[ii,:,:]= multiOut[1]
+                ObsTrack[ii,:]= multiOut[2]
+                ObsTrackAA[ii,:]= multiOut[3]
+                detdOdJps[ii]= multiOut[4]
+        else:
+            multiOut= multi.parallel_map(\
+                (lambda x: _determine_stream_track_TM_single(\
+                    self._aAT,
+                    numpy.array([self._progenitor_jr,self._progenitor_lz,
+                                 self._progenitor_jz]),
+                    self._progenitor_Omega,
+                    self._progenitor_angle,
+                    self._dOdJpInv,
+                    self._sigMeanSign,
+                    self._dsigomeanProgDirection,
+                    lambda x: self.meanOmega(x,use_physical=False),
+                    thetasTrack[x])),
+                range(self._nTrackChunks),
+                numcores=numpy.amin([self._nTrackChunks,
+                                     multiprocessing.cpu_count(),
+                                     self._multi]))
+            for ii in range(self._nTrackChunks):
+                alljacsTrack[ii,:,:]= multiOut[ii][0]
+                allinvjacsTrack[ii,:,:]= multiOut[ii][1]
+                ObsTrack[ii,:]= multiOut[ii][2]
+                ObsTrackAA[ii,:]= multiOut[ii][3]
+                detdOdJps[ii]= multiOut[ii][4]        
+        #Store the track, didn't compute _allAcfsTrack
+        self._thetasTrack= thetasTrack
+        self._ObsTrack= ObsTrack
+        self._ObsTrackAA= ObsTrackAA
         self._alljacsTrack= alljacsTrack
         self._allinvjacsTrack= allinvjacsTrack
         self._detdOdJps= detdOdJps
@@ -3022,6 +3123,44 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         progenitorTrack(trackt).phi()
     return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,
             detdOdJ]
+
+def _determine_stream_track_TM_single(aAT,
+                                      progenitor_j,
+                                      progenitor_Omega,
+                                      progenitor_angle,
+                                      dJdO,
+                                      sigMeanSign,
+                                      dsigomeanProgDirection,
+                                      meanOmega,
+                                      thetasTrack):
+    #Setup output
+    detdOdJ= numpy.empty(6)
+    # Calculate track
+    thisFreq= meanOmega(thetasTrack)
+    theseAngles= numpy.mod(progenitor_angle\
+                               +thetasTrack\
+                               *sigMeanSign\
+                               *dsigomeanProgDirection,
+                           2.*numpy.pi)
+    # Compute thisActions from thisFreq and dJ/dO near the progenitor
+    thisActions= numpy.dot(dJdO,thisFreq-progenitor_Omega)+progenitor_j
+    # Compute (x,v) using TM, also compute the Jacobian
+    xvJacHess= aAT.xvJacobianFreqs(\
+        thisActions[0],thisActions[1],thisActions[2],
+        numpy.array([theseAngles[0]]),numpy.array([theseAngles[1]]),
+        numpy.array([theseAngles[2]]))
+    # Output
+    ObsTrack= xvJacHess[0]
+    alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][0])
+    alljacsTrack= copy.copy(alljacsTrackTemp)
+    alljacsTrack[:3,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[:3,:3])
+    alljacsTrack[3:,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[3:,:3])
+    allinvjacsTrack= numpy.linalg.inv(alljacsTrack)
+    ObsTrackAA= numpy.empty(6)
+    ObsTrackAA[:3]= thisFreq
+    ObsTrackAA[3:]= theseAngles
+    detdOdJ= numpy.linalg.det(xvJacHess[2])
+    return [alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,detdOdJ]
 
 def _determine_stream_spread_single(sigomatrixEig,
                                     thetasTrack,
