@@ -57,6 +57,8 @@ class actionAngleIsochroneApprox(actionAngle):
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
+           maxn= (default: 3) Default value for all methods when using a grid in vec(n) up to this n (zero-based)
+
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
@@ -102,6 +104,7 @@ class actionAngleIsochroneApprox(actionAngle):
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
+        self._maxn= kwargs.get('maxn',3)
         self._c= False
         ext_loaded= False
         if ext_loaded and (('c' in kwargs and kwargs['c'])
@@ -212,7 +215,7 @@ class actionAngleIsochroneApprox(actionAngle):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           maxn= (default: 3) Use a grid in vec(n) up to this n (zero-based)
+           maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
            _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
@@ -240,7 +243,7 @@ class actionAngleIsochroneApprox(actionAngle):
             ts= nu.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
             ts[:self._ntintJ-1]= -self._tsJ[1:][::-1]
-        maxn= kwargs.get('maxn',3)
+        maxn= kwargs.get('maxn',self._maxn)
         if self._c: #pragma: no cover
             pass
         else:
