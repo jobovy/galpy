@@ -165,8 +165,7 @@ def test_bovy14_useTM():
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
-                0.88719443,-0.47713334,0.12019596],
-               ro=8.,vo=220.)
+                0.88719443,-0.47713334,0.12019596])
     sigv= 0.365 #km/s
     sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
                     leading=True,
@@ -176,7 +175,16 @@ def test_bovy14_useTM():
     interpb= interpolate.InterpolatedUnivariateSpline(\
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,1],k=3)
-    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]) < 0.1), 'stream track computed with useTM not close to that without'
+    print(sdf_bovy14._interpolatedObsTrackLB[:,0],numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]))
+    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]) < 0.1), 'stream track computed with useTM not close to that without in b'
+    interpD= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,2],k=3)
+    assert numpy.all(numpy.fabs(interpD(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,2]) < 0.04), 'stream track computed with useTM not close to that without in distance'
+    interpV= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,3],k=3)
+    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,3]) < 0.6), 'stream track computed with useTM not close to that without in line-of-sight velocity'
     return None  
 
 def test_bovy14_freqratio():
