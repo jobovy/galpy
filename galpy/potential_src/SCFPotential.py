@@ -16,7 +16,7 @@ import hashlib
 
 class SCFPotential(Potential):
    
-    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=nu.array([[[0]]]), a = 1., normalize=False, ro=None,vo=None):
+    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -53,13 +53,47 @@ class SCFPotential(Potential):
             a= a.to(units.kpc).value/self._ro 
             
         
-        ##Acos and Asin must have the same shape
+        ##Errors
+        shape = Acos.shape
+        errorMessage = None
+        if len(shape) != 3:
+            errorMessage="Acos must be a 3 dimensional numpy array"
+        elif shape[1] != shape[2]:
+            errorMessage="The second and third dimension of the expansion coefficients must have the same length"
+        elif Asin is None and shape[1] > 1 and nu.any(Acos[:,:,1:] !=0):
+            errorMessage="Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n" +\
+            "Asin=None which implies an axi symmetric potential.\n" + \
+            "Contradiction."
+        elif Asin is not None and Asin.shape != shape:
+            errorMessage = "The shape of Asin does not match the shape of Acos."
+        if errorMessage is not None:
+            raise RuntimeError(errorMessage)
+            
+        ##Warnings
+        warningMessage=None
+        if nu.any(nu.triu(Acos,1) != 0) or (Asin is not None and nu.any(nu.triu(Asin,1) != 0)):
+            warningMessage="Found non-zero values at expansion coefficients where m > l\n" + \
+            "The Mth and Lth dimension is expected to make a lower triangular matrix.\n" + \
+            "All values found above the diagonal will be ignored."   
+        if warningMessage is not None:  
+            raise RuntimeWarning(warningMessage)            
+        
+        ##Is non axi?
+        self.isNonAxi= True
+        if Asin is None or shape[1] == 1 or (nu.all(Acos[:,:,1:] == 0) and nu.all(Asin[:,:,:]==0)):
+            self.isNonAxi = False        
+        
         
         self._a = a
 
         NN = self._Nroot(Acos.shape[1])
         
-        self._Acos, self._Asin = Acos*NN[nu.newaxis,:,:], Asin*NN[nu.newaxis,:,:]
+        
+        self._Acos= Acos*NN[nu.newaxis,:,:]
+        if Asin is not None:
+            self._Asin = Asin*NN[nu.newaxis,:,:]
+        else:
+            self._Asin = nu.zeros_like(Acos)
         self._force_hash= None
         self.hasC= True
         self.hasC_dxdv=True
@@ -68,7 +102,7 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-        self.isNonAxi= True
+        
         return None
 
     def _Nroot(self, L):
@@ -207,7 +241,9 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        if not self.isNonAxi: phi = 0
+        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
+        
         shape = (R*z*phi).shape
         if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
         R *= nu.ones(shape); z *= nu.ones(shape); phi *= nu.ones(shape);
@@ -347,14 +383,18 @@ class SCFPotential(Potential):
            The forces in the x direction
         HISTORY:
            2016-06-02 - Written - Aladdin 
-        """
-        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        """     
+        if not self.isNonAxi: phi = 0
+        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
         shape = (R*z*phi).shape
         if shape == (): 
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R,z,phi)
             return dr_dx*dPhi_dr + dtheta_dx*dPhi_dtheta +dPhi_dphi*dphi_dx
-        R *= nu.ones(shape);z *= nu.ones(shape);phi *= nu.ones(shape);
+        
+        R = R*nu.ones(shape);
+        z = z* nu.ones(shape);
+        phi = phi* nu.ones(shape);
         dr_dx *=nu.ones(shape); dtheta_dx *=nu.ones(shape); dphi_dx *=nu.ones(shape);
         force = nu.zeros(shape, float)
        
