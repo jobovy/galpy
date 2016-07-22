@@ -50,7 +50,8 @@ class streamdf(df):
                  Vnorm=None,Rnorm=None,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
-                 useInterp=_USEINTERP,nosetup=False,approxConstTrackFreq=False,
+                 useInterp=_USEINTERP,nosetup=False,
+                 approxConstTrackFreq=False,useTMHessian=False,
                  custom_transform=None):
         """
         NAME:
@@ -124,6 +125,8 @@ class streamdf(df):
 
               approxConstTrackFreq= (False) if True, approximate the stream assuming that the frequency is constant along the stream (only works with useTM, for which this leads to a significant speed-up)
 
+              useTMHessian= (False) if True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA
+
         OUTPUT:
 
            object
@@ -171,7 +174,7 @@ class streamdf(df):
             self._multi= multiprocessing.cpu_count()
         else:
             self._multi= multi
-        self._progenitor_setup(progenitor,leading)
+        self._progenitor_setup(progenitor,leading,useTMHessian)
         if not sigangle is None and \
                 _APY_LOADED and isinstance(sigangle,units.Quantity):
             sigangle= sigangle.to(units.rad).value
@@ -205,7 +208,7 @@ class streamdf(df):
             self._determine_stream_spread()
         return None
 
-    def _progenitor_setup(self,progenitor,leading):
+    def _progenitor_setup(self,progenitor,leading,useTMHessian):
         """The part of the setup relating to the progenitor's orbit"""
         #Progenitor orbit: Calculate actions, frequencies, and angles for the progenitor
         self._progenitor= progenitor() #call to get new Orbit
@@ -226,7 +229,7 @@ class streamdf(df):
         self._progenitor_anglez= acfs[8]
         self._progenitor_angle= numpy.array([acfs[6],acfs[7],acfs[8]]).reshape(3)
         #Calculate dO/dJ Jacobian at the progenitor
-        if False:#self._useTM:
+        if useTMHessian:
             h, fr,fp,fz,e= self._aAT.hessianFreqs(self._progenitor_jr,
                                                   self._progenitor_lz,
                                                   self._progenitor_jz)
@@ -1081,6 +1084,7 @@ class streamdf(df):
                              self._progenitor_jz]),
                 self._progenitor_Omega,
                 self._progenitor_angle,
+                self._dOdJp,
                 self._dOdJpInv,
                 self._sigMeanSign,
                 self._dsigomeanProgDirection,
@@ -1110,6 +1114,7 @@ class streamdf(df):
                                  self._progenitor_jz]),
                     self._progenitor_Omega,
                     self._progenitor_angle,
+                    self._dOdJp,
                     self._dOdJpInv,
                     self._sigMeanSign,
                     self._dsigomeanProgDirection,
@@ -1128,6 +1133,7 @@ class streamdf(df):
                                  self._progenitor_jz]),
                     self._progenitor_Omega,
                     self._progenitor_angle,
+                    self._dOdJp,
                     self._dOdJpInv,
                     self._sigMeanSign,
                     self._dsigomeanProgDirection,
@@ -3146,7 +3152,7 @@ def _determine_stream_track_TM_single(aAT,
                                       progenitor_j,
                                       progenitor_Omega,
                                       progenitor_angle,
-                                      dJdO,
+                                      dOdJ,dJdO,
                                       sigMeanSign,
                                       dsigomeanProgDirection,
                                       meanOmega,
@@ -3171,8 +3177,9 @@ def _determine_stream_track_TM_single(aAT,
     ObsTrack= xvJacHess[0]
     alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][0])
     alljacsTrack= copy.copy(alljacsTrackTemp)
-    alljacsTrack[:3,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[:3,:3])
-    alljacsTrack[3:,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[3:,:3])
+    # dOdJ here because it might be more precise
+    alljacsTrack[:3,:3]= numpy.dot(dOdJ,alljacsTrackTemp[:3,:3])
+    alljacsTrack[3:,:3]= numpy.dot(dOdJ,alljacsTrackTemp[3:,:3])
     allinvjacsTrack= numpy.linalg.inv(alljacsTrack)
     ObsTrackAA= numpy.empty(6)
     ObsTrackAA[:3]= thisFreq
@@ -3184,7 +3191,7 @@ def _determine_stream_track_TM_approxConstantTrackFreq(aAT,
                                                        progenitor_j,
                                                        progenitor_Omega,
                                                        progenitor_angle,
-                                                       dJdO,
+                                                       dOdJ,dJdO,
                                                        sigMeanSign,
                                                        dsigomeanProgDirection,
                                                        meanOmega,
@@ -3212,8 +3219,9 @@ def _determine_stream_track_TM_approxConstantTrackFreq(aAT,
     for ii in range(len(thetasTrack)):
         alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][ii])
         alljacsTrack[ii]= copy.copy(alljacsTrackTemp)
-        alljacsTrack[ii,:3,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[:3,:3])
-        alljacsTrack[ii,3:,:3]= numpy.dot(xvJacHess[2],alljacsTrackTemp[3:,:3])
+        # dOdJ here because it might be more precise
+        alljacsTrack[ii,:3,:3]= numpy.dot(dOdJ,alljacsTrackTemp[:3,:3])
+        alljacsTrack[ii,3:,:3]= numpy.dot(dOdJ,alljacsTrackTemp[3:,:3])
         allinvjacsTrack[ii]= numpy.linalg.inv(alljacsTrack[ii])
         detdOdJ= numpy.linalg.det(xvJacHess[2])
     ObsTrackAA= numpy.empty((len(thetasTrack),6))
