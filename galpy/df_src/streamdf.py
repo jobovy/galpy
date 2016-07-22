@@ -211,7 +211,7 @@ class streamdf(df):
         self._progenitor= progenitor() #call to get new Orbit
         # Make sure we do not use physical coordinates
         self._progenitor.turn_physical_off()
-        acfs= self._aA.actionsFreqsAngles(self._progenitor,maxn=3,
+        acfs= self._aA.actionsFreqsAngles(self._progenitor,
                                           _firstFlip=(not leading),
                                           use_physical=False)
         self._progenitor_jr= acfs[0][0]
@@ -871,11 +871,11 @@ class streamdf(df):
             aatrack= numpy.empty((self._nTrackChunks,6))
             for ii in range(self._nTrackChunks):
                 aatrack[ii]= self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
-                                                         maxn=3,use_physical=False)[3:]
+                                                         use_physical=False)[3:]
         else:
             aatrack= numpy.reshape(\
                 multi.parallel_map(
-                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]), maxn=3,use_physical=False)[3:]),
+                    (lambda x: self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[x,:]),use_physical=False)[3:]),
                     range(self._nTrackChunks),
                     numcores=numpy.amin([self._nTrackChunks,
                                          multiprocessing.cpu_count(),
@@ -948,7 +948,7 @@ class streamdf(df):
             auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
             auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
-        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
+        acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),
                                     use_physical=False)
         auxiliary_Omega= numpy.array([acfs[3],acfs[4],acfs[5]]).reshape(3\
 )
@@ -3094,8 +3094,7 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
     ObsTrackAA= numpy.empty((6))
     detdOdJ= numpy.empty(6)
     #Calculate
-    tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt),
-                                       maxn=3)
+    tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt))
     allAcfsTrack[0]= tacfs[0][0]
     allAcfsTrack[1]= tacfs[1][0]
     allAcfsTrack[2]= tacfs[2][0]
@@ -3168,6 +3167,9 @@ def _determine_stream_track_TM_single(aAT,
         thisActions[0],thisActions[1],thisActions[2],
         numpy.array([theseAngles[0]]),numpy.array([theseAngles[1]]),
         numpy.array([theseAngles[2]]))
+    print((xvJacHess[3]-thisFreq[0])/(thisFreq[0]-progenitor_Omega[0]),
+          (xvJacHess[4]-thisFreq[1])/(thisFreq[1]-progenitor_Omega[1]),
+          (xvJacHess[5]-thisFreq[2])/(thisFreq[2]-progenitor_Omega[2]))
     # Output
     ObsTrack= xvJacHess[0]
     alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][0])
@@ -3323,7 +3325,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         jac2= numpy.zeros((6,6))
     if _initacfs is None:
         jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
-            = aA.actionsFreqsAngles(R,vR,vT,z,vz,phi,maxn=3)
+            = aA.actionsFreqsAngles(R,vR,vT,z,vz,phi)
     else:
         jr,lz,jz,Or,Ophi,Oz,ar,aphi,az\
             = _initacfs
@@ -3336,7 +3338,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
         else:
             tR, tvR, tvT, tz, tvz, tphi= xv[0],xv[1],xv[2],xv[3],xv[4],xv[5]
         tjr,tlz,tjz,tOr,tOphi,tOz,tar,taphi,taz\
-            = aA.actionsFreqsAngles(tR,tvR,tvT,tz,tvz,tphi,maxn=3)
+            = aA.actionsFreqsAngles(tR,tvR,tvT,tz,tvz,tphi)
         xv[ii]-= dxv[ii]
         angleIndx= 3
         if actionsFreqsAngles:
