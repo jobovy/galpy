@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import os
 import sys
 import numpy
-import pynbody
 from galpy import potential
 from galpy.potential import SCFPotential
 from galpy.util import bovy_coords
@@ -17,6 +16,66 @@ DEFAULT_Z= numpy.array([0.,.125,-.125,0.25,-0.25])
 DEFAULT_PHI= numpy.array([0.,0.5,-0.5,1.,-1.,
                        numpy.pi,0.5+numpy.pi,
                        1.+numpy.pi])
+                       
+                       
+def test_coeffs_toomanydimensions():
+    Acos = numpy.ones((10,2,32,34))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_toolittledimensions():
+    Acos = numpy.ones((10,2))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_LnotequalM():
+    Acos = numpy.ones((2,3,4))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinNone_AcosNotaxisym():
+    Acos = numpy.ones((2,3,3))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinShape_notequal_AcosShape():
+    Acos = numpy.ones((2,3,3))
+    Asin = numpy.ones((2,2,2))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_Acos_L_M_notLowerTriangular():
+    Acos = numpy.ones((2,3,3))
+    Asin = numpy.zeros((2,3,3))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeWarning")
+    except RuntimeWarning:
+        pass
+        
+def test_coeffs_Asin_L_M_notLowerTriangular():
+    Acos = numpy.zeros((2,3,3))
+    Asin = numpy.ones((2,3,3))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeWarning")
+    except RuntimeWarning:
+        pass
 
  
 ## tests whether scf_compute_spherical computes the correct coefficients for a Hernquist Potential
