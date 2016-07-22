@@ -153,6 +153,7 @@ extern "C"
 				     int * pot_type,
 				     double * pot_args,
 				     double tol,
+				     double indJ,
 				     double * dOdJT,
 				     double * Omegar,
 				     double * Omegaphi,
@@ -191,7 +192,7 @@ extern "C"
     // Now compute the Jacobian
     for (ii=0;ii < 3; ii++){
       JdJ= J;
-      dJ= J[ii]+fmin(3.e-3,3.e-3*J[ii]);
+      dJ= J[ii]+indJ;
       dJ= dJ-J[ii];
       JdJ[ii]= J[ii]+dJ;
       T->AutoFit(JdJ,Phi,tol);
@@ -211,6 +212,7 @@ extern "C"
 				      int * pot_type,
 				      double * pot_args,
 				      double tol,
+				      double indJ,
 				      double * R, double * vR, double * vT, 
 				      double * z, double * vz, double * phi,
 				      double * dxvOdJaT,
@@ -281,7 +283,7 @@ extern "C"
     for (jj=0;jj < 3; jj++){
       // Setup dJ torus
       JdJ= J;
-      dJ= J[jj]+fmin(3.e-3,3.e-3*J[jj]);
+      dJ= J[jj]+indJ;
       dJ= dJ-J[jj];
       JdJ[jj]= J[jj]+dJ;
       T->AutoFit(JdJ,Phi,tol);

@@ -2021,7 +2021,7 @@ def test_actionAngleTorus_jacobian_xv():
 def test_actionAngleTorus_jacobian_detone():
     from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
+    aAT= actionAngleTorus(pot=MWPotential2014,dJ=0.0001)
     jr,jphi,jz= 0.075,1.1,0.05
     angler= numpy.array([0.,1.])
     anglephi= numpy.array([1.,2.])
