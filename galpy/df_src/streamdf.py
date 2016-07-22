@@ -165,6 +165,8 @@ class streamdf(df):
             self._approxConstTrackFreq= approxConstTrackFreq
             if not self._aAT._pot == self._pot:
                 raise IOError("Potential in useTM=actionAngleTorus instance does not appear to be the same as given potential pot")
+        else:
+            self._useTM= False
         if (multi is True):   #if set to boolean, enable cpu_count processes
             self._multi= multiprocessing.cpu_count()
         else:
