@@ -201,7 +201,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
     return (Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
 def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
-                               tol=0.003):
+                               tol=0.003,dJ=0.001):
     """
     NAME:
        actionAngleTorus_hessian_c
@@ -213,6 +213,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
        jphi - azimuthal action (scalar)
        jz - vertical action (scalar)
        tol= (0.003) goal for |dJ|/|J| along the torus
+       dJ= (0.001) action difference when computing derivatives (Hessian or Jacobian)
     OUTPUT:
        (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error flag)
        Note: dO/dJ is *not* symmetrized here
@@ -240,6 +241,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ctypes.c_double,
+         ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -260,6 +262,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
                               pot_type,
                               pot_args,
                               ctypes.c_double(tol),
+                              ctypes.c_double(dJ),
                               dOdJT,
                               Omegar,Omegaphi,Omegaz,
                               ctypes.byref(flag))
@@ -267,7 +270,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
     return (dOdJT.reshape((3,3)).T,Omegar[0],Omegaphi[0],Omegaz[0],flag.value)
 
 def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
-                                tol=0.003):
+                                tol=0.003,dJ=0.001):
     """
     NAME:
        actionAngleTorus_jacobian_c
@@ -282,6 +285,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
        anglephi - azimuthal angle (array [N])
        anglez - vertical angle (array [N])
        tol= (0.003) goal for |dJ|/|J| along the torus
+       dJ= (0.001) action difference when computing derivatives (Hessian or Jacobian)
     OUTPUT:
        (d[R,vR,vT,z,vz,phi]/d[J,theta],
         Omegar,Omegaphi,Omegaz,
@@ -321,6 +325,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_double,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -367,6 +372,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
                              pot_type,
                              pot_args,
                              ctypes.c_double(tol),
+                             ctypes.c_double(dJ),
                              R,vR,vT,z,vz,phi,
                              dxvOdJaT,
                              dOdJT,

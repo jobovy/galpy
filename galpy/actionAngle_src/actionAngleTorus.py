@@ -36,6 +36,8 @@ class actionAngleTorus(object):
 
            tol= default tolerance to use when fitting tori (|dJ|/J)
 
+           dJ= default action difference when computing derivatives (Hessian or Jacobian)
+
         OUTPUT:
 
            instance
@@ -60,6 +62,7 @@ class actionAngleTorus(object):
         else:# pragma: no cover
             raise RuntimeError('actionAngleTorus instances cannot be used, because the actionAngleTorus_c extension failed to load')
         self._tol= kwargs.get('tol',0.001)
+        self._dJ= kwargs.get('dJ',0.001)
         return None
     
     def __call__(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
@@ -156,6 +159,7 @@ class actionAngleTorus(object):
            jphi - azimuthal action (scalar)
            jz - vertical action (scalar)
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+           dJ= (object-wide value) action difference when computing derivatives (Hessian or Jacobian)
            nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
         OUTPUT:
            (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error message)
@@ -165,7 +169,8 @@ class actionAngleTorus(object):
         out= actionAngleTorus_c.actionAngleTorus_hessian_c(\
             self._pot,
             jr,jphi,jz,
-            tol=kwargs.get('tol',self._tol))
+            tol=kwargs.get('tol',self._tol),
+            dJ=kwargs.get('dJ',self._dJ))
         if out[4] != 0:
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[4],_autofit_errvals[out[4]]),
                           galpyWarning)
@@ -191,6 +196,7 @@ class actionAngleTorus(object):
            anglephi - azimuthal angle (array [N])
            anglez - vertical angle (array [N])
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+           dJ= (object-wide value) action difference when computing derivatives (Hessian or Jacobian)
            nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
         OUTPUT:
            ([R,vR,vT,z,vz,phi], [N,6] array
@@ -205,7 +211,8 @@ class actionAngleTorus(object):
             self._pot,
             jr,jphi,jz,
             angler,anglephi,anglez,
-            tol=kwargs.get('tol',self._tol))
+            tol=kwargs.get('tol',self._tol),
+            dJ=kwargs.get('dJ',self._dJ))
         if out[11] != 0:
             warnings.warn("actionAngleTorus' AutoFit exited with non-zero return status %i: %s" % (out[11],_autofit_errvals[out[11]]),
                           galpyWarning)
