@@ -354,7 +354,7 @@ class streamdf(df):
         # Flip the offset sign again
         self._sigMeanSign*= -1.
         # Now re-do the previous setup
-        self._progenitor_setup(progenitor,self._leading)
+        self._progenitor_setup(progenitor,self._leading,False)
         self._offset_setup(self._sigangle,self._leading,
                            self._deltaAngleTrack)
         return None
