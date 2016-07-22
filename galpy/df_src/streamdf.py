@@ -226,12 +226,11 @@ class streamdf(df):
         self._progenitor_anglez= acfs[8]
         self._progenitor_angle= numpy.array([acfs[6],acfs[7],acfs[8]]).reshape(3)
         #Calculate dO/dJ Jacobian at the progenitor
-        if self._useTM:
+        if False:#self._useTM:
             h, fr,fp,fz,e= self._aAT.hessianFreqs(self._progenitor_jr,
                                                   self._progenitor_lz,
                                                   self._progenitor_jz)
             self._dOdJp= h
-            self._dOdJpInv= numpy.linalg.inv(self._dOdJp)
             # Replace frequencies with TM frequencies
             self._progenitor_Omegar= fr
             self._progenitor_Omegaphi= fp
@@ -243,6 +242,7 @@ class streamdf(df):
             self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
                                    self._aA,dxv=None,dOdJ=True,
                                    _initacfs=acfs)
+        self._dOdJpInv= numpy.linalg.inv(self._dOdJp)
         self._dOdJpEig= numpy.linalg.eig(self._dOdJp)
         return None
 
@@ -3167,9 +3167,6 @@ def _determine_stream_track_TM_single(aAT,
         thisActions[0],thisActions[1],thisActions[2],
         numpy.array([theseAngles[0]]),numpy.array([theseAngles[1]]),
         numpy.array([theseAngles[2]]))
-    print((xvJacHess[3]-thisFreq[0])/(thisFreq[0]-progenitor_Omega[0]),
-          (xvJacHess[4]-thisFreq[1])/(thisFreq[1]-progenitor_Omega[1]),
-          (xvJacHess[5]-thisFreq[2])/(thisFreq[2]-progenitor_Omega[2]))
     # Output
     ObsTrack= xvJacHess[0]
     alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][0])
