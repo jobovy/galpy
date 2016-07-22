@@ -151,42 +151,6 @@ def test_bovy14_setup():
     assert not sdf_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
 
-def test_bovy14_useTM():
-    #Test that setting up with useTM is very close to the Bovy (2014) setup
-    #Imports
-    from scipy import interpolate
-    from galpy.df import streamdf
-    from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, \
-        actionAngleTorus
-    from galpy.util import bovy_conversion #for unit conversions
-    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
-    aAT= actionAngleTorus(pot=lp,tol=0.001)
-    obs= Orbit([1.56148083,0.35081535,-1.15481504,
-                0.88719443,-0.47713334,0.12019596])
-    sigv= 0.365 #km/s
-    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
-                    leading=True,
-                    nTrackChunks=11,
-                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
-    sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
-    interpb= interpolate.InterpolatedUnivariateSpline(\
-        sdftm._interpolatedObsTrackLB[sindx,0],
-        sdftm._interpolatedObsTrackLB[sindx,1],k=3)
-    print(sdf_bovy14._interpolatedObsTrackLB[:,0],numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]))
-    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]) < 0.1), 'stream track computed with useTM not close to that without in b'
-    interpD= interpolate.InterpolatedUnivariateSpline(\
-        sdftm._interpolatedObsTrackLB[sindx,0],
-        sdftm._interpolatedObsTrackLB[sindx,2],k=3)
-    assert numpy.all(numpy.fabs(interpD(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,2]) < 0.04), 'stream track computed with useTM not close to that without in distance'
-    interpV= interpolate.InterpolatedUnivariateSpline(\
-        sdftm._interpolatedObsTrackLB[sindx,0],
-        sdftm._interpolatedObsTrackLB[sindx,3],k=3)
-    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,3]) < 0.6), 'stream track computed with useTM not close to that without in line-of-sight velocity'
-    return None  
-
 def test_bovy14_freqratio():
     #Test the frequency ratio
     assert (sdf_bovy14.freqEigvalRatio()-30.)**2. < 10.**0., 'streamdf model from Bovy (2014) does not give a frequency ratio of about 30'
@@ -1388,6 +1352,117 @@ def test_setup_progIsTrack():
     indx= numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:,0]-1.75))
     oindx= numpy.argmin(numpy.fabs(obs._orb.orbit[:,0]-1.75))
     assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs._orb.orbit[oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
+    return None  
+
+def test_bovy14_useTM():
+    #Test that setting up with useTM is very close to the Bovy (2014) setup
+    #Imports
+    from scipy import interpolate
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleTorus
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    aAT= actionAngleTorus(pot=lp,tol=0.001)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
+                    leading=True,
+                    nTrackChunks=11,
+                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
+    interpb= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,1],k=3)
+    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,1]) < 0.1), 'stream track computed with useTM not close to that without in b'
+    interpD= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,2],k=3)
+    assert numpy.all(numpy.fabs(interpD(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,2]) < 0.04), 'stream track computed with useTM not close to that without in distance'
+    interpV= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,3],k=3)
+    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,3]) < 0.6), 'stream track computed with useTM not close to that without in line-of-sight velocity'
+    return None  
+
+def test_bovy14_useTM_useTMHessian():
+    #Test that setting up with useTM is very close to the Bovy (2014) setup
+    #Imports
+    from scipy import interpolate
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleTorus
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    aAT= actionAngleTorus(pot=lp,tol=0.001)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
+                    leading=True,
+                    nTrackChunks=11,
+                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                    useTMHessian=True,multi=2)
+    sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
+    interpb= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,1],k=3)
+    # Only compare part closest to the progenitor, where this works
+    cindx= sdf_bovy14._interpolatedObsTrackLB[:,0] < 215.
+    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1]) < 0.15), 'stream track computed with useTM and useTMHessian not close to that without in b'
+    interpD= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,2],k=3)
+    assert numpy.all(numpy.fabs(interpD(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,2]) < 0.2), 'stream track computed with useTM and useTMHessian not close to that without in distance'
+    interpV= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,3],k=3)
+    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 3.), 'stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity'
+    return None  
+
+def test_bovy14_useTM_approxConstTrackFreq():
+    #Test that setting up with useTM is very close to the Bovy (2014) setup
+    #Imports
+    from scipy import interpolate
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleTorus
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    aAT= actionAngleTorus(pot=lp,tol=0.001)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
+                    leading=True,
+                    nTrackChunks=11,
+                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                    approxConstTrackFreq=True)
+    sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
+    interpb= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,1],k=3)
+    # Only compare part closest to the progenitor, where this should be a good approx.
+    cindx= sdf_bovy14._interpolatedObsTrackLB[:,0] < 215.
+    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1]) < 0.1), 'stream track computed with useTM and approxConstTrackFreq not close to that without in b'
+    interpD= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,2],k=3)
+    assert numpy.all(numpy.fabs(interpD(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,2]) < 0.04), 'stream track computed with useTM and approxConstTrackFreq not close to that without in distance'
+    interpV= interpolate.InterpolatedUnivariateSpline(\
+        sdftm._interpolatedObsTrackLB[sindx,0],
+        sdftm._interpolatedObsTrackLB[sindx,3],k=3)
+    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 0.6), 'stream track computed with useTM and approxConstTrackFreq not close to that without in line-of-sight velocity'
     return None  
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
