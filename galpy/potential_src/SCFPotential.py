@@ -28,7 +28,7 @@ class SCFPotential(Potential):
 
         INPUT:
 
-           amp  - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
            Acos - The real part of the expansion coefficent  (NxLxL matrix)
             
@@ -48,7 +48,7 @@ class SCFPotential(Potential):
 
            2016-05-13 - Written - Aladdin 
         """        
-        Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='unitless')
+        Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
             
@@ -102,7 +102,7 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-        
+
         return None
 
     def _Nroot(self, L):
@@ -241,7 +241,6 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        if not self.isNonAxi: phi = 0
         R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
         
         shape = (R*z*phi).shape
@@ -271,9 +270,10 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         return self._computeArray(self._rhoTilde, R,z,phi)
-        
-       
+              
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -290,7 +290,10 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         return self._computeArray(self._phiTilde, R,z,phi)
+
     def _dphiTilde(self, r, N, L):
         """
         NAME:
@@ -384,7 +387,6 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """     
-        if not self.isNonAxi: phi = 0
         R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
         shape = (R*z*phi).shape
         if shape == (): 
@@ -422,6 +424,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
         dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
@@ -443,6 +447,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
         dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
@@ -464,6 +470,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
+        if not self.isNonAxi:
+            phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = phi
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
@@ -516,16 +524,27 @@ def _dC(xi, N, L):
 def scf_compute_coeffs_spherical(dens, N, a=1.):
         """
         NAME:
-           _compute_coeffs_spherical
+
+           scf_compute_coeffs_spherical
+
         PURPOSE:
+
            Numerically compute the expansion coefficients for a given spherical density
+
         INPUT:
+
            dens - A density function that takes a parameter R
+
            N - size of expansion coefficients
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-18 - Written - Aladdin 
+
         """
         numOfParam = 0
         try:
@@ -559,18 +578,31 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
 def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=None):
         """
         NAME:
-           _compute_coeffs_axi
+
+           scf_compute_coeffs_axi
+
         PURPOSE:
+
            Numerically compute the expansion coefficients for a given axi-symmetric density
+
         INPUT:
+
            dens - A density function that takes a parameter R and z
+
            N - size of the Nth dimension of the expansion coefficients
+
            L - size of the Lth dimension of the expansion coefficients
+
            radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+
            costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-20 - Written - Aladdin 
         """
         numOfParam = 0
@@ -621,20 +653,35 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
         """
         NAME:
-           _compute_coeffs
+
+           scf_compute_coeffs
+
         PURPOSE:
-           Numerically compute the expansion coefficients for a given density
+
+           Numerically compute the expansion coefficients for a given triaxial density
+
         INPUT:
+
            dens - A density function that takes a parameter R, z and phi
+
            N - size of the Nth dimension of the expansion coefficients
+
            L - size of the Lth and Mth dimension of the expansion coefficients
+
            radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+
            costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+
            phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L )
+
         OUTPUT:
-           Expansion coefficients for density dens
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
         HISTORY:
+
            2016-05-27 - Written - Aladdin 
+
         """
         def integrand(xi, costheta, phi):
             l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
