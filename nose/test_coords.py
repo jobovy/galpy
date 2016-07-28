@@ -926,6 +926,30 @@ def test_lbd_to_XYZ_jac():
     assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     return None
 
+def test_cyl_to_spher():
+    # Just a few quick tests
+    r,t,p= bovy_coords.cyl_to_spher(1.2,3.2,1.)
+    assert numpy.fabs(r**2.-1.2**2.-3.2**2.) < 10.**-8., 'cyl_to_spher does not work as expected'
+    assert numpy.fabs(r*numpy.cos(t)-3.2) < 10.**-8., 'cyl_to_spher does not work as expected'
+    assert numpy.fabs(p-1.) < 10.**-8., 'cyl_to_spher does not work as expected'
+    r,t,p= bovy_coords.cyl_to_spher(1.2,-3.2,4.)
+    assert numpy.fabs(r**2.-1.2**2.-3.2**2.) < 10.**-8., 'cyl_to_spher does not work as expected'
+    assert numpy.fabs(r*numpy.cos(t)+3.2) < 10.**-8., 'cyl_to_spher does not work as expected'
+    assert numpy.fabs(p-4.) < 10.**-8., 'cyl_to_spher does not work as expected'
+    return None
+
+def test_spher_to_cyl():
+    # Just a few quick tests
+    R,z,p= bovy_coords.spher_to_cyl(5.,numpy.arccos(3./5.),1.)
+    assert numpy.fabs(R-4.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    assert numpy.fabs(z-3.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    assert numpy.fabs(p-1.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    R,z,p= bovy_coords.spher_to_cyl(5.,numpy.arccos(-3./5.),4.)
+    assert numpy.fabs(R-4.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    assert numpy.fabs(z+3.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    assert numpy.fabs(p-4.) < 10.**-8., 'spher_to_cyl does not work as expected'
+    return None
+
 def test_cyl_to_rect_jac():
     #Just position
     R,phi,Z= 2., numpy.pi, 1.
