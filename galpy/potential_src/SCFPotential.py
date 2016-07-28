@@ -246,10 +246,10 @@ class SCFPotential(Potential):
         
         shape = (R*z*phi).shape
         if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
-        R *= nu.ones(shape); z *= nu.ones(shape); phi *= nu.ones(shape);
+        R = R*nu.ones(shape); z = z*nu.ones(shape); phi = phi*nu.ones(shape);
         func = nu.zeros(shape, float)
        
-          
+         
         li = _cartesian(shape)
         for i in range(li.shape[0]):
             func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
