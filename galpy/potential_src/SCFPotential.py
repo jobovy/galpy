@@ -15,7 +15,22 @@ import hashlib
 
 
 class SCFPotential(Potential):
-   
+    """Class that implements the Hernquist & Ostriker Self-Consistent-Field-type potential
+
+    .. math::
+
+        \\rho(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
+        
+        \\tilde{\\rho}_{nl}(r) = \\frac{K_{nl}}{\\sqrt{\\pi}} \\frac{(a r)^l}{(r/a) (a + r)^{2l + 3}} C_{n}^{2l + 3/2}(\\xi)         
+        
+        \\Phi(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\Phi}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
+    
+        \\tilde{\\Phi}_{nl}(r) = -\\sqrt{4 \\pi}K_{nl} \\frac{(ar)^l}{(a + r)^{2l + 1}} C_{n}^{2l + 3/2}(\\xi)     
+        
+        \\xi = \\frac{r - a}{r + a} \\qquad
+        N_{lm} = \\sqrt{\\frac{2l + 1}{4\\pi} \\frac{(l - m)!}{(l + m)!}}(2 - \\delta_{m0}) \\qquad
+        K_{nl} = \\frac{1}{2} n (n + 4l + 3) + (l + 1)(2l + 1)
+    """
     def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
@@ -58,8 +73,10 @@ class SCFPotential(Potential):
         errorMessage = None
         if len(shape) != 3:
             errorMessage="Acos must be a 3 dimensional numpy array"
-        elif shape[1] != shape[2]:
+        elif Asin is not None and shape[1] != shape[2]:
             errorMessage="The second and third dimension of the expansion coefficients must have the same length"
+        elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
+            errorMessage="The third dimension must have length=1 or equal to the length of the second dimension"
         elif Asin is None and shape[1] > 1 and nu.any(Acos[:,:,1:] !=0):
             errorMessage="Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n" +\
             "Asin=None which implies an axi symmetric potential.\n" + \
@@ -86,7 +103,7 @@ class SCFPotential(Potential):
         
         self._a = a
 
-        NN = self._Nroot(Acos.shape[1])
+        NN = self._Nroot(Acos.shape[1], Acos.shape[2])
         
         
         self._Acos= Acos*NN[nu.newaxis,:,:]
@@ -105,7 +122,7 @@ class SCFPotential(Potential):
 
         return None
 
-    def _Nroot(self, L):
+    def _Nroot(self, L, M=None):
         """
         NAME:
            _Nroot
@@ -113,14 +130,16 @@ class SCFPotential(Potential):
            Evaluate the square root of equation (3.15) with the (2 - del_m,0) term outside the square root
         INPUT:
            L - evaluate Nroot for 0 <= l <= L 
+           M - evaluate Nroot for 0 <= m <= M 
         OUTPUT:
            The square root of equation (3.15) with the (2 - del_m,0) outside
         HISTORY:
            2016-05-16 - Written - Aladdin 
         """
-        NN = nu.zeros((L,L),float)
+        if M is None: M =L
+        NN = nu.zeros((L,M),float)
         l = nu.arange(0,L)[:,nu.newaxis]
-        m = nu.arange(0,L)[nu.newaxis, :]
+        m = nu.arange(0,M)[nu.newaxis, :]
         nLn = gammaln(l-m+1) - gammaln(l+m+1)
         NN[:,:] = ((2*l+1.)/(4.*nu.pi) * nu.e**nLn)**.5 * 2
         NN[:,0] /= 2.
@@ -196,14 +215,14 @@ class SCFPotential(Potential):
         NAME:
            _compute
         PURPOSE:
-           evaluate the NxLxL density or potential
+           evaluate the NxLxM density or potential
         INPUT:
            funcTidle - must be _rhoTilde or _phiTilde
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
         OUTPUT:
-           An NxLxL density or potential at (R,z, phi)
+           An NxLxM density or potential at (R,z, phi)
         HISTORY:
            2016-05-18 - Written - Aladdin 
         """
@@ -213,12 +232,12 @@ class SCFPotential(Potential):
         
         
    
-        PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
+        PP = lpmn(M-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
         func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
         
-        func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        func = nu.zeros((N,L,M), float) ## The function of interest (density or potential)
         
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
         func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]
@@ -247,11 +266,12 @@ class SCFPotential(Potential):
         if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
         R = R*nu.ones(shape); z = z*nu.ones(shape); phi = phi*nu.ones(shape);
         func = nu.zeros(shape, float)
-       
-         
+
+        
         li = _cartesian(shape)
         for i in range(li.shape[0]):
-            func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
+            j = nu.split(li[i], li.shape[1])
+            func[j] = nu.sum(self._compute(funcTilde, R[j][0],z[j][0],phi[j][0]))
         return func
         
     def _dens(self, R, z, phi=0., t=0.):
@@ -349,13 +369,13 @@ class SCFPotential(Potential):
             dPhi_dphi = self._cached_dPhi_dphi
             
         else:        
-            PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+            PP, dPP = lpmn(M-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
             PP = PP.T[None,:,:]
             dPP = dPP.T[None,:,:]
             phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
             dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
             
-            m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+            m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
             mcos = nu.cos(m*phi)
             msin = nu.sin(m*phi)
             dPhi_dr = -nu.sum((Acos*mcos + Asin*msin)*PP*dphi_tilde)
@@ -402,11 +422,12 @@ class SCFPotential(Potential):
        
           
         li = _cartesian(shape)
-       
+
         for i in range(li.shape[0]):
+            j = nu.split(li[i], li.shape[1])
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
-            self._computeforce(R[li[i]][0],z[li[i]][0],phi[li[i]][0])
-            force[li[i]] = dr_dx[li[i]][0]*dPhi_dr + dtheta_dx[li[i]][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[li[i]][0]
+            self._computeforce(R[j][0],z[j][0],phi[j][0])
+            force[j] = dr_dx[j][0]*dPhi_dr + dtheta_dx[j][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[j][0]
         return force
     def _Rforce(self, R, z, phi=0, t=0):
         """
@@ -566,7 +587,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
             return a**3. * dens(*param)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
                
         Acos = nu.zeros((N,1,1), float)
-        Asin = nu.zeros((N,1,1), float)
+        Asin = None
         
         Ksample = [max(N + 1, 20)]
         integrated = _gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
@@ -625,8 +646,8 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
             return  phi_nl*dV * dens(*param)
             
                
-        Acos = nu.zeros((N,L,L), float)
-        Asin = nu.zeros((N,L,L), float)
+        Acos = nu.zeros((N,L,1), float)
+        Asin = None
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
         Ksample = [max(N + 3*L//2 + 1, 20) ,  max(L + 1,20) ]
@@ -651,7 +672,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         return Acos, Asin
         
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
-        """
+        """        
         NAME:
 
            scf_compute_coeffs
