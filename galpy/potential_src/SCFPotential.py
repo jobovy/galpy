@@ -21,15 +21,24 @@ class SCFPotential(Potential):
 
         \\rho(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
         
+        \\textrm{where}        
+        
         \\tilde{\\rho}_{nl}(r) = \\frac{K_{nl}}{\\sqrt{\\pi}} \\frac{(a r)^l}{(r/a) (a + r)^{2l + 3}} C_{n}^{2l + 3/2}(\\xi)         
         
         \\Phi(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\Phi}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
-    
+        
+        \\textrm{where}
+        
         \\tilde{\\Phi}_{nl}(r) = -\\sqrt{4 \\pi}K_{nl} \\frac{(ar)^l}{(a + r)^{2l + 1}} C_{n}^{2l + 3/2}(\\xi)     
+        
+        
+        \\textrm{where}
         
         \\xi = \\frac{r - a}{r + a} \\qquad
         N_{lm} = \\sqrt{\\frac{2l + 1}{4\\pi} \\frac{(l - m)!}{(l + m)!}}(2 - \\delta_{m0}) \\qquad
         K_{nl} = \\frac{1}{2} n (n + 4l + 3) + (l + 1)(2l + 1)
+        
+        \\textrm{and } P_{lm} \\textrm{ is the Associated Legendre Polynomials whereas } C_n^{\gamma} \\textrm{ is the Gegenbauer polynomial.}
     """
     def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
