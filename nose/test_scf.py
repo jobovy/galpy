@@ -104,73 +104,31 @@ def test_coeffs_Asin_L_M_notLowerTriangular():
         pass
 
 
-##Tests user inputs as arrays
+##Tests user inputs as arrays    
+    
 
-def testArray():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    array = numpy.linspace(.1, 3, 100)
-    scf(array, 0, 0)
-    scf(.1, array, 0)
-    scf(.1, 0, array)
+def testArray_RArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [array, 1., 0])
     
-def testForceArray():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    array = numpy.linspace(.1, 3, 100)
-    scf._computeforceArray(0,0,0, array, 0, 0)
-    scf._computeforceArray(0,0,0, 0, array, 0)
-    scf._computeforceArray(0,0,0, 0, 0, array)
+def testArray_zArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [1., array, 0])
     
-def testArray_SinIsNone():
-    Acos = numpy.zeros((2,3,3))
-    Asin = None
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    array = numpy.linspace(.1, 3, 100)
-    scf(array, 0, 0)
-    scf(.1, array, 0)
-    scf(.1, 0, array)
-    
-def testForceArray_SinIsNone():
-    Acos = numpy.zeros((2,3,3))
-    Asin = None
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    array = numpy.linspace(.1, 3, 100)
-    scf._computeforceArray(0,0,0, array, 0, 0)
-    scf._computeforceArray(0,0,0, 0, array, 0)
-    scf._computeforceArray(0,0,0, 0, 0, array)
-    
+def testArray_phiArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [1., 1., array])
+ 
 def testArrayBroadcasting():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
+    scf = SCFPotential()
     R = numpy.ones((10,20,2))
-    z = numpy.zeros((10,20))[:,:,None]
-    phi = numpy.linspace(0,numpy.pi, 10)[:,None,None]
-    scf(R, z, phi)
+    z = numpy.linspace(0,numpy.pi, 10)[:,None,None]
+    phi = numpy.zeros((10,20))[:,:,None]
     
-def testForceArrayBroadcasting():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    R = numpy.ones((10,20,2))
-    z = numpy.zeros((10,20))[:,:,None]
-    phi = numpy.linspace(0,numpy.pi, 10)[:,None,None]
-    scf._computeforceArray(0,0,0, R, z, phi)
-    
-def testArray_noArray():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    scf(.1,0,0)
-    
-def testForceArray_noArray():
-    Acos = numpy.zeros((2,3,3))
-    Asin = numpy.zeros((2,3,3))
-    scf = SCFPotential(Acos=Acos, Asin=Asin)
-    scf._computeforceArray(0,0,0, 1.,0,0)
+    ArrayTest(scf, [R, z, phi])
     
     
  
@@ -373,6 +331,39 @@ def test_phiforceMatches_nfw():
     compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
  
 ##############GENERIC FUNCTIONS BELOW###############
+
+##This is used to test whether input as arrays works
+def ArrayTest(scf, params):
+    def compareFunctions(func, result, i):
+        if numpy.isnan(result[i]):
+            return numpy.isnan(func(R[i], z[i], phi[i]))
+        if numpy.isinf(result[i]):
+            return numpy.isinf(func(R[i], z[i], phi[i]))
+        return numpy.all(numpy.fabs(result[i] - func(R[i], z[i], phi[i])) < EPS)
+        
+    potential = scf(*params).flatten()
+    density = scf.dens(*params).flatten()
+    Rforce = scf.Rforce(*params).flatten()
+    zforce = scf.zforce(*params).flatten()
+    phiforce = scf.phiforce(*params).flatten()
+    
+    R, z, phi = params
+    shape = numpy.array(R*z*phi).shape
+    R = (numpy.ones(shape)*R).flatten(); z = (numpy.ones(shape)*z).flatten(); phi = (numpy.ones(shape)*phi).flatten();
+    message = "{0} at R={1}, z={2}, phi={3} was found to be {4} where it was expected to be equal to {5}"
+    for i in range(len(R)):
+        assert compareFunctions(scf, potential, i), \
+    message.format("Potential", R[i], z[i], phi[i], potential[i], scf(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.dens, density, i), \
+    message.format("Density", R[i], z[i], phi[i], density[i], scf.dens(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.Rforce, Rforce, i), \
+    message.format("Rforce", R[i], z[i], phi[i], Rforce[i], scf.Rforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.zforce, zforce, i), \
+    message.format("zforce", R[i], z[i], phi[i], zforce[i], scf.zforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.phiforce, phiforce, i), \
+    message.format("phiforce", R[i], z[i], phi[i], phiforce[i], scf.phiforce(R[i], z[i], phi[i]))
+        
+
 
 ## This is used to compare scf functions with its corresponding galpy function
 def compareFunctions(galpyFunc, scfFunc, assertmsg, Rs=DEFAULT_R, Zs = DEFAULT_Z, phis = DEFAULT_PHI, eps=EPS):
