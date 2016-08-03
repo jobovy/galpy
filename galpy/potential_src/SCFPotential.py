@@ -299,7 +299,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         return self._computeArray(self._rhoTilde, R,z,phi)
               
@@ -319,7 +319,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         return self._computeArray(self._phiTilde, R,z,phi)
 
@@ -426,10 +426,8 @@ class SCFPotential(Potential):
         R = R*nu.ones(shape);
         z = z* nu.ones(shape);
         phi = phi* nu.ones(shape);
-        dr_dx *=nu.ones(shape); dtheta_dx *=nu.ones(shape); dphi_dx *=nu.ones(shape);
         force = nu.zeros(shape, float)
-       
-          
+        dr_dx = dr_dx*nu.ones(shape); dtheta_dx = dtheta_dx*nu.ones(shape);dphi_dx = dphi_dx*nu.ones(shape);  
         li = _cartesian(shape)
 
         for i in range(li.shape[0]):
@@ -454,11 +452,11 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
-        dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
+        dr_dR = nu.divide(R,r); dtheta_dR = nu.divide(z,r**2); dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
         
     def _zforce(self, R, z, phi=0., t=0.):
@@ -477,11 +475,11 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
-        dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
+        dr_dz = nu.divide(z,r); dtheta_dz = nu.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
         
     def _phiforce(self, R,z,phi=0,t=0):
@@ -500,7 +498,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = phi
