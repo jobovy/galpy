@@ -134,7 +134,6 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-
         return None
 
     def _Nroot(self, L, M=None):
@@ -632,7 +631,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
            N - size of the Nth dimension of the expansion coefficients
 
            L - size of the Lth dimension of the expansion coefficients
-           
+
            a - parameter used to shift the basis functions
 
            radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)

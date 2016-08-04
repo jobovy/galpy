@@ -21,6 +21,5 @@ Where
 
 Also note :math:`\xi = \frac{r - a}{r + a}`, and  :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`l = m = 0`
 
-
 .. autofunction:: galpy.potential.scf_compute_coeffs_spherical
 
