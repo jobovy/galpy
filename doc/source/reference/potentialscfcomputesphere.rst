@@ -1,6 +1,8 @@
+.. _scf_compute_coeffs_sphere:
+
 galpy.potential.scf_compute_coeffs_sphere
 ==========================================
-Note: This function is a specification of `scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>`__ where :math:`Acos_{nlm} = 0` \
+Note: This function is a specification of :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` where :math:`Acos_{nlm} = 0` \
 at :math:`l\neq0`
 
 For a given :math:`\rho(r)` we can compute :math:`Acos` and :math:`Asin` through the following equation
@@ -17,10 +19,7 @@ Where
 
 :math:`C_{n}^{\alpha}` is the Gegenbauer polynomial.
 
-Also note :math:`\xi = \frac{r - a}{r + a}` 
-
-
- :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`l = m = 0`
+Also note :math:`\xi = \frac{r - a}{r + a}`, and  :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`l = m = 0`
 
 
 .. autofunction:: galpy.potential.scf_compute_coeffs_spherical

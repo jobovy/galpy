@@ -1,3 +1,5 @@
+.. _scf_compute_coeffs:
+
 galpy.potential.scf_compute_coeffs
 ======================================
 For a given :math:`\rho(R, z, \phi)` we can compute :math:`Acos` and :math:`Asin` through the following equation
@@ -14,9 +16,7 @@ Where
 
 :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_{n}^{\alpha}` is the Gegenbauer polynomial.
 
-Also note :math:`\xi = \frac{r - a}{r + a}` 
-
- :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`0 <= l < L`, and :math:`0 <= m <= l`
+Also note :math:`\xi = \frac{r - a}{r + a}` , and :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`0 <= l < L`, and :math:`0 <= m <= l`
 
 
 .. autofunction:: galpy.potential.scf_compute_coeffs

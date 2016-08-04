@@ -1,6 +1,8 @@
+.. _scf_compute_coeffs_axi:
+
 galpy.potential.scf_compute_coeffs_axi
 ========================================
-Note: This function is a specification of `scf_compute_coeffs <potentialscfcompute.html>`__ where :math:`Acos_{nlm} = 0` \
+Note: This function is a specification of :ref:`scf_compute_coeffs <scf_compute_coeffs>` where :math:`Acos_{nlm} = 0` \
 at :math:`m\neq0` and :math:`Asin_{nlm} = None`
 
 For a given :math:`\rho(R, z)` we can compute :math:`Acos` and :math:`Asin` through the following equation
@@ -17,9 +19,7 @@ Where
 
 :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_{n}^{\alpha}` is the Gegenbauer polynomial.
 
-Also note :math:`\xi = \frac{r - a}{r + a}` 
-
- :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`0 <= l < L`, and :math:`m = 0`
+Also note :math:`\xi = \frac{r - a}{r + a}`, and :math:`n`, :math:`l` and :math:`m` are integers bounded by :math:`0 <= n < N` , :math:`0 <= l < L`, and :math:`m = 0`
 
 .. autofunction:: galpy.potential.scf_compute_coeffs_axi
 
