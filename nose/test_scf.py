@@ -196,6 +196,32 @@ def test_scf_compute_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
     
+    
+##Tests radial order from scf_compute_coeffs_spherical
+def test_nfw_sphericalOrder():
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
+    Acos2, Asin2 = potential.scf_compute_coeffs_spherical(rho_NFW, 10, radial_order=50)
+    
+    assert numpy.all(numpy.fabs(Acos - Acos2) < EPS), \
+    "Increasing the radial order fails for scf_compute_coeffs_spherical"
+    
+##Tests radial and costheta order from scf_compute_coeffs_axi
+def test_axi_density1_axiOrder():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
+    Acos2, Asin2 = potential.scf_compute_coeffs_axi(axi_density1, 10, 10, radial_order=50, costheta_order=50)
+     
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-10), \
+    "Increasing the radial and costheta order fails for scf_compute_coeffs_axi"
+    
+##Tests radial, costheta and phi order from scf_compute_coeffs
+def test_density1_Order():
+    Acos, Asin = potential.scf_compute_coeffs(density1, 5,5)
+    Acos2, Asin2 = potential.scf_compute_coeffs(density1, 5,5, radial_order=19, costheta_order=19, phi_order=19)
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-3), \
+    "Increasing the radial, costheta, and phi order fails for Acos from scf_compute_coeffs"
+    
+    assert numpy.all(numpy.fabs(Asin - Asin) < EPS), \
+    "Increasing the radial, costheta, and phi order fails for Asin from scf_compute_coeffs"
 
 
 ## Tests whether scf_compute_axi reduces to scf_compute_spherical for the Hernquist Potential   
@@ -259,7 +285,7 @@ def test_densMatches_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing nfw with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw,scf, assertmsg, eps=1e-4) 
+    compareFunctions(nfw.dens,scf.dens, assertmsg, eps=1e-2) 
 
 
 ## Tests whether scf potential matches with Hernquist potential
