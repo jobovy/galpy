@@ -21,24 +21,30 @@ class SCFPotential(Potential):
 
         \\rho(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
         
-        \\textrm{where}        
+    where
+    
+    .. math::        
         
         \\tilde{\\rho}_{nl}(r) = \\frac{K_{nl}}{\\sqrt{\\pi}} \\frac{(a r)^l}{(r/a) (a + r)^{2l + 3}} C_{n}^{2l + 3/2}(\\xi)         
-        
+    .. math:: 
+    
         \\Phi(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\Phi}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
         
-        \\textrm{where}
+    where
         
+    .. math::  
         \\tilde{\\Phi}_{nl}(r) = -\\sqrt{4 \\pi}K_{nl} \\frac{(ar)^l}{(a + r)^{2l + 1}} C_{n}^{2l + 3/2}(\\xi)     
         
         
-        \\textrm{where}
+    where
         
+    .. math::  
+    
         \\xi = \\frac{r - a}{r + a} \\qquad
         N_{lm} = \\sqrt{\\frac{2l + 1}{4\\pi} \\frac{(l - m)!}{(l + m)!}}(2 - \\delta_{m0}) \\qquad
         K_{nl} = \\frac{1}{2} n (n + 4l + 3) + (l + 1)(2l + 1)
-        
-        \\textrm{and } P_{lm} \\textrm{ is the Associated Legendre Polynomials whereas } C_n^{\gamma} \\textrm{ is the Gegenbauer polynomial.}
+    
+    and :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_n^{\\alpha}` is the Gegenbauer polynomial.
     """
     def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
@@ -54,9 +60,9 @@ class SCFPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           Acos - The real part of the expansion coefficent  (NxLxL matrix)
+           Acos - The real part of the expansion coefficent  (NxLxL matrix, or optionally NxLx1 if Asin=None)
             
-           Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
+           Asin - The imaginary part of the expansion coefficient (NxLxL matrix or None)
             
            a - scale length (can be Quantity)
     
@@ -154,6 +160,7 @@ class SCFPotential(Potential):
         NN[:,0] /= 2.
         NN = nu.tril(NN)
         return NN
+        
     def _calculateXi(self, r):
         """
         NAME:
@@ -177,7 +184,6 @@ class SCFPotential(Potential):
            Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
         INPUT:
            r - Evaluate at radius r
-           CC - The Gegenbauer polynomial matrix
            N - size of the N dimension
            L - size of the L dimension
         OUTPUT:
@@ -352,18 +358,14 @@ class SCFPotential(Potential):
         NAME:
            _computeforce
         PURPOSE:
-           Evaluate the force at (R,z,phi) in the x direction, where x can be R, z, or phi (corresponding to Rforce, zforce, and phiforce)
-           F_x = dPhi/dx = dPhi/dr * dr/dx + dPhi/dtheta * dtheta/dx + dPhi/dphi *dphi/dx
+           Evaluate the first derivative of Phi with respect to R, z and phi
         INPUT:
-           dr_dx - the derivative of r with respect to the chosen variable x
-           dtheta_dx - the derivative of theta with respect to the chosen variable x
-           dphi_dx - the derivative of phi with respect to the chosen variable x
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           The force in the x direction
+           dPhi/dr, dPhi/dtheta, dPhi/dphi
         HISTORY:
            2016-06-07 - Written - Aladdin 
         """
@@ -521,8 +523,10 @@ def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
        Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
     INPUT:
        xi - radial transformed variable
-       L - Size of the L dimension
        N - Size of the N dimension
+       L - Size of the L dimension
+       alpha = A lambda function of l. Default alpha = 2l + 3/2 
+       
     OUTPUT:
        An LxN Gegenbauer Polynomial 
     HISTORY:
@@ -549,7 +553,7 @@ def _dC(xi, N, L):
     CC *= 2*(2*l + 3./2)
     return CC
      
-def scf_compute_coeffs_spherical(dens, N, a=1.):
+def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
         """
         NAME:
 
@@ -564,6 +568,10 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
            dens - A density function that takes a parameter R
 
            N - size of expansion coefficients
+           
+           a - parameter used to shift the basis functions
+           
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 1)
 
         OUTPUT:
 
@@ -597,6 +605,10 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
         Asin = None
         
         Ksample = [max(N + 1, 20)]
+        
+        if radial_order != None:
+            Ksample[0] = radial_order
+            
         integrated = _gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
@@ -620,10 +632,12 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
            N - size of the Nth dimension of the expansion coefficients
 
            L - size of the Lth dimension of the expansion coefficients
+           
+           a - parameter used to shift the basis functions
 
-           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
 
-           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
 
         OUTPUT:
 
@@ -695,12 +709,14 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
            N - size of the Nth dimension of the expansion coefficients
 
            L - size of the Lth and Mth dimension of the expansion coefficients
+           
+           a - parameter used to shift the basis functions
 
-           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
 
-           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
 
-           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L )
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
 
         OUTPUT:
 
