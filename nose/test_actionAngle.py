@@ -862,7 +862,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential
+        TriaxialNFWPotential, SCFPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
@@ -878,6 +878,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
            TriaxialHernquistPotential(normalize=1.,c=0.2,pa=1.1), # tests rot, but not well
            TriaxialNFWPotential(normalize=1.,c=0.3,pa=1.1),
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
+           SCFPotential(normalize=1.),
            ip]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
@@ -912,6 +913,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit_src.FullOrbit import ext_loaded
+    from test_potential import mockSCFZeeuwPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     hp= potential.HernquistPotential(normalize=1.)
     jp= potential.JaffePotential(normalize=1.)
@@ -924,7 +926,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     psp= potential.PseudoIsothermalPotential(normalize=1.)
     bp= potential.BurkertPotential(normalize=1.)
     scfp= potential.SCFPotential(normalize=1.)
-    pots= [lp,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp]
+    scfzp = mockSCFZeeuwPotential(); scfzp.normalize(1.); 
+    pots= [lp,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
