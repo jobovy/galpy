@@ -102,10 +102,20 @@ def test_coeffs_Asin_L_M_notLowerTriangular():
         raise Exception("Expected RuntimeWarning")
     except RuntimeWarning:
         pass
-
+        
+def testAxi_phiIsNone():
+    R = 1; z = 0; phi = 1.1;
+    scf = SCFPotential()
+    assert scf(R,z,None) == scf(R,z,phi), "The axisymmetric potential does not work at phi=None"
+    assert scf.dens(R,z,None) == scf.dens(R,z,phi), "The axisymmetric density does not work at phi=None"
+    assert scf.Rforce(R,z,None) == scf.Rforce(R,z,phi), "The axisymmetric Rforce does not work at phi=None"
+    assert scf.zforce(R,z,None) == scf.zforce(R,z,phi), "The axisymmetric zforce does not work at phi=None"
+    assert scf.phiforce(R,z,None) == scf.phiforce(R,z,phi), "The axisymmetric phiforce does not work at phi=None"
+         
+        
+        
 
 ##Tests user inputs as arrays    
-    
 
 def testArray_RArray():
     scf = SCFPotential()
