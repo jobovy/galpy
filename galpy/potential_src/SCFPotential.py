@@ -15,8 +15,38 @@ import hashlib
 
 
 class SCFPotential(Potential):
-   
-    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=nu.array([[[0]]]), a = 1., normalize=False, ro=None,vo=None):
+    """Class that implements the Hernquist & Ostriker Self-Consistent-Field-type potential
+
+    .. math::
+
+        \\rho(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
+        
+    where
+    
+    .. math::        
+        
+        \\tilde{\\rho}_{nl}(r) = \\frac{K_{nl}}{\\sqrt{\\pi}} \\frac{(a r)^l}{(r/a) (a + r)^{2l + 3}} C_{n}^{2l + 3/2}(\\xi)         
+    .. math:: 
+    
+        \\Phi(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\Phi}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
+        
+    where
+        
+    .. math::  
+        \\tilde{\\Phi}_{nl}(r) = -\\sqrt{4 \\pi}K_{nl} \\frac{(ar)^l}{(a + r)^{2l + 1}} C_{n}^{2l + 3/2}(\\xi)     
+        
+        
+    where
+        
+    .. math::  
+    
+        \\xi = \\frac{r - a}{r + a} \\qquad
+        N_{lm} = \\sqrt{\\frac{2l + 1}{4\\pi} \\frac{(l - m)!}{(l + m)!}}(2 - \\delta_{m0}) \\qquad
+        K_{nl} = \\frac{1}{2} n (n + 4l + 3) + (l + 1)(2l + 1)
+    
+    and :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_n^{\\alpha}` is the Gegenbauer polynomial.
+    """
+    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -30,9 +60,9 @@ class SCFPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           Acos - The real part of the expansion coefficent  (NxLxL matrix)
+           Acos - The real part of the expansion coefficent  (NxLxL matrix, or optionally NxLx1 if Asin=None)
             
-           Asin - The imaginary part of the expansion coefficent (NxLxL matrix)
+           Asin - The imaginary part of the expansion coefficient (NxLxL matrix or None)
             
            a - scale length (can be Quantity)
     
@@ -53,13 +83,49 @@ class SCFPotential(Potential):
             a= a.to(units.kpc).value/self._ro 
             
         
-        ##Acos and Asin must have the same shape
+        ##Errors
+        shape = Acos.shape
+        errorMessage = None
+        if len(shape) != 3:
+            errorMessage="Acos must be a 3 dimensional numpy array"
+        elif Asin is not None and shape[1] != shape[2]:
+            errorMessage="The second and third dimension of the expansion coefficients must have the same length"
+        elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
+            errorMessage="The third dimension must have length=1 or equal to the length of the second dimension"
+        elif Asin is None and shape[1] > 1 and nu.any(Acos[:,:,1:] !=0):
+            errorMessage="Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n" +\
+            "Asin=None which implies an axi symmetric potential.\n" + \
+            "Contradiction."
+        elif Asin is not None and Asin.shape != shape:
+            errorMessage = "The shape of Asin does not match the shape of Acos."
+        if errorMessage is not None:
+            raise RuntimeError(errorMessage)
+            
+        ##Warnings
+        warningMessage=None
+        if nu.any(nu.triu(Acos,1) != 0) or (Asin is not None and nu.any(nu.triu(Asin,1) != 0)):
+            warningMessage="Found non-zero values at expansion coefficients where m > l\n" + \
+            "The Mth and Lth dimension is expected to make a lower triangular matrix.\n" + \
+            "All values found above the diagonal will be ignored."   
+        if warningMessage is not None:  
+            raise RuntimeWarning(warningMessage)            
+        
+        ##Is non axi?
+        self.isNonAxi= True
+        if Asin is None or shape[1] == 1 or (nu.all(Acos[:,:,1:] == 0) and nu.all(Asin[:,:,:]==0)):
+            self.isNonAxi = False        
+        
         
         self._a = a
 
-        NN = self._Nroot(Acos.shape[1])
+        NN = self._Nroot(Acos.shape[1], Acos.shape[2])
         
-        self._Acos, self._Asin = Acos*NN[nu.newaxis,:,:], Asin*NN[nu.newaxis,:,:]
+        
+        self._Acos= Acos*NN[nu.newaxis,:,:]
+        if Asin is not None:
+            self._Asin = Asin*NN[nu.newaxis,:,:]
+        else:
+            self._Asin = nu.zeros_like(Acos)
         self._force_hash= None
         self.hasC= True
         self.hasC_dxdv=True
@@ -68,10 +134,9 @@ class SCFPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
-        self.isNonAxi= self._Acos.shape[2] != 1
         return None
 
-    def _Nroot(self, L):
+    def _Nroot(self, L, M=None):
         """
         NAME:
            _Nroot
@@ -79,19 +144,22 @@ class SCFPotential(Potential):
            Evaluate the square root of equation (3.15) with the (2 - del_m,0) term outside the square root
         INPUT:
            L - evaluate Nroot for 0 <= l <= L 
+           M - evaluate Nroot for 0 <= m <= M 
         OUTPUT:
            The square root of equation (3.15) with the (2 - del_m,0) outside
         HISTORY:
            2016-05-16 - Written - Aladdin 
         """
-        NN = nu.zeros((L,L),float)
+        if M is None: M =L
+        NN = nu.zeros((L,M),float)
         l = nu.arange(0,L)[:,nu.newaxis]
-        m = nu.arange(0,L)[nu.newaxis, :]
+        m = nu.arange(0,M)[nu.newaxis, :]
         nLn = gammaln(l-m+1) - gammaln(l+m+1)
         NN[:,:] = ((2*l+1.)/(4.*nu.pi) * nu.e**nLn)**.5 * 2
         NN[:,0] /= 2.
         NN = nu.tril(NN)
         return NN
+        
     def _calculateXi(self, r):
         """
         NAME:
@@ -115,7 +183,6 @@ class SCFPotential(Potential):
            Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
         INPUT:
            r - Evaluate at radius r
-           CC - The Gegenbauer polynomial matrix
            N - size of the N dimension
            L - size of the L dimension
         OUTPUT:
@@ -162,14 +229,14 @@ class SCFPotential(Potential):
         NAME:
            _compute
         PURPOSE:
-           evaluate the NxLxL density or potential
+           evaluate the NxLxM density or potential
         INPUT:
            funcTidle - must be _rhoTilde or _phiTilde
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
         OUTPUT:
-           An NxLxL density or potential at (R,z, phi)
+           An NxLxM density or potential at (R,z, phi)
         HISTORY:
            2016-05-18 - Written - Aladdin 
         """
@@ -179,12 +246,12 @@ class SCFPotential(Potential):
         
         
    
-        PP = lpmn(L-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
+        PP = lpmn(M-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
         func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
         
-        func = nu.zeros((N,L,L), float) ## The function of interest (density or potential)
+        func = nu.zeros((N,L,M), float) ## The function of interest (density or potential)
         
-        m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+        m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
         mcos = nu.cos(m*phi)
         msin = nu.sin(m*phi)
         func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]
@@ -207,16 +274,18 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
+        
         shape = (R*z*phi).shape
         if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
-        R *= nu.ones(shape); z *= nu.ones(shape); phi *= nu.ones(shape);
+        R = R*nu.ones(shape); z = z*nu.ones(shape); phi = phi*nu.ones(shape);
         func = nu.zeros(shape, float)
-       
-          
+
+        
         li = _cartesian(shape)
         for i in range(li.shape[0]):
-            func[li[i]] = nu.sum(self._compute(funcTilde, R[li[i]][0],z[li[i]][0],phi[li[i]][0]))
+            j = nu.split(li[i], li.shape[1])
+            func[j] = nu.sum(self._compute(funcTilde, R[j][0],z[j][0],phi[j][0]))
         return func
         
     def _dens(self, R, z, phi=0., t=0.):
@@ -235,8 +304,8 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        if not self.isNonAxi:
-            phi= nu.zeros_like(R)
+        if not self.isNonAxi and phi is None:
+            phi= 0.
         return self._computeArray(self._rhoTilde, R,z,phi)
               
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -255,7 +324,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-05-17 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         return self._computeArray(self._phiTilde, R,z,phi)
 
@@ -288,18 +357,14 @@ class SCFPotential(Potential):
         NAME:
            _computeforce
         PURPOSE:
-           Evaluate the force at (R,z,phi) in the x direction, where x can be R, z, or phi (corresponding to Rforce, zforce, and phiforce)
-           F_x = dPhi/dx = dPhi/dr * dr/dx + dPhi/dtheta * dtheta/dx + dPhi/dphi *dphi/dx
+           Evaluate the first derivative of Phi with respect to R, z and phi
         INPUT:
-           dr_dx - the derivative of r with respect to the chosen variable x
-           dtheta_dx - the derivative of theta with respect to the chosen variable x
-           dphi_dx - the derivative of phi with respect to the chosen variable x
            R - Cylindrical Galactocentric radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           The force in the x direction
+           dPhi/dr, dPhi/dtheta, dPhi/dphi
         HISTORY:
            2016-06-07 - Written - Aladdin 
         """
@@ -314,13 +379,13 @@ class SCFPotential(Potential):
             dPhi_dphi = self._cached_dPhi_dphi
             
         else:        
-            PP, dPP = lpmn(L-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+            PP, dPP = lpmn(M-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
             PP = PP.T[None,:,:]
             dPP = dPP.T[None,:,:]
             phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
             dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
             
-            m = nu.arange(0, L)[nu.newaxis, nu.newaxis, :]
+            m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
             mcos = nu.cos(m*phi)
             msin = nu.sin(m*phi)
             dPhi_dr = -nu.sum((Acos*mcos + Asin*msin)*PP*dphi_tilde)
@@ -351,24 +416,26 @@ class SCFPotential(Potential):
            The forces in the x direction
         HISTORY:
            2016-06-02 - Written - Aladdin 
-        """
-        R = nu.array(R); z = nu.array(z); phi = nu.array(phi);
+        """     
+        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
         shape = (R*z*phi).shape
         if shape == (): 
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R,z,phi)
             return dr_dx*dPhi_dr + dtheta_dx*dPhi_dtheta +dPhi_dphi*dphi_dx
-        R *= nu.ones(shape);z *= nu.ones(shape);phi *= nu.ones(shape);
-        dr_dx *=nu.ones(shape); dtheta_dx *=nu.ones(shape); dphi_dx *=nu.ones(shape);
+        
+        R = R*nu.ones(shape);
+        z = z* nu.ones(shape);
+        phi = phi* nu.ones(shape);
         force = nu.zeros(shape, float)
-       
-          
+        dr_dx = dr_dx*nu.ones(shape); dtheta_dx = dtheta_dx*nu.ones(shape);dphi_dx = dphi_dx*nu.ones(shape);  
         li = _cartesian(shape)
-       
+
         for i in range(li.shape[0]):
+            j = nu.split(li[i], li.shape[1])
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
-            self._computeforce(R[li[i]][0],z[li[i]][0],phi[li[i]][0])
-            force[li[i]] = dr_dx[li[i]][0]*dPhi_dr + dtheta_dx[li[i]][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[li[i]][0]
+            self._computeforce(R[j][0],z[j][0],phi[j][0])
+            force[j] = dr_dx[j][0]*dPhi_dr + dtheta_dx[j][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[j][0]
         return force
     def _Rforce(self, R, z, phi=0, t=0):
         """
@@ -386,11 +453,11 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
-        dr_dR = R/r; dtheta_dR = z/r**2; dphi_dR = 0
+        dr_dR = nu.divide(R,r); dtheta_dR = nu.divide(z,r**2); dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
         
     def _zforce(self, R, z, phi=0., t=0.):
@@ -409,11 +476,11 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
-        dr_dz = z/r; dtheta_dz = -R/r**2; dphi_dz = 0
+        dr_dz = nu.divide(z,r); dtheta_dz = nu.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
         
     def _phiforce(self, R,z,phi=0,t=0):
@@ -432,7 +499,7 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-06 - Written - Aladdin 
         """
-        if not self.isNonAxi:
+        if not self.isNonAxi and phi is None:
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = phi
@@ -455,8 +522,10 @@ def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
        Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N 
     INPUT:
        xi - radial transformed variable
-       L - Size of the L dimension
        N - Size of the N dimension
+       L - Size of the L dimension
+       alpha = A lambda function of l. Default alpha = 2l + 3/2 
+       
     OUTPUT:
        An LxN Gegenbauer Polynomial 
     HISTORY:
@@ -483,7 +552,7 @@ def _dC(xi, N, L):
     CC *= 2*(2*l + 3./2)
     return CC
      
-def scf_compute_coeffs_spherical(dens, N, a=1.):
+def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
         """
         NAME:
 
@@ -498,6 +567,10 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
            dens - A density function that takes a parameter R
 
            N - size of expansion coefficients
+           
+           a - parameter used to shift the basis functions
+           
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 1)
 
         OUTPUT:
 
@@ -528,9 +601,13 @@ def scf_compute_coeffs_spherical(dens, N, a=1.):
             return a**3. * dens(*param)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
                
         Acos = nu.zeros((N,1,1), float)
-        Asin = nu.zeros((N,1,1), float)
+        Asin = None
         
         Ksample = [max(N + 1, 20)]
+        
+        if radial_order != None:
+            Ksample[0] = radial_order
+            
         integrated = _gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
         n = nu.arange(0,N)
         K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
@@ -555,9 +632,11 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
 
            L - size of the Lth dimension of the expansion coefficients
 
-           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           a - parameter used to shift the basis functions
 
-           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
+
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
 
         OUTPUT:
 
@@ -587,8 +666,8 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
             return  phi_nl*dV * dens(*param)
             
                
-        Acos = nu.zeros((N,L,L), float)
-        Asin = nu.zeros((N,L,L), float)
+        Acos = nu.zeros((N,L,1), float)
+        Asin = None
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
         Ksample = [max(N + 3*L//2 + 1, 20) ,  max(L + 1,20) ]
@@ -613,7 +692,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         return Acos, Asin
         
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
-        """
+        """        
         NAME:
 
            scf_compute_coeffs
@@ -629,12 +708,14 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
            N - size of the Nth dimension of the expansion coefficients
 
            L - size of the Lth and Mth dimension of the expansion coefficients
+           
+           a - parameter used to shift the basis functions
 
-           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L )
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
 
-           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L )
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
 
-           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L )
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
 
         OUTPUT:
 

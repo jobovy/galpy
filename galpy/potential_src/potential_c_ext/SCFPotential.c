@@ -40,35 +40,63 @@ double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, do
 {
     return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
+double computeAxiPhi(double Acos_val, double P, double phiTilde)
+{
+    return Acos_val*P*phiTilde;
+}
 
 double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*P*dphiTilde;
+}
+double computeAxiF_r(double Acos_val, double P, double dphiTilde)
+{
+    return -Acos_val*P*dphiTilde;
 }
 
 double computeF_theta(double Acos_val, double Asin_val, double mCos, double mSin, double dP, double phiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*dP*phiTilde;
 }
+double computeAxiF_theta(double Acos_val, double dP, double phiTilde)
+{
+    return -Acos_val*dP*phiTilde;
+}
 
 double computeF_phi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
 {
     return m*(Acos_val*mSin - Asin_val*mCos)*P*phiTilde;
+}
+double computeAxiF_phi(double Acos_val, double P, double phiTilde)
+{
+    return 0.;
 }
 
 double computeF_rr(double Acos_val, double Asin_val, double mCos, double mSin, double P, double d2phiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*P*d2phiTilde;
 }
+double computeAxiF_rr(double Acos_val, double P, double d2phiTilde)
+{
+    return -Acos_val*P*d2phiTilde;
+}
 
 double computeF_rphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
 {
     return m*(Acos_val*mSin - Asin_val*mCos)*P*dphiTilde;
 }
+double computeAxiF_rphi(double Acos_val, double P, double d2phiTilde)
+{
+    return 0.;
+}
 
 double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
 {
     return m*m*(Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
+}
+double computeAxiF_phiphi(double Acos_val, double P, double d2phiTilde)
+{
+    return 0.;
 }
 
 //Calculates the Gegenbauer polynomials
@@ -191,24 +219,24 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
 }
 
 //Computes the associated Legendre polynomials
-inline void compute_P(double x, int L, double * P_array)
+inline void compute_P(double x, int L, int M, double * P_array)
 {
-    int l;
-    for (l = 0; l < L; l++)
+    int m;
+    for (m = 0; m < M; m++)
     {
-        int shift = l*L + l;
-        gsl_sf_legendre_Plm_array(L - 1, l, x, P_array + shift);
+        int shift = m*L + m;
+        gsl_sf_legendre_Plm_array(L - 1, m, x, P_array + shift);
     }
 }
 
-//Computes the associated Legendre polynomials and its derivative 
-inline void compute_P_dP(double x, int L, double * P_array, double *dP_array)
+//Computes the associated Legendre polynomials and its derivative
+inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
 {
-    int l;
-    for (l = 0; l < L; l++)
+    int m;
+    for (m = 0; m < M; m++)
     {
-        int shift = l*L + l;
-        gsl_sf_legendre_Plm_deriv_array(L - 1, l, x, P_array + shift, dP_array + shift);
+        int shift = m*L + m;
+        gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array + shift, dP_array + shift);
     }
 }
 
@@ -224,12 +252,64 @@ struct equations
     double *Constant;
 };
 
-//Compute 
+typedef struct axi_equations axi_equations;
+struct axi_equations
+{
+    double ((**Eq)(double, double, double));
+    double *(*phiTilde);
+    double *(*P);
+    double *Constant;
+};
+
+//Compute axi symmetric potentials.
 inline void compute(double a, int N, int L, int M,
                     double r, double theta, double phi,
-                    double *Acos, double *Asin, int eq_size,
-                    equations e,
+                    double *Acos, int eq_size,
+                    axi_equations e,
                     double *F)
+{
+    int i,n,l;
+    for (i = 0; i < eq_size; i++)
+    {
+        *(F + i) =0; //Initialize each F
+    }
+
+    for (l = 0; l < L; l++)
+    {
+
+        for (n = 0; n < N; n++)
+        {
+
+
+
+            double Acos_val = *(Acos + M*l + M*L*n);
+            for (i = 0; i < eq_size; i++)
+            {
+                double (*Eq)(double, double, double) = *(e.Eq + i);
+                double *P = *(e.P + i);
+                double *phiTilde = *(e.phiTilde + i);
+                *(F + i) += (*Eq)(Acos_val, P[l], phiTilde[l*N + n]);
+            }
+
+
+        }
+    }
+
+    //Multiply F by constants
+    for (i = 0; i < eq_size; i++)
+    {
+        double constant = *(e.Constant + i);
+        *(F + i) *= constant*sqrt(4*M_PI);
+    }
+
+}
+
+//Compute Non Axi symmetric Potentials
+inline void computeNonAxi(double a, int N, int L, int M,
+                          double r, double theta, double phi,
+                          double *Acos, double *Asin, int eq_size,
+                          equations e,
+                          double *F)
 {
     int i,n,l,m;
     for (i = 0; i < eq_size; i++)
@@ -237,7 +317,7 @@ inline void compute(double a, int N, int L, int M,
         *(F + i) =0; //Initialize each F
     }
 
-    
+
     for (l = 0; l < L; l++)
     {
         for (m = 0; m<=l; m++)
@@ -273,21 +353,28 @@ inline void compute(double a, int N, int L, int M,
 
 //Compute the Forces
 inline void computeForce(double R,double Z, double phi,
-                  double t,
-                  struct potentialArg * potentialArgs, double * F)
+                         double t,
+                         struct potentialArg * potentialArgs, double * F)
 {
     double * args= potentialArgs->args;
     //Get args
     double a = *args++;
+    int isNonAxi = (int)*args++;
     int N = (int)*args++;
     int L = (int)*args++;
     int M = (int)*args++;
-    double* Acos = args;
-    double* Asin = args + N*L*M;
 
-    double *cached_type = (args + 2*N*L*M);
-    double * cached_coords = (args + 2*N*L*M + 1);
-    double * cached_values = (args + 2*N*L*M + 4);
+    double* Acos = args;
+
+    double* caching_i = (args + (isNonAxi + 1)*N*L*M);
+    double *Asin;
+    if (isNonAxi == 1)
+    {
+        Asin = args + N*L*M;
+    }
+    double *cached_type = caching_i;
+    double * cached_coords = (caching_i+ 1);
+    double * cached_values = (caching_i + 4);
     if ((int)*cached_type==FORCE)
     {
         if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi)
@@ -298,8 +385,6 @@ inline void computeForce(double R,double Z, double phi,
             return;
         }
     }
-
-
     double r;
     double theta;
     cyl_to_spher(R, Z, &r, &theta);
@@ -322,20 +407,34 @@ inline void computeForce(double R,double Z, double phi,
     compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
 
 //Compute Associated Legendre Polynomials
-    double P[L*L];
-    double dP[L*L];
+    int M_eff = M;
+    if (isNonAxi==0)
+    {
+        M_eff = 1;
+    }
+    double P[M_eff*L];
+    double dP[M_eff*L];
+    compute_P_dP(cos(theta), L, M_eff, &P, &dP);
 
-    compute_P_dP(cos(theta), L, &P, &dP);
-
-    double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
     double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
     double (*P_Pointer[3]) = {&P, &dP, &P};
 
     double Constant[3] = {1., -sin(theta), 1.};
-    equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+
+    if (isNonAxi == 1)
+    {
+        double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
+        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+    }
+    else
+    {
+        double (*Eq[3])(double, double, double) = {&computeAxiF_r, &computeAxiF_theta, &computeAxiF_phi};
+        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
+    }
 
 
-    compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
 
     //Caching
 
@@ -354,21 +453,28 @@ inline void computeForce(double R,double Z, double phi,
 
 //Compute the Derivatives
 inline void computeDeriv(double R,double Z, double phi,
-                  double t,
-                  struct potentialArg * potentialArgs, double * F)
+                         double t,
+                         struct potentialArg * potentialArgs, double * F)
 {
     double * args= potentialArgs->args;
     //Get args
     double a = *args++;
+    int isNonAxi = (int)*args++;
     int N = *args++;
     int L = *args++;
     int M = *args++;
     double* Acos = args;
-    double* Asin = args + N*L*M;
 
-    double *cached_type = (args + 2*N*L*M);
-    double * cached_coords = (args + 2*N*L*M + 1);
-    double * cached_values = (args + 2*N*L*M + 4);
+    double * caching_i = (args + (isNonAxi + 1)*N*L*M);
+    double *Asin;
+    if (isNonAxi == 1)
+    {
+        Asin = args + N*L*M;
+    }
+
+    double *cached_type = caching_i;
+    double * cached_coords = (caching_i+ 1);
+    double * cached_values = (caching_i + 4);
     if ((int)*cached_type==DERIV)
     {
         if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi)
@@ -408,20 +514,39 @@ inline void computeDeriv(double R,double Z, double phi,
 
 
 //Compute Associated Legendre Polynomials
-    double P[L*L];
+    int M_eff = M;
+    if (isNonAxi==0)
+    {
+        M_eff = 1;
+    }
+    double P[M_eff*L];
 
-    compute_P(cos(theta), L, &P);
+
+    compute_P(cos(theta), L,M_eff, &P);
+
+
 
     int num_eq = 3;
 
-    double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
+
     double (*PhiTilde_Pointer[3]) = {&d2phiTilde, &phiTilde, &dphiTilde};
     double (*P_Pointer[3]) = {&P, &P, &P};
 
     double Constant[3] = {1., 1., 1.};
-    equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
 
-    compute(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+    if (isNonAxi==1)
+    {
+        double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
+        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+    }
+    else
+    {
+        double (*Eq[3])(double, double, double) = {&computeAxiF_rr, &computeAxiF_phiphi, &computeAxiF_rphi};
+        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
+    }
+
 
     //Caching
 
@@ -444,12 +569,16 @@ double SCFPotentialEval(double R,double Z, double phi,
     double * args= potentialArgs->args;
     //Get args
     double a = *args++;
+    int isNonAxi = (int)*args++;
     int N = *args++;
     int L = *args++;
     int M = *args++;
     double* Acos = args;
-    double* Asin = args + N*L*M;
-
+    double* Asin;
+    if (isNonAxi==1)
+    {
+        Asin = args + N*L*M;
+    }
     //convert R,Z to r, theta
     double r;
     double theta;
@@ -466,22 +595,40 @@ double SCFPotentialEval(double R,double Z, double phi,
     double phiTilde[L*N];
     compute_phiTilde(r, a, N, L, &C, &phiTilde);
     //Compute Associated Legendre Polynomials
-    double P[L*L];
 
-    compute_P(cos(theta), L, &P);
+    int M_eff = M;
+    if (isNonAxi==0)
+    {
+        M_eff = 1;
+    }
+    double P[M_eff*L];
+
+
+    compute_P(cos(theta), L,M_eff, &P);
 
     double potential;
 
     int num_eq = 1;
-    double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
+
+
     double (*PhiTilde_Pointer[1]) = {&phiTilde};
     double (*P_Pointer[1]) = {&P};
 
     double Constant[1] = {1.};
-    equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
 
+    if (isNonAxi==1)
+    {
+        double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
+        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);
+    }
+    else
+    {
+        double (*Eq[1])(double, double, double) = {&computeAxiPhi};
+        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        compute(a, N, L, M,r, theta, phi, Acos, 1, e, &potential);
+    }
 
-    compute(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);
     return potential;
 }
 
@@ -490,7 +637,6 @@ double SCFPotentialRforce(double R,double Z, double phi,
                           double t,
                           struct potentialArg * potentialArgs)
 {
-
     double r;
     double theta;
     cyl_to_spher(R, Z, &r, &theta);

@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import os
 import sys
 import numpy
-import pynbody
 from galpy import potential
 from galpy.potential import SCFPotential
 from galpy.util import bovy_coords
@@ -17,7 +16,121 @@ DEFAULT_Z= numpy.array([0.,.125,-.125,0.25,-0.25])
 DEFAULT_PHI= numpy.array([0.,0.5,-0.5,1.,-1.,
                        numpy.pi,0.5+numpy.pi,
                        1.+numpy.pi])
+                       
+##Tests whether invalid coefficients will throw an error at runtime
+                       
+def test_coeffs_toomanydimensions():
+    Acos = numpy.ones((10,2,32,34))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_toolittledimensions():
+    Acos = numpy.ones((10,2))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinNone_LnotequalM():
+    Acos = numpy.ones((2,3,4))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinNotNone_LnotequalM():
+    Acos = numpy.ones((2,3,4))
+    Asin = numpy.ones((2,3,4))
+    
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinNone_Mequals1():
+    Acos = numpy.zeros((2,3,1))
+    Asin = None
 
+    SCFPotential(Acos=Acos, Asin=Asin)
+    
+def test_coeffs_AsinNone_MequalsL():
+    Acos = numpy.zeros((2,3,3))
+    Asin = None
+
+    SCFPotential(Acos=Acos, Asin=Asin)
+        
+   
+        
+def test_coeffs_AsinNone_AcosNotaxisym():
+    Acos = numpy.ones((2,3,3))
+    try:
+        SCFPotential(Acos=Acos)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+def test_coeffs_AsinShape_notequal_AcosShape():
+    Acos = numpy.ones((2,3,3))
+    Asin = numpy.ones((2,2,2))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeError")
+    except RuntimeError:
+        pass
+        
+        
+def test_coeffs_Acos_L_M_notLowerTriangular():
+    Acos = numpy.ones((2,3,3))
+    Asin = numpy.zeros((2,3,3))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeWarning")
+    except RuntimeWarning:
+        pass
+        
+def test_coeffs_Asin_L_M_notLowerTriangular():
+    Acos = numpy.zeros((2,3,3))
+    Asin = numpy.ones((2,3,3))
+    try:
+        SCFPotential(Acos=Acos, Asin=Asin)
+        raise Exception("Expected RuntimeWarning")
+    except RuntimeWarning:
+        pass
+
+
+##Tests user inputs as arrays    
+    
+
+def testArray_RArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [array, 1., 0])
+    
+def testArray_zArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [1., array, 0])
+    
+def testArray_phiArray():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    ArrayTest(scf, [1., 1., array])
+ 
+def testArrayBroadcasting():
+    scf = SCFPotential()
+    R = numpy.ones((10,20,2))
+    z = numpy.linspace(0,numpy.pi, 10)[:,None,None]
+    phi = numpy.zeros((10,20))[:,:,None]
+    
+    ArrayTest(scf, [R, z, phi])
+    
+    
  
 ## tests whether scf_compute_spherical computes the correct coefficients for a Hernquist Potential
 def test_scf_compute_spherical_hernquist():
@@ -83,6 +196,32 @@ def test_scf_compute_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
     
+    
+##Tests radial order from scf_compute_coeffs_spherical
+def test_nfw_sphericalOrder():
+    Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
+    Acos2, Asin2 = potential.scf_compute_coeffs_spherical(rho_NFW, 10, radial_order=50)
+    
+    assert numpy.all(numpy.fabs(Acos - Acos2) < EPS), \
+    "Increasing the radial order fails for scf_compute_coeffs_spherical"
+    
+##Tests radial and costheta order from scf_compute_coeffs_axi
+def test_axi_density1_axiOrder():
+    Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1, 10,10)
+    Acos2, Asin2 = potential.scf_compute_coeffs_axi(axi_density1, 10, 10, radial_order=50, costheta_order=50)
+     
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-10), \
+    "Increasing the radial and costheta order fails for scf_compute_coeffs_axi"
+    
+##Tests radial, costheta and phi order from scf_compute_coeffs
+def test_density1_Order():
+    Acos, Asin = potential.scf_compute_coeffs(density1, 5,5)
+    Acos2, Asin2 = potential.scf_compute_coeffs(density1, 5,5, radial_order=19, costheta_order=19, phi_order=19)
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-3), \
+    "Increasing the radial, costheta, and phi order fails for Acos from scf_compute_coeffs"
+    
+    assert numpy.all(numpy.fabs(Asin - Asin) < EPS), \
+    "Increasing the radial, costheta, and phi order fails for Asin from scf_compute_coeffs"
 
 
 ## Tests whether scf_compute_axi reduces to scf_compute_spherical for the Hernquist Potential   
@@ -130,7 +269,7 @@ def test_densMatches_axi_density1():
     Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,50,3)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing axi_density1 with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(axi_density1,scf.dens, assertmsg, eps=1e-3) 
+    compareFunctions(axi_density1, scf.dens, assertmsg, eps=1e-3) 
     
 ## Tests whether scf density matches with axi_density2
 def test_densMatches_axi_density2():
@@ -146,7 +285,7 @@ def test_densMatches_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,50, a=50)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin, a=50)
     assertmsg = "Comparing nfw with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw,scf, assertmsg, eps=1e-4) 
+    compareFunctions(nfw.dens,scf.dens, assertmsg, eps=1e-2) 
 
 
 ## Tests whether scf potential matches with Hernquist potential
@@ -219,6 +358,39 @@ def test_phiforceMatches_nfw():
  
 ##############GENERIC FUNCTIONS BELOW###############
 
+##This is used to test whether input as arrays works
+def ArrayTest(scf, params):
+    def compareFunctions(func, result, i):
+        if numpy.isnan(result[i]):
+            return numpy.isnan(func(R[i], z[i], phi[i]))
+        if numpy.isinf(result[i]):
+            return numpy.isinf(func(R[i], z[i], phi[i]))
+        return numpy.all(numpy.fabs(result[i] - func(R[i], z[i], phi[i])) < EPS)
+        
+    potential = scf(*params).flatten()
+    density = scf.dens(*params).flatten()
+    Rforce = scf.Rforce(*params).flatten()
+    zforce = scf.zforce(*params).flatten()
+    phiforce = scf.phiforce(*params).flatten()
+    
+    R, z, phi = params
+    shape = numpy.array(R*z*phi).shape
+    R = (numpy.ones(shape)*R).flatten(); z = (numpy.ones(shape)*z).flatten(); phi = (numpy.ones(shape)*phi).flatten();
+    message = "{0} at R={1}, z={2}, phi={3} was found to be {4} where it was expected to be equal to {5}"
+    for i in range(len(R)):
+        assert compareFunctions(scf, potential, i), \
+    message.format("Potential", R[i], z[i], phi[i], potential[i], scf(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.dens, density, i), \
+    message.format("Density", R[i], z[i], phi[i], density[i], scf.dens(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.Rforce, Rforce, i), \
+    message.format("Rforce", R[i], z[i], phi[i], Rforce[i], scf.Rforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.zforce, zforce, i), \
+    message.format("zforce", R[i], z[i], phi[i], zforce[i], scf.zforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.phiforce, phiforce, i), \
+    message.format("phiforce", R[i], z[i], phi[i], phiforce[i], scf.phiforce(R[i], z[i], phi[i]))
+        
+
+
 ## This is used to compare scf functions with its corresponding galpy function
 def compareFunctions(galpyFunc, scfFunc, assertmsg, Rs=DEFAULT_R, Zs = DEFAULT_Z, phis = DEFAULT_PHI, eps=EPS):
     ##Assert msg must have 3 placeholders ({}) for Rs, Zs, and phis                      
@@ -234,7 +406,7 @@ def compareFunctions(galpyFunc, scfFunc, assertmsg, Rs=DEFAULT_R, Zs = DEFAULT_Z
 ##General function that tests whether coefficients for a spherical density has the expected property
 def spherical_coeffsTest(Acos, Asin, eps=EPS):
     ## We expect Asin to be zero
-    assert numpy.all(numpy.fabs(Asin) <eps), "Conforming Asin = 0 fails"
+    assert Asin is None or numpy.all(numpy.fabs(Asin) <eps), "Confirming Asin = 0 fails"
     ## We expect that the only non-zero values occur at (n,l=0,m=0)
     assert numpy.all(numpy.fabs(Acos[:, 1:, :]) < eps) and numpy.all(numpy.fabs(Acos[:,:,1:]) < eps), \
     "Non Zero value found outside (n,l,m) = (n,0,0)" 
@@ -242,7 +414,7 @@ def spherical_coeffsTest(Acos, Asin, eps=EPS):
 ##General function that tests whether coefficients for an axi symmetric density has the expected property
 def axi_coeffsTest(Acos, Asin):
     ## We expect Asin to be zero
-    assert numpy.all(numpy.fabs(Asin) <EPS), "Conforming Asin = 0 fails"
+    assert Asin is None or numpy.all(numpy.fabs(Asin) <EPS), "Confirming Asin = 0 fails"
     ## We expect that the only non-zero values occur at (n,l,m=0)
     assert numpy.all(numpy.fabs(Acos[:,:,1:]) < EPS), "Non Zero value found outside (n,l,m) = (n,0,0)" 
     
