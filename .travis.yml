@@ -44,6 +44,7 @@ before_install:
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
 # command to install dependencies
 install:
+ - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
  - pip install nose-cov
  - pip install coveralls-merge
  - gem install coveralls-lcov
