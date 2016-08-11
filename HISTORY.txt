@@ -10,6 +10,9 @@ v1.2 (2016-XX-XX)
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
   configuration parameter.
 
+- Support for flipping the velocities of an orbit in-place (useful for
+  backwards integration).
+
 - Added TwoPowerTriaxialPotential, a set of triaxial potentials with
   iso-density contours that are arbitrary, similar, coaxial ellipsoids
   whose 'radial' density is a (different) power-law at small and large

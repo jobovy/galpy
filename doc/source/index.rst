@@ -160,6 +160,8 @@ The following is a list of publications using ``galpy``; please let me (bovy -at
      Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
 #. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
      Uses and extends ``galpy.df.streamdf`` and ``galpy.df.streamgapdf`` to quickly compute the effect of impacts from dark-matter subhalos on stellar streams and investigates the structure of perturbed streams and how this structure relates to the CDM subhalo mass spectrum.
+#. *Local Stellar Kinematics from RAVE data - VII. Metallicity Gradients from Red Clump Stars*, O. Onal Tas, S. Bilir, G. M. Seabroke, S. Karaali, S. Ak, T. Ak, & Z. F. Bostanci, *Pub. Astron. Soc. Aus.*, in press (`arXiv/1607.07049 <http://arxiv.org/abs/1607.07049>`_):
+     Employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of red clump stars in RAVE to investigate the metallicity gradient in the Milky Way.
 
 Indices and tables
 ==================

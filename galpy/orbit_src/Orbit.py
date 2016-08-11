@@ -505,7 +505,7 @@ class Orbit(object):
             self._orb.orbit[:,ii]= self._orb.orbit[sortindx,ii]
         return None
 
-    def flip(self):
+    def flip(self,inplace=False):
         """
         NAME:
 
@@ -517,17 +517,32 @@ class Orbit(object):
 
         INPUT:
 
-           (none)
+           inplace= (False) if True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists)
 
         OUTPUT:
 
-           Orbit instance that has the velocities of the current orbit flipped
+           Orbit instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
 
         HISTORY:
 
            2014-06-17 - Written - Bovy (IAS)
 
+           2016-07-21 - Added inplace keyword - Bovy (UofT)
+
         """
+        if inplace:
+            self._orb.vxvv[1]= -self._orb.vxvv[1]
+            if len(self._orb.vxvv) > 2:
+                self._orb.vxvv[2]= -self._orb.vxvv[2]
+            if len(self._orb.vxvv) > 4:
+                self._orb.vxvv[4]= -self._orb.vxvv[4]
+            if hasattr(self._orb,'orbit'):
+                self._orb.orbit[:,1]= -self._orb.orbit[:,1]
+                if len(self._orb.vxvv) > 2:
+                    self._orb.orbit[:,2]= -self._orb.orbit[:,2]
+                if len(self._orb.vxvv) > 4:
+                    self._orb.orbit[:,4]= -self._orb.orbit[:,4]
+            return None
         orbSetupKwargs= {'ro':None,
                          'vo':None,
                          'zo':self._orb._zo,
