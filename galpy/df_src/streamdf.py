@@ -50,7 +50,7 @@ class streamdf(df):
                  Vnorm=None,Rnorm=None,
                  R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
-                 useInterp=_USEINTERP,nosetup=False,
+                 useInterp=_USEINTERP,nosetup=False,nospreadsetup=False,
                  approxConstTrackFreq=False,useTMHessian=False,
                  custom_transform=None):
         """
@@ -106,6 +106,8 @@ class streamdf(df):
 
            nosetup= (False) if True, don't setup the stream track and anything
                             else that is expensive
+
+           nospreadsetup= (False) if True, don't setup the spread around the stream track (only for nosetup is False)
 
            multi= (None) if set, use multi-processing
 
@@ -205,7 +207,7 @@ class streamdf(df):
                 self._interpolate_stream_track()
                 self._interpolate_stream_track_aA()
             self.calc_stream_lb()
-            self._determine_stream_spread()
+            if not nospreadsetup: self._determine_stream_spread()
         return None
 
     def _progenitor_setup(self,progenitor,leading,useTMHessian):
