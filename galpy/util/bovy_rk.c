@@ -382,6 +382,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double err= 2.;
   double max_val;
   double to= *t;
+  double init_dt= dt;
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -428,7 +429,15 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    dt/= fmax(ceil(pow(err,1./7.)),1.);
+    if ( ceil(pow(err,1./7.)) > 1. 
+	 || init_dt / dt * ceil(pow(err,1./7.)) > _MAX_STEPREDUCE)
+      dt/= ceil(pow(err,1./7.));
+    else 
+      break;
+  }
+  // Check that dt is not NaN after this; if it is, just use a small step
+  if ( dt != dt ){
+    dt= (*(t+1)-*(t))/10.;
   }
   // Check that dt is not NaN after this; if it is, just use a small step
   if ( dt != dt ){
