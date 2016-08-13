@@ -564,7 +564,8 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
   while ( ( dt >= 0. && *to < (init_to+dt)) 
 	  || ( dt < 0. && *to > (init_to+dt)) ) {
     accept= 0;
-    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE) {
+    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE 
+	 || *dt_one != *dt_one) { // check for NaN
       *dt_one= init_dt_one/_MAX_STEPREDUCE;
       accept= 1;
       if ( *err % 2 ==  0) *err+= 1;
