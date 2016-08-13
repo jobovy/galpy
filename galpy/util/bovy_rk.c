@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
 #define _MAX_STEPREDUCE 10000.
+#define _MAX_DT_REDUCE 10000.
 /*
 Runge-Kutta 4 integrator
 Usage:
@@ -350,7 +351,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
     }
     err= sqrt(err/dim);
     if ( ceil(pow(err,1./5.)) > 1. 
-	 || init_dt / dt * ceil(pow(err,1./5.)) > _MAX_STEPREDUCE)
+	 && init_dt / dt * ceil(pow(err,1./5.)) < _MAX_DT_REDUCE)
       dt/= ceil(pow(err,1./5.));
     else 
       break;
@@ -430,14 +431,10 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
     }
     err= sqrt(err/dim);
     if ( ceil(pow(err,1./7.)) > 1. 
-	 || init_dt / dt * ceil(pow(err,1./7.)) > _MAX_STEPREDUCE)
+	 && init_dt / dt * ceil(pow(err,1./7.)) < _MAX_DT_REDUCE)
       dt/= ceil(pow(err,1./7.));
     else 
       break;
-  }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
   }
   // Check that dt is not NaN after this; if it is, just use a small step
   if ( dt != dt ){
