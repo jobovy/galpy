@@ -57,6 +57,8 @@ class actionAngleIsochroneApprox(actionAngle):
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
+           dt= (None) orbit.integrate dt keyword (for fixed stepsize integration)
+
            maxn= (default: 3) Default value for all methods when using a grid in vec(n) up to this n (zero-based)
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
@@ -102,6 +104,7 @@ class actionAngleIsochroneApprox(actionAngle):
             self._tintJ= self._tintJ.to(units.Gyr).value\
                 /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
+        self._integrate_dt= kwargs.get('dt',None)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
         self._maxn= kwargs.get('maxn',3)
@@ -613,7 +616,8 @@ class actionAngleIsochroneApprox(actionAngle):
                         o._orb.vxvv[2]= -o._orb.vxvv[2]
                         o._orb.vxvv[4]= -o._orb.vxvv[4]
                 [o.integrate(self._tsJ,pot=self._pot,
-                             method=self._integrate_method) for o in os]
+                             method=self._integrate_method,
+                             dt=self._integrate_dt) for o in os]
                 if _firstFlip:
                     for o in os:
                         o._orb.vxvv[1]= -o._orb.vxvv[1]
@@ -672,7 +676,8 @@ class actionAngleIsochroneApprox(actionAngle):
                 os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
             #integrate orbits
             [o.integrate(self._tsJ,pot=self._pot,
-                         method=self._integrate_method) for o in os]
+                         method=self._integrate_method,
+                         dt=self._integrate_dt) for o in os]
             #extract phase-space points along the orbit
             ts= self._tsJ
             if _firstFlip:
