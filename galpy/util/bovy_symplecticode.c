@@ -34,6 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 #include "signal.h"
 #include <bovy_symplecticode.h>
+#define _MAX_DT_REDUCE 10000.
 volatile sig_atomic_t interrupted= 0;
 void handle_sigint(int signum)
 {
@@ -507,6 +508,7 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -535,7 +537,7 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1.  && init_dt / dt < _MAX_DT_REDUCE){
     dt/= 2.;
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
@@ -558,6 +560,10 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
       err+= exp(2.*log(fabs(*(p11+ii)-*(p12+ii)))-2.* *(scale+ii+dim));
     }
     err= sqrt(err/2./dim);
+  }
+  // Check that dt is not NaN after this; if it is, just use a small step
+  if ( dt != dt ){
+    dt= (*(t+1)-*(t))/10.;
   }
   //free what we allocated
   free(q11);
@@ -591,6 +597,7 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -619,7 +626,7 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1. && init_dt / dt < _MAX_DT_REDUCE ){
     dt/= 2.;
     //do one step with step dt, and one with step dt/2.
     /*
@@ -703,6 +710,10 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
     //reset
     to-= dt;
   }
+  // Check that dt is not NaN after this; if it is, just use a small step
+  if ( dt != dt ){
+    dt= (*(t+1)-*(t))/10.;
+  }
   //free what we allocated
   free(q11);
   free(q12);
@@ -743,6 +754,7 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -771,7 +783,7 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1. && init_dt / dt < _MAX_DT_REDUCE ){
     dt/= 2.;
     //do one step with step dt, and one with step dt/2.
     /*
@@ -926,6 +938,10 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
     err= sqrt(err/2./dim);
     //reset
     to-= dt;
+  }
+  // Check that dt is not NaN after this; if it is, just use a small step
+  if ( dt != dt ){
+    dt= (*(t+1)-*(t))/10.;
   }
   //free what we allocated
   free(q11);
