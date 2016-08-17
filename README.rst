@@ -30,7 +30,7 @@ galpy
 AUTHOR
 -------
 
-Jo Bovy - bovy at ias dot edu
+Jo Bovy - bovy at astro dot utoronto dot ca
 
 See `AUTHORS.txt
 <https://github.com/jobovy/galpy/blob/master/AUTHORS.txt>`__ for a
