@@ -561,10 +561,6 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     }
     err= sqrt(err/2./dim);
   }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
-  }
   //free what we allocated
   free(q11);
   free(q12);
@@ -709,10 +705,6 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
     err= sqrt(err/2./dim);
     //reset
     to-= dt;
-  }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
   }
   //free what we allocated
   free(q11);
@@ -938,10 +930,6 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
     err= sqrt(err/2./dim);
     //reset
     to-= dt;
-  }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
   }
   //free what we allocated
   free(q11);
