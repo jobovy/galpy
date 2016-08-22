@@ -1,3 +1,5 @@
+.. _hernquist_potential:
+
 Hernquist potential
 ========================
 
