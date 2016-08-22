@@ -15,11 +15,12 @@ import hashlib
 
 
 class SCFPotential(Potential):
-    """Class that implements the Hernquist & Ostriker Self-Consistent-Field-type potential
+    """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu.myaccess.library.utoronto.ca/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential. 
+    Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
     .. math::
 
-        \\rho(r, \\theta, \\phi) = \\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
+        \\rho(r, \\theta, \\phi) = \\frac{amp}{2}\\sum_{n=0}^{\\infty} \\sum_{l=0}^{\\infty} \\sum_{m=0}^l N_{lm} P_{lm}(\\cos(\\theta))  \\tilde{\\rho}_{nl}(r) \\left(A_{cos, nlm} \\cos(m\\phi) + A_{sin, nlm} \\sin(m\\phi)\\right)
         
     where
     
