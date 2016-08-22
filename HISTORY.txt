@@ -60,6 +60,9 @@ v1.2 (2016-XX-XX)
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk
 
+- Added SCFPotential, the self consistant field approach to 
+  creating potentials
+
 v1.1 (2015-06-30)
 ==================
 
