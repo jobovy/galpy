@@ -2,7 +2,7 @@
 
 galpy.potential.scf_compute_coeffs_axi
 ========================================
-Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu.myaccess.library.utoronto.ca/abs/1992ApJ...386..375H>`_, except that we multiply Acos by 2 such that the density from :ref:`Galpy's Hernquist Potential <hernquist_potential>` corresponds to :math:`Acos = \delta_{0n}\delta_{0l}\delta_{0m}`.
+Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_, except that we multiply Acos by 2 such that the density from :ref:`Galpy's Hernquist Potential <hernquist_potential>` corresponds to :math:`Acos = \delta_{0n}\delta_{0l}\delta_{0m}`.
 
 Further note that this function is a specification of :ref:`scf_compute_coeffs <scf_compute_coeffs>` where :math:`Acos_{nlm} = 0` \
 at :math:`m\neq0` and :math:`Asin_{nlm} = None`

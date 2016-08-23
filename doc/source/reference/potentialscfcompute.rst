@@ -2,7 +2,7 @@
 
 galpy.potential.scf_compute_coeffs
 ======================================
-Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu.myaccess.library.utoronto.ca/abs/1992ApJ...386..375H>`_, except that we multiply Acos and Asin by 2 such that the density from :ref:`Galpy's Hernquist Potential <hernquist_potential>` corresponds to :math:`Acos = \delta_{0n}\delta_{0l}\delta_{0m}` and :math:`Asin = 0`.
+Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_, except that we multiply Acos and Asin by 2 such that the density from :ref:`Galpy's Hernquist Potential <hernquist_potential>` corresponds to :math:`Acos = \delta_{0n}\delta_{0l}\delta_{0m}` and :math:`Asin = 0`.
 
 For a given :math:`\rho(R, z, \phi)` we can compute :math:`Acos` and :math:`Asin` through the following equation
 

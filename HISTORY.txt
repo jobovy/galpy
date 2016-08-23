@@ -60,8 +60,11 @@ v1.2 (2016-XX-XX)
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk
 
-- Added SCFPotential, the self consistant field approach to 
-  creating potentials
+- Added SCFPotential, a class that implements general
+  density/potential pairs through the basis expansion approach to
+  solving the Poisson equation of Hernquist & Ostriker (1992).  Also
+  implemented functions to compute the coefficients for a given
+  density function.
 
 v1.1 (2015-06-30)
 ==================

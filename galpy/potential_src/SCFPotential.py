@@ -15,7 +15,7 @@ import hashlib
 
 
 class SCFPotential(Potential):
-    """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu.myaccess.library.utoronto.ca/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential. 
+    """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential. 
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
     .. math::
