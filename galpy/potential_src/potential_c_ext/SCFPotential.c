@@ -352,9 +352,9 @@ inline void computeNonAxi(double a, int N, int L, int M,
 
 
 //Compute the Forces
-inline void computeForce(double R,double Z, double phi,
-                         double t,
-                         struct potentialArg * potentialArgs, double * F)
+void computeForce(double R,double Z, double phi,
+		  double t,
+		  struct potentialArg * potentialArgs, double * F)
 {
     double * args= potentialArgs->args;
     //Get args
@@ -452,9 +452,9 @@ inline void computeForce(double R,double Z, double phi,
 }
 
 //Compute the Derivatives
-inline void computeDeriv(double R,double Z, double phi,
-                         double t,
-                         struct potentialArg * potentialArgs, double * F)
+void computeDeriv(double R,double Z, double phi,
+		  double t,
+		  struct potentialArg * potentialArgs, double * F)
 {
     double * args= potentialArgs->args;
     //Get args
