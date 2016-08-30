@@ -20,6 +20,12 @@ v1.2 (2016-XX-XX)
   fast C implementations that allow efficient orbit integration in
   these potentials (<~5 ms / orbit).
 
+- Added SCFPotential, a class that implements general
+  density/potential pairs through the basis expansion approach to
+  solving the Poisson equation of Hernquist & Ostriker (1992).  Also
+  implemented functions to compute the coefficients for a given
+  density function.
+
 - Implemented galpy.actionAngle.actionAngleIsochroneApprox (Bovy 2014)
   for the general case of a time-independent potential, allowing
   action-angle coordinates to be computed for triaxial
@@ -59,12 +65,6 @@ v1.2 (2016-XX-XX)
 
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk
-
-- Added SCFPotential, a class that implements general
-  density/potential pairs through the basis expansion approach to
-  solving the Poisson equation of Hernquist & Ostriker (1992).  Also
-  implemented functions to compute the coefficients for a given
-  density function.
 
 v1.1 (2015-06-30)
 ==================
