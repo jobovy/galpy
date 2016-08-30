@@ -1416,7 +1416,7 @@ def test_bovy14_useTM_useTMHessian():
         sdftm._interpolatedObsTrackLB[sindx,1],k=3)
     # Only compare part closest to the progenitor, where this works
     cindx= sdf_bovy14._interpolatedObsTrackLB[:,0] < 215.
-    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1]) < 0.15), 'stream track computed with useTM and useTMHessian not close to that without in b by %g' % (numpy.amax(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1])))
+    assert numpy.all(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1]) < 0.75), 'stream track computed with useTM and useTMHessian not close to that without in b by %g' % (numpy.amax(numpy.fabs(interpb(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,1])))
     interpD= interpolate.InterpolatedUnivariateSpline(\
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,2],k=3)
@@ -1424,7 +1424,7 @@ def test_bovy14_useTM_useTMHessian():
     interpV= interpolate.InterpolatedUnivariateSpline(\
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,3],k=3)
-    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 3.), 'stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity'
+    assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 4.), 'stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity'
     return None  
 
 def test_bovy14_useTM_approxConstTrackFreq():
