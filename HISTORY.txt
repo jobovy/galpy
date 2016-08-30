@@ -63,6 +63,9 @@ v1.2 (2016-XX-XX)
 
 - Added the spherical radius as an Orbit method.
 
+- Added the spherical-radial force as a Potential method (rforce) and
+  function (evaluaterforces).
+
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk
 
