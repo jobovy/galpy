@@ -32,6 +32,9 @@ v1.2 (2016-XX-XX)
   potentials. Previously, this module only supported axisymmetric
   potentials.
 
+- Support for flipping the velocities of an orbit in-place (useful for
+  backwards integration).
+
 - quasiisothermaldf input ro replaced by refr to avoid clash with ro
   that specifies units (see above).
 
