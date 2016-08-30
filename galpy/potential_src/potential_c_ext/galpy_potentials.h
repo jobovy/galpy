@@ -348,7 +348,6 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
-				    struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif
