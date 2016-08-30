@@ -710,6 +710,7 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
             self._tintJ= tintJ
             self._ntintJ=ntintJ
             self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
+            self._integrate_dt= None
             self._pot= pot
             self._integrate_method= integrate_method
             return None
