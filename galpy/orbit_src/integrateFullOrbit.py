@@ -144,6 +144,15 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                                            *(1.+(p._c2-1.)*p._glx[ii]**2.))
                              for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.])
+        elif isinstance(p,potential.SCFPotential):
+            isNonAxi = p.isNonAxi
+            pot_type.append(24)
+            pot_args.extend([p._a, isNonAxi])
+            pot_args.extend(p._Acos.shape)
+            pot_args.extend(p._amp*p._Acos.flatten(order='C'))
+            if isNonAxi:
+                pot_args.extend(p._amp*p._Asin.flatten(order='C'))   
+            pot_args.extend([-1., 0, 0, 0, 0, 0, 0])    
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

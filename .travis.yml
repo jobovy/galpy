@@ -35,7 +35,7 @@ before_install:
  - hash -r
  - conda config --set always_yes yes --set changeps1 no
  - conda update -q conda
- - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip cython>=0.20 nose==1.3.4
+ - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy=0.17.0 matplotlib setuptools pip cython>=0.20 nose==1.3.4
  - source activate test-environment
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
@@ -44,6 +44,7 @@ before_install:
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
 # command to install dependencies
 install:
+ - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
  - pip install nose-cov
  - pip install coveralls-merge
  - gem install coveralls-lcov

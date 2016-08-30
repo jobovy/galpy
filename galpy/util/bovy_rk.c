@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
 #define _MAX_STEPREDUCE 10000.
+#define _MAX_DT_REDUCE 10000.
 /*
 Runge-Kutta 4 integrator
 Usage:
@@ -310,6 +311,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double err= 2.;
   double max_val;
   double to= *t;
+  double init_dt= dt;
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -348,7 +350,11 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    dt/= fmax(ceil(pow(err,1./5.)),1.);
+    if ( ceil(pow(err,1./5.)) > 1. 
+	 && init_dt / dt * ceil(pow(err,1./5.)) < _MAX_DT_REDUCE)
+      dt/= ceil(pow(err,1./5.));
+    else 
+      break;
   }
   //free what we allocated
   free(yn);
@@ -373,6 +379,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double err= 2.;
   double max_val;
   double to= *t;
+  double init_dt= dt;
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -419,7 +426,11 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    dt/= fmax(ceil(pow(err,1./7.)),1.);
+    if ( ceil(pow(err,1./7.)) > 1. 
+	 && init_dt / dt * ceil(pow(err,1./7.)) < _MAX_DT_REDUCE)
+      dt/= ceil(pow(err,1./7.));
+    else 
+      break;
   }
   //free what we allocated
   free(yn);
@@ -551,7 +562,8 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
   while ( ( dt >= 0. && *to < (init_to+dt)) 
 	  || ( dt < 0. && *to > (init_to+dt)) ) {
     accept= 0;
-    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE) {
+    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE 
+	 || *dt_one != *dt_one) { // check for NaN
       *dt_one= init_dt_one/_MAX_STEPREDUCE;
       accept= 1;
       if ( *err % 2 ==  0) *err+= 1;

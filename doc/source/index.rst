@@ -87,7 +87,7 @@ Papers using galpy
 
 * *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`2015ApJS..216...29B <http://adsabs.harvard.edu/abs/2015ApJS..216...29B>`_).
 
-The following is a list of publications using ``galpy``; please let me (bovy -at- ias.edu) know if you make use of ``galpy`` in a publication.
+The following is a list of publications using ``galpy``; please let me (bovy at astro dot utoronto dot ca) know if you make use of ``galpy`` in a publication.
 
 #. *Tracing the Hercules stream around the Galaxy*, Jo Bovy (2010), *Astrophys. J.* **725**, 1676 (`2010ApJ...725.1676B <http://adsabs.harvard.edu/abs/2010ApJ...725.1676B>`_): 
   	   Uses what later became the orbit integration routines and Dehnen and Shu disk distribution functions.

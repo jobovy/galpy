@@ -182,7 +182,17 @@ def _parse_pot(pot):
                                             *p._Pot._glx[ii]**2.))
                              for ii in range(p._Pot._glorder)])
             pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([0.,0.,0.,0.,0.,0.])
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) 
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+                 and isinstance(p._Pot,potential.SCFPotential):
+            isNonAxi = p._Pot.isNonAxi
+            pot_type.append(24)
+            pot_args.extend([p._Pot._a, isNonAxi])
+            pot_args.extend(p._Pot._Acos.shape)
+            pot_args.extend(p._Pot._amp*p._Pot._Acos.flatten(order='C'))
+            if isNonAxi:
+                pot_args.extend(p._Pot._amp*p._Pot._Asin.flatten(order='C'))  
+            pot_args.extend([-1., 0, 0, 0, 0, 0, 0])   
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
