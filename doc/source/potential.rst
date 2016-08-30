@@ -294,6 +294,99 @@ parameter of the potential that you are trying to initialize and
 please report an `Issue <https://github.com/jobovy/galpy/issues>`__ if
 you find any problems with this.
 
+**NEW in v1.2**: General density/potential pairs with basis-function expansions
+--------------------------------------------------------------------------------
+
+``galpy`` allows for the potential and forces of general,
+time-independent density functions to be computed by expanding the
+potential and density in terms of basis functions. Currently, only the
+basis-function expansion of the self-consistent-field (SCF) method of
+`Hernquist & Ostriker (1992)
+<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ is supported,
+which works well for ellipsoidal-ish density distributions, but not so
+well for disk-like density functions.
+
+The basis-function approach in the SCF method is implemented in the
+:ref:`SCFPotential <scf_potential>` class, which is also implemented
+in C for fast orbit integration. The coefficients of the
+basis-function expansion can be computed using the
+:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_spherical>`
+(for spherically-symmetric density distribution),
+:ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
+axisymmetric densities), and :ref:`scf_compute_coeffs
+<scf_compute_coeffs>` (for the general case). The coefficients
+obtained from these functions can be directly fed into the
+:ref:`SCFPotential <scf_potential>` initialization. The basis-function
+expansion has a free scale parameter ``a``, which can be specified for
+the ``scf_compute_Xcoeffs_XX`` functions and for the ``SCFPotential```
+itself. Make sure that you use the same ``a``! Note that the general
+functions are quite slow.
+
+The simplest example is that of the Hernquist potential, which is the
+lowest-order basis function. When we compute the first ten radial
+coefficients for this density we obtain that only the lowest-order
+coefficient is non-zero
+
+>>> from galpy.potential import HernquistPotential
+>>> from galpy.potential import scf_compute_coeffs_spherical
+>>> hp= HernquistPotential(amp=1.,a=2.)
+>>> Acos, Asin= scf_compute_coeffs_spherical(hp.dens,10,a=2.)
+>>> print(Acos)
+array([[[  1.00000000e+00]],
+        [[ -2.83370393e-17]],
+        [[  3.31150709e-19]],
+        [[ -6.66748299e-18]],
+        [[  8.19285777e-18]],
+        [[ -4.26730651e-19]],
+        [[ -7.16849567e-19]],
+        [[  1.52355608e-18]],
+        [[ -2.24030288e-18]],
+        [[ -5.24936820e-19]]])
+
+
+As a more complicated example, consider a prolate NFW potential
+
+>>> from galpy.potential import TriaxialNFWPotential
+>>> np= TriaxialNFWPotential(normalize=1.,c=1.4,a=1.)
+
+and we compute the coefficients using the axisymmetric
+``scf_compute_coeffs_axi``
+
+>>> a_SCF= 50. # much larger a than true scale radius works well for NFW
+>>> Acos, Asin= scf_compute_coeffs_axi(np.dens,80,40,a=a_SCF)
+>>> sp= SCFPotential(Acos=Acos,Asin=Asin,a=a_SCF)
+
+If we compare the densities along the ``R=Z`` line as
+
+>>> xs= numpy.linspace(0.,3.,1001)
+>>> loglog(xs,np.dens(xs,xs))
+>>> loglog(xs,sp.dens(xs,xs))
+
+we get
+
+.. image:: images/scf-flnfw-dens.png
+
+If we then integrate an orbit, we also get good agreement
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.1,1.1,0.1,0.3,0.])
+>>> ts= numpy.linspace(0.,100.,10001)
+>>> o.integrate(ts,hp)
+>>> o.plotE()
+>>> o.integrate(ts,sp)
+>>> o.plotE(overplot=True)
+
+which gives
+
+.. image:: images/scf-flnfw-orbit.png
+
+Near the end of the orbit integration, the slight differences between
+the original potential and the basis-expansion version cause the two
+orbits to deviate from each other.
+
+The :ref:`SCFPotential <scf_potential>` can be used wherever general
+potentials can be used in galpy.
+
 **NEW in v1.1**: The potential of N-body simulations
 -----------------------------------------------------
 
