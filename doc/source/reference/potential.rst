@@ -90,6 +90,15 @@ Use as ``method(...)``
    vesc <potentialvescs.rst>
    vterm <potentialvterms.rst>
 
+In addition to these, the following methods are available to compute expansion coefficients for the ``SCFPotential`` class for a given density
+
+.. toctree::
+   :maxdepth: 2
+
+   scf_compute_coeffs <potentialscfcompute.rst>
+   scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>
+   scf_compute_coeffs_spherical <potentialscfcomputesphere.rst>
+
 Specific potentials
 ++++++++++++++++++++
 
@@ -137,6 +146,7 @@ Triaxial potentials
 
    potentialdoublepowertriaxial.rst
    potentialmovingobj.rst
+   potentialscf.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst

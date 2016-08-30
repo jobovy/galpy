@@ -327,7 +327,27 @@ double TriaxialJaffePotentialphiforce(double,double,double,double,
 double TriaxialJaffePotentialPlanarphiforce(double,double,double,
 					    struct potentialArg *);
 double TriaxialJaffePotentialzforce(double,double,double,double,
-				    struct potentialArg *);
+				    struct potentialArg *);					      
+//SCFDiskPotential
+double SCFPotentialEval(double,double,double,double,
+				     struct potentialArg *);
+double SCFPotentialRforce(double,double,double,double,
+                        struct potentialArg *);
+double SCFPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double SCFPotentialphiforce(double,double,double,double,
+				        struct potentialArg *);
+				        
+double SCFPotentialPlanarRforce(double,double,double,
+                        struct potentialArg *);
+double SCFPotentialPlanarphiforce(double,double,double,
+				        struct potentialArg *);
+double SCFPotentialPlanarR2deriv(double,double,double,
+				        struct potentialArg *);
+double SCFPotentialPlanarphi2deriv(double,double,double,
+				        struct potentialArg *);
+double SCFPotentialPlanarRphideriv(double,double,double,
+				        struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

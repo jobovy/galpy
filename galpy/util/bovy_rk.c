@@ -356,10 +356,6 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
     else 
       break;
   }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
-  }
   //free what we allocated
   free(yn);
   free(y1);
@@ -435,10 +431,6 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       dt/= ceil(pow(err,1./7.));
     else 
       break;
-  }
-  // Check that dt is not NaN after this; if it is, just use a small step
-  if ( dt != dt ){
-    dt= (*(t+1)-*(t))/10.;
   }
   //free what we allocated
   free(yn);

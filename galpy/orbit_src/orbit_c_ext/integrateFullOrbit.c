@@ -207,6 +207,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &TriaxialJaffePotentialzforce;
       potentialArgs->phiforce= &TriaxialJaffePotentialphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;      
+    case 24: //SCFPotential, many arguments
+      potentialArgs->Rforce= &SCFPotentialRforce;
+      potentialArgs->zforce= &SCFPotentialzforce;
+      potentialArgs->phiforce= &SCFPotentialphiforce;
+      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));

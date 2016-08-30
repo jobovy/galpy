@@ -199,6 +199,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRforce= &TriaxialJaffePotentialPlanarRforce;
       potentialArgs->planarphiforce= &TriaxialJaffePotentialPlanarphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;    
+    case 24: //SCFPotential, many arguments
+      potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SCFPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &SCFPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SCFPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SCFPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));

@@ -310,7 +310,7 @@ def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
 
     OUTPUT:
 
-       (l,b,d,vr,pmll,pmbb) in (rad,rad,kpc,km/s,mas/yr,mas/yr)
+       (l,b,d,vr,pmll x cos(b),pmbb) in (rad,rad,kpc,km/s,mas/yr,mas/yr)
 
     HISTORY:
 
@@ -470,7 +470,7 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
     OUTPUT:
 
-       (vr,pmll,pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
+       (vr,pmll x cos(b),pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
 
        For vector inputs [:,3]
 
@@ -584,7 +584,7 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
 
     OUTPUT:
 
-       (pmll,pmbb) for vector inputs [:,2]
+       (pmll x cos(b),pmbb) for vector inputs [:,2]
 
     HISTORY:
 
@@ -641,7 +641,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
     OUTPUT:
 
-       (pmra,pmdec), for vector inputs [:,2]
+       (pmra x cos(dec),pmdec), for vector inputs [:,2]
 
     HISTORY:
 
@@ -697,7 +697,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
 
     OUTPUT:
 
-       covar_pmllbb [2,2] or [:,2,2]
+       covar_pmllbb [2,2] or [:,2,2] [pmll here is pmll x cos(b)]
 
     HISTORY:
 
@@ -785,7 +785,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
 
        pmbb - proper motion in b [ [as/mas]/yr ]
 
-       cov_pmllbb - uncertainty covariance for proper motion
+       cov_pmllbb - uncertainty covariance for proper motion [pmll is pmll x cos(b)]
 
        l - Galactic longitude
 
@@ -992,6 +992,61 @@ def cyl_to_rect(R,phi,Z):
 
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
+    
+def cyl_to_spher(R,Z, phi):
+    """
+    NAME:
+
+       cyl_to_spher
+
+    PURPOSE:
+
+       convert from cylindrical to spherical coordinates
+
+    INPUT:
+
+       R, Z, phi- cylindrical coordinates
+
+    OUTPUT:
+
+       R, theta, phi - spherical coordinates
+
+    HISTORY:
+
+       2016-05-16 - Written - Aladdin
+
+    """
+    theta = nu.arctan2(R, Z)
+    r = (R**2 + Z**2)**.5
+    return (r,theta, phi)
+    
+def spher_to_cyl(r, theta, phi):
+    """
+    NAME:
+
+       spher_to_cyl
+
+    PURPOSE:
+
+       convert from spherical to cylindrical coordinates
+
+    INPUT:
+
+       r, theta, phi - spherical coordinates
+
+    OUTPUT:
+
+       R, z, phi - spherical coordinates
+
+    HISTORY:
+
+       2016-05-20 - Written - Aladdin
+
+    """
+    R = r*nu.sin(theta)
+    z = r*nu.cos(theta)
+    return (R,z, phi)
+
 
 @scalarDecorator
 def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
@@ -1429,7 +1484,7 @@ def lbd_to_XYZ_jac(*args,**kwargs):
 
        vlos,pmll,pmbb- Galactic spherical velocities (some as proper motions)
 
-       if 6 inputs: l,b,D,vlos,pmll,pmbb
+       if 6 inputs: l,b,D,vlos,pmll x cos(b),pmbb
 
        if 3: l,b,D
 

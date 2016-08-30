@@ -10,9 +10,6 @@ v1.2 (2016-XX-XX)
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
   configuration parameter.
 
-- Support for flipping the velocities of an orbit in-place (useful for
-  backwards integration).
-
 - Added TwoPowerTriaxialPotential, a set of triaxial potentials with
   iso-density contours that are arbitrary, similar, coaxial ellipsoids
   whose 'radial' density is a (different) power-law at small and large
@@ -23,11 +20,20 @@ v1.2 (2016-XX-XX)
   fast C implementations that allow efficient orbit integration in
   these potentials (<~5 ms / orbit).
 
+- Added SCFPotential, a class that implements general
+  density/potential pairs through the basis expansion approach to
+  solving the Poisson equation of Hernquist & Ostriker (1992).  Also
+  implemented functions to compute the coefficients for a given
+  density function.
+
 - Implemented galpy.actionAngle.actionAngleIsochroneApprox (Bovy 2014)
   for the general case of a time-independent potential, allowing
   action-angle coordinates to be computed for triaxial
   potentials. Previously, this module only supported axisymmetric
   potentials.
+
+- Support for flipping the velocities of an orbit in-place (useful for
+  backwards integration).
 
 - quasiisothermaldf input ro replaced by refr to avoid clash with ro
   that specifies units (see above).
@@ -59,6 +65,9 @@ v1.2 (2016-XX-XX)
   potential.
 
 - Added the spherical radius as an Orbit method.
+
+- Added the spherical-radial force as a Potential method (rforce) and
+  function (evaluaterforces).
 
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk

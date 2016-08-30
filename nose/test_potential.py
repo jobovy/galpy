@@ -6,6 +6,7 @@ from nose.tools import raises, assert_raises
 import numpy
 import pynbody
 from galpy import potential
+from galpy.util import bovy_coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
@@ -117,6 +118,11 @@ def test_forceAsDeriv_potential():
     pots.append('HernquistTwoPowerTriaxialPotential')
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -571,6 +577,11 @@ def test_evaluateAndDerivs_potential():
     pots.append('triaxialHernquistPotential')
     pots.append('triaxialNFWPotential')
     pots.append('triaxialJaffePotential')
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFDensityPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2116,6 +2127,55 @@ class mockTransientLogSpiralPotential(TransientLogSpiralPotential):
         TransientLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
                                              m=2,gamma=numpy.pi/4.,
                                              p=-0.3)
+
+##Potentials used for mock SCF
+def rho_Zeeuw(R, z=0., phi=0., a=1.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
+   
+    
+def axi_density1(R, z=0, phi=0.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    h = potential.HernquistPotential()
+    return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
+    
+def axi_density2(R, z=0, phi=0.):
+    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    return rho_Zeeuw(R,z,phi)*(1 +numpy.cos(theta) + numpy.cos(theta)**2)
+    
+def scf_density(R, z=0, phi=0.):
+    eps = .1
+    return axi_density2(R,z,phi)*(1 + eps*(numpy.cos(phi) + numpy.sin(phi)))
+
+##Mock SCF class                                                         
+class mockSCFZeeuwPotential(potential.SCFPotential):
+    def __init__(self):
+        Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw,2)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+
+class mockSCFNFWPotential(potential.SCFPotential):
+    def __init__(self):
+        nfw = potential.NFWPotential()
+        Acos, Asin = potential.scf_compute_coeffs_spherical(nfw.dens,10)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+class mockSCFAxiDensity1Potential(potential.SCFPotential):
+    def __init__(self):
+        Acos, Asin = potential.scf_compute_coeffs_axi(axi_density1,10,2)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+              
+              
+class mockSCFAxiDensity2Potential(potential.SCFPotential):
+    def __init__(self):
+        Acos, Asin = potential.scf_compute_coeffs_axi(axi_density2,10,2)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
+class mockSCFDensityPotential(potential.SCFPotential):
+    def __init__(self):
+        Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
+        potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
+        
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
