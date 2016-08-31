@@ -1354,6 +1354,30 @@ def test_setup_progIsTrack():
     assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs._orb.orbit[oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
     return None  
 
+@raises(IOError)
+def test_bovy14_useTM_poterror():
+    # Test that setting up the stream model with useTM, but a different 
+    # actionAngleTorus potential raises a IOError
+    #Imports
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleIsochroneApprox, \
+        actionAngleTorus
+    from galpy.util import bovy_conversion #for unit conversions
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
+    elp= LogarithmicHaloPotential(normalize=1.,q=0.8)
+    aAT= actionAngleTorus(pot=elp,tol=0.001)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
+                    leading=True,
+                    nTrackChunks=11,
+                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    return None
+
 def test_bovy14_useTM():
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
