@@ -52,10 +52,10 @@ install:
  - easy_install --upgrade coveralls
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
- - if [[ $NOSE_IGNORE_FILES == '^((?!test_evolveddiskdf).)*$' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
- - if [[ $NOSE_IGNORE_FILES == '^((?!test_evolveddiskdf).)*$' ]]; then cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
- - if [[ $NOSE_IGNORE_FILES == '^((?!test_evolveddiskdf).)*$' ]]; then git checkout galpy; fi
- - if [[ $NOSE_IGNORE_FILES == '^((?!test_evolveddiskdf).)*$' ]]; then cd -; fi
+ - if [[ $NOSE_IGNORE_FILES -ne '^((?!test_evolveddiskdf).)*$' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
+ - if [[ $NOSE_IGNORE_FILES -ne '^((?!test_evolveddiskdf).)*$' ]]; then cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
+ - if [[ $NOSE_IGNORE_FILES -ne '^((?!test_evolveddiskdf).)*$' ]]; then git checkout galpy; fi
+ - if [[ $NOSE_IGNORE_FILES -ne '^((?!test_evolveddiskdf).)*$' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY; then pip install astropy; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
