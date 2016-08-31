@@ -33,6 +33,31 @@ numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
 		       > nosetests -v -w nose/
 
 
+**NEW in v1.2**: Installing the TorusMapper code
+-------------------------------------------------
+
+Since v1.2, ``galpy`` contains a basic interface to the TorusMapper
+code of `Binney & McMillan (2016)
+<http://adsabs.harvard.edu/abs/2016MNRAS.456.1982B>`__. This interface
+uses a stripped-down version of the TorusMapper code, that is not
+bundled with the galpy code, but kept in a fork of the original
+TorusMapper code. Installation of the TorusMapper interface is
+therefore only possible when installing from source after downloading
+or cloning the galpy code and using the ``python setup.py install``
+method above.
+
+To install the TorusMapper code, *before* running the installation of
+galpy, navigate to the top-level galpy directory (which contains the
+``setup.py`` file) and do::
+
+	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     git checkout galpy
+	     cd -
+
+Then proceed to install galpy using the ``python setup.py install``
+technique or its variants as usual.
+
 Installation FAQ
 -----------------
 
@@ -132,7 +157,7 @@ versions, but it still does not support ``OpenMP``.
 .. _configfile:
 
 **NEW in v1.2**: Configuration file
------------------------------
+------------------------------------
 
 Since v1.2, ``galpy`` uses a configuration file to set a small number
 of configuration variables. This configuration file is parsed using
@@ -174,3 +199,4 @@ at ``$HOME/.galpyrc``. If you want to change any of the settings (for
 example, you want Quantity output), you can edit this file. The
 default configuration file can also be found :download:`here
 <examples/galpyrc>`.
+
