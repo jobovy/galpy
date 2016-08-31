@@ -68,21 +68,37 @@ class actionAngleTorus(object):
     def __call__(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
+
            __call__
+
         PURPOSE:
+
            evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
+
         INPUT:
+
            jr - radial action (scalar)
+
            jphi - azimuthal action (scalar)
+
            jz - vertical action (scalar)
+
            angler - radial angle (array [N])
+
            anglephi - azimuthal angle (array [N])
+
            anglez - vertical angle (array [N])
+
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+
         OUTPUT:
+
            [R,vR,vT,z,vz,phi]
+
         HISTORY:
+
            2015-08-07 - Written - Bovy (UofT)
+
         """
         out= actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
             self._pot,
@@ -97,21 +113,37 @@ class actionAngleTorus(object):
     def xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
+
            xvFreqs
+
         PURPOSE:
+
            evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
+
         INPUT:
+
            jr - radial action (scalar)
+
            jphi - azimuthal action (scalar)
+
            jz - vertical action (scalar)
+
            angler - radial angle (array [N])
+
            anglephi - azimuthal angle (array [N])
+
            anglez - vertical angle (array [N])
+
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+
         OUTPUT:
+
            ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz,AutoFit error message)
+
         HISTORY:
+
            2015-08-07 - Written - Bovy (UofT)
+
         """
         out= actionAngleTorus_c.actionAngleTorus_xvFreqs_c(\
             self._pot,
@@ -126,18 +158,31 @@ class actionAngleTorus(object):
     def Freqs(self,jr,jphi,jz,**kwargs):
         """
         NAME:
+
            Freqs
+
         PURPOSE:
+
            return the frequencies corresponding to a torus
+
         INPUT:
+
            jr - radial action (scalar)
+
            jphi - azimuthal action (scalar)
+
            jz - vertical action (scalar)
+
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+
         OUTPUT:
+
            (OmegaR,Omegaphi,Omegaz)
+
         HISTORY:
+
            2015-08-07 - Written - Bovy (UofT)
+
         """
         out= actionAngleTorus_c.actionAngleTorus_Freqs_c(\
             self._pot,
@@ -151,20 +196,35 @@ class actionAngleTorus(object):
     def hessianFreqs(self,jr,jphi,jz,**kwargs):
         """
         NAME:
+
            hessianFreqs
+
         PURPOSE:
+
            return the Hessian d Omega / d J and frequencies Omega corresponding to a torus
+
         INPUT:
+
            jr - radial action (scalar)
+
            jphi - azimuthal action (scalar)
+
            jz - vertical action (scalar)
+
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+
            dJ= (object-wide value) action difference when computing derivatives (Hessian or Jacobian)
+
            nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
+
         OUTPUT:
+
            (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error message)
+
         HISTORY:
+
            2016-07-15 - Written - Bovy (UofT)
+
         """
         out= actionAngleTorus_c.actionAngleTorus_hessian_c(\
             self._pot,
@@ -185,27 +245,49 @@ class actionAngleTorus(object):
     def xvJacobianFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
+
            xvJacobianFreqs
+
         PURPOSE:
+
            return [R,vR,vT,z,vz,phi], the Jacobian d [R,vR,vT,z,vz,phi] / d (J,angle), the Hessian dO/dJ, and frequencies Omega corresponding to a torus at multiple sets of angles
+
         INPUT:
+
            jr - radial action (scalar)
+
            jphi - azimuthal action (scalar)
+
            jz - vertical action (scalar)
+
            angler - radial angle (array [N])
+
            anglephi - azimuthal angle (array [N])
+
            anglez - vertical angle (array [N])
+
            tol= (object-wide value) goal for |dJ|/|J| along the torus
+
            dJ= (object-wide value) action difference when computing derivatives (Hessian or Jacobian)
+
            nosym= (False) if True, don't explicitly symmetrize the Hessian (good to check errors)
+
         OUTPUT:
+
            ([R,vR,vT,z,vz,phi], [N,6] array
+
             d[R,vR,vT,z,vz,phi]/d[J,angle], --> (N,6,6) array
+
             dO/dJ, --> (3,3) array
+
             Omegar,Omegaphi,Omegaz, [N] arrays
+
             Autofit error message)
+
         HISTORY:
+
            2016-07-19 - Written - Bovy (UofT)
+
         """
         out= actionAngleTorus_c.actionAngleTorus_jacobian_c(\
             self._pot,
