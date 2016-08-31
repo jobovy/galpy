@@ -719,8 +719,6 @@ from 3
 Clearly, there is very little change, as most of the wiggles are of
 low *n*.
 
-.. WARNING:: While the orbit-based actionAngle technique in principle works for triaxial potentials, angles and frequencies for non-axisymmetric potentials are not implemented yet. 
-
 This technique also works for triaxial potentials, but using those
 requires the code to also use the azimuthal angle variable in the
 auxiliary potential (this is unnecessary in axisymmetric potentials as
