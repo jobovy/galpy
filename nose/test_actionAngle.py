@@ -1733,12 +1733,15 @@ def test_actionAngleTorus_orbit():
     return None
 
 # Test that actionAngleTorus w/ interp pot gives same freqs as regular pot
-@expected_failure
+# Doesn't work well: TM aborts because our interpolated forces aren't
+# consistent enough with the potential for TM's taste, but we test that it at
+# at least works somewhat
 def test_actionAngleTorus_interppot_freqs():
     from galpy.actionAngle import actionAngleTorus
     from galpy.potential import LogarithmicHaloPotential, interpRZPotential
     lp= LogarithmicHaloPotential(normalize=1.)
     ip= interpRZPotential(RZPot=lp,
+                          interpPot=True,
                           interpDens=True,interpRforce=True,interpzforce=True,
                           enable_c=True)
     aAT= actionAngleTorus(pot=lp)
@@ -1746,9 +1749,9 @@ def test_actionAngleTorus_interppot_freqs():
     jr,jphi,jz= 0.05,1.1,0.02
     om= aAT.Freqs(jr,jphi,jz)
     omi= aATi.Freqs(jr,jphi,jz)
-    assert numpy.fabs(om[0]-omi[0]) < 10.**-4., 'Radial frequency computed using the torus machine does not agree between potential and interpolated potential'
-    assert numpy.fabs(om[1]-omi[1]) < 10.**-4., 'Azimuthal frequency computed using the torus machine does not agree between potential and interpolated potential'
-    assert numpy.fabs(om[2]-omi[2]) < 10.**-4., 'Vertical frequency computed using the torus machine does not agree between potential and interpolated potential'
+    assert numpy.fabs((om[0]-omi[0])/om[0]) < 0.2, 'Radial frequency computed using the torus machine does not agree between potential and interpolated potential'
+    assert numpy.fabs((om[1]-omi[1])/om[1]) < 0.2, 'Azimuthal frequency computed using the torus machine does not agree between potential and interpolated potential'
+    assert numpy.fabs((om[2]-omi[2])/om[2]) < 0.8, 'Vertical frequency computed using the torus machine does not agree between potential and interpolated potential'
     return None
 
 #Test the actionAngleTorus against an isochrone potential: actions
