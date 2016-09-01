@@ -39,7 +39,7 @@ Specific actionAngle modules
 General instance routines
 +++++++++++++++++++++++++++
 
-.. WARNING:: While the ``actionAngleTorus`` code below can compute the Jacobian and Hessian of the (**J**, **a**) --> (**x**, **v**, **O**) transformation, the accuracy of these does not appear to be very good using the current TorusMapper code, so care should be taken when using these.
+.. WARNING:: While the ``actionAngleTorus`` code below can compute the Jacobian and Hessian of the (**J**, **a**) --> (**x**, **v**, **O**) transformation, the accuracy of these does not appear to be very good using the current interface to the TorusMapper code, so care should be taken when using these.
 
 Currently, only the interface to the TorusMapper code supports going from (**J**, **a**) --> (**x**, **v**, **O**). Instance methods are
 
