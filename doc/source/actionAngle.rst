@@ -8,6 +8,14 @@ preferred method for accessing them is through the routines in this
 module. There is also some support for accessing the actionAngle
 routines as methods of the ``Orbit`` class.
 
+Since v1.2, galpy can also compute positions and velocities
+corresponding to a given set of actions and angles for axisymmetric
+potentials using the TorusMapper code of `Binney & McMillan (2016)
+<http://adsabs.harvard.edu/abs/2016MNRAS.456.1982B>`__. This is
+described in :ref:`this section <aatorus>` below. The interface for
+this is different than for the other action-angle classes, because the
+transformations are generally different.
+
 Action-angle coordinates can be calculated for the following
 potentials/approximations:
 
@@ -729,8 +737,94 @@ calculate actions for triaxial potentials by specifying that
 >>> aAIA(*obs,nonaxi=True)
 (array([ 0.16605011]), array([-1.80322155]), array([ 0.50704439]))
 
-galpy currently does not contain any triaxial potentials, so we cannot
-illustrate this here with any real triaxial potentials.
+.. _aatorus:
+
+**NEW in v1.2** Action-angle coordinates using the TorusMapper code
+---------------------------------------------------------------------
+
+All of the methods described so far allow one to compute the actions,
+angles, and frequencies for a given phase-space location. ``galpy``
+also contains some support for computing the inverse transformation by
+using an interface to the `TorusMapper
+<https://github.com/PaulMcMillan-Astro/Torus>`__ code. Currently, this
+is limited to axisymmetric potentials, because the TorusMapper code is
+limited to such potentials.
+
+The basic use of this part of ``galpy`` is to compute an orbit
+:math:`(R,v_R,v_T,z,v_z,\phi)` for a given torus, specified by three
+actions :math:`(J_R,L_Z,J_Z)` and as many angles along a torus as you
+want. First we set up an ``actionAngleTorus`` object
+
+>>> from galpy.actionAngle import actionAngleTorus
+>>> from galpy.potential import MWPotential2014
+>>> aAT= actionAngleTorus(pot=MWPotential2014)
+
+To compute an orbit, we first need to compute the frequencies, which
+we do as follows
+
+>>> jr,lz,jz= 0.1,1.1,0.2
+>>> Om= aAT.Freqs(jr,lz,jz)
+
+This set consists of :math:`(\Omega_R,\Omega_\phi,\Omega_Z,\mathrm{TM
+err})`, where the last entry is the exit code of the TorusMapper code
+(will be printed as a warning when it is non-zero). Then we compute a
+set of angles that fall along an orbit as :math:`\mathbf{\theta}(t) =
+\mathbf{\theta}_0+\mathbf{\Omega}\,t` for a set of times :math:`t`
+
+>>> times= numpy.linspace(0.,100.,10001)
+>>> init_angle= numpy.array([1.,2.,3.])
+>>> angles= numpy.tile(init_angle,(len(times),1))+Om[:3]*numpy.tile(times,(3,1)).T
+
+Then we can compute the orbit by transforming the orbit in action-angle coordinates to configuration space as follows
+
+>>> RvR,_,_,_,_= aAT.xvFreqs(jr,lz,jz,angles[:,0],angles[:,1],angles[:,2])
+
+Note that the frequency is also always computed and returned by this
+method, because it can be obtained at zero cost. The ``RvR`` array has
+shape ``(ntimes,6)`` and the six phase-space coordinates are arranged
+in the usual ``(R,vR,vT,z,vz,phi)`` order. The orbit in :math:`(R,Z)`
+is then given by
+
+>>> plot(RvR[:,0],RvR[:,3])
+
+.. image:: images/aaT-xvFreqs.png
+   :scale: 50 %
+
+We can compare this to the direct numerical orbit integration. We
+integrate the orbit, starting at the position and velocity of the
+initial angle ``RvR[0]``
+
+>>> from galpy.orbit import Orbit
+>>> orb= Orbit(RvR[0])
+>>> orb.integrate(times,MWPotential2014)
+>>> orb.plot(overplot=True)
+
+.. image:: images/aaT-xvFreqs-cforbit.png
+   :scale: 50 %
+
+The two orbits are exactly the same.
+
+Of course, we do not have to follow the path of an orbit to map the
+entire orbital torus and thus reveal the orbital building blocks of
+galaxies. To directly map a torus, we can do (don't worry, this
+doesn't take very long)
+
+>>> nangles= 200001
+>>> angler= numpy.random.uniform(size=nangles)*2.*numpy.pi
+>>> anglep= numpy.random.uniform(size=nangles)*2.*numpy.pi
+>>> anglez= numpy.random.uniform(size=nangles)*2.*numpy.pi
+>>> RvR,_,_,_,_= aAT.xvFreqs(jr,lz,jz,angler,anglep,anglez)
+>>> plot(RvR[:,0],RvR[:,3],',',alpha=0.02)
+
+which directly shows where the orbit spends most of its time:
+
+.. image:: images/aaT-xvFreqs-torus.png
+   :scale: 50 %
+
+``actionAngleTorus`` has additional methods documented on the
+action-Angle API page for computing Hessians and Jacobians of the
+transformation between action-angle and configuration space
+coordinates.
 
 Accessing action-angle coordinates for Orbit instances
 ----------------------------------------------------------
@@ -842,7 +936,7 @@ information see `2010MNRAS.409..145S
 
 
 **NEW in v1.1**: Example: actions in an N-body simulation
----------------------------------------------------
+----------------------------------------------------------
 
 To illustrate how we can use ``galpy`` to calculate actions in a
 snapshot of an N-body simulation, we again look at the ``g15784``
