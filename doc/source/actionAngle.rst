@@ -822,7 +822,7 @@ which directly shows where the orbit spends most of its time:
    :scale: 50 %
 
 ``actionAngleTorus`` has additional methods documented on the
-action-Angle API page for computing Hessians and Jacobians of the
+action-angle API page for computing Hessians and Jacobians of the
 transformation between action-angle and configuration space
 coordinates.
 
