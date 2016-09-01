@@ -26,7 +26,14 @@ v1.2 (2016-XX-XX)
   for the general case of a time-independent potential, allowing
   action-angle coordinates to be computed for triaxial
   potentials. Previously, this module only supported axisymmetric
-  potentials.
+  potentials. Also allow the maximum number of terms in the expansion
+  to be set object-wide and allow a fixed time-step to be used in the
+  necessary orbit integration.
+
+- Added an (experimental) interface to Binney & McMillan's TorusMapper
+  code for computing positions and velocities for given actions and
+  angles. See the installation instructions for how to properly
+  install this.
 
 - Re-defined the amplitude parameters of a few potentials to allow for
   easier setups with amplitudes provided as Quantities with
@@ -45,13 +52,18 @@ v1.2 (2016-XX-XX)
   stream, the density along the stream quickly (in various
   coordinates, including custom sky coordinates), to compute the
   probability p(freq_parallel,angle_parallel), and to estimate the
-  number of encounters with DM subhalos.
+  number of encounters with DM subhalos. Also allow the stream track
+  to be computing using the new actionAngleTorus (this last addition
+  is still very experimental).
 
 - Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
   potential.
 
 - Added KuzminDiskPotential, a potential represented by a razor thin
   disk
+
+- Allow transformations to custom sets of sky coordinates in
+  galpy.util.bovy_coords.
 
 - Added the spherical radius as an Orbit method.
 
@@ -70,7 +82,8 @@ v1.2 (2016-XX-XX)
 
 - Internally use astropy.coordinates transformations to transform
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
-  configuration parameter.
+  configuration parameter. Also allow general epochs for the (ra,dec)
+  specification).
 
 v1.1 (2015-06-30)
 ==================
