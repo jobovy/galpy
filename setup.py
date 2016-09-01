@@ -149,9 +149,10 @@ if single_ext: #add the code and libraries for the other extensions
     #src
     orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
     orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
-    # Add Torus code
-    orbit_int_c_src.extend(actionAngleTorus_c_src)
-    orbit_int_c_src= list(set(orbit_int_c_src))
+    if os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
+        # Add Torus code
+        orbit_int_c_src.extend(actionAngleTorus_c_src)
+        orbit_int_c_src= list(set(orbit_int_c_src))
     #libraries
     for lib in pot_libraries:
         if not lib in orbit_libraries:
@@ -250,6 +251,7 @@ actionAngleTorus_c= Extension('galpy_actionAngleTorus_c',
                               extra_compile_args=extra_compile_args,
                               extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+        os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src') and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngleTorus_c_incl= True
     ext_modules.append(actionAngleTorus_c)
@@ -306,7 +308,7 @@ if not interppotential_c_incl and not single_ext:
     print('\033[91;1m'+'WARNING: Potential-interpolation C library not installed because your GSL version < 1.14'+'\033[0m')
 if not actionAngleTorus_c_incl and not single_ext:
     num_gsl_warn+= 1
-    print('\033[91;1m'+'WARNING: action-angle-torus C library not installed because your GSL version < 1.14'+'\033[0m')
+    print('\033[91;1m'+'WARNING: action-angle-torus C library not installed because your GSL version < 1.14 or because you did not first download the torus code as explained in the installation guide in the html documentation'+'\033[0m')
 
 if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
@@ -326,6 +328,7 @@ if single_ext:
     if not os.path.exists('galpy_interppotential_c%s' % _ext_suffix):
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_interppotential_c%s' % _ext_suffix)
-    if not os.path.exists('galpy_actionAngleTorus_c%s' % _ext_suffix):
+    if not os.path.exists('galpy_actionAngleTorus_c%s' % _ext_suffix) \
+            and os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_actionAngleTorus_c%s' % _ext_suffix)
