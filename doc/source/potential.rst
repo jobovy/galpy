@@ -318,7 +318,7 @@ axisymmetric densities), and :ref:`scf_compute_coeffs
 obtained from these functions can be directly fed into the
 :ref:`SCFPotential <scf_potential>` initialization. The basis-function
 expansion has a free scale parameter ``a``, which can be specified for
-the ``scf_compute_Xcoeffs_XX`` functions and for the ``SCFPotential```
+the ``scf_compute_coeffs_XX`` functions and for the ``SCFPotential``
 itself. Make sure that you use the same ``a``! Note that the general
 functions are quite slow.
 
@@ -365,6 +365,7 @@ If we compare the densities along the ``R=Z`` line as
 we get
 
 .. image:: images/scf-flnfw-dens.png
+   :scale: 50 %
 
 If we then integrate an orbit, we also get good agreement
 
@@ -379,6 +380,7 @@ If we then integrate an orbit, we also get good agreement
 which gives
 
 .. image:: images/scf-flnfw-orbit.png
+   :scale: 50 %
 
 Near the end of the orbit integration, the slight differences between
 the original potential and the basis-expansion version cause the two
