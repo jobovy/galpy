@@ -1,4 +1,4 @@
-v1.2 (2016-XX-XX)
+v1.2 (2016-09-06)
 ==================
 
 - Added support for providing inputs to all initializations, methods,
