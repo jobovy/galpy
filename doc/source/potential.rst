@@ -294,6 +294,8 @@ parameter of the potential that you are trying to initialize and
 please report an `Issue <https://github.com/jobovy/galpy/issues>`__ if
 you find any problems with this.
 
+.. _scf_potential_docs:
+
 **NEW in v1.2**: General density/potential pairs with basis-function expansions
 --------------------------------------------------------------------------------
 
@@ -310,7 +312,7 @@ The basis-function approach in the SCF method is implemented in the
 :ref:`SCFPotential <scf_potential>` class, which is also implemented
 in C for fast orbit integration. The coefficients of the
 basis-function expansion can be computed using the
-:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_spherical>`
+:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>`
 (for spherically-symmetric density distribution),
 :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
 axisymmetric densities), and :ref:`scf_compute_coeffs
@@ -389,8 +391,8 @@ orbits to deviate from each other.
 The :ref:`SCFPotential <scf_potential>` can be used wherever general
 potentials can be used in galpy.
 
-**NEW in v1.1**: The potential of N-body simulations
------------------------------------------------------
+The potential of N-body simulations
+--------------------------------------
 
 .. _potnbody:
 
@@ -545,8 +547,8 @@ keywords when instantiating the ``InterpSnapshotRZPotential`` object.
 
 .. _nemopot:
 
-**NEW in v1.1**: Conversion to NEMO potentials
------------------------------------------------
+Conversion to NEMO potentials
+------------------------------
 
 `NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
 studying stellar dynamics. Some of its functionality overlaps with

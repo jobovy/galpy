@@ -831,7 +831,7 @@ Accessing action-angle coordinates for Orbit instances
 
 While the recommended way to access the actionAngle routines is
 through the methods in the ``galpy.actionAngle`` modules, action-angle
-coordinates can also be cacluated for ``galpy.orbit.Orbit``
+coordinates can also be calculated for ``galpy.orbit.Orbit``
 instances. This is illustrated here briefly. We initialize an Orbit
 instance
 
@@ -935,8 +935,8 @@ information see `2010MNRAS.409..145S
 <http://adsabs.harvard.edu/abs/2010MNRAS.409..145S>`_.
 
 
-**NEW in v1.1**: Example: actions in an N-body simulation
-----------------------------------------------------------
+Example: actions in an N-body simulation
+------------------------------------------
 
 To illustrate how we can use ``galpy`` to calculate actions in a
 snapshot of an N-body simulation, we again look at the ``g15784``
