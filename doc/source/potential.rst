@@ -391,8 +391,8 @@ orbits to deviate from each other.
 The :ref:`SCFPotential <scf_potential>` can be used wherever general
 potentials can be used in galpy.
 
-**NEW in v1.1**: The potential of N-body simulations
------------------------------------------------------
+The potential of N-body simulations
+--------------------------------------
 
 .. _potnbody:
 
@@ -547,8 +547,8 @@ keywords when instantiating the ``InterpSnapshotRZPotential`` object.
 
 .. _nemopot:
 
-**NEW in v1.1**: Conversion to NEMO potentials
------------------------------------------------
+Conversion to NEMO potentials
+------------------------------
 
 `NEMO <http://bima.astro.umd.edu/nemo/>`_ is a set of tools for
 studying stellar dynamics. Some of its functionality overlaps with
