@@ -187,9 +187,9 @@ that the output profiles more closely resemble the desired profiles
 <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_). galpy supports
 the calculation of these corrections, and comes with some
 pre-calculated corrections (these can be found `here
-<http://github.com/jobovy/galpy#disk-df-corrections>`_). For example,
-the following initializes a ``dehnendf`` with corrections up to 20th
-order (the default)
+<http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`_). For
+example, the following initializes a ``dehnendf`` with corrections up
+to 20th order (the default)
 
 >>> dfc= dehnendf(beta=0.,correct=True)
 
