@@ -29,6 +29,13 @@ v1.2
   density function. See more explanation :ref:`here
   <scf_potential_docs>`.
 
+* ``galpy.actionAngle.actionAngleTorus``: an experimental interface to
+  Binney & McMillan's TorusMapper code for computing positions and
+  velocities for given actions and angles. See the installation
+  instructions for how to properly install this. See :ref:`this
+  section <aatorus>` and the ``galpy.actionAngle`` API page for
+  documentation.
+
 * ``galpy.actionAngle.actionAngleIsochroneApprox`` (Bovy 2014) now
   implemented for the general case of a time-independent potential.
 
