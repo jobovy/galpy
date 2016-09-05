@@ -83,7 +83,7 @@ v1.2 (2016-XX-XX)
 - Internally use astropy.coordinates transformations to transform
   between (ra,dec) and (l,b). Can be tuned using the astropy-coords
   configuration parameter. Also allow general epochs for the (ra,dec)
-  specification).
+  specification.
 
 v1.1 (2015-06-30)
 ==================
