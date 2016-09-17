@@ -27,10 +27,13 @@ class FerrersPotential(Potential):
 
     .. math::
 
-        m^2 = x^2 + \\frac{y^2}{b^2}+\\frac{z^2}{c^2}
+        m^2 = x'^2 + \\frac{y'^2}{b^2}+\\frac{z'^2}{c^2}
+
+    and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)`
+    so that the major axis is aligned with :math:`x'`.
     """
 
-    def __init__(self,amp=1.,a=1.,n=2,b=0.35,c=0.2375,omegab=0.001,
+    def __init__(self,amp=1.,a=1.,n=2,b=0.35,c=0.2375,omegab=0.,
                  pa=0.,normalize=False,ro=None,vo=None):
         """
         NAME:
