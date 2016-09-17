@@ -10,6 +10,7 @@
 import numpy as np
 import hashlib
 from scipy import integrate
+from scipy.special import hyp2f1
 from galpy.util import bovy_conversion, bovy_coords
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -34,7 +35,7 @@ class FerrersPotential(Potential):
     """
 
     def __init__(self,amp=1.,a=1.,n=2,b=0.35,c=0.2375,omegab=0.,
-                 pa=0.,normalize=False,ro=None,vo=None):
+                 pa=0.,normalize=False,ro=None,vo=None, totalmass=None):
         """
         NAME:
 
@@ -48,6 +49,8 @@ class FerrersPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1);
                  can be a Quantity with units of mass or Gxmass
+                 If totalmass is set, ammp will be set to the amplitude
+                 corresponding to the given total mass.
 
            a - scale radius (can be Quantity)
 
@@ -68,11 +71,15 @@ class FerrersPotential(Potential):
            ro=, vo= distance and velocity scales for translation into internal units
                    (default from configuration file)
 
+           totalmass - total mass of the ellipsoid
+
         OUTPUT:
 
            (none)
 
         """
+        if totalmass is not None:
+            amp = 3.*totalmass/(b*c*hyp2f1(1.5, -n, 2.5, 1.))
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -425,6 +432,11 @@ class FerrersPotential(Potential):
             return 1./(4.*np.pi*self.a**3)*(1.-m2/self.a**2)**self.n
         else:
             return 0.
+
+    @property
+    def totalmass(self):
+        """Returns total mass"""
+        self._amp*self._b*self._c / 3. * hyp2f1(1.5, -self.n, 2.5, 1.)
 
     def OmegaP(self):
         """
