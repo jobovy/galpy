@@ -436,7 +436,7 @@ class FerrersPotential(Potential):
     @property
     def totalmass(self):
         """Returns total mass"""
-        self._amp*self._b*self._c / 3. * hyp2f1(1.5, -self.n, 2.5, 1.)
+        return self._amp*self._b*self._c / 3. * hyp2f1(1.5, -self.n, 2.5, 1.)
 
     def OmegaP(self):
         """
