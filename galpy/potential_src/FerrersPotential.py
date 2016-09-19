@@ -1,29 +1,28 @@
 ###############################################################################
 #   FerrersPotential.py: General class for triaxial Ferrers Potential
 #
-#       rho(r) = 3 amp/[bc 2F1(1.5, -n; 2.5; 1)] (1 - (m/a)^2)^n
+#       rho(r) = amp/[a^3 b c pi^1.5] Gamma(n+5/2)/Gamma(n+1) (1 - (m/a)^2)^n
 #
 #       with
 #
 #       m^2 = x^2 + y^2/b^2 + z^2/c^2
-#       2F1 is the Gauss hypergeometric function
 ########################################################################
 import numpy as np
 import hashlib
 from scipy import integrate
-from scipy.special import hyp2f1
+from scipy.special import gamma
 from galpy.util import bovy_conversion, bovy_coords
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 
 class FerrersPotential(Potential):
-    """Class that implements triaxial Ferrers potential
+    """Class that implements triaxial Ferrers potential for ellipsoidal density profile
        with the short axis along the z-direction
 
     .. math::
 
-        \\rho(x,y,z) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,(1-(m/a)^2)^n
+        \\rho(x,y,z) = \\frac{\\mathrm{amp}}{\\pi^{1.5} a^3 b c} \\frac{\\Gamma(n+\\frac{5}{2})}{\\Gamma(n+1)}\\,(1-(m/a)^2)^n
 
     with
 
@@ -78,8 +77,6 @@ class FerrersPotential(Potential):
            (none)
 
         """
-        # convert total mass to amplitude of potential
-        amp = 3.*amp/(b*c*hyp2f1(1.5, -n, 2.5, 1.))
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -101,6 +98,7 @@ class FerrersPotential(Potential):
         self._c2= self._c**2.
         self._force_hash= None
         self._pa = pa
+        self._rhoc_M = gamma(n+2.5)/gamma(n+1) / np.pi**1.5/a**3/b/c
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -133,7 +131,7 @@ class FerrersPotential(Potential):
     def _evaluate_xyz(self,x,y,z=0.):
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        return -1./4./(self.n+1.)*self._b*self._c * \
+        return -np.pi * self._rhoc_M /(self.n+1.)*self.a**3*self._b*self._c * \
             _potInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -243,19 +241,19 @@ class FerrersPotential(Potential):
     def _xforce_xyz(self,x,y,z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -1./2.*self._b*self._c * \
+        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 0)
 
     def _yforce_xyz(self,x,y,z):
         """Evaluation of the y force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -1./2.*self._b*self._c * \
+        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 1)
 
     def _zforce_xyz(self,x,y,z):
         """Evaluation of the z force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -1./2.*self._b*self._c * \
+        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 2)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -407,7 +405,7 @@ class FerrersPotential(Potential):
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""
-        return -1./4.*self._b*self._c*\
+        return -np.pi*self._rhoc_M*self.a**3*self._b*self._c *\
             _2ndDerivInt(x,y,z,self._a2,self._b2*self._a2,self._c2*self._a2,self.n,i,j)
 
     def _dens(self,R,z,phi=0.,t=0.):
@@ -429,7 +427,7 @@ class FerrersPotential(Potential):
         x,y= xy[0],xy[1]
         m2 = x**2/self._a2+y**2/self._b2+z**2/self._c2
         if m2 < 1:
-            return 1./(4.*np.pi*self.a**3)*(1.-m2/self.a**2)**self.n
+            return self._rhoc_M*(1.-m2/self.a**2)**self.n
         else:
             return 0.
 
