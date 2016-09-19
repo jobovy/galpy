@@ -1,12 +1,13 @@
 ###############################################################################
 #   FerrersPotential.py: General class for triaxial Ferrers Potential
 #
-#                             rho(r) = amp/[4pia^3] (1 - (m/a)^2)^n
+#       rho(r) = 3 amp/[bc 2F1(1.5, -n; 2.5; 1)] (1 - (m/a)^2)^n
 #
-#                             with
+#       with
 #
-#                             m^2 = x^2 + y^2/b^2 + z^2/c^2
-###############################################################################
+#       m^2 = x^2 + y^2/b^2 + z^2/c^2
+#       2F1 is the Gauss hypergeometric function
+########################################################################
 import numpy as np
 import hashlib
 from scipy import integrate
@@ -35,7 +36,7 @@ class FerrersPotential(Potential):
     """
 
     def __init__(self,amp=1.,a=1.,n=2,b=0.35,c=0.2375,omegab=0.,
-                 pa=0.,normalize=False,ro=None,vo=None, totalmass=None):
+                 pa=0.,normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -47,10 +48,9 @@ class FerrersPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1);
+           amp - total mass of the ellipsoid
+                 determines the amplitude of the potential;
                  can be a Quantity with units of mass or Gxmass
-                 If totalmass is set, ammp will be set to the amplitude
-                 corresponding to the given total mass.
 
            a - scale radius (can be Quantity)
 
@@ -78,8 +78,8 @@ class FerrersPotential(Potential):
            (none)
 
         """
-        if totalmass is not None:
-            amp = 3.*totalmass/(b*c*hyp2f1(1.5, -n, 2.5, 1.))
+        # convert total mass to amplitude of potential
+        amp = 3.*amp/(b*c*hyp2f1(1.5, -n, 2.5, 1.))
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -432,11 +432,6 @@ class FerrersPotential(Potential):
             return 1./(4.*np.pi*self.a**3)*(1.-m2/self.a**2)**self.n
         else:
             return 0.
-
-    @property
-    def totalmass(self):
-        """Returns total mass"""
-        return self._amp*self._b*self._c / 3. * hyp2f1(1.5, -self.n, 2.5, 1.)
 
     def OmegaP(self):
         """
