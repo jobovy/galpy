@@ -276,7 +276,7 @@ class FerrersPotential(Potential):
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
-        ang = self._omegab*t
+        ang = self._omegab*t + self._pa
         c, s = np.cos(ang), np.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
@@ -305,6 +305,8 @@ class FerrersPotential(Potential):
         x,y= xy[0],xy[1]
         phixza= self._2ndderiv_xyz(x,y,z,0,2)
         phiyza= self._2ndderiv_xyz(x,y,z,1,2)
+        ang = self._omegab*t + self._pa
+        c, s = np.cos(ang), np.sin(ang)
         phixz = c*phixza + s*phiyza
         phiyz = c*phixza - s*phiyza
         return np.cos(phi)*phixz + np.sin(phi)*phiyz
@@ -356,7 +358,7 @@ class FerrersPotential(Potential):
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
-        ang = self._omegab*t
+        ang = self._omegab*t + self._pa
         c, s = np.cos(ang), np.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
@@ -391,7 +393,7 @@ class FerrersPotential(Potential):
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
-        ang = self._omegab*t
+        ang = self._omegab*t + self._pa
         c, s = np.cos(ang), np.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
