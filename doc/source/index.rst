@@ -164,6 +164,10 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of red clump stars in RAVE to investigate the metallicity gradient in the Milky Way.
 #. *Study of Eclipsing Binary and Multiple Systems in OB Associations IV: Cas OB6 Member DN Cas*, V. Bakis, H. Bakis, S. Bilir, Z. Eker, *Pub. Astron. Soc. Aus.*, in press (`arXiv/1608.00456 <http://arxiv.org/abs/1608.00456>`_):
      Uses galpy orbit integration in ``MWPotential2014`` to calculate the orbit and orbital parameters of the spectroscopic binary DN Cas in the Milky Way.
+#. *The shape of the inner Milky Way halo from observations of the Pal 5 and GD-1 stellar streams*, Jo Bovy, Anita Bahmanyar, Tobias K. Fritz, & Nitya Kallivayalil, *Astrophys. J.*, submitted (`arXiv/1609.01298 <http://arxiv.org/abs/1609.01298>`_):
+     Makes use of the ``galpy.df.streamdf`` model for a tidal stream to constrain the shape and mass of the Milky Way's dark-matter halo. Introduced ``galpy.potential.TriaxialNFWPotential``.
+#. *The Rotation-Metallicity Relation for the Galactic Disk as Measured in the Gaia DR1 TGAS and APOGEE Data*, Carlos Allende Prieto, Daisuke Kawata, & Mark Cropper, *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1609.07821 <http://arxiv.org/abs/1609.07821>`_):
+     Employs orbit integration in ``MWPotential2014`` to calculate the orbits of a sample of stars in common between Gaia DR1's TGAS and APOGEE to study the rotation-metallicity relation for the Galactic disk.
 
 
 Indices and tables
