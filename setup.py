@@ -204,7 +204,8 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          include_dirs=actionAngle_include_dirs,
                          extra_compile_args=extra_compile_args,
                          extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+if float(gsl_version[0]) >= 1. \
+        and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngle_c_incl= True
     ext_modules.append(actionAngle_c)
@@ -232,7 +233,8 @@ interppotential_c= Extension('galpy_interppotential_c',
                              include_dirs=interppotential_include_dirs,
                              extra_compile_args=extra_compile_args,
                              extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. \
+if float(gsl_version[0]) >= 1. \
+        and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) \
         and not orbit_ext and not actionAngle_ext and not single_ext:
     interppotential_c_incl= True
     ext_modules.append(interppotential_c)
@@ -250,7 +252,8 @@ actionAngleTorus_c= Extension('galpy_actionAngleTorus_c',
                               include_dirs=actionAngleTorus_include_dirs,
                               extra_compile_args=extra_compile_args,
                               extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. and float(gsl_version[1]) >= 14. and \
+if float(gsl_version[0]) >= 1. \
+        and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
         os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src') and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngleTorus_c_incl= True
