@@ -1363,6 +1363,7 @@ class OrbitTop(object):
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
                         'z':r'$z\ (\mathrm{kpc})$',
                         'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
                         'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
                         'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
                         'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
@@ -1377,6 +1378,7 @@ class OrbitTop(object):
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                         'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$',
                         'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
                         'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
                         'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
@@ -1429,6 +1431,9 @@ class OrbitTop(object):
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
+        elif d1 == 'r':
+            x= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
         elif d1 == 'z':
             x= self.z(self.t,**kwargs)
         elif d1 == 'vz':
@@ -1499,6 +1504,9 @@ class OrbitTop(object):
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
+        elif d2 == 'r':
+            y= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
         elif d2 == 'z':
             y= self.z(self.t,**kwargs)
         elif d2 == 'vz':
@@ -1609,13 +1617,15 @@ class OrbitTop(object):
                         'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
                         'z':r'$z\ (\mathrm{kpc})$',
                         'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
                         'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
                         'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
                         'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$','x':r'$x$','y':r'$y$',
+                        'vx':r'$v_x$','vy':r'$v_y$'}
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
@@ -1665,6 +1675,9 @@ class OrbitTop(object):
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
+        elif d1 == 'r':
+            x= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
         elif d1 == 'z':
             x= self.z(self.t,**kwargs)
         elif d1 == 'vz':
@@ -1719,6 +1732,9 @@ class OrbitTop(object):
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
+        elif d2 == 'r':
+            y= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
         elif d2 == 'z':
             y= self.z(self.t,**kwargs)
         elif d2 == 'vz':
@@ -1773,6 +1789,9 @@ class OrbitTop(object):
             z= self.time(self.t,**kwargs)
         elif d3 == 'R':
             z= self.R(self.t,**kwargs)
+        elif d3 == 'r':
+            z= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
         elif d3 == 'z':
             z= self.z(self.t,**kwargs)
         elif d3 == 'vz':

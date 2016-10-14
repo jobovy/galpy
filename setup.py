@@ -98,6 +98,8 @@ else:
     if PY3:
         gsl_version= gsl_version.decode('utf-8')
     gsl_version= gsl_version.split('.')
+extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
+
 #HACK for testing
 #gsl_version= ['0','0']
 

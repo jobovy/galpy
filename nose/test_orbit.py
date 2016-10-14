@@ -3245,6 +3245,7 @@ def test_full_plotting():
     o.plot(d2='helioY',d1='V')
     o.plot(d1='helioZ',d2='W')
     o.plot(d2='helioZ',d1='W')
+    o.plot(d2='r',d1='R')
     # Some more energies etc.
     o.plot(d1='E',d2='R')
     o.plot(d1='Enorm',d2='R')
@@ -3283,7 +3284,7 @@ def test_full_plotting():
     o.plot3d() #defaults
     oa.plot3d()
     o.plot3d(d1='t',d2='z',d3='R')
-    o.plot3d(d1='R',d2='t',d3='phi')
+    o.plot3d(d1='r',d2='t',d3='phi')
     o.plot3d(d1='vT',d2='vR',d3='t')
     o.plot3d(d1='z',d2='vT',d3='vz')
     o.plot3d(d1='vz',d2='z',d3='phi')

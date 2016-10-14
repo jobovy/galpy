@@ -4,6 +4,9 @@
 #include <gsl/gsl_sf_gegenbauer.h>
 #include <gsl/gsl_sf_legendre.h>
 
+#ifndef GSL_MAJOR_VERSION
+#define GSL_MAJOR_VERSION 1
+#endif
 //SCF Disk potential
 //4 arguments: amp, Acos, Asin, a
 
@@ -226,7 +229,11 @@ inline void compute_P(double x, int L, int M, double * P_array)
     for (m = 0; m < M; m++)
     {
         int shift = m*L + m;
+#if GSL_MAJOR_VERSION == 2
+        gsl_sf_legendre_array(L - 1, m, x, P_array + shift);
+#else
         gsl_sf_legendre_Plm_array(L - 1, m, x, P_array + shift);
+#endif
     }
 }
 
@@ -237,7 +244,11 @@ inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_ar
     for (m = 0; m < M; m++)
     {
         int shift = m*L + m;
+#if GSL_MAJOR_VERSION == 2
+        gsl_sf_legendre_deriv_array(L - 1, m, x, P_array + shift, dP_array + shift);
+#else
         gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array + shift, dP_array + shift);
+#endif
     }
 }
 
