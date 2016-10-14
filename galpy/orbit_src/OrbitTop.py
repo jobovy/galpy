@@ -1378,6 +1378,7 @@ class OrbitTop(object):
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
                         'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$',
                         'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
                         'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
                         'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
@@ -1622,8 +1623,9 @@ class OrbitTop(object):
                         'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
         else:
             labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                    'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                    'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$'}
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$','x':r'$x$','y':r'$y$',
+                        'vx':r'$v_x$','vy':r'$v_y$'}
         labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
                           'dec':r'$\delta\ (\mathrm{deg})$',
                           'll':r'$l\ (\mathrm{deg})$',
