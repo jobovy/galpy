@@ -223,96 +223,23 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
 }
 
 
-void calculate_P_loop(double x, int L, int M, double * P){
-    
-int l,m;
-int fact = -1;
-for (m = 0; m < M; m++)
-{
-fact *= 2*m - 1;
-if (x == 1. || x == -1. || m==0){
-    *P = 1;
-} else{
-*P = -1*(2*(m&1) - 1)*fact * pow(1 - x*x, m/2.);
-}
-
-if (L - m>=2)
-{
-*(P + 1) = x*(2*m + 1) * (*P);
-} 
-
-for (l=2 + m; l<L;l++)
-{
-double P1 = *(P + l - m - 1);
-double P2 = *(P + l - m - 2);
-
-double inv = 1./(l - m);
-*(P + l - m) = inv* (x*(2*l - 1) *P1 - (l+ m - 1)*P2);
-}
-P += L - m;
-}
-
-}
-
-//Looping
-void calculate_dP_loop(double x, int L, int M, double * P, double * dP){
-    
-int l,m;
-
-int fact = -1;
-for (m = 0; m < M; m++)
-{
-fact *= 2*m - 1;
-if (x == 1. || x == -1. || m==0){
-    *dP = 0;
-    *P = 1;
-} else{
-*P = -1*(2*(m&1) - 1)*fact * pow(1 - x*x, m/2.);
-*dP = - *P * ( x * m) / (1 - x*x);
-}
-
-if (L - m>=2)
-{
-*(P + 1) = x*(2*m + 1) * (*P);
-*(dP + 1) = (2*m + 1) * (*P +  x* *dP);
-} 
-for (l=2 + m; l<L;l++)
-{
-double P1 = *(P + l - m - 1);
-double P2 = *(P + l - m - 2);
-double dP1 = *(dP + l  - m- 1);
-double dP2 = *(dP + l - m - 2);
-
-double inv = 1./(l - m);
-*(P + l - m) = inv* (x*(2*l - 1) *P1 - (l+ m - 1)*P2);
-*(dP + l - m) = inv * ((2*l - 1) * (P1 + x * dP1)  - (l + m - 1)*dP2);
-
-}
-
-P += L - m;
-dP += L - m;
-}
-
-}
-
-
-
-
 //Computes the associated Legendre polynomials
 inline void compute_P(double x, int L, int M, double * P_array)
 {
-    
+    if (M == 1){
+    gsl_sf_legendre_Pl_array (L - 1, x, P_array);
+    return;
+    }
     #if GSL_MAJOR_VERSION == 2
-        if (M != 1){
         gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
-
-        }else 
-        {
-            calculate_P_loop(x, L, 1, P_array);
-            
-        }
+       
     #else
-        calculate_P_loop(x, L, M, P_array);
+        int m;
+        for (m = 1; m < M; m++)
+        {
+            gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
+            P_array += L - m;
+        }
     #endif
     
       
@@ -322,14 +249,21 @@ inline void compute_P(double x, int L, int M, double * P_array)
 //Computes the associated Legendre polynomials and its derivative
 inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
 {
+    if (M == 1){
+    gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
+    return;
+    }
     #if GSL_MAJOR_VERSION == 2
-        if (M != 1){
         gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
-        }else {
-        calculate_dP_loop(x, L, 1, P_array, dP_array);
-        }
+        
     #else
-        calculate_dP_loop(x, L, M , P_array, dP_array);
+        int m;
+        for (m = 1; m < M; m++)
+        {
+            gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
+            P_array += L - m;
+            dP_array += L - m;
+        }
     #endif
 }
 
