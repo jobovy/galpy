@@ -1998,6 +1998,66 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
     out= nu.array([l,b])
     return out.T   
 
+@scalarDecorator
+@degreeDecorator([2,3],[])
+def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
+    """
+    NAME:
+
+       pmrapmdec_to_custom
+
+    PURPOSE:
+
+       rotate proper motions in (ra,dec) to proper motions in a custom set of sky coordinates (phi1,phi2)
+
+    INPUT:
+
+       pmra - proper motion in ra (multplied with cos(dec)) [mas/yr]
+
+       pmdec - proper motion in dec [mas/yr]
+
+       ra - right ascension
+
+       dec - declination
+
+       T= matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect
+
+       degree= (False) if True, ra and dec are given in degrees (default=False)
+
+       epoch= (2000.) epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
+
+    OUTPUT:
+
+       (pmphi1 x cos(phi2),pmph2) for vector inputs [:,2]
+
+    HISTORY:
+
+       2016-10-24 - Written - Bovy (UofT/CCA)
+
+    """
+    if T is None: raise ValueError("Must set T= for radec_to_custom")
+    # Need to figure out ra_ngp and dec_ngp for this custom set of sky coords
+    # Should replace this eventually with custom_to_radec
+    customXYZ= nu.dot(T.T,nu.array([0.,0.,1.]))
+    dec_ngp= nu.arcsin(customXYZ[2])
+    ra_ngp= nu.arctan2(customXYZ[1]/sc.cos(dec_ngp),
+                       customXYZ[0]/sc.cos(dec_ngp))
+    #Whether to use degrees and scalar input is handled by decorators
+    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
+    sindec_ngp= nu.sin(dec_ngp)
+    cosdec_ngp= nu.cos(dec_ngp)
+    sindec= nu.sin(dec)
+    cosdec= nu.cos(dec)
+    sinrarangp= nu.sin(ra-ra_ngp)
+    cosrarangp= nu.cos(ra-ra_ngp)
+    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
+    sinphi= sinrarangp*cosdec_ngp
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
+    cosphi/= norm
+    sinphi/= norm
+    return (nu.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
+                *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
+
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:
