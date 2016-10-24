@@ -24,8 +24,7 @@ galpy
 .. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
    :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
 
-.. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=f\
-lat
+.. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
    :target: http://www.astropy.org/
 
 AUTHOR
