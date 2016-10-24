@@ -1051,6 +1051,44 @@ def test_radec_to_custom_pal5():
     assert numpy.fabs(xieta[1]-6.) < 0.2, 'radec_to_custom does not work properly for Pal 5 transformation'
     return None
 
+@raises(ValueError)
+def test_pmrapmdec_to_custom_valueerror():
+    # Test the pmrapmdec_to_custom without T raises a ValueError
+    xieta= bovy_coords.pmrapmdec_to_custom(1.,1.,20.,30.)
+    return None
+
+def test_pmrapmdec_to_custom_againstlb():
+    _turn_off_apy()
+    ra, dec= 20., 30.
+    pmra, pmdec= -3.,4.
+    theta,dec_ngp,ra_ngp= bovy_coords.get_epoch_angles(2000.)
+    T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],
+                              [numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],
+                              [0.,0.,1.]]),
+                 numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,
+                                          numpy.cos(dec_ngp)],
+                                        [0.,1.,0.],
+                                        [numpy.cos(dec_ngp),0.,
+                                         numpy.sin(dec_ngp)]]),
+                           numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],
+                                        [numpy.sin(theta),-numpy.cos(theta),0.],
+                                        [0.,0.,1.]])))
+    pmlb_direct= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
+                                                   degree=True)
+    pmlb_custom= bovy_coords.pmrapmdec_to_custom(pmra,pmdec,ra,dec,
+                                                 T=T.T,degree=True)
+    assert numpy.fabs(pmlb_direct[0]-pmlb_custom[0]) < 10.**-8., 'pmrapmdec_to_custom for transformation to pml,pmb does not work properly'
+    assert numpy.fabs(pmlb_direct[1]-pmlb_custom[1]) < 10.**-8., 'pmrapmdec_to_custom for transformation to pml,pmb does not work properly'
+    # Array
+    s= numpy.arange(2)
+    pmlb_direct= bovy_coords.pmrapmdec_to_pmllpmbb(pmra*s,pmdec*s,
+                                                   ra*s,dec*s,degree=True)
+    pmlb_custom= bovy_coords.pmrapmdec_to_custom(pmra*s,pmdec*s,
+                                                 ra*s,dec*s,T=T.T,degree=True)
+    assert numpy.all(numpy.fabs(pmlb_direct-pmlb_custom) < 10.**-8.), 'pmrapmdec_to_custom for transformation to pml,pmb does not work properly'
+    _turn_on_apy()
+    return None
+
 def _turn_off_apy(keep_loaded=False):
     bovy_coords._APY_COORDS= False
     if not keep_loaded:
