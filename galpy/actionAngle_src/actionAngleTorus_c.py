@@ -30,7 +30,7 @@ if _lib is None: #pragma: no cover
         warnings.warn("actionAngleTorus_c extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("actionAngleTorus_c extension module not loaded, because galpy_actionAngle_c%s image was not found" % _ext_suffix,
+        warnings.warn("actionAngleTorus_c extension module not loaded, because galpy_actionAngleTorus_c%s image was not found" % _ext_suffix,
                       galpyWarning)
     _ext_loaded= False
 else:
