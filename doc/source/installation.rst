@@ -33,6 +33,8 @@ numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
 		       > nosetests -v -w nose/
 
 
+.. _install_tm:
+
 **NEW in v1.2**: Installing the TorusMapper code
 -------------------------------------------------
 
@@ -69,6 +71,27 @@ What is the required ``numpy`` version?
 normalization of certain distribution functions using Gauss-Legendre
 integration require ``numpy`` version 1.7.0 or higher.
 
+I get warnings like "galpyWarning: integrateFullOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found"
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This typically means that the GNU Scientific Library (`GSL
+<http://www.gnu.org/software/gsl/>`_) was unavailable during galpy's
+installation, causing the C extensions not to be compiled. Most of the
+galpy code will still run, but slower because it will run in pure
+Python. The code currently requires GSL versions >= 1.14 and < 2 (but
+the latter is being worked on). If you believe that the correct GSL
+version is installed for galpy, check that the library can be found
+during installation (see :ref:`below <gsl_cflags>`).
+
+I get the warning "galpyWarning: actionAngleTorus_c extension module not loaded, because galpy_actionAngleTorus_c.so image was not found"
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This is typically because the TorusMapper code was not compiled,
+because it was unavailable during installation. This code is only
+necessary if you want to use
+``galpy.actionAngle.actionAngleTorus``. See :ref:`above <install_tm>`
+for instructions on how to install the TorusMapper code.
+
 How do I install the GSL?
 ++++++++++++++++++++++++++
 
@@ -87,6 +110,7 @@ On Linux distributions with ``apt-get``, the GSL can be installed using::
 
    apt-get install libgsl0-dev
 
+.. _gsl_cflags:
 
 The ``galpy`` installation fails because of C compilation errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
