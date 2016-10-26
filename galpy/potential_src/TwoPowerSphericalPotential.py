@@ -904,8 +904,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    @bovy_conversion.physical_conversion('position',pop=True)
-    def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+    @bovy_conversion.physical_conversion('position',pop=False)
+    def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,ro=None,vo=None,
+             use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
         NAME:
 
@@ -938,12 +939,12 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-01-29 - Written - Bovy (IAS)
 
         """
+        if ro is None: ro= self._ro
+        if vo is None: vo= self._vo
         if wrtcrit:
-            od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
-                                                              self._ro,H=H)
+            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
         else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
-                                                                self._ro,
+            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,
                                                                 H=H,Om=Om)
         dc= 12.*self.dens(self.a,0.,use_physical=False)/od
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,

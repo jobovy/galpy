@@ -488,9 +488,10 @@ class Potential(object):
                                            *self.dens(x,y,use_physical=False),
                                        0.,R,lambda x: 0., lambda x: z)[0]
 
-    @physical_conversion('mass',pop=True)
+    @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
-             forceint=False):
+             forceint=False,ro=None,vo=None,
+             use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
         NAME:
 
@@ -527,13 +528,15 @@ class Potential(object):
            2014-09-12 - Written - Bovy (IAS)
 
         """
+        if ro is None: ro= self._ro
+        if vo is None: vo= self._vo
         #Evaluate the virial radius
         try:
             rvir= self.rvir(H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,
-                            use_physical=False)
+                            use_physical=False,ro=ro,vo=vo)
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
-        return self.mass(rvir,forceint=forceint,use_physical=False)
+        return self.mass(rvir,forceint=forceint,use_physical=False,ro=ro,vo=vo)
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -1382,7 +1385,8 @@ class Potential(object):
         """
         return plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
-    def conc(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+    def conc(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
+             ro=None,vo=None):
         """
         NAME:
 
@@ -1415,9 +1419,11 @@ class Potential(object):
            2014-04-03 - Written - Bovy (IAS)
 
         """
+        if ro is None: ro= self._ro
+        if vo is None: vo= self._vo
         try:
             return self.rvir(H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,
-                             use_physical=False)/self._scale
+                             ro=ro,vo=vo,use_physical=False)/self._scale
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
 

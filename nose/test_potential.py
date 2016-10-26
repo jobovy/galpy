@@ -1278,6 +1278,32 @@ def test_mvir_attributeerror():
     else: raise AssertionError('mvir function for potential w/o rvir did not raise AttributeError')
     return None
 
+# Test that virial quantities are correctly computed when specifying a different (ro,vo) pair from Potential setup (see issue #290)
+def test_NFW_virialquantities_diffrovo():
+    from galpy.util import bovy_conversion
+    H, Om, overdens, wrtcrit= 71., 0.32, 201., False
+    ro_setup, vo_setup= 220., 8.
+    ros= [7.,8.,9.]
+    vos= [220.,230.,240.]
+    for ro,vo in zip(ros,vos):
+        np= potential.NFWPotential(amp=2.,a=3.,
+                                   ro=ro_setup,vo=vo_setup)
+        # Computing the overdensity in physical units
+        od= (np.mvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
+                 /4./numpy.pi*3.\
+                 /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)**3.)\
+            *(10.**6./H**2.*8.*numpy.pi/3./Om*(4.302*10.**-6.))
+        assert numpy.fabs(od-overdens) < 0.01, "NFWPotential's virial quantities computed in physical units with different (ro,vo) from setup are incorrect"
+        od= (np.mvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)\
+                 /4./numpy.pi*3.\
+                 /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)**3.)\
+            *bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+        assert numpy.fabs(od-overdens) < 0.01, "NFWPotential's virial quantities computed in internal units with different (ro,vo) from setup are incorrect"
+        # Also test concentration
+        assert numpy.fabs(np.conc(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
+                              -np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/np._scale/ro) < 0.01, "NFWPotential's concentration computed for different (ro,vo) from setup is incorrect"
+    return None
+
 def test_LinShuReductionFactor():
     #Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import LinShuReductionFactor, \
