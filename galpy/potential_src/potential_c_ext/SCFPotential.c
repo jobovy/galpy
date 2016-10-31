@@ -227,20 +227,19 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
 inline void compute_P(double x, int L, int M, double * P_array)
 {
     if (M == 1){
-    gsl_sf_legendre_Pl_array (L - 1, x, P_array);
-    return;
+        gsl_sf_legendre_Pl_array (L - 1, x, P_array);
+    } else {
+        #if GSL_MAJOR_VERSION == 2
+            gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
+        #else
+            int m;
+            for (m = 1; m < M; m++)
+            {
+                gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
+                P_array += L - m;
+            }
+        #endif
     }
-    #if GSL_MAJOR_VERSION == 2
-        gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
-       
-    #else
-        int m;
-        for (m = 1; m < M; m++)
-        {
-            gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
-            P_array += L - m;
-        }
-    #endif
     
       
     
@@ -250,21 +249,21 @@ inline void compute_P(double x, int L, int M, double * P_array)
 inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
 {
     if (M == 1){
-    gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
-    return;
-    }
-    #if GSL_MAJOR_VERSION == 2
-        gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
+        gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
+    } else {
+        #if GSL_MAJOR_VERSION == 2
+            gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
         
-    #else
-        int m;
-        for (m = 1; m < M; m++)
-        {
-            gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
-            P_array += L - m;
-            dP_array += L - m;
-        }
-    #endif
+        #else
+            int m;
+            for (m = 1; m < M; m++)
+            {
+                gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
+                P_array += L - m;
+                dP_array += L - m;
+            }
+        #endif
+    }
 }
 
 
