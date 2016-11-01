@@ -222,35 +222,50 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
     }
 }
 
+
 //Computes the associated Legendre polynomials
 inline void compute_P(double x, int L, int M, double * P_array)
 {
-    int m;
-    for (m = 0; m < M; m++)
-    {
-        int shift = m*L + m;
-#if GSL_MAJOR_VERSION == 2
-        gsl_sf_legendre_array(L - 1, m, x, P_array + shift);
-#else
-        gsl_sf_legendre_Plm_array(L - 1, m, x, P_array + shift);
-#endif
+    if (M == 1){
+        gsl_sf_legendre_Pl_array (L - 1, x, P_array);
+    } else {
+        #if GSL_MAJOR_VERSION == 2
+            gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
+        #else
+            int m;
+            for (m = 0; m < M; m++)
+            {
+                gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
+                P_array += L - m;
+            }
+        #endif
     }
+    
+      
+    
 }
 
 //Computes the associated Legendre polynomials and its derivative
 inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
 {
-    int m;
-    for (m = 0; m < M; m++)
-    {
-        int shift = m*L + m;
-#if GSL_MAJOR_VERSION == 2
-        gsl_sf_legendre_deriv_array(L - 1, m, x, P_array + shift, dP_array + shift);
-#else
-        gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array + shift, dP_array + shift);
-#endif
+    if (M == 1){
+        gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
+    } else {
+        #if GSL_MAJOR_VERSION == 2
+            gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
+        
+        #else
+            int m;
+            for (m = 0; m < M; m++)
+            {
+                gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
+                P_array += L - m;
+                dP_array += L - m;
+            }
+        #endif
     }
 }
+
 
 
 
@@ -329,11 +344,20 @@ inline void computeNonAxi(double a, int N, int L, int M,
         *(F + i) =0; //Initialize each F
     }
 
-
+    int v1counter=0;
+    int v2counter = 0;
+    int Pindex = 0;
     for (l = 0; l < L; l++)
     {
+        v1counter = 0;
         for (m = 0; m<=l; m++)
         {
+            #if GSL_MAJOR_VERSION == 2
+                Pindex = v2counter;
+            #else
+                Pindex = v1counter + l;
+            #endif
+            
             double mCos = cos(m*phi);
             double mSin = sin(m*phi);
             for (n = 0; n < N; n++)
@@ -345,12 +369,22 @@ inline void computeNonAxi(double a, int N, int L, int M,
                     double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
                     double *P = *(e.P + i);
                     double *phiTilde = *(e.phiTilde + i);
-                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[m*L + l], phiTilde[l*N + n], m);
+                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[Pindex], phiTilde[l*N + n], m);
                 }
 
 
             }
+            
+           
+            
+                v2counter++; 
+                v1counter+=M-m - 1;  
+                
         }
+        
+        
+            
+        
     }
     //Multiply F by constants
     for (i = 0; i < eq_size; i++)
@@ -420,12 +454,19 @@ void computeForce(double R,double Z, double phi,
 
 //Compute Associated Legendre Polynomials
     int M_eff = M;
+    int size = 0;
+    
     if (isNonAxi==0)
     {
-        M_eff = 1;
+    M_eff = 1;
+    size = L;    
+    } else{
+    size = L*L - L*(L-1)/2;
     }
-    double P[M_eff*L];
-    double dP[M_eff*L];
+    
+    
+    double P[size];
+    double dP[size];
     compute_P_dP(cos(theta), L, M_eff, &P, &dP);
 
     double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
@@ -527,11 +568,16 @@ void computeDeriv(double R,double Z, double phi,
 
 //Compute Associated Legendre Polynomials
     int M_eff = M;
+    int size = 0;
+    
     if (isNonAxi==0)
     {
-        M_eff = 1;
+    M_eff = 1;
+    size = L;    
+    } else{
+    size = L*L - L*(L-1)/2;
     }
-    double P[M_eff*L];
+    double P[size];
 
 
     compute_P(cos(theta), L,M_eff, &P);
@@ -609,11 +655,17 @@ double SCFPotentialEval(double R,double Z, double phi,
     //Compute Associated Legendre Polynomials
 
     int M_eff = M;
+    int size = 0;
+    
     if (isNonAxi==0)
     {
-        M_eff = 1;
+    M_eff = 1;
+    size = L;    
+    } else{
+    size = L*L - L*(L-1)/2;
     }
-    double P[M_eff*L];
+    
+    double P[size];
 
 
     compute_P(cos(theta), L,M_eff, &P);
