@@ -233,7 +233,7 @@ inline void compute_P(double x, int L, int M, double * P_array)
             gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
         #else
             int m;
-            for (m = 1; m < M; m++)
+            for (m = 0; m < M; m++)
             {
                 gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
                 P_array += L - m;
@@ -256,7 +256,7 @@ inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_ar
         
         #else
             int m;
-            for (m = 1; m < M; m++)
+            for (m = 0; m < M; m++)
             {
                 gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
                 P_array += L - m;
