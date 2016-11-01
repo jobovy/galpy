@@ -78,10 +78,9 @@ This typically means that the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`_) was unavailable during galpy's
 installation, causing the C extensions not to be compiled. Most of the
 galpy code will still run, but slower because it will run in pure
-Python. The code currently requires GSL versions >= 1.14 and < 2 (but
-the latter is being worked on). If you believe that the correct GSL
-version is installed for galpy, check that the library can be found
-during installation (see :ref:`below <gsl_cflags>`).
+Python. The code requires GSL versions >= 1.14. If you believe that
+the correct GSL version is installed for galpy, check that the library
+can be found during installation (see :ref:`below <gsl_cflags>`).
 
 I get the warning "galpyWarning: actionAngleTorus_c extension module not loaded, because galpy_actionAngleTorus_c.so image was not found"
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
