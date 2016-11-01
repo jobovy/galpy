@@ -13,7 +13,12 @@ Welcome to galpy's documentation
 galpy is a Python 2 and 3 package for galactic dynamics. It supports
 orbit integration in a variety of potentials, evaluating and sampling
 various distribution functions, and the calculation of action-angle
-coordinates for all static potentials.
+coordinates for all static potentials. galpy is an `astropy
+<http://www.astropy.org/>`_ `affiliated package
+<http://www.astropy.org/affiliated/>`_ and provides full support for
+astropy's `Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`_
+framework for variables with units.
 
 Quick-start guide
 -----------------
@@ -147,27 +152,29 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` for orbit integration of pulsars kicked out of the central region of the Milky Way.
 #. *Abundances and kinematics for ten anticentre open clusters*, T. Cantat-Gaudin, P. Donati, A. Vallenari, R. Sordo, A. Bragaglia, L. Magrini (2016), *Astron. & Astrophys.*, **588**, A120 (`2016A&A...588A.120C <http://adsabs.harvard.edu/abs/2016A%26A...588A.120C>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 10 open clusters located toward the Galactic anti-center, finding that the most distant clusters have high-eccentricity orbits.
-#. *A Magellanic Origin of the DES Dwarfs*, P. Jethwa, D. Erkal, & V. Belokurov (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1603.04420 <http://arxiv.org/abs/1603.04420>`_):
+#. *A Magellanic Origin of the DES Dwarfs*, P. Jethwa, D. Erkal, & V. Belokurov (2016), *Mon. Not. Roy. Astron. Soc.*, **461**, 2212 (`arXiv/1603.04420 <http://arxiv.org/abs/1603.04420>`_):
      Employs the C implementations of ``galpy.potential``\s to compute forces in orbit integrations of the LMC's satellite-galaxy population.
-#. *PSR J1024-0719: A Millisecond Pulsar in an Unusual Long-Period Orbit*, D. L. Kaplan, T. Kupfer, D. J. Nice, et al. (2016), *Astrophys. J.*, submitted (`arXiv/1604.00131 <http://arxiv.org/abs/1604.00131>`_):
-#. *A millisecond pulsar in an extremely wide binary system*, C. G. Bassa, G. H. Janssen, B. W. Stappers, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1604.00129 <http://arxiv.org/abs/1604.00129>`_):
+#. *PSR J1024-0719: A Millisecond Pulsar in an Unusual Long-Period Orbit*, D. L. Kaplan, T. Kupfer, D. J. Nice, et al. (2016), *Astrophys. J.*, **826**, 86 (`arXiv/1604.00131 <http://arxiv.org/abs/1604.00131>`_):
+#. *A millisecond pulsar in an extremely wide binary system*, C. G. Bassa, G. H. Janssen, B. W. Stappers, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, **460**, 2207 (`arXiv/1604.00129 <http://arxiv.org/abs/1604.00129>`_):
      Both of these papers use ``galpy.orbit`` integration in ``MWPotential2014`` to determine the orbit of the milli-second pulsar PSR J1024−0719, a pulsar in an unusual binary system.
-#. *The first low-mass black hole X-ray binary identified in quiescence outside of a globular cluster*, B. E. Tetarenko, A. Bahramian, R. M. Arnason, et al. (2016), *Astrophys. J.*, in press (`arXiv/1605.00270 <http://arxiv.org/abs/1605.00270>`_):
+#. *The first low-mass black hole X-ray binary identified in quiescence outside of a globular cluster*, B. E. Tetarenko, A. Bahramian, R. M. Arnason, et al. (2016), *Astrophys. J.*, **825**, 10 (`arXiv/1605.00270 <http://arxiv.org/abs/1605.00270>`_):
      This paper employs ``galpy.orbit`` integration of orbits within the position-velocity uncertainty ellipse of the radio source VLA J213002.08+120904 to help characterize its nature (specifically, to rule out that it is a magnetar based on its birth location).
-#. *Action-based Dynamical Modelling for the Milky Way Disk*, Wilma H. Trick, Jo Bovy, & Hans-Walter Rix (2016), *Astrophys. J.*, in press (`arXiv/1605.08601 <http://arxiv.org/abs/1605.08601>`_):
+#. *Action-based Dynamical Modelling for the Milky Way Disk*, Wilma H. Trick, Jo Bovy, & Hans-Walter Rix (2016), *Astrophys. J.*, **830**, 97 (`arXiv/1605.08601 <http://arxiv.org/abs/1605.08601>`_):
      Makes use of potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to develop a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars.
-#. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, in press (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
+#. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, **825**, L6 (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
      Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
 #. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
      Uses and extends ``galpy.df.streamdf`` and ``galpy.df.streamgapdf`` to quickly compute the effect of impacts from dark-matter subhalos on stellar streams and investigates the structure of perturbed streams and how this structure relates to the CDM subhalo mass spectrum.
-#. *Local Stellar Kinematics from RAVE data - VII. Metallicity Gradients from Red Clump Stars*, O. Onal Tas, S. Bilir, G. M. Seabroke, S. Karaali, S. Ak, T. Ak, & Z. F. Bostanci, *Pub. Astron. Soc. Aus.*, in press (`arXiv/1607.07049 <http://arxiv.org/abs/1607.07049>`_):
+#. *Local Stellar Kinematics from RAVE data - VII. Metallicity Gradients from Red Clump Stars*, O. Onal Tas, S. Bilir, G. M. Seabroke, S. Karaali, S. Ak, T. Ak, & Z. F. Bostanci (2016), *Pub. Astron. Soc. Aus.*, **33**, e044 (`arXiv/1607.07049 <http://arxiv.org/abs/1607.07049>`_):
      Employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of red clump stars in RAVE to investigate the metallicity gradient in the Milky Way.
-#. *Study of Eclipsing Binary and Multiple Systems in OB Associations IV: Cas OB6 Member DN Cas*, V. Bakis, H. Bakis, S. Bilir, Z. Eker, *Pub. Astron. Soc. Aus.*, in press (`arXiv/1608.00456 <http://arxiv.org/abs/1608.00456>`_):
+#. *Study of Eclipsing Binary and Multiple Systems in OB Associations IV: Cas OB6 Member DN Cas*, V. Bakis, H. Bakis, S. Bilir, Z. Eker (2016), *Pub. Astron. Soc. Aus.*, **33**, e046 (`arXiv/1608.00456 <http://arxiv.org/abs/1608.00456>`_):
      Uses galpy orbit integration in ``MWPotential2014`` to calculate the orbit and orbital parameters of the spectroscopic binary DN Cas in the Milky Way.
-#. *The shape of the inner Milky Way halo from observations of the Pal 5 and GD-1 stellar streams*, Jo Bovy, Anita Bahmanyar, Tobias K. Fritz, & Nitya Kallivayalil, *Astrophys. J.*, submitted (`arXiv/1609.01298 <http://arxiv.org/abs/1609.01298>`_):
+#. *The shape of the inner Milky Way halo from observations of the Pal 5 and GD-1 stellar streams*, Jo Bovy, Anita Bahmanyar, Tobias K. Fritz, & Nitya Kallivayalil (2016), *Astrophys. J.*, in press (`arXiv/1609.01298 <http://arxiv.org/abs/1609.01298>`_):
      Makes use of the ``galpy.df.streamdf`` model for a tidal stream to constrain the shape and mass of the Milky Way's dark-matter halo. Introduced ``galpy.potential.TriaxialNFWPotential``.
-#. *The Rotation-Metallicity Relation for the Galactic Disk as Measured in the Gaia DR1 TGAS and APOGEE Data*, Carlos Allende Prieto, Daisuke Kawata, & Mark Cropper, *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1609.07821 <http://arxiv.org/abs/1609.07821>`_):
+#. *The Rotation-Metallicity Relation for the Galactic Disk as Measured in the Gaia DR1 TGAS and APOGEE Data*, Carlos Allende Prieto, Daisuke Kawata, & Mark Cropper (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1609.07821 <http://arxiv.org/abs/1609.07821>`_):
      Employs orbit integration in ``MWPotential2014`` to calculate the orbits of a sample of stars in common between Gaia DR1's TGAS and APOGEE to study the rotation-metallicity relation for the Galactic disk.
+#. *Detection of a dearth of stars with zero angular momentum in the solar neighbourhood*, Jason A. S. Hunt, Jo Bovy, & Raymond Carlberg (2016), *Astrophys. J.*, submitted (`arXiv/1610.02030 <http://arxiv.org/abs/1610.02030>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` plus a hard Galactic core to calculate the orbits of stars in the solar neighborhood and predict how many of them should be lost to chaos.
 
 
 Indices and tables

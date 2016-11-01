@@ -20,7 +20,9 @@ self-explanatory names:
    lbd_to_XYZ <coordslbdtoxyz.rst>
    pmllpmbb_to_pmrapmdec <coordspmllpmbbtopmrapmdec.rst>
    pmrapmdec_to_pmllpmbb <coordspmrapmdectopmllpmbb.rst>
+   pmrapmdec_to_custom <coordspmrapmdectocustom.rst>
    radec_to_lb <coordsradectolb.rst>
+   radec_to_custom <coordsradectocustom.rst>
    rectgal_to_sphergal <coordsrectgaltosphergal.rst>
    rect_to_cyl <coordsrecttocyl.rst>
    rect_to_cyl_vec <coordsrecttocylvec.rst>
