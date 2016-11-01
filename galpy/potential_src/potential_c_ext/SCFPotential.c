@@ -349,10 +349,14 @@ inline void computeNonAxi(double a, int N, int L, int M,
     int Pindex = 0;
     for (l = 0; l < L; l++)
     {
-        
+        v1counter = 0;
         for (m = 0; m<=l; m++)
         {
-            v1counter = m*(m + 1)/2 + l; 
+            #if GSL_MAJOR_VERSION == 2
+                Pindex = v2counter;
+            #else
+                Pindex = v1counter + l;
+            #endif
             
             double mCos = cos(m*phi);
             double mSin = sin(m*phi);
@@ -375,12 +379,9 @@ inline void computeNonAxi(double a, int N, int L, int M,
             
                 v2counter++; 
                  
-                #if GSL_MAJOR_VERSION == 2
-                Pindex = v2counter;
-                #else
-                Pindex = v1counter;
-                #endif
+                
         }
+        v1counter+=M-m - 1;
         
             
         
