@@ -661,9 +661,9 @@ double SCFPotentialEval(double R,double Z, double phi,
     {
     M_eff = 1;
     size = L;    
-    } else{
+    } else{ //LCOV_EXCL_START
     size = L*L - L*(L-1)/2;
-    }
+    } //LCOV_EXCL_STOP
     
     double P[size];
 
