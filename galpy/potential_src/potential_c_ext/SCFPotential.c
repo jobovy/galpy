@@ -378,10 +378,10 @@ inline void computeNonAxi(double a, int N, int L, int M,
            
             
                 v2counter++; 
-                 
+                v1counter+=M-m - 1;  
                 
         }
-        v1counter+=M-m - 1;
+        
         
             
         
