@@ -143,7 +143,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                                   /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
                                            *(1.+(p._c2-1.)*p._glx[ii]**2.))
                              for ii in range(p._glorder)])
-            pot_args.extend([0.,0.,0.,0.,0.,0.])
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
         elif isinstance(p,potential.SCFPotential):
             isNonAxi = p.isNonAxi
             pot_type.append(24)
@@ -153,6 +153,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             if isNonAxi:
                 pot_args.extend(p._amp*p._Asin.flatten(order='C'))   
             pot_args.extend([-1., 0, 0, 0, 0, 0, 0])    
+        elif isinstance(p,potential.SoftenedNeedleBarPotential):
+            pot_type.append(25)
+            pot_args.extend([p._amp,p._a,p._b,p._c2,p._pa,p._omegab])
+            pot_args.extend([0.,0.,0.,0.,0.,0.,0.]) # for caching
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

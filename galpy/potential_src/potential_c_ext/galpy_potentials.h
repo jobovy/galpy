@@ -328,7 +328,7 @@ double TriaxialJaffePotentialPlanarphiforce(double,double,double,
 					    struct potentialArg *);
 double TriaxialJaffePotentialzforce(double,double,double,double,
 				    struct potentialArg *);					      
-//SCFDiskPotential
+//SCFPotential
 double SCFPotentialEval(double,double,double,double,
 				     struct potentialArg *);
 double SCFPotentialRforce(double,double,double,double,
@@ -348,6 +348,13 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
+//SoftenedNeedleBarPotential
+double SoftenedNeedleBarPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double SoftenedNeedleBarPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double SoftenedNeedleBarPotentialphiforce(double,double,double,double,
+					  struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

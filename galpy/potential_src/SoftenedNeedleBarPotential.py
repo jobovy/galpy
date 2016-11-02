@@ -79,7 +79,7 @@ class SoftenedNeedleBarPotential(Potential):
         self._pa= pa
         self._omegab= omegab
         self._force_hash= None
-        self.hasC= False
+        self.hasC= True
         self.hasC_dxdv= False
         if normalize or \
                 (isinstance(normalize,(int,float)) \
