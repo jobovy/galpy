@@ -12,6 +12,24 @@ inline void compute_TpTm(double x, double y, double z,
   *Tp= sqrt ( pow ( a + x , 2) + secondpart );
   *Tm= sqrt ( pow ( a - x , 2) + secondpart );
 }
+double SoftenedNeedleBarPotentialEval(double R,double z, double phi,
+				      double t,
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args: amp, a, b, c2, pa, omegab
+  double amp= *args++;
+  double a= *args++;
+  double b= *args++;
+  double c2= *args++;
+  double pa= *args++;
+  double omegab= *args++;
+  double x,y;
+  double Tp,Tm;
+  //Calculate potential
+  cyl_to_rect(R,phi-pa-omegab*t,&x,&y);
+  compute_TpTm(x,y,z,&Tp,&Tm,a,b,c2);
+  return 0.5 * amp * log( ( x - a + Tm ) / ( x + a + Tp ) ) / a;
+}
 void SoftenedNeedleBarPotentialxyzforces_xyz(double R,double z, double phi,
 					     double t,double * args,
 					     double a,double b, double c2,
