@@ -1916,7 +1916,19 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
-    TwoPowerTriaxialPotential, BurkertPotential
+    TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential
+class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
+    def __init__(self):
+        SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
+                                            c=10.,omegab=0.,pa=0.)
+        self.normalize(1.)
+        self.isNonAxi= False
+        return None
+    def _evaluate(self,R,z,phi=0.,t=0.):
+        if phi is None: phi= 0.
+        x,y,z= self._compute_xyz(R,phi,z,t)
+        Tp, Tm= self._compute_TpTm(x,y,z)
+        return numpy.log((x-self._a+Tm)/(x+self._a+Tp))/2./self._a
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
