@@ -355,6 +355,10 @@ double SoftenedNeedleBarPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double SoftenedNeedleBarPotentialphiforce(double,double,double,double,
 					  struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarRforce(double,double,double,
+					      struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarphiforce(double,double,double,
+					  struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif
