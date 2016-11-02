@@ -150,7 +150,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'DehnenBar' in p and not 'LogSpiral' in p \
+            if not 'Bar' in p and not 'LogSpiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
@@ -297,8 +297,9 @@ def test_energy_jacobi_conservation():
             o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
             #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
+            if not 'Bar' in p:
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
@@ -351,8 +352,9 @@ def test_energy_jacobi_conservation():
             o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            if not 'Bar' in p:
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
             tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
@@ -446,6 +448,7 @@ def test_liouville_planar():
     rmpots.append('TwoPowerTriaxialPotential')
     rmpots.append('TriaxialHernquistPotential')
     rmpots.append('TriaxialJaffePotential')
+    rmpots.append('SoftenedNeedleBarPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
