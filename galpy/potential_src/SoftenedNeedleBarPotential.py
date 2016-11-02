@@ -22,6 +22,8 @@ class SoftenedNeedleBarPotential(Potential):
 
         T_{\\pm} = \\sqrt{(a\\pm x)^2 + y^2+(b+\\sqrt{z^2+c^2})^2}
 
+    For a prolate bar, set :math:`b` to zero.
+
     """
     def __init__(self,amp=1.,a=4.,b=0.,c=1.,normalize=False,
                  pa=0.4,omegab=1.8,ro=None,vo=None):
