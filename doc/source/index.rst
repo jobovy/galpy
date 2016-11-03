@@ -175,6 +175,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs orbit integration in ``MWPotential2014`` to calculate the orbits of a sample of stars in common between Gaia DR1's TGAS and APOGEE to study the rotation-metallicity relation for the Galactic disk.
 #. *Detection of a dearth of stars with zero angular momentum in the solar neighbourhood*, Jason A. S. Hunt, Jo Bovy, & Raymond Carlberg (2016), *Astrophys. J.*, submitted (`arXiv/1610.02030 <http://arxiv.org/abs/1610.02030>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` plus a hard Galactic core to calculate the orbits of stars in the solar neighborhood and predict how many of them should be lost to chaos.
+#. *Differences in the rotational properties of multiple stellar populations in M 13: a faster rotation for the "extreme" chemical subpopulation*, M. J. Cordero, V. Hénault-Brunet, C. A. Pilachowski, E. Balbinot, C. I. Johnson, & A. L. Varri (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1610.09374 <http://arxiv.org/abs/1610.09374>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster M13 and in particular whether escaping stars from the cluster could contaminate the measurement of the rotation of different populations in the cluster.
 
 
 Indices and tables
