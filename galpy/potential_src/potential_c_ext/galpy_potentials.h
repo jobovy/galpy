@@ -48,6 +48,8 @@ struct potentialArg{
 /*
   Function declarations
 */
+//Utility
+void cyl_to_rect(double,double,double *,double *);
 //Potential and force evaluation
 double evaluatePotentials(double,double,int, struct potentialArg *);
 double calcRforce(double,double,double,double,int,struct potentialArg *);

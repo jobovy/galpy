@@ -1,10 +1,6 @@
 #include <math.h>
 #include <galpy_potentials.h>
 //SoftenedNeedleBarPotentials
-inline void cyl_to_rect(double R, double phi,double *x, double *y){
-  *x= R * cos ( phi );
-  *y= R * sin ( phi );
-}
 inline void compute_TpTm(double x, double y, double z,
 			 double *Tp, double *Tm,
 			 double a, double b, double c2){
