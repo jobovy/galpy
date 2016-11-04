@@ -1726,6 +1726,23 @@ def test_nonaxierror_function():
                   lambda x: potential.evaluateRzderivs(tnp,1.,0.),())
     return None
 
+
+def test_SoftenedNeedleBarPotential_density():
+    # Some simple tests of the density of the SoftenedNeedleBarPotential
+    # For a spherical softening kernel, density should be symmetric to y/z
+    sbp= potential.SoftenedNeedleBarPotential(normalize=1.,a=1.,c=.1,b=0.,
+                                              pa=0.)
+    assert numpy.fabs(sbp.dens(2.,0.,phi=numpy.pi/4.)-sbp.dens(numpy.sqrt(2.),numpy.sqrt(2.),phi=0.)) < 10.**-13., 'SoftenedNeedleBarPotential with spherical softening kernel does not appear to have a spherically symmetric density'
+    # Another one
+    assert numpy.fabs(sbp.dens(4.,0.,phi=numpy.pi/4.)-sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.)) < 10.**-13., 'SoftenedNeedleBarPotential with spherical softening kernel does not appear to have a spherically symmetric density'
+    # For a flattened softening kernel, the density at (y,z) should be higher than at (z,y)
+    sbp= potential.SoftenedNeedleBarPotential(normalize=1.,a=1.,c=.1,b=0.3,
+                                              pa=0.)
+    assert sbp.dens(2.,0.,phi=numpy.pi/4.) > sbp.dens(numpy.sqrt(2.),numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
+    # Another one
+    assert sbp.dens(4.,0.,phi=numpy.pi/4.) > sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
+    return None
+    
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
