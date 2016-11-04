@@ -22,6 +22,7 @@ import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
+from galpy.util import bovy_coords
 from galpy.util import config
 from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr
@@ -954,7 +955,7 @@ class Potential(object):
                                                    ncontours))
         
     def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                    phi=None,
+                    phi=None,xy=False,
                     ncontours=21,savefilename=None,aspect=None,log=False,
                     justcontours=False):
         """
@@ -968,19 +969,21 @@ class Potential(object):
 
         INPUT:
 
-           rmin= minimum R (can be Quantity)
+           rmin= minimum R (can be Quantity) [xmin if xy]
 
-           rmax= maximum R (can be Quantity)
+           rmax= maximum R (can be Quantity) [ymax if xy]
 
            nrs= grid in R
 
-           zmin= minimum z (can be Quantity)
+           zmin= minimum z (can be Quantity) [ymin if xy]
 
-           zmax= maximum z (can be Quantity)
+           zmax= maximum z (can be Quantity) [ymax if xy]
 
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           xy= (False) if True, plot the density in X-Y
 
            ncontours= number of contours
 
@@ -1000,7 +1003,7 @@ class Potential(object):
 
         """
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,
+                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
                              aspect=aspect,log=log)
@@ -2031,7 +2034,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                  phi=None,
+                  phi=None,xy=False,
                   ncontours=21,savefilename=None,aspect=None,log=False,
                   justcontours=False):
         """
@@ -2047,19 +2050,21 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            Pot - Potential or list of Potential instances
 
-           rmin= minimum R (can be Quantity)
+           rmin= minimum R (can be Quantity) [xmin if xy]
 
-           rmax= maximum R (can be Quantity)
+           rmax= maximum R (can be Quantity) [ymax if xy]
 
            nrs= grid in R
 
-           zmin= minimum z (can be Quantity)
+           zmin= minimum z (can be Quantity) [ymin if xy]
 
-           zmax= maximum z (can be Quantity)
+           zmax= maximum z (can be Quantity) [ymax if xy]
 
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           xy= (False) if True, plot the density in X-Y
 
            ncontours= number of contours
 
@@ -2104,8 +2109,11 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(Rs[ii]),
-                                                    zs[jj],phi=phi,
+                    if xy:
+                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                    else:
+                        R,z= Rs[ii], zs[jj]
+                    potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(R),z,phi=phi,
                                                     use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
@@ -2118,8 +2126,15 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             aspect=.75*(rmax-rmin)/(zmax-zmin)
         if log:
             potRz= nu.log(potRz)
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_yarg',contours=True,
-                                xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+        if xy:
+            xlabel= r'$x/R_0$'
+            ylabel= r'$y/R_0$'
+        else:
+            xlabel=r"$R/R_0$"
+            ylabel=r"$z/R_0$"
+        return plot.bovy_dens2d(potRz.T,origin='lower',
+                                cmap='gist_yarg',contours=True,
+                                xlabel=xlabel,ylabel=ylabel,
                                 aspect=aspect,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
