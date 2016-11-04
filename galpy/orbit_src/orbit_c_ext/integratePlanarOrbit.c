@@ -208,6 +208,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &SCFPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       break;
+    case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SoftenedNeedleBarPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) 13;
+      break;    
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

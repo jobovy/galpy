@@ -3,10 +3,6 @@
 #include <galpy_potentials.h>
 //General routines for TwoPowerTriaxialPotentials, specific potentials below
 //TriaxialNFWPotential
-inline void cyl_to_rect(double R, double phi,double *x, double *y){
-  *x= R * cos ( phi );
-  *y= R * sin ( phi );
-}
 inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
   xp= *(rot)   * *x + *(rot+1) * *y + *(rot+2) * *z;

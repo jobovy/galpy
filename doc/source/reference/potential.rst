@@ -151,6 +151,14 @@ Triaxial potentials
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
 
+Bar potentials
+****************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialsoftenedneedle.rst
+
 .. _potential-mw:
 
 In addition to these classes, a simple Milky-Way-like potential fit to

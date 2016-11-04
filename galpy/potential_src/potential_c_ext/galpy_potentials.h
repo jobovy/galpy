@@ -48,6 +48,8 @@ struct potentialArg{
 /*
   Function declarations
 */
+//Utility
+void cyl_to_rect(double,double,double *,double *);
 //Potential and force evaluation
 double evaluatePotentials(double,double,int, struct potentialArg *);
 double calcRforce(double,double,double,double,int,struct potentialArg *);
@@ -328,7 +330,7 @@ double TriaxialJaffePotentialPlanarphiforce(double,double,double,
 					    struct potentialArg *);
 double TriaxialJaffePotentialzforce(double,double,double,double,
 				    struct potentialArg *);					      
-//SCFDiskPotential
+//SCFPotential
 double SCFPotentialEval(double,double,double,double,
 				     struct potentialArg *);
 double SCFPotentialRforce(double,double,double,double,
@@ -348,6 +350,19 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
+//SoftenedNeedleBarPotential
+double SoftenedNeedleBarPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double SoftenedNeedleBarPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double SoftenedNeedleBarPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double SoftenedNeedleBarPotentialphiforce(double,double,double,double,
+					  struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarRforce(double,double,double,
+					      struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarphiforce(double,double,double,
+					  struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

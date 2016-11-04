@@ -214,6 +214,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &SCFPotentialphiforce;
       potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       break;
+    case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
+      potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
+      potentialArgs->phiforce= &SoftenedNeedleBarPotentialphiforce;
+      potentialArgs->nargs= (int) 13;
+      break;      
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

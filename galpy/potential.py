@@ -34,6 +34,7 @@ from galpy.potential_src import PseudoIsothermalPotential
 from galpy.potential_src import KuzminDiskPotential
 from galpy.potential_src import TwoPowerTriaxialPotential
 from galpy.potential_src import SCFPotential
+from galpy.potential_src import SoftenedNeedleBarPotential
 #
 # Functions
 #
@@ -126,6 +127,7 @@ TriaxialNFWPotential= TwoPowerTriaxialPotential.TriaxialNFWPotential
 TriaxialJaffePotential= TwoPowerTriaxialPotential.TriaxialJaffePotential
 TwoPowerTriaxialPotential= TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
 SCFPotential = SCFPotential.SCFPotential
+SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 

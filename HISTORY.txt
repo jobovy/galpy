@@ -1,10 +1,16 @@
 v1.3 (2017-XX-XX)
 ==================
 
+- Added SoftenedNeedleBarPotential, a simple potential for a bar that
+  consists of a needle softened by a Miyamoto-Nagai kernel (Long &
+  Murali 1992).
+
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
 
 - Allow plotting of the spherical radius in Orbit.plot
+
+- Made SCFPotential compatible with GSL v2.
 
 v1.2 (2016-09-06)
 ==================

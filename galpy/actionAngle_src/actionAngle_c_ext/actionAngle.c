@@ -237,6 +237,13 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
+    case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
+      potentialArgs->nargs= (int) 13;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

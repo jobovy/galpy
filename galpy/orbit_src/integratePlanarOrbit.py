@@ -193,6 +193,12 @@ def _parse_pot(pot):
             if isNonAxi:
                 pot_args.extend(p._Pot._amp*p._Pot._Asin.flatten(order='C'))  
             pot_args.extend([-1., 0, 0, 0, 0, 0, 0])   
+        elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) \
+                 and isinstance(p._Pot,potential.SoftenedNeedleBarPotential):
+            pot_type.append(25)
+            pot_args.extend([p._Pot._amp,p._Pot._a,p._Pot._b,p._Pot._c2,
+                             p._Pot._pa,p._Pot._omegab])
+            pot_args.extend([0.,0.,0.,0.,0.,0.,0.]) # for caching
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

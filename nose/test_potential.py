@@ -1726,6 +1726,23 @@ def test_nonaxierror_function():
                   lambda x: potential.evaluateRzderivs(tnp,1.,0.),())
     return None
 
+
+def test_SoftenedNeedleBarPotential_density():
+    # Some simple tests of the density of the SoftenedNeedleBarPotential
+    # For a spherical softening kernel, density should be symmetric to y/z
+    sbp= potential.SoftenedNeedleBarPotential(normalize=1.,a=1.,c=.1,b=0.,
+                                              pa=0.)
+    assert numpy.fabs(sbp.dens(2.,0.,phi=numpy.pi/4.)-sbp.dens(numpy.sqrt(2.),numpy.sqrt(2.),phi=0.)) < 10.**-13., 'SoftenedNeedleBarPotential with spherical softening kernel does not appear to have a spherically symmetric density'
+    # Another one
+    assert numpy.fabs(sbp.dens(4.,0.,phi=numpy.pi/4.)-sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.)) < 10.**-13., 'SoftenedNeedleBarPotential with spherical softening kernel does not appear to have a spherically symmetric density'
+    # For a flattened softening kernel, the density at (y,z) should be higher than at (z,y)
+    sbp= potential.SoftenedNeedleBarPotential(normalize=1.,a=1.,c=.1,b=0.3,
+                                              pa=0.)
+    assert sbp.dens(2.,0.,phi=numpy.pi/4.) > sbp.dens(numpy.sqrt(2.),numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
+    # Another one
+    assert sbp.dens(4.,0.,phi=numpy.pi/4.) > sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
+    return None
+    
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -1783,7 +1800,7 @@ def test_plotting():
     #Plot the potential itself
     kp.plot()
     kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
-            effective=False,Lz=None, 
+            effective=False,Lz=None,xy=True,
             xrange=[0.01,1.8],yrange=[-0.55,0.55],justcontours=True,
             ncontours=11,savefilename=None)
     #Also while saving the result
@@ -1813,7 +1830,7 @@ def test_plotting():
         potential.plotPotentials([kp],
                                  rmin=0.01,rmax=1.8,nrs=11,
                                  zmin=-0.55,zmax=0.55,nzs=11, 
-                                 justcontours=True,
+                                 justcontours=True,xy=True,
                                  ncontours=11,savefilename=tmp_savefilename)
         #Then plot using the saved file
         potential.plotPotentials([kp],
@@ -1835,7 +1852,7 @@ def test_plotting():
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     lp.plotDensity()
     lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
-                   aspect=1.,log=True,justcontours=True,
+                   aspect=1.,log=True,justcontours=True,xy=True,
                    ncontours=11,savefilename=None)
     #Also while saving the result
     savefile, tmp_savefilename= tempfile.mkstemp()
@@ -1852,7 +1869,7 @@ def test_plotting():
     potential.plotDensities([lp],
                             rmin=0.05,rmax=1.8,nrs=11,
                             zmin=-0.55,zmax=0.55,nzs=11, 
-                            aspect=1.,log=True,
+                            aspect=1.,log=True,xy=True,
                             justcontours=True,
                             ncontours=11,savefilename=None)
     #Plot the potential itself for a 2D potential
@@ -1916,7 +1933,19 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
-    TwoPowerTriaxialPotential, BurkertPotential
+    TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential
+class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
+    def __init__(self):
+        SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
+                                            c=10.,omegab=0.,pa=0.)
+        self.normalize(1.)
+        self.isNonAxi= False
+        return None
+    def _evaluate(self,R,z,phi=0.,t=0.):
+        if phi is None: phi= 0.
+        x,y,z= self._compute_xyz(R,phi,z,t)
+        Tp, Tm= self._compute_TpTm(x,y,z)
+        return numpy.log((x-self._a+Tm)/(x+self._a+Tp))/2./self._a
 class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)

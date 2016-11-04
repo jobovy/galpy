@@ -697,6 +697,9 @@ following series of steps (some of these are also given in the file
     azimuthal derivative of the potential in cylindrical coordinates
     (d^2 potential / d R d phi; assumed zero if not given).
 
+  * ``OmegaP(self)``: returns the pattern speed for potentials with a
+    pattern speed (used to compute the Jacobi integral for orbits).
+
   If you want to be able to calculate the concentration for a
   potential, you also have to set self._scale to a scale parameter for
   your potential.
@@ -722,6 +725,12 @@ following series of steps (some of these are also given in the file
   implemented). The continuous-integration platform that builds the
   galpy codebase upon code pushes will then automatically test all of
   this, streamlining push requests of new potentials.
+
+  A few atrributes need to be set depending on the potential:
+  ``hasC=True`` for potentials for which the forces and potential are
+  implemented in C (see below); ``self.hasC_dxdv=True`` for potentials
+  for which the (planar) second derivatives are implemented in C;
+  ``self.isNonAxi=True`` for non-axisymmetric potentials.
 
 2. To add a C implementation of the potential, implement it in a .c file under ``potential_src/potential_c_ext``. Look at ``potential_src/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential_src/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
 
