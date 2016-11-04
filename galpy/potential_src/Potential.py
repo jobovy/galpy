@@ -847,7 +847,7 @@ class Potential(object):
         return RZToverticalPotential(self,R)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-             effective=False,Lz=None,phi=None,
+             effective=False,Lz=None,phi=None,xy=False,
              xrange=None,yrange=None,
              justcontours=False,
              ncontours=21,savefilename=None):
@@ -864,19 +864,21 @@ class Potential(object):
 
            t= time tp plot potential at
 
-           rmin= minimum R at which to calculate (can be Quantity)
+           rmin= minimum R (can be Quantity) [xmin if xy]
 
-           rmax= maximum R (can be Quantity)
+           rmax= maximum R (can be Quantity) [ymax if xy]
 
            nrs= grid in R
 
-           zmin= minimum z (can be Quantity)
+           zmin= minimum z (can be Quantity) [ymin if xy]
 
-           zmax= maximum z (can be Quantity)
+           zmax= maximum z (can be Quantity) [ymax if xy]
 
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           xy= (False) if True, plot the density in X-Y
 
            effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
 
@@ -927,8 +929,12 @@ class Potential(object):
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
+                    if xy:
+                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                    else:
+                        R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(self,
-                                                     Rs[ii],zs[jj],t=t,phi=phi,
+                                                     R,z,t=t,phi=phi,
                                                      use_physical=False)
                 if effective:
                     potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
@@ -944,8 +950,14 @@ class Potential(object):
                 pickle.dump(Rs,savefile)
                 pickle.dump(zs,savefile)
                 savefile.close()
+        if xy:
+            xlabel= r'$x/R_0$'
+            ylabel= r'$y/R_0$'
+        else:
+            xlabel=r"$R/R_0$"
+            ylabel=r"$z/R_0$"
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+                                xlabel=xlabel,ylabel=ylabel,
                                 xrange=xrange,
                                 yrange=yrange,
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
@@ -1941,7 +1953,8 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   phi=None,ncontours=21,savefilename=None,aspect=None,
+                   phi=None,xy=False,
+                   ncontours=21,savefilename=None,aspect=None,
                    justcontours=False):
         """
         NAME:
@@ -1956,19 +1969,21 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            Pot - Potential or list of Potential instances
 
-           rmin= minimum R (can be Quantity)
+           rmin= minimum R (can be Quantity) [xmin if xy]
 
-           rmax= maximum R (can be Quantity)
+           rmax= maximum R (can be Quantity) [ymax if xy]
 
            nrs= grid in R
 
-           zmin= minimum z (can be Quantity)
+           zmin= minimum z (can be Quantity) [ymin if xy]
 
-           zmax= maximum z (can be Quantity)
+           zmax= maximum z (can be Quantity) [ymax if xy]
 
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           xy= (False) if True, plot the density in X-Y
 
            ncontours= number of contours
 
@@ -2011,8 +2026,12 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             potRz= nu.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
-                    potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(Rs[ii]),
-                                                     zs[jj],phi=phi,
+                    if xy:
+                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                    else:
+                        R,z= Rs[ii], zs[jj]
+                    potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(R),
+                                                     z,phi=phi,
                                                      use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
@@ -2023,8 +2042,14 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                 savefile.close()
         if aspect is None:
             aspect=.75*(rmax-rmin)/(zmax-zmin)
+        if xy:
+            xlabel= r'$x/R_0$'
+            ylabel= r'$y/R_0$'
+        else:
+            xlabel=r"$R/R_0$"
+            ylabel=r"$z/R_0$"
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=r"$R/R_0$",ylabel=r"$z/R_0$",
+                                xlabel=xlabel,ylabel=ylabel,
                                 aspect=aspect,
                                 xrange=[rmin,rmax],
                                 yrange=[zmin,zmax],
