@@ -1783,7 +1783,7 @@ def test_plotting():
     #Plot the potential itself
     kp.plot()
     kp.plot(t=1.,rmin=0.01,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
-            effective=False,Lz=None, 
+            effective=False,Lz=None,xy=True,
             xrange=[0.01,1.8],yrange=[-0.55,0.55],justcontours=True,
             ncontours=11,savefilename=None)
     #Also while saving the result
@@ -1813,7 +1813,7 @@ def test_plotting():
         potential.plotPotentials([kp],
                                  rmin=0.01,rmax=1.8,nrs=11,
                                  zmin=-0.55,zmax=0.55,nzs=11, 
-                                 justcontours=True,
+                                 justcontours=True,xy=True,
                                  ncontours=11,savefilename=tmp_savefilename)
         #Then plot using the saved file
         potential.plotPotentials([kp],
@@ -1835,7 +1835,7 @@ def test_plotting():
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     lp.plotDensity()
     lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
-                   aspect=1.,log=True,justcontours=True,
+                   aspect=1.,log=True,justcontours=True,xy=True,
                    ncontours=11,savefilename=None)
     #Also while saving the result
     savefile, tmp_savefilename= tempfile.mkstemp()
@@ -1852,7 +1852,7 @@ def test_plotting():
     potential.plotDensities([lp],
                             rmin=0.05,rmax=1.8,nrs=11,
                             zmin=-0.55,zmax=0.55,nzs=11, 
-                            aspect=1.,log=True,
+                            aspect=1.,log=True,xy=True,
                             justcontours=True,
                             ncontours=11,savefilename=None)
     #Plot the potential itself for a 2D potential
