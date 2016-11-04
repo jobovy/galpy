@@ -66,7 +66,9 @@ require the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`__), with action calculations
 requiring version 1.14 or higher. Use of ``SnapshotRZPotential`` and
 ``InterpSnapshotRZPotential`` requires `pynbody
-<https://github.com/pynbody/pynbody>`__.
+<https://github.com/pynbody/pynbody>`__. Support for providing inputs
+and getting outputs as Quantities with units is provided through
+`astropy <http://www.astropy.org/>`__.
 
 ISSUES
 -------
