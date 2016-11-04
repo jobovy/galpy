@@ -214,3 +214,30 @@ class SoftenedNeedleBarPotential(Potential):
     def _zforce_xyz(self,x,y,z,Tp,Tm):
         zc= numpy.sqrt(z**2.+self._c2)
         return self._yforce_xyz(x,y,z,Tp,Tm)*z/y*(self._b+zc)/zc
+
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2016-11-04 - Written - Bovy (UofT/CCA)
+        """
+        x,y,z= self._compute_xyz(R,phi,z,t)
+        zc= numpy.sqrt(z**2.+self._c2)
+        bzc2= (self._b+zc)**2.
+        bigA= self._b*y**2.+(self._b+3.*zc)*bzc2
+        bigC= y**2.+bzc2
+        return self._c2/24./numpy.pi/self._a/bigC**2./zc**3.\
+            *((x+self._a)*(3.*bigA*bigC+(2.*bigA+self._b*bigC)*(x+self._a)**2.)\
+                  /(bigC+(x+self._a)**2.)**1.5\
+             -(x-self._a)*(3.*bigA*bigC+(2.*bigA+self._b*bigC)*(x-self._a)**2.)\
+                  /(bigC+(x-self._a)**2.)**1.5)
