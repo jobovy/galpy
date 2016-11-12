@@ -177,6 +177,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` plus a hard Galactic core to calculate the orbits of stars in the solar neighborhood and predict how many of them should be lost to chaos.
 #. *Differences in the rotational properties of multiple stellar populations in M 13: a faster rotation for the "extreme" chemical subpopulation*, M. J. Cordero, V. Hénault-Brunet, C. A. Pilachowski, E. Balbinot, C. I. Johnson, & A. L. Varri (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1610.09374 <http://arxiv.org/abs/1610.09374>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster M13 and in particular whether escaping stars from the cluster could contaminate the measurement of the rotation of different populations in the cluster.
+#. *Using the Multi-Object Adaptive Optics demonstrator RAVEN to observe metal-poor stars in and towards the Galactic Centre*, Masen Lamb, Kim Venn, David Andersen, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1611.02712 <http://arxiv.org/abs/1611.02712>`_):
+     Uses galpy orbit integration in ``MWPotential2014`` to characterize the orbits of three very metal-poor stars observed toward the Galactic center, to determine whether they are likely bulge members.
 
 
 Indices and tables
