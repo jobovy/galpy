@@ -138,7 +138,8 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p: ttimes= times
+                    and not 'MovingObject' in p \
+                    and not p == 'FerrersPotential': ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
