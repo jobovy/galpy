@@ -150,6 +150,7 @@ Triaxial potentials
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
+   potentialferrers.rst
 
 Bar potentials
 ****************

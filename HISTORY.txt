@@ -15,6 +15,10 @@ v1.3 (2017-XX-XX)
 v1.2 (2016-09-06)
 ==================
 
+- Added FerrersPotential, a class that implements the potential for
+  triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
+  to give a pattern speed to the ellipsoid.
+
 - Added support for providing inputs to all initializations, methods,
   and functions as Quantities with units and for providing outputs as
   astropy Quantities. See pull request #258 and the documentation for

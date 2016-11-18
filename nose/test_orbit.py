@@ -138,7 +138,8 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p: ttimes= times
+                    and not 'MovingObject' in p \
+                    and not p == 'FerrersPotential': ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
@@ -456,6 +457,7 @@ def test_liouville_planar():
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
     tol['TriaxialNFWPotential']= -4. #more difficult
+    tol['FerrersPotential']= -2.
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -471,7 +473,8 @@ def test_liouville_planar():
         if hasattr(tp,'toPlanar'):
             tp= tp.toPlanar()
         for integrator in integrators:
-            if integrator == 'odeint' or not tp.hasC: ttol= -4.
+            if integrator == 'odeint' or not tp.hasC \
+                and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
             o= setup_orbit_liouville(tp,axi=False)
             #Calculate the Jacobian d x / d x
