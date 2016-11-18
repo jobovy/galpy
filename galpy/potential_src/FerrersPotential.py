@@ -477,7 +477,7 @@ def _forceInt(x,y,z,a2,b2,c2,n,i):
     def integrand(tau):
         return (x*(i==0) + y*(i==1) + z*(i==2))/(a2*(i==0) + b2*(i==1) + c2*(i==2) + tau) * \
             _FracInt(x, y, z, a2, b2, c2, tau, n)
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), np.inf)[0]
+    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), np.inf, epsabs=1e-12)[0]
 
 def _2ndDerivInt(x,y,z,a2,b2,c2,n,i,j):
     """Integral involved in second derivatives d^\Phi/(dx_i dx_j)
