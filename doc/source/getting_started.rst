@@ -96,13 +96,13 @@ units. For example, for the Milky-Way-like potential defined in galpy,
 we have that the vertical force at 1.1 kpc is
 
 >>> from galpy.potential import MWPotential2014, evaluatezforces
->>> -evaluatezforces(1.,1.1/8.,MWPotential2014)*bovy_conversion.force_in_pcMyr2(220.,8.)
+>>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_pcMyr2(220.,8.)
 2.0259181908629933
 
 which we can also express as an equivalent surface-density by dividing
 by :math:`2\pi G`
 
->>> -evaluatezforces(1.,1.1/8.,MWPotential2014)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
 71.658016957792356
 
 Because the vertical force at the solar circle in the Milky Way at 1.1
