@@ -123,6 +123,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
+    pots.append('mockAxisymmetricFerrersPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -274,6 +275,7 @@ def test_2ndDeriv_potential():
     pots.append('HernquistTwoPowerTriaxialPotential')
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('mockAxisymmetricFerrersPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1939,7 +1941,8 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MiyamotoNagaiPotential, PowerSphericalPotential, interpRZPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
-    TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential
+    TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
+    FerrersPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -2077,6 +2080,11 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
+        return None
+# An axisymmetric FerrersPotential
+class mockAxisymmetricFerrersPotential(FerrersPotential):
+    def __init__(self):
+        FerrersPotential.__init__(self,normalize=1.,b=1.,c=.2)
         return None
 class mockInterpRZPotential(interpRZPotential):
     def __init__(self):
