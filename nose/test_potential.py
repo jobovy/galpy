@@ -1625,6 +1625,12 @@ def test_TwoPowerTriaxialPotential_betalowerror():
     dummy= potential.TwoPowerTriaxialPotential(beta=1.)
     return None
 
+# Test that FerrersPotential raises a value error for n < 0
+@raises(ValueError)
+def test_FerrersPotential_nNegative():
+    dummy= potential.FerrersPotential(n=-1.)
+    return None
+
 def test_planeRotatedNFWPotential():
     # Test that the rotation according to pa works as expected
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.5,
