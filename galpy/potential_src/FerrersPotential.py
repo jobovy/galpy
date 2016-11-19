@@ -148,27 +148,8 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
-        # Compute all rectangular forces
-        new_hash= hashlib.md5(np.array([x,y,z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx= self._cached_Fx
-            Fy= self._cached_Fy
-            Fz= self._cached_Fz
-        else:
-            Fx= self._xforce_xyz(x,y,z)
-            Fy= self._yforce_xyz(x,y,z)
-            Fz= self._zforce_xyz(x,y,z)
-            self._force_hash= new_hash
-            self._cached_Fx= Fx
-            self._cached_Fy= Fy
-            self._cached_Fz= Fz
-        Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
-        Fx, Fy= Fxy[0], Fxy[1]
-        return np.cos(phi)*Fx+np.sin(phi)*Fy
-
+        self._compute_xyzforces(R,z,phi,t)
+        return np.cos(phi)*self._cached_Fx+np.sin(phi)*self._cached_Fy
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -186,26 +167,9 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
-        # Compute all rectangular forces
-        new_hash= hashlib.md5(np.array([x,y,z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx= self._cached_Fx
-            Fy= self._cached_Fy
-            Fz= self._cached_Fz
-        else:
-            Fx= self._xforce_xyz(x,y,z)
-            Fy= self._yforce_xyz(x,y,z)
-            Fz= self._zforce_xyz(x,y,z)
-            self._force_hash= new_hash
-            self._cached_Fx= Fx
-            self._cached_Fy= Fy
-            self._cached_Fz= Fz
-        Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
-        Fx, Fy= Fxy[0], Fxy[1]
-        return R*(-np.sin(phi)*Fx+np.cos(phi)*Fy)
+        self._compute_xyzforces(R,z,phi,t)
+        return R*(-np.sin(phi)*self._cached_Fx\
+                       +np.cos(phi)*self._cached_Fy)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -223,18 +187,30 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1] 
+        self._compute_xyzforces(R,z,phi,t)
+        return self._cached_Fz
+
+    def _compute_xyz(self,R,phi,z,t):
+        return bovy_coords.cyl_to_rect(R,phi-self._pa-self._omegab*t,z)
+
+    def _compute_xyzforces(self,R,z,phi,t):
         # Compute all rectangular forces
-        new_hash= hashlib.md5(np.array([x,y,z])).hexdigest()
+        new_hash= hashlib.md5(np.array([R,phi,z,t])).hexdigest()
         if new_hash == self._force_hash:
+            Fx= self._cached_Fx
+            Fy= self._cached_Fy
             Fz= self._cached_Fz
         else:
+            x,y,z= self._compute_xyz(R,phi,z,t)
+            Fx= self._xforce_xyz(x,y,z)
+            Fy= self._yforce_xyz(x,y,z)
             Fz= self._zforce_xyz(x,y,z)
             self._force_hash= new_hash
+            tp= self._pa+self._omegab*t
+            cp, sp= np.cos(tp), np.sin(tp)
+            self._cached_Fx= cp*Fx-sp*Fy
+            self._cached_Fy= sp*Fx+cp*Fy
             self._cached_Fz= Fz
-        return Fz
 
     def _xforce_xyz(self,x,y,z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
