@@ -32,6 +32,8 @@ class FerrersPotential(Potential):
 
     and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)`
     so that the major axis is aligned with :math:`x'`.
+
+    Note that this potential has not yet been optimized for speed and has no C implementation, so orbit integration is currently slow.
     """
 
     def __init__(self,amp=1.,a=1.,n=2,b=0.35,c=0.2375,omegab=0.,
