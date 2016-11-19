@@ -878,7 +878,7 @@ class Potential(object):
 
            phi= (None) azimuth to use for non-axisymmetric potentials
 
-           xy= (False) if True, plot the density in X-Y
+           xy= (False) if True, plot the potential in X-Y
 
            effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
 
@@ -1983,7 +1983,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            phi= (None) azimuth to use for non-axisymmetric potentials
 
-           xy= (False) if True, plot the density in X-Y
+           xy= (False) if True, plot the potential in X-Y
 
            ncontours= number of contours
 
