@@ -246,9 +246,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
+        x,y,z= self._compute_xyz(R,phi,z,t)
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
@@ -276,9 +274,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
+        x,y,z= self._compute_xyz(R,phi,z,t)
         phixza= self._2ndderiv_xyz(x,y,z,0,2)
         phiyza= self._2ndderiv_xyz(x,y,z,1,2)
         ang = self._omegab*t + self._pa
@@ -303,9 +299,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
+        x,y,z= self._compute_xyz(R,phi,z,t)
         return self._2ndderiv_xyz(x,y,z,2,2)
 
     def _phi2deriv(self,R,z,phi=0.,t=0.):
@@ -324,9 +318,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
+        x,y,z= self._compute_xyz(R,phi,z,t)
         Fx= self._xforce_xyz(x,y,z)
         Fy= self._yforce_xyz(x,y,z)
         Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
@@ -359,9 +351,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]  
+        x,y,z= self._compute_xyz(R,phi,z,t)
         Fx= self._xforce_xyz(x,y,z)
         Fy= self._yforce_xyz(x,y,z)
         Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
@@ -398,9 +388,7 @@ class FerrersPotential(Potential):
         OUTPUT:
            the density
         """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
-        x,y= xy[0],xy[1]
+        x,y,z= self._compute_xyz(R,phi,z,t)
         m2 = x**2/self._a2+y**2/self._b2+z**2/self._c2
         if m2 < 1:
             return self._rhoc_M*(1.-m2/self.a**2)**self.n
