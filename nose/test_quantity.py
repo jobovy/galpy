@@ -1700,6 +1700,15 @@ def test_potential_ampunits():
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    # FerrersPotential
+    pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun,
+                                    a=1.,b=2.,c=3.,pa=0.,omegab=0.,
+                                    ro=ro,vo=vo)
+    pot_nounits= potential.FerrersPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_altunits():
@@ -1838,6 +1847,15 @@ def test_potential_ampunits_altunits():
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    # FerrersPotential
+    pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun*constants.G,
+                                    a=1.,b=2.,c=3.,pa=0.,omegab=0.,
+                                    ro=ro,vo=vo)
+    pot_nounits= potential.FerrersPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -1940,6 +1958,10 @@ def test_potential_ampunits_wrongunits():
     # SoftenedNeedleBarPotential
     assert_raises(units.UnitConversionError,
                   lambda x:potential.SoftenedNeedleBarPotential(amp=40.*units.Msun/units.pc**2,
+                                                                a=2.,ro=ro,vo=vo),())
+    # FerrersPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.FerrersPotential(amp=40.*units.Msun/units.pc**2,
                                                                 a=2.,ro=ro,vo=vo),())
     return None
 
@@ -2141,6 +2163,24 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    # FerrersPotential
+    pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun,
+                                    a=10.*units.kpc,
+                                    b=2.,
+                                    c=3.,
+                                    pa=10.*units.deg,
+                                    omegab=20.*units.km/units.s/units.kpc,
+                                    ro=ro,vo=vo)
+    pot_nounits= potential.FerrersPotential(\
+        amp=4.*10.**10.*units.Msun,
+        a=10./ro,
+        b=2.,
+        c=3.,
+        pa=10./180.*numpy.pi,
+        omegab=20./bovy_conversion.freq_in_kmskpc(vo,ro),
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():
