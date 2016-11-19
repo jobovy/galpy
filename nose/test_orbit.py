@@ -3252,6 +3252,7 @@ def test_full_plotting():
     o.plot(d1='helioZ',d2='W')
     o.plot(d2='helioZ',d1='W')
     o.plot(d2='r',d1='R')
+    o.plot(d2='R',d1='r')
     # Some more energies etc.
     o.plot(d1='E',d2='R')
     o.plot(d1='Enorm',d2='R')
@@ -3300,6 +3301,8 @@ def test_full_plotting():
     o.plot3d(d1='y',d2='vx',d3='vy')
     o.plot3d(d1='vy',d2='y',d3='x')
     o.plot3d(d1='x',d2='vy',d3='vx')
+    o.plot3d(d1='x',d2='r',d3='vx')
+    o.plot3d(d1='x',d2='vy',d3='r')
     # Remaining attributes
     o.plot3d(d1='ra',d2='dec',d3='pmra')
     o.plot3d(d2='ra',d1='dec',d3='pmdec')
