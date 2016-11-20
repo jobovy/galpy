@@ -17,8 +17,7 @@ if _APY_LOADED:
     from astropy import units
 
 class FerrersPotential(Potential):
-    """Class that implements triaxial Ferrers potential for the ellipsoidal density profile
-       with the short axis along the z-direction
+    """Class that implements triaxial Ferrers potential for the ellipsoidal density profile with the short axis along the z-direction
 
     .. math::
 
@@ -49,9 +48,7 @@ class FerrersPotential(Potential):
 
         INPUT:
 
-           amp - total mass of the ellipsoid
-                 determines the amplitude of the potential;
-                 can be a Quantity with units of mass or Gxmass
+           amp - total mass of the ellipsoid determines the amplitude of the potential; can be a Quantity with units of mass or Gxmass
 
            a - scale radius (can be Quantity)
 
@@ -65,12 +62,9 @@ class FerrersPotential(Potential):
 
            pa= (None) If set, the position angle of the x axis (rad or Quantity)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or,
-                       if given as a number, such that the force is this fraction
-                       of the force necessary to make vc(1.,0.)=1.
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
-           ro=, vo= distance and velocity scales for translation into internal units
-                   (default from configuration file)
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
