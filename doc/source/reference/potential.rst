@@ -138,27 +138,20 @@ Axisymmetric potentials
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial potentials
-*********************
+Triaxial and bar potentials
+****************************
 
 .. toctree::
    :maxdepth: 2
 
    potentialdoublepowertriaxial.rst
+   potentialferrers.rst
    potentialmovingobj.rst
    potentialscf.rst
+   potentialsoftenedneedle.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
-   potentialferrers.rst
-
-Bar potentials
-****************
-
-.. toctree::
-   :maxdepth: 2
-
-   potentialsoftenedneedle.rst
 
 .. _potential-mw:
 
