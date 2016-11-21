@@ -179,6 +179,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster M13 and in particular whether escaping stars from the cluster could contaminate the measurement of the rotation of different populations in the cluster.
 #. *Using the Multi-Object Adaptive Optics demonstrator RAVEN to observe metal-poor stars in and towards the Galactic Centre*, Masen Lamb, Kim Venn, David Andersen, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1611.02712 <http://arxiv.org/abs/1611.02712>`_):
      Uses galpy orbit integration in ``MWPotential2014`` to characterize the orbits of three very metal-poor stars observed toward the Galactic center, to determine whether they are likely bulge members.
+#. *The Radial Velocity Experiment (RAVE): Fifth Data Release*, Andrea Kunder, Georges Kordopatis, Matthias Steinmetz, et al. (2016), *Astron. J.*, in press (`arXiv/1609.03210 <http://arxiv.org/abs/1609.03210>`_):
+     Employs galpy orbit integration to characterize the orbits of stars in the RAVE survey.
 
 
 Indices and tables
