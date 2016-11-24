@@ -4,6 +4,7 @@ import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, evaluateDensities
+from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
