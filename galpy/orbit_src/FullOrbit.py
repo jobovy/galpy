@@ -566,14 +566,11 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             allHasC= nu.prod([p.hasC for p in pot])
         else:
             allHasC= pot.hasC
-        fallback = False
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            fallback = True
-            method= 'leapfrog'
-        elif not allHasC:
-            fallback = True
-            method= 'odeint'
-        if fallback:
+        if not allHasC:
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
             warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
