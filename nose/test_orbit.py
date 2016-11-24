@@ -3023,6 +3023,27 @@ def test_orbit_c_sigint_planardxdv():
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
     return None
 
+def test_orbitint_pythonfallback():
+    # Check if a warning is raised when the potential has no C integrator
+    from galpy.orbit import Orbit
+    bp= BurkertPotentialNoC() # BurkertPotentialNoC is already imported at the top of test_orbit.py
+    bp.normalize(1.)
+    ts= numpy.linspace(0.,1.,101)
+    import warnings
+    for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.]),Orbit([1.,0.1,1.1,0.1,0.]),
+                Orbit([1.,0.1,1.1,1.]),Orbit([1.,0.1,1.1])]:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", galpyWarning)
+            #Test w/ dopr54_c
+            orb.integrate(ts,bp, method='dopr54_c')
+            # Should raise warning bc of python fallback, might raise others
+            raisedWarning= False
+            for wa in w:
+                raisedWarning= ( "Cannot use C integration because some of the potentials are not implemented in C" in str(wa.message) )
+                if raisedWarning: break
+            assert raisedWarning, "Orbit integration did not raise fallback warning"
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
@@ -3553,4 +3574,3 @@ def check_integrate_t_asQuantity_warning(o,funcName):
             if raisedWarning: break
         assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None  
-

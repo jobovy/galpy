@@ -1,8 +1,10 @@
+import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, evaluateDensities
+from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
@@ -470,10 +472,12 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
             allHasC= nu.prod([p.hasC for p in pot])
         else:
             allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
-            method= 'odeint'
+        if not allHasC:
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
