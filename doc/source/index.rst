@@ -163,7 +163,7 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Makes use of potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to develop a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars.
 #. *A Dipole on the Sky: Predictions for Hypervelocity Stars from the Large Magellanic Cloud*, Douglas Boubert & N. W. Evans (2016), *Astrophys. J. Lett.*, **825**, L6 (`arXiv/1606.02548 <http://arxiv.org/abs/1606.02548>`_):
      Uses ``galpy.orbit`` integration to investigate the orbits of hyper-velocity stars that could be ejected from the Large Magellanic Cloud and their distribution on the sky.
-#. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
+#. *Linear perturbation theory for tidal streams and the small-scale CDM power spectrum*, Jo Bovy, Denis Erkal, & Jason L. Sanders (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1606.03470 <http://arxiv.org/abs/1606.03470>`_):
      Uses and extends ``galpy.df.streamdf`` and ``galpy.df.streamgapdf`` to quickly compute the effect of impacts from dark-matter subhalos on stellar streams and investigates the structure of perturbed streams and how this structure relates to the CDM subhalo mass spectrum.
 #. *Local Stellar Kinematics from RAVE data - VII. Metallicity Gradients from Red Clump Stars*, O. Onal Tas, S. Bilir, G. M. Seabroke, S. Karaali, S. Ak, T. Ak, & Z. F. Bostanci (2016), *Pub. Astron. Soc. Aus.*, **33**, e044 (`arXiv/1607.07049 <http://arxiv.org/abs/1607.07049>`_):
      Employs galpy orbit integration in ``MWPotential2014`` to calculate orbital parameters for a sample of red clump stars in RAVE to investigate the metallicity gradient in the Milky Way.
@@ -171,16 +171,18 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses galpy orbit integration in ``MWPotential2014`` to calculate the orbit and orbital parameters of the spectroscopic binary DN Cas in the Milky Way.
 #. *The shape of the inner Milky Way halo from observations of the Pal 5 and GD-1 stellar streams*, Jo Bovy, Anita Bahmanyar, Tobias K. Fritz, & Nitya Kallivayalil (2016), *Astrophys. J.*, in press (`arXiv/1609.01298 <http://arxiv.org/abs/1609.01298>`_):
      Makes use of the ``galpy.df.streamdf`` model for a tidal stream to constrain the shape and mass of the Milky Way's dark-matter halo. Introduced ``galpy.potential.TriaxialNFWPotential``.
-#. *The Rotation-Metallicity Relation for the Galactic Disk as Measured in the Gaia DR1 TGAS and APOGEE Data*, Carlos Allende Prieto, Daisuke Kawata, & Mark Cropper (2016), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1609.07821 <http://arxiv.org/abs/1609.07821>`_):
+#. *The Rotation-Metallicity Relation for the Galactic Disk as Measured in the Gaia DR1 TGAS and APOGEE Data*, Carlos Allende Prieto, Daisuke Kawata, & Mark Cropper (2016), *Astron. & Astrophys.*, in press (`arXiv/1609.07821 <http://arxiv.org/abs/1609.07821>`_):
      Employs orbit integration in ``MWPotential2014`` to calculate the orbits of a sample of stars in common between Gaia DR1's TGAS and APOGEE to study the rotation-metallicity relation for the Galactic disk.
-#. *Detection of a dearth of stars with zero angular momentum in the solar neighbourhood*, Jason A. S. Hunt, Jo Bovy, & Raymond Carlberg (2016), *Astrophys. J.*, submitted (`arXiv/1610.02030 <http://arxiv.org/abs/1610.02030>`_):
+#. *Detection of a dearth of stars with zero angular momentum in the solar neighbourhood*, Jason A. S. Hunt, Jo Bovy, & Raymond Carlberg (2016), *Astrophys. J. Lett.*, **832**, L25 (`arXiv/1610.02030 <http://arxiv.org/abs/1610.02030>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` plus a hard Galactic core to calculate the orbits of stars in the solar neighborhood and predict how many of them should be lost to chaos.
 #. *Differences in the rotational properties of multiple stellar populations in M 13: a faster rotation for the "extreme" chemical subpopulation*, M. J. Cordero, V. Hénault-Brunet, C. A. Pilachowski, E. Balbinot, C. I. Johnson, & A. L. Varri (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1610.09374 <http://arxiv.org/abs/1610.09374>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster M13 and in particular whether escaping stars from the cluster could contaminate the measurement of the rotation of different populations in the cluster.
 #. *Using the Multi-Object Adaptive Optics demonstrator RAVEN to observe metal-poor stars in and towards the Galactic Centre*, Masen Lamb, Kim Venn, David Andersen, et al. (2016), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1611.02712 <http://arxiv.org/abs/1611.02712>`_):
-     Uses galpy orbit integration in ``MWPotential2014`` to characterize the orbits of three very metal-poor stars observed toward the Galactic center, to determine whether they are likely bulge members.
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of three very metal-poor stars observed toward the Galactic center, to determine whether they are likely bulge members.
 #. *The Radial Velocity Experiment (RAVE): Fifth Data Release*, Andrea Kunder, Georges Kordopatis, Matthias Steinmetz, et al. (2016), *Astron. J.*, in press (`arXiv/1609.03210 <http://arxiv.org/abs/1609.03210>`_):
-     Employs galpy orbit integration to characterize the orbits of stars in the RAVE survey.
+     Employs ``galpy.orbit`` integration to characterize the orbits of stars in the RAVE survey.
+#. *The Proper Motion of Pyxis: the first use of Adaptive Optics in tandem with HST on a faint halo object*, Tobias K. Fritz, Sean Linden, Paul Zivick, et al. (2016), *Astrophys. J.*, submitted (`arXiv/1611.08598 <http://arxiv.org/abs/1611.08598>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster Pyxis using its newly measured proper motion and to search for potential streams associated with the cluster.
 
 
 Indices and tables
