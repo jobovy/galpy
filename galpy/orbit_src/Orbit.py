@@ -854,7 +854,9 @@ class Orbit(object):
 
         """
         _check_consistent_units(self,kwargs.get('pot',None))
-        return self._orb.Jacobi(*args,**kwargs)
+        out= self._orb.Jacobi(*args,**kwargs)
+        if not isinstance(out,float) and len(out) == 1: return out[0]
+        else: return out
 
     def e(self,analytic=False,pot=None):
         """
@@ -2067,7 +2069,9 @@ class Orbit(object):
            2011-02-23 - Written - Bovy (NYU)
 
         """
-        return self._orb.ra(*args,**kwargs)
+        out= self._orb.ra(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def dec(self,*args,**kwargs):
         """
@@ -2098,7 +2102,9 @@ class Orbit(object):
            2011-02-23 - Written - Bovy (NYU)
 
         """
-        return self._orb.dec(*args,**kwargs)
+        out= self._orb.dec(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
     
     def ll(self,*args,**kwargs):
         """
@@ -2129,7 +2135,9 @@ class Orbit(object):
            2011-02-23 - Written - Bovy (NYU)
 
         """
-        return self._orb.ll(*args,**kwargs)
+        out= self._orb.ll(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def bb(self,*args,**kwargs):
         """
@@ -2160,7 +2168,9 @@ class Orbit(object):
            2011-02-23 - Written - Bovy (NYU)
 
         """
-        return self._orb.bb(*args,**kwargs)
+        out= self._orb.bb(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def dist(self,*args,**kwargs):
         """
@@ -2191,7 +2201,9 @@ class Orbit(object):
            2011-02-23 - Written - Bovy (NYU)
 
         """
-        return self._orb.dist(*args,**kwargs)
+        out= self._orb.dist(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def pmra(self,*args,**kwargs):
         """
@@ -2227,7 +2239,9 @@ class Orbit(object):
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.pmra(*args,**kwargs)
+        out= self._orb.pmra(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def pmdec(self,*args,**kwargs):
         """
@@ -2263,7 +2277,9 @@ class Orbit(object):
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.pmdec(*args,**kwargs)
+        out= self._orb.pmdec(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def pmll(self,*args,**kwargs):
         """
@@ -2299,7 +2315,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.pmll(*args,**kwargs)
+        out= self._orb.pmll(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def pmbb(self,*args,**kwargs):
         """
@@ -2335,7 +2353,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.pmbb(*args,**kwargs)
+        out= self._orb.pmbb(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vlos(self,*args,**kwargs):
         """
@@ -2371,7 +2391,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.vlos(*args,**kwargs)
+        out= self._orb.vlos(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vra(self,*args,**kwargs):
         """
@@ -2417,7 +2439,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       .to(units.mas/units.yr).value,
                                   unit=units.km/units.s)
         else:
-            return dist*_K*self._orb.pmra(*args,**kwargs)
+            out= dist*_K*self._orb.pmra(*args,**kwargs)
+            if len(out) == 1: return out[0]
+            else: return out
 
     def vdec(self,*args,**kwargs):
         """
@@ -2463,7 +2487,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       .to(units.mas/units.yr).value,
                                   unit=units.km/units.s)
         else:
-            return dist*_K*self._orb.pmdec(*args,**kwargs)
+            out= dist*_K*self._orb.pmdec(*args,**kwargs)
+            if len(out) == 1: return out[0]
+            else: return out
 
     def vll(self,*args,**kwargs):
         """
@@ -2509,8 +2535,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       .to(units.mas/units.yr).value,
                                   unit=units.km/units.s)
         else:
-            return dist*_K*self._orb.pmll(*args,**kwargs)
-
+            out= dist*_K*self._orb.pmll(*args,**kwargs)
+            if len(out) == 1: return out[0]
+            else: return out
+        
     def vbb(self,*args,**kwargs):
         """
         NAME:
@@ -2555,7 +2583,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       .to(units.mas/units.yr).value,
                                   unit=units.km/units.s)
         else:
-            return dist*_K*self._orb.pmbb(*args,**kwargs)
+            out= dist*_K*self._orb.pmbb(*args,**kwargs)
+            if len(out) == 1: return out[0]
+            else: return out
 
     def helioX(self,*args,**kwargs):
         """
@@ -2589,7 +2619,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.helioX(*args,**kwargs)
+        out= self._orb.helioX(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def helioY(self,*args,**kwargs):
         """
@@ -2623,7 +2655,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.helioY(*args,**kwargs)
+        out= self._orb.helioY(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def helioZ(self,*args,**kwargs):
         """
@@ -2657,7 +2691,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.helioZ(*args,**kwargs)
+        out= self._orb.helioZ(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def U(self,*args,**kwargs):
         """
@@ -2693,7 +2729,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.U(*args,**kwargs)
+        out= self._orb.U(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def V(self,*args,**kwargs):
         """
@@ -2729,7 +2767,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.V(*args,**kwargs)
+        out= self._orb.V(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def W(self,*args,**kwargs):
         """
@@ -2765,7 +2805,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        return self._orb.W(*args,**kwargs)
+        out= self._orb.W(*args,**kwargs)
+        if len(out) == 1: return out[0]
+        else: return out
 
     def SkyCoord(self,*args,**kwargs):
         """
