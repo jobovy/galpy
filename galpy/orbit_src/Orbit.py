@@ -2060,7 +2060,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           ra(t)
+           ra(t) in deg
 
         HISTORY:
 
@@ -2091,7 +2091,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           dec(t)
+           dec(t) in deg
 
         HISTORY:
 
@@ -2122,7 +2122,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           l(t)
+           l(t) in deg
 
         HISTORY:
 
@@ -2153,7 +2153,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           b(t)
+           b(t) in deg
 
         HISTORY:
 
@@ -2220,7 +2220,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           pm_ra(t)
+           pm_ra(t) in mas/yr
 
         HISTORY:
 
@@ -2256,7 +2256,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           pm_dec(t)
+           pm_dec(t) in mas/yr
 
         HISTORY:
 
@@ -2292,7 +2292,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           pm_l(t)
+           pm_l(t) in mas/yr
 
         HISTORY:
 
@@ -2328,7 +2328,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           pm_b(t)
+           pm_b(t) in mas/yr
 
         HISTORY:
 
@@ -2364,7 +2364,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           vlos(t)
+           vlos(t) in km/s
 
         HISTORY:
 
@@ -2582,7 +2582,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           helioX(t)
+           helioX(t) in kpc
 
         HISTORY:
 
@@ -2616,7 +2616,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           helioY(t)
+           helioY(t) in kpc
 
         HISTORY:
 
@@ -2650,7 +2650,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           helioZ(t)
+           helioZ(t) in kpc
 
         HISTORY:
 
@@ -2686,7 +2686,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           U(t)
+           U(t) in km/s
 
         HISTORY:
 
@@ -2722,7 +2722,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           V(t)
+           V(t) in km/s
 
         HISTORY:
 
@@ -2758,7 +2758,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-           W(t)
+           W(t) in km/s
 
         HISTORY:
 
