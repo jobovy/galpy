@@ -3044,6 +3044,51 @@ def test_orbitint_pythonfallback():
             assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
+# Test that the functions that supposedly *always* return output in physical 
+# units actually do so; see issue #294
+def test_intrinsic_physical_output():
+    from galpy.orbit import Orbit
+    from galpy.util import bovy_coords
+    o= Orbit([0.9,0.,1.,0.,0.2,0.],ro=8.,vo=220.,zo=0.,
+             solarmotion=[-20.,30.,40.])
+    l_true= 0.
+    b_true= 0.
+    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True)
+    assert numpy.fabs(o.ra()-ra_true) < 10.**-8., 'Orbit.ra does not return correct ra in degree'
+    assert numpy.fabs(o.dec()-dec_true) < 10.**-8., 'Orbit.dec does not return correct dec in degree'
+    assert numpy.fabs(o.ll()-l_true) < 10.**-8., 'Orbit.ll does not return correct l in degree'
+    assert numpy.fabs(o.bb()-b_true) < 10.**-8., 'Orbit.bb does not return correct b in degree'
+    assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
+    pmll_true= -30./0.8/4.74047
+    pmbb_true= 4./0.8/4.74047
+    pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
+                                                             pmbb_true,
+                                                             l_true,b_true,
+                                                             degree=True)
+    assert numpy.fabs(o.pmra()-pmra_true) < 10.**-8., 'Orbit.pmra does not return correct pmra in mas/yr'
+    assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-8., 'Orbit.pmdec does not return correct pmdec in mas/yr'
+    assert numpy.fabs(o.pmll()-pmll_true) < 10.**-8., 'Orbit.pmll does not return correct pmll in mas/yr'
+    assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-8., 'Orbit.pmbb does not return correct pmbb in mas/yr'
+    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-8., 'Orbit.vra does not return correct vra in km/s'
+    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-8., 'Orbit.vdec does not return correct vdec in km/s'
+    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.vll does not return correct vll in km/s'
+    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.vbb does not return correct vbb in km/s'
+    assert numpy.fabs(o.vlos()+20.) < 10.**-8., 'Orbit.vlos does not return correct vlos in km/s'
+    assert numpy.fabs(o.U()+20.) < 10.**-8., 'Orbit.U does not return correct U in km/s'
+    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.V does not return correct V in km/s'
+    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.W does not return correct W in km/s'
+    assert numpy.fabs(o.helioX()-0.8) < 10.**-8., 'Orbit.helioX does not return correct helioX in kpc'
+    # For non-trivial helioY and helioZ tests
+    o= Orbit([1./numpy.sqrt(2.),0.,1.,0.,0.2,numpy.pi/4.],
+             ro=8.,vo=220.,zo=0.,
+             solarmotion=[-20.,30.,40.])
+    assert numpy.fabs(o.helioY()-4.) < 10.**-8., 'Orbit.helioY does not return correct helioY in kpc'
+    o= Orbit([0.9,0.,1.,0.3,0.2,numpy.pi/4.],
+             ro=8.,vo=220.,zo=0.,
+             solarmotion=[-20.,30.,40.])
+    assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-8., 'Orbit.helioZ does not return correct helioZ in kpc'
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
