@@ -907,7 +907,7 @@ class OrbitTop(object):
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
             X[bad_indx]+= ro/10000.
-        return coords.XYZ_to_lbd(X*ro,Y*ro,Z*ro,degree=True)
+        return coords.XYZ_to_lbd(X,Y,Z,degree=True)
 
     def _helioXYZ(self,*args,**kwargs):
         """Calculate heliocentric rectangular coordinates"""
@@ -951,7 +951,7 @@ class OrbitTop(object):
                                                     Xsun=obs.x(*args,**kwargs),
                                                     Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
-        return (X,Y,Z)
+        return (X*ro,Y*ro,Z*ro)
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
