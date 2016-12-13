@@ -192,7 +192,7 @@ class diskdf(df):
         """Call the DF, marginalizing over perpendicular velocity"""
         #Get l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R(use_physical=False)
         phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
@@ -237,7 +237,7 @@ class diskdf(df):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R(use_physical=False)
         phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the perpendicular 
