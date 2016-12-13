@@ -2472,8 +2472,8 @@ def test_orbitfit_lb():
     #Create orbit points from this integrated orbit, each 100th point
     vxvv= []
     for ii in range(10):
-        vxvv.append([o.ll(ii/10.)[0],o.bb(ii/10.)[0],o.dist(ii/10.)[0],
-                     o.pmll(ii/10.)[0],o.pmbb(ii/10.)[0],o.vlos(ii/10.)[0]])
+        vxvv.append([o.ll(ii/10.),o.bb(ii/10.),o.dist(ii/10.),
+                     o.pmll(ii/10.),o.pmbb(ii/10.),o.vlos(ii/10.)])
     vxvv= numpy.array(vxvv)
     #now fit, using another orbit instance
     of= o()
@@ -2493,9 +2493,9 @@ def test_orbitfit_radec():
     vxvv= []
     ro, vo= 9., 230.
     for ii in range(10):
-        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo)[0],o.dec(ii/10.,ro=ro,vo=vo)[0],
-                     o.dist(ii/10.,ro=ro,vo=vo)[0],o.pmra(ii/10.,ro=ro,vo=vo)[0],
-                     o.pmdec(ii/10.,ro=ro,vo=vo)[0],o.vlos(ii/10.,ro=ro,vo=vo)[0]])
+        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo),o.dec(ii/10.,ro=ro,vo=vo),
+                     o.dist(ii/10.,ro=ro,vo=vo),o.pmra(ii/10.,ro=ro,vo=vo),
+                     o.pmdec(ii/10.,ro=ro,vo=vo),o.vlos(ii/10.,ro=ro,vo=vo)])
     vxvv= numpy.array(vxvv)
     #now fit, using another orbit instance
     of= o()
@@ -2517,9 +2517,9 @@ def test_orbitfit_custom():
     vxvv= []
     ro, vo= 9., 230.
     for ii in range(10):
-        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo)[0],o.dec(ii/10.,ro=ro,vo=vo)[0],
-                     o.dist(ii/10.,ro=ro,vo=vo)[0],o.pmra(ii/10.,ro=ro,vo=vo)[0],
-                     o.pmdec(ii/10.,ro=ro,vo=vo)[0],o.vlos(ii/10.,ro=ro,vo=vo)[0]])
+        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo),o.dec(ii/10.,ro=ro,vo=vo),
+                     o.dist(ii/10.,ro=ro,vo=vo),o.pmra(ii/10.,ro=ro,vo=vo),
+                     o.pmdec(ii/10.,ro=ro,vo=vo),o.vlos(ii/10.,ro=ro,vo=vo)])
     vxvv= numpy.array(vxvv)
     #now fit, using another orbit instance
     of= o()
@@ -2551,22 +2551,22 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     if lb:
         allvxvv= []
         for ii in range(len(ts)):
-            allvxvv.append([of.ll(ts[ii])[0],of.bb(ts[ii])[0],
-                            of.dist(ts[ii])[0],of.pmll(ts[ii])[0],
-                            of.pmbb(ts[ii])[0],of.vlos(ts[ii])[0]])
-            allvxvv.append([off.ll(ts[ii])[0],off.bb(ts[ii])[0],
-                            off.dist(ts[ii])[0],off.pmll(ts[ii])[0],
-                            off.pmbb(ts[ii])[0],off.vlos(ts[ii])[0]])
+            allvxvv.append([of.ll(ts[ii]),of.bb(ts[ii]),
+                            of.dist(ts[ii]),of.pmll(ts[ii]),
+                            of.pmbb(ts[ii]),of.vlos(ts[ii])])
+            allvxvv.append([off.ll(ts[ii]),off.bb(ts[ii]),
+                            off.dist(ts[ii]),off.pmll(ts[ii]),
+                            off.pmbb(ts[ii]),off.vlos(ts[ii])])
         allvxvv= numpy.array(allvxvv)
     elif radec:
         allvxvv= []
         for ii in range(len(ts)):
-            allvxvv.append([of.ra(ts[ii],ro=ro,vo=vo)[0],of.dec(ts[ii],ro=ro,vo=vo)[0],
-                            of.dist(ts[ii],ro=ro,vo=vo)[0],of.pmra(ts[ii],ro=ro,vo=vo)[0],
-                            of.pmdec(ts[ii],ro=ro,vo=vo)[0],of.vlos(ts[ii],ro=ro,vo=vo)[0]])
-            allvxvv.append([off.ra(ts[ii])[0],off.dec(ts[ii],ro=ro,vo=vo)[0],
-                            off.dist(ts[ii],ro=ro,vo=vo)[0],off.pmra(ts[ii],ro=ro,vo=vo)[0],
-                            off.pmdec(ts[ii],ro=ro,vo=vo)[0],off.vlos(ts[ii],ro=ro,vo=vo)[0]])
+            allvxvv.append([of.ra(ts[ii],ro=ro,vo=vo),of.dec(ts[ii],ro=ro,vo=vo),
+                            of.dist(ts[ii],ro=ro,vo=vo),of.pmra(ts[ii],ro=ro,vo=vo),
+                            of.pmdec(ts[ii],ro=ro,vo=vo),of.vlos(ts[ii],ro=ro,vo=vo)])
+            allvxvv.append([off.ra(ts[ii]),off.dec(ts[ii],ro=ro,vo=vo),
+                            off.dist(ts[ii],ro=ro,vo=vo),off.pmra(ts[ii],ro=ro,vo=vo),
+                            off.pmdec(ts[ii],ro=ro,vo=vo),off.vlos(ts[ii],ro=ro,vo=vo)])
         allvxvv= numpy.array(allvxvv)
     else:
         allvxvv= numpy.concatenate((of.getOrbit(),off.getOrbit()),axis=0)
