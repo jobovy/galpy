@@ -2643,6 +2643,87 @@ def test_scalarxyvzvz_issue247():
     assert isinstance(o.vy(5.),float), 'Orbit.vy() does not return a scalar'
     return None
 
+# Test that all Orbit methods return a scalar for scalar time input (mentioned
+# in #294)
+def test_scalar_all():
+    # Setup an orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o= setup_orbit_energy(lp,axi=False)
+    assert isinstance(o.R(),float), 'Orbit.R() does not return a scalar'
+    assert isinstance(o.vR(),float), 'Orbit.vR() does not return a scalar'
+    assert isinstance(o.vT(),float), 'Orbit.vT() does not return a scalar'
+    assert isinstance(o.z(),float), 'Orbit.z() does not return a scalar'
+    assert isinstance(o.vz(),float), 'Orbit.vz() does not return a scalar'
+    assert isinstance(o.phi(),float), 'Orbit.phi() does not return a scalar'
+    assert isinstance(o.r(),float), 'Orbit.r() does not return a scalar'
+    assert isinstance(o.x(),float), 'Orbit.x() does not return a scalar'
+    assert isinstance(o.y(),float), 'Orbit.y() does not return a scalar'
+    assert isinstance(o.vx(),float), 'Orbit.vx() does not return a scalar'
+    assert isinstance(o.vy(),float), 'Orbit.vy() does not return a scalar'
+    assert isinstance(o.ra(),float), 'Orbit.ra() does not return a scalar'
+    assert isinstance(o.dec(),float), 'Orbit.dec() does not return a scalar'
+    assert isinstance(o.ll(),float), 'Orbit.ll() does not return a scalar'
+    assert isinstance(o.bb(),float), 'Orbit.bb() does not return a scalar'
+    assert isinstance(o.dist(),float), 'Orbit.dist() does not return a scalar'
+    assert isinstance(o.pmra(),float), 'Orbit.pmra() does not return a scalar'
+    assert isinstance(o.pmdec(),float), 'Orbit.pmdec() does not return a scalar'
+    assert isinstance(o.pmll(),float), 'Orbit.pmll() does not return a scalar'
+    assert isinstance(o.pmbb(),float), 'Orbit.pmbb() does not return a scalar'
+    assert isinstance(o.vra(),float), 'Orbit.vra() does not return a scalar'
+    assert isinstance(o.vdec(),float), 'Orbit.vdec() does not return a scalar'
+    assert isinstance(o.vll(),float), 'Orbit.vll() does not return a scalar'
+    assert isinstance(o.vbb(),float), 'Orbit.vbb() does not return a scalar'
+    assert isinstance(o.vlos(),float), 'Orbit.vlos() does not return a scalar'
+    assert isinstance(o.helioX(),float), 'Orbit.helioX() does not return a scalar'
+    assert isinstance(o.helioY(),float), 'Orbit.helioY() does not return a scalar'
+    assert isinstance(o.helioZ(),float), 'Orbit.helioZ() does not return a scalar'
+    assert isinstance(o.U(),float), 'Orbit.U() does not return a scalar'
+    assert isinstance(o.V(),float), 'Orbit.V() does not return a scalar'
+    assert isinstance(o.W(),float), 'Orbit.W() does not return a scalar'
+    assert isinstance(o.E(pot=lp),float), 'Orbit.E() does not return a scalar'
+    assert isinstance(o.Jacobi(pot=lp),float), 'Orbit.Jacobi() does not return a scalar'
+    assert isinstance(o.ER(pot=lp),float), 'Orbit.ER() does not return a scalar'
+    assert isinstance(o.Ez(pot=lp),float), 'Orbit.Ez() does not return a scalar'
+    # Also integrate and then test
+    times= numpy.linspace(0.,10.,1001)
+    o.integrate(times,lp)
+    assert isinstance(o.R(5.),float), 'Orbit.R() does not return a scalar'
+    assert isinstance(o.vR(5.),float), 'Orbit.vR() does not return a scalar'
+    assert isinstance(o.vT(5.),float), 'Orbit.vT() does not return a scalar'
+    assert isinstance(o.z(5.),float), 'Orbit.z() does not return a scalar'
+    assert isinstance(o.vz(5.),float), 'Orbit.vz() does not return a scalar'
+    assert isinstance(o.phi(5.),float), 'Orbit.phi() does not return a scalar'
+    assert isinstance(o.r(5.),float), 'Orbit.r() does not return a scalar'
+    assert isinstance(o.x(5.),float), 'Orbit.x() does not return a scalar'
+    assert isinstance(o.y(5.),float), 'Orbit.y() does not return a scalar'
+    assert isinstance(o.vx(5.),float), 'Orbit.vx() does not return a scalar'
+    assert isinstance(o.vy(5.),float), 'Orbit.vy() does not return a scalar'
+    assert isinstance(o.ra(5.),float), 'Orbit.ra() does not return a scalar'
+    assert isinstance(o.dec(5.),float), 'Orbit.dec() does not return a scalar'
+    assert isinstance(o.ll(5.),float), 'Orbit.ll() does not return a scalar'
+    assert isinstance(o.bb(5.),float), 'Orbit.bb() does not return a scalar'
+    assert isinstance(o.dist(5.),float), 'Orbit.dist() does not return a scalar'
+    assert isinstance(o.pmra(5.),float), 'Orbit.pmra() does not return a scalar'
+    assert isinstance(o.pmdec(5.),float), 'Orbit.pmdec() does not return a scalar'
+    assert isinstance(o.pmll(5.),float), 'Orbit.pmll() does not return a scalar'
+    assert isinstance(o.pmbb(5.),float), 'Orbit.pmbb() does not return a scalar'
+    assert isinstance(o.vra(5.),float), 'Orbit.vra() does not return a scalar'
+    assert isinstance(o.vdec(5.),float), 'Orbit.vdec() does not return a scalar'
+    assert isinstance(o.vll(5.),float), 'Orbit.vll() does not return a scalar'
+    assert isinstance(o.vbb(5.),float), 'Orbit.vbb() does not return a scalar'
+    assert isinstance(o.vlos(5.),float), 'Orbit.vlos() does not return a scalar'
+    assert isinstance(o.helioX(5.),float), 'Orbit.helioX() does not return a scalar'
+    assert isinstance(o.helioY(5.),float), 'Orbit.helioY() does not return a scalar'
+    assert isinstance(o.helioZ(5.),float), 'Orbit.helioZ() does not return a scalar'
+    assert isinstance(o.U(5.),float), 'Orbit.U() does not return a scalar'
+    assert isinstance(o.V(5.),float), 'Orbit.V() does not return a scalar'
+    assert isinstance(o.W(5.),float), 'Orbit.W() does not return a scalar'
+    assert isinstance(o.E(5.),float), 'Orbit.E() does not return a scalar'
+    assert isinstance(o.Jacobi(5.),float), 'Orbit.Jacobi() does not return a scalar'
+    assert isinstance(o.ER(5.),float), 'Orbit.ER() does not return a scalar'
+    assert isinstance(o.Ez(5.),float), 'Orbit.Ez() does not return a scalar'
+    return None
+
 @raises(ValueError)
 def test_call_issue256():
     # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return eror
