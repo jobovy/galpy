@@ -12,6 +12,9 @@ v1.3 (2017-XX-XX)
 
 - Made SCFPotential compatible with GSL v2.
 
+- Orbit methods now all return a scalar when called with a single
+  time (see #247 and #294).
+
 v1.2 (2016-09-06)
 ==================
 
