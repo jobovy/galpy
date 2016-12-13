@@ -2434,14 +2434,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         _check_voSet(self,kwargs,'vra')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self._orb.pmra(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            out= units.Quantity(dist.to(units.kpc).value*_K*
+                                self._orb.pmra(*args,**kwargs)\
+                                    .to(units.mas/units.yr).value,
+                                unit=units.km/units.s)
         else:
             out= dist*_K*self._orb.pmra(*args,**kwargs)
-            if len(out) == 1: return out[0]
-            else: return out
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vdec(self,*args,**kwargs):
         """
@@ -2482,14 +2482,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         _check_voSet(self,kwargs,'vdec')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self._orb.pmdec(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            out= units.Quantity(dist.to(units.kpc).value*_K*
+                                self._orb.pmdec(*args,**kwargs)\
+                                    .to(units.mas/units.yr).value,
+                                unit=units.km/units.s)
         else:
             out= dist*_K*self._orb.pmdec(*args,**kwargs)
-            if len(out) == 1: return out[0]
-            else: return out
+        if len(out) == 1: return out[0]
+        else: return out
 
     def vll(self,*args,**kwargs):
         """
@@ -2530,14 +2530,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         _check_voSet(self,kwargs,'vll')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self._orb.pmll(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            out= units.Quantity(dist.to(units.kpc).value*_K*
+                                self._orb.pmll(*args,**kwargs)\
+                                    .to(units.mas/units.yr).value,
+                                unit=units.km/units.s)
         else:
             out= dist*_K*self._orb.pmll(*args,**kwargs)
-            if len(out) == 1: return out[0]
-            else: return out
+        if len(out) == 1: return out[0]
+        else: return out
         
     def vbb(self,*args,**kwargs):
         """
@@ -2578,14 +2578,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         _check_voSet(self,kwargs,'vbb')
         dist= self._orb.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self._orb.pmbb(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            out= units.Quantity(dist.to(units.kpc).value*_K*
+                                self._orb.pmbb(*args,**kwargs)\
+                                    .to(units.mas/units.yr).value,
+                                unit=units.km/units.s)
         else:
             out= dist*_K*self._orb.pmbb(*args,**kwargs)
-            if len(out) == 1: return out[0]
-            else: return out
+        if len(out) == 1: return out[0]
+        else: return out
 
     def helioX(self,*args,**kwargs):
         """
