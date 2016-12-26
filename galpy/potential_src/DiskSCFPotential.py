@@ -4,7 +4,7 @@
 import numpy
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 from galpy.potential_src.SCFPotential import SCFPotential, \
-    scf_compute_coeffs_axi
+    scf_compute_coeffs_axi, scf_compute_coeffs
 if _APY_LOADED:
     from astropy import units
 class DiskSCFPotential(Potential):
@@ -16,8 +16,6 @@ class DiskSCFPotential(Potential):
                  Sigma= lambda R: numpy.exp(-3.*R),
                  dSigmadR= lambda R: -3.*numpy.exp(-3.*R),
                  d2SigmadR2= lambda R: 9.*numpy.exp(-3.*R),
-                 dSigmadphi=None,
-                 d2Sigmadphi2=None,
                  hz= lambda z: 13.5*numpy.exp(-27.*numpy.fabs(z)),
                  Hz= lambda z: (numpy.exp(-27.*numpy.fabs(z))-1.
                                 +27.*numpy.fabs(z))/54.,
@@ -55,8 +53,6 @@ class DiskSCFPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         # Parse given functions
         self.isNonAxi= dens.__code__.co_argcount == 3
-        self._SigmaNonAxi= Sigma.__code__.co_argcount == 2
-        # BOVY: CHECK THAT THESE ARE CONSISTENT (NO NONAXI SIGMA FOR AXI DENS)
         # Store approx. functions, currently assumes single profile, axi
         self._Sigma_amp= Sigma_amp
         self._Sigma= Sigma
@@ -65,14 +61,22 @@ class DiskSCFPotential(Potential):
         self._Hz= Hz
         self._hz= hz
         self._dHzdz= dHzdz
-        self._inputdens= dens
+        if self.isNonAxi:
+            self._inputdens= dens
+        else:
+            self._inputdens= lambda R,z,phi: dens(R,z)
         # Solve Poisson equation for Phi_ME
         if not self.isNonAxi:
-            dens_func= lambda R,z: phiME_dens_axi(R,z,dens,
+            dens_func= lambda R,z: phiME_dens(R,z,0.,self._inputdens,
+                                              Sigma,dSigmadR,d2SigmadR2,
+                                              hz,Hz,dHzdz,Sigma_amp)
+            Acos, Asin= scf_compute_coeffs_axi(dens_func,N,L,a=a)
+        else:
+            dens_func= lambda R,z,phi: phiME_dens(R,z,phi,self._inputdens,
                                                   Sigma,dSigmadR,d2SigmadR2,
                                                   hz,Hz,dHzdz,Sigma_amp)
-            Acos, Asin= scf_compute_coeffs_axi(dens_func,N,L,a=a)
-            self._phiME_dens_func= dens_func
+            Acos, Asin= scf_compute_coeffs(dens_func,N,L,a=a)
+        self._phiME_dens_func= dens_func
         self._scf= SCFPotential(amp=1.,Acos=Acos,Asin=Asin,a=a,ro=None,vo=None)
         return None
 
@@ -161,10 +165,7 @@ class DiskSCFPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        r= numpy.sqrt(R**2.+z**2.)
-        return -4.*numpy.pi*self._Sigma_amp\
-            *self._dSigmadphi(r,phi)*self._Hz(z)\
-            +self._scf.phiforce(R,z,phi=phi,use_physical=False)
+        return self._scf.phiforce(R,z,phi=phi,use_physical=False)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -257,10 +258,7 @@ class DiskSCFPotential(Potential):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r= numpy.sqrt(R**2.+z**2.)
-        return 4.*numpy.pi*self._Sigma_amp\
-            *self._d2Sigmadphi2(r,phi)*self._Hz(z)\
-            +self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
+        return self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -283,9 +281,9 @@ class DiskSCFPotential(Potential):
         else:
             return self._inputdens(R,z)
 
-def phiME_dens_axi(R,z,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
-    """The density corresponding to phi_ME in the axisymmetric case"""
+def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
+    """The density corresponding to phi_ME"""
     r= numpy.sqrt(R**2.+z**2.)
-    return dens(R,z)\
+    return dens(R,z,phi)\
         -Sigma_amp*(Sigma(r)*hz(z)+d2SigmadR2(r)*Hz(z)
                     +2./r*dSigmadR(r)*(Hz(z)+z*dHzdz(z)))
