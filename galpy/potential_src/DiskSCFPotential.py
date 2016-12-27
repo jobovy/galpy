@@ -51,16 +51,10 @@ class DiskSCFPotential(Potential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro
-        # Parse given functions
+        # Parse and store given functions
         self.isNonAxi= dens.__code__.co_argcount == 3
-        # Store approx. functions, currently assumes single profile, axi
-        self._Sigma_amp= Sigma_amp
-        self._Sigma= Sigma
-        self._dSigmadR= dSigmadR
-        self._d2SigmadR2= d2SigmadR2
-        self._Hz= Hz
-        self._hz= hz
-        self._dHzdz= dHzdz
+        self._parse_Sigma(Sigma_amp,Sigma,dSigmadR,d2SigmadR2)
+        self._parse_hz(hz,Hz,dHzdz)
         if self.isNonAxi:
             self._inputdens= dens
         else:
@@ -68,18 +62,78 @@ class DiskSCFPotential(Potential):
         # Solve Poisson equation for Phi_ME
         if not self.isNonAxi:
             dens_func= lambda R,z: phiME_dens(R,z,0.,self._inputdens,
-                                              Sigma,dSigmadR,d2SigmadR2,
-                                              hz,Hz,dHzdz,Sigma_amp)
+                                              self._Sigma,self._dSigmadR,
+                                              self._d2SigmadR2,
+                                              self._hz,self._Hz,
+                                              self._dHzdz,self._Sigma_amp)
             Acos, Asin= scf_compute_coeffs_axi(dens_func,N,L,a=a)
         else:
             dens_func= lambda R,z,phi: phiME_dens(R,z,phi,self._inputdens,
-                                                  Sigma,dSigmadR,d2SigmadR2,
-                                                  hz,Hz,dHzdz,Sigma_amp)
+                                                  self._Sigma,self._dSigmadR,
+                                                  self._d2SigmadR2,
+                                                  self._hz,self._Hz,
+                                                  self._dHzdz,self._Sigma_amp)
             Acos, Asin= scf_compute_coeffs(dens_func,N,L,a=a)
         self._phiME_dens_func= dens_func
         self._scf= SCFPotential(amp=1.,Acos=Acos,Asin=Asin,a=a,ro=None,vo=None)
         return None
 
+    def _parse_Sigma(self,Sigma_amp,Sigma,dSigmadR,d2SigmadR2):
+        """
+        NAME:
+           _parse_Sigma
+        PURPOSE:
+           Parse the various input options for Sigma* functions
+        HISTORY:
+           2016-12-27 - Written - Bovy (UofT/CCA)
+        """
+        try:
+            nsigma= len(Sigma)
+        except TypeError:
+            Sigma_amp= [Sigma_amp]
+            Sigma= [Sigma]
+            dSigmadR= [dSigmadR]
+            d2SigmadR2= [d2SigmadR2]
+            nsigma= 1
+        self._nsigma= nsigma
+        if isinstance(Sigma[0],dict):
+            pass
+        self._Sigma_amp= Sigma_amp
+        self._Sigma= Sigma
+        self._dSigmadR= dSigmadR
+        self._d2SigmadR2= d2SigmadR2
+        return None
+    
+    def _parse_hz(self,hz,Hz,dHzdz):
+        """
+        NAME:
+           _parse_hz
+        PURPOSE:
+           Parse the various input options for Sigma* functions
+        HISTORY:
+           2016-12-27 - Written - Bovy (UofT/CCA)
+        """
+        try:
+            nhz= len(hz)
+        except TypeError:
+            hz= [hz]
+            Hz= [Hz]
+            dHzdz= [dHzdz]
+            nhz= 1
+        if nhz != self._nsigma and nhz != 1:
+            raise ValueError('Number of hz functions needs to be equal to the number of Sigma functions or to 1')
+        if nhz == 1 and self._nsigma > 1:
+            hz= [hz[0] for ii in range(self._nsigma)]
+            Hz= [Hz[0] for ii in range(self._nsigma)]
+            dHzdz= [dHzdz[0] for ii in range(self._nsigma)]
+        self._nhz= nhz
+        if isinstance(hz[0],dict):
+            pass
+        self._Hz= Hz
+        self._hz= hz
+        self._dHzdz= dHzdz       
+        return None
+    
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -99,8 +153,10 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return 4.*numpy.pi*self._Sigma_amp*self._Sigma(r)*self._Hz(z)\
-            +self._scf(R,z,phi=phi,use_physical=False)
+        out= self._scf(R,z,phi=phi,use_physical=False)
+        for a,s,H in zip(self._Sigma_amp,self._Sigma,self._Hz):
+            out+= 4.*numpy.pi*a*s(r)*H(z)
+        return out
 
     def _Rforce(self,R,z,phi=0, t=0):
         """
@@ -121,9 +177,11 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return -4.*numpy.pi*self._Sigma_amp*self._dSigmadR(r)*self._Hz(z)*R/r\
-            +self._scf.Rforce(R,z,phi=phi,use_physical=False)
-        
+        out= self._scf.Rforce(R,z,phi=phi,use_physical=False)
+        for a,ds,H in zip(self._Sigma_amp,self._dSigmadR,self._Hz):
+            out-= 4.*numpy.pi*a*ds(r)*H(z)*R/r
+        return out
+
     def _zforce(self,R,z,phi=0,t=0):
         """
         NAME:
@@ -143,9 +201,11 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return -4.*numpy.pi*self._Sigma_amp\
-            *(self._dSigmadR(r)*self._Hz(z)*z/r+self._Sigma(r)*self._dHzdz(z))\
-            +self._scf.zforce(R,z,phi=phi,use_physical=False)
+        out= self._scf.zforce(R,z,phi=phi,use_physical=False)
+        for a,s,ds,H,dH in zip(self._Sigma_amp,self._Sigma,self._dSigmadR,
+                             self._Hz,self._dHzdz):
+            out-= 4.*numpy.pi*a*(ds(r)*H(z)*z/r+s(r)*dH(z))
+        return out
         
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -186,9 +246,11 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return 4.*numpy.pi*self._Sigma_amp*self._Hz(z)/r**2.\
-            *(self._d2SigmadR2(r)*R**2.+z**2./r*self._dSigmadR(r))\
-            +self._scf.R2deriv(R,z,phi=phi,use_physical=False)
+        out= self._scf.R2deriv(R,z,phi=phi,use_physical=False)
+        for a,ds,d2s,H in zip(self._Sigma_amp,self._dSigmadR,self._d2SigmadR2,
+                              self._Hz):
+            out+= 4.*numpy.pi*a*H(z)/r**2.*(d2s(r)*R**2.+z**2./r*ds(r))
+        return out
         
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -209,12 +271,13 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return 4.*numpy.pi*self._Sigma_amp*\
-            (self._Hz(z)/r**2.*(self._d2SigmadR2(r)*z**2.
-                                +self._dSigmadR(r)*R**2./r)
-             +2.*self._dSigmadR(r)*self._dHzdz(z)*z/r
-             +self._Sigma(r)*self._hz(z))\
-             +self._scf.z2deriv(R,z,phi=phi,use_physical=False)       
+        out= self._scf.z2deriv(R,z,phi=phi,use_physical=False)
+        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,
+                                   self._Sigma,self._dSigmadR,self._d2SigmadR2,
+                                   self._hz,self._Hz,self._dHzdz):
+            out+= 4.*numpy.pi*a*(H(z)/r**2.*(d2s(r)*z**2.+ds(r)*R**2./r)
+                                 +2.*ds(r)*dH(z)*z/r+s(r)*h(z))
+        return out
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -235,10 +298,12 @@ class DiskSCFPotential(Potential):
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
-        return 4.*numpy.pi*self._Sigma_amp*\
-            (self._Hz(z)*R*z/r**2.*(self._d2SigmadR2(r)-self._dSigmadR(r)/r)
-             +self._dSigmadR(r)*self._dHzdz(z)*R/r)\
-            +self._scf.Rzderiv(R,z,phi=phi,use_physical=False)
+        out= self._scf.Rzderiv(R,z,phi=phi,use_physical=False)
+        for a,ds,d2s,H,dH in zip(self._Sigma_amp,self._dsigmadR,
+                                 self._d2SigmadR2,self._Hz,self._dHzdz):
+            out+= 4.*numpy.pi*a*(H(z)*R*z/r**2.*(d2s(r)-ds(r)/r)
+                                 +ds(r)*dH(z)*R/r)
+        return out
         
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -276,14 +341,13 @@ class DiskSCFPotential(Potential):
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
-        if self.isNonAxi:
-            return self._inputdens(R,z,phi)
-        else:
-            return self._inputdens(R,z)
+        return self._inputdens(R,z,phi)
 
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
     """The density corresponding to phi_ME"""
     r= numpy.sqrt(R**2.+z**2.)
-    return dens(R,z,phi)\
-        -Sigma_amp*(Sigma(r)*hz(z)+d2SigmadR2(r)*Hz(z)
-                    +2./r*dSigmadR(r)*(Hz(z)+z*dHzdz(z)))
+    out= dens(R,z,phi)
+    for a,s,ds,d2s,h,H,dH \
+            in zip(Sigma_amp,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz):
+        out-= a*(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
+    return out
