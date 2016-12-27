@@ -147,11 +147,19 @@ Triaxial and bar potentials
    potentialdoublepowertriaxial.rst
    potentialferrers.rst
    potentialmovingobj.rst
-   potentialscf.rst
    potentialsoftenedneedle.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
+
+General Poisson solvers for disks and halos
+********************************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdiskscf.rst
+   potentialscf.rst
 
 .. _potential-mw:
 

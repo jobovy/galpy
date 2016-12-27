@@ -36,6 +36,7 @@ from galpy.potential_src import TwoPowerTriaxialPotential
 from galpy.potential_src import FerrersPotential
 from galpy.potential_src import SCFPotential
 from galpy.potential_src import SoftenedNeedleBarPotential
+from galpy.potential_src import DiskSCFPotential
 #
 # Functions
 #
@@ -130,6 +131,7 @@ TwoPowerTriaxialPotential= TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
 FerrersPotential= FerrersPotential.FerrersPotential
 SCFPotential = SCFPotential.SCFPotential
 SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotential
+DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 

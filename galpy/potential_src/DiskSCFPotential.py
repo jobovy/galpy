@@ -9,19 +9,31 @@ from galpy.potential_src.SCFPotential import SCFPotential, \
 if _APY_LOADED:
     from astropy import units
 class DiskSCFPotential(Potential):
-    """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems"""
+    """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \mathrm{d}^2 H(z) / \mathrm{d} z^2` and search for solutions of the form
+
+    .. math::
+
+       \Phi(R,\phi,z = \Phi_{\mathrm{ME}}(R,\phi,z) + 4\pi G\sum_i \\Sigma_i(r)\,H_i(z)\,,
+
+where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. We can solve for :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` by solving
+
+    .. math::
+
+       \\frac{\\Delta \Phi_{\mathrm{ME}}(R,\phi,z)}{4\pi G} = \\rho(R,\phi,z) - \sum_i\left\{ \Sigma_i(r)\,h_i(z) + \\frac{\mathrm{d}^2 \Sigma_i(r)}{\mathrm{d} r^2}\,H_i(z)+\\frac{2}{r}\,\\frac{\mathrm{d} \Sigma_i(r)}{\mathrm{d} r}\left[H_i(z)+z\,\\frac{\mathrm{d}H_i(z)}{\mathrm{d} z}\\right]\\right\}\,.
+
+We solve this equation by using the :ref:`SCFPotential <scf_potential>` class and methods (:ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\phi,z)` is axisymmetric or not). This technique works very well if the disk portion of the potential can be exactly written as :math:`\\rho_{\mathrm{disk}} = \sum_i \Sigma_i(R)\,h_i(z)`, because the effective density on the right-hand side of this new Poisson equation is then not 'disky' and can be well represented using spherical harmonics. But the technique is general and can be used to compute the potential of any disk+halo potential; the closer the disk is to :math:`\\rho_{\mathrm{disk}} \\approx \sum_i \Sigma_i(R)\,h_i(z)`, the better the technique works.
+
+This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ and was popularized by `Dehnen & Binney (1998) <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__. The current implementation is a slight generalization of the technique in those papers and uses the SCF approach of `Hernquist & Ostriker (1992)
+<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ to solve the Poisson equation for :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` rather than solving it on a grid using spherical harmonics and interpolating the solution (as done in `Dehnen & Binney 1998 <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__).
+
+    """
     def __init__(self,amp=1.,normalize=False,
                  dens= lambda R,z: 13.5*numpy.exp(-3.*R)\
                      *numpy.exp(-27.*numpy.fabs(z)),
-                 Sigma_amp=1.,
-                 Sigma= lambda R: numpy.exp(-3.*R),
-                 dSigmadR= lambda R: -3.*numpy.exp(-3.*R),
-                 d2SigmadR2= lambda R: 9.*numpy.exp(-3.*R),
-                 hz= lambda z: 13.5*numpy.exp(-27.*numpy.fabs(z)),
-                 Hz= lambda z: (numpy.exp(-27.*numpy.fabs(z))-1.
-                                +27.*numpy.fabs(z))/54.,
-                 dHzdz= lambda z: 0.5*numpy.sign(z)*\
-                     (1.-numpy.exp(-27.*numpy.fabs(z))),
+                 Sigma={'type':'exp','h':1./3.,'amp':1.},
+                 hz={'type':'exp','h':1./27.},
+                 Sigma_amp=None,dSigmadR=None,d2SigmadR2=None,
+                 Hz=None,dHzdz=None,
                  N=20,L=20,a=1.,
                  ro=None,vo=None):
         """
@@ -31,7 +43,7 @@ class DiskSCFPotential(Potential):
 
         PURPOSE:
 
-            initialize a diskSCF Potential
+            initialize a DiskSCF Potential
 
         INPUT:
 
@@ -40,6 +52,30 @@ class DiskSCFPotential(Potential):
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
+           dens= function of R,z[,phi optional] that gives the density
+
+           Either:
+
+              (a) Sigma= Dictionary of surface density (example: {'type':'exp','h':1./3.,'amp':1.,'Rhole':0.} for amp x exp(-Rhole/R-R/h) )
+
+                  hz= Dictionary of vertical profile, either 'exp' or 'sech2' (example {'type':'exp','h':1./27.} for exp(-|z|/h)/[2h], sech2 is sech^2(z/[2h])/[4h])
+
+              (b) Sigma= function of R that gives the surface density
+              
+                  dSigmadR= function that gives d Sigma / d R
+
+                  d2SigmadR2= function that gives d^2 Sigma / d R^2
+
+                  Sigma_amp= amplitude to apply to all Sigma functions
+
+                  hz= function of z that gives the vertical profile
+
+                  Hz= function of z such that d^2 Hz(z) / d z^2 = hz
+
+                  dHzdz= function of z that gives d Hz(z) / d z
+
+              In both of these cases lists of arguments can be given for multiple disk components; can't mix (a) and (b) in these lists;  if hz is a single item the same vertical profile is assumed for all Sigma
 
         OUTPUT:
 
