@@ -2,6 +2,7 @@
 #   DiskSCFPotential.py: Potential expansion for disk+halo potentials
 ###############################################################################
 import numpy
+from scipy.misc import logsumexp
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 from galpy.potential_src.SCFPotential import SCFPotential, \
     scf_compute_coeffs_axi, scf_compute_coeffs
@@ -157,6 +158,14 @@ class DiskSCFPotential(Potential):
                                     +numpy.fabs(z)/tzd)*tzd/2.
             tdH= lambda z, tzd= zd: 0.5*numpy.sign(z)\
                 *(1.-numpy.exp(-numpy.fabs(z)/tzd))
+        elif htype == 'sech2':
+            zd= hz.get('h',0.0375)
+            th= lambda z, tzd=zd: 1./numpy.cosh(z/2./tzd)**2./4./tzd
+            # Avoid overflow in cosh
+            tH= lambda z, tzd= zd: \
+                tzd*(logsumexp(numpy.array([z/2./tzd,-z/2./tzd]),axis=0)\
+                         -numpy.log(2.))
+            tdH= lambda z, tzd= zd: numpy.tanh(z/2./tzd)/2.
         return (th,tH,tdH)
     
     def _evaluate(self,R,z,phi=0.,t=0.):
