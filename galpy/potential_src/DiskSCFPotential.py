@@ -113,6 +113,8 @@ class DiskSCFPotential(Potential):
         HISTORY:
            2016-12-27 - Written - Bovy (UofT/CCA)
         """
+        if isinstance(hz,dict):
+            hz= [hz]
         try:
             nhz= len(hz)
         except TypeError:
@@ -126,13 +128,36 @@ class DiskSCFPotential(Potential):
             hz= [hz[0] for ii in range(self._nsigma)]
             Hz= [Hz[0] for ii in range(self._nsigma)]
             dHzdz= [dHzdz[0] for ii in range(self._nsigma)]
-        self._nhz= nhz
-        if isinstance(hz[0],dict):
-            pass
         self._Hz= Hz
         self._hz= hz
         self._dHzdz= dHzdz       
+        self._nhz= len(self._hz)
+        if isinstance(hz[0],dict):
+            self._parse_hz_dict()
         return None
+
+    def _parse_hz_dict(self):
+        hz, Hz, dHzdz= [], [], []
+        for ii in range(self._nhz):
+            th, tH, tdH= self._parse_hz_dict_indiv(self._hz[ii])
+            hz.append(th)
+            Hz.append(tH)
+            dHzdz.append(tdH)
+        self._hz= hz
+        self._Hz= Hz
+        self._dHzdz= dHzdz
+        return None
+
+    def _parse_hz_dict_indiv(self,hz):
+        htype= hz.get('type','exp')
+        if htype == 'exp':
+            zd= hz.get('h',0.0375)
+            th= lambda z, tzd=zd: 1./2./tzd*numpy.exp(-numpy.fabs(z)/tzd)
+            tH= lambda z, tzd= zd: (numpy.exp(-numpy.fabs(z)/tzd)-1.
+                                    +numpy.fabs(z)/tzd)*tzd/2.
+            tdH= lambda z, tzd= zd: 0.5*numpy.sign(z)\
+                *(1.-numpy.exp(-numpy.fabs(z)/tzd))
+        return (th,tH,tdH)
     
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
