@@ -88,6 +88,8 @@ class DiskSCFPotential(Potential):
         HISTORY:
            2016-12-27 - Written - Bovy (UofT/CCA)
         """
+        if isinstance(Sigma,dict):
+            Sigma= [Sigma]
         try:
             nsigma= len(Sigma)
         except TypeError:
@@ -97,13 +99,46 @@ class DiskSCFPotential(Potential):
             d2SigmadR2= [d2SigmadR2]
             nsigma= 1
         self._nsigma= nsigma
+        self._Sigma_amp= Sigma_amp
+        self._Sigma= Sigma
+        self._dSigmadR= dSigmadR
+        self._d2SigmadR2= d2SigmadR2
         if isinstance(Sigma[0],dict):
-            pass
+            self._parse_Sigma_dict()
+        return None
+    
+    def _parse_Sigma_dict(self):
+        Sigma_amp, Sigma, dSigmadR, d2SigmadR2= [], [], [], []
+        for ii in range(self._nsigma):
+            ta, ts, tds, td2s= self._parse_Sigma_dict_indiv(self._Sigma[ii])
+            Sigma_amp.append(ta)
+            Sigma.append(ts)
+            dSigmadR.append(tds)
+            d2SigmadR2.append(td2s)
         self._Sigma_amp= Sigma_amp
         self._Sigma= Sigma
         self._dSigmadR= dSigmadR
         self._d2SigmadR2= d2SigmadR2
         return None
+
+    def _parse_Sigma_dict_indiv(self,Sigma):
+        stype= Sigma.get('type','exp')
+        if stype == 'exp' and not 'Rhole' in Sigma:
+            rd= Sigma.get('h',1./3.)
+            ta= Sigma.get('amp',1.)
+            ts= lambda R, trd=rd: numpy.exp(-R/trd)
+            tds= lambda R, trd=rd: -numpy.exp(-R/trd)/trd
+            td2s= lambda R, trd=rd: numpy.exp(-R/trd)/trd**2.
+        elif stype == 'expwhole' or (stype == 'exp' and 'Rhole' in Sigma):
+            rd= Sigma.get('h',1./3.)
+            rm= Sigma.get('Rhole',0.5)
+            ta= Sigma.get('amp',1.)
+            ts= lambda R, trd=rd, trm=rm: numpy.exp(-trm/R-R/trd)
+            tds= lambda R, trd=rd, trm=rm: \
+                (trm/R**2.-1./trd)*numpy.exp(-trm/R-R/trd)
+            td2s= lambda R, trd=rd,trm=rm: \
+                ((trm/R**2.-1./trd)**2.-2.*trm/R**3.)*numpy.exp(-trm/R-R/trd)
+        return (ta,ts,tds,td2s)
     
     def _parse_hz(self,hz,Hz,dHzdz):
         """
