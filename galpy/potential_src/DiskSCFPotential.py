@@ -35,7 +35,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                  hz={'type':'exp','h':1./27.},
                  Sigma_amp=None,dSigmadR=None,d2SigmadR2=None,
                  Hz=None,dHzdz=None,
-                 N=20,L=20,a=1.,
+                 N=20,L=20,a=1.,radial_order=None,costheta_order=None,
+                 phi_order=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -55,6 +56,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
            dens= function of R,z[,phi optional] that gives the density
+
+           N=, L=, a=, radial_order=, costheta_order=, phi_order= keywords setting parameters for SCF solution for Phi_ME (see :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\phi,z)` is axisymmetric or not)
 
            Either:
 
@@ -104,14 +107,19 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                                               self._d2SigmadR2,
                                               self._hz,self._Hz,
                                               self._dHzdz,self._Sigma_amp)
-            Acos, Asin= scf_compute_coeffs_axi(dens_func,N,L,a=a)
+            Acos, Asin= scf_compute_coeffs_axi(dens_func,N,L,a=a,
+                                               radial_order=radial_order,
+                                               costheta_order=costheta_order)
         else:
             dens_func= lambda R,z,phi: phiME_dens(R,z,phi,self._inputdens,
                                                   self._Sigma,self._dSigmadR,
                                                   self._d2SigmadR2,
                                                   self._hz,self._Hz,
                                                   self._dHzdz,self._Sigma_amp)
-            Acos, Asin= scf_compute_coeffs(dens_func,N,L,a=a)
+            Acos, Asin= scf_compute_coeffs(dens_func,N,L,a=a,
+                                           radial_order=radial_order,
+                                           costheta_order=costheta_order,
+                                           phi_order=phi_order)
         self._phiME_dens_func= dens_func
         self._scf= SCFPotential(amp=1.,Acos=Acos,Asin=Asin,a=a,ro=None,vo=None)
         if not self._Sigma_dict is None and not self._hz_dict is None:
