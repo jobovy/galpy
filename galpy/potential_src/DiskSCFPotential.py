@@ -354,7 +354,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             phi= 0.
         return self._scf.phiforce(R,z,phi=phi,use_physical=False)
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _R2deriv
@@ -370,6 +370,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
+        raise AttributeError
+        # Implementation above does not work bc SCF.R2deriv is not implemented
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
@@ -379,7 +381,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             out+= 4.*numpy.pi*a*H(z)/r**2.*(d2s(r)*R**2.+z**2./r*ds(r))
         return out
         
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _z2deriv
@@ -395,6 +397,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
+        raise AttributeError
+        # Implementation above does not work bc SCF.z2deriv is not implemented
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
@@ -406,7 +410,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                                  +2.*ds(r)*dH(z)*z/r+s(r)*h(z))
         return out
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _Rzderiv
@@ -422,6 +426,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
+        raise AttributeError
+        # Implementation above does not work bc SCF.Rzderiv is not implemented
         if not self.isNonAxi and phi is None:
             phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
@@ -432,7 +438,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                                  +ds(r)*dH(z)*R/r)
         return out
         
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
+    def _phi2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
         """
         NAME:
            _phi2deriv
@@ -448,6 +454,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
+        raise AttributeError
+        # Implementation above does not work bc SCF.phi2deriv is not implemented
         if not self.isNonAxi and phi is None:
             phi= 0.
         return self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
