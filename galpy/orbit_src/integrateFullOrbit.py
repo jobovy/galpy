@@ -145,21 +145,56 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
         elif isinstance(p,potential.SCFPotential):
-            isNonAxi = p.isNonAxi
-            pot_type.append(24)
-            pot_args.extend([p._a, isNonAxi])
-            pot_args.extend(p._Acos.shape)
-            pot_args.extend(p._amp*p._Acos.flatten(order='C'))
-            if isNonAxi:
-                pot_args.extend(p._amp*p._Asin.flatten(order='C'))   
-            pot_args.extend([-1., 0, 0, 0, 0, 0, 0])    
+            # Type 25, see stand-alone parser below
+            pt,pa= _parse_scf_pot(p)
+            pot_type.append(pt)
+            pot_args.extend(pa)
         elif isinstance(p,potential.SoftenedNeedleBarPotential):
             pot_type.append(25)
             pot_args.extend([p._amp,p._a,p._b,p._c2,p._pa,p._omegab])
             pot_args.extend([0.,0.,0.,0.,0.,0.,0.]) # for caching
+        elif isinstance(p,potential.DiskSCFPotential):
+            # Need to pull this apart into: (a) SCF part, (b) constituent
+            # [Sigma_i,h_i] parts
+            # (a) SCF, multiply in any add'l amp
+            pt,pa= _parse_scf_pot(p._scf,extra_amp=p._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            # (b) constituent [Sigma_i,h_i] parts
+            for Sigma,hz in zip(p._Sigma_dict,p._hz_dict):
+                npot+= 1
+                pot_type.append(26)
+                stype= Sigma.get('type','exp')
+                if stype == 'exp' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([3,0,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     Sigma.get('h',1./3.)])
+                elif stype == 'expwhole' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([4,1,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     Sigma.get('h',1./3.),
+                                     Sigma.get('Rhole',0.5)])
+                hztype= hz.get('type','exp')
+                if hztype == 'exp':
+                    pot_args.extend([0,hz.get('h',0.0375)])
+                elif hztype == 'sech2':
+                    pot_args.extend([1,hz.get('h',0.0375)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
+
+def _parse_scf_pot(p,extra_amp=1.):
+    # Stand-alone parser for SCF, bc re-used
+    isNonAxi= p.isNonAxi
+    pot_args= [p._a, isNonAxi]
+    pot_args.extend(p._Acos.shape)
+    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
+    if isNonAxi:
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))   
+    pot_args.extend([-1., 0, 0, 0, 0, 0, 0])    
+    return (24,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """

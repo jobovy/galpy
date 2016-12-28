@@ -363,6 +363,15 @@ double SoftenedNeedleBarPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
 double SoftenedNeedleBarPotentialPlanarphiforce(double,double,double,
 					  struct potentialArg *);
+//DiskSCFPotential
+double DiskSCFPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double DiskSCFPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double DiskSCFPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double DiskSCFPotentialPlanarRforce(double,double,double,
+					      struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

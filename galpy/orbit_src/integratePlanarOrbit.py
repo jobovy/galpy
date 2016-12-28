@@ -38,6 +38,7 @@ else:
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from galpy.orbit_src.integrateFullOrbit import _parse_scf_pot
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
@@ -185,20 +186,44 @@ def _parse_pot(pot):
             pot_args.extend([0.,0.,0.,0.,0.,0.]) 
         elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
-            isNonAxi = p._Pot.isNonAxi
-            pot_type.append(24)
-            pot_args.extend([p._Pot._a, isNonAxi])
-            pot_args.extend(p._Pot._Acos.shape)
-            pot_args.extend(p._Pot._amp*p._Pot._Acos.flatten(order='C'))
-            if isNonAxi:
-                pot_args.extend(p._Pot._amp*p._Pot._Asin.flatten(order='C'))  
-            pot_args.extend([-1., 0, 0, 0, 0, 0, 0])   
+            pt,pa= _parse_scf_pot(p._Pot)
+            pot_type.append(pt)
+            pot_args.extend(pa)
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.SoftenedNeedleBarPotential):
             pot_type.append(25)
             pot_args.extend([p._Pot._amp,p._Pot._a,p._Pot._b,p._Pot._c2,
                              p._Pot._pa,p._Pot._omegab])
             pot_args.extend([0.,0.,0.,0.,0.,0.,0.]) # for caching
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential.DiskSCFPotential):
+            # Need to pull this apart into: (a) SCF part, (b) constituent
+            # [Sigma_i,h_i] parts
+            # (a) SCF, multiply in any add'l amp
+            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            # (b) constituent [Sigma_i,h_i] parts
+            for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
+                npot+= 1
+                pot_type.append(26)
+                stype= Sigma.get('type','exp')
+                if stype == 'exp' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([3,0,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     Sigma.get('h',1./3.)])
+                elif stype == 'expwhole' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([4,1,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     Sigma.get('h',1./3.),
+                                     Sigma.get('Rhole',0.5)])
+                hztype= hz.get('type','exp')
+                if hztype == 'exp':
+                    pot_args.extend([0,hz.get('h',0.0375)])
+                elif hztype == 'sech2':
+                    pot_args.extend([1,hz.get('h',0.0375)])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

@@ -244,6 +244,13 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
       break;
+    case 26: //DiskSCFPotential, nsigma+3 arguments
+      potentialArgs->potentialEval= &DiskSCFPotentialEval;
+      potentialArgs->nargs= (int) *(pot_args) + 3;
+      potentialArgs->i2d= NULL;
+      potentialArgs->accx= NULL;
+      potentialArgs->accy= NULL;
+      break;      
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

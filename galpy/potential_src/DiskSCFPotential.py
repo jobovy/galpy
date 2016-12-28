@@ -1,6 +1,7 @@
 ###############################################################################
 #   DiskSCFPotential.py: Potential expansion for disk+halo potentials
 ###############################################################################
+import copy
 import numpy
 from scipy.misc import logsumexp
 from galpy.potential_src.Potential import Potential, _APY_LOADED
@@ -113,6 +114,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             Acos, Asin= scf_compute_coeffs(dens_func,N,L,a=a)
         self._phiME_dens_func= dens_func
         self._scf= SCFPotential(amp=1.,Acos=Acos,Asin=Asin,a=a,ro=None,vo=None)
+        if not self._Sigma_dict is None and not self._hz_dict is None:
+            self.hasC= True
         return None
 
     def _parse_Sigma(self,Sigma_amp,Sigma,dSigmadR,d2SigmadR2):
@@ -140,7 +143,10 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         self._dSigmadR= dSigmadR
         self._d2SigmadR2= d2SigmadR2
         if isinstance(Sigma[0],dict):
+            self._Sigma_dict= copy.copy(Sigma)
             self._parse_Sigma_dict()
+        else:
+            self._Sigma_dict= None
         return None
     
     def _parse_Sigma_dict(self):
@@ -198,14 +204,18 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             raise ValueError('Number of hz functions needs to be equal to the number of Sigma functions or to 1')
         if nhz == 1 and self._nsigma > 1:
             hz= [hz[0] for ii in range(self._nsigma)]
-            Hz= [Hz[0] for ii in range(self._nsigma)]
-            dHzdz= [dHzdz[0] for ii in range(self._nsigma)]
+            if not isinstance(hz[0],dict):
+                Hz= [Hz[0] for ii in range(self._nsigma)]
+                dHzdz= [dHzdz[0] for ii in range(self._nsigma)]
         self._Hz= Hz
         self._hz= hz
         self._dHzdz= dHzdz       
         self._nhz= len(self._hz)
         if isinstance(hz[0],dict):
+            self._hz_dict= copy.copy(hz)
             self._parse_hz_dict()
+        else:
+            self._hz_dict= None
         return None
 
     def _parse_hz_dict(self):
