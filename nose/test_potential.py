@@ -284,6 +284,7 @@ def test_2ndDeriv_potential():
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -493,6 +494,7 @@ def test_poisson_potential():
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])

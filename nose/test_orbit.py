@@ -450,6 +450,7 @@ def test_liouville_planar():
     rmpots.append('TriaxialHernquistPotential')
     rmpots.append('TriaxialJaffePotential')
     rmpots.append('SoftenedNeedleBarPotential')
+    rmpots.append('DiskSCFPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -1244,6 +1245,7 @@ def test_analytic_zmax():
     tol['testMWPotential']= -6. #these are more difficult
     tol['KuzminDiskPotential']=-4 #these are more difficult
     tol['SCFPotential']= -8. #these are more difficult
+    tol['DiskSCFPotential']= -6. #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
