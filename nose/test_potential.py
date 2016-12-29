@@ -2098,7 +2098,7 @@ class sech2DiskSCFPotential(DiskSCFPotential):
                                   Sigma={'h': 1./3.,
                                          'type': 'exp', 'amp': 1.0},
                                   hz={'type':'sech2','h':1./27.},
-                                  a=1.)
+                                  a=1.,N=5,L=5)
         return None
 class expwholeDiskSCFPotential(DiskSCFPotential):
     def __init__(self):
@@ -2114,7 +2114,7 @@ class expwholeDiskSCFPotential(DiskSCFPotential):
                                          'type': 'expwhole','amp': 1.0,
                                          'Rhole':0.5},
                                   hz={'type':'exp','h':1./27.},
-                                  a=1.)
+                                  a=1.,N=5,L=5)
         return None
 class nonaxiDiskSCFPotential(DiskSCFPotential):
     def __init__(self):

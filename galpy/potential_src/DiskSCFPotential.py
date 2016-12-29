@@ -35,7 +35,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                  hz={'type':'exp','h':1./27.},
                  Sigma_amp=None,dSigmadR=None,d2SigmadR2=None,
                  Hz=None,dHzdz=None,
-                 N=20,L=20,a=1.,radial_order=None,costheta_order=None,
+                 N=10,L=10,a=1.,radial_order=None,costheta_order=None,
                  phi_order=None,
                  ro=None,vo=None):
         """

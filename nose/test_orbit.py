@@ -124,6 +124,8 @@ def test_energy_jacobi_conservation():
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
+        if not p == 'NFWPotential' and not 'DiskSCF' in p: continue
+        print(p)
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
