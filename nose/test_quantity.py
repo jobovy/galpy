@@ -1963,6 +1963,9 @@ def test_potential_ampunits_wrongunits():
     assert_raises(units.UnitConversionError,
                   lambda x:potential.FerrersPotential(amp=40.*units.Msun/units.pc**2,
                                                                 a=2.,ro=ro,vo=vo),())
+    # DiskSCFPotential
+    assert_raises(units.UnitConversionError,
+                  lambda x:potential.DiskSCFPotential(amp=40.*units.Msun/units.pc**2),())
     return None
 
 def test_potential_paramunits():
@@ -2181,6 +2184,23 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
+    # DiskSCFPotential
+    pot= potential.DiskSCFPotential(dens=lambda R,z: 1.,# doesn't matter
+                                    Sigma=[{'type':'exp','h':1./3.,'amp':1.},
+                                             {'type':'expwhole','h':1./3.,
+                                              'amp':1.,'Rhole':0.5}],
+                                    hz=[{'type':'exp','h':1./27.},
+                                          {'type':'sech2','h':1./27.}],
+                                    a=8.*units.kpc,N=2,L=2,ro=ro,vo=vo)
+    pot_nounits= potential.DiskSCFPotential(dens=lambda R,z: 1.,# doesn't matter
+                                    Sigma=[{'type':'exp','h':1./3.,'amp':1.},
+                                             {'type':'expwhole','h':1./3.,
+                                              'amp':1.,'Rhole':0.5}],
+                                    hz=[{'type':'exp','h':1./27.},
+                                          {'type':'sech2','h':1./27.}],
+                                    a=8./ro,N=2,L=2,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "DiskSCFPotential w/ a w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():

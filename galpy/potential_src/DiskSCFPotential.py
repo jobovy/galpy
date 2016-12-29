@@ -49,13 +49,13 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           amp - amplitude to be applied to the potential (default: 1); cannot have units currently
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
-           dens= function of R,z[,phi optional] that gives the density
+           dens= function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently]
 
            N=, L=, a=, radial_order=, costheta_order=, phi_order= keywords setting parameters for SCF solution for Phi_ME (see :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\phi,z)` is axisymmetric or not)
 
@@ -89,7 +89,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
 
            2016-12-26 - Written - Bovy (UofT)
         """        
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=None)
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro
         # Parse and store given functions
