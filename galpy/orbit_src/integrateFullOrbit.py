@@ -145,7 +145,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              for ii in range(p._glorder)])
             pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
         elif isinstance(p,potential.SCFPotential):
-            # Type 25, see stand-alone parser below
+            # Type 24, see stand-alone parser below
             pt,pa= _parse_scf_pot(p)
             pot_type.append(pt)
             pot_args.extend(pa)
@@ -193,7 +193,7 @@ def _parse_scf_pot(p,extra_amp=1.):
     pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
     if isNonAxi:
         pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))   
-    pot_args.extend([-1., 0, 0, 0, 0, 0, 0])    
+    pot_args.extend([-1.,0,0,0,0,0,0])    
     return (24,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
