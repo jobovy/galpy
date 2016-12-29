@@ -232,7 +232,7 @@ void parse_actionAngleArgs(int npot,
       break;
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
-      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4));
+      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       potentialArgs->i2d= NULL;
       potentialArgs->accx= NULL;
       potentialArgs->accy= NULL;
