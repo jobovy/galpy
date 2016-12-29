@@ -38,7 +38,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     prolateJaffePotential, \
     triaxialNFWPotential, \
     NFWTwoPowerTriaxialPotential, \
-    fullyRotatedTriaxialNFWPotential
+    fullyRotatedTriaxialNFWPotential, \
+    sech2DiskSCFPotential, \
+    expwholeDiskSCFPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -95,6 +97,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -120,6 +124,8 @@ def test_energy_jacobi_conservation():
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
+        if not 'DiskSCF' in p and not p == 'NFWPotential': continue
+        print(p)
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
         else: ttol= tol['default']
@@ -154,7 +160,7 @@ def test_energy_jacobi_conservation():
             if not 'Bar' in p and not 'LogSpiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)

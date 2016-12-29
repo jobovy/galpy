@@ -124,6 +124,9 @@ def test_forceAsDeriv_potential():
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
     pots.append('mockAxisymmetricFerrersPotential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('nonaxiDiskSCFPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -586,6 +589,9 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('nonaxiDiskSCFPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1944,7 +1950,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
-    FerrersPotential
+    FerrersPotential, DiskSCFPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -2082,6 +2088,52 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
+        return None
+# Other DiskSCFPotentials
+class sech2DiskSCFPotential(DiskSCFPotential):
+    def __init__(self):
+        DiskSCFPotential.__init__(self,
+                                  dens=lambda R,z: numpy.exp(-3.*R)\
+                                      *1./numpy.cosh(z/2.*27.)**2./4.*27.,
+                                  Sigma={'h': 1./3.,
+                                         'type': 'exp', 'amp': 1.0},
+                                  hz={'type':'sech2','h':1./27.},
+                                  a=1.)
+        return None
+class expwholeDiskSCFPotential(DiskSCFPotential):
+    def __init__(self):
+        # Add a Hernquist potential because otherwise the density near the 
+        # center is zero
+        from galpy.potential import HernquistPotential
+        hp= HernquistPotential(normalize=0.5)
+        DiskSCFPotential.__init__(self,\
+            dens=lambda R,z: 13.5*numpy.exp(-0.5/(R+10.**-10.)
+                                             -3.*R-numpy.fabs(z)*27.)
+                                  +hp.dens(R,z),
+                                  Sigma={'h': 1./3.,
+                                         'type': 'expwhole','amp': 1.0,
+                                         'Rhole':0.5},
+                                  hz={'type':'exp','h':1./27.},
+                                  a=1.)
+        return None
+class nonaxiDiskSCFPotential(DiskSCFPotential):
+    def __init__(self):
+        thp= triaxialHernquistPotential()
+        DiskSCFPotential.__init__(self,\
+            dens= lambda R,z,phi: 13.5*numpy.exp(-3.*R)\
+                                      *numpy.exp(-27.*numpy.fabs(z))
+                                  +thp.dens(R,z,phi=phi),
+                                  Sigma_amp=1.,
+                                  Sigma=lambda R: numpy.exp(-3.*R),
+                                  dSigmadR=lambda R: -3.*numpy.exp(-3.*R),
+                                  d2SigmadR2=lambda R: 9.*numpy.exp(-3.*R),
+                                  hz=lambda z: 13.5*numpy.exp(-27.
+                                                               *numpy.fabs(z)),
+                                  Hz=lambda z: (numpy.exp(-27.*numpy.fabs(z))-1.
+                                                +27.*numpy.fabs(z))/54.,
+                                  dHzdz=lambda z: 0.5*numpy.sign(z)*\
+                                      (1.-numpy.exp(-27.*numpy.fabs(z))),
+                                  N=5,L=5)
         return None
 # An axisymmetric FerrersPotential
 class mockAxisymmetricFerrersPotential(FerrersPotential):
