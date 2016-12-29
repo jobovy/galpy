@@ -1817,7 +1817,10 @@ def test_DiskSCFPotential_againstDoubleExp():
     # DoubleExponentialDiskPotential
     dp= potential.DoubleExponentialDiskPotential(amp=13.5,hr=1./3.,hz=1./27.)
     dscfp= potential.DiskSCFPotential(dens=lambda R,z: dp.dens(R,z),
-                                      Sigma={'type':'exp','h':1./3.,'amp':1.},
+                                      Sigma_amp=1.,
+                                      Sigma=lambda R: numpy.exp(-3.*R),
+                                      dSigmadR=lambda R: -3.*numpy.exp(-3.*R),
+                                      d2SigmadR2=lambda R: 9.*numpy.exp(-3.*R),
                                       hz={'type':'exp','h':1./27.},
                                       a=1.,N=10,L=10)
     testRs= numpy.linspace(0.3,1.5,101)
