@@ -1,6 +1,15 @@
 v1.3 (2017-XX-XX)
 ==================
 
+- Added DiskSCFPotential, a class that implements general
+  density/potential pairs for disk potentials by combining Kuijken &
+  Dubinski (1995)'s trick for turning a separable disk density
+  [rho(R,z) = \Sigma(R) x h(z)] into a ellipsoidal-ish density, with
+  the SCF basis-function-expansion approach of Hernquist & Ostriker
+  (1992) for solving for the ellipsoidal-ish density's potential. This
+  is a fully general Poisson solver (i.e., any density can be
+  represented in this way).
+
 - Added SoftenedNeedleBarPotential, a simple potential for a bar that
   consists of a needle softened by a Miyamoto-Nagai kernel (Long &
   Murali 1992).
