@@ -14,6 +14,10 @@ v1.3 (2017-XX-XX)
   consists of a needle softened by a Miyamoto-Nagai kernel (Long &
   Murali 1992).
 
+- Added FerrersPotential, a class that implements the potential for
+  triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
+  to give a pattern speed to the ellipsoid.
+
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
 
@@ -26,10 +30,6 @@ v1.3 (2017-XX-XX)
 
 v1.2 (2016-09-06)
 ==================
-
-- Added FerrersPotential, a class that implements the potential for
-  triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
-  to give a pattern speed to the ellipsoid.
 
 - Added support for providing inputs to all initializations, methods,
   and functions as Quantities with units and for providing outputs as
