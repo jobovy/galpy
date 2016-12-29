@@ -1039,7 +1039,8 @@ def test_analytic_ecc_rperi_rap():
     tol['FlattenedPowerPotential']= -8. #these are more difficult
     tol['KeplerPotential']= -8. #these are more difficult
     tol['PseudoIsothermalPotential']= -7. #these are more difficult
-    tol['KuzminDiskPotential'] = -8  #these are more difficult
+    tol['KuzminDiskPotential'] = -8.  #these are more difficult
+    tol['DiskSCFPotential'] = -8.  #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
@@ -1155,7 +1156,7 @@ def test_analytic_ecc_rperi_rap():
                 trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
-                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
+                    "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic))
                 assert (o.rap(ro=8.)/8.-trap_analytic)**2. < 10.**ttol, \
                     "Apocenter in physical coordinates does not agree with physical-scale times apocenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Do this also for an orbit starting at apocenter
