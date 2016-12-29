@@ -26,9 +26,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include <math.h>
 #include <galpy_potentials.h>
-#ifndef M_E
-#define M_E 2.71828182845904523536028747135
-#endif
 #ifndef M_LN2
 #define M_LN2 0.693147180559945309417232121
 #endif
@@ -44,7 +41,7 @@ double Sigma(double R,double * Sigma_args){
   case 1: // Exponential with central hole
     return *(Sigma_args+1) * exp(- *(Sigma_args+3) / R - R / *(Sigma_args+2) );
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 double dSigmadR(double R,double * Sigma_args){
   int Sigma_type= (int) *Sigma_args;
@@ -55,7 +52,7 @@ double dSigmadR(double R,double * Sigma_args){
     return *(Sigma_args+1) * ( *(Sigma_args+3) / R / R - 1. / *(Sigma_args+2))\
       * exp(- *(Sigma_args+3) / R - R / *(Sigma_args+2) );
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 //LCOV_EXCL_START
 // Not currently used, bc only in 2nd derivatives
@@ -71,7 +68,7 @@ double d2SigmadR2(double R,double * Sigma_args){
 			       -2. * *(Sigma_args+3) / R / R / R )\
       * exp(- *(Sigma_args+3) / R - R / *(Sigma_args+2) );
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 double hz(double z,double * hz_args){
   int hz_type= (int) *hz_args;
@@ -81,10 +78,10 @@ double hz(double z,double * hz_args){
     fz= fabs(z);
     return 0.5 * exp ( - fz /  *(hz_args+1) ) / *(hz_args+1);
   case 1: // sech2
-    return 0.25 / pow ( cosh ( 0.5 * z / *(hz_args+1) ) , 2 ) \
+    return 0.25 * pow ( cosh ( 0.5 * z / *(hz_args+1) ) , -2 ) \
       / *(hz_args+1);
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 //LCOV_EXCL_STOP
 double Hz(double z,double * hz_args){
@@ -95,10 +92,10 @@ double Hz(double z,double * hz_args){
     return 0.5 * ( exp ( - fz / *(hz_args+1) ) - 1. + fz / *(hz_args+1) ) \
       * *(hz_args+1);
   case 1: // sech2
-    return *(hz_args+1) * ( log ( M_E + exp ( - fz / *(hz_args+1) ) )	\
+    return *(hz_args+1) * ( log ( 1. + exp ( - fz / *(hz_args+1) ) )	\
 			    + 0.5 * fz / *(hz_args+1)  - M_LN2 );
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 double dHzdz(double z,double * hz_args){
   int hz_type= (int) *hz_args;
@@ -110,7 +107,7 @@ double dHzdz(double z,double * hz_args){
   case 1: // sech2
     return 0.5 * tanh ( 0.5 * z / *(hz_args+1) );
   }
-  return -1;
+  return -1; // LCOV_EXCL_LINE
 }
 double DiskSCFPotentialEval(double R,double Z, double phi,
 			    double t,
