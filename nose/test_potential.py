@@ -2218,10 +2218,13 @@ class nonaxiDiskSCFPotential(DiskSCFPotential):
             dens= lambda R,z,phi: 13.5*numpy.exp(-3.*R)\
                                       *numpy.exp(-27.*numpy.fabs(z))
                                   +thp.dens(R,z,phi=phi),
-                                  Sigma_amp=1.,
-                                  Sigma=lambda R: numpy.exp(-3.*R),
-                                  dSigmadR=lambda R: -3.*numpy.exp(-3.*R),
-                                  d2SigmadR2=lambda R: 9.*numpy.exp(-3.*R),
+                                  Sigma_amp=[0.5,0.5],
+                                  Sigma=[lambda R: numpy.exp(-3.*R),
+                                         lambda R: numpy.exp(-3.*R)],
+                                  dSigmadR=[lambda R: -3.*numpy.exp(-3.*R),
+                                            lambda R: -3.*numpy.exp(-3.*R)],
+                                  d2SigmadR2=[lambda R: 9.*numpy.exp(-3.*R),
+                                              lambda R: 9.*numpy.exp(-3.*R)],
                                   hz=lambda z: 13.5*numpy.exp(-27.
                                                                *numpy.fabs(z)),
                                   Hz=lambda z: (numpy.exp(-27.*numpy.fabs(z))-1.
