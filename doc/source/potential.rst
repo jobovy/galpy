@@ -299,17 +299,22 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**NEW in v1.2**: General density/potential pairs with basis-function expansions
---------------------------------------------------------------------------------
+**NEW in v1.2/UPDATED in v1.3**: General density/potential pairs with basis-function expansions
+------------------------------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the
-potential and density in terms of basis functions. Currently, only the
-basis-function expansion of the self-consistent-field (SCF) method of
-`Hernquist & Ostriker (1992)
-<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ is supported,
-which works well for ellipsoidal-ish density distributions, but not so
-well for disk-like density functions.
+potential and density in terms of basis functions. This is supported
+for ellipsoidal-ish as well as for disk-y density distributions, in
+both cases using the basis-function expansion of the
+self-consistent-field (SCF) method of `Hernquist & Ostriker (1992)
+<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__. On its own,
+the SCF technique works well for ellipsoidal-ish density
+distributions, but using a trick due to `Kuijken & Dubinski (1995)
+<http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ it can also be
+made to work well for disky potentials. We first describe the basic
+SCF implementation and then discuss how to use it for disky
+potentials.
 
 The basis-function approach in the SCF method is implemented in the
 :ref:`SCFPotential <scf_potential>` class, which is also implemented
@@ -378,9 +383,9 @@ If we then integrate an orbit, we also get good agreement
 >>> o= Orbit([1.,0.1,1.1,0.1,0.3,0.])
 >>> ts= numpy.linspace(0.,100.,10001)
 >>> o.integrate(ts,hp)
->>> o.plotE()
+>>> o.plot()
 >>> o.integrate(ts,sp)
->>> o.plotE(overplot=True)
+>>> o.plot(overplot=True)
 
 which gives
 
@@ -391,8 +396,77 @@ Near the end of the orbit integration, the slight differences between
 the original potential and the basis-expansion version cause the two
 orbits to deviate from each other.
 
-The :ref:`SCFPotential <scf_potential>` can be used wherever general
-potentials can be used in galpy.
+To use the SCF method for disky potentials, we use the trick from
+`Kuijken & Dubinski (1995)
+<http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__. This trick works by approximating the disk density as :math:`\rho_{\mathrm{disk}}(R,\phi,z) \approx \sum_i \Sigma_i(R)\,h_i(z)`, with :math:`h_i(z) = \mathrm{d}^2 H(z) / \mathrm{d} z^2` and searching for solutions of the form
+
+    .. math::
+
+       \Phi(R,\phi,z = \Phi_{\mathrm{ME}}(R,\phi,z) + 4\pi G\sum_i \Sigma_i(r)\,H_i(z)\,,
+
+where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. The density which gives rise to :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` is not strongly confined to a plane when :math:`\rho_{\mathrm{disk}}(R,\phi,z) \approx \sum_i \Sigma_i(R)\,h_i(z)` and can be obtained using the SCF basis-function-expansion technique discussed above. See the documentation of the :ref:`DiskSCFPotential <disk_scf_potential>` class for more details on this procedure.
+
+As an example, consider a double-exponential disk, which we can
+compare to the ``DoubleExponentialDiskPotential`` implementation
+
+>>> from galpy import potential
+>>> dp= potential.DoubleExponentialDiskPotential(amp=13.5,hr=1./3.,hz=1./27.)
+
+and then setup the ``DiskSCFPotential`` approximation to this as
+
+>>> dscfp= potential.DiskSCFPotential(dens=lambda R,z: dp.dens(R,z),
+                                      Sigma={'type':'exp','h':1./3.,'amp':1.},
+                                      hz={'type':'exp','h':1./27.},
+                                      a=1.,N=10,L=10)
+
+The ``dens=`` keyword specifies the target density, while the
+``Sigma=`` and ``hz=`` inputs specify the approximation functions
+:math:`\Sigma_i(R)` and :math:`h_i(z)`. These are specified as
+dictionaries here for a few pre-defined approximation functions, but
+general functions are supported as well. Care should be taken that the
+``dens=`` input density and the approximation functions have the same
+normalization. We can compare the density along the ``R=10 z`` line as
+
+>>> xs= numpy.linspace(0.3,2.,1001)
+>>> semilogy(xs,dp.dens(xs,xs/10.))
+>>> semilogy(xs,dscfp.dens(xs,xs/10.))
+
+which gives
+
+.. image:: images/dscf-dblexp-dens.png
+   :scale: 50 %
+
+The agreement is good out to 5 scale lengths and scale heights and
+then starts to degrade. We can also integrate orbits and compare them
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.1,0.9,0.,0.1,0.])
+>>> ts= numpy.linspace(0.,100.,10001)
+>>> o.integrate(ts,dp)
+>>> o.plot()
+>>> o.integrate(ts,dscfp)
+>>> o.plot(overplot=True)
+
+which gives
+
+.. image:: images/dscf-dblexp-orbit.png
+   :scale: 50 %
+
+The orbits diverge slightly because the potentials are not quite the
+same, but have very similar properties otherwise (peri- and
+apogalacticons, eccentricity, ...). By increasing the order of the SCF
+approximation, the potential can be gotten closer to the target
+density. Note that orbit integration in the ``DiskSCFPotential`` is
+much faster than that of the ``DoubleExponentialDisk`` potential
+
+>>> timeit(o.integrate(ts,dp))
+1 loops, best of 3: 5.83 s per loop
+>>> timeit(o.integrate(ts,dscfp))
+1 loops, best of 3: 286 ms per loop
+
+The :ref:`SCFPotential <scf_potential>` and :ref:`DiskSCFPotential
+<disk_scf_potential>` can be used wherever general potentials can be
+used in galpy.
 
 The potential of N-body simulations
 --------------------------------------
