@@ -1770,6 +1770,48 @@ def test_DiskSCFPotential_nhzNeqnsigmaError():
         a=1.,N=5,L=5)
     return None
 
+def test_DiskSCFPotential_againstDoubleExp():
+    # Test that the DiskSCFPotential approx. of a dbl-exp disk agrees with
+    # DoubleExponentialDiskPotential
+    dp= potential.DoubleExponentialDiskPotential(amp=13.5,hr=1./3.,hz=1./27.)
+    dscfp= potential.DiskSCFPotential(dens=lambda R,z: dp.dens(R,z),
+                                      Sigma={'type':'exp','h':1./3.,'amp':1.},
+                                      hz={'type':'exp','h':1./27.},
+                                      a=1.,N=10,L=10)
+    testRs= numpy.linspace(0.3,1.5,101)
+    testzs= numpy.linspace(0.1/27.,3./27,101)
+    testR= 0.9*numpy.ones_like(testzs)
+    testz= 1.5/27.*numpy.ones_like(testRs)
+    # Test potential
+    assert numpy.all(numpy.fabs((dp(testRs,testz)-dscfp(testRs,testz))/dscfp(testRs,testz)) < 10.**-2.5), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    assert numpy.all(numpy.fabs((dp(testR,testzs)-dscfp(testR,testzs))/dscfp(testRs,testz)) < 10.**-2.5), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    # Rforce
+    assert numpy.all(numpy.fabs((dp.Rforce(testRs,testz)-dscfp.Rforce(testRs,testz))/dscfp.Rforce(testRs,testz)) < 10.**-2.), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    assert numpy.all(numpy.fabs((dp.Rforce(testR,testzs)-dscfp.Rforce(testR,testzs))/dscfp.Rforce(testRs,testz)) < 10.**-2.), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    # zforce
+    assert numpy.all(numpy.fabs((dp.zforce(testRs,testz)-dscfp.zforce(testRs,testz))/dscfp.zforce(testRs,testz)) < 10.**-1.5), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    # Following has rel. large difference at high z
+    assert numpy.all(numpy.fabs((dp.zforce(testR,testzs)-dscfp.zforce(testR,testzs))/dscfp.zforce(testRs,testz)) < 10.**-1.), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    return None
+
+def test_DiskSCFPotential_againstDoubleExp_dens():
+    # Test that the DiskSCFPotential approx. of a dbl-exp disk agrees with
+    # DoubleExponentialDiskPotential
+    dp= potential.DoubleExponentialDiskPotential(amp=13.5,hr=1./3.,hz=1./27.)
+    dscfp= potential.DiskSCFPotential(dens=lambda R,z: dp.dens(R,z),
+                                      Sigma={'type':'exp','h':1./3.,'amp':1.},
+                                      hz={'type':'exp','h':1./27.},
+                                      a=1.,N=10,L=10)
+    testRs= numpy.linspace(0.3,1.5,101)
+    testzs= numpy.linspace(0.1/27.,3./27,101)
+    testR= 0.9*numpy.ones_like(testzs)
+    testz= 1.5/27.*numpy.ones_like(testRs)
+    # Test density
+    assert numpy.all(numpy.fabs((dp.dens(testRs,testz)-dscfp.dens(testRs,testz))/dscfp.dens(testRs,testz)) < 10.**-1.25), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    # difficult at high z
+    assert numpy.all(numpy.fabs((dp.dens(testR,testzs)-dscfp.dens(testR,testzs))/dscfp.dens(testRs,testz)) < 10.**-1.), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
