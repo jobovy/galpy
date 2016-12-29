@@ -460,7 +460,13 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
-        return self._inputdens(R,z,phi)
+        r= numpy.sqrt(R**2.+z**2.)
+        out= self._scf.dens(R,z,phi=phi,use_physical=False)
+        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,self._Sigma,
+                                     self._dSigmadR,self._d2SigmadR2,
+                                     self._hz,self._Hz,self._dHzdz):
+            out+= a*(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
+        return out
 
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
     """The density corresponding to phi_ME"""
