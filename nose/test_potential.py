@@ -1759,6 +1759,17 @@ def test_SoftenedNeedleBarPotential_density():
     assert sbp.dens(4.,0.,phi=numpy.pi/4.) > sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
     return None
     
+@raises(ValueError)
+def test_DiskSCFPotential_nhzNeqnsigmaError():
+    dummy= potential.DiskSCFPotential(\
+        dens=lambda R,z: numpy.exp(-3.*R)\
+            *1./numpy.cosh(z/2.*27.)**2./4.*27.,
+        Sigma={'h': 1./3.,
+               'type': 'exp', 'amp': 1.0},
+        hz=[{'type':'sech2','h':1./27.},{'type':'sech2','h':1./27.}],
+        a=1.,N=5,L=5)
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
