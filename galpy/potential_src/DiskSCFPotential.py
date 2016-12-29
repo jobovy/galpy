@@ -277,8 +277,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf(R,z,phi=phi,use_physical=False)
         for a,s,H in zip(self._Sigma_amp,self._Sigma,self._Hz):
@@ -301,8 +299,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf.Rforce(R,z,phi=phi,use_physical=False)
         for a,ds,H in zip(self._Sigma_amp,self._dSigmadR,self._Hz):
@@ -325,8 +321,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT/CCA)
         """
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf.zforce(R,z,phi=phi,use_physical=False)
         for a,s,ds,H,dH in zip(self._Sigma_amp,self._Sigma,self._dSigmadR,
@@ -350,8 +344,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
            2016-12-26 - Written - Bovy (UofT)
         """
-        if not self.isNonAxi:
-            phi= 0.
         return self._scf.phiforce(R,z,phi=phi,use_physical=False)
 
     def _R2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
@@ -372,8 +364,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         raise AttributeError
         # Implementation above does not work bc SCF.R2deriv is not implemented
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf.R2deriv(R,z,phi=phi,use_physical=False)
         for a,ds,d2s,H in zip(self._Sigma_amp,self._dSigmadR,self._d2SigmadR2,
@@ -399,8 +389,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         raise AttributeError
         # Implementation above does not work bc SCF.z2deriv is not implemented
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf.z2deriv(R,z,phi=phi,use_physical=False)
         for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,
@@ -428,8 +416,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         raise AttributeError
         # Implementation above does not work bc SCF.Rzderiv is not implemented
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         r= numpy.sqrt(R**2.+z**2.)
         out= self._scf.Rzderiv(R,z,phi=phi,use_physical=False)
         for a,ds,d2s,H,dH in zip(self._Sigma_amp,self._dsigmadR,
@@ -456,8 +442,6 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         raise AttributeError
         # Implementation above does not work bc SCF.phi2deriv is not implemented
-        if not self.isNonAxi and phi is None:
-            phi= 0.
         return self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
 
     def _dens(self,R,z,phi=0.,t=0.):
