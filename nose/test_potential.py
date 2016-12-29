@@ -1759,6 +1759,48 @@ def test_SoftenedNeedleBarPotential_density():
     assert sbp.dens(4.,0.,phi=numpy.pi/4.) > sbp.dens(2.*numpy.sqrt(2.),2.*numpy.sqrt(2.),phi=0.), 'SoftenedNeedleBarPotential with flattened softening kernel does not appear to have a consistent'
     return None
     
+def test_DiskSCFPotential_SigmaDerivs():
+    # Test that the derivatives of Sigma are correctly implemented in DiskSCF
+    # Very rough finite difference checks
+    dscfp= potential.DiskSCFPotential(dens=lambda R,z: 1.,# doesn't matter
+                                      Sigma=[{'type':'exp','h':1./3.,'amp':1.},
+                                             {'type':'expwhole','h':1./3.,
+                                              'amp':1.,'Rhole':0.5}],
+                                      hz=[{'type':'exp','h':1./27.},
+                                          {'type':'sech2','h':1./27.}],
+                                      a=1.,N=2,L=2)
+    # Sigma exp
+    testRs= numpy.linspace(0.3,1.5,101)
+    dR= 10.**-8.
+    assert numpy.all(numpy.fabs(((dscfp._Sigma[0](testRs+dR)-dscfp._Sigma[0](testRs))/dR-dscfp._dSigmadR[0](testRs))/dscfp._dSigmadR[0](testRs)) < 10.**-7.), "Derivative dSigmadR does not agree with finite-difference derivative of Sigma for exponential profile in DiskSCFPotential"
+    assert numpy.all(numpy.fabs(((dscfp._dSigmadR[0](testRs+dR)-dscfp._dSigmadR[0](testRs))/dR-dscfp._d2SigmadR2[0](testRs))/dscfp._d2SigmadR2[0](testRs)) < 10.**-7.), "Derivative d2SigmadR2 does not agree with finite-difference derivative of dSigmadR for exponential profile in DiskSCFPotential"
+    # Sigma expwhole
+    dR= 10.**-8.
+    assert numpy.all(numpy.fabs(((dscfp._Sigma[1](testRs+dR)-dscfp._Sigma[1](testRs))/dR-dscfp._dSigmadR[1](testRs))/dscfp._dSigmadR[1](testRs)) < 10.**-4.), "Derivative dSigmadR does not agree with finite-difference derivative of Sigma for exponential-with-hole profile in DiskSCFPotential"
+    assert numpy.all(numpy.fabs(((dscfp._dSigmadR[1](testRs+dR)-dscfp._dSigmadR[1](testRs))/dR-dscfp._d2SigmadR2[1](testRs))/dscfp._d2SigmadR2[1](testRs)) < 10.**-4.), "Derivative d2SigmadR2 does not agree with finite-difference derivative of dSigmadR for exponential-with-hole profile in DiskSCFPotential"
+    return None
+
+def test_DiskSCFPotential_verticalDerivs():
+    # Test that the derivatives of Sigma are correctly implemented in DiskSCF
+    # Very rough finite difference checks
+    dscfp= potential.DiskSCFPotential(dens=lambda R,z: 1.,# doesn't matter
+                                      Sigma=[{'type':'exp','h':1./3.,'amp':1.},
+                                             {'type':'expwhole','h':1./3.,
+                                              'amp':1.,'Rhole':0.5}],
+                                      hz=[{'type':'exp','h':1./27.},
+                                          {'type':'sech2','h':1./27.}],
+                                      a=1.,N=2,L=2)
+    # Vertical exp
+    testzs= numpy.linspace(0.1/27.,3./27,101)
+    dz= 10.**-8.
+    assert numpy.all(numpy.fabs(((dscfp._Hz[0](testzs+dz)-dscfp._Hz[0](testzs))/dz-dscfp._dHzdz[0](testzs))/dscfp._dHzdz[0](testzs)) < 10.**-5.5), "Derivative dHzdz does not agree with finite-difference derivative of Hz for exponential profile in DiskSCFPotential"
+    assert numpy.all(numpy.fabs(((dscfp._dHzdz[0](testzs+dz)-dscfp._dHzdz[0](testzs))/dz-dscfp._hz[0](testzs))/dscfp._hz[0](testzs)) < 10.**-6.), "Derivative hz does not agree with finite-difference derivative of dHzdz for exponential profile in DiskSCFPotential"
+    # Vertical sech^2
+    dz= 10.**-8.
+    assert numpy.all(numpy.fabs(((dscfp._Hz[1](testzs+dz)-dscfp._Hz[1](testzs))/dz-dscfp._dHzdz[1](testzs))/dscfp._dHzdz[1](testzs)) < 10.**-5.5), "Derivative dSigmadz does not agree with finite-difference derivative of Sigma for sech2 profile in DiskSCFPotential"
+    assert numpy.all(numpy.fabs(((dscfp._dHzdz[1](testzs+dz)-dscfp._dHzdz[1](testzs))/dz-dscfp._hz[1](testzs))/dscfp._hz[1](testzs)) < 10.**-6.), "Derivative hz does not agree with finite-difference derivative of dHzdz for sech2 profile in DiskSCFPotential"
+    return None
+
 @raises(ValueError)
 def test_DiskSCFPotential_nhzNeqnsigmaError():
     dummy= potential.DiskSCFPotential(\
