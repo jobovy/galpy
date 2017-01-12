@@ -1,6 +1,9 @@
 galpy.util.bovy_plot
 ====================
 
+.. WARNING::
+   Importing ``galpy.util.bovy_plot`` (or having it be imported by other ``galpy`` routines) with ``seaborn`` installed will change the ``seaborn`` plot style. If you don't like this, call ``import seaborn; seaborn.set_style('darkgrid')`` (or similar for other styles) after importing ``galpy.util.bovy_plot``.
+
 Various plotting routines:
 
 .. toctree::
