@@ -185,6 +185,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the globular cluster Pyxis using its newly measured proper motion and to search for potential streams associated with the cluster.
 #. *The Galactic distribution of X-ray binaries and its implications for compact object formation and natal kicks*, Serena Repetto, Andrei P. Igoshev, & Gijs Nelemans (2017), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1701.01347 <http://arxiv.org/abs/1701.01347>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` and that of `Paczynski (1990) <http://adsabs.harvard.edu/abs/1990ApJ...348..485P>`__ to study the orbits of X-ray binaries under different assumptions about their formation mechanism and natal velocity kicks.
+#. *Kinematics of Subluminous O and B Stars by Surface Helium Abundance*, P. Martin, C. S. Jeffery, Naslim N., & V. M. Woolf (2017), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1701.03026 <http://arxiv.org/abs/1701.03026>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbits of different types of low-mass core-helium-burning stars.
 
 
 Indices and tables
