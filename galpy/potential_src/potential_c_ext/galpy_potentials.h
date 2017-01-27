@@ -110,6 +110,8 @@ double SteadyLogSpiralPotentialRforce(double,double,double,
 double SteadyLogSpiralPotentialphiforce(double,double,double,
 		       struct potentialArg *);
 //EllipticalDiskPotential
+double EllipticalDiskSmooth(double,double, double);
+
 double EllipticalDiskPotentialRforce(double,double,double,
 		       struct potentialArg *);
 double EllipticalDiskPotentialphiforce(double,double,double,
@@ -375,4 +377,12 @@ double DiskSCFPotentialPlanarRforce(double,double,double,
 #ifdef __cplusplus
 }
 #endif
+// Wilkinson Evans potential 
+double WilkinsonEvansPotentialEval(double,double, double,double,             
+                                  struct potentialArg * );
+double WilkinsonEvansPotentialRforce(double,double, double,double,                       
+                                    struct potentialArg * );
+double WilkinsonEvansPotentialzforce(double,double,double,double,
+                                    struct potentialArg * );   
+
 #endif /* galpy_potentials.h */

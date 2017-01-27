@@ -181,6 +181,16 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+
+          elif isinstance(p,potential.WilkinsonEvansPotential):
+	    #print 'we are here - trying to use c potential'
+#	    warnings.warn('We are here 27', galpyWarning)
+            pot_type.append(27)
+            pot_args.extend([p._Mh,p._ah])
+
+
+
+
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

@@ -225,7 +225,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
-      break;      
+      break; 
+    case 27: //WilkinsonEvansPotential, 2 arguments 
+      potentialArgs->Rforce= &WilkinsonEvansPotentialRforce;
+      potentialArgs->zforce= &WilkinsonEvansPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
