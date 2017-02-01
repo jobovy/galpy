@@ -38,6 +38,7 @@ void parse_leapFuncArgs_Full(int npot,
     potentialArgs->i2dzforce= NULL;
     potentialArgs->accxzforce= NULL;
     potentialArgs->accyzforce= NULL;
+
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -227,9 +228,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break; 
     case 27: //WilkinsonEvansPotential, 2 arguments 
+//      printf("TEST");	
+//      potentialArgs->Rforce= &ZeroForce;
+//      potentialArgs->zforce= &ZeroForce;
       potentialArgs->Rforce= &WilkinsonEvansPotentialRforce;
       potentialArgs->zforce= &WilkinsonEvansPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+//      printf("tst", &WilkinsonEvansPotentialRforce, &WilkinsonEvansPotentialzforce);
       potentialArgs->nargs= 2;
       break;
     }

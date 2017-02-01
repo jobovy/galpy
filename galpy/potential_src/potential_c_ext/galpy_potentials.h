@@ -374,9 +374,7 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
-#ifdef __cplusplus
-}
-#endif
+
 // Wilkinson Evans potential 
 double WilkinsonEvansPotentialEval(double,double, double,double,             
                                   struct potentialArg * );
@@ -384,5 +382,9 @@ double WilkinsonEvansPotentialRforce(double,double, double,double,
                                     struct potentialArg * );
 double WilkinsonEvansPotentialzforce(double,double,double,double,
                                     struct potentialArg * );   
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* galpy_potentials.h */
