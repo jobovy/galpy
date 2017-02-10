@@ -204,6 +204,7 @@ class quasiisothermaldf(df):
         log= kwargs.pop('log',False)
         _return_actions= kwargs.pop('_return_actions',False)
         _return_freqs= kwargs.pop('_return_freqs',False)
+        _func= kwargs.pop('func',None)
         if 'rg' in kwargs:
             thisrg= kwargs.pop('rg')
             kappa= kwargs.pop('kappa')
@@ -246,11 +247,11 @@ class quasiisothermaldf(df):
         lnsr= self._lnsr+(self._refr-thisrg)/self._hsr
         lnsz= self._lnsz+(self._refr-thisrg)/self._hsz
         #Calculate func
-        if 'func' in kwargs:
+        if not _func is None:
             if log:
-                funcTerm= numpy.log(kwargs['func'](jr,lz,jz))
+                funcTerm= numpy.log(_func(jr,lz,jz))
             else:
-                funcFactor= kwargs['func'](jr,lz,jz)
+                funcFactor= _func(jr,lz,jz)
         #Calculate fsr
         else:
             if log:
