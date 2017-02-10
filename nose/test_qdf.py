@@ -8,6 +8,19 @@ from galpy.df import quasiisothermaldf
 aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
 aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.5)
 
+def test_meanjz_noaac_issue300():
+    # Test of issue 300 reported by Ruth Angus: failure of qdf.meanjz when not using C integration for action-angle calculations
+    taA= actionAngleAdiabatic(pot=MWPotential,c=False)
+    hr= 1/3.
+    sr= .2
+    sz= .1
+    hsr= 1.
+    hsz= 1.
+    qdf= quasiisothermaldf(hr,sr,sz,hsr,hsz,pot=MWPotential,aA=taA,
+                           cutcounter=True)
+    assert numpy.fabs(qdf.meanjz(1.,0.125,nmc=100)-0.0157468008111) < 0.01, 'Mean Jz computed using MC with Python actionAngleAdiabatic integration fails'
+    return None
+
 def test_meanvR_adiabatic_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAA,cutcounter=True)
