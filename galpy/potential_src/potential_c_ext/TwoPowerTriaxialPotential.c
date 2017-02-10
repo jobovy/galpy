@@ -3,7 +3,7 @@
 #include <galpy_potentials.h>
 //General routines for TwoPowerTriaxialPotentials, specific potentials below
 //TriaxialNFWPotential
-inline void rotate(double *x, double *y, double *z, double *rot){
+static inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
   xp= *(rot)   * *x + *(rot+1) * *y + *(rot+2) * *z;
   yp= *(rot+3) * *x + *(rot+4) * *y + *(rot+5) * *z;
@@ -12,7 +12,8 @@ inline void rotate(double *x, double *y, double *z, double *rot){
   *y= yp;
   *z= zp;
 }
-inline void rotate_force(double *Fx, double *Fy, double *Fz, double *rot){
+static inline void rotate_force(double *Fx, double *Fy, double *Fz,
+				double *rot){
   double Fxp,Fyp,Fzp;
   Fxp= *(rot)   * *Fx + *(rot+3) * *Fy + *(rot+6) * *Fz;
   Fyp= *(rot+1) * *Fx + *(rot+4) * *Fy + *(rot+7) * *Fz;
@@ -21,7 +22,7 @@ inline void rotate_force(double *Fx, double *Fy, double *Fz, double *rot){
   *Fy= Fyp;
   *Fz= Fzp;
 }
-inline double dens(double m, double alpha, double beta){
+static inline double dens(double m, double alpha, double beta){
   if ( alpha == 1 && beta == 3) // NFW case
     return 1. / m / ( 1. + m ) / ( 1. + m );
   else if ( alpha == 1 && beta == 4) // Hernquist case
@@ -255,7 +256,7 @@ double TriaxialJaffePotentialzforce(double R,double z, double phi,
 }
 // Implement the potentials separately
 //NFW
-inline double TriaxialNFWPotential_psi(double x){
+static inline double TriaxialNFWPotential_psi(double x){
   return 1. / ( 1. + x );
 }
 double TriaxialNFWPotentialpotential_xyz_integrand(double s,
@@ -296,7 +297,7 @@ double TriaxialNFWPotentialEval(double R,double z, double phi,
   return amp * out;
 }
 //Hernquist
-inline double TriaxialHernquistPotential_psi(double x){
+static inline double TriaxialHernquistPotential_psi(double x){
   return 0.5 / ( 1. + x ) / ( 1. + x );
 }
 double TriaxialHernquistPotentialpotential_xyz_integrand(double s,
@@ -337,7 +338,7 @@ double TriaxialHernquistPotentialEval(double R,double z, double phi,
   return amp * out;
 }
 //Jaffe
-inline double TriaxialJaffePotential_psi(double x){
+static inline double TriaxialJaffePotential_psi(double x){
   return - 1. / ( 1. + x ) - log ( x / ( 1. + x ) ) ;
 }
 double TriaxialJaffePotentialpotential_xyz_integrand(double s,

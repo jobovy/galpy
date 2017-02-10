@@ -16,7 +16,7 @@ const int DERIV =2;
 //Useful Functions
 
 //Converts from cylindrical coordinates to spherical
-inline void cyl_to_spher(double R, double Z,double *r, double *theta)
+static inline void cyl_to_spher(double R, double Z,double *r, double *theta)
 {
     *r = sqrt(R*R + Z*Z);
     *theta = atan2(R, Z);
@@ -31,7 +31,7 @@ double power(double x, int i)
 }
 
 //Calculates xi
-inline void calculateXi(double r, double a, double *xi)
+static inline void calculateXi(double r, double a, double *xi)
 {
     *xi = (r - a)/(r + a);
 }
@@ -104,7 +104,7 @@ double computeAxiF_phiphi(double Acos_val, double P, double d2phiTilde)
 }
 
 //Calculates the Gegenbauer polynomials
-inline void compute_C(double xi, int N, int L, double * C_array)
+void compute_C(double xi, int N, int L, double * C_array)
 {
     int l;
     for (l = 0; l < L; l++)
@@ -114,7 +114,7 @@ inline void compute_C(double xi, int N, int L, double * C_array)
 }
 
 //Calculates the derivative of the Gegenbauer polynomials
-inline void compute_dC(double xi, int N, int L, double * dC_array)
+void compute_dC(double xi, int N, int L, double * dC_array)
 {
     int n,l;
     for (l = 0; l < L; l++)
@@ -131,7 +131,7 @@ inline void compute_dC(double xi, int N, int L, double * dC_array)
 }
 
 //Calculates the second derivative of the Gegenbauer polynomials
-inline void compute_d2C(double xi, int N, int L, double * d2C_array)
+void compute_d2C(double xi, int N, int L, double * d2C_array)
 {
     int n,l;
     for (l = 0; l < L; l++)
@@ -150,7 +150,7 @@ inline void compute_d2C(double xi, int N, int L, double * d2C_array)
 }
 
 //Compute phi_Tilde
-inline void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
+void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
 {
     double xi;
     calculateXi(r, a, &xi);
@@ -171,7 +171,7 @@ inline void compute_phiTilde(double r, double a, int N, int L, double* C, double
 }
 
 //Computes the derivative of phiTilde with respect to r
-inline void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
+void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
 {
     double xi;
     calculateXi(r, a, &xi);
@@ -193,7 +193,7 @@ inline void compute_dphiTilde(double r, double a, int N, int L, double * C, doub
 }
 
 //Computes the second derivative of phiTilde with respect to r
-inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
+void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
 {
     double xi;
     calculateXi(r, a, &xi);
@@ -224,7 +224,7 @@ inline void compute_d2phiTilde(double r, double a, int N, int L, double * C, dou
 
 
 //Computes the associated Legendre polynomials
-inline void compute_P(double x, int L, int M, double * P_array)
+void compute_P(double x, int L, int M, double * P_array)
 {
     if (M == 1){
         gsl_sf_legendre_Pl_array (L - 1, x, P_array);
@@ -246,7 +246,7 @@ inline void compute_P(double x, int L, int M, double * P_array)
 }
 
 //Computes the associated Legendre polynomials and its derivative
-inline void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
+void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
 {
     if (M == 1){
         gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
@@ -289,11 +289,11 @@ struct axi_equations
 };
 
 //Compute axi symmetric potentials.
-inline void compute(double a, int N, int L, int M,
-                    double r, double theta, double phi,
-                    double *Acos, int eq_size,
-                    axi_equations e,
-                    double *F)
+void compute(double a, int N, int L, int M,
+	     double r, double theta, double phi,
+	     double *Acos, int eq_size,
+	     axi_equations e,
+	     double *F)
 {
     int i,n,l;
     for (i = 0; i < eq_size; i++)
@@ -332,11 +332,11 @@ inline void compute(double a, int N, int L, int M,
 }
 
 //Compute Non Axi symmetric Potentials
-inline void computeNonAxi(double a, int N, int L, int M,
-                          double r, double theta, double phi,
-                          double *Acos, double *Asin, int eq_size,
-                          equations e,
-                          double *F)
+void computeNonAxi(double a, int N, int L, int M,
+		   double r, double theta, double phi,
+		   double *Acos, double *Asin, int eq_size,
+		   equations e,
+		   double *F)
 {
     int i,n,l,m;
     for (i = 0; i < eq_size; i++)

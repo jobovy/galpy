@@ -2,7 +2,7 @@
 #include <galpy_potentials.h>
 //LopsidedDiskPotential
 //
-inline double LopsidedDiskSmooth(double t,double tform, double tsteady){
+double LopsidedDiskSmooth(double t,double tform, double tsteady){
   double smooth, xi,deltat;
   //Slightly different smoothing
   if ( ! isnan(tform) )

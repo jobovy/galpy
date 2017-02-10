@@ -1,9 +1,9 @@
 #include <math.h>
 #include <galpy_potentials.h>
 //SoftenedNeedleBarPotentials
-inline void compute_TpTm(double x, double y, double z,
-			 double *Tp, double *Tm,
-			 double a, double b, double c2){
+static inline void compute_TpTm(double x, double y, double z,
+				double *Tp, double *Tm,
+				double a, double b, double c2){
   double secondpart= y * y + pow( b + sqrt ( z * z + c2 ) , 2);
   *Tp= sqrt ( pow ( a + x , 2) + secondpart );
   *Tm= sqrt ( pow ( a - x , 2) + secondpart );
