@@ -48,7 +48,7 @@ class quasiisothermaldf(df):
 
            pot= Potential instance or list thereof
 
-           aA= actionAngle instance used to convert (x,v) to actions
+           aA= actionAngle instance used to convert (x,v) to actions [must be an instance of an actionAngle class that computes (J,Omega,angle) for a given (x,v)]
 
            cutcounter= if True, set counter-rotating stars' DF to zero
 
