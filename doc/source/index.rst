@@ -20,6 +20,13 @@ astropy's `Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`_
 framework for variables with units.
 
+galpy is developed on GitHub. If you are looking to `report an issue
+<https://github.com/jobovy/galpy/issues>`_ or on how to `contribute to
+the code
+<https://github.com/jobovy/galpy/wiki/Guide-for-new-contributors>`_,
+please head over to `galpy's GitHub page
+<https://github.com/jobovy/galpy>`_ for more information.
+
 Quick-start guide
 -----------------
 
