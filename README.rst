@@ -82,7 +82,9 @@ first consult the `Installation FAQ
 CONTRIBUTING TO GALPY
 ----------------------
 
-Some development notes can be found on the `wiki
+If you are interested in contributing to galpy's development, take a look at `this brief guide <https://github.com/jobovy/galpy/wiki/Guide-for-new-contributors>`__ on the wiki. This will hopefully help you get started!
+
+Some further development notes can be found on the `wiki
 <http://github.com/jobovy/galpy/wiki/>`__. This includes a list of
 small and larger extensions of galpy that would be useful `here
 <http://github.com/jobovy/galpy/wiki/Possible-galpy-extensions>`__ as
