@@ -200,7 +200,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` of globular clusters in the Milky-Way halo. These integrations are used to investigate the clusters'  mass loss due to tidal stripping, taking the effects of collisional dynamics in the cluster into account, and to evaluate the visibility of their (potential) tidal tails.
 #. *Absolute Ages and Distances of 22 GCs using Monte Carlo Main-Sequence Fitting*, Erin M. O'Malley, Christina Gilligan, & Brian Chaboyer (2017), *Astrophys. J.*, in press (`arXiv/1703.01915 <http://arxiv.org/abs/1703.01915>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` of globular clusters in the Milky Way, to study their orbits and classify them as disk or halo clusters.
-
+#. Siriusly, *a newly identified intermediate-age Milky Way stellar cluster: A spectroscopic study of* Gaia *1*, J. D. Simpson, G. M. De Silva, S. L. Martell, D. B. Zucker, A. M. N. Ferguson, E. J. Bernard, M. Irwin, J. Penarrubia, & E. Tolstoy (2017), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1703.03823 <http://arxiv.org/abs/1703.03823>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit in the Milky Way potential of a newly-confirmed stellar cluster found in the Gaia data.
 
 Indices and tables
 ==================
