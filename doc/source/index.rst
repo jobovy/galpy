@@ -202,6 +202,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` of globular clusters in the Milky Way, to study their orbits and classify them as disk or halo clusters.
 #. Siriusly, *a newly identified intermediate-age Milky Way stellar cluster: A spectroscopic study of* Gaia *1*, J. D. Simpson, G. M. De Silva, S. L. Martell, D. B. Zucker, A. M. N. Ferguson, E. J. Bernard, M. Irwin, J. Penarrubia, & E. Tolstoy (2017), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1703.03823 <http://arxiv.org/abs/1703.03823>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit in the Milky Way potential of a newly-confirmed stellar cluster found in the Gaia data.
+#. *Action-based Dynamical Modeling for the Milky Way Disk: The Influence of Spiral Arms*, Wilma H. Trick, Jo Bovy, Elena D'Onghia, & Hans-Walter Rix (2017), *Astrophys. J., in press* (`arXiv/1703.05970 <http://arxiv.org/abs/1703.05970>`_):
+     Uses various potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to test a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars against numerical simulations with spiral arms.
 
 Indices and tables
 ==================
