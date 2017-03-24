@@ -204,6 +204,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit in the Milky Way potential of a newly-confirmed stellar cluster found in the Gaia data.
 #. *Action-based Dynamical Modeling for the Milky Way Disk: The Influence of Spiral Arms*, Wilma H. Trick, Jo Bovy, Elena D'Onghia, & Hans-Walter Rix (2017), *Astrophys. J., in press* (`arXiv/1703.05970 <http://arxiv.org/abs/1703.05970>`_):
      Uses various potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to test a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars against numerical simulations with spiral arms.
+#. *A spectroscopic study of the elusive globular cluster ESO452-SC11 and its surroundings*, Andreas Koch, Camilla Juul Hansen, & Andrea Kunder (2017), *Astron. & Astrophys.*, submitted (`arXiv/1703.06921 <http://arxiv.org/abs/1703.06921>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit in the Milky Way potential of two candidate cluster members of the bulge globular cluster ESO452-SC11.
 
 Indices and tables
 ==================
