@@ -206,10 +206,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses various potential models, the Staeckel actionAngle modules, and the quasiisothermal DF to test a robust dynamical modeling approach for recovering the Milky Way's gravitational potential from kinematics of disk stars against numerical simulations with spiral arms.
 #. *A spectroscopic study of the elusive globular cluster ESO452-SC11 and its surroundings*, Andreas Koch, Camilla Juul Hansen, & Andrea Kunder (2017), *Astron. & Astrophys.*, submitted (`arXiv/1703.06921 <http://arxiv.org/abs/1703.06921>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit in the Milky Way potential of two candidate cluster members of the bulge globular cluster ESO452-SC11.
-#. *A Halo Substructure in Gaia Data Release 1*, G. C. Myeong, N. W. Evans, V. Belokurov, S. E. Koposov, & J. L. Sanders, *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1704.01363 <http://arxiv.org/abs/1704.01363>`_):
+#. *A Halo Substructure in Gaia Data Release 1*, G. C. Myeong, N. W. Evans, V. Belokurov, S. E. Koposov, & J. L. Sanders (2017), *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1704.01363 <http://arxiv.org/abs/1704.01363>`_):
      Uses ``galpy.actionAngle.actionAngleAdiabatic`` routines to compute the actions using the adiabatic approximation for 268,588 stars in *Gaia* DR1 *TGAS* with line-of-sight velocities from spectroscopic surveys. Detects a co-moving group of 14 stars on strongly radial orbits and computes their orbits using ``MWPotential2014``.
-#. *An artificial neural network to discover Hypervelocity stars: Candidates in* Gaia *DR1/* TGAS, T. Marchetti, E. M. Rossi, G. Kordopatis, A. G. A. Brown, A. Rimoldi, E. Starkenburg, K. Youakim, & R. Ashley, *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1704.07990 <http://arxiv.org/abs/1704.07990>`_):
+#. *An artificial neural network to discover Hypervelocity stars: Candidates in* Gaia *DR1/* TGAS, T. Marchetti, E. M. Rossi, G. Kordopatis, A. G. A. Brown, A. Rimoldi, E. Starkenburg, K. Youakim, & R. Ashley (2017), *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1704.07990 <http://arxiv.org/abs/1704.07990>`_):
      Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to investigate the orbits of hypervelocity-star candidates in *Gaia* DR1.
+#. *GalRotpy: an educational tool to understand and parametrize the rotation curve and gravitational potential of disk-like galaxies*, Andrés Granados, Lady-J. Henao-O., Santiago Vanegas, & Leonardo Castañeda (2017; `arXiv/1705.01665 <http://arxiv.org/abs/1705.01665>`_):
+     These authors build an interactive tool to decompose observed rotation curves into bulge, disk (Miyamoto-Nagai or exponential), and NFW halo components on top of ``galpy.potential`` routines.
 
 Indices and tables
 ==================
