@@ -98,7 +98,7 @@ either ``solarmotion=hogg`` (default; `2005ApJ...629..268H
 <http://adsabs.harvard.edu/abs/2005ApJ...629..268H>`_),
 ``solarmotion=dehnen`` (`1998MNRAS.298..387D
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
-``solarmotion=shoenrich`` (`2010MNRAS.403.1829S
+``solarmotion=schoenrich`` (`2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
 velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
