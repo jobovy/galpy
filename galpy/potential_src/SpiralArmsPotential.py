@@ -69,7 +69,8 @@ class SpiralArmsPotential(Potential):
         self._Cs = np.array(Cs)
         self._n = len(Cs)
         self._omega = omega
-        self.isNonAxi = True
+        self.rho0 = amp / (4 * np.pi)
+        self.isNonAxi = True  # Potential is not axisymmetric
 
     def _evaluate(self, R, z, phi=0., t=0.):
         """
@@ -87,10 +88,10 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        R = max(1e-6, R)
+        R = np.maximum(R, 1e-6)
         Kn = self._K(R)
-        Bn = self._B(R)
-        Dn = self._D(R)
+        Bn = self._B(Kn)
+        Dn = self._D(Kn)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
             * np.sum(self._Cs/(Kn * Dn) * np.cos(self._n * self._gamma(R, phi, t)) * 1/np.cosh(Kn * z / Bn) ** Bn)
 
@@ -183,7 +184,7 @@ class SpiralArmsPotential(Potential):
         """
         return 0.0
 
-    def _dens(self, R, z, phi=0., t=0.):
+    def _dens(self, R, z, phi=0., t=0., approx=False):
         """
         NAME:
             _dens
@@ -195,11 +196,14 @@ class SpiralArmsPotential(Potential):
             :param z: vertical height
             :param phi: azimuth
             :param t: time
+            :param approx: if True, the approximate density is calculated (eqn. 10 in paper)
         OUTPUT:
             :return: the density
         HISTORY:
             2017-05-12  Jack Hong (UBC) 
         """
+        if approx:
+            return
         return 0.0
 
     def _mass(self, R, z=0, t=0.):
@@ -223,7 +227,6 @@ class SpiralArmsPotential(Potential):
 
     def _gamma(self, R, phi, t):
         """Return gamma."""
-        R = max(1e-6, R)
         return self._N * (phi - self._phi_ref - np.log(R / self._ro) / np.tan(self._alpha) + self._omega * t)
 
     def _K(self, R):
@@ -236,20 +239,18 @@ class SpiralArmsPotential(Potential):
         ns = np.arange(1, self._n+1)
         return -ns * self._N / R**2 / np.sin(self._alpha)
 
-    def _B(self, R):
+    def _B(self, Ks):
         """Return numpy array from B1 up to and including Bn."""
-        Ks = self._K(R)
         return Ks * self._H * (1 + 0.4 * Ks * self._H)
 
-    def _dB_dR(self):
+    def _dB_dR(self, R):
         """Return numpy array of constants from """
-        return 0
+        return self._H * self._dK_dR(R) * (1 + 0.8*self._H*self._K(R))
 
-    def _D(self, R):
+    def _D(self, Ks):
         """Return numpy array from D1 up to and including Dn."""
-        Ks = self._K(R)
         return (1 + Ks * self._H + 0.3 * (Ks * self._H) ** 2) / (1 + 0.3 * Ks * self._H)
 
-    def _dD_dR(self, R):
+    def _dD_dR(self, Ks):
         """Return numpy array of dD/dR from D1 up to and including Dn"""
-        return 0
+        return 0.0
