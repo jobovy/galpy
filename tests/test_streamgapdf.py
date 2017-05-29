@@ -1,13 +1,12 @@
 import numpy
-from nose.tools import raises
 numpy.random.seed(1)
 from scipy import integrate
+import pytest
 sdf_sanders15= None #so we can set this up and then use in other tests
 sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdfl_sanders15= None #so we can set this up and then use in other tests
 sdfl_sanders15_unp= None #so we can set this up and then use in other tests
 
-@raises(IOError)
 def test_setupimpact_error():
     #Imports
     from galpy.df import streamgapdf
@@ -25,25 +24,25 @@ def test_setupimpact_error():
                           0.24218273922966019])
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
-    dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
-                     leading=False,nTrackChunks=26,
-                     nTrackIterations=1,
-                     sigMeanOffset=4.5,
-                     tdisrupt=10.88\
-                         /bovy_conversion.time_in_Gyr(V0,R0),
-                     Vnorm=V0,Rnorm=R0,
-                     impactb=0.,
-                     subhalovel=numpy.array([6.82200571,132.7700529,
-                                             149.4174464])/V0,
-                     timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
-                     impact_angle=-2.34)
+    with pytest.raises(IOError) as excinfo:
+        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                         leading=False,nTrackChunks=26,
+                         nTrackIterations=1,
+                         sigMeanOffset=4.5,
+                         tdisrupt=10.88\
+                             /bovy_conversion.time_in_Gyr(V0,R0),
+                         Vnorm=V0,Rnorm=R0,
+                         impactb=0.,
+                         subhalovel=numpy.array([6.82200571,132.7700529,
+                                                 149.4174464])/V0,
+                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         impact_angle=-2.34)
     # Should be including these:
     #                 GM=10.**-2.\
     #                     /bovy_conversion.mass_in_1010msol(V0,R0),
     #                 rs=0.625/R0)
     return None
 
-@raises(ValueError)
 def test_leadingwtrailingimpact_error():
     #Imports
     from galpy.df import streamgapdf
@@ -61,24 +60,24 @@ def test_leadingwtrailingimpact_error():
                           0.24218273922966019])
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
-    dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
-                     leading=True,nTrackChunks=26,
-                     nTrackIterations=1,
-                     sigMeanOffset=4.5,
-                     tdisrupt=10.88\
-                         /bovy_conversion.time_in_Gyr(V0,R0),
-                     Vnorm=V0,Rnorm=R0,
-                     impactb=0.,
-                     subhalovel=numpy.array([6.82200571,132.7700529,
-                                             149.4174464])/V0,
-                     timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
-                     impact_angle=-2.34,
-                     GM=10.**-2.\
-                         /bovy_conversion.mass_in_1010msol(V0,R0),
-                     rs=0.625/R0)
+    with pytest.raises(ValueError) as excinfo:
+        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                         leading=True,nTrackChunks=26,
+                         nTrackIterations=1,
+                         sigMeanOffset=4.5,
+                         tdisrupt=10.88\
+                             /bovy_conversion.time_in_Gyr(V0,R0),
+                         Vnorm=V0,Rnorm=R0,
+                         impactb=0.,
+                         subhalovel=numpy.array([6.82200571,132.7700529,
+                                                 149.4174464])/V0,
+                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         impact_angle=-2.34,
+                         GM=10.**-2.\
+                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                         rs=0.625/R0)
     return None
 
-@raises(ValueError)
 def test_trailingwleadingimpact_error():
     #Imports
     from galpy.df import streamgapdf
@@ -96,21 +95,22 @@ def test_trailingwleadingimpact_error():
                           0.24218273922966019])
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
-    dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
-                     leading=False,nTrackChunks=26,
-                     nTrackIterations=1,
-                     sigMeanOffset=4.5,
-                     tdisrupt=10.88\
-                         /bovy_conversion.time_in_Gyr(V0,R0),
-                     Vnorm=V0,Rnorm=R0,
-                     impactb=0.,
-                     subhalovel=numpy.array([6.82200571,132.7700529,
-                                             149.4174464])/V0,
-                     timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
-                     impact_angle=2.34,
-                     GM=10.**-2.\
-                         /bovy_conversion.mass_in_1010msol(V0,R0),
-                     rs=0.625/R0)
+    with pytest.raises(ValueError) as excinfo:
+        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+                         leading=False,nTrackChunks=26,
+                         nTrackIterations=1,
+                         sigMeanOffset=4.5,
+                         tdisrupt=10.88\
+                             /bovy_conversion.time_in_Gyr(V0,R0),
+                         Vnorm=V0,Rnorm=R0,
+                         impactb=0.,
+                         subhalovel=numpy.array([6.82200571,132.7700529,
+                                                 149.4174464])/V0,
+                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         impact_angle=2.34,
+                         GM=10.**-2.\
+                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                         rs=0.625/R0)
     return None
 
 #Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
@@ -544,7 +544,6 @@ def test_hernquist():
     assert numpy.all(numpy.fabs(hernquist_kicks[tIndx]*sdf_sanders15._vo) < 0.3), 'Kick far the impact point not close to zero'
     return None
 
-@raises(ValueError)
 def test_determine_deltav_valueerrort():
     # Test that modeling leading (trailing) impact for trailing (leading) arm
     # raises a ValueError when using _determine_deltav_kick
@@ -558,9 +557,10 @@ def test_determine_deltav_valueerrort():
     GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
     rs=0.625/R0
     # Can't do minus impact angle!
-    sdf_sanders15._determine_deltav_kick(-impact_angle,impactb,subhalovel,
-                                         GM,rs,None,
-                                         3,True)
+    with pytest.raises(ValueError) as excinfo:
+        sdf_sanders15._determine_deltav_kick(-impact_angle,impactb,subhalovel,
+                                              GM,rs,None,
+                                              3,True)
     return None
 
 # Test the routine that rotates vectors to an arbitrary vector
@@ -908,10 +908,10 @@ def test_impulse_deltav_general_curved_hernquist():
     assert numpy.all(numpy.fabs(kick-general_kick) < 10.**tol), 'general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream'
     return None
 
-@raises(ValueError)
 def test_hernquistX_negative():
     from galpy.df_src import streamgapdf
-    streamgapdf.HernquistX(-1.)
+    with pytest.raises(ValueError) as excinfo:
+        streamgapdf.HernquistX(-1.)
     return None
 
 def test_hernquistX_unity():
@@ -1067,7 +1067,6 @@ def test_impulse_deltav_plummerstream():
     assert numpy.all((numpy.fabs((kick-stream_kick)/kick) < 10.**tol)*(numpy.fabs(kick) >= 10**-4.)\
                          +(numpy.fabs((kick-stream_kick)) < 10**tol)*(numpy.fabs(kick) < 10**-4.)), 'Short stream impulse kick calculation does not agree with Plummer calculation by rel: %g, abs: %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]),numpy.amax(numpy.fabs((kick-stream_kick))[numpy.fabs(kick) < 10**-3.]))
 
-@raises(ValueError)
 def test_impulse_deltav_plummerstream_tmaxerror():
     from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
     from galpy.util import bovy_conversion
@@ -1087,8 +1086,9 @@ def test_impulse_deltav_plummerstream_tmaxerror():
     kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
     # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
     dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
-    stream_kick= impulse_deltav_plummerstream(\
-        v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
+    with pytest.raises(ValueError) as excinfo:
+        stream_kick= impulse_deltav_plummerstream(\
+            v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
     return None
 
 # Test the Plummer curved calculation for a perpendicular stream impact:

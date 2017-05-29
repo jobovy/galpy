@@ -1,5 +1,5 @@
 # Make sure to set configuration, needs to be before any galpy imports
-from nose.tools import assert_raises
+import pytest
 from galpy.util import config
 config.__config__.set('astropy','astropy-units','True')
 import numpy
@@ -800,20 +800,20 @@ def test_orbit_inconsistentPotentialUnits_error():
     ts= numpy.linspace(0.,10.,1001)*units.Gyr
     # single, ro wrong
     pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: o.integrate(ts,pot),())
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pot)
     # list, ro wrong
     pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: o.integrate(ts,[pot]),())
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,[pot])
     # single, vo wrong
     pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
-    assert_raises(AssertionError,
-                  lambda x: o.integrate(ts,pot),())
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pot)
     # list, vo wrong
     pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
-    assert_raises(AssertionError,
-                  lambda x: o.integrate(ts,[pot]),())
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,[pot])
     return None
 
 def test_change_ro_config():
@@ -1863,109 +1863,110 @@ def test_potential_ampunits_wrongunits():
     from galpy import potential
     ro, vo= 9., 210.
     # Burkert
-    assert_raises(units.UnitConversionError,
-                  lambda x: potential.BurkertPotential(amp=0.1*units.Msun/units.pc**2.,
-                                                       a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.BurkertPotential(amp=0.1*units.Msun/units.pc**2.,
+                                   a=2.,ro=ro,vo=vo)
     # DoubleExponentialDiskPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x: potential.DoubleExponentialDiskPotential(\
-            amp=0.1*units.Msun/units.pc**2.*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.DoubleExponentialDiskPotential(\
+            amp=0.1*units.Msun/units.pc**2.*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo)
     # TwoPowerSphericalPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3,a=2.,
-                                              alpha=1.5,beta=3.5,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3,a=2.,
+                                             alpha=1.5,beta=3.5,ro=ro,vo=vo)
     # TwoPowerSphericalPotential with integer powers
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3*constants.G,a=2.,
-                                                                alpha=2.,beta=5.,ro=ro,vo=vo),
-                  ())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TwoPowerSphericalPotential(amp=20.*units.Msun/units.pc**3*constants.G,a=2.,
+                                                                alpha=2.,beta=5.,ro=ro,vo=vo)
     # JaffePotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.JaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.JaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo)
     # HernquistPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.HernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.HernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo)
     # NFWPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.NFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.NFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo)
     # SCFPotential, default = Hernquist
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.SCFPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.SCFPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo)
     # TwoPowerTriaxialPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TwoPowerTriaxialPotential(amp=20.*units.Msun/units.pc**3,a=2.,
-                                              alpha=1.5,beta=3.5,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TwoPowerTriaxialPotential(amp=20.*units.Msun/units.pc**3,a=2.,
+                                            alpha=1.5,beta=3.5,ro=ro,vo=vo)
     # TriaxialJaffePotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TriaxialJaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TriaxialJaffePotential(amp=20.*units.kpc,a=2.,ro=ro,vo=vo)
     # TriaxialHernquistPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TriaxialHernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TriaxialHernquistPotential(amp=20.*units.Msun/units.pc**3,a=2.,ro=ro,vo=vo)
     # TriaxialNFWPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.TriaxialNFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TriaxialNFWPotential(amp=20.*units.km**2/units.s**2,a=2.,ro=ro,vo=vo)
     # FlattenedPowerPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x: potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s,
-                                                              r1=1.,q=0.9,alpha=0.5,core=0.,
-                                                              ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.FlattenedPowerPotential(amp=40000.*units.km**2/units.s,
+                                          r1=1.,q=0.9,alpha=0.5,core=0.,
+                                          ro=ro,vo=vo)
     # IsochronePotential
-    assert_raises(units.UnitConversionError,
-                  lambda x: potential.IsochronePotential(amp=20.*units.km**2/units.s**2,b=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.IsochronePotential(amp=20.*units.km**2/units.s**2,b=2.,
+                                     ro=ro,vo=vo)
     # KeplerPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.KeplerPotential(amp=20.*units.Msun/units.pc**3,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.KeplerPotential(amp=20.*units.Msun/units.pc**3,ro=ro,vo=vo)
     # KuzminKutuzovStaeckelPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun/units.pc**2,
-                                                                    Delta=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun/units.pc**2,
+                                                 Delta=2.,ro=ro,vo=vo)
     # LogarithmicHaloPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x: potential.LogarithmicHaloPotential(amp=40*units.Msun,
-                                                          core=0.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.LogarithmicHaloPotential(amp=40*units.Msun,
+                                           core=0.,ro=ro,vo=vo)
     # MiyamotoNagaiPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.MiyamotoNagaiPotential(amp=20*units.km**2/units.s**2,
-                                          a=2.,b=0.5,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.MiyamotoNagaiPotential(amp=20*units.km**2/units.s**2,
+                                         a=2.,b=0.5,ro=ro,vo=vo)
     # KuzminDiskPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.KuzminDiskPotential(amp=20*units.km**2/units.s**2,
-                                          a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.KuzminDiskPotential(amp=20*units.km**2/units.s**2,
+                                      a=2.,ro=ro,vo=vo)
     # MN3ExponentialDiskPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.MN3ExponentialDiskPotential(\
-            amp=0.1*units.Msun*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.MN3ExponentialDiskPotential(\
+            amp=0.1*units.Msun*constants.G,hr=2.,hz=0.2,ro=ro,vo=vo)
     # PlummerPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.PlummerPotential(amp=20*units.km**2/units.s**2,
-                                    b=0.5,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.PlummerPotential(amp=20*units.km**2/units.s**2,
+                                   b=0.5,ro=ro,vo=vo)
     # PowerSphericalPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.PowerSphericalPotential(amp=10.**10.*units.Msun/units.pc**3,
-                                           r1=1.,alpha=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.PowerSphericalPotential(amp=10.**10.*units.Msun/units.pc**3,
+                                          r1=1.,alpha=2.,ro=ro,vo=vo)
     # PowerSphericalPotentialwCutoff
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.PowerSphericalPotentialwCutoff(amp=0.1*units.Msun/units.pc**2,
-                                                                    r1=1.,alpha=2.,rc=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.PowerSphericalPotentialwCutoff(amp=0.1*units.Msun/units.pc**2,
+                                                 r1=1.,alpha=2.,rc=2.,
+                                                 ro=ro,vo=vo)
     # PseudoIsothermalPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.PseudoIsothermalPotential(amp=10.**10.*units.Msun/units.pc**3,
-                                             a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.PseudoIsothermalPotential(amp=10.**10.*units.Msun/units.pc**3,
+                                            a=2.,ro=ro,vo=vo)
     # RazorThinExponentialDiskPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.RazorThinExponentialDiskPotential(amp=40.*units.Msun/units.pc**3,
-                                                     hr=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.RazorThinExponentialDiskPotential(amp=40.*units.Msun/units.pc**3,
+                                                     hr=2.,ro=ro,vo=vo)
     # SoftenedNeedleBarPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.SoftenedNeedleBarPotential(amp=40.*units.Msun/units.pc**2,
-                                                                a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.SoftenedNeedleBarPotential(amp=40.*units.Msun/units.pc**2,
+                                             a=2.,ro=ro,vo=vo)
     # FerrersPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.FerrersPotential(amp=40.*units.Msun/units.pc**2,
-                                                                a=2.,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.FerrersPotential(amp=40.*units.Msun/units.pc**2,
+                                   a=2.,ro=ro,vo=vo)
     # DiskSCFPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x:potential.DiskSCFPotential(amp=40.*units.Msun/units.pc**2),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.DiskSCFPotential(amp=40.*units.Msun/units.pc**2)
     return None
 
 def test_potential_paramunits():
@@ -2460,18 +2461,16 @@ def test_potential_paramunits_1d_wrongunits():
     from galpy import potential
     ro, vo= 9., 210.
     # KGPotential
-    assert_raises(units.UnitConversionError,
-                  lambda x: \
-                      potential.KGPotential(amp=1.,
-                                            K=40.*units.Msun/units.pc**3,
-                                            F=0.02*units.Msun/units.pc**3,
-                                            D=200*units.pc,ro=ro,vo=vo),())
-    assert_raises(units.UnitConversionError,
-                  lambda x: \
-                      potential.KGPotential(amp=1.,
-                                            K=40.*units.Msun/units.pc**2,
-                                            F=0.02*units.Msun/units.pc**2,
-                                            D=200*units.pc,ro=ro,vo=vo),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.KGPotential(amp=1.,
+                              K=40.*units.Msun/units.pc**3,
+                              F=0.02*units.Msun/units.pc**3,
+                              D=200*units.pc,ro=ro,vo=vo)
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.KGPotential(amp=1.,
+                              K=40.*units.Msun/units.pc**2,
+                              F=0.02*units.Msun/units.pc**2,
+                              D=200*units.pc,ro=ro,vo=vo)
     return None
 
 def test_potential_method_turnphysicalon():
@@ -3192,40 +3191,40 @@ def test_actionAngle_inconsistentPotentialUnits_error():
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
     from galpy.potential import PlummerPotential, IsochronePotential
     # actionAngleIsochrone
-    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleIsochrone(ip=pot,ro=8.,vo=220.),())
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.) 
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
     pot= IsochronePotential(normalize=1.,ro=8.,vo=230.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleIsochrone(ip=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleSpherical(pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleSpherical(pot=pot,ro=8.,vo=220.)
     pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleSpherical(pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleSpherical(pot=pot,ro=8.,vo=220.)
     # actionAngleAdiabatic
     pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.)
     pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.)
     # actionAngleStaeckel
     pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.)
     pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.)
     # actionAngleIsochroneApprox
     pot= PlummerPotential(normalize=1.,b=0.7,ro=7.,vo=220.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.)
     pot= PlummerPotential(normalize=1.,b=0.7,ro=8.,vo=230.)
-    assert_raises(AssertionError,
-                  lambda x: actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.),())
+    with pytest.raises(AssertionError) as excinfo:
+        actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.)
     return None
 
 def test_actionAngle_inconsistentOrbitUnits_error():
@@ -3236,51 +3235,51 @@ def test_actionAngle_inconsistentOrbitUnits_error():
     # actionAngleIsochrone
     pot= IsochronePotential(normalize=1)
     aA= actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
-    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.) 
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     # actionAngleAdiabatic
     aA= actionAngleAdiabatic(pot=[pot],ro=8.,vo=220.)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
-    assert_raises(AssertionError,lambda x: aA(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
-    assert_raises(AssertionError,lambda x: aA(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
     # actionAngleStaeckel
     aA= actionAngleStaeckel(delta=0.45,pot=pot,ro=8.,vo=220.)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     # actionAngleIsochroneApprox
     aA= actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=8.,vo=230.)
-    assert_raises(AssertionError,lambda x: aA(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqs(o),())
-    assert_raises(AssertionError,lambda x: aA.actionsFreqsAngles(o),())
+    with pytest.raises(AssertionError) as excinfo: aA(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
+    with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
     return None
 
 def test_actionAngle_input_wrongunits():
@@ -3289,14 +3288,14 @@ def test_actionAngle_input_wrongunits():
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
-    assert_raises(units.UnitConversionError,
-                  lambda x: aA(1.*units.Gyr,0.1*units.km/units.s,
-                               1.1*units.km/units.s,0.1*units.kpc,
-                               0.2*units.km/units.s,0.1*units.rad),())
-    assert_raises(units.UnitConversionError,
-                  lambda x: aA(1.*units.kpc,0.1*units.Gyr,
-                               1.1*units.km/units.s,0.1*units.kpc,
-                               0.2*units.km/units.s,0.1*units.rad),())
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        aA(1.*units.Gyr,0.1*units.km/units.s,
+           1.1*units.km/units.s,0.1*units.kpc,
+           0.2*units.km/units.s,0.1*units.rad)
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        aA(1.*units.kpc,0.1*units.Gyr,
+           1.1*units.km/units.s,0.1*units.kpc,
+           0.2*units.km/units.s,0.1*units.rad)
     return None
     
 

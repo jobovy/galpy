@@ -1,8 +1,7 @@
 from __future__ import print_function, division
 import numpy
 from galpy.util import bovy_coords
-from nose.tools import raises
-from test_streamdf import expected_failure
+import pytest
 
 def test_radec_to_lb_ngp():
     _turn_off_apy()
@@ -999,10 +998,10 @@ def test_cyl_to_rect_jac():
     assert numpy.fabs(jac[5,4]-1.) < 10.**-10., 'cyl_to_rect_jac calculation did not work as expected'
     return None
 
-@raises(ValueError)
 def test_radec_to_custom_valueerror():
     # Test the radec_to_custom without T raises a ValueError
-    xieta= bovy_coords.radec_to_custom(20.,30.)
+    with pytest.raises(ValueError):
+        xieta= bovy_coords.radec_to_custom(20.,30.)
     return None
 
 def test_radec_to_custom_againstlb():
@@ -1051,10 +1050,10 @@ def test_radec_to_custom_pal5():
     assert numpy.fabs(xieta[1]-6.) < 0.2, 'radec_to_custom does not work properly for Pal 5 transformation'
     return None
 
-@raises(ValueError)
 def test_pmrapmdec_to_custom_valueerror():
     # Test the pmrapmdec_to_custom without T raises a ValueError
-    xieta= bovy_coords.pmrapmdec_to_custom(1.,1.,20.,30.)
+    with pytest.raises(ValueError):
+        xieta= bovy_coords.pmrapmdec_to_custom(1.,1.,20.,30.)
     return None
 
 def test_pmrapmdec_to_custom_againstlb():

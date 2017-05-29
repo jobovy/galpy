@@ -2,7 +2,7 @@
 from __future__ import print_function, division
 import os
 import numpy
-from test_streamdf import expected_failure
+import pytest
 
 def test_overview():
     from galpy.potential import NFWPotential
@@ -124,7 +124,7 @@ def test_TimeInterpPotential():
     assert numpy.fabs(tip.Rforce(1.,0.1,t=200.)-mp.Rforce(1.,0.1)) < 10.**-8., 'TimeInterPotential does not work as expected'
     return None
 
-@expected_failure
+@pytest.mark.skip(reason="Test does not work correctly")
 def test_potentialAPIChange_warning():
     # Test that a warning is displayed about the API change for evaluatePotentials etc. functions from what is given in the galpy paper
     #Turn warnings into errors to test for them
