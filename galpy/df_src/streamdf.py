@@ -943,7 +943,7 @@ class streamdf(df):
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
-            self._trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunks-1)
+            self._trackts= numpy.linspace(0.,-2.*dt,2*self._nTrackChunks-1)
             #Flip velocities before integrating
             auxiliaryTrack= auxiliaryTrack.flip()
         auxiliaryTrack.integrate(self._trackts,self._pot)
