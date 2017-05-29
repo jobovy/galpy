@@ -800,7 +800,7 @@ def _cartesian(arraySizes, out=None):
     if out is None:
         out = nu.zeros([n, len(arrays)], dtype=dtype)
     
-    m = n / arrays[0].size
+    m = n // arrays[0].size
     out[:,0] = nu.repeat(arrays[0], m)
     if arrays[1:]:
         _cartesian(arraySizes[1:], out=out[0:m,1:])
