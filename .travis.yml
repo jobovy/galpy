@@ -2,25 +2,23 @@ sudo: false
 language: python
 python:
   - "2.7"
-  - "3.4"
   - "3.5"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
     - REQUIRES_ASTROPY=false
-    - CORE_TESTS=false
   matrix:
     - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
-    - TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true CORE_TESTS=true
+    - TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
     - TEST_FILES='tests/test_evolveddiskdf.py'
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
 matrix: # only run crucial tests for python 3.4
-  exclude:
+  include:
     - python: "3.4"
-      env: CORE_TESTS=false
+      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
 addons:
   apt:
     packages:
