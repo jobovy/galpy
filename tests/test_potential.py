@@ -2,7 +2,7 @@
 from __future__ import print_function, division
 import os
 import sys
-from nose.tools import raises, assert_raises
+import pytest
 import numpy
 import pynbody
 from galpy import potential
@@ -1622,23 +1622,23 @@ def test_TwoPowerTriaxialPotential_vs_TwoPowerSphericalPotential():
 
 # Test that TwoPowerTriaxial setup raises an error for bad values of alpha
 # and beta
-@raises(IOError)
 def test_TwoPowerTriaxialPotential_alphalowerror():
-    dummy= potential.TwoPowerTriaxialPotential(alpha=-1.)
+    with pytest.raises(IOError) as excinfo:
+        dummy= potential.TwoPowerTriaxialPotential(alpha=-1.)
     return None
-@raises(IOError)
 def test_TwoPowerTriaxialPotential_alphahigherror():
-    dummy= potential.TwoPowerTriaxialPotential(alpha=3.5)
+    with pytest.raises(IOError) as excinfo:
+        dummy= potential.TwoPowerTriaxialPotential(alpha=3.5)
     return None
-@raises(IOError)
 def test_TwoPowerTriaxialPotential_betalowerror():
-    dummy= potential.TwoPowerTriaxialPotential(beta=1.)
+    with pytest.raises(IOError) as excinfo:
+        dummy= potential.TwoPowerTriaxialPotential(beta=1.)
     return None
 
 # Test that FerrersPotential raises a value error for n < 0
-@raises(ValueError)
 def test_FerrersPotential_nNegative():
-    dummy= potential.FerrersPotential(n=-1.)
+    with pytest.raises(ValueError) as excinfo:
+        dummy= potential.FerrersPotential(n=-1.)
     return None
 
 def test_planeRotatedNFWPotential():
@@ -1724,22 +1724,22 @@ def test_nonaxierror_function():
     # Test that the code throws an exception when calling a non-axisymmetric 
     # potential without phi
     tnp= potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.9)
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluatePotentials(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluateDensities(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluateRforces(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluatezforces(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluatephiforces(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluateR2derivs(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluatez2derivs(tnp,1.,0.),())
-    assert_raises(potential.PotentialError,
-                  lambda x: potential.evaluateRzderivs(tnp,1.,0.),())
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatePotentials(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateDensities(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateRforces(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatezforces(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatephiforces(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateR2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatez2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateRzderivs(tnp,1.,0.)
     return None
 
 
@@ -1801,15 +1801,15 @@ def test_DiskSCFPotential_verticalDerivs():
     assert numpy.all(numpy.fabs(((dscfp._dHzdz[1](testzs+dz)-dscfp._dHzdz[1](testzs))/dz-dscfp._hz[1](testzs))/dscfp._hz[1](testzs)) < 10.**-6.), "Derivative hz does not agree with finite-difference derivative of dHzdz for sech2 profile in DiskSCFPotential"
     return None
 
-@raises(ValueError)
 def test_DiskSCFPotential_nhzNeqnsigmaError():
-    dummy= potential.DiskSCFPotential(\
-        dens=lambda R,z: numpy.exp(-3.*R)\
-            *1./numpy.cosh(z/2.*27.)**2./4.*27.,
-        Sigma={'h': 1./3.,
-               'type': 'exp', 'amp': 1.0},
-        hz=[{'type':'sech2','h':1./27.},{'type':'sech2','h':1./27.}],
-        a=1.,N=5,L=5)
+    with pytest.raises(ValueError) as excinfo:
+        dummy= potential.DiskSCFPotential(\
+            dens=lambda R,z: numpy.exp(-3.*R)\
+                *1./numpy.cosh(z/2.*27.)**2./4.*27.,
+            Sigma={'h': 1./3.,
+                   'type': 'exp', 'amp': 1.0},
+            hz=[{'type':'sech2','h':1./27.},{'type':'sech2','h':1./27.}],
+            a=1.,N=5,L=5)
     return None
 
 def test_DiskSCFPotential_againstDoubleExp():
