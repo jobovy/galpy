@@ -278,7 +278,7 @@ setup(name='galpy',
       package_data={'galpy/df_src':['data/*.sav'],
                     "": ["README.rst","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['numpy>=1.7','scipy','matplotlib','nose','six'],
+      install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six'],
       ext_modules=ext_modules,
       classifiers=[
         "Development Status :: 6 - Mature",
@@ -289,6 +289,7 @@ setup(name='galpy',
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
@@ -319,7 +320,7 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print('\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m')
 print('\033[1m'+'Finished installing galpy'+'\033[0m')
-print('You can run the test suite using `nosetests -v -w nose/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
+print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so (use EXT_SUFFIX for python3 compatibility)
 if PY3:

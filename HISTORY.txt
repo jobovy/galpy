@@ -28,6 +28,8 @@ v1.3 (2017-XX-XX)
 - Orbit methods now all return a scalar when called with a single
   time (see #247 and #294).
 
+- Switched test suite from nose to pytest (#303).
+
 v1.2 (2016-09-06)
 ==================
 

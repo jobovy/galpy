@@ -6,7 +6,7 @@ import sys
 import time
 import signal
 import subprocess
-from nose.tools import raises
+import pytest
 import numpy
 from galpy import potential
 from galpy.util import galpyWarning
@@ -2731,13 +2731,13 @@ def test_scalar_all():
     assert isinstance(o.Ez(5.),float), 'Orbit.Ez() does not return a scalar'
     return None
 
-@raises(ValueError)
 def test_call_issue256():
     # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return eror
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
     # no integration of the orbit
-    o.R(30)
+    with pytest.raises(ValueError) as excinfo:
+        o.R(30)
     return None
 
 # Test whether the output from the SkyCoord function is correct
@@ -2761,7 +2761,6 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
     return None
 
-@raises(AssertionError)
 def test_orbit_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
@@ -2774,10 +2773,10 @@ def test_orbit_dim_2dPot_3dOrb():
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
-    o.integrate(ts,pota,method="odeint")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="odeint")
     return None
 
-@raises(AssertionError)
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
@@ -2789,10 +2788,10 @@ def test_orbit_dim_1dPot_3dOrb():
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
-    o.integrate(ts,pota,method="odeint")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="odeint")
     return None
 
-@raises(AssertionError)
 def test_orbit_dim_1dPot_2dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
@@ -2802,7 +2801,8 @@ def test_orbit_dim_1dPot_2dOrb():
     pota= [b_p.toVertical(1.1)]
     o= Orbit(vxvv=[1.1,0.1,1.1,0.1])
     ts= numpy.linspace(0.,10.,1001)
-    o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="leapfrog")
     return None
 
 # Test whether ro warning is sounded when calling ra etc.
@@ -3058,8 +3058,8 @@ def test_orbit_c_sigint_full():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     scriptpath= 'orbitint4sigint.py'
-    if not 'nose' in os.getcwd():
-        scriptpath= os.path.join('nose',scriptpath)
+    if not 'tests' in os.getcwd():
+        scriptpath= os.path.join('tests',scriptpath)
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'full'],
                             stdin=subprocess.PIPE,
@@ -3079,8 +3079,8 @@ def test_orbit_c_sigint_planar():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     scriptpath= 'orbitint4sigint.py'
-    if not 'nose' in os.getcwd():
-        scriptpath= os.path.join('nose',scriptpath)
+    if not 'tests' in os.getcwd():
+        scriptpath= os.path.join('tests',scriptpath)
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'planar'],
                             stdin=subprocess.PIPE,
@@ -3097,8 +3097,8 @@ def test_orbit_c_sigint_planar():
 def test_orbit_c_sigint_planardxdv():
     integrators= ['dopr54_c','rk4_c','rk6_c']
     scriptpath= 'orbitint4sigint.py'
-    if not 'nose' in os.getcwd():
-        scriptpath= os.path.join('nose',scriptpath)
+    if not 'tests' in os.getcwd():
+        scriptpath= os.path.join('tests',scriptpath)
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'planardxdv'],
                             stdin=subprocess.PIPE,

@@ -1,24 +1,10 @@
 from __future__ import print_function, division
-import functools
-import nose
-from nose.tools import raises
+import pytest
 import numpy
 from scipy import interpolate, integrate
 from galpy.util import bovy_coords
 sdf_bovy14= None #so we can set this up and then use in other tests
 sdft_bovy14= None #so we can set this up and then use in other tests, trailing
-
-# Decorator for expected failure
-def expected_failure(test):
-    @functools.wraps(test)
-    def inner(*args, **kwargs):
-        try:
-            test(*args, **kwargs)
-        except Exception:
-            raise nose.SkipTest
-        else:
-            raise AssertionError('Test is expected to fail, but passed instead')
-    return inner
 
 def test_progenitor_coordtransformparams():
     #Test related to #189: test that the streamdf setup throws a warning when the given coordinate transformation parameters differ from those of the given progenitor orbit
@@ -251,10 +237,10 @@ def test_pOparapar():
     assert numpy.fabs(dens_fromOpar_half/dens_frompOpar_close-sdf_bovy14.density_par(1.1)) < 10.**-4., 'density from integrating pOparapar not equal to that from density_par for Bovy14 stream'
     return None
 
-@raises(ValueError)
 def test_density_par_valueerror():
     # Test that the code throws a ValueError if coord is not understood
-    sdf_bovy14.density_par(0.1,coord='xi')
+    with pytest.raises(ValueError) as excinfo:
+        sdf_bovy14.density_par(0.1,coord='xi')
     return None
 
 def test_density_par():
@@ -392,11 +378,11 @@ def test_length():
             sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
     return None
 
-@raises(ValueError)
 def test_length_valueerror():
     thresh= 0.00001
-    assert numpy.fabs(sdf_bovy14.density_par(\
-            sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
+    with pytest.raises(ValueError) as excinfo:
+        assert numpy.fabs(sdf_bovy14.density_par(\
+                sdf_bovy14.length(threshold=thresh))/sdf_bovy14.density_par(0.1)-thresh) < 10.**-3., 'Stream length does not conform to its definition'
     return None
 
 def test_length_ang():
@@ -1354,7 +1340,6 @@ def test_setup_progIsTrack():
     assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs._orb.orbit[oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
     return None  
 
-@raises(IOError)
 def test_bovy14_useTM_poterror():
     # Test that setting up the stream model with useTM, but a different 
     # actionAngleTorus potential raises a IOError
@@ -1372,10 +1357,11 @@ def test_bovy14_useTM_poterror():
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
                 0.88719443,-0.47713334,0.12019596])
     sigv= 0.365 #km/s
-    sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
-                    leading=True,
-                    nTrackChunks=11,
-                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+    with pytest.raises(IOError) as excinfo:
+        sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
+                        leading=True,
+                        nTrackChunks=11,
+                        tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
     return None
 
 def test_bovy14_useTM():

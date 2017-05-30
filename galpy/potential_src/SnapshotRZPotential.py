@@ -109,7 +109,7 @@ class SnapshotRZPotential(Potential):
                 points[i] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                       z[i]*self._zones]).T
 
-            points_new = points.reshape(points.size/3,3)
+            points_new = points.reshape(points.size//3,3)
             pot, acc = gravity.calc.direct(self._s,points_new,num_threads=self._num_threads)
 
             pot = pot.reshape(len(R),self._naz)
@@ -336,7 +336,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 points[i,j] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                         z[j]*self._zones]).T
 
-        points_new = points.reshape(points.size/3,3)
+        points_new = points.reshape(points.size//3,3)
         self.points = points_new
 
         # set up the points to calculate the second derivatives
@@ -422,18 +422,18 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                 # do a loop through the pairs of points -- reshape the array
                 # so that each item is the pair of acceleration vectors
                 # then calculate the gradient from the two points
-                for i,zacc in enumerate(zgrad_acc.reshape((len(zgrad_acc)/2,2,3))) :
+                for i,zacc in enumerate(zgrad_acc.reshape((len(zgrad_acc)//2,2,3))) :
                     zgrad[i] = ((zacc[1]-zacc[0])/(dr*2.0))[2]
                 
                 # reshape the arrays
-                self._z2derivGrid = -zgrad.reshape((len(zgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
+                self._z2derivGrid = -zgrad.reshape((len(zgrad)//self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
 
             # do the same for the radial component
             if self._interpepifreq:
                 rgrad_pot, rgrad_acc = gravity.calc.direct(self._s,rgrad_points,num_threads=self._numcores)
                 rgrad = np.zeros(len(points_new))
 
-                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
+                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)//2,2,3))) :
                     point = points_new[i]
                     point[2] = 0.0
                     rvec = point/np.sqrt(np.dot(point,point))
@@ -441,16 +441,16 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
                                  np.dot(racc[0],rvec)) / (dr*2.0)
                     rgrad[i] = rgrad_vec
                 
-                self._R2derivGrid = -rgrad.reshape((len(rgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
+                self._R2derivGrid = -rgrad.reshape((len(rgrad)//self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
        
             # do the same for the mixed radial-vertical component
             if self._interpepifreq and self._interpverticalfreq: # re-use this
                 Rzgrad = np.zeros(len(points_new))
-                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)/2,2,3))) :
+                for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)//2,2,3))) :
                     Rzgrad[i] = ((racc[1]-racc[0])/(dr*2.0))[2]
                 
                 # reshape the arrays
-                self._RzderivGrid = -Rzgrad.reshape((len(Rzgrad)/self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
+                self._RzderivGrid = -Rzgrad.reshape((len(Rzgrad)//self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
        
     @scalarVectorDecorator
     @zsymDecorator(False)

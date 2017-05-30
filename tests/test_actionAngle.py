@@ -3,7 +3,6 @@ import os
 import warnings
 import numpy
 from galpy.util import galpyWarning
-from test_streamdf import expected_failure
 _TRAVIS= bool(os.getenv('TRAVIS'))
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
