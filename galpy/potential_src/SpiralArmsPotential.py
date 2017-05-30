@@ -2,6 +2,8 @@
 #  SpiralArmsPotential.py: class that implements the spiral arms potential
 #                           from Cox and Gomez (2002)
 #
+#  https://arxiv.org/abs/astro-ph/0207635v1
+#
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
 
@@ -111,8 +113,10 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        R = np.maximum(R, 1e-7)
+        R = np.maximum(R, 1e-6)
 
+        Cs = self._Cs
+        Rs = self._Rs
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
@@ -124,14 +128,19 @@ class SpiralArmsPotential(Potential):
         dg_dR = self._dgamma_dR(R)
 
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
-        Csech_DK = self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs
-
         n = self._ns
-        return He * np.sum(-Csech_DK*self._ns*np.sin(n*g)*dg_dR
-                           + Csech_DK * (z*dBs_dR*Ks/Bs**2 - z*dKs_dR/Bs) * Bs * np.tanh(z*Ks/Bs)
-                           + np.log(np.abs(dBs_dR/np.cosh(z*Ks/Bs))) * np.cos(n*g)
-                           - Csech_DK * np.cos(n*g) * (dKs_dR/Ks + dDs_dR/Ds)) \
-            - He/self._Rs * np.sum(Csech_DK * np.cos(n*g))
+        ng = n * g
+
+        sechZKB = 1./np.cosh(z*Ks/Bs)
+
+        return He/Rs * (Rs*np.sum(-Cs/Ds * (n * dg_dR / Ks * np.sin(ng)
+                                  + z*np.cos(ng)*np.tanh(z*Ks/Bs) * (dKs_dR/Ks - dBs_dR/Bs)
+                                  - dBs_dR / Ks * np.log(sechZKB) * np.cos(ng)
+                                  + dKs_dR / Ks**2. * np.cos(ng)
+                                  + np.cos(ng) * dDs_dR / Ds / Ks)
+                                  * sechZKB**Bs)
+                        - np.sum(Cs / Ds / Ks * sechZKB**Bs * np.cos(ng)))
+
 
     def _zforce(self, R, z, phi=0., t=0.):
         """
@@ -252,7 +261,7 @@ class SpiralArmsPotential(Potential):
         Bs = self._B(Ks)
         Ds = self._D(Ks)
         return self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-            * np.sum(self._Cs*self._N**2*self._ns**2/Ds/Ks/np.cosh(z*Ks/Bs)**Bs * np.cos(self._N*self._ns*g))
+            * np.sum(self._Cs*self._N**2*self._ns**2/Ds/Ks/np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g))
 
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
@@ -337,7 +346,7 @@ class SpiralArmsPotential(Potential):
     def _dgamma2_dphi(self, R, phi, t):
         """Return the first derivative of gamma^2 wrt phi."""
         return self._N**2. * (2.*self._omega*t + 2.*phi - 2.*self._phi_ref
-                              - 2.*np.log(R/self._r_ref) / np.tan(self._alpha))
+                              - 2.*np.log(np.abs(R/self._r_ref)) / np.tan(self._alpha))
 
     def _K(self, R):
         """Return numpy array from K1 up to and including Kn."""
@@ -357,12 +366,13 @@ class SpiralArmsPotential(Potential):
 
     def _D(self, Ks):
         """Return numpy array from D1 up to and including Dn."""
-        return (1. + Ks * self._H + 0.3 * (Ks * self._H) ** 2.) / (1. + 0.3 * Ks * self._H)
+        return (1. + Ks*self._H + 0.3*(Ks*self._H)**2.) / (1. + 0.3*Ks*self._H)
 
     def _dD_dR(self, Ks, dKs_dR):
         """Return numpy array of dD/dR from D1 up to and including Dn"""
-        return ((self._H*dKs_dR + 0.6*self._H**2*Ks*dKs_dR) * (1. + 0.3*self._H*Ks)
-                - (1. + Ks*self._H + 0.3*(self._H*Ks)**2.) * (0.3*self._H*dKs_dR)) / (1. + 0.3*Ks*self._H)**2.
+        H = self._H
+        HK = self._H * Ks
+        return H*dKs_dR*(0.09*HK**2. + 0.6*HK + 0.7) / (0.09*HK**2. + 0.6*HK + 1.)
 
     def _E(self, R, z, Ks, Bs, Ds):
         """Return numpy of E as defined in the paper."""
