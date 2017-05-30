@@ -113,7 +113,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
 
         Cs = self._Cs
         Rs = self._Rs
