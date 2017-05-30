@@ -88,7 +88,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
@@ -111,9 +111,27 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        # TODO: Finish implementing Rforce
-        return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-            * np.sum(self._Cs*self._ns)
+        R = np.maximum(R, 1e-7)
+
+        Ks = self._K(R)
+        Bs = self._B(Ks)
+        Ds = self._D(Ks)
+
+        dKs_dR = self._dK_dR(R)
+        dBs_dR = self._dB_dR(Ks, dKs_dR)
+        dDs_dR = self._dD_dR(Ks, dKs_dR)
+        g = self._gamma(R, phi, t)
+        dg_dR = self._dgamma_dR(R)
+
+        He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
+        Csech_DK = self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs
+
+        n = self._ns
+        return He * np.sum(-Csech_DK*self._ns*np.sin(n*g)*dg_dR
+                           + Csech_DK * (z*dBs_dR*Ks/Bs**2 - z*dKs_dR/Bs) * Bs * np.tanh(z*Ks/Bs)
+                           + np.log(np.abs(dBs_dR/np.cosh(z*Ks/Bs))) * np.cos(n*g)
+                           - Csech_DK * np.cos(n*g) * (dKs_dR/Ks + dDs_dR/Ds)) \
+            - He/self._Rs * np.sum(Csech_DK * np.cos(n*g))
 
     def _zforce(self, R, z, phi=0., t=0.):
         """
@@ -131,7 +149,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
@@ -155,20 +173,21 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
+        g = self._gamma(R, phi, t)
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-            * np.sum(self._N*self._ns*self._Cs/(Ds*Ks) * np.sin(self._ns * self._gamma(R, phi, t))
-                     * 1./np.cosh(z*Ks/Bs)**Bs)
+            * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.sin(self._ns * g))
 
     def _R2deriv(self, R, z, phi=0., t=0.):
         """
         NAME:
             _R2deriv
         PURPOSE:
-            Evaluate the second (cylindrical) radial derivative of the potential (d^2 potential / d R^2)
+            Evaluate the second (cylindrical) radial derivative of the potential.
+             (d^2 potential / d R^2)
         INPUT:
             :param R: galactocentric cylindrical radius
             :param z: vertical height
@@ -179,13 +198,15 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        return 0.0
 
     def _z2deriv(self, R, z, phi=0., t=0.):
         """
         NAME:
             _z2deriv
         PURPOSE:
-            Evaluate the second (cylindrical) vertical derivative of the potential (d^2 potential / d z^2).
+            Evaluate the second (cylindrical) vertical derivative of the potential.
+             (d^2 potential / d z^2)
         INPUT:
             :param R: galactocentric cylindrical radius
             :param z: vertical height
@@ -196,15 +217,42 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
+        g = self._gamma(R, phi, t)
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs)\
             * np.sum(self._Cs*Ks/Ds * ((1./Bs) * (np.tanh(z*Ks/Bs)**2. - 1.)
                                        + np.tanh(z*Ks/Bs)**2.)
-                     * np.cos(self._ns*self._gamma(R, phi, t))
+                     * np.cos(self._ns*g)
                      * 1./np.cosh(z*Ks/Bs)**Bs)
+
+    def _phi2deriv(self, R, z, phi=0., t=0.):
+        """
+        NAME:
+            _phi2deriv
+        PURPOSE:
+            Evaluate the second azimuthal derivative of the potential in cylindrical coordinates.
+            (d^2 potential / d phi^2)
+        INPUT:
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
+        OUTPUT:
+            :return: d^2 potential / d phi^2
+        HISTORY:
+            2017-05-29 Jack Hong (UBC)
+        """
+        R = np.maximum(R, 1e-7)
+        g = self._gamma(R, phi, t)
+        dg2_dphi = self._dgamma2_dphi(R, phi, t)
+        Ks = self._K(R)
+        Bs = self._B(Ks)
+        Ds = self._D(Ks)
+        return self._H * np.exp(-(R-self._r_ref)/self._Rs) \
+            * np.sum(self._Cs*self._N**2*self._ns**2/Ds/Ks/np.cosh(z*Ks/Bs)**Bs * np.cos(self._N*self._ns*g))
 
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
@@ -224,7 +272,7 @@ class SpiralArmsPotential(Potential):
         """
         return 0.0
 
-    def _dens(self, R, z, phi=0., t=0., approx=True):
+    def _dens(self, R, z, phi=0., t=0., approx=False):
         """
         NAME:
             _dens
@@ -242,15 +290,21 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC) 
         """
-        R = np.maximum(R, 1e-6)
+        R = np.maximum(R, 1e-7)
+        g = self._gamma(R, phi, t)
         Ks = self._K(R)
         Bs = self._B(Ks)
         Ds = self._D(Ks)
+        E = self._E(R, z, Ks, Bs, Ds)
+        rE = self._rE(R, z, Ks, Bs, Ds)  # actually rE'
         if approx:
             return self._rho0 * np.exp(-(R-self._r_ref)/self._Rs) \
                 * np.sum(self._Cs*(Ks*self._H*(Bs+1.)/(Ds*Bs)) * np.cos(self._ns*self._gamma(R, phi, t))
                          * 1./np.cosh(Ks*z/Bs)**(2.+Bs))
-        return 0.0
+
+        return np.sum(self._Cs*self._rho0*(self._H/(Ds*R))*np.exp(-(R-self._r_ref)/self._Rs)*(1./np.cosh(Ks*z/Bs))**Bs
+                      * (((Ks*R*(Bs+1)/Bs*(1./np.cosh(Ks*z/Bs))**2) - 1/Ks/R*(E**2+rE))*np.cos(self._ns*g)
+                         - 2*E*np.cos(self._alpha)*np.sin(self._ns*g)))
 
     def _mass(self, R, z=0, t=0.):
         """
@@ -276,6 +330,15 @@ class SpiralArmsPotential(Potential):
         """Return gamma."""
         return self._N * (phi - self._phi_ref - np.log(R / self._ro) / np.tan(self._alpha) + self._omega * t)
 
+    def _dgamma_dR(self, R):
+        """Return the first derivative of gamma wrt R."""
+        return -self._N / R / np.tan(self._alpha)
+
+    def _dgamma2_dphi(self, R, phi, t):
+        """Return the first derivative of gamma^2 wrt phi."""
+        return self._N**2. * (2.*self._omega*t + 2.*phi - 2.*self._phi_ref
+                              - 2.*np.log(R/self._r_ref) / np.tan(self._alpha))
+
     def _K(self, R):
         """Return numpy array from K1 up to and including Kn."""
         return self._ns * self._N / R / np.sin(self._alpha)
@@ -296,7 +359,21 @@ class SpiralArmsPotential(Potential):
         """Return numpy array from D1 up to and including Dn."""
         return (1. + Ks * self._H + 0.3 * (Ks * self._H) ** 2.) / (1. + 0.3 * Ks * self._H)
 
-    def _dD_dR(self, R, Ks, dKs_dR):
+    def _dD_dR(self, Ks, dKs_dR):
         """Return numpy array of dD/dR from D1 up to and including Dn"""
         return ((self._H*dKs_dR + 0.6*self._H**2*Ks*dKs_dR) * (1. + 0.3*self._H*Ks)
                 - (1. + Ks*self._H + 0.3*(self._H*Ks)**2.) * (0.3*self._H*dKs_dR)) / (1. + 0.3*Ks*self._H)**2.
+
+    def _E(self, R, z, Ks, Bs, Ds):
+        """Return numpy of E as defined in the paper."""
+        return 1. + Ks*self._H/Ds*(1. - 0.3/(1.+0.3*Ks*self._H)**2.) - R/self._Rs \
+            - (Ks*self._H)*(1. + 0.8*Ks*self._H)*np.log(1./np.cosh(Ks*z/Bs)) \
+            - 0.4*(Ks*self._H)**2. * (Ks*z/Bs) * np.tanh(Ks*z/Bs)
+
+    def _rE(self, R, z, Ks, Bs, Ds):
+        """Return numpy array of rE' as define in the paper."""
+        return -Ks*self._H/Ds * (1. - 0.3*(1-0.3*Ks*self._H)/(1.+0.3*Ks*self._H)**3.) \
+            + (Ks*self._H/Ds * (1. - 0.3/(1.+0.3*Ks*self._H)**2.)) - R/self._Rs \
+            + Ks*self._H * (1. + 1.6*Ks*self._H) * np.log(1./np.cosh(Ks*z/Bs)) \
+            - (0.4*(Ks*self._H)**2. * (Ks*z/Bs) * 1./np.cosh(Ks*z/Bs))**2. / Bs \
+            + 1.2 * (Ks*self._H)**2 * (Ks*z/Bs) * np.tanh(Ks*z/Bs)
