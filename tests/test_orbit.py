@@ -2587,15 +2587,14 @@ def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
+    with pytest.warns(None) as record:
         o.integrate(ts,potential.MWPotential)
         # Should raise warning bc of MWPotential, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
-            if raisedWarning: break
-        assert raisedWarning, "Orbit integration with MWPotential should have thrown a warning, but didn't"
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+    assert raisedWarning, "Orbit integration with MWPotential should have thrown a warning, but didn't"
     return None
 
 # Test the new Orbit.time function
@@ -3126,19 +3125,16 @@ def test_orbitint_pythonfallback():
     bp= BurkertPotentialNoC() # BurkertPotentialNoC is already imported at the top of test_orbit.py
     bp.normalize(1.)
     ts= numpy.linspace(0.,1.,101)
-    import warnings
     for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.]),Orbit([1.,0.1,1.1,0.1,0.]),
                 Orbit([1.,0.1,1.1,1.]),Orbit([1.,0.1,1.1])]:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always", galpyWarning)
+        with pytest.warns(None) as record:
             #Test w/ dopr54_c
             orb.integrate(ts,bp, method='dopr54_c')
-            # Should raise warning bc of python fallback, might raise others
-            raisedWarning= False
-            for wa in w:
-                raisedWarning= ( "Cannot use C integration because some of the potentials are not implemented in C" in str(wa.message) )
-                if raisedWarning: break
-            assert raisedWarning, "Orbit integration did not raise fallback warning"
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "Cannot use C integration because some of the potentials are not implemented in C")
+        assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
 # Test that the functions that supposedly *always* return output in physical 
@@ -3683,36 +3679,33 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
 def check_radecetc_roWarning(o,funcName):
     # Convenience function to check whether the ro-needs-to-be-specified 
     # warning is sounded
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
+    with pytest.warns(None) as record:
         getattr(o,funcName)()
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,8.))
-            if raisedWarning: break
-        assert raisedWarning, "Orbit method %s without ro specified should have thrown a warning, but didn't" % funcName
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,8.))
+    assert raisedWarning, "Orbit method %s without ro specified should have thrown a warning, but didn't" % funcName
     return None
 
 def check_radecetc_voWarning(o,funcName):
     # Convenience function to check whether the vo-needs-to-be-specified 
     # warning is sounded
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
+    with pytest.warns(None) as record:
         getattr(o,funcName)()
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,220.))
-            if raisedWarning: break
-        assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,220.))
+    assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
     return None
 
 def check_integrate_t_asQuantity_warning(o,funcName):
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
+    with pytest.warns(None) as record:
         getattr(o,funcName)(1.)
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
-            if raisedWarning: break
-        assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
+    assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None  
