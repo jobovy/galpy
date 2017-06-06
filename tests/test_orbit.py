@@ -3133,7 +3133,8 @@ def test_orbitint_pythonfallback():
         raisedWarning= False
         for rec in record:
             # check that the message matches
-            raisedWarning+= (str(rec.message.args[0]) == "Cannot use C integration because some of the potentials are not implemented in C")
+            print(rec.message.args[0])
+            raisedWarning+= (str(rec.message.args[0]) == "Cannot use C integration because some of the potentials are not implemented in C (using odeint instead)")
         assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
