@@ -37,3 +37,67 @@ class df(object):
             self._vo= vo
             self._voSet= True
         return None
+
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2017-06-05 - Written - Bovy (UofT)
+
+        """
+        self._roSet= False
+        self._voSet= False
+        return None
+
+    def turn_physical_on(self,ro=None,vo=None):
+        """
+        NAME:
+
+           turn_physical_on
+
+        PURPOSE:
+
+           turn on automatic returning of outputs in physical units
+
+        INPUT:
+
+           ro= reference distance (kpc; can be Quantity)
+
+           vo= reference velocity (km/s; can be Quantity)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2016-06-05 - Written - Bovy (UofT)
+
+        """
+        self._roSet= True
+        self._voSet= True
+        if not ro is None:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
+            self._ro= ro
+        if not vo is None:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+            self._vo= vo
+        return None  
