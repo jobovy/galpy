@@ -3031,6 +3031,44 @@ def test_actionAngle_setup_voAsQuantity_oddunits():
     assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     return None
 
+def test_actionAngle_method_turnphysicalon():
+    from galpy.actionAngle import actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=7.*units.kpc,
+                             vo=230.*units.km/units.s)
+    aA.turn_physical_on()
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'actionAngle method does not work as expected'
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'actionAngle method turn_physical_on does not work as expected'
+    aA.turn_physical_on(ro=8.)
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(aA._ro-8.) < 10.**-10., 'actionAngle method does not work as expected'
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'actionAngle method turn_physical_on does not work as expected'
+    aA.turn_physical_on(vo=210.)
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(aA._ro-8.) < 10.**-10., 'actionAngle method does not work as expected'
+    assert numpy.fabs(aA._vo-210.) < 10.**-10., 'actionAngle method turn_physical_on does not work as expected'
+    aA.turn_physical_on(ro=9.*units.kpc)
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(aA._ro-9.) < 10.**-10., 'actionAngle method does not work as expected'
+    assert numpy.fabs(aA._vo-210.) < 10.**-10., 'actionAngle method turn_physical_on does not work as expected'
+    aA.turn_physical_on(vo=200.*units.km/units.s)
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0],units.Quantity), 'actionAngle method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(aA._ro-9.) < 10.**-10., 'actionAngle method does not work as expected'
+    assert numpy.fabs(aA._vo-200.) < 10.**-10., 'actionAngle method turn_physical_on does not work as expected'
+    return None
+
+def test_actionAngle_method_turnphysicaloff():
+    from galpy.actionAngle import actionAngleIsochrone
+    aA= actionAngleIsochrone(b=0.8,ro=7.*units.kpc,
+                             vo=230.*units.km/units.s)
+    aA.turn_physical_off()
+    assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
+    assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
+    assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
+    return None
+
 def test_actionAngleStaeckel_setup_delta_units():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import MWPotential
