@@ -3070,6 +3070,9 @@ def test_orbit_c_sigint_full():
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+        p.stdin.close()
+        p.stdout.close()
+        p.stderr.close()
     return None
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
@@ -3091,6 +3094,9 @@ def test_orbit_c_sigint_planar():
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+        p.stdin.close()
+        p.stdout.close()
+        p.stderr.close()
     return None
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
@@ -3109,6 +3115,9 @@ def test_orbit_c_sigint_planardxdv():
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+        p.stdin.close()
+        p.stdout.close()
+        p.stderr.close()
     return None
 
 def test_orbitint_pythonfallback():
