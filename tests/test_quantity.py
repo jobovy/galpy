@@ -3404,6 +3404,40 @@ def test_estimateBIsochrone_method_value():
         assert numpy.all(numpy.fabs(estimateBIsochrone(pot,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii].to(units.kpc).value-estimateBIsochrone(potu,1.1*numpy.ones(3),0.1*numpy.ones(3))[ii]*ro) < 10.**-8.), 'estimateBIsochrone function does not return Quantity with the right value'
     return None
 
+def test_df_method_turnphysicalon():
+    from galpy.df import dehnendf
+    from galpy.orbit import Orbit
+    df= dehnendf(ro=7.,vo=230.)
+    df.turn_physical_on()
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'df method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(df._ro-7.) < 10.**-10., 'df method does not work as expected'
+    assert numpy.fabs(df._vo-230.) < 10.**-10., 'df method turn_physical_on does not work as expected'
+    df.turn_physical_on(ro=9.)
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'df method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(df._ro-9.) < 10.**-10., 'df method does not work as expected'
+    assert numpy.fabs(df._vo-230.) < 10.**-10., 'df method turn_physical_on does not work as expected'
+    df.turn_physical_on(vo=210.)
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'df method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(df._ro-9.) < 10.**-10., 'df method does not work as expected'
+    assert numpy.fabs(df._vo-210.) < 10.**-10., 'df method turn_physical_on does not work as expected'
+    df.turn_physical_on(ro=10.*units.kpc)
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'df method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(df._ro-10.) < 10.**-10., 'df method does not work as expected'
+    assert numpy.fabs(df._vo-210.) < 10.**-10., 'df method turn_physical_on does not work as expected'
+    df.turn_physical_on(vo=190.*units.km/units.s)
+    assert isinstance(df(Orbit([1.1,0.1,1.1])),units.Quantity), 'df method does not return Quantity when turn_physical_on has been called'
+    assert numpy.fabs(df._ro-10.) < 10.**-10., 'df method does not work as expected'
+    assert numpy.fabs(df._vo-190.) < 10.**-10., 'df method turn_physical_on does not work as expected'
+    return None
+
+def test_df_method_turnphysicaloff():
+    from galpy.df import dehnendf
+    from galpy.orbit import Orbit
+    df= dehnendf(ro=7.,vo=230.)
+    df.turn_physical_off()
+    assert isinstance(numpy.atleast_1d(df(Orbit([1.1,0.1,1.1])))[0],float), 'df method does not return float when turn_physical_off has been called'
+    return None
+
 def test_diskdf_method_returntype():
     from galpy.df import dehnendf,shudf
     from galpy.orbit import Orbit
