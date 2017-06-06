@@ -1,6 +1,16 @@
 DF (``galpy.df``)
 ==================
 
+General instance routines for all df classes
+----------------------------------------------------------
+
+
+.. toctree::
+   :maxdepth: 2
+
+   turn_physical_off <dfturnphysicaloff.rst>
+   turn_physical_on <dfturnphysicalon.rst>
+
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
 
