@@ -48,7 +48,7 @@ else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
 _NOLONGINTEGRATIONS= False
 # Don't show all warnings, to reduce log output
-warnings.simplefilter("default",galpyWarning)
+warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators
