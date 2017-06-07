@@ -75,7 +75,7 @@ install:
  - python setup.py develop --single_ext
 script:
 # only wait longer for orbit integrations
- - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis; fi
+ - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --no-external --output-file coverage_full.info
