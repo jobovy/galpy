@@ -5,6 +5,7 @@
 #  https://arxiv.org/abs/astro-ph/0207635v1
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
+#  NOTE: Methods do not take array inputs.
 ###############################################################################
 
 from __future__ import division
@@ -94,10 +95,10 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the potential at the given coordinates. (without the amp factor; handled by super class)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: Phi(R, z, phi, t)
         HISTORY:
@@ -119,10 +120,10 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the radial force for this potential at the given coordinates. (-dPhi/dR)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the radial force
         HISTORY:
@@ -165,10 +166,10 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the vertical force for this potential at the given coordinates. (-dPhi/dz)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the vertical force
         HISTORY:
@@ -190,10 +191,10 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the azimuthal force in cylindrical coordinates. (-dPhi/dphi)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the azimuthal force
         HISTORY:
@@ -216,10 +217,10 @@ class SpiralArmsPotential(Potential):
             Evaluate the second (cylindrical) radial derivative of the potential.
              (d^2 potential / d R^2)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the second radial derivative
         HISTORY:
@@ -252,8 +253,6 @@ class SpiralArmsPotential(Potential):
         g = self._gamma(R, phi, t)
         dg_dR = self._dgamma_dR(R)
         d2g_dR2 = self._d2gamma_dR2(R)
-
-        dg2_dR = self._dgamma2_dR(R, phi, t)
 
         n = self._ns
         ng = n * g
@@ -395,10 +394,10 @@ class SpiralArmsPotential(Potential):
             Evaluate the second (cylindrical) vertical derivative of the potential.
              (d^2 potential / d z^2)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the second vertical derivative
         HISTORY:
@@ -425,10 +424,10 @@ class SpiralArmsPotential(Potential):
             Evaluate the second azimuthal derivative of the potential in cylindrical coordinates.
             (d^2 potential / d phi^2)
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: d^2 potential / d phi^2
         HISTORY:
@@ -450,10 +449,10 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the mixed (cylindrical) radial and vertical derivative of the potential (d^2 potential / d R d z).
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: d^2 potential / d R d z
         HISTORY:
@@ -497,6 +496,56 @@ class SpiralArmsPotential(Potential):
                                                              + dBs_dR * cos_ng / Bs * tanhzKB)) \
                - He / Rs * np.sum(Cs / Ds * tanhzKB * sechzKB_Bs * cos_ng)
 
+    def _Rphideriv(self, R, z, phi=0,t=0):
+        """
+        NAME:
+            _Rphideriv
+        PURPOSE:
+            Return the mixed radial and azimuthal derivative of the potential in cylindrical coordinates
+             (d^2 potential / d R d phi
+        INPUT:
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
+        OUTPUT:
+            :return: the mixed radial and azimuthal derivative
+        HISTORY:
+            2017-06-09  Jack Hong (UBC)
+        """
+        phi = phi - self._omega * t
+
+        def temp(phi):
+            Cs = self._Cs
+            Rs = self._Rs
+            He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
+
+            Ks = self._K(R)
+            Bs = self._B(R)
+            Ds = self._D(R)
+
+            dKs_dR = self._dK_dR(R)
+            dBs_dR = self._dB_dR(R)
+            dDs_dR = self._dD_dR(R)
+            g = self._gamma(R, phi, t)
+            dg_dR = self._dgamma_dR(R)
+
+            n = self._ns
+            cos_ng = np.cos(n * g)
+            sin_ng = np.sin(n * g)
+            zKB = z * Ks / Bs
+            sechzKB = 1 / np.cosh(zKB)
+            sechzKB_Bs = sechzKB ** Bs
+
+            return -He * np.sum(-Cs * sechzKB_Bs / Ds * (n * dg_dR / Ks * sin_ng
+                                                        + z * cos_ng * np.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
+                                                        - dBs_dR / Ks * np.log(sechzKB) * cos_ng
+                                                        + dKs_dR / Ks ** 2 * cos_ng
+                                                        + cos_ng * dDs_dR / Ds / Ks)) \
+                   + He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
+
+        return deriv(temp, phi, dx=1e-8)
+
     def _dens(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -505,11 +554,10 @@ class SpiralArmsPotential(Potential):
             Evaluate the density. If not given, the density is computed using the Poisson equation
             from the first and second derivatives of the potential (if all are implemented).
         INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-            :param approx: if True, the approximate density is calculated (eqn. 10 in paper)
+            :param R: galactocentric cylindrical radius (must be scalar, not array)
+            :param z: vertical height (must be scalar, not array)
+            :param phi: azimuth (must be scalar, not array)
+            :param t: time (must be scalar, not array)
         OUTPUT:
             :return: the density
         HISTORY:
@@ -531,43 +579,28 @@ class SpiralArmsPotential(Potential):
                           - 1 / Ks / R * (E**2 + rE)) * np.cos(self._ns * g)
                          - 2 * E * np.cos(self._alpha) * np.sin(self._ns * g)))
 
-    # def _mass(self, R, z=0, t=0.):
-    #     """
-    #     NAME:
-    #         _mass
-    #     PURPOSE:
-    #         Evaluate the mass. Return the mass up to R and between -z and z.
-    #         If not given, the mass is computed by integrating the density (if it is implemented or can be
-    #         calculated from the Poisson equation).
-    #     INPUT:
-    #         :param R: galactocentric cylindrical radius
-    #         :param z: vertical height
-    #         :param t: time
-    #     OUTPUT:
-    #         :return: the mass
-    #     HISTORY:
-    #         2017-05-12  Jack Hong (UBC)
-    #     """
-    #     return 0.0
+    def OmegaP(self):
+        """
+        NAME:
+            OmegaP
+        PURPOSE:
+            Return the pattern speed. (used to compute the Jacobi integral for orbits).
+        INPUT:
+            :param self
+        OUTPUT:
+            :return: the pattern speed
+        HISTORY:
+            2017-06-09  Jack Hong (UBC)
+        """
+        return self._omega
 
     def _gamma(self, R, phi, t):
-        """Return gamma."""
+        """Return gamma. (eqn 3 in the paper)"""
         return self._N * (phi - self._phi_ref - np.log(R / self._r_ref) / np.tan(self._alpha) + self._omega * t)
 
     def _dgamma_dR(self, R):
         """Return the first derivative of gamma wrt R."""
         return -self._N / R / np.tan(self._alpha)
-
-    def _dgamma2_dR(self, R, phi, t):
-        """Return the first derivative of gamma^2 wrt R"""
-        tan_alpha = np.tan(self._alpha)
-        return - 2 * self._N**2 / R / tan_alpha * \
-               (self._omega * t + phi - self._phi_ref - np.log(R / self._r_ref) / tan_alpha)
-
-    def _dgamma2_dphi(self, R, phi, t):
-        """Return the first derivative of gamma^2 wrt phi."""
-        return self._N**2 * 2 * (self._omega*t + phi - self._phi_ref
-                                 - np.log(np.abs(R/self._r_ref)) / np.tan(self._alpha))
 
     def _d2gamma_dR2(self, R):
         """Return the second derivative of gamma wrt R."""
