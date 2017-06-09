@@ -212,6 +212,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to investigate the orbits of hypervelocity-star candidates in *Gaia* DR1.
 #. *GalRotpy: an educational tool to understand and parametrize the rotation curve and gravitational potential of disk-like galaxies*, Andrés Granados, Lady-J. Henao-O., Santiago Vanegas, & Leonardo Castañeda (2017; `arXiv/1705.01665 <http://arxiv.org/abs/1705.01665>`_):
      These authors build an interactive tool to decompose observed rotation curves into bulge, disk (Miyamoto-Nagai or exponential), and NFW halo components on top of ``galpy.potential`` routines.
+#. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017; `arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
+     Uses ``galpy`` to compute orbital parameters for stars in the AMBRE sample of high-resolution spectra and uses these orbital parameters to aid in the comparison between the data and chemical-evolution models.
 
 Indices and tables
 ==================
