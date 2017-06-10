@@ -13,7 +13,6 @@ from __future__ import division
 import numpy as np
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 from galpy.util import bovy_coords, bovy_conversion
-from scipy.misc import derivative as deriv
 
 if _APY_LOADED:
     from astropy import units
@@ -111,7 +110,7 @@ class SpiralArmsPotential(Potential):
         Bs = self._B(R)
         Ds = self._D(R)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-               * np.sum(self._Cs/(Ks * Ds) * np.cos(self._ns * self._gamma(R, phi, t)) * 1 / np.cosh(Ks * z / Bs) ** Bs)
+            * np.sum(self._Cs/(Ks * Ds) * np.cos(self._ns * self._gamma(R, phi, t)) * 1 / np.cosh(Ks * z / Bs) ** Bs)
 
     def _Rforce(self, R, z, phi=0, t=0):
         """
@@ -129,6 +128,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         Cs = self._Cs
@@ -157,7 +157,7 @@ class SpiralArmsPotential(Potential):
                                                     - dBs_dR / Ks * np.log(sechzKB) * cos_ng
                                                     + dKs_dR / Ks**2 * cos_ng
                                                     + cos_ng * dDs_dR / Ds / Ks)) \
-               - He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
+            - He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
 
     def _zforce(self, R, z, phi=0, t=0):
         """
@@ -175,6 +175,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         Ks = self._K(R)
@@ -200,6 +201,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
@@ -207,7 +209,7 @@ class SpiralArmsPotential(Potential):
         Bs = self._B(R)
         Ds = self._D(R)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.sin(self._ns * g))
+            * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.sin(self._ns * g))
 
     def _R2deriv(self, R, z, phi=0, t=0):
         """
@@ -226,6 +228,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-31  Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         Cs = self._Cs
@@ -266,8 +269,6 @@ class SpiralArmsPotential(Potential):
         cos_ng = np.cos(ng)
         sin_ng = np.sin(ng)
 
-        x = dKs_dR - dBs_dR / Bs * Ks
-
         def a():
             """Return the derivative of sech(z*K_n / B_n)**B_n wrt R."""
             return (-(z*dKs_dR / Bs - z * dBs_dR / Bs**2 * Ks) * Bs * tanhzKB + log_sechzKB * dBs_dR) * sechzKB_Bs
@@ -276,12 +277,12 @@ class SpiralArmsPotential(Potential):
                                                           + ztanhzKB * cos_ng * (dKs_dR/Ks - dBs_dR/Bs)
                                                           - dBs_dR / Ks * log_sechzKB * cos_ng
                                                           + dKs_dR / Ks**2 * cos_ng
-                                                          + cos_ng * dDs_dR / Ds / Ks)) \
+                                                          + cos_ng * dDs_dR / Ds / Ks))
                            - Rs * np.sum(Cs * ((a() / Ds - sechzKB_Bs / Ds**2 * dDs_dR) * (n * dg_dR / Ks * sin_ng
-                                                                                           + z * cos_ng * np.tanh(zKB) * (dKs_dR/Ks - dBs_dR/Bs)
-                                                                                           - dBs_dR / Ks * np.log(sechzKB) * cos_ng
+                                                                                           + z * cos_ng * tanhzKB * (dKs_dR/Ks - dBs_dR/Bs)
+                                                                                           - dBs_dR / Ks * log_sechzKB * cos_ng
                                                                                            + dKs_dR / Ks**2 * cos_ng
-                                                                                           + cos_ng * dDs_dR / Ds / Ks) \
+                                                                                           + cos_ng * dDs_dR / Ds / Ks)
                                                + sechzKB_Bs / Ds * (n * (d2g_dR2 / Ks * sin_ng
                                                                          - dg_dR / Ks**2 * dKs_dR * sin_ng
                                                                          + dg_dR / Ks * cos_ng * n * dg_dR)
@@ -297,94 +298,11 @@ class SpiralArmsPotential(Potential):
                                                                     + (-sin_ng*n*dg_dR * dDs_dR / Ds / Ks
                                                                        + cos_ng * d2Ds_dR2 / Ds / Ks
                                                                        - cos_ng * (dDs_dR/Ds)**2 / Ks
-                                                                       - cos_ng * dDs_dR / Ds / Ks**2 * dKs_dR)))) \
-                           + (np.sum(C_DKs / Rs * sechzKB_Bs * cos_ng \
+                                                                       - cos_ng * dDs_dR / Ds / Ks**2 * dKs_dR))))
+                           + (np.sum(C_DKs / Rs * sechzKB_Bs * cos_ng
                                      + Cs * (1 / (Ds * Ks)**2 * (dDs_dR * Ks + Ds * dKs_dR) * sechzKB_Bs * cos_ng
                                              - 1 / (Ds * Ks) * a() * cos_ng
                                              + 1 / (Ds * Ks) * sechzKB_Bs * sin_ng * n * dg_dR))))
-
-        # return self._H * (-np.sum(C_DKs * sechzKB_Bs * (-n**2 * cos_ng * dg2_dR
-        #                                                 + 2 * n * (ztanhzKB * x
-        #                                                            - log_sechzKB * dBs_dR) * sin_ng * dg_dR
-        #                                                 - n * sin_ng * d2g_dR2
-        #                                                 + 2 * n * dKs_dR / Ks * sin_ng * dg_dR
-        #                                                 + 2 * n * dDs_dR / Ds * sin_ng * dg_dR
-        #                                                 + (ztanhzKB * x - log_sechzKB * dBs_dR)**2 * cos_ng
-        #                                                 + 2 * dKs_dR / Ks * (ztanhzKB * x - log_sechzKB * dBs_dR) * cos_ng
-        #                                                 + 2 * dDs_dR / Ds * (ztanhzKB * x - log_sechzKB * dBs_dR) * cos_ng
-        #                                                 - (z**2 / Bs * (1 - tanhzKB**2) * x**2
-        #                                                    + 2 * ztanhzKB * dBs_dR / Bs * x
-        #                                                    + ztanhzKB * (d2Ks_dR2
-        #                                                                  - d2Bs_dR2 / Bs * Ks
-        #                                                                  - 2 * dBs_dR / Bs * dKs_dR
-        #                                                                  + 2 * dBs2_dR / Bs**2 * Ks)
-        #                                                    - log_sechzKB * d2Bs_dR2) * cos_ng
-        #                                                 - d2Ks_dR2 / Ks * cos_ng
-        #                                                 + 2 * dKs2_dR / Ks**2 * cos_ng
-        #                                                 - d2Ds_dR2 / Ds * cos_ng
-        #                                                 + 2 * dDs_dR * dKs_dR / Ds / Ks * cos_ng
-        #                                                 + 2 * dDs2_dR / Ds**2 * cos_ng))
-        #                   + 2 / Rs * np.sum(-C_DKs * sechzKB_Bs * (n * sin_ng * dg_dR
-        #                                                            + (ztanhzKB * x - log_sechzKB * dBs_dR) * cos_ng
-        #                                                            + dKs_dR / Ks * cos_ng
-        #                                                            + dDs_dR / Ds * cos_ng))
-        #                   - 1 / Rs**2 * np.sum(C_DKs * sechzKB_Bs * cos_ng)) * np.exp(-(R - self._r_ref) / Rs)
-
-        #return -deriv(lambda x: self._Rforce(x, z, phi, t), R, dx=1e-8)
-
-        # return self._H  * (-np.sum(C_DKs * sechzKB_Bs * (-n**2 * cos_ng * dg2_dR
-        #                                                  + 2 * n * (z_tanhzKB * x
-        #                                                              - log_sechzKB * dBs_dR) * sin_ng * dg_dR
-        #                                                  - n * sin_ng * d2g_dR2
-        #                                                  + 2. * n * sin_ng * dg_dR * (dKs_dR / Ks + dDs_dR / Ds)
-        #                                                  + (z_tanhzKB * x
-        #                                                     - log_sechzKB * dBs_dR)**2. * cos_ng
-        #                                                  + 2. * (z_tanhzKB * x - log_sechzKB * dBs_dR) * cos_ng \
-        #                                                  * (dKs_dR / Ks + dDs_dR / Ds)
-        #                                                  - (-z_tanhzKB**2 / Bs * x**2
-        #                                                     + z**2 / Bs * x**2
-        #                                                     + 2. * z_tanhzKB * dBs_dR / Bs * x
-        #                                                     + z_tanhzKB * (d2Ks_dR2
-        #                                                                    - d2Bs_dR2 / Bs * Ks
-        #                                                                    - 2. * dBs_dR / Bs * dKs_dR
-        #                                                                    + 2. * dBs2_dR / Bs**2 * Ks)
-        #                                                     - log_sechzKB * d2Bs_dR2) * cos_ng
-        #                                                  - d2Ks_dR2 / Ks * cos_ng
-        #                                                  + 2. * dKs2_dR / Ks**2. * cos_ng
-        #                                                  - d2Ds_dR2 / Ds * cos_ng
-        #                                                  + 2. * dDs_dR * dKs_dR / Ds / Ks * cos_ng
-        #                                                  + 2. * dDs2_dR / Ds**2. * cos_ng))
-        #                    + 2. / Rs * np.sum(-C_DKs * sechzKB_Bs * (n * sin_ng * dg_dR
-        #                                                              + (z_tanhzKB * x - log_sechzKB * dBs_dR) * cos_ng
-        #                                                              + dKs_dR / Ks * cos_ng + dDs_dR / Ds * cos_ng))
-        #                    - 1. / Rs**2 * np.sum(C_DKs * sechzKB_Bs * cos_ng)) * np.exp(-(R-self._r_ref)/self._Rs)
-
-        # return self._H * np.exp(-(R-self._r_ref) / Rs) \
-        #        * -np.sum(C_DKs * sechzKB_Bs * (-n**2. * cos_ng * dg2_dR
-        #                                               + 2. * n * (z * (dKs_dR - dBs_dR * Ks / Bs) * tanhzKB
-        #                                                          - log_sechzKB * dBs_dR) * sin_ng * dg_dR
-        #                                               - n * sin_ng * d2g_dR2
-        #                                               + 2. * n * sin_ng * dg_dR * (dKs_dR / Ks + dDs_dR / Ds)
-        #                                               + (z * (dKs_dR - dBs_dR * Ks / Bs) * tanhzKB
-        #                                                  - log_sechzKB * dBs_dR)**2. * cos_ng
-        #                                               + 2. * (z * (dKs_dR - dBs_dR / Bs * Ks) * tanhzKB
-        #                                                      - log_sechzKB * dBs_dR) * cos_ng
-        #                                               * (dKs_dR / Ks + dDs_dR / Ds)
-        #                                               - (z**2. / Bs * (1.-tanhzKB**2.) * (dKs_dR - dBs_dR*Ks/Bs)**2.
-        #                                                  + 2. * z * dBs_dR / Bs * (dKs_dR - dBs_dR / Bs * Ks) * tanhzKB
-        #                                                  + z * (d2Ks_dR2 - d2Bs_dR2 / Bs * Ks
-        #                                                         - 2. * dBs_dR / Bs * dKs_dR
-        #                                                         + 2. * dBs2_dR * Ks / Bs**2)
-        #                                                  * tanhzKB - log_sechzKB * d2Bs_dR2) * cos_ng
-        #                                               - d2Ks_dR2 / Ks * cos_ng
-        #                                               + 2. * dKs2_dR / Ks**2. * cos_ng
-        #                                               - d2D_dR2 / Ds * cos_ng
-        #                                               + 2. / Ds * cos_ng * (dKs_dR * dDs_dR / Ks + dDs2_dR / Ds))
-        #                 + 2. / Rs * np.sum(-C_DKs * sechzKB_Bs * (n * sin_ng*dg_dR
-        #                                                                 + (z * (dKs_dR - dBs_dR / Bs * Ks) * tanhzKB
-        #                                                                    - log_sechzKB * dBs_dR) * cos_ng
-        #                                                                 + cos_ng * (dKs_dR / Ks + dDs_dR / Ds))
-        #                                    - 1. / Rs**2. * np.sum(C_DKs * sechzKB_Bs * cos_ng)))
 
     def _z2deriv(self, R, z, phi=0, t=0):
         """
@@ -403,6 +321,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
@@ -433,6 +352,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-29 Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
@@ -458,6 +378,7 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
         n = self._ns
@@ -491,7 +412,7 @@ class SpiralArmsPotential(Potential):
                                                                     - dBs_dR / Ks * log_sechzKB * cos_ng
                                                                     + dKs_dR / Ks**2 * cos_ng
                                                                     + cos_ng * dDs_dR / Ds / Ks)
-                             - Cs * sechzKB_Bs / Ds * np.sum(zKB * cos_ng  * (dKs_dR/Ks - dBs_dR/Bs) * (1 - tanhzKB**2)
+                             - Cs * sechzKB_Bs / Ds * np.sum(zKB * cos_ng * (dKs_dR/Ks - dBs_dR/Bs) * (1 - tanhzKB**2)
                                                              + cos_ng * tanhzKB * (dKs_dR/Ks - dBs_dR/Bs)
                                                              + dBs_dR * cos_ng / Bs * tanhzKB)) \
                - He / Rs * np.sum(Cs / Ds * tanhzKB * sechzKB_Bs * cos_ng)
@@ -513,38 +434,37 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-06-09  Jack Hong (UBC)
         """
+        R = max(1e-8, R)
         phi = phi - self._omega * t
 
-        def temp(phi):
-            Cs = self._Cs
-            Rs = self._Rs
-            He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
+        Cs = self._Cs
+        Rs = self._Rs
+        He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
 
-            Ks = self._K(R)
-            Bs = self._B(R)
-            Ds = self._D(R)
+        Ks = self._K(R)
+        Bs = self._B(R)
+        Ds = self._D(R)
 
-            dKs_dR = self._dK_dR(R)
-            dBs_dR = self._dB_dR(R)
-            dDs_dR = self._dD_dR(R)
-            g = self._gamma(R, phi, t)
-            dg_dR = self._dgamma_dR(R)
+        dKs_dR = self._dK_dR(R)
+        dBs_dR = self._dB_dR(R)
+        dDs_dR = self._dD_dR(R)
+        g = self._gamma(R, phi, t)
+        dg_dR = self._dgamma_dR(R)
 
-            n = self._ns
-            cos_ng = np.cos(n * g)
-            sin_ng = np.sin(n * g)
-            zKB = z * Ks / Bs
-            sechzKB = 1 / np.cosh(zKB)
-            sechzKB_Bs = sechzKB ** Bs
+        n = self._ns
+        N = self._N
+        cos_ng = np.cos(n * g)
+        sin_ng = np.sin(n * g)
+        zKB = z * Ks / Bs
+        sechzKB = 1 / np.cosh(zKB)
+        sechzKB_Bs = sechzKB ** Bs
 
-            return -He * np.sum(-Cs * sechzKB_Bs / Ds * (n * dg_dR / Ks * sin_ng
-                                                        + z * cos_ng * np.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
-                                                        - dBs_dR / Ks * np.log(sechzKB) * cos_ng
-                                                        + dKs_dR / Ks ** 2 * cos_ng
-                                                        + cos_ng * dDs_dR / Ds / Ks)) \
-                   + He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
-
-        return deriv(temp, phi, dx=1e-8)
+        return He * np.sum(Cs * sechzKB_Bs / Ds * (n * dg_dR / Ks * cos_ng * n * N
+                                                   - z * sin_ng * n * N * np.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
+                                                   + dBs_dR / Ks * np.log(sechzKB) * sin_ng * n * N
+                                                   - dKs_dR / Ks**2 * sin_ng * n * N
+                                                   - sin_ng * n * N * dDs_dR / Ds / Ks)) \
+               - He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * sin_ng * n * N)
 
     def _dens(self, R, z, phi=0, t=0):
         """
