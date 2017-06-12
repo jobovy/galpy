@@ -23,7 +23,7 @@ def check_inputs_not_arrays(func):
     Methods potentially return with silent errors if inputs are not checked."""
     def func_wrapper(self, R, z, phi, t):
         if hasattr(R, '__len__') or hasattr(z, '__len__') or hasattr(phi, '__len__') or hasattr(t, '__len__'):
-            raise TypeError('SpiralArmsPotential does not accept array inputs. Please use a scalar.')
+            raise TypeError('Methods in SpiralArmsPotential do not accept array inputs. Please input scalars.')
         return func(self, R, z, phi, t)
 
     return func_wrapper
@@ -116,13 +116,13 @@ class SpiralArmsPotential(Potential):
             2017-05-12  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-            * np.sum(self._Cs/(Ks * Ds) * np.cos(self._ns * self._gamma(R, phi, t)) * 1 / np.cosh(Ks * z / Bs) ** Bs)
+               * np.sum(self._Cs/(Ks * Ds) * np.cos(self._ns * self._gamma(R, phi, t)) * 1 / np.cosh(Ks * z / Bs) ** Bs)
 
     @check_inputs_not_arrays
     def _Rforce(self, R, z, phi=0, t=0):
@@ -142,7 +142,7 @@ class SpiralArmsPotential(Potential):
             2017-05-12  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         Cs = self._Cs
         Rs = self._Rs
@@ -170,7 +170,7 @@ class SpiralArmsPotential(Potential):
                                                     - dBs_dR / Ks * np.log(sechzKB) * cos_ng
                                                     + dKs_dR / Ks**2 * cos_ng
                                                     + cos_ng * dDs_dR / Ds / Ks)) \
-            - He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
+               - He / Rs * np.sum(Cs / Ds / Ks * sechzKB_Bs * cos_ng)
 
     @check_inputs_not_arrays
     def _zforce(self, R, z, phi=0, t=0):
@@ -190,7 +190,7 @@ class SpiralArmsPotential(Potential):
             2017-05-25  Jack Hong (UBC) 
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         Ks = self._K(R)
         Bs = self._B(R)
@@ -217,14 +217,14 @@ class SpiralArmsPotential(Potential):
             2017-05-25  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-            * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.sin(self._ns * g))
+               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.sin(self._ns * g))
 
     @check_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0, t=0):
@@ -245,7 +245,7 @@ class SpiralArmsPotential(Potential):
             2017-05-31  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         Cs = self._Cs
         Rs = self._Rs
@@ -339,7 +339,7 @@ class SpiralArmsPotential(Potential):
             2017-05-26  Jack Hong (UBC) 
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
         Ks = self._K(R)
@@ -371,7 +371,7 @@ class SpiralArmsPotential(Potential):
             2017-05-29 Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
         Ks = self._K(R)
@@ -398,7 +398,7 @@ class SpiralArmsPotential(Potential):
             2017-05-12  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         n = self._ns
         Cs = self._Cs
@@ -455,7 +455,7 @@ class SpiralArmsPotential(Potential):
             2017-06-09  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         Cs = self._Cs
         Rs = self._Rs
@@ -505,7 +505,7 @@ class SpiralArmsPotential(Potential):
             2017-05-12  Jack Hong (UBC)
         """
         R = max(1e-8, R)
-        phi = phi + self._omega * t
+        phi = phi - self._omega * t
 
         g = self._gamma(R, phi, t)
         Ks = self._K(R)
