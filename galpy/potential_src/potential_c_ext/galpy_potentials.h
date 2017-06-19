@@ -372,6 +372,17 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
+
+// SpiralArmsPotential
+double SpiralArmsPotentialEval(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialRforce(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialzforce(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialphiforce(double, double, double, double,
+                            struct potentialArg*);
+
 #ifdef __cplusplus
 }
 #endif

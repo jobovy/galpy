@@ -227,8 +227,9 @@ def _parse_pot(pot):
         elif isinstance(p, potential_src.planarPotential.planarPotentialFromFullPotential) \
                 and isinstance(p._Pot, potential.SpiralArmsPotential):
             pot_type.append(27)
-            pot_args.extend([p._Pot._amp, p._Pot._N, p._Pot._alpha, p._pot._r_ref, p._Pot._phi_ref, p._Pot._Rs,
-                             p._Pot._H, p._Pot._Cs, p._Pot._omega])
+            pot_args.append(len(p._Pot._Cs))
+            pot_args.extend([p._Pot._amp, p._Pot._N, p._Pot._alpha, p._Pot._r_ref, p._Pot._phi_ref, p._Pot._Rs,
+                             p._Pot._H, p._Pot._omega, p._Pot._Cs])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
