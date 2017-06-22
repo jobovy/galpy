@@ -382,20 +382,26 @@ double SpiralArmsPotentialzforce(double, double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialphiforce(double, double, double, double,
                             struct potentialArg*);
-double SpiralArmsPotentialPlanarRforce(double, double, double,
-                            struct potentialArg*);
-double SpiralArmsPotentialPlanarphiforce(double, double, double,
-                            struct potentialArg*);
 double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
-                            struct potentialArg* potentialArgs)
+                            struct potentialArg* potentialArgs);
 double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
+double SpiralArmsPotentialPlanarRforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarphiforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarR2deriv(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarRphideriv(double, double, double,
+                            struct potentialArg*);
 double gam(double R, double phi, double N, double phi_ref, double r_ref, double alpha);
 double dgam_dR(double R, double N, double alpha);
 double K(double R, double n, double N, double alpha);

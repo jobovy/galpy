@@ -198,9 +198,10 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
         double dBn_dR = dB_dR(R, H, n, N, alpha);
         double dDn_dR = dD_dR(R, H, n, N, alpha);
 
-        double HNn_R = H * N * n / R;
+        double HNn = H * N * n;
+        double HNn_R = HNn / R;
         double R_sina = R * sin_alpha;
-        double HNn_R_sina = H * N * n / R_sina;
+        double HNn_R_sina = HNn / R_sina;
         double HNn_R_sina_2 = HNn_R_sina * HNn_R_sina;
         double x = R * (0.3 * HNn_R_sina + 1) * sin_alpha;
 
@@ -235,25 +236,25 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                                                                                       - dBn_dR * log_sechzKB
                                                                                       + dKn_dR / Kn / Kn
                                                                                       + dDn_dR / Dn))
-                                              + (self._ns * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
-                                                             + dg_dR * dg_dR / Kn * cos_ng * self._ns)
-                                                 + z * (-sin_ng * self._ns * dg_dR * tanhzKB * (dKn_dR/Kn - dBn_dR/Bn)
+                                              + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
+                                                             + dg_dR * dg_dR / Kn * cos_ng * n)
+                                                 + z * (-sin_ng * n * dg_dR * tanhzKB * (dKn_dR/Kn - dBn_dR/Bn)
                                                         + cos_ng * (z * (dKn_dR/Bn - dBn_dR/Bn/Bn * Kn) * (1-tanhzKB * tanhzKB) * (dKn_dR/Kn - dBn_dR/Bn)
                                                                     + tanhzKB * (d2Kn_dR2/Kn-(dKn_dR/Kn)*(dKn_dR/Kn) - d2Bn_dR2/Bn + (dBn_dR/Bn)*(dBn_dR/Bn))))
                                                  + (cos_ng * (dBn_dR/Kn * ztanhzKB * (dKn_dR/Bn - dBn_dR/Bn/Bn*Kn)
                                                               -(d2Bn_dR2/Kn-dBn_dR*dKn_dR/Kn/Kn) * log_sechzKB)
-                                                    + dBn_dR/Kn * log_sechzKB * sin_ng * self._ns * dg_dR)
+                                                    + dBn_dR/Kn * log_sechzKB * sin_ng * n * dg_dR)
                                                  + ((cos_ng * (d2Kn_dR2 / Kn / Kn - 2 * dKn_dR * dKn_dR / Kn / Kn / Kn)
-                                                     - dKn_dR / Kn / Kn * sin_ng * self._ns * dg_dR)
+                                                     - dKn_dR / Kn / Kn * sin_ng * n * dg_dR)
                                                     + (cos_ng * (d2Dn_dR2 / Dn / Kn
                                                                  - (dDn_dR/Dn)*(dDn_dR/Dn) / Kn
                                                                  - dDn_dR / Dn / Kn / Kn * dKn_dR)
-                                                       - sin_ng * self._ns * dg_dR * dDn_dR / Dn / Kn))))
+                                                       - sin_ng * n * dg_dR * dDn_dR / Dn / Kn))))
                                         - 1 / Kn * (cos_ng / Rs
                                                     + (cos_ng * ((dDn_dR * Kn + Dn * dKn_dR) / (Dn * Kn)
                                                                  -  (ztanhzKB * (dBn_dR / Bn * Kn - dKn_dR)
                                                                      + log_sechzKB * dBn_dR))
-                                                       + sin_ng * self._ns * dg_dR)))));
+                                                       + sin_ng * n * dg_dR)))));
     }
 
     return -amp * H * exp(-(R - r_ref) / Rs) / Rs * sum;
@@ -376,7 +377,7 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
         double log_sechzKB = log(sechzKB);
         double tanhzKB = tanh(zKB);
 
-        sum += sechzKB_Bs * Cn / Dn * (Kn * tanhzKB * (n * dg_dR / Kn * sin_ng
+        sum += sechzKB_B * Cn / Dn * (Kn * tanhzKB * (n * dg_dR / Kn * sin_ng
                                                                            + cos_ng * (z * tanhzKB * (dKn_dR/Kn - dBn_dR/Bn)
                                                                                        - dBn_dR / Kn * log_sechzKB
                                                                                        + dKn_dR / Kn / Kn
@@ -464,7 +465,7 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
 
     phi = phi - omega * t;
 
-     // Return the Rforce (-dPhi / dR)
+     // Return the planar Rforce (-dPhi / dR)
     double sum = 0;
 
     int n;
@@ -506,7 +507,7 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
 
     phi = phi - omega * t;
 
-    // Return the phiforce (-dPhi / dphi)
+    // Return the planar phiforce (-dPhi / dphi)
     double sum = 0;
     int n;
 
@@ -516,6 +517,160 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
         double Dn = D(R, H, n, N, alpha);
 
         sum += N * n * Cn / Dn / Kn * sin(n * g);
+    }
+
+    return -amp * H * exp(-(R - r_ref) / Rs) * sum;
+}
+
+double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
+                                struct potentialArg* potentialArgs){
+
+    // Get args
+    double *args = potentialArgs->args;
+
+    double amp = *args++;
+    double N = *args++;
+    double alpha = *args++;
+    double r_ref = *args++;
+    double phi_ref = *args++;
+    double Rs = *args++;
+    double H = *args++;
+    double omega = *args++;
+    int nCs = (int) *args++;
+    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+    double dg_dR = dgam_dR(R, N, alpha);
+    double d2g_dR2 = N / R / R / tan(alpha);
+
+    phi = phi - omega * t;
+
+     // Return the planar second derivative of the potential wrt R (d2Phi / dR2)
+    double sum = 0;
+
+    int n;
+    double sin_alpha = sin(alpha);
+
+    for (n=1; n <= nCs; n++){
+        double Cn = *args++;
+
+        double Kn = K(R, n, N, alpha);
+        double Dn = D(R, H, n, N, alpha);
+
+        double dKn_dR = dK_dR(R, n, N, alpha);
+        double dDn_dR = dD_dR(R, H, n, N, alpha);
+
+        double HNn = H * N * n;
+        double HNn_R = HNn / R;
+        double R_sina = R * sin_alpha;
+        double HNn_R_sina = HNn / R_sina;
+        double HNn_R_sina_2 = HNn_R_sina * HNn_R_sina;
+        double x = R * (0.3 * HNn_R_sina + 1) * sin_alpha;
+
+        double d2Kn_dR2 = 2 * N * n / R / R / R / sin_alpha;
+        double d2Dn_dR2 = sin_alpha / R / x * (HNn * (0.18 * HNn * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x / x
+                                                  + 2 / R_sina
+                                                  - 0.6 * HNn_R_sina * (1 + 0.6 * HNn_R_sina) / x
+                                                  - 0.6 * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x
+                                                  + 1.8 * HNn / R_sina / R_sina));
+
+        double cos_ng = cos(n * g);
+        double sin_ng = sin(n * g);
+
+        sum += (Cn / Dn * ((n * dg_dR / Kn * sin_ng
+                                      + cos_ng * (dKn_dR / Kn / Kn
+                                                  + dDn_dR / Dn / Kn))
+                                     - (Rs * (1 / Kn * (- dDn_dR / Dn) * (n * dg_dR * sin_ng
+                                                                          + cos_ng * (dKn_dR / Kn / Kn
+                                                                                      + dDn_dR / Dn))
+                                              + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
+                                                             + dg_dR * dg_dR / Kn * cos_ng * n)
+                                                 + ((cos_ng * (d2Kn_dR2 / Kn / Kn - 2 * dKn_dR * dKn_dR / Kn / Kn / Kn)
+                                                     - dKn_dR / Kn / Kn * sin_ng * n * dg_dR)
+                                                    + (cos_ng * (d2Dn_dR2 / Dn / Kn
+                                                                 - (dDn_dR/Dn)*(dDn_dR/Dn) / Kn
+                                                                 - dDn_dR / Dn / Kn / Kn * dKn_dR)
+                                                       - sin_ng * n * dg_dR * dDn_dR / Dn / Kn))))
+                                        - 1 / Kn * (cos_ng / Rs
+                                                    + (cos_ng * ((dDn_dR * Kn + Dn * dKn_dR) / (Dn * Kn))
+                                                       + sin_ng * n * dg_dR)))));
+    }
+
+    return -amp * H * exp(-(R - r_ref) / Rs) / Rs * sum;
+}
+
+double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
+                                struct potentialArg* potentialArgs){
+
+    // Get args
+    double *args = potentialArgs->args;
+
+    double amp = *args++;
+    double N = *args++;
+    double alpha = *args++;
+    double r_ref = *args++;
+    double phi_ref = *args++;
+    double Rs = *args++;
+    double H = *args++;
+    double omega = *args++;
+    int nCs = (int) *args++;
+    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    phi = phi - omega * t;
+
+    // Return the second derivative of the potential wrt phi (d2Phi / dphi2)
+    double sum = 0;
+    int n;
+
+    for (n=1; n <= nCs; n++){
+        double Cn = *args++;
+        double Kn = K(R, n, N, alpha);
+        double Dn = D(R, H, n, N, alpha);
+
+        sum += Cn * N * N * n * n / Dn / Kn * cos(n * g);
+    }
+
+    return amp * H * exp(-(R - r_ref) / Rs) * sum;
+}
+
+double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
+                                struct potentialArg* potentialArgs){
+
+    // Get args
+    double *args = potentialArgs->args;
+
+    double amp = *args++;
+    double N = *args++;
+    double alpha = *args++;
+    double r_ref = *args++;
+    double phi_ref = *args++;
+    double Rs = *args++;
+    double H = *args++;
+    double omega = *args++;
+    int nCs = (int) *args++;
+    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+    double dg_dR = dgam_dR(R, N, alpha);
+
+    phi = phi - omega * t;
+
+     // Return the mixed (cylindrical) radial and azimuthal derivative of the potential (d^2 potential / dR dphi).
+    double sum = 0;
+
+    int n;
+    for (n=1; n <= nCs; n++){
+        double Cn = *args++;
+
+        double Kn = K(R, n, N, alpha);
+        double Dn = D(R, H, n, N, alpha);
+
+        double dKn_dR = dK_dR(R, n, N, alpha);
+        double dDn_dR = dD_dR(R, H, n, N, alpha);
+
+        double cos_ng = cos(n * g);
+        double sin_ng = sin(n * g);
+
+        sum += Cn / Dn * n * N * (- n * dg_dR / Kn * cos_ng
+                              + sin_ng * (1/Kn * (dKn_dR / Kn
+                                                    + dDn_dR / Dn
+                                                    + 1 / Rs)));
     }
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
