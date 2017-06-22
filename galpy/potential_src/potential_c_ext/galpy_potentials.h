@@ -382,6 +382,28 @@ double SpiralArmsPotentialzforce(double, double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialphiforce(double, double, double, double,
                             struct potentialArg*);
+double SpiralArmsPotentialPlanarRforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarphiforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs)
+double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double gam(double R, double phi, double N, double phi_ref, double r_ref, double alpha);
+double dgam_dR(double R, double N, double alpha);
+double K(double R, double n, double N, double alpha);
+double B(double R, double H, double n, double N, double alpha);
+double D(double R, double H, double n, double N, double alpha);
+double dK_dR(double R, double n, double N, double alpha);
+double dB_dR(double R, double H, double n, double N, double alpha);
+double dD_dR(double R, double H, double n, double N, double alpha);
 
 #ifdef __cplusplus
 }

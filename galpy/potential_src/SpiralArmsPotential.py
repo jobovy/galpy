@@ -263,19 +263,18 @@ class SpiralArmsPotential(Potential):
         dBs_dR = self._dB_dR(R)
         dDs_dR = self._dD_dR(R)
 
-        HNn_R = self._HNn / R
         R_sina = R * self._sin_alpha
         HNn_R_sina = self._HNn / R_sina
         HNn_R_sina_2 = HNn_R_sina**2
         x = R * (0.3 * HNn_R_sina + 1) * self._sin_alpha
 
         d2Ks_dR2 = 2 * self._N * self._ns / R**3 / self._sin_alpha
-        d2Bs_dR2 = HNn_R / R**2 / self._sin_alpha * (2.4 * HNn_R / self._sin_alpha + 2)
+        d2Bs_dR2 = HNn_R_sina / R**2 * (2.4 * HNn_R_sina + 2)
         d2Ds_dR2 = self._sin_alpha / R / x * (self._HNn* (0.18 * self._HNn * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x**2
-                                                + 2 / R_sina
-                                                - 0.6 * HNn_R_sina * (1 + 0.6 * HNn_R_sina) / x
-                                                - 0.6 * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x
-                                                + 1.8 * self._HNn / R_sina**2))
+                                                          + 2 / R_sina
+                                                          - 0.6 * HNn_R_sina * (1 + 0.6 * HNn_R_sina) / x
+                                                          - 0.6 * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x
+                                                          + 1.8 * self._HNn / R_sina**2))
 
         g = self._gamma(R, phi)
         dg_dR = self._dgamma_dR(R)
@@ -388,14 +387,15 @@ class SpiralArmsPotential(Potential):
         NAME:
             _Rzderiv
         PURPOSE:
-            Evaluate the mixed (cylindrical) radial and vertical derivative of the potential (d^2 potential / d R d z).
+            Evaluate the mixed (cylindrical) radial and vertical derivative of the potential
+            (d^2 potential / dR dz).
         INPUT:
             :param R: galactocentric cylindrical radius (must be scalar, not array)
             :param z: vertical height (must be scalar, not array)
             :param phi: azimuth (must be scalar, not array)
             :param t: time (must be scalar, not array)
         OUTPUT:
-            :return: d^2 potential / d R d z
+            :return: d^2 potential / dR dz
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
@@ -441,7 +441,7 @@ class SpiralArmsPotential(Potential):
             _Rphideriv
         PURPOSE:
             Return the mixed radial and azimuthal derivative of the potential in cylindrical coordinates
-             (d^2 potential / d R d phi
+             (d^2 potential / dR dphi)
         INPUT:
             :param R: galactocentric cylindrical radius (must be scalar, not array)
             :param z: vertical height (must be scalar, not array)
@@ -473,9 +473,9 @@ class SpiralArmsPotential(Potential):
         sechzKB = 1 / np.cosh(zKB)
         sechzKB_Bs = sechzKB ** Bs
 
-        return He * np.sum(self._Cs * sechzKB_Bs / Ds * self._ns * self._N
-                           * (self._ns * dg_dR / Ks * cos_ng
-                              - sin_ng * (z * np.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
+        return - He * np.sum(self._Cs * sechzKB_Bs / Ds * self._ns * self._N
+                           * (- self._ns * dg_dR / Ks * cos_ng
+                              + sin_ng * (z * np.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
                                           + 1/Ks * (-dBs_dR * np.log(sechzKB)
                                                     + dKs_dR / Ks
                                                     + dDs_dR / Ds

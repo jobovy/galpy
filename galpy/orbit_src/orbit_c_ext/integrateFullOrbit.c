@@ -227,10 +227,15 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;
     case 27: // SpiralArmsPotential, 9 arguments + array of Cs
-      potentialArgs->Rforce   = &SpiralArmsPotentialRforce;
-      potentialArgs->zforce   = &SpiralArmsPotentialzforce;
+      potentialArgs->Rforce = &SpiralArmsPotentialRforce;
+      potentialArgs->zforce = &SpiralArmsPotentialzforce;
       potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
-      potentialArgs->nargs = (int) (9 + *pot_args);
+      potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      potentialArgs->z2derib = &SpiralArmsPotentialz2deriv;
+      potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
+      potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
+      potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
+      potentialArgs->nargs = (int) 9 + *pot_args;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
