@@ -1,11 +1,21 @@
 #include <math.h>
 #include <galpy_potentials.h>
 
+double gam(double R, double phi, double N, double phi_ref, double r_ref, double alpha);
+double dgam_dR(double R, double N, double alpha);
+double K(double R, double n, double N, double alpha);
+double B(double R, double H, double n, double N, double alpha);
+double D(double R, double H, double n, double N, double alpha);
+double dK_dR(double R, double n, double N, double alpha);
+double dB_dR(double R, double H, double n, double N, double alpha);
+double dD_dR(double R, double H, double n, double N, double alpha);
+
 double SpiralArmsPotentialEval(double R, double z, double phi, double t,
                                 struct potentialArg* potentialArgs){
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -14,7 +24,6 @@ double SpiralArmsPotentialEval(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -41,6 +50,7 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -49,7 +59,7 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
 
@@ -94,6 +104,7 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -102,7 +113,6 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -131,6 +141,7 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -139,7 +150,6 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -166,6 +176,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -174,7 +185,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
     double d2g_dR2 = N / R / R / tan(alpha);
@@ -266,6 +277,7 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -274,7 +286,6 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -304,6 +315,7 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -312,7 +324,6 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -339,6 +350,7 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -347,7 +359,7 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
 
@@ -397,6 +409,7 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -405,7 +418,7 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
 
@@ -451,6 +464,7 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -459,7 +473,7 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
 
@@ -494,6 +508,7 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -502,7 +517,7 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -528,6 +543,7 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -536,7 +552,7 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
     double d2g_dR2 = N / R / R / tan(alpha);
@@ -603,6 +619,7 @@ double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -611,7 +628,7 @@ double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
 
     phi = phi - omega * t;
@@ -637,6 +654,7 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     // Get args
     double *args = potentialArgs->args;
 
+    int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
     double alpha = *args++;
@@ -645,7 +663,7 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    int nCs = (int) *args++;
+
     double g = gam(R, phi, N, phi_ref, r_ref, alpha);
     double dg_dR = dgam_dR(R, N, alpha);
 
@@ -691,7 +709,7 @@ double K(double R, double n, double N, double alpha) {
 double B(double R, double H, double n, double N, double alpha) {
     double HNn_R = H * N * n / R;
     double sin_alpha = sin(alpha);
-    return HNn_R / sin_alpha * (0.4 * HNn_R / sin_alpha + 1.0);
+    return HNn_R / sin_alpha * (0.4 * HNn_R / sin_alpha + 1);
 }
 
 double D(double R, double H, double n, double N, double alpha){
