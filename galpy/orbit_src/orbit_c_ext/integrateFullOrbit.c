@@ -226,7 +226,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;
-    case 27: // SpiralArmsPotential, 9 arguments + array of Cs
+    case 27: // SpiralArmsPotential, 10 arguments + array of Cs
       potentialArgs->Rforce = &SpiralArmsPotentialRforce;
       potentialArgs->zforce = &SpiralArmsPotentialzforce;
       potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
@@ -235,7 +235,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
       //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
-      potentialArgs->nargs = (int) 9 + *pot_args;
+      potentialArgs->nargs = (int) 10 + *pot_args;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));

@@ -1,14 +1,14 @@
 #include <math.h>
 #include <galpy_potentials.h>
 
-double gam(double R, double phi, double N, double phi_ref, double r_ref, double alpha);
-double dgam_dR(double R, double N, double alpha);
-double K(double R, double n, double N, double alpha);
-double B(double R, double H, double n, double N, double alpha);
-double D(double R, double H, double n, double N, double alpha);
-double dK_dR(double R, double n, double N, double alpha);
-double dB_dR(double R, double H, double n, double N, double alpha);
-double dD_dR(double R, double H, double n, double N, double alpha);
+double gam(double R, double phi, double N, double phi_ref, double r_ref, double tan_alpha);
+double dgam_dR(double R, double N, double tan_alpha);
+double K(double R, double n, double N, double sin_alpha);
+double B(double R, double H, double n, double N, double sin_alpha);
+double D(double R, double H, double n, double N, double sin_alpha);
+double dK_dR(double R, double n, double N, double sin_alpha);
+double dB_dR(double R, double H, double n, double N, double sin_alpha);
+double dD_dR(double R, double H, double n, double N, double sin_alpha);
 
 double SpiralArmsPotentialEval(double R, double z, double phi, double t,
                                 struct potentialArg* potentialArgs){
@@ -18,13 +18,15 @@ double SpiralArmsPotentialEval(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -34,9 +36,9 @@ double SpiralArmsPotentialEval(double R, double z, double phi, double t,
     int n;
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         sum += Cn / Kn / Dn * cos(n * g) / pow(cosh(Kn * z / Bn), Bn);
     }
@@ -53,15 +55,16 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -72,13 +75,13 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dBn_dR = dB_dR(R, H, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dBn_dR = dB_dR(R, H, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double cos_ng = cos(n * g);
         double sin_ng = sin(n * g);
@@ -107,13 +110,15 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -123,9 +128,9 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         double zKn_Bn = z * Kn / Bn;
 
@@ -144,13 +149,15 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -160,9 +167,9 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         sum += N * n * Cn / Dn / Kn / pow(cosh(z * Kn / Bn), Bn) * sin(n * g);
     }
@@ -179,16 +186,17 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
-    double d2g_dR2 = N / R / R / tan(alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
+    double d2g_dR2 = N / R / R / tan_alpha;
 
     phi = phi - omega * t;
 
@@ -196,18 +204,17 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
     double sum = 0;
 
     int n;
-    double sin_alpha = sin(alpha);
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dBn_dR = dB_dR(R, H, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dBn_dR = dB_dR(R, H, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double HNn = H * N * n;
         double HNn_R = HNn / R;
@@ -280,13 +287,15 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -296,9 +305,9 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         double zKB = z * Kn / Bn;
         double tanh2_zKB = tanh(zKB) * tanh(zKB);
@@ -318,13 +327,15 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -334,9 +345,9 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         sum += Cn * N * N * n * n / Dn / Kn / pow(cosh(z * Kn / Bn), Bn) * cos(n * g);
     }
@@ -353,15 +364,16 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -372,13 +384,13 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dBn_dR = dB_dR(R, H, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dBn_dR = dB_dR(R, H, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double cos_ng = cos(n * g);
         double sin_ng = sin(n * g);
@@ -412,15 +424,16 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -431,13 +444,13 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Bn = B(R, H, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Bn = B(R, H, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dBn_dR = dB_dR(R, H, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dBn_dR = dB_dR(R, H, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double cos_ng = cos(n * g);
         double sin_ng = sin(n * g);
@@ -467,15 +480,16 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -486,11 +500,11 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double cos_ng = cos(n * g);
         double sin_ng = sin(n * g);
@@ -511,14 +525,15 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -528,8 +543,8 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         sum += N * n * Cn / Dn / Kn * sin(n * g);
     }
@@ -546,16 +561,17 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
-    double d2g_dR2 = N / R / R / tan(alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
+    double d2g_dR2 = N / R / R / tan_alpha;
 
     phi = phi - omega * t;
 
@@ -563,19 +579,17 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
     double sum = 0;
 
     int n;
-    double sin_alpha = sin(alpha);
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double HNn = H * N * n;
-        double HNn_R = HNn / R;
         double R_sina = R * sin_alpha;
         double HNn_R_sina = HNn / R_sina;
         double HNn_R_sina_2 = HNn_R_sina * HNn_R_sina;
@@ -622,14 +636,15 @@ double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -639,8 +654,8 @@ double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
 
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-        double Kn = K(R, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
         sum += Cn * N * N * n * n / Dn / Kn * cos(n * g);
     }
@@ -657,15 +672,16 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     int nCs = (int) *args++;
     double amp = *args++;
     double N = *args++;
-    double alpha = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
     double r_ref = *args++;
     double phi_ref = *args++;
     double Rs = *args++;
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, alpha);
-    double dg_dR = dgam_dR(R, N, alpha);
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
+    double dg_dR = dgam_dR(R, N, tan_alpha);
 
     phi = phi - omega * t;
 
@@ -676,11 +692,11 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
 
-        double Kn = K(R, n, N, alpha);
-        double Dn = D(R, H, n, N, alpha);
+        double Kn = K(R, n, N, sin_alpha);
+        double Dn = D(R, H, n, N, sin_alpha);
 
-        double dKn_dR = dK_dR(R, n, N, alpha);
-        double dDn_dR = dD_dR(R, H, n, N, alpha);
+        double dKn_dR = dK_dR(R, n, N, sin_alpha);
+        double dDn_dR = dD_dR(R, H, n, N, sin_alpha);
 
         double cos_ng = cos(n * g);
         double sin_ng = sin(n * g);
@@ -694,43 +710,40 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
 
-double gam(double R, double phi, double N, double phi_ref, double r_ref, double alpha){
-    return N * (phi - phi_ref - log(R / r_ref) / tan(alpha));
+double gam(double R, double phi, double N, double phi_ref, double r_ref, double tan_alpha){
+    return N * (phi - phi_ref - log(R / r_ref) / tan_alpha);
 }
 
-double dgam_dR(double R, double N, double alpha){
-    return - N / R / tan(alpha);
+double dgam_dR(double R, double N, double tan_alpha){
+    return - N / R / tan_alpha;
 }
 
-double K(double R, double n, double N, double alpha) {
-    return n * N / R / sin(alpha);
+double K(double R, double n, double N, double sin_alpha) {
+    return n * N / R / sin_alpha;
 }
 
-double B(double R, double H, double n, double N, double alpha) {
+double B(double R, double H, double n, double N, double sin_alpha) {
     double HNn_R = H * N * n / R;
-    double sin_alpha = sin(alpha);
     return HNn_R / sin_alpha * (0.4 * HNn_R / sin_alpha + 1);
 }
 
-double D(double R, double H, double n, double N, double alpha){
-    double sin_alpha = sin(alpha);
+double D(double R, double H, double n, double N, double sin_alpha){
     double HNn = H * N * n;
     return (0.3 * HNn * HNn / sin_alpha / R
             + HNn + R * sin_alpha) / (0.3 * HNn + R * sin_alpha);
 }
 
-double dK_dR(double R, double n, double N, double alpha){
-    return -n * N / (R*R) / sin(alpha);
+double dK_dR(double R, double n, double N, double sin_alpha){
+    return -n * N / (R*R) / sin_alpha;
 }
 
-double dB_dR(double R, double H, double n, double N, double alpha){
-    double sin_alpha = sin(alpha);
+double dB_dR(double R, double H, double n, double N, double sin_alpha){
     double HNn = H * N * n;
     return -HNn / R / R / R / sin_alpha / sin_alpha * (0.8 * HNn + R * sin_alpha);
 }
 
-double dD_dR(double R, double H, double n, double N, double alpha){
-    double HNn_R_sina = H * N * n / R / sin(alpha);
+double dD_dR(double R, double H, double n, double N, double sin_alpha){
+    double HNn_R_sina = H * N * n / R / sin_alpha;
     return HNn_R_sina * (0.3 * (HNn_R_sina + 0.3 * HNn_R_sina * HNn_R_sina + 1) / R / pow((0.3 * HNn_R_sina + 1), 2)
                              - (1/R * (1 + 0.6 * HNn_R_sina) / (0.3 * HNn_R_sina + 1)));
 

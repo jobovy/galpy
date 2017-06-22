@@ -509,7 +509,7 @@ def test_poisson_potential():
     tol= {}
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
-    tol['SpiralArmsPotential']= -5 #these are more difficult
+    tol['SpiralArmsPotential']= -3. #these are more difficult
     #tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
