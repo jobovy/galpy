@@ -301,6 +301,7 @@ def test_2ndDeriv_potential():
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
     tol['mockInterpRZPotential']= -4.
+    tol['DehnenBarPotential']= -7.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -384,7 +385,7 @@ def test_2ndDeriv_potential():
                         if isinstance(tp,potential.planarPotential):
                             raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s Radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
                         else:
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -2000,7 +2001,7 @@ def test_plotting():
                            savefilename=tmp_savefilename)
     finally:
         os.remove(tmp_savefilename)
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     savefile, tmp_savefilename= tempfile.mkstemp()
     try:
         os.close(savefile) #Easier this way 
