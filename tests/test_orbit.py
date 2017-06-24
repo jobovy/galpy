@@ -3072,7 +3072,9 @@ def test_orbit_c_sigint_full():
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()
@@ -3096,7 +3098,9 @@ def test_orbit_c_sigint_planar():
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()
@@ -3117,7 +3121,9 @@ def test_orbit_c_sigint_planardxdv():
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()
