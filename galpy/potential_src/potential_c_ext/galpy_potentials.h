@@ -89,16 +89,22 @@ double LogarithmicHaloPotentialzforce(double,double,double,double,
 double LogarithmicHaloPotentialPlanarR2deriv(double ,double, double,
 				    struct potentialArg *);
 //DehnenBarPotential
-double DehnenBarPotentialRforce(double,double,double,
+double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);
-double DehnenBarPotentialphiforce(double,double,double,
-		       struct potentialArg *);
-double DehnenBarPotentialR2deriv(double,double,double,
-		       struct potentialArg *);
-double DehnenBarPotentialphi2deriv(double,double,double,
-		       struct potentialArg *);
-double DehnenBarPotentialRphideriv(double,double,double,
-		       struct potentialArg *);
+double DehnenBarPotentialphiforce(double,double,double,double,
+				  struct potentialArg *);
+double DehnenBarPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double DehnenBarPotentialPlanarRforce(double,double,double,
+				      struct potentialArg *);
+double DehnenBarPotentialPlanarphiforce(double,double,double,
+					struct potentialArg *);
+double DehnenBarPotentialPlanarR2deriv(double,double,double,
+				       struct potentialArg *);
+double DehnenBarPotentialPlanarphi2deriv(double,double,double,
+					 struct potentialArg *);
+double DehnenBarPotentialPlanarRphideriv(double,double,double,
+					 struct potentialArg *);
 //TransientLogSpiralPotential
 double TransientLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
