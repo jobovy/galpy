@@ -55,8 +55,8 @@ warnings.simplefilter("always",galpyWarning)
 def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
-    times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
-    fasttimes= numpy.linspace(0.,28.,1001) #~1 Gyr at the Solar circle
+    times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
+    fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
                   'leapfrog','leapfrog_c',
