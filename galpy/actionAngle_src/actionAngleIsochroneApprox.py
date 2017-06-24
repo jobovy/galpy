@@ -319,7 +319,7 @@ class actionAngleIsochroneApprox(actionAngle):
             if _isNonAxi(self._pot):
                 gridphi= grid[2].T.flatten()[1:]
                 mask= True\
-                    -(gridR == 0)*((gridphi < 0)+((gridphi==0)*(gridZ < 0)))
+                    ^(gridR == 0)*((gridphi < 0)+((gridphi==0)*(gridZ < 0)))
             else:
                 mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
