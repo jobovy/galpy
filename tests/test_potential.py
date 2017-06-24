@@ -2411,6 +2411,7 @@ class testMWPotential(Potential):
     def __init__(self,potlist=MWPotential):
         self._potlist= potlist
         Potential.__init__(self,amp=1.)
+        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
         return None
     def _evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0):
         return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,
@@ -2496,18 +2497,18 @@ class mockSlowFlatLopsidedDiskPotential(testplanarMWPotential):
                                                 potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=1.,tsteady=250.,phio=10./220.)])
     def OmegaP(self):
         return 0.
-class mockFlatDehnenBarPotential(testplanarMWPotential):
+class mockFlatDehnenBarPotential(testMWPotential):
     def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential()])
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.DehnenBarPotential()])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
-class mockSlowFlatDehnenBarPotential(testplanarMWPotential):
+class mockSlowFlatDehnenBarPotential(testMWPotential):
     def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.5)])
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.5)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
 class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
