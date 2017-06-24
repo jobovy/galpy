@@ -2768,8 +2768,8 @@ def test_orbit_dim_2dPot_3dOrb():
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
-    bar_p= potential.DehnenBarPotential()
-    pota=[b_p,bar_p]
+    ell_p= potential.EllipticalDiskPotential()
+    pota=[b_p,ell_p]
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
