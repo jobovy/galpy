@@ -48,6 +48,12 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
       break;
+    case 1: //DehnenBarPotential, 7 arguments
+      potentialArgs->Rforce= &DehnenBarPotentialRforce;
+      potentialArgs->phiforce= &DehnenBarPotentialphiforce;
+      potentialArgs->zforce= &DehnenBarPotentialzforce;
+      potentialArgs->nargs= 7;
+      break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;

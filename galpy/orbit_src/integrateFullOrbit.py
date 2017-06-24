@@ -50,6 +50,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         if isinstance(p,potential.LogarithmicHaloPotential):
             pot_type.append(0)
             pot_args.extend([p._amp,p._q,p._core2])
+        elif isinstance(p,potential.DehnenBarPotential):
+            pot_type.append(1)
+            pot_args.extend([p._amp,p._tform,p._tsteady,p._rb,p._af,p._omegab,
+                             p._barphi])
         elif isinstance(p,potential.MiyamotoNagaiPotential):
             pot_type.append(5)
             pot_args.extend([p._amp,p._a,p._b])
