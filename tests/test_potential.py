@@ -2279,7 +2279,7 @@ class mockCosmphiDiskPotentialT1(CosmphiDiskPotential):
     def __init__(self):
         CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
                                       p=1.,phio=0.01,m=1., 
-                                      tform=1.,tsteady=2.,
+                                      tform=0.5,tsteady=1.,
                                       cp=0.05,sp=0.05)
 class mockCosmphiDiskPotentialTm1(CosmphiDiskPotential):
     def __init__(self):
@@ -2297,25 +2297,25 @@ class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=1.,tsteady=1.,
+                                    tform=0.5,tsteady=0.5,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-1.,tsteady=2.,
+                                    tform=-1.,tsteady=1.,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm5(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-5.,tsteady=4.,
+                                    tform=-5.,tsteady=2.,
                                     alpha=0.01,Af=0.04)
 class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
     def __init__(self):
         EllipticalDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
                                          p=1.,twophio=0.02, 
-                                         tform=1.,tsteady=2.,
+                                         tform=0.5,tsteady=1.,
                                          cp=0.05,sp=0.05)
 class mockEllipticalDiskPotentialTm1(EllipticalDiskPotential):
     def __init__(self):
@@ -2334,7 +2334,7 @@ class mockSteadyLogSpiralPotentialT1(SteadyLogSpiralPotential):
         SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
                                           m=2,gamma=numpy.pi/4.,
                                           p=-0.3, 
-                                          tform=1.,tsteady=2.)
+                                          tform=0.5,tsteady=1.)
 class mockSteadyLogSpiralPotentialTm1(SteadyLogSpiralPotential):
     def __init__(self):
         SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
@@ -2406,6 +2406,9 @@ from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities
+from galpy.potential import planarPotential, \
+    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
+    evaluateplanarR2derivs
 class testMWPotential(Potential):
     """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
@@ -2428,6 +2431,11 @@ class testMWPotential(Potential):
         return evaluatez2derivs(self._potlist,R,z,phi=phi,t=t)
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         return evaluateRzderivs(self._potlist,R,z,phi=phi,t=t)
+    def _phi2deriv(self,R,z,phi=0.,t=0.):
+        return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,dphi=2)
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,dR=1,
+                                  dphi=1)
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(self._potlist,R,z,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
@@ -2438,9 +2446,6 @@ class testMWPotential(Potential):
     def OmegaP(self):
         return 1.
 #Class to test lists of planarPotentials
-from galpy.potential import planarPotential, \
-    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
-    evaluateplanarR2derivs
 class testplanarMWPotential(planarPotential):
     """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
