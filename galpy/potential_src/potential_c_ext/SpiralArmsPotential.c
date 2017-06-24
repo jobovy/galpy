@@ -74,7 +74,6 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     int n;
     for (n=1; n <= nCs; n++){
         double Cn = *args++;
-
         double Kn = K(R, n, N, sin_alpha);
         double Bn = B(R, H, n, N, sin_alpha);
         double Dn = D(R, H, n, N, sin_alpha);
@@ -241,8 +240,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
         double tanhzKB = tanh(zKB);
         double ztanhzKB = z * tanhzKB;
 
-        sum += (Cn * sechzKB_B / Dn
-                                  * ((n * dg_dR / Kn * sin_ng
+        sum += (Cn * sechzKB_B / Dn * ((n * dg_dR / Kn * sin_ng
                                       + cos_ng * (ztanhzKB * (dKn_dR/Kn - dBn_dR/Bn)
                                                   - dBn_dR / Kn * log_sechzKB
                                                   + dKn_dR / Kn / Kn
@@ -746,6 +744,5 @@ double dD_dR(double R, double H, double n, double N, double sin_alpha){
     double HNn_R_sina = H * N * n / R / sin_alpha;
     return HNn_R_sina * (0.3 * (HNn_R_sina + 0.3 * HNn_R_sina * HNn_R_sina + 1) / R / pow((0.3 * HNn_R_sina + 1), 2)
                              - (1/R * (1 + 0.6 * HNn_R_sina) / (0.3 * HNn_R_sina + 1)));
-
 }
 
