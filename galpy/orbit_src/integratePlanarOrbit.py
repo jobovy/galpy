@@ -54,8 +54,8 @@ def _parse_pot(pot):
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.DehnenBarPotential):
             pot_type.append(1)
-            pot_args.extend([p._Pot._amp,p._Pot._tform,p._Pot._tsteady,
-                             p._Pot._rb,p._Pot._af,p._Pot._omegab,
+            pot_args.extend([p._Pot._amp*p._Pot._af,p._Pot._tform,
+                             p._Pot._tsteady,p._Pot._rb,p._Pot._omegab,
                              p._Pot._barphi])
         elif isinstance(p,potential.TransientLogSpiralPotential):
             pot_type.append(2)

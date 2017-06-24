@@ -38,13 +38,13 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
-    case 1: //DehnenBarPotential, 7 arguments
+    case 1: //DehnenBarPotential, 6 arguments
       potentialArgs->planarRforce= &DehnenBarPotentialPlanarRforce;
       potentialArgs->planarphiforce= &DehnenBarPotentialPlanarphiforce;
       potentialArgs->planarR2deriv= &DehnenBarPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &DehnenBarPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &DehnenBarPotentialPlanarRphideriv;
-      potentialArgs->nargs= 7;
+      potentialArgs->nargs= 6;
       break;
     case 2: //TransientLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &TransientLogSpiralPotentialRforce;

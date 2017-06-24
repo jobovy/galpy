@@ -52,7 +52,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp,p._q,p._core2])
         elif isinstance(p,potential.DehnenBarPotential):
             pot_type.append(1)
-            pot_args.extend([p._amp,p._tform,p._tsteady,p._rb,p._af,p._omegab,
+            pot_args.extend([p._amp*p._af,p._tform,p._tsteady,p._rb,p._omegab,
                              p._barphi])
         elif isinstance(p,potential.MiyamotoNagaiPotential):
             pot_type.append(5)
