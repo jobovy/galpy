@@ -8,16 +8,16 @@ if _APY_LOADED:
     from astropy import units
 _degtorad= numpy.pi/180.
 class DehnenBarPotential(Potential):
-    """Class that implements the Dehnen bar potential (Dehnen 2000)
+    """Class that implements the Dehnen bar potential (`Dehnen 2000 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__), generalized to 3D following `Monari et al. (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.461.3835M>`__
 
     .. math::
 
-        \\Phi(R,\\phi) = A_b(t)\\,\\cos\\left(2\\,(\\phi-\\Omega_b\\,t)\\right))\\times \\begin{cases}
-        -(R_b/R)^3\\,, & \\text{for}\\ R \\geq R_b\\\\
-        (R/R_b)^3-2\\,, & \\text{for}\\ R\\leq R_b.
+        \\Phi(R,z,\\phi) = A_b(t)\\,\\cos\\left(2\\,(\\phi-\\Omega_b\\,t)\\right))\\,\\left(\\frac{R}{r}\\right)^2\\,\\times \\begin{cases}
+        -(R_b/r)^3\\,, & \\text{for}\\ r \\geq R_b\\\\
+        (r/R_b)^3-2\\,, & \\text{for}\\ r\\leq R_b.
         \\end{cases}
 
-    where
+    where :math:`r^2 = R^2+z^2` is the spherical radius and
 
     .. math::
 
