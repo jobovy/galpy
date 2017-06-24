@@ -983,7 +983,7 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
-    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True^nzeroIndx] < 10.**tol), \
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
     # Same for a bunch of positions
     tol= -2.5
@@ -1005,7 +1005,7 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     nzeroIndx= numpy.fabs(plummer_kick) > 10.**tol
     assert numpy.all(numpy.fabs((orbit_kick-plummer_kick)/plummer_kick)[nzeroIndx] < 10.**tol), \
         'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
-    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True-nzeroIndx] < 10.**tol), \
+    assert numpy.all(numpy.fabs(orbit_kick-plummer_kick)[True^nzeroIndx] < 10.**tol), \
         'full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream'
     return None
 

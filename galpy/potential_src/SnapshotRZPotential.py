@@ -292,7 +292,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
         
         if interpepifreq: 
             self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0] - 3./self._rgrid*self._rforceGrid[:,0])
-            goodindx= True-np.isnan(self._epifreqGrid)
+            goodindx= True^np.isnan(self._epifreqGrid)
             self._epifreqInterp=\
                 interpolate.InterpolatedUnivariateSpline(rs[goodindx],
                                                          self._epifreqGrid[goodindx],
@@ -300,7 +300,7 @@ class InterpSnapshotRZPotential(interpRZPotential.interpRZPotential) :
             self._epigoodindx= goodindx
         if interpverticalfreq:
             self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
-            goodindx= True-np.isnan(self._verticalfreqGrid)
+            goodindx= True^np.isnan(self._verticalfreqGrid)
             self._verticalfreqInterp=\
                 interpolate.InterpolatedUnivariateSpline(rs[goodindx],
                                                          self._verticalfreqGrid[goodindx],k=3)

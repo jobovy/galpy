@@ -213,9 +213,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         out[afterIndx]=\
             super(streamgapdf,self).pOparapar(Opar[afterIndx],
                                               apar)
-        out[True-afterIndx]=\
-            super(streamgapdf,self).pOparapar(Opar_b4impact[True-afterIndx],
-                                              apar_impact[True-afterIndx],
+        out[True^afterIndx]=\
+            super(streamgapdf,self).pOparapar(Opar_b4impact[True^afterIndx],
+                                              apar_impact[True^afterIndx],
                                               tdisrupt=
                                               self._tdisrupt-self._timpact)
         return out

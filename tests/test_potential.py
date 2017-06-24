@@ -2446,7 +2446,7 @@ class testplanarMWPotential(planarPotential):
         self._potlist= [p.toPlanar() for p in potlist if isinstance(p,Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p,planarPotential)])
         planarPotential.__init__(self,amp=1.)
-        self.isNonAxi= True-numpy.prod([True-p.isNonAxi for p in self._potlist])
+        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
         return evaluateplanarPotentials(self._potlist,R,phi=phi,t=t)

@@ -2276,7 +2276,7 @@ class quasiisothermaldf(df):
         """
         if isinstance(lz,numpy.ndarray):
             indx= (lz > self._precomputergLzmax)*(lz < self._precomputergLzmin)
-            indxc= True-indx
+            indxc= True^indx
             out= numpy.empty(lz.shape)
             out[indxc]= self._rgInterp(lz[indxc])
             out[indx]= numpy.array([potential.rl(self._pot,lz[indx][ii]) for ii in range(numpy.sum(indx))])

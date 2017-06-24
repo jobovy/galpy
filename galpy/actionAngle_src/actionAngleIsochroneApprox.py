@@ -291,7 +291,7 @@ class actionAngleIsochroneApprox(actionAngle):
             anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
             negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
             negFreqPhi[negFreqIndx]= True
-            anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+            anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
             angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
             #Write the angle-fit as Y=AX, build A and Y
             nt= len(ts)
@@ -495,7 +495,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
                     negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
                     negFreqPhi[negFreqIndx]= True
-                    anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+                    anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
                 else:
                     anglephiT= nu.reshape(acfs[7],R.shape)
                 if 'az' in type:
@@ -744,9 +744,9 @@ def estimateBIsochrone(pot,R,z,phi=None):
         bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
                                          use_physical=False)
                       for ii in range(len(R))])
-        return nu.array([nu.amin(bs[True-nu.isnan(bs)]),
-                         nu.median(bs[True-nu.isnan(bs)]),
-                         nu.amax(bs[True-nu.isnan(bs)])])
+        return nu.array([nu.amin(bs[True^nu.isnan(bs)]),
+                         nu.median(bs[True^nu.isnan(bs)]),
+                         nu.amax(bs[True^nu.isnan(bs)])])
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)

@@ -245,7 +245,7 @@ class actionAngleStaeckelGrid(actionAngle):
             indx+= (Lz > self._Lzmax)
             indx+= ((E-thisERa)/(thisERL-thisERa) > 1.)
             indx+= ((E-thisERa)/(thisERL-thisERa) < 0.)
-            indxc= True-indx
+            indxc= True^indx
             jr= numpy.empty(R.shape)
             jz= numpy.empty(R.shape)
             if numpy.sum(indxc) > 0:
@@ -261,9 +261,9 @@ class actionAngleStaeckelGrid(actionAngle):
                 cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
                 indxCos2psi= (cos2psi > 1.)
                 indxCos2psi+= (cos2psi < 0.)
-                indxc[indxc]= True-indxCos2psi#Handle these two cases as off-grid
-                indx= True-indxc
-                psi= numpy.arccos(numpy.sqrt(cos2psi[True-indxCos2psi]))
+                indxc[indxc]= True^indxCos2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psi= numpy.arccos(numpy.sqrt(cos2psi[True^indxCos2psi]))
                 coords= numpy.empty((3,numpy.sum(indxc)))
                 coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
@@ -274,15 +274,15 @@ class actionAngleStaeckelGrid(actionAngle):
                                                                             order=3,
                                                                             prefilter=False))-10.**-10.)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 #Switch to Ez-calculated psi
-                sin2psi= 2.*thisEz[True-indxCos2psi]/thisv2[True-indxCos2psi]/(1.+sinh2u0[True-indxCos2psi]) #latter is cosh2u0
+                sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
                 sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
                 indxSin2psi= (sin2psi > 1.)
                 indxSin2psi+= (sin2psi < 0.)
-                indxc[indxc]= True-indxSin2psi#Handle these two cases as off-grid
-                indx= True-indxc
-                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True-indxSin2psi]))
+                indxc[indxc]= True^indxSin2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True^indxSin2psi]))
                 newcoords= numpy.empty((3,numpy.sum(indxc)))
-                newcoords[0:2,:]= coords[0:2,True-indxSin2psi]
+                newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
                 newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
                 jz[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._jzFiltered,
                                                                            newcoords,

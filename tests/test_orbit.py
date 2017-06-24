@@ -1401,8 +1401,8 @@ def test_pickle():
     assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
     assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
     assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
-    assert (True-o._orb._roSet)*(True-upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
-    assert (True-o._orb._voSet)*(True-upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
+    assert (True^o._orb._roSet)*(True^upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (True^o._orb._voSet)*(True^upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
     # w/ physical scales etc.
     o= Orbit([1.,0.1,1.1,0.1,0.2,2.],ro=10.,vo=300.)
     po= pickle.dumps(o)

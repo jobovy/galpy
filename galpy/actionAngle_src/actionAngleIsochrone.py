@@ -289,7 +289,7 @@ class actionAngleIsochrone(actionAngle):
             Omega= phi-u
             anglephi= Omega
             anglephi[indx]-= anglez[indx]
-            anglephi[True-indx]+= anglez[True-indx]
+            anglephi[True^indx]+= anglez[True^indx]
             angler= angler % (2.*nu.pi)
             anglephi= anglephi % (2.*nu.pi)
             anglez= anglez % (2.*nu.pi)

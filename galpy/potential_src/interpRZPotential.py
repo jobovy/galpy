@@ -307,7 +307,7 @@ class interpRZPotential(Potential):
                                                       list(range(len(self._rgrid))),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
-            indx= True-numpy.isnan(self._epifreqGrid)
+            indx= True^numpy.isnan(self._epifreqGrid)
             if numpy.sum(indx) < 4:
                 if self._logR:
                     self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid[indx],self._epifreqGrid[indx],k=1)
