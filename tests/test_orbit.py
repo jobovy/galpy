@@ -56,6 +56,7 @@ def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
+    growtimes= numpy.linspace(0.,280.,5001) # for pots that grow slowly
     fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
@@ -142,6 +143,9 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
+                    and ('Spiral' in p or 'Lopsided' in p \
+                             or 'Dehnen' in p): ttimes= growtimes
+            elif integrator == 'dopr54_c' \
                     and not 'MovingObject' in p \
                     and not p == 'FerrersPotential': ttimes= times
             else: ttimes= fasttimes
