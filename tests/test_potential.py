@@ -2303,7 +2303,7 @@ class mockDehnenBarPotentialTm1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-1.,tsteady=1.,
+                                    tform=-1.,tsteady=1.01,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm5(DehnenBarPotential):
     def __init__(self):
