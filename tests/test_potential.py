@@ -1017,7 +1017,7 @@ def test_vcirc_phi_nonaxi():
 
 def test_vcirc_vesc_special():
     #Test some special cases of vcirc and vesc
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     try:
         potential.plotRotcurve([dp])
     except (AttributeError,potential.PotentialError): #should be raised
@@ -1128,7 +1128,7 @@ def test_verticalfreq():
     return None
 
 def test_planar_nonaxi():
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     try:
         potential.evaluateplanarPotentials(dp,1.)
     except potential.PotentialError:
@@ -2606,5 +2606,5 @@ class mockMovingObjectExplSoftPotential(testMWPotential):
         return None
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
-        mockMovingObjectPotential.__init__(self,rc=rc,maxt=29.,nt=1001)
+        mockMovingObjectPotential.__init__(self,rc=rc,maxt=15.,nt=3001)
         return None
