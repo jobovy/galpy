@@ -3075,6 +3075,7 @@ def test_orbit_c_sigint_full():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3101,6 +3102,7 @@ def test_orbit_c_sigint_planar():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3124,6 +3126,7 @@ def test_orbit_c_sigint_planardxdv():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
