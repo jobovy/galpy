@@ -151,7 +151,9 @@ def test_energy_jacobi_conservation():
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
-            if isinstance(tp,testplanarMWPotential):
+            if isinstance(tp,testMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
             elif isinstance(tp,testlinearMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
@@ -164,7 +166,8 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
-            if 'Elliptical' in p or 'Lopsided' in p:
+            if 'Elliptical' in p or 'Lopsided' in p \
+                    or p == 'mockMovingObjectLongIntPotential':
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -219,7 +222,11 @@ def test_energy_jacobi_conservation():
             #Now do axisymmetric
             if not tp.isNonAxi:
                 o= setup_orbit_energy(tp,axi=True)
-                o.integrate(ttimes,tp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,tp._potlist,method=integrator)
+                else:
+                    o.integrate(ttimes,tp,method=integrator)
                 tEs= o.E(ttimes)
     #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -263,7 +270,13 @@ def test_energy_jacobi_conservation():
 #            print integrator
             if not ptp is None and not ptp.isNonAxi:
                 o= setup_orbit_energy(ptp,axi=True)
-                o.integrate(ttimes,ptp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,
+                                [tmp.toPlanar() for tmp in tp._potlist],
+                                method=integrator)
+                else:
+                    o.integrate(ttimes,ptp,method=integrator)
                 tEs= o.E(ttimes)
 #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -303,7 +316,13 @@ def test_energy_jacobi_conservation():
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
-            o.integrate(ttimes,ptp,method=integrator)
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,
+                            [tmp.toPlanar() for tmp in tp._potlist],
+                            method=integrator)
+            else:
+                o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
             #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             if not 'Bar' in p:
@@ -347,7 +366,11 @@ def test_energy_jacobi_conservation():
 #            print integrator
             if not ptp is None and not ptp.isNonAxi:
                 o= setup_orbit_energy(ptp,axi=True)
-                o.integrate(ttimes,tp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,tp._potlist,method=integrator)
+                else:
+                    o.integrate(ttimes,tp,method=integrator)
                 tEs= o.E(ttimes)
                 #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -358,7 +381,11 @@ def test_energy_jacobi_conservation():
                     "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
-            o.integrate(ttimes,tp,method=integrator)
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            else:
+                o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'Bar' in p:
