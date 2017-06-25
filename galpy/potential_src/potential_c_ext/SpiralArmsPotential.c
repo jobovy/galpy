@@ -26,9 +26,9 @@ double SpiralArmsPotentialEval(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return value of the potential.
     double sum = 0;
@@ -63,10 +63,10 @@ double SpiralArmsPotentialRforce(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
-
-    phi = phi - omega * t;
 
      // Return the Rforce (-dPhi / dR)
     double sum = 0;
@@ -117,9 +117,9 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the zforce (-dPhi / dz)
     double sum = 0;
@@ -156,9 +156,9 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the phiforce (-dPhi / dphi)
     double sum = 0;
@@ -193,11 +193,11 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
     double d2g_dR2 = N / R / R / tan_alpha;
-
-    phi = phi - omega * t;
 
      // Return the second derivative of the potential wrt R (d2Phi / dR2)
     double sum = 0;
@@ -293,9 +293,9 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the second derivative of the potential wrt z (d2Phi / dz2)
     double sum = 0;
@@ -333,9 +333,9 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the second derivative of the potential wrt phi (d2Phi / dphi2)
     double sum = 0;
@@ -370,10 +370,10 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
-
-    phi = phi - omega * t;
 
      // Return the mixed (cylindrical) radial and vertical derivative of the potential (d^2 potential / dR dz).
     double sum = 0;
@@ -430,10 +430,10 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
-
-    phi = phi - omega * t;
 
      // Return the mixed (cylindrical) radial and azimuthal derivative of the potential (d^2 potential / dR dphi).
     double sum = 0;
@@ -486,10 +486,10 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
-
-    phi = phi - omega * t;
 
      // Return the planar Rforce (-dPhi / dR)
     double sum = 0;
@@ -531,9 +531,9 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the planar phiforce (-dPhi / dphi)
     double sum = 0;
@@ -567,11 +567,11 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
     double d2g_dR2 = N / R / R / tan_alpha;
-
-    phi = phi - omega * t;
 
      // Return the planar second derivative of the potential wrt R (d2Phi / dR2)
     double sum = 0;
@@ -642,9 +642,9 @@ double SpiralArmsPotentialPlanarphi2deriv(double R, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
-    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
-
     phi = phi - omega * t;
+
+    double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
 
     // Return the second derivative of the potential wrt phi (d2Phi / dphi2)
     double sum = 0;
@@ -678,10 +678,10 @@ double SpiralArmsPotentialPlanarRphideriv(double R, double phi, double t,
     double H = *args++;
     double omega = *args++;
 
+    phi = phi - omega * t;
+
     double g = gam(R, phi, N, phi_ref, r_ref, tan_alpha);
     double dg_dR = dgam_dR(R, N, tan_alpha);
-
-    phi = phi - omega * t;
 
      // Return the mixed (cylindrical) radial and azimuthal derivative of the potential (d^2 potential / dR dphi).
     double sum = 0;
