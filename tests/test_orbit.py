@@ -507,59 +507,62 @@ def test_liouville_planar():
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
         if hasattr(tp,'toPlanar'):
-            tp= tp.toPlanar()
+            ptp= tp.toPlanar()
         for integrator in integrators:
             if integrator == 'odeint' or not tp.hasC \
                 and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
-            o= setup_orbit_liouville(tp,axi=False)
+            o= setup_orbit_liouville(ptp,axi=False)
             #Calculate the Jacobian d x / d x
-            if isinstance(tp,testMWPotential) \
-                    or isinstance(tp,testplanarMWPotential) \
-                    or isinstance(tp,testlinearMWPotential):
-                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp._potlist,
+            if hasattr(tp,'_potlist'):
+                if isinstance(tp,testMWPotential):
+                    plist= [tmp.toPlanar() for tmp in tp._potlist]
+                else:
+                    plist= tp._potlist
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dy= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dvx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             else:
-                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dy= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dvx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
 #            print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
-            if firstTest or ('Burkert' in p and not tp.hasC):
+            if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests
                 #Test non-rectangular in- and output
                 try:
-                    o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method='leapfrog',
+                    o.integrate_dxdv([0.,0.,0.,1.],ttimes,ptp,
+                                     method='leapfrog',
                                      rectIn=True,rectOut=True)
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
                 firstTest= False                    
-            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
-                                       or ('Burkert' in p and not tp.hasC)): break
+            if _QUICKTEST and not (('NFW' in p and not ptp.isNonAxi and 'SCF' not in p) \
+                                       or ('Burkert' in p and not ptp.hasC)): break
     return None
 
 # Test that the eccentricity of circular orbits is zero
