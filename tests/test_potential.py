@@ -301,6 +301,7 @@ def test_2ndDeriv_potential():
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
     tol['mockInterpRZPotential']= -4.
+    tol['DehnenBarPotential']= -7.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -384,7 +385,7 @@ def test_2ndDeriv_potential():
                         if isinstance(tp,potential.planarPotential):
                             raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s Radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
                         else:
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -1016,7 +1017,7 @@ def test_vcirc_phi_nonaxi():
 
 def test_vcirc_vesc_special():
     #Test some special cases of vcirc and vesc
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     try:
         potential.plotRotcurve([dp])
     except (AttributeError,potential.PotentialError): #should be raised
@@ -1127,7 +1128,7 @@ def test_verticalfreq():
     return None
 
 def test_planar_nonaxi():
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     try:
         potential.evaluateplanarPotentials(dp,1.)
     except potential.PotentialError:
@@ -2000,7 +2001,7 @@ def test_plotting():
                            savefilename=tmp_savefilename)
     finally:
         os.remove(tmp_savefilename)
-    dp= potential.DehnenBarPotential()
+    dp= potential.EllipticalDiskPotential()
     savefile, tmp_savefilename= tempfile.mkstemp()
     try:
         os.close(savefile) #Easier this way 
@@ -2278,7 +2279,7 @@ class mockCosmphiDiskPotentialT1(CosmphiDiskPotential):
     def __init__(self):
         CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
                                       p=1.,phio=0.01,m=1., 
-                                      tform=1.,tsteady=2.,
+                                      tform=0.5,tsteady=1.,
                                       cp=0.05,sp=0.05)
 class mockCosmphiDiskPotentialTm1(CosmphiDiskPotential):
     def __init__(self):
@@ -2296,25 +2297,25 @@ class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=1.,tsteady=1.,
+                                    tform=0.5,tsteady=0.5,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.6,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-1.,tsteady=2.,
+                                    tform=-1.,tsteady=1.01,
                                     alpha=0.01,Af=0.04)
 class mockDehnenBarPotentialTm5(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
                                     barphi=25.*numpy.pi/180.,beta=0.,
-                                    tform=-5.,tsteady=4.,
+                                    tform=-5.,tsteady=2.,
                                     alpha=0.01,Af=0.04)
 class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
     def __init__(self):
         EllipticalDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
                                          p=1.,twophio=0.02, 
-                                         tform=1.,tsteady=2.,
+                                         tform=0.5,tsteady=1.,
                                          cp=0.05,sp=0.05)
 class mockEllipticalDiskPotentialTm1(EllipticalDiskPotential):
     def __init__(self):
@@ -2333,7 +2334,7 @@ class mockSteadyLogSpiralPotentialT1(SteadyLogSpiralPotential):
         SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
                                           m=2,gamma=numpy.pi/4.,
                                           p=-0.3, 
-                                          tform=1.,tsteady=2.)
+                                          tform=0.5,tsteady=1.)
 class mockSteadyLogSpiralPotentialTm1(SteadyLogSpiralPotential):
     def __init__(self):
         SteadyLogSpiralPotential.__init__(self,amp=1.,omegas=0.65,A=-0.035, 
@@ -2405,11 +2406,15 @@ from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities
+from galpy.potential import planarPotential, \
+    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
+    evaluateplanarR2derivs
 class testMWPotential(Potential):
     """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
         self._potlist= potlist
         Potential.__init__(self,amp=1.)
+        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
         return None
     def _evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0):
         return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,
@@ -2426,6 +2431,11 @@ class testMWPotential(Potential):
         return evaluatez2derivs(self._potlist,R,z,phi=phi,t=t)
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         return evaluateRzderivs(self._potlist,R,z,phi=phi,t=t)
+    def _phi2deriv(self,R,z,phi=0.,t=0.):
+        return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,dphi=2)
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,dR=1,
+                                  dphi=1)
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(self._potlist,R,z,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
@@ -2436,16 +2446,13 @@ class testMWPotential(Potential):
     def OmegaP(self):
         return 1.
 #Class to test lists of planarPotentials
-from galpy.potential import planarPotential, \
-    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
-    evaluateplanarR2derivs
 class testplanarMWPotential(planarPotential):
     """Initialize with potential in natural units"""
     def __init__(self,potlist=MWPotential):
         self._potlist= [p.toPlanar() for p in potlist if isinstance(p,Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p,planarPotential)])
         planarPotential.__init__(self,amp=1.)
-        self.isNonAxi= True-numpy.prod([True-p.isNonAxi for p in self._potlist])
+        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
         return evaluateplanarPotentials(self._potlist,R,phi=phi,t=t)
@@ -2495,18 +2502,18 @@ class mockSlowFlatLopsidedDiskPotential(testplanarMWPotential):
                                                 potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=1.,tsteady=250.,phio=10./220.)])
     def OmegaP(self):
         return 0.
-class mockFlatDehnenBarPotential(testplanarMWPotential):
+class mockFlatDehnenBarPotential(testMWPotential):
     def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential()])
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.DehnenBarPotential()])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
-class mockSlowFlatDehnenBarPotential(testplanarMWPotential):
+class mockSlowFlatDehnenBarPotential(testMWPotential):
     def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.5)])
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.DehnenBarPotential(tform=1.,tsteady=250.,rolr=2.5)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
 class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
@@ -2599,5 +2606,5 @@ class mockMovingObjectExplSoftPotential(testMWPotential):
         return None
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
-        mockMovingObjectPotential.__init__(self,rc=rc,maxt=29.,nt=1001)
+        mockMovingObjectPotential.__init__(self,rc=rc,maxt=15.,nt=3001)
         return None

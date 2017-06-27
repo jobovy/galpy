@@ -915,7 +915,7 @@ def estimateDeltaStaeckel(pot,R,z):
                                                              use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
-        delta2= nu.median(delta2[True-nu.isnan(delta2)])
+        delta2= nu.median(delta2[True^nu.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
                  +(3.*R*_evaluatezforces(pot,R,z)

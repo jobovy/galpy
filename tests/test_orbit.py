@@ -55,8 +55,9 @@ warnings.simplefilter("always",galpyWarning)
 def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
-    times= numpy.linspace(0.,280.,10001) #~10 Gyr at the Solar circle
-    fasttimes= numpy.linspace(0.,28.,1001) #~1 Gyr at the Solar circle
+    times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
+    growtimes= numpy.linspace(0.,280.,5001) # for pots that grow slowly
+    fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
                   'leapfrog','leapfrog_c',
@@ -142,12 +143,17 @@ def test_energy_jacobi_conservation():
             ptp= None
         for integrator in integrators:
             if integrator == 'dopr54_c' \
+                    and ('Spiral' in p or 'Lopsided' in p \
+                             or 'Dehnen' in p): ttimes= growtimes
+            elif integrator == 'dopr54_c' \
                     and not 'MovingObject' in p \
                     and not p == 'FerrersPotential': ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp,axi=False)
-            if isinstance(tp,testplanarMWPotential):
+            if isinstance(tp,testMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
             elif isinstance(tp,testlinearMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
@@ -160,7 +166,8 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
-            if 'Elliptical' in p or 'Lopsided' in p:
+            if 'Elliptical' in p or 'Lopsided' in p \
+                    or p == 'mockMovingObjectLongIntPotential':
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -215,7 +222,11 @@ def test_energy_jacobi_conservation():
             #Now do axisymmetric
             if not tp.isNonAxi:
                 o= setup_orbit_energy(tp,axi=True)
-                o.integrate(ttimes,tp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,tp._potlist,method=integrator)
+                else:
+                    o.integrate(ttimes,tp,method=integrator)
                 tEs= o.E(ttimes)
     #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -259,7 +270,13 @@ def test_energy_jacobi_conservation():
 #            print integrator
             if not ptp is None and not ptp.isNonAxi:
                 o= setup_orbit_energy(ptp,axi=True)
-                o.integrate(ttimes,ptp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,
+                                [tmp.toPlanar() for tmp in tp._potlist],
+                                method=integrator)
+                else:
+                    o.integrate(ttimes,ptp,method=integrator)
                 tEs= o.E(ttimes)
 #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -299,7 +316,13 @@ def test_energy_jacobi_conservation():
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
-            o.integrate(ttimes,ptp,method=integrator)
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,
+                            [tmp.toPlanar() for tmp in tp._potlist],
+                            method=integrator)
+            else:
+                o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
             #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             if not 'Bar' in p:
@@ -343,7 +366,11 @@ def test_energy_jacobi_conservation():
 #            print integrator
             if not ptp is None and not ptp.isNonAxi:
                 o= setup_orbit_energy(ptp,axi=True)
-                o.integrate(ttimes,tp,method=integrator)
+                if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                    o.integrate(ttimes,tp._potlist,method=integrator)
+                else:
+                    o.integrate(ttimes,tp,method=integrator)
                 tEs= o.E(ttimes)
                 #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -354,7 +381,11 @@ def test_energy_jacobi_conservation():
                     "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
             o= setup_orbit_energy(ptp,axi=False)
-            o.integrate(ttimes,tp,method=integrator)
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            else:
+                o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             if not 'Bar' in p:
@@ -476,59 +507,62 @@ def test_liouville_planar():
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
         if hasattr(tp,'toPlanar'):
-            tp= tp.toPlanar()
+            ptp= tp.toPlanar()
         for integrator in integrators:
             if integrator == 'odeint' or not tp.hasC \
                 and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
-            o= setup_orbit_liouville(tp,axi=False)
+            o= setup_orbit_liouville(ptp,axi=False)
             #Calculate the Jacobian d x / d x
-            if isinstance(tp,testMWPotential) \
-                    or isinstance(tp,testplanarMWPotential) \
-                    or isinstance(tp,testlinearMWPotential):
-                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp._potlist,
+            if hasattr(tp,'_potlist'):
+                if isinstance(tp,testMWPotential):
+                    plist= [tmp.toPlanar() for tmp in tp._potlist]
+                else:
+                    plist= tp._potlist
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dy= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dvx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp._potlist,
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,plist,
                                  method=integrator,
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             else:
-                o.integrate_dxdv([1.,0.,0.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([1.,0.,0.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,1.,0.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,1.,0.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dy= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,1.,0.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,0.,1.,0.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dvx= o.getOrbit_dxdv()[-1,:]
-                o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method=integrator,
+                o.integrate_dxdv([0.,0.,0.,1.],ttimes,ptp,method=integrator,
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
 #            print p, integrator, numpy.fabs(tjac-1.)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
-            if firstTest or ('Burkert' in p and not tp.hasC):
+            if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests
                 #Test non-rectangular in- and output
                 try:
-                    o.integrate_dxdv([0.,0.,0.,1.],ttimes,tp,method='leapfrog',
+                    o.integrate_dxdv([0.,0.,0.,1.],ttimes,ptp,
+                                     method='leapfrog',
                                      rectIn=True,rectOut=True)
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
                 firstTest= False                    
-            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
-                                       or ('Burkert' in p and not tp.hasC)): break
+            if _QUICKTEST and not (('NFW' in p and not ptp.isNonAxi and 'SCF' not in p) \
+                                       or ('Burkert' in p and not ptp.hasC)): break
     return None
 
 # Test that the eccentricity of circular orbits is zero
@@ -1401,8 +1435,8 @@ def test_pickle():
     assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
     assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
     assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
-    assert (True-o._orb._roSet)*(True-upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
-    assert (True-o._orb._voSet)*(True-upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
+    assert (True^o._orb._roSet)*(True^upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (True^o._orb._voSet)*(True^upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
     # w/ physical scales etc.
     o= Orbit([1.,0.1,1.1,0.1,0.2,2.],ro=10.,vo=300.)
     po= pickle.dumps(o)
@@ -2768,8 +2802,8 @@ def test_orbit_dim_2dPot_3dOrb():
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
-    bar_p= potential.DehnenBarPotential()
-    pota=[b_p,bar_p]
+    ell_p= potential.EllipticalDiskPotential()
+    pota=[b_p,ell_p]
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
@@ -3071,8 +3105,11 @@ def test_orbit_c_sigint_full():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()
@@ -3095,8 +3132,11 @@ def test_orbit_c_sigint_planar():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()
@@ -3116,8 +3156,11 @@ def test_orbit_c_sigint_planardxdv():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
+        if p.poll() is None: time.sleep(4)
         if p.poll() is None or p.poll() != 1:
-            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,p.poll()))
+            if p.poll() is None: msg= -100
+            else: msg= p.poll()
+            raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
         p.stdin.close()
         p.stdout.close()
         p.stderr.close()

@@ -242,7 +242,7 @@ class actionAngleAdiabaticGrid(actionAngle):
             indx= (R > self._Rmax)
             indx+= (R < self._Rmin)
             indx+= (Ez != 0.)*(numpy.log(Ez) > thisEzZmax)
-            indxc= True-indx
+            indxc= True^indx
             jz= numpy.empty(R.shape)
             if numpy.sum(indxc) > 0:
                 jz[indxc]= (self._jzInterp.ev(R[indxc],Ez[indxc]/thisEzZmax[indxc])\
@@ -283,7 +283,7 @@ class actionAngleAdiabaticGrid(actionAngle):
             indx+= (ERLz > self._Lzmax)
             indx+= ((ER-thisERRa)/(thisERRL-thisERRa) > 1.)
             indx+= ((ER-thisERRa)/(thisERRL-thisERRa) < 0.)
-            indxc= True-indx
+            indxc= True^indx
             jr= numpy.empty(R.shape)
             if numpy.sum(indxc) > 0:
                 jr[indxc]= (self._jrInterp.ev(ERLz[indxc],

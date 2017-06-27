@@ -15,8 +15,31 @@ double dehnenSmooth(double t,double tform, double tsteady){
     smooth= 1.;
   return smooth;
 }
-double DehnenBarPotentialRforce(double R,double phi,double t,
+double DehnenBarPotentialRforce(double R,double z,double phi,double t,
 				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //declare
+  double smooth;
+  double r;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double rb= *args++;
+  double omegab= *args++;
+  double barphi= *args++;
+  //Calculate Rforce
+  smooth= dehnenSmooth(t,tform,tsteady);
+  r= sqrt( R * R + z * z );
+  if (r <= rb )
+    return -amp*smooth*cos(2.*(phi-omegab*t-barphi))*\
+      (pow(r/rb,3.)*R*(3.*R*R+2.*z*z)-4.*R*z*z)/pow(r,4.);
+  else
+    return -amp*smooth*cos(2.*(phi-omegab*t-barphi))\
+      *pow(rb/r,3.)*R/pow(r,4)*(3.*R*R-2.*z*z);   
+}
+double DehnenBarPotentialPlanarRforce(double R,double phi,double t,
+				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
   double smooth;
@@ -25,18 +48,40 @@ double DehnenBarPotentialRforce(double R,double phi,double t,
   double tform= *args++;
   double tsteady= *args++;
   double rb= *args++;
-  double af= *args++;
   double omegab= *args++;
   double barphi= *args++;
   //Calculate Rforce
   smooth= dehnenSmooth(t,tform,tsteady);
   if (R <= rb )
-    return -3.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
+    return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else
-    return -3.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;   
+    return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;   
 }
-double DehnenBarPotentialphiforce(double R,double phi,double t,
+double DehnenBarPotentialphiforce(double R,double z,double phi,double t,
 				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //declare
+  double smooth;
+  double r, r2;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double rb= *args++;
+  double omegab= *args++;
+  double barphi= *args++;
+  //Calculate phiforce
+  smooth= dehnenSmooth(t,tform,tsteady);
+  r2= R * R + z * z;
+  r= sqrt( r2 );
+  if ( R <= rb )
+    return 2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(r/rb,3.)-2.)\
+      *R*R/r2;
+  else
+    return -2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/r,3.)*R*R/r2;
+}
+double DehnenBarPotentialPlanarphiforce(double R,double phi,double t,
+					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
   double smooth;
@@ -45,18 +90,40 @@ double DehnenBarPotentialphiforce(double R,double phi,double t,
   double tform= *args++;
   double tsteady= *args++;
   double rb= *args++;
-  double af= *args++;
   double omegab= *args++;
   double barphi= *args++;
   //Calculate phiforce
   smooth= dehnenSmooth(t,tform,tsteady);
   if ( R <= rb )
-    return 2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
+    return 2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
-    return -2.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
+    return -2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
 }
-double DehnenBarPotentialR2deriv(double R,double phi,double t,
-				 struct potentialArg * potentialArgs){
+double DehnenBarPotentialzforce(double R,double z,double phi,double t,
+				struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //declare
+  double smooth;
+  double r;
+  //Get args
+  double amp= *args++;
+  double tform= *args++;
+  double tsteady= *args++;
+  double rb= *args++;
+  double omegab= *args++;
+  double barphi= *args++;
+  //Calculate Rforce
+  smooth= dehnenSmooth(t,tform,tsteady);
+  r= sqrt( R * R + z * z );
+  if (r <= rb )
+    return -amp*smooth*cos(2.*(phi-omegab*t-barphi))*\
+      (pow(r/rb,3.)+4.)*R*R*z/pow(r,4.);
+  else
+    return -5.*amp*smooth*cos(2.*(phi-omegab*t-barphi))\
+      *pow(rb/r,3.)*R*R*z/pow(r,4);
+}
+double DehnenBarPotentialPlanarR2deriv(double R,double phi,double t,
+				       struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
   double smooth;
@@ -65,17 +132,16 @@ double DehnenBarPotentialR2deriv(double R,double phi,double t,
   double tform= *args++;
   double tsteady= *args++;
   double rb= *args++;
-  double af= *args++;
   double omegab= *args++;
   double barphi= *args++;
   smooth= dehnenSmooth(t,tform,tsteady);
   if (R <= rb )
-    return 6.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R/R;
+    return 6.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R/R;
   else
-    return -12.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R/R;
+    return -12.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R/R;
 }
-double DehnenBarPotentialphi2deriv(double R,double phi,double t,
-				   struct potentialArg * potentialArgs){
+double DehnenBarPotentialPlanarphi2deriv(double R,double phi,double t,
+					 struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
   double smooth;
@@ -84,17 +150,16 @@ double DehnenBarPotentialphi2deriv(double R,double phi,double t,
   double tform= *args++;
   double tsteady= *args++;
   double rb= *args++;
-  double af= *args++;
   double omegab= *args++;
   double barphi= *args++;
   smooth= dehnenSmooth(t,tform,tsteady);
   if (R <= rb )
-    return -4.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
+    return -4.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
-    return 4.*amp*af*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
+    return 4.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.);
 }
-double DehnenBarPotentialRphideriv(double R,double phi,double t,
-				   struct potentialArg * potentialArgs){
+double DehnenBarPotentialPlanarRphideriv(double R,double phi,double t,
+					 struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
   double smooth;
@@ -103,12 +168,11 @@ double DehnenBarPotentialRphideriv(double R,double phi,double t,
   double tform= *args++;
   double tsteady= *args++;
   double rb= *args++;
-  double af= *args++;
   double omegab= *args++;
   double barphi= *args++;
   smooth= dehnenSmooth(t,tform,tsteady);
   if (R <= rb )
-    return -6.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
+    return -6.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else
-    return -6.*amp*af*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;
+    return -6.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;
 }

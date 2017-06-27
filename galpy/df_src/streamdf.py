@@ -2868,7 +2868,7 @@ class streamdf(df):
         V12indx1= numpy.array([[ii for ii in range(6) if coordGiven[ii]] for jj in range(6-nGiven)])
         V12= tcov[V12indx0,V12indx1]
         #Also get m1 and m2, again following Appendix B of 0905.2979v1
-        m1= tmean[True-coordGiven]
+        m1= tmean[True^coordGiven]
         m2= tmean[coordGiven]
         #conditional mean and variance
         V22inv= numpy.linalg.inv(V22)

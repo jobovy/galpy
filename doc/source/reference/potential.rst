@@ -144,6 +144,7 @@ Triaxial and bar potentials
 .. toctree::
    :maxdepth: 2
 
+   potentialdehnenbar.rst
    potentialdoublepowertriaxial.rst
    potentialferrers.rst
    potentialmovingobj.rst
@@ -268,7 +269,7 @@ potentials in the mid-plane.
    toPlanarPotential (general) <potential2dtoplanar.rst>
    RZToplanarPotential <potential2dRZtoplanar.rst>
 
-In addition, a two-dimensional bar potential and a two spiral potentials are included
+In addition, a two-dimensional bar potential, two spiral potentials, and some static non-axisymmetric perturbations are included
 
 .. toctree::
    :maxdepth: 2

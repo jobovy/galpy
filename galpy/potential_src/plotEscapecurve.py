@@ -113,7 +113,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
         kwargs['xrange']= Rrange
     if not 'yrange' in kwargs:
         kwargs['yrange']=\
-            [0.,1.2*nu.amax(esccurve[True-nu.isnan(esccurve)])]
+            [0.,1.2*nu.amax(esccurve[True^nu.isnan(esccurve)])]
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)

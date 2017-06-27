@@ -307,7 +307,7 @@ class interpRZPotential(Potential):
                                                       list(range(len(self._rgrid))),numcores=numcores))
             else:
                 self._epifreqGrid= numpy.array([epifreq(self._origPot,r) for r in self._rgrid])
-            indx= True-numpy.isnan(self._epifreqGrid)
+            indx= True^numpy.isnan(self._epifreqGrid)
             if numpy.sum(indx) < 4:
                 if self._logR:
                     self._epifreqInterp= interpolate.InterpolatedUnivariateSpline(self._logrgrid[indx],self._epifreqGrid[indx],k=1)
@@ -347,10 +347,10 @@ class interpRZPotential(Potential):
                         out[indx]= self._potInterp.ev(numpy.log(R[indx]),z[indx])
                     else:
                         out[indx]= self._potInterp.ev(R[indx],z[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluatePotentials(self._origPot,
-                                                   R[True-indx],
-                                                   z[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= evaluatePotentials(self._origPot,
+                                                   R[True^indx],
+                                                   z[True^indx])
             return out
         else:
             return evaluatePotentials(self._origPot,R,z)
@@ -371,10 +371,10 @@ class interpRZPotential(Potential):
                         out[indx]= self._rforceInterp.ev(numpy.log(R[indx]),z[indx])
                     else:
                         out[indx]= self._rforceInterp.ev(R[indx],z[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluateRforces(self._origPot,
-                                                R[True-indx],
-                                                z[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= evaluateRforces(self._origPot,
+                                                R[True^indx],
+                                                z[True^indx])
             return out
         else:
             return evaluateRforces(self._origPot,R,z)
@@ -397,10 +397,10 @@ class interpRZPotential(Potential):
                                                          z[indx])
                     else:
                         out[indx]= self._zforceInterp.ev(R[indx],z[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluatezforces(self._origPot,
-                                                R[True-indx],
-                                                z[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= evaluatezforces(self._origPot,
+                                                R[True^indx],
+                                                z[True^indx])
             return out
         else:
             return evaluatezforces(self._origPot,R,z)
@@ -422,10 +422,10 @@ class interpRZPotential(Potential):
                     out[indx]= numpy.exp(self._densInterp.ev(numpy.log(R[indx]),z[indx]))-10.**-10.
                 else:
                     out[indx]= numpy.exp(self._densInterp.ev(R[indx],z[indx]))-10.**-10.
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= evaluateDensities(self._origPot,
-                                                  R[True-indx],
-                                                  z[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= evaluateDensities(self._origPot,
+                                                  R[True^indx],
+                                                  z[True^indx])
             return out
         else:
             return evaluateDensities(self._origPot,R,z)
@@ -442,8 +442,8 @@ class interpRZPotential(Potential):
                     out[indx]= self._vcircInterp(numpy.log(R[indx]))
                 else:
                     out[indx]= self._vcircInterp(R[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= vcirc(self._origPot,R[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= vcirc(self._origPot,R[True^indx])
             return out
         else:
             return vcirc(self._origPot,R)
@@ -460,8 +460,8 @@ class interpRZPotential(Potential):
                     out[indx]= self._dvcircdrInterp(numpy.log(R[indx]))
                 else:
                     out[indx]= self._dvcircdrInterp(R[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= dvcircdR(self._origPot,R[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= dvcircdR(self._origPot,R[True^indx])
             return out
         else:
             return dvcircdR(self._origPot,R)
@@ -478,8 +478,8 @@ class interpRZPotential(Potential):
                     out[indx]= self._epifreqInterp(numpy.log(R[indx]))
                 else:
                     out[indx]= self._epifreqInterp(R[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= epifreq(self._origPot,R[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= epifreq(self._origPot,R[True^indx])
             return out
         else:
             return epifreq(self._origPot,R)
@@ -496,8 +496,8 @@ class interpRZPotential(Potential):
                     out[indx]= self._verticalfreqInterp(numpy.log(R[indx]))
                 else:
                     out[indx]= self._verticalfreqInterp(R[indx])
-            if numpy.sum(True-indx) > 0:
-                out[True-indx]= verticalfreq(self._origPot,R[True-indx])
+            if numpy.sum(True^indx) > 0:
+                out[True^indx]= verticalfreq(self._origPot,R[True^indx])
             return out
         else:
             return verticalfreq(self._origPot,R)

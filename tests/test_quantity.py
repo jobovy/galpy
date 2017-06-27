@@ -2074,6 +2074,38 @@ def test_potential_paramunits():
                                             core=1.*units.kpc,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.+(1./ro)**2.)) < 10.**-8., "LogarithmicHaloPotential w/ parameters w/ units does not behave as expected"   
+    # DehnenBarPotential
+    pot= potential.DehnenBarPotential(amp=1.,
+                                      omegab=50.*units.km/units.s/units.kpc,
+                                      rb=4.*units.kpc,
+                                      Af=1290.*units.km**2/units.s**2,
+                                      barphi=20.*units.deg,
+                                      ro=ro,vo=vo)
+    pot_nounits= potential.DehnenBarPotential(amp=1.,
+                                              omegab=50.*ro/vo,
+                                              rb=4./ro,
+                                              Af=1290./vo**2.,
+                                              barphi=20./180.*numpy.pi,
+                                              ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
+    # DehnenBarPotential, alternative setup
+    pot= potential.DehnenBarPotential(amp=1.,
+                                      rolr=8.*units.kpc,
+                                      chi=0.8,
+                                      alpha=0.02,
+                                      beta=0.2,
+                                      barphi=20.*units.deg,
+                                      ro=ro,vo=vo)
+    pot_nounits= potential.DehnenBarPotential(amp=1.,
+                                              rolr=8./ro,
+                                              chi=0.8,
+                                              alpha=0.02,
+                                              beta=0.2,
+                                              barphi=20./180.*numpy.pi,
+                                              ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
     # MiyamotoNagaiPotential
     pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun,
                                           a=5.*units.kpc,b=300.*units.pc,
@@ -2210,38 +2242,6 @@ def test_potential_paramunits_2d():
     from galpy import potential
     from galpy.util import bovy_conversion
     ro, vo= 11., 180.
-    # DehnenBarPotential
-    pot= potential.DehnenBarPotential(amp=1.,
-                                      omegab=50.*units.km/units.s/units.kpc,
-                                      rb=4.*units.kpc,
-                                      Af=1290.*units.km**2/units.s**2,
-                                      barphi=20.*units.deg,
-                                      ro=ro,vo=vo)
-    pot_nounits= potential.DehnenBarPotential(amp=1.,
-                                              omegab=50.*ro/vo,
-                                              rb=4./ro,
-                                              Af=1290./vo**2.,
-                                              barphi=20./180.*numpy.pi,
-                                              ro=ro,vo=vo)
-    # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,use_physical=False)-pot_nounits(1.5,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
-    # DehnenBarPotential, alternative setup
-    pot= potential.DehnenBarPotential(amp=1.,
-                                      rolr=8.*units.kpc,
-                                      chi=0.8,
-                                      alpha=0.02,
-                                      beta=0.2,
-                                      barphi=20.*units.deg,
-                                      ro=ro,vo=vo)
-    pot_nounits= potential.DehnenBarPotential(amp=1.,
-                                              rolr=8./ro,
-                                              chi=0.8,
-                                              alpha=0.02,
-                                              beta=0.2,
-                                              barphi=20./180.*numpy.pi,
-                                              ro=ro,vo=vo)
-    # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,use_physical=False)-pot_nounits(1.5,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
     # CosmphiDiskPotential
     pot= potential.CosmphiDiskPotential(amp=1.,
                                         m=3,
@@ -2490,7 +2490,7 @@ def test_potential_method_turnphysicalon():
     assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
     assert numpy.fabs(pot._vo-210.) < 10.**-10., 'Potential method turn_physical_on does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.kpc)
     pot.turn_physical_on(ro=6.,vo=210.)
     assert isinstance(pot(1.1,phi=0.1),units.Quantity), 'Potential method does not return Quantity when turn_physical_on has been called'
     assert numpy.fabs(pot._ro-6.) < 10.**-10., 'Potential method does not work as expected'
@@ -2518,7 +2518,7 @@ def test_potential_method_turnphysicaloff():
     pot.turn_physical_off()
     assert isinstance(pot(1.1,0.1),float), 'Potential method does not return float when turn_physical_off has been called'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.kpc)
     pot.turn_physical_off()
     assert isinstance(pot(1.1,phi=0.1),float), 'Potential method does not return float when turn_physical_off has been called'
     # 1D
@@ -2540,7 +2540,7 @@ def test_potential_function_turnphysicalon():
     assert numpy.fabs(pot._ro-7.) < 10.**-10., 'Potential method does not work as expected'
     assert numpy.fabs(pot._vo-220.) < 10.**-10., 'Potential function turn_physical_on does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.kpc)
     potential.turn_physical_on(pot)
     assert isinstance(potential.evaluateplanarPotentials(pot,1.1,phi=0.1),units.Quantity), 'Potential function does not return Quantity when function turn_physical_on has been called'
     potential.turn_physical_on([pot],ro=9.,vo=230.)
@@ -2569,7 +2569,7 @@ def test_potential_function_turnphysicaloff():
     potential.turn_physical_off([pot])
     assert isinstance(potential.evaluatePotentials([pot],1.1,0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.kpc)
     potential.turn_physical_off(pot)
     assert isinstance(potential.evaluateplanarPotentials(pot,1.1,phi=0.1),float), 'Potential function does not return float when function turn_physical_off has been called'
     potential.turn_physical_off([pot])
@@ -2588,7 +2588,7 @@ def test_potential_setup_roAsQuantity():
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     assert numpy.fabs(pot._ro-7.) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.kpc)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.kpc)
     assert numpy.fabs(pot._ro-6.) < 10.**-10., 'ro in 2D potential setup as Quantity does not work as expected'
     # 1D
     pot= potential.KGPotential(ro=5.*units.kpc)
@@ -2601,7 +2601,7 @@ def test_potential_setup_roAsQuantity_oddunits():
     pot= potential.BurkertPotential(ro=7.*units.lyr)
     assert numpy.fabs(pot._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(ro=6.*units.lyr)
+    pot= potential.EllipticalDiskPotential(ro=6.*units.lyr)
     assert numpy.fabs(pot._ro-6.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 2D potential setup as Quantity does not work as expected'
     # 1D
     pot= potential.KGPotential(ro=5.*units.lyr)
@@ -2614,7 +2614,7 @@ def test_potential_setup_voAsQuantity():
     pot= potential.BurkertPotential(vo=210.*units.km/units.s)
     assert numpy.fabs(pot._vo-210.) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(vo=230.*units.km/units.s)
+    pot= potential.EllipticalDiskPotential(vo=230.*units.km/units.s)
     assert numpy.fabs(pot._vo-230.) < 10.**-10., 'vo in 2D potential setup as Quantity does not work as expected'
     # 1D
     pot= potential.KGPotential(vo=250.*units.km/units.s)
@@ -2627,7 +2627,7 @@ def test_potential_setup_voAsQuantity_oddunits():
     pot= potential.BurkertPotential(vo=210.*units.pc/units.Myr)
     assert numpy.fabs(pot._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
     # 2D
-    pot= potential.DehnenBarPotential(vo=230.*units.pc/units.Myr)
+    pot= potential.EllipticalDiskPotential(vo=230.*units.pc/units.Myr)
     assert numpy.fabs(pot._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 2D potential setup as Quantity does not work as expected'
     # 1D
     pot= potential.KGPotential(vo=250.*units.pc/units.Myr)
