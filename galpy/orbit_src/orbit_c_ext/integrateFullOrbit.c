@@ -31,14 +31,8 @@ void parse_leapFuncArgs_Full(int npot,
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    potentialArgs->i2drforce= NULL;
-    potentialArgs->accxrforce= NULL;
-    potentialArgs->accyrforce= NULL;
-    potentialArgs->i2dzforce= NULL;
-    potentialArgs->accxzforce= NULL;
-    potentialArgs->accyzforce= NULL;
-    potentialArgs->wrappedPotentialArg= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
