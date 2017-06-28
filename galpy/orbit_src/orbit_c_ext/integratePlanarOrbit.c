@@ -216,7 +216,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       break;    
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &ZeroForce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;      
 //////////////////////////////// WRAPPERS /////////////////////////////////////
@@ -258,7 +258,6 @@ void integratePlanarOrbit(double *yo,
 			  int * err,
 			  int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
@@ -326,7 +325,6 @@ void integratePlanarOrbit_dxdv(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);

@@ -267,7 +267,6 @@ void integrateFullOrbit(double *yo,
 			int * err,
 			int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
@@ -334,7 +333,6 @@ void integrateOrbit_dxdv(double *yo,
 			 int * err,
 			 int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
