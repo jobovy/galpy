@@ -494,6 +494,7 @@ def test_liouville_planar():
     tol['KeplerPotential']= -7. #more difficult
     tol['TriaxialNFWPotential']= -4. #more difficult
     tol['FerrersPotential']= -2.
+    tol['SpiralArmsPotential']= -0.8 #more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
