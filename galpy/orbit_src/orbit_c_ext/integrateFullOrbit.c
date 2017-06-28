@@ -38,6 +38,7 @@ void parse_leapFuncArgs_Full(int npot,
     potentialArgs->i2dzforce= NULL;
     potentialArgs->accxzforce= NULL;
     potentialArgs->accyzforce= NULL;
+    potentialArgs->wrappedPotentialArg= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -232,6 +233,22 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;      
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
+      potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
+      potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs_Full(potentialArgs->nwrapped,
+			      potentialArgs->wrappedPotentialArg,
+			      pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

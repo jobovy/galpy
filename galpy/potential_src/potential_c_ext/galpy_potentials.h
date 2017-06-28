@@ -44,6 +44,8 @@ struct potentialArg{
   interp_2d * i2dzforce;
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
+  int nwrapped; // For wrappers
+  struct potentialArg * wrappedPotentialArg;  
 };
 /*
   Function declarations
@@ -378,6 +380,16 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+//DehnenSmoothWrapperPotential
+double DehnenSmoothWrapperPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double DehnenSmoothWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double DehnenSmoothWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

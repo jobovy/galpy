@@ -7,6 +7,7 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
+from galpy import potential_src
 from galpy.util import galpyWarning
 from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
@@ -185,6 +186,16 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+        ############################## WRAPPERS ###############################
+        elif isinstance(p,potential_src.DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential):
+            pot_type.append(-1)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._tform,p._tsteady])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
