@@ -226,6 +226,16 @@ def _parse_pot(pot):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+        ############################## WRAPPERS ###############################
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential_src.DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential):
+            pot_type.append(-1)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(potential.toPlanarPotential(p._Pot._pot))
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._Pot._amp,p._Pot._tform,p._Pot._tsteady])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

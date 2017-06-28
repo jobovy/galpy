@@ -42,3 +42,21 @@ double DehnenSmoothWrapperPotentialzforce(double R,double z,double phi,
     * calczforce(R,z,phi,t,
 		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
+double DehnenSmoothWrapperPotentialPlanarRforce(double R,double phi,double t,
+						struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate Rforce
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * calcPlanarRforce(R,phi,t,
+		       potentialArgs->nwrapped,
+		       potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialPlanarphiforce(double R,double phi,double t,
+						  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate phiforce
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * calcPlanarphiforce(R,phi,t,
+			 potentialArgs->nwrapped,
+			 potentialArgs->wrappedPotentialArg);
+}
