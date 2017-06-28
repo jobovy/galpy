@@ -25,27 +25,7 @@ extern "C"
     delete Phi;
     delete T;
     int ii;
-    for (ii=0; ii < npot; ii++) {
-      if ( (actionAngleArgs+ii)->i2d )
-	interp_2d_free((actionAngleArgs+ii)->i2d) ;
-      if ((actionAngleArgs+ii)->accx )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accx);
-      if ((actionAngleArgs+ii)->accy )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accy);
-      if ( (actionAngleArgs+ii)->i2drforce )
-	interp_2d_free((actionAngleArgs+ii)->i2drforce) ;
-      if ((actionAngleArgs+ii)->accxrforce )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accxrforce);
-      if ((actionAngleArgs+ii)->accyrforce )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accyrforce);
-      if ( (actionAngleArgs+ii)->i2dzforce )
-	interp_2d_free((actionAngleArgs+ii)->i2dzforce) ;
-      if ((actionAngleArgs+ii)->accxzforce )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accxzforce);
-      if ((actionAngleArgs+ii)->accyzforce )
-	gsl_interp_accel_free ((actionAngleArgs+ii)->accyzforce);
-      free((actionAngleArgs+ii)->args);
-    }
+    free_potentialArgs(npot,actionAngleArgs);
     free(actionAngleArgs);
   }
   // Calculate frequencies

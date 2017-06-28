@@ -11,69 +11,44 @@ void parse_actionAngleArgs(int npot,
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    if ( forTorus == true ) {
-      potentialArgs->i2drforce= NULL;
-      potentialArgs->accxrforce= NULL;
-      potentialArgs->accyrforce= NULL;
-      potentialArgs->i2dzforce= NULL;
-      potentialArgs->accxzforce= NULL;
-      potentialArgs->accyzforce= NULL;
-    }
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 3 arguments
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
       potentialArgs->nargs= 3;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->nargs= 3;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialEval;
       potentialArgs->Rforce= &PowerSphericalPotentialRforce;
       potentialArgs->zforce= &PowerSphericalPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 8: //HernquistPotential, 2 arguments
       potentialArgs->potentialEval= &HernquistPotentialEval;
       potentialArgs->Rforce= &HernquistPotentialRforce;
       potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 9: //NFWPotential, 2 arguments
       potentialArgs->potentialEval= &NFWPotentialEval;
       potentialArgs->Rforce= &NFWPotentialRforce;
       potentialArgs->zforce= &NFWPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 10: //JaffePotential, 2 arguments
       potentialArgs->potentialEval= &JaffePotentialEval;
       potentialArgs->Rforce= &JaffePotentialRforce;
       potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
@@ -81,18 +56,12 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1));
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
       potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->nargs= 4;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;     
     case 13: //interpRZPotential, XX arguments
       //Grab the grids and the coefficients
@@ -145,111 +114,72 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->Rforce= &IsochronePotentialRforce;
       potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;     
     case 15: //PowerSphericalPotentialwCutoff, 3 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
       potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
       potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
       potentialArgs->nargs= 3;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
       potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->nargs= 3;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 17: //PlummerPotential, 2 arguments
       potentialArgs->potentialEval= &PlummerPotentialEval;
       potentialArgs->Rforce= &PlummerPotentialRforce;
       potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 18: //PseudoIsothermalPotential, 2 arguments
       potentialArgs->potentialEval= &PseudoIsothermalPotentialEval;
       potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 19: //KuzminDiskPotential, 2 arguments
       potentialArgs->potentialEval= &KuzminDiskPotentialEval;
       potentialArgs->Rforce= &KuzminDiskPotentialRforce;
       potentialArgs->zforce= &KuzminDiskPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 20: //BurkertPotential, 2 arguments
       potentialArgs->potentialEval= &BurkertPotentialEval;
       potentialArgs->Rforce= &BurkertPotentialRforce;
       potentialArgs->zforce= &BurkertPotentialzforce;
       potentialArgs->nargs= 2;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 21: //TriaxialHernquistPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialHernquistPotentialEval;
       potentialArgs->Rforce= &TriaxialHernquistPotentialRforce;
       potentialArgs->zforce= &TriaxialHernquistPotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialNFWPotentialEval;
       potentialArgs->Rforce= &TriaxialNFWPotentialRforce;
       potentialArgs->zforce= &TriaxialNFWPotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
       potentialArgs->potentialEval= &TriaxialJaffePotentialEval;
       potentialArgs->Rforce= &TriaxialJaffePotentialRforce;
       potentialArgs->zforce= &TriaxialJaffePotentialzforce;
       potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
       potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 25: //SoftenedNeedleBarPotential, 13 arguments
       potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
       potentialArgs->nargs= (int) 13;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->nargs= (int) *(pot_args) + 3;
-      potentialArgs->i2d= NULL;
-      potentialArgs->accx= NULL;
-      potentialArgs->accy= NULL;
       break;      
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
