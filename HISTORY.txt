@@ -18,6 +18,9 @@ v1.3 (2017-XX-XX)
   triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
   to give a pattern speed to the ellipsoid.
 
+- Upgraded DehnenBarPotential to a 3D potential following Monari et
+  al. (2016) (#304).
+
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
 
@@ -27,6 +30,10 @@ v1.3 (2017-XX-XX)
 
 - Orbit methods now all return a scalar when called with a single
   time (see #247 and #294).
+
+- Added a warning whenever the orbit-integration method that is used
+  is different from the requested one (for when C integration falls
+  back onto Python; see #286).
 
 - Switched test suite from nose to pytest (#303).
 
