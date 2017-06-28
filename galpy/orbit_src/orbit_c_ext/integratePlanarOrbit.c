@@ -28,6 +28,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			int * pot_type,
 			double * pot_args){
   int ii,jj;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
@@ -292,11 +293,7 @@ void integratePlanarOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -349,11 +346,7 @@ void integratePlanarOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }

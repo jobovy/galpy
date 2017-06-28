@@ -317,11 +317,7 @@ void integrateFullOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -388,11 +384,7 @@ void integrateOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
 	      rtol,atol,result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
