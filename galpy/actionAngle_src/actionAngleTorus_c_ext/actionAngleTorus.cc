@@ -24,7 +24,6 @@ extern "C"
   {
     delete Phi;
     delete T;
-    int ii;
     free_potentialArgs(npot,actionAngleArgs);
     free(actionAngleArgs);
   }
