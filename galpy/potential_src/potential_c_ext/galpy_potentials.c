@@ -4,7 +4,8 @@ void cyl_to_rect(double R, double phi,double *x, double *y){
   *y= R * sin ( phi );
 }
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
-  for (int ii=0; ii < npot; ii++) {
+  int ii;
+  for (ii=0; ii < npot; ii++) {
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
@@ -18,7 +19,8 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
-  for (int ii=0; ii < npot; ii++) {
+  int ii;
+  for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2d )
       interp_2d_free((potentialArgs+ii)->i2d) ;
     if ( (potentialArgs+ii)->accx )
