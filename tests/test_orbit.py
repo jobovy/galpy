@@ -336,7 +336,7 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'DehnenSmoothBar':
+            if 'DehnenSmoothBar' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
