@@ -181,6 +181,20 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;      
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs_Full(potentialArgs->nwrapped,
+			      potentialArgs->wrappedPotentialArg,
+			      pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
