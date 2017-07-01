@@ -187,7 +187,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
         ############################## WRAPPERS ###############################
-        elif isinstance(p,potential_src.DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential):
+        elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(p._pot,

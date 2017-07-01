@@ -228,7 +228,7 @@ def _parse_pot(pot):
                     pot_args.extend([1,hz.get('h',0.0375)])
         ############################## WRAPPERS ###############################
         elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
-                and isinstance(p._Pot,potential_src.DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential):
+                and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(potential.toPlanarPotential(p._Pot._pot))
