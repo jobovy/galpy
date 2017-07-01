@@ -2656,17 +2656,31 @@ class mockDehnenSmoothBarPotentialTm5(DehnenSmoothWrapperPotential):
                                 tform=-99.,tsteady=1.)
         DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
             tform=-5.,tsteady=2.)
-class mockFlatDehnenSmoothBarPotential(DehnenSmoothWrapperPotential):
+class mockFlatDehnenSmoothBarPotential(testMWPotential):
     def __init__(self):
         dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
                                 barphi=25.*numpy.pi/180.,beta=0.,
                                 alpha=0.01,Af=0.04,
                                 tform=-99.,tsteady=1.)
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,
-            pot=[potential.LogarithmicHaloPotential(normalize=1.),dpn],\
-            tform=0.5,tsteady=0.5)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     DehnenSmoothWrapperPotential(\
+                    amp=1.,pot=dpn,tform=-4.*2.*numpy.pi/dpn.OmegaP(),
+                    tsteady=2.*2*numpy.pi/dpn.OmegaP())])
     def OmegaP(self):
-        return self._pot[1].OmegaP()
+        return self._potlist[1]._pot.OmegaP()
+class mockSlowFlatDehnenSmoothBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     DehnenSmoothWrapperPotential(\
+                        amp=1.,pot=dpn,tform=0.1,tsteady=500.)])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
 # A DehnenSmoothWrappered version of LogarithmicHaloPotential for simple aAtest
 class mockSmoothedLogarithmicHaloPotential(DehnenSmoothWrapperPotential):
     def __init__(self):
