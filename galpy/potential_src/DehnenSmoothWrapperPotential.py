@@ -3,6 +3,7 @@
 ###############################################################################
 from galpy.potential_src.WrapperPotential import WrapperPotential
 class DehnenSmoothWrapperPotential(WrapperPotential):
+    normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
         """
         NAME:
