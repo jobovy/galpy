@@ -189,9 +189,9 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
 					 * sizeof (struct potentialArg) );
-      parse_leapFuncArgs_Full(potentialArgs->nwrapped,
-			      potentialArgs->wrappedPotentialArg,
-			      pot_type,pot_args+1);
+      parse_actionAngleArgs(potentialArgs->nwrapped,
+			    potentialArgs->wrappedPotentialArg,
+			    pot_type,pot_args+1,forTorus);
       pot_type+= potentialArgs->nwrapped;
       pot_args+= ( (int) *pot_args ) +  1;
       break;
