@@ -15,7 +15,7 @@ def test_normalize_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -68,7 +68,7 @@ def test_forceAsDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -236,7 +236,7 @@ def test_2ndDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -464,7 +464,7 @@ def test_poisson_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -551,7 +551,7 @@ def test_evaluateAndDerivs_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -838,7 +838,7 @@ def test_toVertical_toPlanar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',

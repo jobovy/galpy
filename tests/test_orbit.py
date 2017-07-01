@@ -67,7 +67,7 @@ def test_energy_jacobi_conservation():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
@@ -452,7 +452,7 @@ def test_liouville_planar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
@@ -579,7 +579,7 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -699,7 +699,7 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -818,7 +818,7 @@ def test_apocenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -938,7 +938,7 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -1043,7 +1043,7 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -1250,7 +1250,7 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
