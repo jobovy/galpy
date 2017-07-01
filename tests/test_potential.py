@@ -2667,3 +2667,9 @@ class mockFlatDehnenSmoothBarPotential(DehnenSmoothWrapperPotential):
             tform=0.5,tsteady=0.5)
     def OmegaP(self):
         return self._pot[1].OmegaP()
+# A DehnenSmoothWrappered version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotential(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)
