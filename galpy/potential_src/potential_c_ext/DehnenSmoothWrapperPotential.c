@@ -15,6 +15,16 @@ double dehnenSmooth(double t,double tform, double tsteady){
     smooth= 1.;
   return smooth;
 }
+double DehnenSmoothWrapperPotentialEval(double R,double z,double phi,
+					double t,
+					struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate potential, only used in actionAngle, so phi=0, t=0
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * evaluatePotentials(R,z,
+			 potentialArgs->nwrapped,
+			 potentialArgs->wrappedPotentialArg);
+}
 double DehnenSmoothWrapperPotentialRforce(double R,double z,double phi,
 					  double t,
 					  struct potentialArg * potentialArgs){
