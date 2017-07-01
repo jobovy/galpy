@@ -3,7 +3,7 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
-    evaluatePotentials, evaluateDensities
+    evaluatePotentials, evaluateDensities, _check_c
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -468,11 +468,7 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC:
+        if not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:

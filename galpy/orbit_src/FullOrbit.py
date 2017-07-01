@@ -8,7 +8,7 @@ if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
 else:
     from scipy.misc import logsumexp
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
-    evaluatePotentials, _evaluatephiforces, evaluateDensities
+    evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -562,11 +562,7 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC:
+        if not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
