@@ -2656,3 +2656,14 @@ class mockDehnenSmoothBarPotentialTm5(DehnenSmoothWrapperPotential):
                                 tform=-99.,tsteady=1.)
         DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
             tform=-5.,tsteady=2.)
+class mockFlatDehnenSmoothBarPotential(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,
+            pot=[potential.LogarithmicHaloPotential(normalize=1.),dpn],\
+            tform=0.5,tsteady=0.5)
+    def OmegaP(self):
+        return self._pot[1].OmegaP()
