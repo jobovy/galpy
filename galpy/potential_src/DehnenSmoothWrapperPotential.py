@@ -1,8 +1,8 @@
 ###############################################################################
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
-from galpy.potential_src.SimpleWrapperPotential import SimpleWrapperPotential
-class DehnenSmoothWrapperPotential(SimpleWrapperPotential):
+from galpy.potential_src.WrapperPotential import WrapperPotential
+class DehnenSmoothWrapperPotential(WrapperPotential):
     def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
         """
         NAME:
@@ -32,7 +32,7 @@ class DehnenSmoothWrapperPotential(SimpleWrapperPotential):
            2017-06-26 - Started - Bovy (UofT)
 
         """
-        SimpleWrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo)
+        WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo)
         self._tform= tform
         if tsteady is None:
             self._tsteady= self._tform/2.

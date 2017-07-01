@@ -1,13 +1,13 @@
 ###############################################################################
-#   SimpleWrapperPotential.py: Super-class for simple wrapper potentials
+#   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
 from galpy.potential_src.Potential import Potential, _isNonAxi
 from galpy.potential_src.Potential import evaluatePotentials, \
     evaluateRforces, evaluatephiforces, evaluatezforces, \
     evaluaterforces, evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, evaluateDensities
-class SimpleWrapperPotential(Potential):
-    def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
+class WrapperPotential(Potential):
+    def __init__(self,amp=1.,pot=None,ro=None,vo=None):
         """
         NAME:
 
@@ -15,7 +15,7 @@ class SimpleWrapperPotential(Potential):
 
         PURPOSE:
 
-           initialize a SimpleWrapperPotential, a super-class for simple wrapper potentials
+           initialize a WrapperPotential, a super-class for wrapper potentials
 
         INPUT:
 
@@ -46,7 +46,7 @@ class SimpleWrapperPotential(Potential):
             return lambda R,Z,phi=0.,t=0.: \
                 self._wrap(attribute,R,Z,phi=phi,t=t)
         else:
-            return super(SimpleWrapperPotential,self).__getattr__(attribute)
+            return super(WrapperPotential,self).__getattr__(attribute)
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
@@ -74,4 +74,4 @@ class SimpleWrapperPotential(Potential):
         elif attribute == '_rforce':
             return evaluaterforces
         else:
-            raise AttributeError("Attribute %s not found in for this SimpleWrapperPotential" % attribute)
+            raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)

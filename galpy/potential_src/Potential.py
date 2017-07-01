@@ -2646,11 +2646,10 @@ def _check_c(Pot):
        2014-02-17 - Written - Bovy (IAS)
 
     """
-    from galpy.potential_src.SimpleWrapperPotential \
-        import SimpleWrapperPotential
+    from galpy.potential_src.WrapperPotential import WrapperPotential
     if isinstance(Pot,list):
         return nu.all(nu.array([_check_c(p) for p in Pot],dtype='bool'))
-    elif isinstance(Pot,SimpleWrapperPotential):
+    elif isinstance(Pot,WrapperPotential):
         return bool(Pot.hasC*_check_c(Pot._pot))
     elif isinstance(Pot,Potential):
         return Pot.hasC
