@@ -42,7 +42,8 @@ class WrapperPotential(Potential):
                 or attribute == '_phiforce' \
                 or attribute == '_R2deriv' or attribute == '_z2deriv' \
                 or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
-                or attribute == '_Rphideriv':
+                or attribute == '_Rphideriv' or attribute == '_dens' \
+                or attribute == '_rforce':
             return lambda R,Z,phi=0.,t=0.: \
                 self._wrap(attribute,R,Z,phi=phi,t=t)
         else:
