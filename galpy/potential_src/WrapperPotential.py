@@ -42,8 +42,7 @@ class WrapperPotential(Potential):
                 or attribute == '_phiforce' \
                 or attribute == '_R2deriv' or attribute == '_z2deriv' \
                 or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
-                or attribute == '_Rphideriv' or attribute == '_dens' \
-                or attribute == '_rforce':
+                or attribute == '_Rphideriv' or attribute == '_dens':
             return lambda R,Z,phi=0.,t=0.: \
                 self._wrap(attribute,R,Z,phi=phi,t=t)
         else:
@@ -72,7 +71,5 @@ class WrapperPotential(Potential):
         elif attribute == '_Rphideriv':
             return lambda p,R,Z,phi=0.,t=0.: \
                 evaluatePotentials(p,R,Z,phi=phi,t=t,dR=1,dphi=1)
-        elif attribute == '_rforce':
-            return evaluaterforces
-        else:
+        else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
