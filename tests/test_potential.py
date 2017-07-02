@@ -2628,8 +2628,7 @@ class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     def __init__(self):
         dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
         DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
-            tform=-4.*2.*numpy.pi/dpn.OmegaP(),
-            tsteady=2.*2*numpy.pi/dpn.OmegaP())
+            tform=-4.*2.*numpy.pi/dpn.OmegaP())
         return None
 # Additional DehnenSmooth instances to catch all smoothing cases
 class mockDehnenSmoothBarPotentialT1(DehnenSmoothWrapperPotential):
