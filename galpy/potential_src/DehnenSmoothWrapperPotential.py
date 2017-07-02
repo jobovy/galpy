@@ -2,6 +2,10 @@
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
 from galpy.potential_src.WrapperPotential import WrapperPotential
+from galpy.potential_src.Potential import _APY_LOADED
+from galpy.util import bovy_conversion
+if _APY_LOADED:
+    from astropy import units
 class DehnenSmoothWrapperPotential(WrapperPotential):
     normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
@@ -20,9 +24,9 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
 
            pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
 
-           tform - start of growth
+           tform - start of growth (can be a Quantity)
 
-           tsteady - time from tform at which the potential is fully grown (default: -tform/2, st the perturbation is fully grown at tform/2)
+           tsteady - time from tform at which the potential is fully grown (default: -tform/2, st the perturbation is fully grown at tform/2; can be a Quantity)
 
         OUTPUT:
 
@@ -34,6 +38,12 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
 
         """
         WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo)
+        if _APY_LOADED and isinstance(tform,units.Quantity):
+            tform= tform.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(tsteady,units.Quantity):
+            tsteady= tsteady.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._tform= tform
         if tsteady is None:
             self._tsteady= self._tform/2.
