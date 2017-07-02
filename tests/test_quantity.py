@@ -2234,6 +2234,16 @@ def test_potential_paramunits():
                                     a=8./ro,N=2,L=2,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "DiskSCFPotential w/ a w/ units does not behave as expected"   
+    # DehnenSmoothWrapperPotential
+    dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
+    pot= potential.DehnenSmoothWrapperPotential(pot=dpn,
+                                                tform=1.*units.Gyr,
+                                                tsteady=3.*units.Gyr)
+    pot_nounits= potential.DehnenSmoothWrapperPotential(pot=dpn,
+                                                        tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                        tsteady=3./bovy_conversion.time_in_Gyr(vo,ro))
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():
