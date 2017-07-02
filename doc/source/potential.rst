@@ -200,6 +200,54 @@ and the potential is
 
 Clearly, the potential is much less flattened than the density.
 
+**NEW in v1.3**: Modifying potential instances using wrappers
+-------------------------------------------------------------
+
+Potentials implemented in galpy can be modified using different kinds
+of wrappers. These wrappers modify potentials to, for example, change
+their amplitude as a function of time (e.g., to grow or decay the bar
+contribution to a potential). Specific kinds of wrappers are listed on
+the :ref:`Potential wrapper API page <potwrapperapi>`. These wrappers
+can be applied to instances of *any* potential implemented in galpy
+(including other wrappers). An example is to grow a bar using the
+polynomial smoothing of `Dehnen (2000)
+<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. We first setup
+an instance of a ``DehnenBarPotential`` that is essentially fully
+grown already
+
+>>> from galpy.potential import DehnenBarPotential
+>>> dpn= DehnenBarPotential(tform=-100.,tsteady=0.) # DehnenBarPotential has a custom implementation of growth that we ignore by setting tform to -100
+
+and then wrap it
+
+>>> from galpy.potential import DehnenSmoothWrapperPotential
+>>> dswp= DehnenSmoothWrapperPotential(pot=dpn,tform=-4.*2.*numpy.pi/dpn.OmegaP(),tsteady=2.*2.*numpy.pi/dpn.OmegaP())
+
+This grows the ``DehnenBarPotential`` starting at 4 bar periods before
+``t=0`` over a period of 2 bar periods. ``DehnenBarPotential`` has an
+older, custom implementation of the same smoothing and the
+``(tform,tsteady)`` pair used here corresponds to the default setting
+for ``DehnenBarPotential``. Thus we can compare the two
+
+>>> dp= DehnenBarPotential()
+>>> print(dp(0.9,0.3,phi=3.,t=-2.)-dswp(0.9,0.3,phi=3.,t=-2.))
+0.0
+>>> print(dp.Rforce(0.9,0.3,phi=3.,t=-2.)-dswp.Rforce(0.9,0.3,phi=3.,t=-2.))
+0.0
+
+Wrapper potentials can be used anywhere in galpy where general
+potentials can be used. They can be part of lists of Potential
+instances. They can also be used in C for orbit integration provided
+that both the wrapper and the potentials that it wraps are implemented
+in C. For example, a static ``LogarithmicHaloPotential`` with a bar
+potential grown as above would be
+
+>>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> pot= [lp,dswp]
+>>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
+-1.00965326579
+
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
 
