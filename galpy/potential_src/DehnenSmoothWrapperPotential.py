@@ -7,6 +7,22 @@ from galpy.util import bovy_conversion
 if _APY_LOADED:
     from astropy import units
 class DehnenSmoothWrapperPotential(WrapperPotential):
+    """Potential wrapper class that implements the growth of a gravitational potential following `Dehnen (2000) <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. The amplitude A applied to a potential wrapped by an instance of this class is changed as
+
+    .. math::
+
+        A(t) = amp\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)
+
+    where
+
+    .. math::
+
+        \\xi = \\begin{cases}
+        0 & t < t_\\mathrm{form}\\\\
+        2\\left(\\frac{t-t_\\mathrm{form}}{t_\mathrm{steady}}\\right)-1\\,, &  t_\\mathrm{form} \\leq t \\leq t_\\mathrm{form}+t_\\mathrm{steady}\\\\
+        1 & t > t_\\mathrm{form}+t_\\mathrm{steady}
+        \\end{cases}
+    """
     normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
         """
