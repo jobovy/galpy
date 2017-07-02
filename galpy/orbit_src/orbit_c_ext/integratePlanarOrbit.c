@@ -223,6 +223,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->planarRforce= &DehnenSmoothWrapperPotentialPlanarRforce;
       potentialArgs->planarphiforce= &DehnenSmoothWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &DehnenSmoothWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 3;
       potentialArgs->nwrapped= (int) *pot_args++;
       potentialArgs->wrappedPotentialArg= \

@@ -40,7 +40,7 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
         else:
             self._tsteady= self._tform+tsteady
         self.hasC= True
-        self.hasC_dxdv= False
+        self.hasC_dxdv= True
 
     def _smooth(self,t):
         #Calculate relevant time

@@ -70,3 +70,32 @@ double DehnenSmoothWrapperPotentialPlanarphiforce(double R,double phi,double t,
 			 potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }
+double DehnenSmoothWrapperPotentialPlanarR2deriv(double R,double phi,double t,
+						 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate R2deriv
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * calcPlanarR2deriv(R,phi,t,
+			potentialArgs->nwrapped,
+			potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialPlanarphi2deriv(double R,double phi,
+						   double t,
+						   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate phi2deriv
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * calcPlanarphi2deriv(R,phi,t,
+			  potentialArgs->nwrapped,
+			  potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialPlanarRphideriv(double R,double phi,
+						   double t,
+						   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Calculate Rphideriv
+  return *args * dehnenSmooth(t,*(args+1),*(args+2))	\
+    * calcPlanarRphideriv(R,phi,t,
+			  potentialArgs->nwrapped,
+			  potentialArgs->wrappedPotentialArg);
+}

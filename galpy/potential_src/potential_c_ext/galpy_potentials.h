@@ -397,6 +397,12 @@ double DehnenSmoothWrapperPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
 double DehnenSmoothWrapperPotentialPlanarphiforce(double,double,double,
 						  struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif
