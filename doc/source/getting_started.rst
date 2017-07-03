@@ -24,6 +24,13 @@ necessary to make the circular velocity 1 at R=1. Starting in v1.2 you
 can also initialize potentials with amplitudes and other parameters in
 physical units; see below and other parts of this documentation.
 
+.. |clippy| image:: _static/clippy.svg
+   :height: 20px
+   :width: 20px
+
+.. TIP::
+   You can copy all of the code examples in this documentation to your clipboard by clicking the |clippy| button in the top, right corner of each example. This can be directly pasted into a Python interpreter (including the >>>).
+
 Similarly we can initialize other potentials and plot the combined
 rotation curve
 
