@@ -23,6 +23,7 @@ one, initial coordinates are best given as a fraction of the radius at
 which one specifies the circular velocity, and initial velocities are
 best expressed as fractions of this circular velocity. For example,
 
+>>> from galpy.orbit import Orbit
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
 
 initializes a fully three-dimensional orbit, while
@@ -117,8 +118,8 @@ an orbit is requested). An example of all of this is:
 
 However, the internally stored position/velocity vector is
 
->>> print(o.vxvv)
-[1.1476649101960512, 0.20128601278731811, 1.8303776114906387, -0.13107066602923434, 0.58171049004255293, 0.14071341020496472]
+>>> print(o._orb.vxvv)
+# [1.1480792664061401, 0.1994859759019009, 1.8306295160508093, -0.13064400474040533, 0.58167185623715167, 0.14066246212987227]
 
 and is therefore in *natural* units.
 
@@ -132,8 +133,8 @@ degrees, and the proper motions are again given in mas/yr ((pmll =
 pmll' * cos[glat] ):
 
 >>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],lb=True,ro=8.,vo=220.)
->>> print(o.vxvv)
-[0.79998509943955398, 0.075939950035477488, 0.52838231795389867, 0.12812499999999999, 0.89052135379600328, 0.092696334097541536]
+>>> print(o._orb.vxvv)
+# [0.79959714332811838, 0.073287283885367677, 0.5286278286083651, 0.12748861331872263, 0.89074407199364924, 0.0927414387396788]
 
 
 When ``radec=True`` or ``lb=True`` is set, velocities can also be specified in
@@ -251,13 +252,13 @@ example, we can calculate the peri- and apocenter radii of an orbit,
 its eccentricity, and the maximal height above the plane of the orbit
 
 >>> o.rap(), o.rperi(), o.e(), o.zmax()
-(1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
+# (1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
 
 We can also calculate the energy of the orbit, either in the potential
 that the orbit was integrated in, or in another potential:
 
 >>> o.E(), o.E(pot=mp)
-(0.6150000000000001, -0.67390625000000015)
+# (0.6150000000000001, -0.67390625000000015)
 
 where ``mp`` is the Miyamoto-Nagai potential of :ref:`Introduction:
 Rotation curves <rotcurves>`.
@@ -267,9 +268,9 @@ For the Orbit ``op`` that was initialized above with a distance scale
 physical units
 
 >>> op.rap(), op.rperi(), op.e(), op.zmax()
-(10.065158988860341,7.8385312810643057,0.12436696983841462,0.91105035688072711) #kpc
+# (10.065158988860341,7.8385312810643057,0.12436696983841462,0.91105035688072711) #kpc
 >>> op.E(), op.E(pot=mp)
-(29766.000000000004, -32617.062500000007) #(km/s)^2
+# (29766.000000000004, -32617.062500000007) #(km/s)^2
 
 We can also show the energy as a function of time (to check energy
 conservation)
@@ -311,32 +312,32 @@ returned, and if a time is requested at which the orbit was not saved
 spline interpolation is used to return the value. Examples include
 
 >>> o.R(1.)
-1.1545076874679474
+# 1.1545076874679474
 >>> o.phi(99.)
-88.105603035901169
+# 88.105603035901169
 >>> o.ra(2.,obs=[8.,0.,0.],ro=8.)
-array([ 285.76403985])
+# array([ 285.76403985])
 >>> o.helioX(5.)
-array([ 1.24888927])
+# array([ 1.24888927])
 >>> o.pmll(10.,obs=[8.,0.,0.,0.,245.,0.],ro=8.,vo=230.)
-array([-6.45263888])
+# array([-6.45263888])
 
 For the Orbit ``op`` that was initialized above with a distance scale
 ``ro=`` and a velocity scale ``vo=``, the first of these would be
 
 >>> op.R(1.)
-9.2360614837829225 #kpc
+# 9.2360614837829225 #kpc
 
 which we can also access in natural coordinates as
 
 >>> op.R(1.,use_physical=False)
-1.1545076854728653
+# 1.1545076854728653
 
 We can also specify a different distance or velocity scale on the fly,
 e.g.,
 
 >>> op.R(1.,ro=4.) #different velocity scale would be vo=
-4.6180307418914612
+# 4.6180307418914612
 
 We can also initialize an ``Orbit`` instance using the phase-space
 position of another ``Orbit`` instance evaulated at time t. For
@@ -365,7 +366,7 @@ attribute ``hasC``
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
 >>> mp.hasC
-True
+# True
 
 Fast C integrators can be accessed through the ``method=`` keyword of
 the ``orbit.integrate`` method. Currently available integrators are
@@ -388,10 +389,10 @@ For most applications I recommend ``dopr54_c``. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
 >>> timeit(o.integrate(ts,mp))
-1 loops, best of 3: 553 ms per loop
+# 1 loops, best of 3: 553 ms per loop
 >>> timeit(o.integrate(ts,mp,method='dopr54_c'))
-galpyWarning: Using C implementation to integrate orbits
-10 loops, best of 3: 25.6 ms per loop
+# galpyWarning: Using C implementation to integrate orbits
+# 10 loops, best of 3: 25.6 ms per loop
 
 As this example shows, galpy will issue a warning that C is being
 used. Speed-ups by a factor of 20 are typical.
@@ -428,9 +429,9 @@ defined by the orbit integration from time zero to the final time
 This determinant should be equal to one 
 
 >>> print(tjac)
-0.999999991189
+# 0.999999991189
 >>> numpy.fabs(tjac-1.) < 10.**-8.
-True
+# True
 
 The calls to ``integrate_dxdv`` above set the keywords ``rectIn=`` and
 ``rectOut=`` to True, as the default input and output uses phase-space

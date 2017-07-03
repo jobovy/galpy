@@ -96,7 +96,7 @@ natural units the orbital time of a circular orbit at R=1 is
 
 >>> from galpy.util import bovy_conversion
 >>> print(2.*numpy.pi*bovy_conversion.time_in_Gyr(220.,8.))
-0.223405444283
+# 0.223405444283
 
 or about 223 Myr. We can also express forces in various physical
 units. For example, for the Milky-Way-like potential defined in galpy,
@@ -104,13 +104,13 @@ we have that the vertical force at 1.1 kpc is
 
 >>> from galpy.potential import MWPotential2014, evaluatezforces
 >>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_pcMyr2(220.,8.)
-2.0259181908629933
+# 2.0259181908629933
 
 which we can also express as an equivalent surface-density by dividing
 by :math:`2\pi G`
 
 >>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
-71.658016957792356
+# 71.658016957792356
 
 Because the vertical force at the solar circle in the Milky Way at 1.1
 kpc above the plane is approximately :math:`70\,(2\pi G\,
@@ -126,12 +126,12 @@ are considered to be too obvious to be included); see :ref:`here
 matter density in the Milky-Way-like potential is given by
 
 >>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
-0.0075419566970079373
+# 0.0075419566970079373
 
 or
 
 >>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_gevcc(220.,8.)
-0.28643101789044584
+# 0.28643101789044584
 
 or about :math:`0.0075\,M_\odot\,\mathrm{pc}^{-3} \approx
 0.3\,\mathrm{GeV\,cm}^{-3}`, in line with current measurements (e.g.,
@@ -192,7 +192,7 @@ height of 300 pc as follows
 
        >>> from galpy.potential import MiyamotoNagaiPotential
        >>> from astropy import units
-       >>>  mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
+       >>> mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
 
 Internally, galpy uses a set of normalized units, where positions are
 divided by a scale ``ro`` and velocities are divided by a scale
@@ -226,20 +226,20 @@ in the configuration file. Then you can do for the Miyamoto-Nagai
 potential above
 
 	  >>> mp.vcirc(10.*units.kpc)
-	  <Quantity 135.72399857308042 km / s>
+	  # <Quantity 135.72399857308042 km / s>
 
 Note that if you do not specify the argument as a Quantity with units,
 galpy will assume that it is given in natural units, viz.
 
       >>> mp.vcirc(10.)
-      <Quantity 51.78776595740726 km / s>
+      # <Quantity 51.78776595740726 km / s>
 
 because this input is considered equal to 10 times the distance scale
 (this is for the case using the default ``ro`` and ``vo``, the first
 Miyamoto-Nagai instantiation of this subsection)
 
 	>>> mp.vcirc(10.*8.*units.kpc)
-	<Quantity 51.78776595740726 km / s>
+	# <Quantity 51.78776595740726 km / s>
 
 .. WARNING::
    If you do not specify arguments of methods and functions using a Quantity with units, galpy assumes that the argument has internal (natural) units.
@@ -252,7 +252,7 @@ above in a session with ``apy-units = False``
 
       >>> mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
       >>> mp.vcirc(10.*units.kpc)
-      135.72399857308042
+      # 135.72399857308042
 
 This return value is in km/s (see the :ref:`table <unitstable>` at the
 end of the previous section for default units for different
@@ -271,7 +271,7 @@ off or on. For example, if we do
 outputs will be in internal units
 
 	>>> mp.vcirc(10.*units.kpc)
-	0.61692726624127459
+	# 0.61692726624127459
 
 If you setup a Potential, Orbit, etc. object without specifying the
 parameters as a Quantity, the default is to return output in natural
@@ -281,7 +281,7 @@ and ``vo=`` can always also be specified on a method-by-method basis,
 overwriting an object's default. For example
 
 	    >>> mp.vcirc(10.*units.kpc,ro=12.*units.kpc)
-	    0.69273212489609337
+	    # 0.69273212489609337
 
 Physical output can also be turned off on a method-by-method or function-by-function basis, for example
 
@@ -289,7 +289,7 @@ Physical output can also be turned off on a method-by-method or function-by-func
 	 >>> mp.vcirc(10.*units.kpc)
 	 135.72399857308042 # km/s
 	 >>> mp.vcirc(10.*units.kpc,use_physical=False)
-	 0.61692726624127459 # in natural units
+	 # 0.61692726624127459 # in natural units
 
 Further examples of specifying inputs with units will be given
 throughout the documentation.	
@@ -407,7 +407,7 @@ At the solar radius, the escape velocity is
 Or, for a local circular velocity of 220 km/s
 
 >>> vesc(MWPotential2014,1.)*220.
-512.96057667432126
+# 512.96057667432126
 
 similar to direct measurements of this (e.g., `2007MNRAS.379..755S
 <http://adsabs.harvard.edu/abs/2007MNRAS.379..755S>`_ and

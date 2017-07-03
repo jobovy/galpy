@@ -72,37 +72,37 @@ functions. For example, we can calculate the mean velocities (for the
 DF with a scale length of 1/3 above)
 
 >>> dfc.meanvT(1.)
-0.91715276979447324
+# 0.91715276979447324
 >>> dfc.meanvR(1.)
-0.0
+# 0.0
 
 and the velocity dispersions
 
 >>> numpy.sqrt(dfc.sigmaR2(1.))
-0.19321086259083936
+# 0.19321086259083936
 >>> numpy.sqrt(dfc.sigmaT2(1.))
-0.15084122011271159
+# 0.15084122011271159
 
 and their ratio
 
 >>> dfc.sigmaR2(1.)/dfc.sigmaT2(1.)
-1.6406766813028968
+# 1.6406766813028968
 
 In the limit of zero velocity dispersion (the epicycle approximation)
 this ratio should be equal to 2, which we can check as follows
 
 >>> dfccold= dehnendf(beta=0.,profileParams=(1./3.,1.,0.02))
 >>> dfccold.sigmaR2(1.)/dfccold.sigmaT2(1.)
-1.9947493895454664
+# 1.9947493895454664
 
 We can also calculate higher order moments
 
 >>> dfc.skewvT(1.)
--0.48617143862047763
+# -0.48617143862047763
 >>> dfc.kurtosisvT(1.)
-0.13338978593181494
+# 0.13338978593181494
 >>> dfc.kurtosisvR(1.)
--0.12159407676394096
+# -0.12159407676394096
 
 We already saw above that the velocity dispersion at R=1 is not
 exactly equal to the input velocity dispersion (0.19321086259083936
@@ -114,7 +114,7 @@ calculates the product of the velocity dispersion squared and the
 surface-mass density. E.g.,
 
 >>> dfc.surfacemass(1.)
-0.050820867101511534
+# 0.050820867101511534
 
 We can plot the surface-mass density as follows
 
@@ -161,13 +161,13 @@ from the Jeans equation (eq. 4.228 in Binney & Tremaine 2008), using
 the input surface-density and velocity dispersion profiles
 
 >>> dfc.asymmetricdrift(1.)
-0.090000000000000024
+# 0.090000000000000024
 
 which should be equal to the circular velocity minus the mean rotational
 velocity
 
 >>> 1.-dfc.meanvT(1.)
-0.082847230205526756
+# 0.082847230205526756
 
 These are not the same in part because of the difference between the
 input and output surface-density and velocity-dispersion profiles (and
@@ -209,17 +209,17 @@ All of the methods for an uncorrected disk DF can be used for the
 corrected DFs as well. For example, the velocity dispersion is now 
 
 >>> numpy.sqrt(dfc.sigmaR2(1.))
-0.19999985069451526
+# 0.19999985069451526
 
 and the mean rotation velocity is
 
 >>> dfc.meanvT(1.)
-0.90355161181498711
+# 0.90355161181498711
 
 and (correct) asymmetric drift
 
 >>> 1.-dfc.meanvT(1.)
-0.09644838818501289
+# 0.09644838818501289
 
 That this still does not agree with the simple ``dfc.asymmetricdrift``
 estimate is because of the latter's using the epicycle approximation
@@ -238,29 +238,29 @@ the DF. Thus, we can calculate
 
 >>> dfc= dehnendf(beta=0.)
 >>> dfc.oortA(1.)
-0.43190780889218749
+# 0.43190780889218749
 >>> dfc.oortB(1.)
--0.48524496090228575
+# -0.48524496090228575
 
 The *K* and *C* Oort constants are zero for axisymmetric DFs
 
 >>> dfc.oortC(1.)
-0.0
+# 0.0
 >>> dfc.oortK(1.)
-0.0
+# 0.0
 
 In the epicycle approximation, for a flat rotation curve *A* =- *B* =
 0.5. The explicit calculates of *A* and *B* for warm DFs quantify how
 good (or bad) this approximation is
 
 >>> dfc.oortA(1.)+dfc.oortB(1.)
--0.053337152010098254
+# -0.053337152010098254
 
 For the cold DF from above the approximation is much better
 
 >>> dfccold= dehnendf(beta=0.,profileParams=(1./3.,1.,0.02))
 >>> dfccold.oortA(1.), dfccold.oortB(1.)
-(0.49917556666144003, -0.49992824742490816)
+# (0.49917556666144003, -0.49992824742490816)
 
 
 Sampling data from the DF
@@ -408,18 +408,18 @@ velocity at ``R=0.9``, ``phi=22.5`` degree, and ``t=0`` by using a grid
 >>> mvrcold, gridcold= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51,nsigma=6.)
 >>> mvrwarm, gridwarm= edfwarm.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51)
 >>> print(mvrcold, mvrwarm)
--0.0358753028951 -0.0294763627935
+# -0.0358753028951 -0.0294763627935
 
 The cold response agrees well with the analytical calculation, which
 predicts that this is :math:`-0.05/\sqrt{2}`:
 
 >>> print(mvrcold+0.05/sqrt(2.))
--0.000519963835811
+# -0.000519963835811
 
 The warm response is slightly smaller in amplitude
 
 >>> print(mvrwarm/mvrcold)
-0.821633837619
+# 0.821633837619
 
 although the numerical uncertainty in ``mvrwarm`` is large, because
 the grid is not sufficiently fine.
@@ -428,16 +428,16 @@ We can then re-use this grid in calculations of other moments of
 the DF, e.g.,
 
 >>> print(edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
-0.965058551359
+# 0.965058551359
 >>> print(edfwarm.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm))
-0.915397094614
+# 0.915397094614
 
 which returns the mean rotational velocity, and
 
 >>> print(edfcold.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
-3.21160878582
+# 3.21160878582
 >>> print(edfwarm.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm))
-4.23510254333
+# 4.23510254333
 
 which gives the vertex deviation. The reason we have to calculate the
 grid out to ``6nsigma`` for the cold response is that the response is
@@ -451,7 +451,7 @@ calculating the spatial derivatives of the DF. These can also be calculated on a
 >>> oortacold, gridcold, gridrcold, gridphicold= edfcold.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True,nsigma=6.)
 >>> oortawarm, gridwarm, gridrwarm, gridphiwarm= edfwarm.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True)
 >>> print(oortacold, oortawarm)
-0.575494559999 0.526389833249
+# 0.575494559999 0.526389833249
 
 It is clear that these are quite different. The cold calculation is
 again close to the analytical prediction, which says that :math:`A =
@@ -459,15 +459,15 @@ A_{\mathrm{axi}}+0.05/(2\sqrt{2})` where :math:`A_{\mathrm{axi}} =
 1/(2\times0.9)` in this case:
 
 >>> print(oortacold-(0.5/0.9+0.05/2./sqrt(2.)))
-0.0022613349141670236
+# 0.0022613349141670236
 
 These grids can then be re-used for the other Oort functions, for
 example,
 
 >>> print(edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold))
--0.574674310521
+# -0.574674310521
 >>> print(edfwarm.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm,derivphiGrid=gridphiwarm,derivRGrid=gridrwarm))
--0.555546911144
+# -0.555546911144
 
 and similar for ``oortC`` and ``oortK``. These warm results should
 again be considered for illustration only, as the grid is not
