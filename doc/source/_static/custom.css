@@ -1,0 +1,147 @@
+.codeblock, pre.literal-block, .rst-content .literal-block, .rst-content pre.literal-block, div[class^='highlight'] {
+    border-radius: 3px !important;
+    position: relative;
+    background: #3f3e43;
+    /* make sure copy tooltip can be seen */
+    overflow: visible;
+}
+/* override table width restrictions */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    /* !important prevents the common CSS stylesheets from
+       overriding this as on RTD they are loaded after this stylesheet */
+    white-space: normal !important;
+    vertical-align: top !important;
+}
+
+.wy-table-responsive {
+    overflow: visible !important;
+}
+
+/* A little hacky... sets the width large enough to fit the capabilities
+   taxonomy table.*/
+.wy-nav-content {
+    max-width: 950px !important;
+}
+
+.red {
+    color: #ff0000;
+}
+
+.green {
+    color: #009900;
+}
+
+.magenta {
+    color: #990099;
+}
+
+.blue {
+    color: #0000ff;
+}
+
+.brown {
+    color: #8b4513;
+}
+
+.colorbox {
+    float: left;
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    border: 1px solid rgba(0, 0, 0, .2);
+}
+
+.st-tile-blue {
+    background: #13b4ff;
+}
+.st-tile-orange {
+    background: #e86d13;
+}
+.st-tile-gray {
+    background: #cccccc;
+}
+.st-tile-white {
+    background: #ffffff;
+}
+
+.st-tile-31 {
+    background: #153591;
+}
+
+.st-tile-44 {
+    background: #1e9cbb;
+}
+
+.st-tile-59 {
+    background: #90d2a7;
+}
+
+.st-tile-74 {
+    background: #44b621;
+}
+
+.st-tile-84 {
+    background: #f1d801;
+}
+
+.st-tile-95 {
+    background: #d04e00;
+}
+
+.st-tile-96 {
+    background: #bc2323;
+}
+
+.strike {
+  text-decoration: line-through;
+}
+
+div.column {
+    background-color: #eee;
+    /*border: 1px solid #ccc;*/
+}
+
+.new-feature {
+    padding: 12px;
+    line-height: 24px;
+    margin-bottom: 24px;
+    background: #eaf4fa;
+}
+
+.beta-feature {
+    padding: 12px;
+    line-height: 24px;
+    margin-bottom: 24px;
+    background: #eaf4fa;
+}
+
+.beta-feature .admonition-title {
+    background: #ff4d4d;
+}
+
+.highlight .copy-to-clipboard {
+    position: absolute;
+    right: 0px;
+    top: 0px;
+    color: #000000;
+    border-radius: 2px;
+    width: 50px;
+    height: 14px;
+    letter-spacing: 1px;
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 2px;
+    padding-bottom: 6px;
+    font-size: 10px;
+    background-color: #D3D3D3;
+    opacity: 1.;
+}
+
+.copy-active, .copy-to-clipboard:hover {
+  background-color: #A9A9A9;
+  opacity: 1 !important;
+}
+
+.copy-to-clipboard:hover {
+  cursor: pointer;
+}
