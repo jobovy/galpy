@@ -95,7 +95,7 @@ natural units the orbital time of a circular orbit at R=1 is
 :math:`2\pi`; in physical units this corresponds to
 
 >>> from galpy.util import bovy_conversion
->>> print 2.*numpy.pi*bovy_conversion.time_in_Gyr(220.,8.)
+>>> print(2.*numpy.pi*bovy_conversion.time_in_Gyr(220.,8.))
 0.223405444283
 
 or about 223 Myr. We can also express forces in various physical

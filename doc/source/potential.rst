@@ -15,7 +15,7 @@ Various 3D and 2D potentials are contained in galpy, list in the
 of potentials included with galpy is to run
 
 >>> import galpy.potential
->>> print [p for p in dir(galpy.potential) if 'Potential' in p]
+>>> print([p for p in dir(galpy.potential) if 'Potential' in p])
 ['CosmphiDiskPotential',
  'DehnenBarPotential',
  'DoubleExponentialDiskPotential',
@@ -41,7 +41,7 @@ instances. ``galpy.potential.MWPotential2014`` is such a list of three
 Potential instances
 
 >>> from galpy.potential import MWPotential2014
->>> print MWPotential2014
+>>> print(MWPotential2014)
 [<galpy.potential_src.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
 
 and we can evaluate the potential by using the ``evaluatePotentials``
@@ -300,7 +300,7 @@ the Milky Way's bar
 
 >>> mp.lindbladR(5./3.,m='corotation') #args are pattern speed and m of pattern
 0.6027911166042229 #~ 5kpc
->>> print mp.lindbladR(5./3.,m=2)
+>>> print(mp.lindbladR(5./3.,m=2))
 None
 >>> mp.lindbladR(5./3.,m=-2)
 0.9906190683480501

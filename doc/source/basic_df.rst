@@ -407,18 +407,18 @@ velocity at ``R=0.9``, ``phi=22.5`` degree, and ``t=0`` by using a grid
 
 >>> mvrcold, gridcold= edfcold.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51,nsigma=6.)
 >>> mvrwarm, gridwarm= edfwarm.meanvR(0.9,phi=22.5,deg=True,t=0.,grid=True,returnGrid=True,gridpoints=51)
->>> print mvrcold, mvrwarm
+>>> print(mvrcold, mvrwarm)
 -0.0358753028951 -0.0294763627935
 
 The cold response agrees well with the analytical calculation, which
 predicts that this is :math:`-0.05/\sqrt{2}`:
 
->>> print mvrcold+0.05/sqrt(2.)
+>>> print(mvrcold+0.05/sqrt(2.))
 -0.000519963835811
 
 The warm response is slightly smaller in amplitude
 
->>> print mvrwarm/mvrcold
+>>> print(mvrwarm/mvrcold)
 0.821633837619
 
 although the numerical uncertainty in ``mvrwarm`` is large, because
@@ -427,16 +427,16 @@ the grid is not sufficiently fine.
 We can then re-use this grid in calculations of other moments of
 the DF, e.g.,
 
->>> print edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold)
+>>> print(edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
 0.965058551359
->>> print edfwarm.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm)
+>>> print(edfwarm.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm))
 0.915397094614
 
 which returns the mean rotational velocity, and
 
->>> print edfcold.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridcold)
+>>> print(edfcold.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
 3.21160878582
->>> print edfwarm.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm)
+>>> print(edfwarm.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm))
 4.23510254333
 
 which gives the vertex deviation. The reason we have to calculate the
@@ -450,7 +450,7 @@ calculating the spatial derivatives of the DF. These can also be calculated on a
 
 >>> oortacold, gridcold, gridrcold, gridphicold= edfcold.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True,nsigma=6.)
 >>> oortawarm, gridwarm, gridrwarm, gridphiwarm= edfwarm.oortA(0.9,phi=22.5,deg=True,t=0.,returnGrids=True,gridpoints=51,derivGridpoints=51,grid=True,derivphiGrid=True,derivRGrid=True)
->>> print oortacold, oortawarm
+>>> print(oortacold, oortawarm)
 0.575494559999 0.526389833249
 
 It is clear that these are quite different. The cold calculation is
@@ -458,15 +458,15 @@ again close to the analytical prediction, which says that :math:`A =
 A_{\mathrm{axi}}+0.05/(2\sqrt{2})` where :math:`A_{\mathrm{axi}} =
 1/(2\times0.9)` in this case:
 
->>> print oortacold-(0.5/0.9+0.05/2./sqrt(2.))
+>>> print(oortacold-(0.5/0.9+0.05/2./sqrt(2.)))
 0.0022613349141670236
 
 These grids can then be re-used for the other Oort functions, for
 example,
 
->>> print edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold)
+>>> print(edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold))
 -0.574674310521
->>> print edfwarm.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm,derivphiGrid=gridphiwarm,derivRGrid=gridrwarm)
+>>> print(edfwarm.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm,derivphiGrid=gridphiwarm,derivRGrid=gridrwarm))
 -0.555546911144
 
 and similar for ``oortC`` and ``oortK``. These warm results should

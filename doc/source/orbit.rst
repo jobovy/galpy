@@ -117,7 +117,7 @@ an orbit is requested). An example of all of this is:
 
 However, the internally stored position/velocity vector is
 
->>> print o.vxvv
+>>> print(o.vxvv)
 [1.1476649101960512, 0.20128601278731811, 1.8303776114906387, -0.13107066602923434, 0.58171049004255293, 0.14071341020496472]
 
 and is therefore in *natural* units.
@@ -132,7 +132,7 @@ degrees, and the proper motions are again given in mas/yr ((pmll =
 pmll' * cos[glat] ):
 
 >>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],lb=True,ro=8.,vo=220.)
->>> print o.vxvv
+>>> print(o.vxvv)
 [0.79998509943955398, 0.075939950035477488, 0.52838231795389867, 0.12812499999999999, 0.89052135379600328, 0.092696334097541536]
 
 
@@ -427,7 +427,7 @@ defined by the orbit integration from time zero to the final time
 
 This determinant should be equal to one 
 
->>> print tjac
+>>> print(tjac)
 0.999999991189
 >>> numpy.fabs(tjac-1.) < 10.**-8.
 True
