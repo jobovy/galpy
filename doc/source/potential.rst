@@ -757,6 +757,8 @@ the logarithmic potential in NEMO, it cannot be flattened in ``z``, so
 to use a flattened logarithmic potential, one has to flip ``y`` and
 ``z`` between ``galpy`` and NEMO (one can flatten in ``y``).
 
+.. _addpot:
+
 Adding potentials to the galpy framework
 -----------------------------------------
 
@@ -769,10 +771,12 @@ routines work with any list of instances of the general ``Potential``
 class. Adding new potentials to galpy therefore allows them to be used
 everywhere in galpy where general ``Potential`` instances can be
 used. Adding a new class of potentials to galpy consists of the
-following series of steps (some of these are also given in the file
-``README.dev`` in the galpy distribution):
+following series of steps (for steps to add a new wrapper potential,
+also see :ref:`the next section <addwrappot>`):
 
 1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+
+.. _addpypot:
 
   The new potential class should implement some of the following
   functions: 
@@ -897,3 +901,71 @@ second derivatives for integrating phase-space volumes, also add
 
 After following the relevant steps, the new potential class can be
 used in any galpy context in which C is used to speed up computations.
+
+.. _addwrappot:
+
+**NEW in v1.3**: Adding wrapper potentials to the galpy framework
+------------------------------------------------------------------
+
+Wrappers all inherit from the general ``WrapperPotential`` class
+(which itself inherits from the ``Potential`` class and therefore all
+wrappers are ``Potentials``). Depending on the complexity of the
+wrapper, wrappers can be implemented much more economically in Python
+than new ``Potential`` instances as described :ref:`above
+<addpot>`.
+
+To add a Python implementation of a new wrapper, classes need to
+inherit from ``WrapperPotential``, store the potentials to be wrapped
+as ``self._pot`` (a ``Potential``, ``planarPotential``, or
+``linearPotential`` instance or a list thereof), and implement the
+``_wrap(self,attribute,R,Z,phi=0.,t=0.)`` function. This function
+modifies the Potential functions ``_evaluate``, ``_Rforce``, etc. (all
+of those listed :ref:`above <addpypot>`), with ``attribute`` the
+function that is being modified. Inheriting from ``WrapperPotential``
+gives the class access to the ``self._wrap_pot_func(attribute)``
+function which returns the relevant function for each attribute. For
+example, ``self._wrap_pot_func('_evaluate')`` returns the
+``evaluatePotentials`` function that can then be called as
+``self._wrap_pot_func('_evaluate')(self._pot,R,Z,phi=phi,t=t)`` to
+evaluate the potentials being wrapped. By making use of
+``self._wrap_pot_func``, wrapper potentials can be implemented in just
+a few lines.
+
+
+As an example, for the ``DehnenSmoothWrapperPotential``, the ``_wrap``
+function is
+
+.. code-block:: Python
+
+   def _wrap(self,attribute,R,Z,phi=0.,t=0.):
+       return self._smooth(t)\
+           *self._wrap_pot_func(attribute)(self._pot,R,Z,phi=phi,t=t)
+
+where ``smooth(t)`` returns the smoothing function of the
+amplitude. When any of the basic ``Potential`` functions are called
+(``_evaluate``, ``_Rforce``, etc.), ``_wrap`` gets called by the
+superclass ``WrapperPotential``, and the ``_wrap`` function returns
+the corresponding function for the wrapped potentials with the
+amplitude modified by ``smooth(t)``. Therefore, one does not need to
+implement each of the ``_evaluate``, ``_Rforce``, etc. functions like
+for regular potential. The source code for
+``DehnenSmoothWrapperPotential`` potential may act as a guide to
+implementing new wrappers.
+
+C implementations of potential wrappers can also be added in a similar
+way as C implementations of regular potentials (all of the steps
+listed in the :ref:`previous section <addpypot>` for adding a
+potential to C need to be followed). All of the necessary functions
+(``...Rforce``, ``...zforce``, ``..phiforce``, etc.) need to be
+implemented separately, but by including ``galpy_potentials.h``
+calling the relevant functions of the wrapped potentials is easy. Look
+at ``DehnenSmoothWrapperPotential.c`` for an example that can be
+straightforwardly edited for other wrappers.
+
+The glue between Python and C for wrapper potentials needs to glue
+both the wrapper and the wrapped potentials. This can be easily
+achieved by recursively calling the ``_parse_pot`` glue functions in
+Python (see the previous section) and the ``parse_leapFuncArgs`` and
+``parse_leapFuncArgs_Full`` functions in C. Again, following the
+example of ``DehnenSmoothWrapperPotential.py`` should allow for a
+straightforward implementation of the glue for any new wrappers.
