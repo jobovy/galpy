@@ -1,6 +1,14 @@
 v1.3 (2017-XX-XX)
 ==================
 
+- Added support for potential wrappers---classes that wrap existing
+  potentials to modify their behavior (#307). See the documentation on
+  potentials and the potential API for more information on these.
+
+- Added DehnenSmoothWrapperPotential, a potential wrapper to smoothly
+  grow a gravitational potential (e.g., a bar) following Dehnen
+  (2000).
+
 - Added DiskSCFPotential, a class that implements general
   density/potential pairs for disk potentials by combining Kuijken &
   Dubinski (1995)'s trick for turning a separable disk density
