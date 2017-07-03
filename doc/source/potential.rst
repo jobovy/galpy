@@ -969,3 +969,5 @@ Python (see the previous section) and the ``parse_leapFuncArgs`` and
 ``parse_leapFuncArgs_Full`` functions in C. Again, following the
 example of ``DehnenSmoothWrapperPotential.py`` should allow for a
 straightforward implementation of the glue for any new wrappers.
+Wrapper potentials should be given negative potential types in the
+glue to distinguish them from regular potentials.
