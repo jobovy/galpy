@@ -47,6 +47,8 @@ class SpiralArmsPotential(Potential):
         B_n &= K_n H (1 + 0.4 K_n H) \\\\
         D_n &= \\frac{1 + K_n H + 0.3 (K_n H)^2}{1 + 0.3 K_n H} \\\\
 
+    The default of :math:`C_n=1` gives a sinusoidal profile for the potential.
+
     From (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__):
      "In a particularly interesting example [of the choices for :math:`C_n`],
      the density behaves approximately as a cosine squared in the arms but is separated by a flat interarm region
@@ -84,7 +86,8 @@ class SpiralArmsPotential(Potential):
         OUTPUT:
             (none)
         HISTORY:
-            2017-07-04  Jack Hong (UBC)
+            Started 2017-05-12  Jack Hong (UBC) \n
+            Completed 2017-07-04 Jack Hong (UBC)
         """
 
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)

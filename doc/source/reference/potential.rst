@@ -138,8 +138,8 @@ Axisymmetric potentials
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial and bar potentials
-***************************
+Triaxial, spiral, and bar potentials
+************************************
 
 .. toctree::
    :maxdepth: 2

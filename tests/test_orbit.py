@@ -41,7 +41,6 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     fullyRotatedTriaxialNFWPotential, \
     sech2DiskSCFPotential, \
     expwholeDiskSCFPotential, \
-    rotatingSpiralArmsPotential, \
     specialSpiralArmsPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
@@ -102,8 +101,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFDensityPotential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
-    pots.append('rotatingSpiralArmsPotential')
-    pots.append('specialSpiralArmsPotential')
+    #pots.append('specialSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -165,7 +163,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'Bar' in p and not 'LogSpiral' in p \
+            if not 'Bar' in p and not 'Spiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
@@ -329,7 +327,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
             #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            if not 'Bar' in p:
+            if not 'Bar' in p and not 'Spiral' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
@@ -392,7 +390,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'Bar' in p:
+            if not 'Bar' in p and not 'Spiral' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi

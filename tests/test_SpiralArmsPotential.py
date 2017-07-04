@@ -4,9 +4,7 @@ import numpy as np
 from numpy import pi
 from numpy.testing import assert_allclose
 from scipy.misc import derivative as deriv
-from astropy import units as u
 import unittest
-
 
 class TestSpiralArmsPotential(unittest.TestCase):
 
@@ -28,9 +26,6 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert sp.hasC_dxdv == True
         assert sp._ro == 8
         assert sp._vo == 220
-
-        sp = spiral(N=3, alpha=10*u.deg, r_ref=1, phi_ref=0, Rs=0.5, H=0.5, Cs=[1], omega=0)
-        self.assertEqual(sp._alpha, -10 * pi / 180)
 
     def test_Rforce(self):
         """Tests Rforce against a numerical derivative -d(Potential) / dR."""
