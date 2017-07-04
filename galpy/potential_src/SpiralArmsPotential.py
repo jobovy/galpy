@@ -2,7 +2,7 @@
 #  SpiralArmsPotential.py: class that implements the spiral arms potential
 #                           from Cox and Gomez (2002)
 #
-#  https://arxiv.org/abs/astro-ph/0207635v1
+#  https://arxiv.org/abs/astro-ph/0207635
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 #  NOTE: Methods do not take array inputs.
@@ -33,42 +33,60 @@ def check_inputs_not_arrays(func):
 
 
 class SpiralArmsPotential(Potential):
-    """Class that implements the spiral arms potential from Cox and Gomez (2002). Should be used to modulate an existing
-    potential. Left handed coordinate system. Unhandled division by zero errors if R == 0.
+    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing
+    potential.
     
     .. math::
     
-        \\Phi(r, \\phi, z) = -4 \\pi GH \\rho_0 exp(-\\frac{r-r_0}{R_s}) \\sum(\\frac{C_n}{(K_n D_n} cos(n \\gamma) sech(\\frac{K_n z}{B_n})^B_n)
+        \\Phi(r, \\phi, z) = -4 \\pi GH \\rho_0 exp \\left( -\\frac{r-r_0}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} cos(n \\gamma) sech \\left( \\frac{K_n z}{B_n} \\right)^{B_n}}
 
+    where
+
+    .. math::
+        K_n &= \\frac{n N}{r sin(\\alpha)} \\\\
+        B_n &= K_n H (1 + 0.4 K_n H) \\\\
+        D_n &= \\frac{1 + K_n H + 0.3 (K_n H)^2}{1 + 0.3 K_n H} \\\\
+
+    From (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__):
+     "In a particularly interesting example [of the choices for :math:`C_n`],
+     the density behaves approximately as a cosine squared in the arms but is separated by a flat interarm region
+     occupying half the volume."
+
+     It has three terms in its sum, with
+
+     .. math::
+        C_1 &= \\frac{8}{3 \\pi} \\\\
+        C_2 &= \\frac{1}{2} \\\\
+        C_3 &= \\frac{8}{15 \\pi} \\\\
     """
 
-    def __init__(self, amp=1, ro=None, vo=None, amp_units='density', normalize=False,
+    def __init__(self, amp=1, ro=None, vo=None, amp_units='density',
                  N=2, alpha=0.2, r_ref=1, phi_ref=0, Rs=0.3, H=0.125, omega=0, Cs=[1]):
+
         """
         NAME:       
             __init__
         PURPOSE:
-            initialize a spiral arm potential
+            initialize a spiral arms potential
         INPUT:
             :param amp: amplitude to be applied to the potential (default: 1); 
-                        can be a Quantity with units of density. (amp = 4 * pi * G *rho0)
-            :param normalize: if True, normalize such that vc(1.,0.)=1., or, if given as a number
-                              such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+                        can be a Quantity with units of density. (:math:`amp = 4 \\pi G \\rho_0`)
             :param ro: distance scales for translation into internal units (default from configuration file)
             :param vo: velocity scales for translation into internal units (default from configuration file)
             :param N: number of spiral arms
             :param alpha: pitch angle of the logarithmic spiral arms in radians (can be Quantity)
-            :param r_ref: fiducial radius where rho = rho0 (r_0 in the paper by Cox and Gomez) (can be Quantity)
-            :param phi_ref: reference angle (phi_p(r_0) in the paper by Cox and Gomez) (can be Quantity)
+            :param r_ref: fiducial radius where :math:`\\rho = \\rho_0` (:math:`r_0` in the paper by Cox and Gomez) (can be Quantity)
+            :param phi_ref: reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez) (can be Quantity)
             :param Rs: radial scale length of the drop-off in density amplitude of the arms (can be Quantity)
             :param H: scale height of the stellar arm perturbation (can be Quantity)
-            :param Cs: list of constants multiplying the cos(n*gamma) term in the mass density expression
-            :param omega: rotational speed of the spiral arms (can be Quantity)
+            :param Cs: list of constants multiplying the :math:`cos(n \\gamma)` term in the mass density expression
+            :param omega: rotational pattern speed of the spiral arms (can be Quantity)
         OUTPUT:
             (none)
         HISTORY:
-            2017-05-12  Jack Hong (UBC)
+            2017-07-04  Jack Hong (UBC)
         """
+
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         if _APY_LOADED:
             if isinstance(alpha, units.Quantity):
@@ -99,9 +117,6 @@ class SpiralArmsPotential(Potential):
         self._rho0 = 1 / (4 * np.pi)
         self._HNn = self._H * self._N * self._ns
 
-        if normalize or (isinstance(normalize, (int, float)) and not isinstance(normalize, bool)):
-            self.normalize(normalize)
-
         self.isNonAxi = True   # Potential is not axisymmetric
         self.hasC = True       # Potential has C implementation to speed up orbit integrations
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
@@ -123,14 +138,12 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
-
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi)) / np.cosh(Ks * z / Bs) ** Bs)
+               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs)
 
     @check_inputs_not_arrays
     def _Rforce(self, R, z, phi=0, t=0):
@@ -149,7 +162,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
 
@@ -161,7 +173,7 @@ class SpiralArmsPotential(Potential):
         dBs_dR = self._dB_dR(R)
         dDs_dR = self._dD_dR(R)
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
         cos_ng = np.cos(self._ns * g)
@@ -194,7 +206,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
-        phi = phi - self._omega * t
 
         Ks = self._K(R)
         Bs = self._B(R)
@@ -202,7 +213,7 @@ class SpiralArmsPotential(Potential):
         zK_B = z * Ks / Bs
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi))
+               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t))
                         * np.tanh(zK_B) / np.cosh(zK_B)**Bs)
 
     @check_inputs_not_arrays
@@ -222,9 +233,8 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
@@ -250,7 +260,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-31  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -276,7 +285,7 @@ class SpiralArmsPotential(Potential):
                                                           - 0.6 * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x
                                                           + 1.8 * self._HNn / R_sina**2))
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
         d2g_dR2 = self._N / R**2 / self._tan_alpha
 
@@ -341,9 +350,8 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
-        phi = phi - self._omega * t
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
@@ -371,9 +379,8 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-29 Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
@@ -399,7 +406,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -412,7 +418,7 @@ class SpiralArmsPotential(Potential):
         dBs_dR = self._dB_dR(R)
         dDs_dR = self._dD_dR(R)
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
         cos_ng = np.cos(self._ns * g)
@@ -452,7 +458,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-06-09  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
         He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
 
@@ -464,7 +469,7 @@ class SpiralArmsPotential(Potential):
         dBs_dR = self._dB_dR(R)
         dDs_dR = self._dD_dR(R)
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
         cos_ng = np.cos(self._ns * g)
@@ -499,9 +504,8 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        phi = phi - self._omega * t
 
-        g = self._gamma(R, phi)
+        g = self._gamma(R, phi - self._omega * t)
 
         Ks = self._K(R)
         Bs = self._B(R)

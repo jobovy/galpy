@@ -40,7 +40,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     NFWTwoPowerTriaxialPotential, \
     fullyRotatedTriaxialNFWPotential, \
     sech2DiskSCFPotential, \
-    expwholeDiskSCFPotential
+    expwholeDiskSCFPotential, \
+    rotatingSpiralArmsPotential, \
+    specialSpiralArmsPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -100,6 +102,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFDensityPotential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',

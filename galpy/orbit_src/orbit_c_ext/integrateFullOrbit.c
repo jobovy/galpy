@@ -236,8 +236,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &SpiralArmsPotentialRforce;
       potentialArgs->zforce = &SpiralArmsPotentialzforce;
       potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
-      potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
-      //potentialArgs->z2derib = &SpiralArmsPotentialz2deriv;
+      //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
       //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
