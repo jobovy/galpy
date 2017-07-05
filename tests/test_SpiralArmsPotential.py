@@ -206,7 +206,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi,   dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
-        pot = spiral(N=7, alpha=-0.3, r_ref=0.5, phi_ref=0.3, Rs=0.7, H=0.7, Cs=[5, 9, 13], omega=2*pi)
+        pot = spiral(N=7, alpha=-0.3, r_ref=0.5, phi_ref=0.3, Rs=0.7, H=0.7, Cs=[1, 1, 1], omega=2*pi)
         R, z, t = .3, 0, 1.2
         assert_allclose(pot.phiforce(R, z, 0, 0),      -deriv(lambda x: pot(R, z, x, 0),      0, dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
@@ -240,7 +240,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
 
-        pot = spiral(N=10, r_ref=1.5, phi_ref=5, Cs=[8./(3.*pi), 0.5, 8./(15.*pi)])
+        pot = spiral(N=4, r_ref=1.5, phi_ref=5, Cs=[8./(3.*pi), 0.5, 8./(15.*pi)])
         R, z = .3, 0
         assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)

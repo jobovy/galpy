@@ -41,7 +41,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     fullyRotatedTriaxialNFWPotential, \
     sech2DiskSCFPotential, \
     expwholeDiskSCFPotential, \
-    specialSpiralArmsPotential
+    specialSpiralArmsPotential, \
+    rotatingSpiralArmsPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -101,7 +102,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFDensityPotential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
-    #pots.append('specialSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
+    #pots.append('rotatingSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -469,6 +471,8 @@ def test_liouville_planar():
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
+    pots.append('specialSpiralArmsPotential')
+    pots.append('rotatingSpiralArmsPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
