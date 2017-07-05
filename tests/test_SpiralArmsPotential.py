@@ -187,7 +187,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_phiforce(self):
         """Test phiforce against a numerical derivative -d(Potential) / d(phi)."""
         dx = 1e-8
-        rtol = 1e-6  # relative tolerance
+        rtol = 1e-5  # relative tolerance
 
         pot = spiral()
         R, z = .3, 0
@@ -223,7 +223,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, 3.2*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3.2*pi/2, dx=dx), rtol=rtol)
 
-        pot = spiral(N=1, alpha=0.01, r_ref=1.12, phi_ref=0, Cs=[1, 1.5, 8.], omega=-.333)
+        pot = spiral(N=1, alpha=0.1, phi_ref=0, Cs=[1, 1.5], omega=-.333)
         R, z = .3, 0
         assert_allclose(pot.phiforce(R, z, 0),        -deriv(lambda x: pot(R, z, x),      0,   dx=dx), rtol=rtol)
         assert_allclose(pot.phiforce(R, z, pi/2),     -deriv(lambda x: pot(R, z, x),   pi/2,   dx=dx), rtol=rtol)
