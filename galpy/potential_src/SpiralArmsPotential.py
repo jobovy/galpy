@@ -61,7 +61,7 @@ class SpiralArmsPotential(Potential):
         C_2 &= \\frac{1}{2} \\\\
         C_3 &= \\frac{8}{15 \\pi} \\\\
     """
-
+    normalize= property() # turn off normalize
     def __init__(self, amp=1, ro=None, vo=None, amp_units='density',
                  N=2, alpha=0.2, r_ref=1, phi_ref=0, Rs=0.3, H=0.125, omega=0, Cs=[1]):
 
