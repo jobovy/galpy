@@ -2554,7 +2554,27 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
                                                 potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
     def OmegaP(self):
         return self._potlist[1].OmegaP()
-
+class mockFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockRotatingFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential(omega=1.3)])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockSpecialRotatingFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential(omega=1.3, N=4, Cs=[8/3/numpy.pi, 1/2, 8/15/numpy.pi])])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
 #Class to test lists of linearPotentials
 from galpy.potential import linearPotential, \
     evaluatelinearPotentials, evaluatelinearForces, \
