@@ -2150,10 +2150,10 @@ class prolateJaffePotential(TriaxialJaffePotential):
         return None
 class rotatingSpiralArmsPotential(SpiralArmsPotential):
     def __init__(self):
-        SpiralArmsPotential.__init__(self, omega=1.3)
+        SpiralArmsPotential.__init__(self, omega=1.1)
 class specialSpiralArmsPotential(SpiralArmsPotential):
     def __init__(self):
-        SpiralArmsPotential.__init__(self, omega=1.3, N=4, Cs=[8/3/numpy.pi, 1/2, 8/15/numpy.pi])
+        SpiralArmsPotential.__init__(self, omega=1.3, N=4., Cs=[8./3./numpy.pi, 1./2., 8./15./numpy.pi])
 class triaxialHernquistPotential(TriaxialHernquistPotential):
     def __init__(self):
         TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.4,c=0.6)
