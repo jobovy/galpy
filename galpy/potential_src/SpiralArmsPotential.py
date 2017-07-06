@@ -37,7 +37,7 @@ class SpiralArmsPotential(Potential):
     
     .. math::
     
-        \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-R_0}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\cos(n \\gamma) \\,\\mathrm{sech} \\left( \\frac{K_n z}{B_n} \\right)^{B_n}}
+        \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-R_0}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\cos(n \\gamma) \\,\\mathrm{sech}^{B_n} \\left( \\frac{K_n z}{B_n} \\right)}
 
     where
 
