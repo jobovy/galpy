@@ -33,33 +33,24 @@ def check_inputs_not_arrays(func):
 
 
 class SpiralArmsPotential(Potential):
-    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing
-    potential.
+    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside).
     
     .. math::
     
-        \\Phi(r, \\phi, z) = -4 \\pi GH \\rho_0 exp \\left( -\\frac{r-r_0}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} cos(n \\gamma) sech \\left( \\frac{K_n z}{B_n} \\right)^{B_n}}
+        \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-R_0}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\cos(n \\gamma) \\,\\mathrm{sech} \\left( \\frac{K_n z}{B_n} \\right)^{B_n}}
 
     where
 
     .. math::
-        K_n &= \\frac{n N}{r sin(\\alpha)} \\\\
+        K_n &= \\frac{n N}{R \sin(\\alpha)} \\\\
         B_n &= K_n H (1 + 0.4 K_n H) \\\\
         D_n &= \\frac{1 + K_n H + 0.3 (K_n H)^2}{1 + 0.3 K_n H} \\\\
 
-    The default of :math:`C_n=1` gives a sinusoidal profile for the potential.
-
-    From (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__):
-     "In a particularly interesting example [of the choices for :math:`C_n`],
-     the density behaves approximately as a cosine squared in the arms but is separated by a flat interarm region
-     occupying half the volume."
-
-     It has three terms in its sum, with
+    The default of :math:`C_n=[1]` gives a sinusoidal profile for the potential. An alternative from `Cox and Gomez (2002) <https://arxiv.org/abs/astro-ph/0207635>`__  creates a density that behaves approximately as a cosine squared in the arms but is separated by a flat interarm region by setting 
 
      .. math::
-        C_1 &= \\frac{8}{3 \\pi} \\\\
-        C_2 &= \\frac{1}{2} \\\\
-        C_3 &= \\frac{8}{15 \\pi} \\\\
+
+        C_n = \\left[\\frac{8}{3 \\pi}\,,\\frac{1}{2} \\,, \\frac{8}{15 \\pi}\\right]
     """
     normalize= property() # turn off normalize
     def __init__(self, amp=1, ro=None, vo=None, amp_units='density',
@@ -71,23 +62,24 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             initialize a spiral arms potential
         INPUT:
-            :param amp: amplitude to be applied to the potential (default: 1); 
+            :amp: amplitude to be applied to the potential (default: 1); 
                         can be a Quantity with units of density. (:math:`amp = 4 \\pi G \\rho_0`)
-            :param ro: distance scales for translation into internal units (default from configuration file)
-            :param vo: velocity scales for translation into internal units (default from configuration file)
-            :param N: number of spiral arms
-            :param alpha: pitch angle of the logarithmic spiral arms in radians (can be Quantity)
-            :param r_ref: fiducial radius where :math:`\\rho = \\rho_0` (:math:`r_0` in the paper by Cox and Gomez) (can be Quantity)
-            :param phi_ref: reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez) (can be Quantity)
-            :param Rs: radial scale length of the drop-off in density amplitude of the arms (can be Quantity)
-            :param H: scale height of the stellar arm perturbation (can be Quantity)
-            :param Cs: list of constants multiplying the :math:`cos(n \\gamma)` term in the mass density expression
-            :param omega: rotational pattern speed of the spiral arms (can be Quantity)
+            :ro: distance scales for translation into internal units (default from configuration file)
+            :vo: velocity scales for translation into internal units (default from configuration file)
+            :N: number of spiral arms
+            :alpha: pitch angle of the logarithmic spiral arms in radians (can be Quantity)
+            :r_ref: fiducial radius where :math:`\\rho = \\rho_0` (:math:`r_0` in the paper by Cox and Gomez) (can be Quantity)
+            :phi_ref: reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez) (can be Quantity)
+            :Rs: radial scale length of the drop-off in density amplitude of the arms (can be Quantity)
+            :H: scale height of the stellar arm perturbation (can be Quantity)
+            :Cs: list of constants multiplying the :math:`\cos(n \\gamma)` term in the mass density expression
+            :omega: rotational pattern speed of the spiral arms (can be Quantity)
         OUTPUT:
             (none)
         HISTORY:
-            Started 2017-05-12  Jack Hong (UBC) \n
-            Completed 2017-07-04 Jack Hong (UBC)
+            Started - 2017-05-12  Jack Hong (UBC)
+
+            Completed - 2017-07-04 Jack Hong (UBC)
         """
 
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
