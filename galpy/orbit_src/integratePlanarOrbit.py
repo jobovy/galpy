@@ -226,6 +226,12 @@ def _parse_pot(pot):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+        elif isinstance(p, potential_src.planarPotential.planarPotentialFromFullPotential) \
+                and isinstance(p._Pot, potential.SpiralArmsPotential):
+            pot_type.append(27)
+            pot_args.extend([len(p._Pot._Cs), p._Pot._amp, p._Pot._N, p._Pot._sin_alpha,
+                             p._Pot._tan_alpha, p._Pot._r_ref, p._Pot._phi_ref, p._Pot._Rs, p._Pot._H, p._Pot._omega])
+            pot_args.extend(p._Pot._Cs)
         ############################## WRAPPERS ###############################
         elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
                 and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential):

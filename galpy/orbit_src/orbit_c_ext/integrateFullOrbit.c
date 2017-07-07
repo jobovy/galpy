@@ -226,7 +226,18 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
-      break;      
+      break;
+    case 27: // SpiralArmsPotential, 10 arguments + array of Cs
+      potentialArgs->Rforce = &SpiralArmsPotentialRforce;
+      potentialArgs->zforce = &SpiralArmsPotentialzforce;
+      potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
+      //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
+      potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
+      //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
+      potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
+      potentialArgs->nargs = (int) 10 + *pot_args;
+      break;    
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;

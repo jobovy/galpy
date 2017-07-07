@@ -127,6 +127,8 @@ def test_forceAsDeriv_potential():
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
     pots.append('nonaxiDiskSCFPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
@@ -283,6 +285,8 @@ def test_2ndDeriv_potential():
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
     pots.append('mockAxisymmetricFerrersPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
@@ -498,6 +502,8 @@ def test_poisson_potential():
     pots.append('HernquistTwoPowerTriaxialPotential')
     pots.append('NFWTwoPowerTriaxialPotential')
     pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -519,6 +525,9 @@ def test_poisson_potential():
     tol= {}
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
+    tol['SpiralArmsPotential']= -3 #these are more difficult
+    tol['rotatingSpiralArmsPotential']= -3
+    tol['specialSpiralArmsPotential']= -4
     #tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
@@ -602,6 +611,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
     pots.append('nonaxiDiskSCFPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
@@ -2061,7 +2072,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
-    FerrersPotential, DiskSCFPotential
+    FerrersPotential, DiskSCFPotential, SpiralArmsPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -2149,6 +2160,12 @@ class prolateJaffePotential(TriaxialJaffePotential):
     def __init__(self):
         TriaxialJaffePotential.__init__(self,normalize=1.,b=1.,c=1.8)
         return None
+class rotatingSpiralArmsPotential(SpiralArmsPotential):
+    def __init__(self):
+        SpiralArmsPotential.__init__(self, omega=1.1)
+class specialSpiralArmsPotential(SpiralArmsPotential):
+    def __init__(self):
+        SpiralArmsPotential.__init__(self, omega=1.3, N=4., Cs=[8./3./numpy.pi, 1./2., 8./15./numpy.pi])
 class triaxialHernquistPotential(TriaxialHernquistPotential):
     def __init__(self):
         TriaxialHernquistPotential.__init__(self,normalize=1.,b=1.4,c=0.6)
@@ -2549,7 +2566,27 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
                                                 potential.TransientLogSpiralPotential(to=-10.)]) #this way, it's basically a steady spiral
     def OmegaP(self):
         return self._potlist[1].OmegaP()
-
+class mockFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockRotatingFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential(omega=1.3)])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+class mockSpecialRotatingFlatSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          potential.SpiralArmsPotential(omega=1.3, N=4, Cs=[8/3/numpy.pi, 1/2, 8/15/numpy.pi])])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
 #Class to test lists of linearPotentials
 from galpy.potential import linearPotential, \
     evaluatelinearPotentials, evaluatelinearForces, \

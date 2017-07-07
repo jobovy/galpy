@@ -1,6 +1,6 @@
 .. _potential-api:
 Potential (``galpy.potential``)
-================================
+===============================
 
 3D potentials
 -------------
@@ -100,12 +100,12 @@ In addition to these, the following methods are available to compute expansion c
    scf_compute_coeffs_spherical <potentialscfcomputesphere.rst>
 
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
 
 All of the following potentials can also be modified by the specific ``WrapperPotentials`` listed :ref:`below <potwrapperapi>`.
 
 Spherical potentials
-*********************
+********************
 
 .. toctree::
    :maxdepth: 2
@@ -123,7 +123,7 @@ Spherical potentials
    potentialpseudoiso.rst
 
 Axisymmetric potentials
-************************
+***********************
 
 .. toctree::
    :maxdepth: 2
@@ -140,8 +140,8 @@ Axisymmetric potentials
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial and bar potentials
-****************************
+Triaxial, spiral, and bar potentials
+************************************
 
 .. toctree::
    :maxdepth: 2
@@ -151,12 +151,13 @@ Triaxial and bar potentials
    potentialferrers.rst
    potentialmovingobj.rst
    potentialsoftenedneedle.rst
+   potentialspiralarms.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
 
 General Poisson solvers for disks and halos
-********************************************
+*******************************************
 
 .. toctree::
    :maxdepth: 2
@@ -260,7 +261,7 @@ Use as ``method(...)``
    turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
 
 All of the 3D potentials above can be used as two-dimensional
 potentials in the mid-plane. 
@@ -317,7 +318,7 @@ Use as ``method(...)``
    turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
 
 .. toctree::
    :maxdepth: 2

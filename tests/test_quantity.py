@@ -1708,7 +1708,10 @@ def test_potential_ampunits():
         amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"
+    # # SpiralArmsPotential
+    # pot= potential.SpiralArmsPotential(amp=0.3*units.Msun / units.pc**3)
+    # assert numpy.fabs(pot(1.,0.,phi=1.,use_physical=False)*) < 10.**-8., "SpiralArmsPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -1967,6 +1970,9 @@ def test_potential_ampunits_wrongunits():
     # DiskSCFPotential
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.DiskSCFPotential(amp=40.*units.Msun/units.pc**2)
+    # SpiralArmsPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.SpiralArmsPotential(amp=10**10 * units.Msun)
     return None
 
 def test_potential_paramunits():
@@ -2233,7 +2239,15 @@ def test_potential_paramunits():
                                           {'type':'sech2','h':1./27.}],
                                     a=8./ro,N=2,L=2,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "DiskSCFPotential w/ a w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "DiskSCFPotential w/ a w/ units does not behave as expected"
+    # SpiralArmsPotential
+    pot = potential.SpiralArmsPotential(amp=1, ro=ro, vo=vo,
+                 N=2, alpha=13*units.deg, r_ref=0.8*units.kpc, phi_ref=90.*units.deg, Rs=8*units.kpc, H=0.1*units.kpc, omega=20.*units.km/units.s/units.kpc, Cs=[1])
+    pot_nounits = potential.SpiralArmsPotential(amp=1, ro=ro, vo=vo,
+                 N=2, alpha=13*numpy.pi/180., r_ref=0.8/ro, phi_ref=numpy.pi/2, Rs=8./ro, H=0.1/ro, omega=20./bovy_conversion.freq_in_kmskpc(vo,ro), Cs=[1])
+    # Check potential
+    assert numpy.fabs(pot(1.5, 0.3, phi=0.1, use_physical=False) - pot_nounits(1.5, 0.3, phi=0.1,
+                                                                               use_physical=False)) < 10. ** -8., "SpiralArmsPotential w/ parameters w/ units does not behave as expected"
     # DehnenSmoothWrapperPotential
     dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
     pot= potential.DehnenSmoothWrapperPotential(pot=dpn,

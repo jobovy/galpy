@@ -18,6 +18,7 @@ Jason Sanders (velocity kicks induced by interactions with Plummer, Hernquist, a
 Wilma Trick (KuzminKutuzovPotential and various other contributions)
 Anna Juranova (FerrersPotential)
 Semyeong Oh (FerrersPotential)
+Jack Hong (SpiralArmsPotential)
 
 General help:
 ==============

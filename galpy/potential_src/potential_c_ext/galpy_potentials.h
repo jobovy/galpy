@@ -383,6 +383,37 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
+
+// SpiralArmsPotential
+double SpiralArmsPotentialEval(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialRforce(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialzforce(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialphiforce(double, double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialPlanarRforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarphiforce(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarR2deriv(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
+                            struct potentialArg*);
+double SpiralArmsPotentialPlanarRphideriv(double, double, double,
+                            struct potentialArg*);
+
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
 double DehnenSmoothWrapperPotentialEval(double,double,double,double,

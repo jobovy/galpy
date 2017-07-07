@@ -7,7 +7,6 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
-from galpy import potential_src
 from galpy.util import galpyWarning
 from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
@@ -186,6 +185,11 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+        elif isinstance(p, potential.SpiralArmsPotential):
+            pot_type.append(27)
+            pot_args.extend([len(p._Cs), p._amp, p._N, p._sin_alpha, p._tan_alpha, p._r_ref, p._phi_ref,
+                             p._Rs, p._H, p._omega])
+            pot_args.extend(p._Cs)
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
