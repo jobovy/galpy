@@ -8,7 +8,7 @@ from galpy.orbit_src.OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
     RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
     _evaluateplanarPotentials
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _check_c
 from galpy.util import galpyWarning
 #try:
 from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
@@ -497,11 +497,7 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC:
+        if not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
@@ -580,11 +576,7 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC:
+        if not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
@@ -678,10 +670,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC and p.hasC_dxdv for p in pot])
-        else:
-            allHasC= pot.hasC and pot.hasC_dxdv
+        allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
         if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
             method= 'odeint'
             warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)

@@ -43,7 +43,7 @@ double galpyPotential::LfromRc(const double R, double* dR) const
 double galpyPotential::RfromLc(const double L_in, double* dR) const
 {
   bool more=false;
-  double R,lR=0.,dlR=0.001,z,dPR,dPz,P,LcR,oldL,L=fabs(L_in);
+  double R,lR=0.,dlR=0.001,dPR,dPz,P,LcR,oldL,L=fabs(L_in);
   R=exp(lR);
   P= (*this)(R,0.,dPR,dPz);
   LcR=sqrt(R*R*R*dPR);

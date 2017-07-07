@@ -3,6 +3,47 @@ void cyl_to_rect(double R, double phi,double *x, double *y){
   *x= R * cos ( phi );
   *y= R * sin ( phi );
 }
+void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
+  int ii;
+  for (ii=0; ii < npot; ii++) {
+    (potentialArgs+ii)->i2d= NULL;
+    (potentialArgs+ii)->accx= NULL;
+    (potentialArgs+ii)->accy= NULL;
+    (potentialArgs+ii)->i2drforce= NULL;
+    (potentialArgs+ii)->accxrforce= NULL;
+    (potentialArgs+ii)->accyrforce= NULL;
+    (potentialArgs+ii)->i2dzforce= NULL;
+    (potentialArgs+ii)->accxzforce= NULL;
+    (potentialArgs+ii)->accyzforce= NULL;
+    (potentialArgs+ii)->wrappedPotentialArg= NULL;
+  }
+}
+void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
+  int ii;
+  for (ii=0; ii < npot; ii++) {
+    if ( (potentialArgs+ii)->i2d )
+      interp_2d_free((potentialArgs+ii)->i2d) ;
+    if ( (potentialArgs+ii)->accx )
+      gsl_interp_accel_free ((potentialArgs+ii)->accx);
+    if ( (potentialArgs+ii)->accy )
+      gsl_interp_accel_free ((potentialArgs+ii)->accy);
+    if ( (potentialArgs+ii)->i2drforce )
+      interp_2d_free((potentialArgs+ii)->i2drforce) ;
+    if ( (potentialArgs+ii)->accxrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrforce);
+    if ( (potentialArgs+ii)->accyrforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrforce);
+    if ( (potentialArgs+ii)->i2dzforce )
+      interp_2d_free((potentialArgs+ii)->i2dzforce) ;
+    if ( (potentialArgs+ii)->accxzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxzforce);
+    if ( (potentialArgs+ii)->accyzforce )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyzforce);
+   if ( (potentialArgs+ii)->wrappedPotentialArg )
+      free((potentialArgs+ii)->wrappedPotentialArg);
+    free((potentialArgs+ii)->args);
+  }
+}
 double evaluatePotentials(double R, double Z, 
 			  int nargs, struct potentialArg * potentialArgs){
   int ii;

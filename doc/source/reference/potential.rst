@@ -102,6 +102,8 @@ In addition to these, the following methods are available to compute expansion c
 Specific potentials
 +++++++++++++++++++
 
+All of the following potentials can also be modified by the specific ``WrapperPotentials`` listed :ref:`below <potwrapperapi>`.
+
 Spherical potentials
 ********************
 
@@ -329,3 +331,18 @@ One-dimensional potentials can also be derived from 3D axisymmetric potentials a
    :maxdepth: 2
 
    RZToverticalPotential <potential1dRZtolinear.rst>
+
+.. _potwrapperapi:
+
+Potential wrappers
+-------------------
+
+Gravitational potentials in ``galpy`` can also be modified using wrappers, for example, to change their amplitude as a function of time. These wrappers can be applied to *any* ``galpy`` potential (although whether they can be used in C depends on whether the wrapper *and* all of the potentials that it wraps are implemented in C). Multiple wrappers can be applied to the same potential.
+
+Specific wrappers
+++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdehnensmoothwrapper.rst

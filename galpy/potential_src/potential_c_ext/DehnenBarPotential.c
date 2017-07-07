@@ -2,7 +2,7 @@
 #include <galpy_potentials.h>
 //DehnenBarPotential
 //
-double dehnenSmooth(double t,double tform, double tsteady){
+double dehnenBarSmooth(double t,double tform, double tsteady){
   double smooth, xi,deltat;
   if ( t < tform )
     smooth= 0.;
@@ -29,7 +29,7 @@ double DehnenBarPotentialRforce(double R,double z,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate Rforce
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   r= sqrt( R * R + z * z );
   if (r <= rb )
     return -amp*smooth*cos(2.*(phi-omegab*t-barphi))*\
@@ -51,7 +51,7 @@ double DehnenBarPotentialPlanarRforce(double R,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate Rforce
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   if (R <= rb )
     return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else
@@ -71,7 +71,7 @@ double DehnenBarPotentialphiforce(double R,double z,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate phiforce
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   r2= R * R + z * z;
   r= sqrt( r2 );
   if ( R <= rb )
@@ -93,7 +93,7 @@ double DehnenBarPotentialPlanarphiforce(double R,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate phiforce
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   if ( R <= rb )
     return 2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
@@ -113,7 +113,7 @@ double DehnenBarPotentialzforce(double R,double z,double phi,double t,
   double omegab= *args++;
   double barphi= *args++;
   //Calculate Rforce
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   r= sqrt( R * R + z * z );
   if (r <= rb )
     return -amp*smooth*cos(2.*(phi-omegab*t-barphi))*\
@@ -134,7 +134,7 @@ double DehnenBarPotentialPlanarR2deriv(double R,double phi,double t,
   double rb= *args++;
   double omegab= *args++;
   double barphi= *args++;
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   if (R <= rb )
     return 6.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R/R;
   else
@@ -152,7 +152,7 @@ double DehnenBarPotentialPlanarphi2deriv(double R,double phi,double t,
   double rb= *args++;
   double omegab= *args++;
   double barphi= *args++;
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   if (R <= rb )
     return -4.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);
   else
@@ -170,7 +170,7 @@ double DehnenBarPotentialPlanarRphideriv(double R,double phi,double t,
   double rb= *args++;
   double omegab= *args++;
   double barphi= *args++;
-  smooth= dehnenSmooth(t,tform,tsteady);
+  smooth= dehnenBarSmooth(t,tform,tsteady);
   if (R <= rb )
     return -6.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else

@@ -442,15 +442,15 @@ void computeForce(double R,double Z, double phi,
     double C[N*L];
     double dC[N*L];
 
-    compute_C(xi, N, L, &C);
-    compute_dC(xi, N, L, &dC);
+    compute_C(xi, N, L, &C[0]);
+    compute_dC(xi, N, L, &dC[0]);
 
 //Compute phiTilde and its derivative
     double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C, &phiTilde);
+    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
 
     double dphiTilde[L*N];
-    compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
+    compute_dphiTilde(r, a, N, L, &C[0], &dC[0], &dphiTilde[0]);
 
 //Compute Associated Legendre Polynomials
     int M_eff = M;
@@ -467,23 +467,23 @@ void computeForce(double R,double Z, double phi,
     
     double P[size];
     double dP[size];
-    compute_P_dP(cos(theta), L, M_eff, &P, &dP);
+    compute_P_dP(cos(theta), L, M_eff, &P[0], &dP[0]);
 
-    double (*PhiTilde_Pointer[3]) = {&dphiTilde, &phiTilde, &phiTilde};
-    double (*P_Pointer[3]) = {&P, &dP, &P};
+    double (*PhiTilde_Pointer[3]) = {&dphiTilde[0],&phiTilde[0],&phiTilde[0]};
+    double (*P_Pointer[3]) = {&P[0], &dP[0], &P[0]};
 
     double Constant[3] = {1., -sin(theta), 1.};
 
     if (isNonAxi == 1)
     {
         double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
-        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
         computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
     }
     else
     {
         double (*Eq[3])(double, double, double) = {&computeAxiF_r, &computeAxiF_theta, &computeAxiF_phi};
-        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        axi_equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
         compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
     }
 
@@ -551,19 +551,19 @@ void computeDeriv(double R,double Z, double phi,
     double dC[N*L];
     double d2C[N*L];
 
-    compute_C(xi, N, L, &C);
-    compute_dC(xi, N, L, &dC);
-    compute_d2C(xi, N, L, &d2C);
+    compute_C(xi, N, L, &C[0]);
+    compute_dC(xi, N, L, &dC[0]);
+    compute_d2C(xi, N, L, &d2C[0]);
 
 //Compute phiTilde and its derivative
     double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C, &phiTilde);
+    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
 
     double dphiTilde[L*N];
-    compute_dphiTilde(r, a, N, L, &C, &dC, &dphiTilde);
+    compute_dphiTilde(r, a, N, L, &C[0], &dC[0], &dphiTilde[0]);
 
     double d2phiTilde[L*N];
-    compute_d2phiTilde(r, a, N, L, &C, &dC, &d2C, &d2phiTilde);
+    compute_d2phiTilde(r, a, N, L, &C[0], &dC[0], &d2C[0], &d2phiTilde[0]);
 
 
 //Compute Associated Legendre Polynomials
@@ -579,29 +579,23 @@ void computeDeriv(double R,double Z, double phi,
     }
     double P[size];
 
+    compute_P(cos(theta), L,M_eff, &P[0]);
 
-    compute_P(cos(theta), L,M_eff, &P);
-
-
-
-    int num_eq = 3;
-
-
-    double (*PhiTilde_Pointer[3]) = {&d2phiTilde, &phiTilde, &dphiTilde};
-    double (*P_Pointer[3]) = {&P, &P, &P};
+    double (*PhiTilde_Pointer[3])= {&d2phiTilde[0],&phiTilde[0],&dphiTilde[0]};
+    double (*P_Pointer[3]) = {&P[0], &P[0], &P[0]};
 
     double Constant[3] = {1., 1., 1.};
 
     if (isNonAxi==1)
     {
         double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
-        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
         computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
     }
     else
     {
         double (*Eq[3])(double, double, double) = {&computeAxiF_rr, &computeAxiF_phiphi, &computeAxiF_rphi};
-        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        axi_equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
         compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
     }
 
@@ -647,11 +641,11 @@ double SCFPotentialEval(double R,double Z, double phi,
     //Compute the gegenbauer polynomials and its derivative.
     double C[N*L];
 
-    compute_C(xi, N, L, &C);
+    compute_C(xi, N, L, &C[0]);
 
     //Compute phiTilde and its derivative
     double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C, &phiTilde);
+    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
     //Compute Associated Legendre Polynomials
 
     int M_eff = M;
@@ -668,28 +662,25 @@ double SCFPotentialEval(double R,double Z, double phi,
     double P[size];
 
 
-    compute_P(cos(theta), L,M_eff, &P);
+    compute_P(cos(theta), L,M_eff, &P[0]);
 
     double potential;
 
-    int num_eq = 1;
-
-
-    double (*PhiTilde_Pointer[1]) = {&phiTilde};
-    double (*P_Pointer[1]) = {&P};
+    double (*PhiTilde_Pointer[1]) = {&phiTilde[0]};
+    double (*P_Pointer[1]) = {&P[0]};
 
     double Constant[1] = {1.};
 
     if (isNonAxi==1) //LCOV_EXCL_START
     {
         double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
-        equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
         computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);
     } //LCOV_EXCL_STOP
     else
     {
         double (*Eq[1])(double, double, double) = {&computeAxiPhi};
-        axi_equations e = {Eq,&PhiTilde_Pointer, &P_Pointer, &Constant};
+        axi_equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
         compute(a, N, L, M,r, theta, phi, Acos, 1, e, &potential);
     }
 
@@ -711,7 +702,7 @@ double SCFPotentialRforce(double R,double Z, double phi,
 
 
     double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F) ;
+    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
 
     return *(F + 0)*dr_dR + *(F + 1)*dtheta_dR + *(F + 2)*dphi_dR;
 
@@ -732,7 +723,7 @@ double SCFPotentialzforce(double R,double Z, double phi,
     double dphi_dz = 0;
 
     double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F) ;
+    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
     return *(F + 0)*dr_dz + *(F + 1)*dtheta_dz + *(F + 2)*dphi_dz;
 }
 
@@ -751,7 +742,7 @@ double SCFPotentialphiforce(double R,double Z, double phi,
     double dphi_dphi = 1;
 
     double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F) ;
+    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
 
     return *(F + 0)*dr_dphi + *(F + 1)*dtheta_dphi + *(F + 2)*dphi_dphi;
 }
@@ -761,7 +752,6 @@ double SCFPotentialPlanarRforce(double R,double phi,
                                 double t,
                                 struct potentialArg * potentialArgs)
 {
-    double * args= potentialArgs->args;
     return SCFPotentialRforce(R,0., phi,t,potentialArgs);
 
 }
@@ -780,14 +770,9 @@ double SCFPotentialPlanarR2deriv(double R, double phi,
                                  double t,
                                  struct potentialArg * potentialArgs)
 {
-
     double Farray[3];
-
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray) ;
-
-    return *(Farray + 0);
-
-
+    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
+    return *Farray;
 }
 
 //Compute the planar double derivative of the potential with respect to phi
@@ -795,15 +780,9 @@ double SCFPotentialPlanarphi2deriv(double R, double phi,
                                    double t,
                                    struct potentialArg * potentialArgs)
 {
-
-
     double Farray[3];
-
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray) ;
-
+    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
     return *(Farray + 1);
-
-
 }
 
 //Compute the planar double derivative of the potential with respect to R, Phi
@@ -811,9 +790,7 @@ double SCFPotentialPlanarRphideriv(double R, double phi,
                                    double t,
                                    struct potentialArg * potentialArgs)
 {
-
     double Farray[3];
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray) ;
+    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
     return *(Farray + 2);
-
 }

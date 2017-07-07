@@ -15,14 +15,14 @@ Various 3D and 2D potentials are contained in galpy, list in the
 of potentials included with galpy is to run
 
 >>> import galpy.potential
->>> print [p for p in dir(galpy.potential) if 'Potential' in p]
-['CosmphiDiskPotential',
- 'DehnenBarPotential',
- 'DoubleExponentialDiskPotential',
- 'EllipticalDiskPotential',
- 'FlattenedPowerPotential',
- 'HernquistPotential',
-....]
+>>> print([p for p in dir(galpy.potential) if 'Potential' in p])
+# ['CosmphiDiskPotential',
+#  'DehnenBarPotential',
+#  'DoubleExponentialDiskPotential',
+#  'EllipticalDiskPotential',
+#  'FlattenedPowerPotential',
+#  'HernquistPotential',
+# ....]
 
 (list cut here for brevity). Section :ref:`Rotation curves
 <rotcurves>` explains how to initialize potentials and how to display
@@ -32,7 +32,7 @@ such instances. Similarly, we can evaluate a Potential instance
 >>> from galpy.potential import MiyamotoNagaiPotential
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=1.)
 >>> mp(1.,0.)
--1.2889062500000001
+# -1.2889062500000001
 
 Most member functions of Potential instances have corresponding
 functions in the galpy.potential module that allow them to be
@@ -41,15 +41,15 @@ instances. ``galpy.potential.MWPotential2014`` is such a list of three
 Potential instances
 
 >>> from galpy.potential import MWPotential2014
->>> print MWPotential2014
-[<galpy.potential_src.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
+>>> print(MWPotential2014)
+# [<galpy.potential_src.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
 
 and we can evaluate the potential by using the ``evaluatePotentials``
 function
 
 >>> from galpy.potential import evaluatePotentials
->>> evaluatePotentials(1.,0.,MWPotential2014)
--1.3733506513947895
+>>> evaluatePotentials(MWPotential2014,1.,0.)
+# -1.3733506513947895
 
 .. WARNING::
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`.
@@ -85,19 +85,19 @@ potential to be calculated. Again for the Miyamoto-Nagai Potential
 instance from above
 
 >>> mp.Rforce(1.,0.)
--1.0
+# -1.0
 
 This value of -1.0 is due to the normalization of the potential such
 that the circular velocity is 1. at R=1. Similarly, the vertical force
 is zero in the mid-plane
 
 >>> mp.zforce(1.,0.)
--0.0
+# -0.0
 
 but not further from the mid-plane
 
 >>> mp.zforce(1.,0.125)
--0.53488743705310848
+# -0.53488743705310848
 
 As explained in :ref:`Units in galpy <units>`, these forces are in
 standard galpy units, and we can convert them to physical units using
@@ -106,18 +106,18 @@ assuming a physical circular velocity of 220 km/s at R=8 kpc
 
 >>> from galpy.util import bovy_conversion
 >>> mp.zforce(1.,0.125)*bovy_conversion.force_in_kmsMyr(220.,8.)
--3.3095671288657584 #km/s/Myr
+# -3.3095671288657584 #km/s/Myr
 >>> mp.zforce(1.,0.125)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
--119.72021771473301 #2 \pi G Msol / pc^2
+# -119.72021771473301 #2 \pi G Msol / pc^2
 
 Again, there are functions in ``galpy.potential`` that allow for the
 evaluation of the forces for lists of Potential instances, such that
 
 >>> from galpy.potential import evaluateRforces
->>> evaluateRforces(1.,0.,MWPotential2014)
--1.0
+>>> evaluateRforces(MWPotential2014,1.,0.)
+# -1.0
 >>> from galpy.potential import evaluatezforces
->>> evaluatezforces(1.,0.125,MWPotential2014)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> evaluatezforces(MWPotential2014,1.,0.125)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
 >>> -69.680720137571114 #2 \pi G Msol / pc^2
 
 We can evaluate the flattening of the potential as
@@ -125,10 +125,10 @@ We can evaluate the flattening of the potential as
 a list of such instances
 
 >>> mp.flattening(1.,0.125)
-0.4549542914935209
+# 0.4549542914935209
 >>> from galpy.potential import flattening
 >>> flattening(MWPotential2014,1.,0.125)
-0.61231675305658628
+# 0.61231675305658628
 
 Densities
 ---------
@@ -141,29 +141,29 @@ implemented for this). For example, for the Miyamoto-Nagai potential,
 the density is explicitly implemented
 
 >>> mp.dens(1.,0.)
-1.1145444383277576
+# 1.1145444383277576
 
 and we can also calculate this using the Poisson equation
 
 >>> mp.dens(1.,0.,forcepoisson=True)
-1.1145444383277574
+# 1.1145444383277574
 
 which are the same to machine precision
 
 >>> mp.dens(1.,0.,forcepoisson=True)-mp.dens(1.,0.)
--2.2204460492503131e-16
+# -2.2204460492503131e-16
 
 Similarly, all of the potentials in ``galpy.potential.MWPotential2014``
 have explicitly-implemented densities, so we can do
 
 >>> from galpy.potential import evaluateDensities
->>> evaluateDensities(1.,0.,MWPotential2014)
-0.57508603122264867
+>>> evaluateDensities(MWPotential2014,1.,0.)
+# 0.57508603122264867
 
 In physical coordinates, this becomes
 
->>> evaluateDensities(1.,0.,MWPotential2014)*bovy_conversion.dens_in_msolpc3(220.,8.)
-0.1010945632524705 #Msol / pc^3
+>>> evaluateDensities(MWPotential2014,1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
+# 0.1010945632524705 #Msol / pc^3
 
 We can also plot densities
 
@@ -184,7 +184,7 @@ numerical integrations, so the agreement between the analytical
 density and that computed using the Poisson equation is slightly less good, but still better than a percent
 
 >>> (dp.dens(1.,0.,forcepoisson=True)-dp.dens(1.,0.))/dp.dens(1.,0.)
-0.0032522956769123019
+# 0.0032522956769123019
 
 The density is
 
@@ -200,6 +200,54 @@ and the potential is
 
 Clearly, the potential is much less flattened than the density.
 
+**NEW in v1.3**: Modifying potential instances using wrappers
+-------------------------------------------------------------
+
+Potentials implemented in galpy can be modified using different kinds
+of wrappers. These wrappers modify potentials to, for example, change
+their amplitude as a function of time (e.g., to grow or decay the bar
+contribution to a potential). Specific kinds of wrappers are listed on
+the :ref:`Potential wrapper API page <potwrapperapi>`. These wrappers
+can be applied to instances of *any* potential implemented in galpy
+(including other wrappers). An example is to grow a bar using the
+polynomial smoothing of `Dehnen (2000)
+<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. We first setup
+an instance of a ``DehnenBarPotential`` that is essentially fully
+grown already
+
+>>> from galpy.potential import DehnenBarPotential
+>>> dpn= DehnenBarPotential(tform=-100.,tsteady=0.) # DehnenBarPotential has a custom implementation of growth that we ignore by setting tform to -100
+
+and then wrap it
+
+>>> from galpy.potential import DehnenSmoothWrapperPotential
+>>> dswp= DehnenSmoothWrapperPotential(pot=dpn,tform=-4.*2.*numpy.pi/dpn.OmegaP(),tsteady=2.*2.*numpy.pi/dpn.OmegaP())
+
+This grows the ``DehnenBarPotential`` starting at 4 bar periods before
+``t=0`` over a period of 2 bar periods. ``DehnenBarPotential`` has an
+older, custom implementation of the same smoothing and the
+``(tform,tsteady)`` pair used here corresponds to the default setting
+for ``DehnenBarPotential``. Thus we can compare the two
+
+>>> dp= DehnenBarPotential()
+>>> print(dp(0.9,0.3,phi=3.,t=-2.)-dswp(0.9,0.3,phi=3.,t=-2.))
+# 0.0
+>>> print(dp.Rforce(0.9,0.3,phi=3.,t=-2.)-dswp.Rforce(0.9,0.3,phi=3.,t=-2.))
+# 0.0
+
+Wrapper potentials can be used anywhere in galpy where general
+potentials can be used. They can be part of lists of Potential
+instances. They can also be used in C for orbit integration provided
+that both the wrapper and the potentials that it wraps are implemented
+in C. For example, a static ``LogarithmicHaloPotential`` with a bar
+potential grown as above would be
+
+>>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
+>>> lp= LogarithmicHaloPotential(normalize=1.)
+>>> pot= [lp,dswp]
+>>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
+# -1.00965326579
+
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
 
@@ -207,43 +255,43 @@ We can also compute the properties of close-to-circular orbits. First
 of all, we can calculate the circular velocity and its derivative
 
 >>> mp.vcirc(1.)
-1.0
+# 1.0
 >>> mp.dvcircdR(1.)
--0.163777427566978
+# -0.163777427566978
 
 or, for lists of Potential instances
 
 >>> from galpy.potential import vcirc
 >>> vcirc(MWPotential2014,1.)
-1.0
+# 1.0
 >>> from galpy.potential import dvcircdR
 >>> dvcircdR(MWPotential2014,1.)
--0.10091361254334696
+# -0.10091361254334696
 
 We can also calculate the various frequencies for close-to-circular
 orbits. For example, the rotational frequency
 
 >>> mp.omegac(0.8)
-1.2784598203204887
+# 1.2784598203204887
 >>> from galpy.potential import omegac
 >>> omegac(MWPotential2014,0.8)
-1.2733514576122869
+# 1.2733514576122869
 
 and the epicycle frequency
 
 >>> mp.epifreq(0.8)
-1.7774973530267848
+# 1.7774973530267848
 >>> from galpy.potential import epifreq
 >>> epifreq(MWPotential2014,0.8)
-1.7452189766287691
+# 1.7452189766287691
 
 as well as the vertical frequency
 
 >>> mp.verticalfreq(1.0)
-3.7859388972001828
+# 3.7859388972001828
 >>> from galpy.potential import verticalfreq
 >>> verticalfreq(MWPotential2014,1.)
-2.7255405754769875
+# 2.7255405754769875
 
 
 For close-to-circular orbits, we can also compute the radii of the
@@ -251,11 +299,11 @@ Lindblad resonances. For example, for a frequency similar to that of
 the Milky Way's bar
 
 >>> mp.lindbladR(5./3.,m='corotation') #args are pattern speed and m of pattern
-0.6027911166042229 #~ 5kpc
->>> print mp.lindbladR(5./3.,m=2)
-None
+# 0.6027911166042229 #~ 5kpc
+>>> print(mp.lindbladR(5./3.,m=2))
+# None
 >>> mp.lindbladR(5./3.,m=-2)
-0.9906190683480501
+# 0.9906190683480501
 
 The ``None`` here means that there is no inner Lindblad resonance, the
 ``m=-2`` resonance is in the Solar neighborhood (see the section on
@@ -342,16 +390,16 @@ coefficient is non-zero
 >>> hp= HernquistPotential(amp=1.,a=2.)
 >>> Acos, Asin= scf_compute_coeffs_spherical(hp.dens,10,a=2.)
 >>> print(Acos)
-array([[[  1.00000000e+00]],
-        [[ -2.83370393e-17]],
-        [[  3.31150709e-19]],
-        [[ -6.66748299e-18]],
-        [[  8.19285777e-18]],
-        [[ -4.26730651e-19]],
-        [[ -7.16849567e-19]],
-        [[  1.52355608e-18]],
-        [[ -2.24030288e-18]],
-        [[ -5.24936820e-19]]])
+# array([[[  1.00000000e+00]],
+#         [[ -2.83370393e-17]],
+#         [[  3.31150709e-19]],
+#         [[ -6.66748299e-18]],
+#         [[  8.19285777e-18]],
+#         [[ -4.26730651e-19]],
+#         [[ -7.16849567e-19]],
+#         [[  1.52355608e-18]],
+#         [[ -2.24030288e-18]],
+#         [[ -5.24936820e-19]]])
 
 
 As a more complicated example, consider a prolate NFW potential
@@ -460,9 +508,9 @@ density. Note that orbit integration in the ``DiskSCFPotential`` is
 much faster than that of the ``DoubleExponentialDisk`` potential
 
 >>> timeit(o.integrate(ts,dp))
-1 loops, best of 3: 5.83 s per loop
+# 1 loops, best of 3: 5.83 s per loop
 >>> timeit(o.integrate(ts,dscfp))
-1 loops, best of 3: 286 ms per loop
+# 1 loops, best of 3: 286 ms per loop
 
 The :ref:`SCFPotential <scf_potential>` and :ref:`DiskSCFPotential
 <disk_scf_potential>` can be used wherever general potentials can be
@@ -508,9 +556,9 @@ follows
 >>> from galpy.potential import KeplerPotential
 >>> kp= KeplerPotential(amp=1.)
 >>> print(sp(1.1,0.),kp(1.1,0.),sp(1.1,0.)-kp(1.1,0.))
-(-0.90909090909090906, -0.9090909090909091, 0.0)
+# (-0.90909090909090906, -0.9090909090909091, 0.0)
 >>> print(sp.Rforce(1.1,0.),kp.Rforce(1.1,0.),sp.Rforce(1.1,0.)-kp.Rforce(1.1,0.))
-(-0.82644628099173545, -0.8264462809917353, -1.1102230246251565e-16)
+# (-0.82644628099173545, -0.8264462809917353, -1.1102230246251565e-16)
 
 ``SnapshotRZPotential`` instances can be used wherever other ``galpy``
 potentials can be used (note that the second derivatives have not been
@@ -583,7 +631,7 @@ instance to natural units using the circular velocity at `R=10` kpc,
 which is
 
 >>> spi.vcirc(10.)
-294.62723076942245
+# 294.62723076942245
 
 To convert to `natural units` we do
 
@@ -601,7 +649,7 @@ which gives
 in particular
 
 >>> spi.vcirc(1.)
-1.0000000000000002
+# 1.0000000000000002
 
 We can also plot the potential
 
@@ -613,9 +661,9 @@ Clearly, this simulation's potential is quite spherical, which is
 confirmed by looking at the flattening
 
 >>> spi.flattening(1.,0.1)
-0.86675711023391921
+# 0.86675711023391921
 >>> spi.flattening(1.5,0.1)
-0.94442750306256895
+# 0.94442750306256895
 
 The epicyle and vertical frequencies can also be interpolated by
 setting the ``interpepifreq=True`` or ``interpverticalfreq=True``
@@ -653,12 +701,12 @@ kpc/Gyr, times in Gyr, and G=1. For the Miyamoto-Nagai potential
 above, you can get its name in the NEMO framework as
 
 >>> mp.nemo_accname()
-'MiyamotoNagai'
+# 'MiyamotoNagai'
 
 and its parameters as
 
 >>> mp.nemo_accpars(220.,8.)
-'0,592617.11132,4.0,0.3'
+# '0,592617.11132,4.0,0.3'
 
 assuming that we scale velocities by ``vo=220`` km/s and positions by
 ``ro=8`` kpc in galpy. These two strings can then be given to the
@@ -669,9 +717,9 @@ We can do the same for lists of potentials. For example, for
 
 >>> from galpy.potential import nemo_accname, nemo_accpars
 >>> nemo_accname(MWPotential2014)
-'PowSphwCut+MiyamotoNagai+NFW'
+# 'PowSphwCut+MiyamotoNagai+NFW'
 >>> nemo_accpars(MWPotential2014,220.,8.)
-'0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887'
+# '0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887'
 
 Therefore, these are the ``accname=`` and ``accpars=`` that one needs
 to provide to ``gyrfalcON`` to run a simulation in
@@ -709,6 +757,8 @@ the logarithmic potential in NEMO, it cannot be flattened in ``z``, so
 to use a flattened logarithmic potential, one has to flip ``y`` and
 ``z`` between ``galpy`` and NEMO (one can flatten in ``y``).
 
+.. _addpot:
+
 Adding potentials to the galpy framework
 -----------------------------------------
 
@@ -721,10 +771,12 @@ routines work with any list of instances of the general ``Potential``
 class. Adding new potentials to galpy therefore allows them to be used
 everywhere in galpy where general ``Potential`` instances can be
 used. Adding a new class of potentials to galpy consists of the
-following series of steps (some of these are also given in the file
-``README.dev`` in the galpy distribution):
+following series of steps (for steps to add a new wrapper potential,
+also see :ref:`the next section <addwrappot>`):
 
 1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+
+.. _addpypot:
 
   The new potential class should implement some of the following
   functions: 
@@ -849,3 +901,73 @@ second derivatives for integrating phase-space volumes, also add
 
 After following the relevant steps, the new potential class can be
 used in any galpy context in which C is used to speed up computations.
+
+.. _addwrappot:
+
+**NEW in v1.3**: Adding wrapper potentials to the galpy framework
+------------------------------------------------------------------
+
+Wrappers all inherit from the general ``WrapperPotential`` class
+(which itself inherits from the ``Potential`` class and therefore all
+wrappers are ``Potentials``). Depending on the complexity of the
+wrapper, wrappers can be implemented much more economically in Python
+than new ``Potential`` instances as described :ref:`above
+<addpot>`.
+
+To add a Python implementation of a new wrapper, classes need to
+inherit from ``WrapperPotential``, store the potentials to be wrapped
+as ``self._pot`` (a ``Potential``, ``planarPotential``, or
+``linearPotential`` instance or a list thereof), and implement the
+``_wrap(self,attribute,R,Z,phi=0.,t=0.)`` function. This function
+modifies the Potential functions ``_evaluate``, ``_Rforce``, etc. (all
+of those listed :ref:`above <addpypot>`), with ``attribute`` the
+function that is being modified. Inheriting from ``WrapperPotential``
+gives the class access to the ``self._wrap_pot_func(attribute)``
+function which returns the relevant function for each attribute. For
+example, ``self._wrap_pot_func('_evaluate')`` returns the
+``evaluatePotentials`` function that can then be called as
+``self._wrap_pot_func('_evaluate')(self._pot,R,Z,phi=phi,t=t)`` to
+evaluate the potentials being wrapped. By making use of
+``self._wrap_pot_func``, wrapper potentials can be implemented in just
+a few lines.
+
+
+As an example, for the ``DehnenSmoothWrapperPotential``, the ``_wrap``
+function is
+
+.. code-block:: Python
+
+   def _wrap(self,attribute,R,Z,phi=0.,t=0.):
+       return self._smooth(t)\
+           *self._wrap_pot_func(attribute)(self._pot,R,Z,phi=phi,t=t)
+
+where ``smooth(t)`` returns the smoothing function of the
+amplitude. When any of the basic ``Potential`` functions are called
+(``_evaluate``, ``_Rforce``, etc.), ``_wrap`` gets called by the
+superclass ``WrapperPotential``, and the ``_wrap`` function returns
+the corresponding function for the wrapped potentials with the
+amplitude modified by ``smooth(t)``. Therefore, one does not need to
+implement each of the ``_evaluate``, ``_Rforce``, etc. functions like
+for regular potential. The source code for
+``DehnenSmoothWrapperPotential`` potential may act as a guide to
+implementing new wrappers.
+
+C implementations of potential wrappers can also be added in a similar
+way as C implementations of regular potentials (all of the steps
+listed in the :ref:`previous section <addpypot>` for adding a
+potential to C need to be followed). All of the necessary functions
+(``...Rforce``, ``...zforce``, ``..phiforce``, etc.) need to be
+implemented separately, but by including ``galpy_potentials.h``
+calling the relevant functions of the wrapped potentials is easy. Look
+at ``DehnenSmoothWrapperPotential.c`` for an example that can be
+straightforwardly edited for other wrappers.
+
+The glue between Python and C for wrapper potentials needs to glue
+both the wrapper and the wrapped potentials. This can be easily
+achieved by recursively calling the ``_parse_pot`` glue functions in
+Python (see the previous section) and the ``parse_leapFuncArgs`` and
+``parse_leapFuncArgs_Full`` functions in C. Again, following the
+example of ``DehnenSmoothWrapperPotential.py`` should allow for a
+straightforward implementation of the glue for any new wrappers.
+Wrapper potentials should be given negative potential types in the
+glue to distinguish them from regular potentials.

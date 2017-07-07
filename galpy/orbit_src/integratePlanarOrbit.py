@@ -232,6 +232,16 @@ def _parse_pot(pot):
             pot_args.extend([len(p._Pot._Cs), p._Pot._amp, p._Pot._N, p._Pot._sin_alpha,
                              p._Pot._tan_alpha, p._Pot._r_ref, p._Pot._phi_ref, p._Pot._Rs, p._Pot._H, p._Pot._omega])
             pot_args.extend(p._Pot._Cs)
+        ############################## WRAPPERS ###############################
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential):
+            pot_type.append(-1)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(potential.toPlanarPotential(p._Pot._pot))
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._Pot._amp,p._Pot._tform,p._Pot._tsteady])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

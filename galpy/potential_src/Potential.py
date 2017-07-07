@@ -2622,7 +2622,7 @@ def turn_physical_on(Pot,ro=None,vo=None):
         Pot.turn_physical_on(ro=ro,vo=vo)
     return None
 
-def _check_c(Pot):
+def _check_c(Pot,dxdv=False):
     """
 
     NAME:
@@ -2637,6 +2637,8 @@ def _check_c(Pot):
 
        Pot - Potential instance or list of such instances
 
+       dxdv= (False) check whether the potential has dxdv implementation
+
     OUTPUT:
 
        True if a C implementation exists, False otherwise
@@ -2645,11 +2647,20 @@ def _check_c(Pot):
 
        2014-02-17 - Written - Bovy (IAS)
 
+       2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials
+
     """
+    from galpy.potential import planarPotential
+    if dxdv: hasC_attr= 'hasC_dxdv'
+    else: hasC_attr= 'hasC'
+    from galpy.potential_src.WrapperPotential import WrapperPotential
     if isinstance(Pot,list):
-        return nu.all(nu.array([p.hasC for p in Pot],dtype='bool'))
-    elif isinstance(Pot,Potential):
-        return Pot.hasC
+        return nu.all(nu.array([_check_c(p,dxdv=dxdv) for p in Pot],
+                               dtype='bool'))
+    elif isinstance(Pot,WrapperPotential):
+        return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
+    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential):
+        return Pot.__dict__[hasC_attr]
 
 def _dim(Pot):
     """

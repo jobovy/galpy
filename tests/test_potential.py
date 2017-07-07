@@ -15,7 +15,7 @@ def test_normalize_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -68,7 +68,7 @@ def test_forceAsDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -129,6 +129,10 @@ def test_forceAsDeriv_potential():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('rotatingSpiralArmsPotential')
     pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('mockDehnenSmoothBarPotentialT1')
+    pots.append('mockDehnenSmoothBarPotentialTm1')
+    pots.append('mockDehnenSmoothBarPotentialTm5')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -238,7 +242,7 @@ def test_2ndDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -283,6 +287,10 @@ def test_2ndDeriv_potential():
     pots.append('mockAxisymmetricFerrersPotential')
     pots.append('rotatingSpiralArmsPotential')
     pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('mockDehnenSmoothBarPotentialT1')
+    pots.append('mockDehnenSmoothBarPotentialTm1')
+    pots.append('mockDehnenSmoothBarPotentialTm5')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -468,7 +476,7 @@ def test_poisson_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -496,6 +504,7 @@ def test_poisson_potential():
     pots.append('JaffeTwoPowerTriaxialPotential')
     pots.append('rotatingSpiralArmsPotential')
     pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -560,7 +569,7 @@ def test_evaluateAndDerivs_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -604,6 +613,10 @@ def test_evaluateAndDerivs_potential():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('rotatingSpiralArmsPotential')
     pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('mockDehnenSmoothBarPotentialT1')
+    pots.append('mockDehnenSmoothBarPotentialTm1')
+    pots.append('mockDehnenSmoothBarPotentialTm5')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -741,7 +754,6 @@ def test_rforce():
     assert numpy.fabs(potential.evaluateRforces(pp,R,z)*r/R-potential.evaluaterforces(pp,R,z)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials'
     return None
     
-
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
@@ -849,7 +861,7 @@ def test_toVertical_toPlanar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2645,3 +2657,69 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self,rc=0.75):
         mockMovingObjectPotential.__init__(self,rc=rc,maxt=15.,nt=3001)
         return None
+# Classes to test wrappers
+from galpy.potential import DehnenSmoothWrapperPotential
+class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
+    # This wrapped potential should be the same as the default DehnenBar
+    # for t > -99
+    def __init__(self):
+        dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+            tform=-4.*2.*numpy.pi/dpn.OmegaP())
+        return None
+# Additional DehnenSmooth instances to catch all smoothing cases
+class mockDehnenSmoothBarPotentialT1(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+            tform=0.5,tsteady=0.5)
+class mockDehnenSmoothBarPotentialTm1(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+            tform=-1.,tsteady=1.01)
+class mockDehnenSmoothBarPotentialTm5(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+            tform=-5.,tsteady=2.)
+class mockFlatDehnenSmoothBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     DehnenSmoothWrapperPotential(\
+                    amp=1.,pot=dpn,tform=-4.*2.*numpy.pi/dpn.OmegaP(),
+                    tsteady=2.*2*numpy.pi/dpn.OmegaP())])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
+class mockSlowFlatDehnenSmoothBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     DehnenSmoothWrapperPotential(\
+                        amp=1.,pot=dpn,tform=0.1,tsteady=500.)])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
+# A DehnenSmoothWrappered version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotential(DehnenSmoothWrapperPotential):
+    def __init__(self):
+        DehnenSmoothWrapperPotential.__init__(self,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)

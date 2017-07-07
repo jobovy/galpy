@@ -28,6 +28,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			int * pot_type,
 			double * pot_args){
   int ii,jj;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
@@ -215,7 +216,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       break;    
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &ZeroForce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;
     case 27: // SpiralArmsPotential, 10 arguments + array of Cs
@@ -225,6 +226,24 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv = &SpiralArmsPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv = &SpiralArmsPotentialPlanarRphideriv;
       potentialArgs->nargs = (int) 10 + *pot_args;
+      break;
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->planarRforce= &DehnenSmoothWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &DehnenSmoothWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &DehnenSmoothWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs(potentialArgs->nwrapped,
+			 potentialArgs->wrappedPotentialArg,
+			 pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -250,7 +269,6 @@ void integratePlanarOrbit(double *yo,
 			  int * err,
 			  int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
@@ -300,11 +318,7 @@ void integratePlanarOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -322,7 +336,6 @@ void integratePlanarOrbit_dxdv(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
@@ -357,11 +370,7 @@ void integratePlanarOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }

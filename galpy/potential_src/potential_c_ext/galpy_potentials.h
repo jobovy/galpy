@@ -44,12 +44,17 @@ struct potentialArg{
   interp_2d * i2dzforce;
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
+  int nwrapped; // For wrappers
+  struct potentialArg * wrappedPotentialArg;  
 };
 /*
   Function declarations
 */
 //Utility
 void cyl_to_rect(double,double,double *,double *);
+//Dealing with potentialArg
+void init_potentialArgs(int,struct potentialArg *);
+void free_potentialArgs(int,struct potentialArg *);
 //Potential and force evaluation
 double evaluatePotentials(double,double,int, struct potentialArg *);
 double calcRforce(double,double,double,double,int,struct potentialArg *);
@@ -409,6 +414,26 @@ double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
 double SpiralArmsPotentialPlanarRphideriv(double, double, double,
                             struct potentialArg*);
 
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+//DehnenSmoothWrapperPotential
+double DehnenSmoothWrapperPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double DehnenSmoothWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double DehnenSmoothWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarphiforce(double,double,double,
+						  struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double DehnenSmoothWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

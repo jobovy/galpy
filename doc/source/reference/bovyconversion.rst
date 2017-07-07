@@ -15,7 +15,7 @@ different units. For example, if you want to know how many
 
 >>> from galpy.util import bovy_conversion
 >>> bovy_conversion.dens_in_gevcc(1.,1.)/bovy_conversion.dens_in_msolpc3(1.,1.)
-37.978342941703616
+# 37.978342941703616
 
 or :math:`1\,M_\odot\,\mathrm{pc}^{-3} \approx 40\,\mathrm{GeV\,cm}^{-3}`.
 

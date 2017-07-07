@@ -146,13 +146,13 @@ ratio of the largest and second-to-largest eigenvalue of the Hessian
 :math:`\partial \mathbf{\Omega} / \partial \mathbf{J}`
 
 >>> sdf.freqEigvalRatio(isotropic=True)
-34.450028399901434
+# 34.450028399901434
 
 or the model's ratio of the largest and second-to-largest eigenvalue
 of the model frequency variance matrix
 
 >>> sdf.freqEigvalRatio()
-29.625538344985291
+# 29.625538344985291
 
 The fact that this ratio is so large means that an approximately one
 dimensional stream will form.
@@ -161,14 +161,14 @@ Similarly, we can calculate the angle between the frequency vector of
 the progenitor and of the model mean frequency vector
 
 >>> sdf.misalignment()
--0.49526013844831596
+# -0.49526013844831596
 
 which returns this angle in degrees. We can also calculate the angle
 between the frequency vector of the progenitor and the principal
 eigenvector of :math:`\partial \mathbf{\Omega} / \partial \mathbf{J}`
 
 >>> sdf.misalignment(isotropic=True)
- 1.2825116841963993
+#  1.2825116841963993
 
 (the reason these are obtained by specifying ``isotropic=True`` is
 that these would be the ratio of the eigenvalues or the angle if we
@@ -299,13 +299,13 @@ We can also evaluate the stream PDF, the probability of a
 can evaluate the PDF, for example, at the location of the progenitor
 
 >>> sdf(obs.R(),obs.vR(),obs.vT(),obs.z(),obs.vz(),obs.phi())
-array([-33.16985861])
+# array([-33.16985861])
 
 which returns the natural log of the PDF. If we go to slightly higher in
 *Z* and slightly smaller in *R*, the PDF becomes zero
 
 >>> sdf(obs.R()-0.1,obs.vR(),obs.vT(),obs.z()+0.1,obs.vz(),obs.phi())
-array([-inf])
+# array([-inf])
 
 because this phase-space position cannot be reached by a leading
 stream star. We can also marginalize the PDF over unobserved
@@ -324,9 +324,9 @@ to :math:`p(X,Y,v_X,v_Y,v_Z|Z)`. This approximation allows us to get a
 sense of where the PDF peaks and what its width is
 
 >>> meanp[0]*8.
-14.267559400127833
+# 14.267559400127833
 >>> numpy.sqrt(varp[0,0])*8.
-0.04152968631186698
+# 0.04152968631186698
 
 We can now evaluate the PDF :math:`p(X|Z)` as a function of *X* near
 the peak
@@ -368,9 +368,9 @@ computes the approximate :math:`p(Y,Z,v_X,v_Y,v_Z|X)` near the upper
 *Z* branch. In *Z*, this PDF has mean and dispersion
 
 >>> meanp[1]*8.
-5.4005530328542077
+# 5.4005530328542077
 >>> numpy.sqrt(varp[1,1])*8.
-0.05796023309510244
+# 0.05796023309510244
 
 We can then evaluate :math:`p(Z|X)` for the upper branch as
 

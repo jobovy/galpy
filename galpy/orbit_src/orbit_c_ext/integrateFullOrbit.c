@@ -31,13 +31,8 @@ void parse_leapFuncArgs_Full(int npot,
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    potentialArgs->i2drforce= NULL;
-    potentialArgs->accxrforce= NULL;
-    potentialArgs->accyrforce= NULL;
-    potentialArgs->i2dzforce= NULL;
-    potentialArgs->accxzforce= NULL;
-    potentialArgs->accyzforce= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -242,6 +237,22 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
       potentialArgs->nargs = (int) 10 + *pot_args;
+      break;    
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
+      potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
+      potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs_Full(potentialArgs->nwrapped,
+			      potentialArgs->wrappedPotentialArg,
+			      pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
       break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -267,7 +278,6 @@ void integrateFullOrbit(double *yo,
 			int * err,
 			int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
@@ -317,11 +327,7 @@ void integrateFullOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -338,7 +344,6 @@ void integrateOrbit_dxdv(double *yo,
 			 int * err,
 			 int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
@@ -388,11 +393,7 @@ void integrateOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
 	      rtol,atol,result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }

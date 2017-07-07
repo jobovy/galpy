@@ -43,7 +43,10 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     expwholeDiskSCFPotential, \
     mockFlatSpiralArmsPotential, \
     mockRotatingFlatSpiralArmsPotential, \
-    mockSpecialRotatingFlatSpiralArmsPotential
+    mockSpecialRotatingFlatSpiralArmsPotential, \
+    expwholeDiskSCFPotential, \
+    mockFlatDehnenSmoothBarPotential, \
+    mockSlowFlatDehnenSmoothBarPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -70,7 +73,7 @@ def test_energy_jacobi_conservation():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
@@ -106,6 +109,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSpiralArmsPotential')
     pots.append('mockRotatingFlatSpiralArmsPotential')
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
+    pots.append('mockFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDehnenSmoothBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -125,10 +130,12 @@ def test_energy_jacobi_conservation():
     jactol['RazorThinExponentialDiskPotential']= -9. #these are more difficult
     jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
+    jactol['mockFlatDehnenSmoothBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatLopsidedDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
+    jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -173,6 +180,7 @@ def test_energy_jacobi_conservation():
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
+                    or 'DehnenSmoothBar' in p \
                     or p == 'mockMovingObjectLongIntPotential':
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
@@ -335,7 +343,10 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            tJacobis= o.Jacobi(ttimes)
+            if 'DehnenSmoothBar' in p:
+                tJacobis= o.Jacobi(ttimes,pot=tp)
+            else:
+                tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s" %((numpy.std(tJacobis)/numpy.mean(tJacobis))**2.,p,integrator)
             if firstTest or 'MWPotential' in p:
@@ -382,7 +393,10 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
                 #Jacobi
-                tJacobis= o.Jacobi(ttimes)
+                if 'DehnenSmoothBar':
+                    tJacobis= o.Jacobi(ttimes,pot=tp)
+                else:
+                    tJacobis= o.Jacobi(ttimes)
                 assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                     "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Same for a planarPotential, track azimuth
@@ -398,7 +412,10 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
-            tJacobis= o.Jacobi(ttimes)
+            if 'DehnenSmoothBar':
+                tJacobis= o.Jacobi(ttimes,pot=tp)
+            else:
+                tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
@@ -458,11 +475,12 @@ def test_liouville_planar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
     pots.append('mockSlowFlatLopsidedDiskPotential')
+    pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('specialFlattenedPowerPotential')
@@ -478,6 +496,8 @@ def test_liouville_planar():
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
+    pots.append('mockFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDehnenSmoothBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -588,7 +608,7 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -708,7 +728,7 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -827,7 +847,7 @@ def test_apocenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -947,7 +967,7 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -1052,7 +1072,7 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -1259,7 +1279,7 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
