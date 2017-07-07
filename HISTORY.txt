@@ -30,6 +30,9 @@ v1.3 (2017-XX-XX)
 
 - Switched test suite from nose to pytest (#303).
 
+- Added SpiralArmsPotential, a class that implements the spiral arms
+  potential from Cox and Gomez (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
+
 v1.2 (2016-09-06)
 ==================
 

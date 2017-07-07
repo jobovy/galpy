@@ -40,7 +40,10 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     NFWTwoPowerTriaxialPotential, \
     fullyRotatedTriaxialNFWPotential, \
     sech2DiskSCFPotential, \
-    expwholeDiskSCFPotential
+    expwholeDiskSCFPotential, \
+    mockFlatSpiralArmsPotential, \
+    mockRotatingFlatSpiralArmsPotential, \
+    mockSpecialRotatingFlatSpiralArmsPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -100,6 +103,9 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFDensityPotential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
+    pots.append('mockFlatSpiralArmsPotential')
+    pots.append('mockRotatingFlatSpiralArmsPotential')
+    pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -160,8 +166,8 @@ def test_energy_jacobi_conservation():
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'Bar' in p and not 'LogSpiral' in p \
+#            print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            if not 'Bar' in p and not 'Spiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
@@ -173,7 +179,7 @@ def test_energy_jacobi_conservation():
                 tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
-#            print p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.
+#            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level" %(p,integrator,(numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
             if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
@@ -325,7 +331,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
             #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            if not 'Bar' in p:
+            if not 'Bar' in p and not 'Spiral' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
@@ -388,7 +394,7 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
 #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'Bar' in p:
+            if not 'Bar' in p and not 'Spiral' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
@@ -467,6 +473,9 @@ def test_liouville_planar():
     pots.append('mockSCFAxiDensity1Potential')
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('mockSCFDensityPotential')
+    pots.append('mockFlatSpiralArmsPotential')
+    pots.append('mockRotatingFlatSpiralArmsPotential')
+    pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -549,7 +558,7 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-#            print p, integrator, numpy.fabs(tjac-1.)
+#            print(p, integrator, numpy.fabs(tjac-1.))
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
             if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests

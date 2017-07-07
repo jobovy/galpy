@@ -217,7 +217,15 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
       potentialArgs->planarphiforce= &ZeroForce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
-      break;      
+      break;
+    case 27: // SpiralArmsPotential, 10 arguments + array of Cs
+      potentialArgs->planarRforce = &SpiralArmsPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &SpiralArmsPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv = &SpiralArmsPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &SpiralArmsPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &SpiralArmsPotentialPlanarRphideriv;
+      potentialArgs->nargs = (int) 10 + *pot_args;
+      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

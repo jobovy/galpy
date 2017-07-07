@@ -185,6 +185,11 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                     pot_args.extend([0,hz.get('h',0.0375)])
                 elif hztype == 'sech2':
                     pot_args.extend([1,hz.get('h',0.0375)])
+        elif isinstance(p, potential.SpiralArmsPotential):
+            pot_type.append(27)
+            pot_args.extend([len(p._Cs), p._amp, p._N, p._sin_alpha, p._tan_alpha, p._r_ref, p._phi_ref,
+                             p._Rs, p._H, p._omega])
+            pot_args.extend(p._Cs)
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
