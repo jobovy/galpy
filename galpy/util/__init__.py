@@ -10,9 +10,11 @@ class galpyWarning(Warning):
     pass
 def _warning(
     message,
-    category = galpyWarning,
-    filename = '',
-    lineno = -1):
+    category=galpyWarning,
+    filename='',
+    lineno=-1,
+    file=None,
+    line=None):
     if issubclass(category,galpyWarning):
         print("galpyWarning: "+str(message))
     else:
