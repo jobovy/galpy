@@ -1327,7 +1327,7 @@ def test_NFW_virialquantities_diffrovo():
                  /4./numpy.pi*3.\
                  /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)**3.)\
             *(10.**6./H**2.*8.*numpy.pi/3./Om*(4.302*10.**-6.))
-        assert numpy.fabs(od-overdens) < 0.01, "NFWPotential's virial quantities computed in physical units with different (ro,vo) from setup are incorrect"
+        assert numpy.fabs(od-overdens) < 0.1, "NFWPotential's virial quantities computed in physical units with different (ro,vo) from setup are incorrect"
         od= (np.mvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)\
                  /4./numpy.pi*3.\
                  /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)**3.)\
