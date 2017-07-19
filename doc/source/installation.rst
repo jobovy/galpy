@@ -189,7 +189,7 @@ of configuration variables. This configuration file is parsed using
 <https://docs.python.org/3/library/configparser.html>`__. It is
 currently used to set a default set of distance and velocity scales
 (``ro`` and ``vo`` throughout galpy) for conversion between physical
-and internal galpy units, to specify whether output from functions or
+and internal galpy units, to decide whether to change the seaborn plotting defaults, to specify whether output from functions or
 methods should be given as an `astropy Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
 with units as much as possible or not, and whether or not to use
@@ -202,6 +202,9 @@ current configuration file therefore looks like this::
 	  [normalization]
 	  ro = 8.
 	  vo = 220.
+
+	  [plot]
+	  seaborn-bovy-defaults = False
 
 	  [astropy]
 	  astropy-units = False

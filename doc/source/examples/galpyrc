@@ -2,6 +2,9 @@
 ro = 8.
 vo = 220.
 
+[plot]
+seaborn-bovy-defaults = True
+
 [astropy]
 astropy-units = False
 astropy-coords = True

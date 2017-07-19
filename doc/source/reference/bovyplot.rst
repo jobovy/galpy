@@ -2,7 +2,7 @@ galpy.util.bovy_plot
 ====================
 
 .. WARNING::
-   Importing ``galpy.util.bovy_plot`` (or having it be imported by other ``galpy`` routines) with ``seaborn`` installed will change the ``seaborn`` plot style. If you don't like this, call ``import seaborn; seaborn.set_style('darkgrid')`` (or similar for other styles) after importing ``galpy.util.bovy_plot``.
+   Importing ``galpy.util.bovy_plot`` (or having it be imported by other ``galpy`` routines) with ``seaborn`` installed may change the ``seaborn`` plot style. If you don't like this, set the configuration parameter ``seaborn-plotting-defaults`` to False in the :ref:`configuration file <configfile>`
 
 Various plotting routines:
 
