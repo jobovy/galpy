@@ -12,7 +12,8 @@ except ImportError:
 default_configuration= {'astropy-units':'False',
                         'astropy-coords':'True',
                         'ro':'8.',
-                        'vo':'220.'}
+                        'vo':'220.',
+                        'seaborn-bovy-defaults':'False'}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
 def write_default(filename):
     writeconfig= configparser.ConfigParser()
@@ -22,6 +23,9 @@ def write_default(filename):
                     default_configuration['ro'])
     writeconfig.set('normalization','vo',
                     default_configuration['vo'])
+    writeconfig.add_section('plot')
+    writeconfig.set('plot','seaborn-bovy-defaults',
+                    default_configuration['seaborn-bovy-defaults'])
     writeconfig.add_section('astropy')
     writeconfig.set('astropy','astropy-units',
                     default_configuration['astropy-units'])
