@@ -46,7 +46,9 @@ v1.3 (2017-XX-XX)
 - Turn off changing the seaborn default plot configuration to that
   preferred by this code's maintainer; can be turned back on by
   specifying ``seaborn-bovy-defaults = True`` in the configuration
-  file (see documentation).
+  file (see documentation). Old configuration files will be
+  automatically updated to add this option (but remain otherwise the
+  same).
 
 - Added button to code examples in the documentation that copies the
   examples to the user's clipboard for easy pasting into a Python
