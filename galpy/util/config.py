@@ -9,37 +9,48 @@ try:
 except ImportError:
     _APY_LOADED= False
 # The default configuration
-default_configuration= {'astropy-units':'False',
-                        'astropy-coords':'True',
-                        'ro':'8.',
-                        'vo':'220.',
-                        'seaborn-bovy-defaults':'False'}
+default_configuration= {'normalization': {'ro':'8.',
+                                         'vo':'220.'},
+                        'astropy': {'astropy-units':'False',
+                                    'astropy-coords':'True'},
+                        'plot': {'seaborn-bovy-defaults':'False'}}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
-def write_default(filename):
+def check_config(configuration):
+    # Check that the configuration is a valid galpy configuration
+    for sec_key in default_configuration.keys():
+        if not configuration.has_section(sec_key):
+            return False
+        for key in default_configuration[sec_key]:
+            if not configuration.has_option(sec_key,key):
+                return False
+    return True
+def write_config(filename,configuration=None):
+    # Writes default if configuration is None
     writeconfig= configparser.ConfigParser()
     # Write different sections
-    writeconfig.add_section('normalization')
-    writeconfig.set('normalization','ro',
-                    default_configuration['ro'])
-    writeconfig.set('normalization','vo',
-                    default_configuration['vo'])
-    writeconfig.add_section('plot')
-    writeconfig.set('plot','seaborn-bovy-defaults',
-                    default_configuration['seaborn-bovy-defaults'])
-    writeconfig.add_section('astropy')
-    writeconfig.set('astropy','astropy-units',
-                    default_configuration['astropy-units'])
-    writeconfig.set('astropy','astropy-coords',
-                    default_configuration['astropy-coords'])
+    for sec_key in default_configuration.keys():
+        writeconfig.add_section(sec_key)
+        for key in default_configuration[sec_key]:
+            if configuration is None \
+                    or not configuration.has_section(sec_key) \
+                    or not configuration.has_option(sec_key,key):
+                writeconfig.set(sec_key,key,
+                                default_configuration[sec_key][key])
+            else:
+                writeconfig.set(sec_key,key,configuration.get(sec_key,key))
     with open(filename,'w') as configfile:
         writeconfig.write(configfile)
     return None
 
 # Read the configuration file
-__config__= configparser.ConfigParser(default_configuration)
-if __config__.read([default_filename,'.galpyrc']) == []:
-    write_default(default_filename)
+__config__= configparser.ConfigParser()
+cfilename= __config__.read([default_filename,'.galpyrc'])
+if not cfilename:
+    write_config(default_filename)
     __config__.read(default_filename)
+if not check_config(__config__):
+    write_config(cfilename[-1],__config__)
+    __config__.read(cfilename[-1])
 
 # Set configuration variables on the fly
 def set_ro(ro):
