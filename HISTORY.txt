@@ -43,6 +43,11 @@ v1.3 (2017-XX-XX)
   is different from the requested one (for when C integration falls
   back onto Python; see #286).
 
+- Turn off changing the seaborn default plot configuration to that
+  preferred by this code's maintainer; can be turned back on by
+  specifying ``seaborn-bovy-defaults = True`` in the configuration
+  file (see documentation).
+
 - Added button to code examples in the documentation that copies the
   examples to the user's clipboard for easy pasting into a Python
   interpreter.
