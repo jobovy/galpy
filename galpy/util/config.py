@@ -44,10 +44,12 @@ def write_config(filename,configuration=None):
 
 # Read the configuration file
 __config__= configparser.ConfigParser()
-cfilename= __config__.read([default_filename,'.galpyrc'])
+cfilename= __config__.read('.galpyrc')
 if not cfilename:
-    write_config(default_filename)
-    __config__.read(default_filename)
+    cfilename= __config__.read(default_filename)
+    if not cfilename:
+        write_config(default_filename)
+        __config__.read(default_filename)
 if not check_config(__config__):
     write_config(cfilename[-1],__config__)
     __config__.read(cfilename[-1])
