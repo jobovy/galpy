@@ -1381,7 +1381,7 @@ def test_fixedstepsize():
     # Somewhat long time
     times= numpy.linspace(0.,100.,30001)
     # Test the following multiples
-    mults= [10.,40.,80.]
+    mults= [10.]
     # Just do this for LogarithmicHaloPotential
     pot= LogarithmicHaloPotential(normalize=1.)
     planarpot= pot.toPlanar()
