@@ -171,19 +171,27 @@ void parse_actionAngleArgs(int npot,
       break;
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
+      potentialArgs->Rforce= &SCFPotentialRforce;
+      potentialArgs->zforce= &SCFPotentialzforce;
       potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
       break;
     case 25: //SoftenedNeedleBarPotential, 13 arguments
       potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
+      potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
+      potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
       potentialArgs->nargs= (int) 13;
       break;
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
+      potentialArgs->Rforce= &DiskSCFPotentialRforce;
+      potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->nargs= (int) *(pot_args) + 3;
       break;      
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
+      potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
+      potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->nargs= (int) 3;
       potentialArgs->nwrapped= (int) *pot_args++;
       potentialArgs->wrappedPotentialArg= \
