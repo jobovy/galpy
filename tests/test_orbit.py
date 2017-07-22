@@ -2648,7 +2648,6 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
 
 def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
-    if py34(): return None # Fail in 3.4 bc of pytest issue (I think)
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
     with pytest.warns(None) as record:
@@ -2870,7 +2869,6 @@ def test_orbit_dim_1dPot_2dOrb():
 
 # Test whether ro warning is sounded when calling ra etc.
 def test_orbit_radecetc_roWarning():
-    if py34(): return None # Fail in 3.4 bc of pytest issue (I think)
     from galpy.orbit import Orbit
     o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
     check_radecetc_roWarning(o,'ra')
@@ -2896,7 +2894,6 @@ def test_orbit_radecetc_roWarning():
 
 # Test whether vo warning is sounded when calling pmra etc.
 def test_orbit_radecetc_voWarning():
-    if py34(): return None # Fail in 3.4 bc of pytest issue (I think)
     from galpy.orbit import Orbit
     o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
     check_radecetc_voWarning(o,'pmra')
@@ -2915,7 +2912,6 @@ def test_orbit_radecetc_voWarning():
 # Test whether orbit evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
 def test_orbit_method_integrate_t_asQuantity_warning():
-    if py34(): return None # Fail in 3.4 bc of pytest issue (I think)
     from galpy.potential import MWPotential2014
     from galpy.orbit import Orbit
     from astropy import units
@@ -3209,7 +3205,6 @@ def test_orbit_c_sigint_planardxdv():
 
 def test_orbitint_pythonfallback():
     # Check if a warning is raised when the potential has no C integrator
-    if py34(): return None # Fail in 3.4 bc of pytest issue (I think)
     from galpy.orbit import Orbit
     bp= BurkertPotentialNoC() # BurkertPotentialNoC is already imported at the top of test_orbit.py
     bp.normalize(1.)
@@ -3799,9 +3794,3 @@ def check_integrate_t_asQuantity_warning(o,funcName):
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
     assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None  
-
-def py34():
-    if sys.version_info[0] > 2 and sys.version_info[1] == 4:
-        return True
-    else:
-        return False
