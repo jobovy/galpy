@@ -3126,6 +3126,7 @@ def test_orbit_c_sigint_full():
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
         scriptpath= os.path.join('tests',scriptpath)
+    ntries= 10
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'full'],
                             stdin=subprocess.PIPE,
@@ -3134,7 +3135,10 @@ def test_orbit_c_sigint_full():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None: time.sleep(4)
+        cnt= 0
+        while p.poll() is None and cnt < ntries: # wait a little longer
+            time.sleep(4)
+            cnt+= 1
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3153,6 +3157,7 @@ def test_orbit_c_sigint_planar():
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
         scriptpath= os.path.join('tests',scriptpath)
+    ntries= 10
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'planar'],
                             stdin=subprocess.PIPE,
@@ -3161,7 +3166,10 @@ def test_orbit_c_sigint_planar():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None: time.sleep(4)
+        cnt= 0
+        while p.poll() is None and cnt < ntries: # wait a little longer
+            time.sleep(4)
+            cnt+= 1
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3177,6 +3185,7 @@ def test_orbit_c_sigint_planardxdv():
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
         scriptpath= os.path.join('tests',scriptpath)
+    ntries= 10
     for integrator in integrators:
         p= subprocess.Popen(['python',scriptpath,integrator,'planardxdv'],
                             stdin=subprocess.PIPE,
@@ -3185,7 +3194,10 @@ def test_orbit_c_sigint_planardxdv():
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
-        if p.poll() is None: time.sleep(4)
+        cnt= 0
+        while p.poll() is None and cnt < ntries: # wait a little longer
+            time.sleep(4)
+            cnt+= 1
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
