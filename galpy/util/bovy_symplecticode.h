@@ -39,7 +39,7 @@ extern "C" {
 /*
   Global variables
 */
-volatile sig_atomic_t interrupted;
+extern volatile sig_atomic_t interrupted;
 /*
   Function declarations
 */
