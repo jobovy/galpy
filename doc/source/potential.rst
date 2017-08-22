@@ -965,9 +965,11 @@ straightforwardly edited for other wrappers.
 The glue between Python and C for wrapper potentials needs to glue
 both the wrapper and the wrapped potentials. This can be easily
 achieved by recursively calling the ``_parse_pot`` glue functions in
-Python (see the previous section) and the ``parse_leapFuncArgs`` and
-``parse_leapFuncArgs_Full`` functions in C. Again, following the
-example of ``DehnenSmoothWrapperPotential.py`` should allow for a
-straightforward implementation of the glue for any new wrappers.
-Wrapper potentials should be given negative potential types in the
-glue to distinguish them from regular potentials.
+Python (see the previous section; this needs to be done separately for
+each potential currently) and the ``parse_leapFuncArgs`` and
+``parse_leapFuncArgs_Full`` functions in C (done automatically for all
+wrappers). Again, following the example of
+``DehnenSmoothWrapperPotential.py`` should allow for a straightforward
+implementation of the glue for any new wrappers.  Wrapper potentials
+should be given negative potential types in the glue to distinguish
+them from regular potentials.
