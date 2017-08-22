@@ -862,7 +862,7 @@ class Potential(object):
 
         INPUT:
 
-           t= time tp plot potential at
+           t= time to plot potential at
 
            rmin= minimum R (can be Quantity) [xmin if xy]
 
@@ -966,7 +966,8 @@ class Potential(object):
                                 levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
                                                    ncontours))
         
-    def plotDensity(self,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
+    def plotDensity(self,t=0.,
+                    rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     phi=None,xy=False,
                     ncontours=21,savefilename=None,aspect=None,log=False,
                     justcontours=False):
@@ -980,6 +981,8 @@ class Potential(object):
            plot the density of this potential
 
         INPUT:
+
+           t= time to plot potential at
 
            rmin= minimum R (can be Quantity) [xmin if xy]
 
@@ -1015,7 +1018,7 @@ class Potential(object):
 
         """
         return plotDensities(self,rmin=rmin,rmax=rmax,nrs=nrs,
-                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,
+                             zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,t=t,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
                              aspect=aspect,log=log)
@@ -1953,7 +1956,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   phi=None,xy=False,
+                   phi=None,xy=False,t=0.,
                    ncontours=21,savefilename=None,aspect=None,
                    justcontours=False):
         """
@@ -1982,6 +1985,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           t= (0.) time to use to evaluate potential
 
            xy= (False) if True, plot the potential in X-Y
 
@@ -2031,7 +2036,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(R),
-                                                     z,phi=phi,
+                                                     z,phi=phi,t=t,
                                                      use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
@@ -2059,7 +2064,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                                    ncontours))
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                  phi=None,xy=False,
+                  phi=None,xy=False,t=0.,
                   ncontours=21,savefilename=None,aspect=None,log=False,
                   justcontours=False):
         """
@@ -2088,6 +2093,8 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            nzs= grid in z
 
            phi= (None) azimuth to use for non-axisymmetric potentials
+
+           t= (0.) time to use to evaluate potential
 
            xy= (False) if True, plot the density in X-Y
 
@@ -2139,6 +2146,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(R),z,phi=phi,
+                                                    t=t,
                                                     use_physical=False)
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
