@@ -39,6 +39,7 @@ from galpy.potential_src import SoftenedNeedleBarPotential
 from galpy.potential_src import DiskSCFPotential
 from galpy.potential_src import SpiralArmsPotential
 from galpy.potential_src import DehnenSmoothWrapperPotential
+from galpy.potential_src import SolidBodyRotationWrapperPotential
 #
 # Functions
 #
@@ -137,6 +138,7 @@ DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
+SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
