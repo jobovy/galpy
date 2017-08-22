@@ -434,6 +434,23 @@ double DehnenSmoothWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double DehnenSmoothWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//SolidBodyRotationWrapperPotential
+double SolidBodyRotationWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double SolidBodyRotationWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double SolidBodyRotationWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double SolidBodyRotationWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double SolidBodyRotationWrapperPotentialPlanarphiforce(double,double,double,
+						  struct potentialArg *);
+double SolidBodyRotationWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double SolidBodyRotationWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double SolidBodyRotationWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

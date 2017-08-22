@@ -242,6 +242,16 @@ def _parse_pot(pot):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._Pot._amp,p._Pot._tform,p._Pot._tsteady])
+        elif (isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential.SolidBodyRotationWrapperPotential):
+            pot_type.append(-2)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(potential.toPlanarPotential(p._Pot._pot))
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._Pot._amp,p._Pot._omega,p._Pot._pa])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

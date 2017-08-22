@@ -235,6 +235,17 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 3;
+      break;
+    case -2: //SolidBodyRotationWrapperPotential
+      potentialArgs->planarRforce= &SolidBodyRotationWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SolidBodyRotationWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &SolidBodyRotationWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SolidBodyRotationWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SolidBodyRotationWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) 3;
+      break;
+    }
+    if ( *(pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *pot_args++;
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
@@ -244,7 +255,6 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 pot_type,pot_args+1);
       pot_type+= potentialArgs->nwrapped;
       pot_args+= ( (int) *pot_args ) +  1;
-      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
