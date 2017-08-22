@@ -13,9 +13,9 @@ class SolidBodyRotationWrapperPotential(WrapperPotential):
 
     .. math::
 
-        \phi \rightarrow \phi + \Omega \times t + \mathrm{pa}
+        \\phi \\rightarrow \\phi + \\Omega \\times t + \\mathrm{pa}
 
-    with $\Omega$ the fixed pattern speed and $\mathrm{pa}$ the position angle at $t=0$.
+    with :math:`\\Omega` the fixed pattern speed and :math:`\\mathrm{pa}` the position angle at :math:`t=0`.
     """
     normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,omega=1.,pa=0.,ro=None,vo=None):
@@ -32,7 +32,7 @@ class SolidBodyRotationWrapperPotential(WrapperPotential):
 
            amp - amplitude to be applied to the potential (default: 1.)
 
-           pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
+           pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
 
            omega= (1.) the pattern speed (can be a Quantity)
 

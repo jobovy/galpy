@@ -156,6 +156,8 @@ Triaxial, spiral, and bar potentials
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
 
+All ``galpy`` potentials can also be made to rotate using the ``SolidBodyRotationWrapperPotential`` listed in the section on wrapper potentials :ref:`below <potwrapperapi>`.
+
 General Poisson solvers for disks and halos
 *******************************************
 
@@ -346,3 +348,4 @@ Specific wrappers
    :maxdepth: 2
 
    potentialdehnensmoothwrapper.rst
+   potentialsolidbodyrotationwrapper.rst
