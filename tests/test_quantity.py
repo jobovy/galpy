@@ -2258,6 +2258,16 @@ def test_potential_paramunits():
                                                         tsteady=3./bovy_conversion.time_in_Gyr(vo,ro))
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # SolidBodyRotationWrapperPotential
+    spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
+    pot= potential.SolidBodyRotationWrapperPotential(pot=spn,\
+                           omega=20.*units.km/units.s/units.kpc,
+                           pa=30.*units.deg)
+    pot_nounits= potential.SolidBodyRotationWrapperPotential(pot=spn,\
+                           omega=20./bovy_conversion.freq_in_kmskpc(vo,ro),
+                           pa=30./180.*numpy.pi)
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():

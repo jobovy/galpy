@@ -46,7 +46,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockSpecialRotatingFlatSpiralArmsPotential, \
     expwholeDiskSCFPotential, \
     mockFlatDehnenSmoothBarPotential, \
-    mockSlowFlatDehnenSmoothBarPotential
+    mockSlowFlatDehnenSmoothBarPotential, \
+    mockFlatSolidBodyRotationSpiralArmsPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -111,6 +112,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential')
+    pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -180,7 +182,7 @@ def test_energy_jacobi_conservation():
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
-                    or 'DehnenSmoothBar' in p \
+                    or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
                     or p == 'mockMovingObjectLongIntPotential':
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
@@ -343,7 +345,7 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'DehnenSmoothBar' in p:
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p :
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -393,7 +395,7 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
                 #Jacobi
-                if 'DehnenSmoothBar':
+                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
                     tJacobis= o.Jacobi(ttimes,pot=tp)
                 else:
                     tJacobis= o.Jacobi(ttimes)
@@ -412,7 +414,7 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
-            if 'DehnenSmoothBar':
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -497,7 +499,8 @@ def test_liouville_planar():
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
-    pots.append('mockSlowFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDehnenSmoothBarPotential') 
+    pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
