@@ -1976,7 +1976,7 @@ def test_plotting():
                                  justcontours=True,xy=True,
                                  ncontours=11,savefilename=tmp_savefilename)
         #Then plot using the saved file
-        potential.plotPotentials([kp],
+        potential.plotPotentials([kp],t=1.,
                                  rmin=0.01,rmax=1.8,nrs=11,
                                  zmin=-0.55,zmax=0.55,nzs=11, 
                                  ncontours=11,savefilename=tmp_savefilename)
@@ -1994,7 +1994,7 @@ def test_plotting():
     #Plot the density of a LogarithmicHaloPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     lp.plotDensity()
-    lp.plotDensity(rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
+    lp.plotDensity(t=1.,rmin=0.05,rmax=1.8,nrs=11,zmin=-0.55,zmax=0.55,nzs=11, 
                    aspect=1.,log=True,justcontours=True,xy=True,
                    ncontours=11,savefilename=None)
     #Also while saving the result
@@ -2009,7 +2009,7 @@ def test_plotting():
     finally:
         os.remove(tmp_savefilename)
     potential.plotDensities([lp])
-    potential.plotDensities([lp],
+    potential.plotDensities([lp],t=1.,
                             rmin=0.05,rmax=1.8,nrs=11,
                             zmin=-0.55,zmax=0.55,nzs=11, 
                             aspect=1.,log=True,xy=True,
