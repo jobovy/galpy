@@ -237,19 +237,19 @@ for ``DehnenBarPotential``. Thus we can compare the two
 
 The wrapper ``SolidBodyRotationWrapperPotential`` allows one to make any potential rotate around the z axis. This can be used, for example, to make general bar-shaped potentials, which one could construct from a basis-function expansion with ``SCFPotential``, rotate without having to implement the rotation directly. As an example consider this ``SoftenedNeedleBarPotential (which has a potential-specific implementation of rotation)
 
->>> sp= SoftenedNeedleBarPotential(normalize=1.,omegab=1.8,pa=0.4)
+>>> sp= SoftenedNeedleBarPotential(normalize=1.,omegab=1.8,pa=0.)
 
 The same potential can be obtained from a non-rotating ``SoftenedNeedleBarPotential`` run through the ``SolidBodyRotationWrapperPotential`` to add rotation
 
 >>> sp_still= SoftenedNeedleBarPotential(omegab=0.,pa=0.,normalize=1.)
->>> swp= SolidBodyRotationWrapperPotential(pot=sp_still,omega=1.8,pa=0.4)
+>>> swp= SolidBodyRotationWrapperPotential(pot=sp_still,omega=1.8,pa=0.)
 
 Compare for example
 
->>> print(sp(0.8,0.2,phi=0.2,t=3.)-sp(0.8,0.2,phi=0.2,t=3.))
+>>> print(sp(0.8,0.2,phi=0.2,t=3.)-swp(0.8,0.2,phi=0.2,t=3.))
 # 0.0
->>> print(sp.Rforce(0.8,0.2,phi=0.2,t=3.)-sp.Rforce(0.8,0.2,phi=0.2,t=3.))
-# 0.0
+>>> print(sp.Rforce(0.8,0.2,phi=0.2,t=3.)-swp.Rforce(0.8,0.2,phi=0.2,t=3.))
+# 8.881784197e-16
 
 Wrapper potentials can be used anywhere in galpy where general
 potentials can be used. They can be part of lists of Potential
