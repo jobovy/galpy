@@ -206,11 +206,11 @@ Clearly, the potential is much less flattened than the density.
 Potentials implemented in galpy can be modified using different kinds
 of wrappers. These wrappers modify potentials to, for example, change
 their amplitude as a function of time (e.g., to grow or decay the bar
-contribution to a potential). Specific kinds of wrappers are listed on
-the :ref:`Potential wrapper API page <potwrapperapi>`. These wrappers
-can be applied to instances of *any* potential implemented in galpy
-(including other wrappers). An example is to grow a bar using the
-polynomial smoothing of `Dehnen (2000)
+contribution to a potential) or to make a potential rotate. Specific
+kinds of wrappers are listed on the :ref:`Potential wrapper API page
+<potwrapperapi>`. These wrappers can be applied to instances of *any*
+potential implemented in galpy (including other wrappers). An example
+is to grow a bar using the polynomial smoothing of `Dehnen (2000)
 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. We first setup
 an instance of a ``DehnenBarPotential`` that is essentially fully
 grown already
@@ -233,6 +233,22 @@ for ``DehnenBarPotential``. Thus we can compare the two
 >>> print(dp(0.9,0.3,phi=3.,t=-2.)-dswp(0.9,0.3,phi=3.,t=-2.))
 # 0.0
 >>> print(dp.Rforce(0.9,0.3,phi=3.,t=-2.)-dswp.Rforce(0.9,0.3,phi=3.,t=-2.))
+# 0.0
+
+The wrapper ``SolidBodyRotationWrapperPotential`` allows one to make any potential rotate around the z axis. This can be used, for example, to make general bar-shaped potentials, which one could construct from a basis-function expansion with ``SCFPotential``, rotate without having to implement the rotation directly. As an example consider this ``SoftenedNeedleBarPotential (which has a potential-specific implementation of rotation)
+
+>>> sp= SoftenedNeedleBarPotential(normalize=1.,omegab=1.8,pa=0.4)
+
+The same potential can be obtained from a non-rotating ``SoftenedNeedleBarPotential`` run through the ``SolidBodyRotationWrapperPotential`` to add rotation
+
+>>> sp_still= SoftenedNeedleBarPotential(omegab=0.,pa=0.,normalize=1.)
+>>> swp= SolidBodyRotationWrapperPotential(pot=sp_still,omega=1.8,pa=0.4)
+
+Compare for example
+
+>>> print(sp(0.8,0.2,phi=0.2,t=3.)-sp(0.8,0.2,phi=0.2,t=3.))
+# 0.0
+>>> print(sp.Rforce(0.8,0.2,phi=0.2,t=3.)-sp.Rforce(0.8,0.2,phi=0.2,t=3.))
 # 0.0
 
 Wrapper potentials can be used anywhere in galpy where general
