@@ -9,6 +9,10 @@ v1.3 (2017-XX-XX)
   grow a gravitational potential (e.g., a bar) following Dehnen
   (2000).
 
+- Added SolidBodyRotationWrapperPotential, a potential wrapper to make
+  a gravitational potential rotate around the z axis with a fixed,
+  uniform pattern speed.
+
 - Added DiskSCFPotential, a class that implements general
   density/potential pairs for disk potentials by combining Kuijken &
   Dubinski (1995)'s trick for turning a separable disk density
@@ -25,6 +29,10 @@ v1.3 (2017-XX-XX)
 - Added FerrersPotential, a class that implements the potential for
   triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
   to give a pattern speed to the ellipsoid.
+
+- Added SpiralArmsPotential, a class that implements the spiral arms
+  potential from Cox and Gomez
+  (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
 
 - Upgraded DehnenBarPotential to a 3D potential following Monari et
   al. (2016) (#304).
@@ -55,9 +63,6 @@ v1.3 (2017-XX-XX)
   interpreter.
 
 - Switched test suite from nose to pytest (#303).
-
-- Added SpiralArmsPotential, a class that implements the spiral arms
-  potential from Cox and Gomez (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
 
 v1.2 (2016-09-06)
 ==================
