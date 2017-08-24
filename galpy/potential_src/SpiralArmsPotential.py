@@ -49,7 +49,7 @@ class SpiralArmsPotential(Potential):
     and
 
     .. math::
-        \\gamma = N \\left[\\phi - \\phi_{ref} - \\frac{ln(R/r_{ref})}{tan(\\alpha)} \\right]
+        \\gamma = N \\left[\\phi - \\phi_{ref} - \\frac{\\ln(R/r_{ref})}{\\tan(\\alpha)} \\right]
 
     The default of :math:`C_n=[1]` gives a sinusoidal profile for the potential. An alternative from `Cox and Gomez (2002) <https://arxiv.org/abs/astro-ph/0207635>`__  creates a density that behaves approximately as a cosine squared in the arms but is separated by a flat interarm region by setting 
 
