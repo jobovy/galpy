@@ -19,7 +19,7 @@ except ImportError:
 class planarPotential(object):
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
-        self._amp= 1.
+        self._amp= amp
         self.dim= 2
         self.isNonAxi= True #Gets reset by planarAxiPotential
         self.isRZ= False
