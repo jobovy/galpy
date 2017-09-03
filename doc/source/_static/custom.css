@@ -1,3 +1,6 @@
+p {
+  text-align: justify;
+}
 .codeblock, pre.literal-block, .rst-content .literal-block, .rst-content pre.literal-block, div[class^='highlight'] {
     border-radius: 3px !important;
     position: relative;
