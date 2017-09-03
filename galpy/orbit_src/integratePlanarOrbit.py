@@ -47,6 +47,20 @@ def _parse_pot(pot):
     pot_args= []
     npot= len(pot)
     for p in pot:
+        # Prepare for wrappers
+        if ((isinstance(p,\
+              potential_src.planarPotential.planarPotentialFromFullPotential) \
+          or isinstance(p,\
+              potential_src.planarPotential.planarPotentialFromRZPotential)) \
+          and isinstance(p._Pot,\
+              potential_src.WrapperPotential.parentWrapperPotential)) \
+        or isinstance(p,potential_src.WrapperPotential.parentWrapperPotential):
+            if not isinstance(p,\
+                     potential_src.WrapperPotential.parentWrapperPotential):
+                wrap_npot, wrap_pot_type, wrap_pot_args= \
+                    _parse_pot(potential.toPlanarPotential(p._Pot._pot))
+            else:
+                wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
         if isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
@@ -238,11 +252,8 @@ def _parse_pot(pot):
               or isinstance(p,potential.DehnenSmoothWrapperPotential):
             if not isinstance(p,potential.DehnenSmoothWrapperPotential):
                 p= p._Pot
-                wrap_npot, wrap_pot_type, wrap_pot_args= \
-                    _parse_pot(potential.toPlanarPotential(p._pot))
-            else:
-                wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
             pot_type.append(-1)
+            # wrap_pot_type, args, and npot obtained before this horrible if
             pot_args.extend([wrap_npot,len(wrap_pot_args)])
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
@@ -252,12 +263,8 @@ def _parse_pot(pot):
           or isinstance(p,potential.SolidBodyRotationWrapperPotential):
             if not isinstance(p,potential.SolidBodyRotationWrapperPotential):
                 p= p._Pot
-                wrap_npot, wrap_pot_type, wrap_pot_args= \
-                    _parse_pot(potential.toPlanarPotential(p._pot))
-            else:
-                wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
             pot_type.append(-2)
-            # Not sure how to easily avoid this duplication
+            # wrap_pot_type, args, and npot obtained before this horrible if
             pot_args.extend([wrap_npot,len(wrap_pot_args)])
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
