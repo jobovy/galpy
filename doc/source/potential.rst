@@ -953,12 +953,12 @@ things in your wrapper; there is no need to manually assign
 ``self._pot`` or to call the superclass' ``__init__`` (all
 automatically done for you!).
 
-To correctly work with 2D potentials, inputs to ``_wrap`` need to be
-specified as ``*args,**kwargs``: grab the values you need for
-``R,z,phi,t`` from these as ``R=args[0], z=0 if len(args) == 1 else
-args[1], phi=kwargs.get('phi',0.), t=kwargs.get('t',0.)``, where the
-complicated expression for z is to correctly deal with both 3D and 2D
-potentials (of course, if your wrapper depends on z, it probably
+To correctly work with both 3D and 2D potentials, inputs to ``_wrap``
+need to be specified as ``*args,**kwargs``: grab the values you need
+for ``R,z,phi,t`` from these as ``R=args[0], z=0 if len(args) == 1
+else args[1], phi=kwargs.get('phi',0.), t=kwargs.get('t',0.)``, where
+the complicated expression for z is to correctly deal with both 3D and
+2D potentials (of course, if your wrapper depends on z, it probably
 doesn't make much sense to apply it to a 2D planarPotential; you could
 check the dimensionality of ``self._pot`` in your wrapper's
 ``__init__`` function with ``from galpy.potential_src.Potential._dim``
