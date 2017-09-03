@@ -2780,7 +2780,15 @@ class SolidBodyRotationSpiralArmsPotential(SolidBodyRotationWrapperPotential):
         return SolidBodyRotationWrapperPotential.__new__(cls,amp=1.,
                                                          pot=spn.toPlanar(),
                                                          omega=1.1,pa=0.4)
-class mockFlatSolidBodyRotationSpiralArmsPotential(testplanarMWPotential):
+class mockFlatSolidBodyRotationSpiralArmsPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          SolidBodyRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential(),omega=1.3)])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+# Special case to test handling of pure planarWrapper, not necessary for new wrappers
+class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                  potlist=[potential.LogarithmicHaloPotential(normalize=1.).toPlanar(),
