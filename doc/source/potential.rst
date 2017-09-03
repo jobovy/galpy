@@ -923,39 +923,55 @@ used in any galpy context in which C is used to speed up computations.
 **NEW in v1.3**: Adding wrapper potentials to the galpy framework
 ------------------------------------------------------------------
 
-Wrappers all inherit from the general ``WrapperPotential`` class
-(which itself inherits from the ``Potential`` class and therefore all
-wrappers are ``Potentials``). Depending on the complexity of the
-wrapper, wrappers can be implemented much more economically in Python
-than new ``Potential`` instances as described :ref:`above
-<addpot>`.
+Wrappers all inherit from the general ``WrapperPotential`` or
+``planarWrapperPotential`` classes (which themselves inherit from the
+``Potential`` and ``planarPotential`` classes and therefore all
+wrappers are ``Potentials`` or ``planarPotentials``). Depending on the
+complexity of the wrapper, wrappers can be implemented much more
+economically in Python than new ``Potential`` instances as described
+:ref:`above <addpot>`.
 
 To add a Python implementation of a new wrapper, classes need to
-inherit from ``WrapperPotential``, store the potentials to be wrapped
-as ``self._pot`` (a ``Potential``, ``planarPotential``, or
-``linearPotential`` instance or a list thereof), and implement the
-``_wrap(self,attribute,R,Z,phi=0.,t=0.)`` function. This function
+inherit from ``parentWrapperPotential``, store the potentials to be
+wrapped as ``self._pot`` (a ``Potential``, ``planarPotential``, or a
+list thereof), and implement the
+``_wrap(self,attribute,*args,**kwargs)`` function. This function
 modifies the Potential functions ``_evaluate``, ``_Rforce``, etc. (all
 of those listed :ref:`above <addpypot>`), with ``attribute`` the
-function that is being modified. Inheriting from ``WrapperPotential``
-gives the class access to the ``self._wrap_pot_func(attribute)``
-function which returns the relevant function for each attribute. For
-example, ``self._wrap_pot_func('_evaluate')`` returns the
+function that is being modified. Inheriting from
+``parentWrapperPotential`` gives the class access to the
+``self._wrap_pot_func(attribute)`` function which returns the relevant
+function for each attribute. For example,
+``self._wrap_pot_func('_evaluate')`` returns the
 ``evaluatePotentials`` function that can then be called as
 ``self._wrap_pot_func('_evaluate')(self._pot,R,Z,phi=phi,t=t)`` to
 evaluate the potentials being wrapped. By making use of
 ``self._wrap_pot_func``, wrapper potentials can be implemented in just
-a few lines.
+a few lines. 
 
+To correctly work with 2D potentials, inputs to ``_wrap`` need to be
+specified as ``*args,**kwargs``: grab the values you need for
+R,z,phi,t from these as ``R=args[0], z=0 if len(args) == 1 else
+args[1], phi=kwargs.get('phi',0.), t=kwargs.get('t',0.)``, where the
+complicated expression for z is to correctly deal with both 3D and 2D
+potentials (of course, if your wrapper depends on z, it probably
+doesn't make much sense to apply it to a 2D planarPotential). Wrapping
+a 2D potential automatically results in a wrapper that is a subclass
+of ``planarPotential`` rather than ``Potential``; this is done by the
+setup in ``parentWrapperPotential`` and hidden from the user. For
+wrappers of planar Potenitals, ``self._wrap_pot_func(attribute)`` will
+return the ``evaluateplanarPotentials`` etc. functions instead, but
+this is again hidden from the user if you implement the ``_wrap``
+function as explained above.
 
 As an example, for the ``DehnenSmoothWrapperPotential``, the ``_wrap``
 function is
 
 .. code-block:: Python
 
-   def _wrap(self,attribute,R,Z,phi=0.,t=0.):
-       return self._smooth(t)\
-           *self._wrap_pot_func(attribute)(self._pot,R,Z,phi=phi,t=t)
+    def _wrap(self,attribute,*args,**kwargs):
+        return self._smooth(kwargs.get('t',0.))\
+                *self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
 
 where ``smooth(t)`` returns the smoothing function of the
 amplitude. When any of the basic ``Potential`` functions are called
