@@ -617,11 +617,11 @@ def test_evaluateAndDerivs_potential():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('rotatingSpiralArmsPotential')
     pots.append('specialSpiralArmsPotential')
+    pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
-    pots.append('SolidBodyRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1886,6 +1886,35 @@ def test_DiskSCFPotential_againstDoubleExp_dens():
     assert numpy.all(numpy.fabs((dp.dens(testR,testzs)-dscfp.dens(testR,testzs))/dscfp.dens(testRs,testz)) < 10.**-1.), "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
     return None
 
+def test_WrapperPotential_dims():
+    # Test that WrapperPotentials get assigned to Potential/planarPotential 
+    # correctly, based on input pot=
+    from galpy.potential_src.WrapperPotential import parentWrapperPotential, \
+        WrapperPotential, planarWrapperPotential
+    dp= potential.DehnenBarPotential()
+    # 3D pot should be Potential, Wrapper, parentWrapper, not planarX
+    dwp= potential.DehnenSmoothWrapperPotential(pot=dp)
+    assert isinstance(dwp,potential.Potential), 'WrapperPotential for 3D pot= is not an instance of Potential'
+    assert not isinstance(dwp,potential.planarPotential), 'WrapperPotential for 3D pot= is an instance of planarPotential'
+    assert isinstance(dwp,parentWrapperPotential), 'WrapperPotential for 3D pot= is not an instance of parentWrapperPotential'
+    assert isinstance(dwp,WrapperPotential), 'WrapperPotential for 3D pot= is not an instance of WrapperPotential'
+    assert not isinstance(dwp,planarWrapperPotential), 'WrapperPotential for 3D pot= is an instance of planarWrapperPotential'
+    # 2D pot should be Potential, Wrapper, parentWrapper, not planarX
+    dwp= potential.DehnenSmoothWrapperPotential(pot=dp.toPlanar())
+    assert isinstance(dwp,potential.planarPotential), 'WrapperPotential for 3D pot= is not an instance of planarPotential'
+    assert not isinstance(dwp,potential.Potential), 'WrapperPotential for 3D pot= is an instance of Potential'
+    assert isinstance(dwp,parentWrapperPotential), 'WrapperPotential for 3D pot= is not an instance of parentWrapperPotential'
+    assert isinstance(dwp,planarWrapperPotential), 'WrapperPotential for 3D pot= is not an instance of planarWrapperPotential'
+    assert not isinstance(dwp,WrapperPotential), 'WrapperPotential for 3D pot= is an instance of WrapperPotential'
+    return None    
+
+def test_Wrapper_potinputerror():
+    # Test that setting up a WrapperPotential with anything other than a 
+    # (list of) planar/Potentials raises an error
+    with pytest.raises(ValueError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=1)
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -2665,38 +2694,49 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential
+from galpy.potential_src.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
     # for t > -99
-    def __init__(self):
+    #
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
         dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
-            tform=-4.*2.*numpy.pi/dpn.OmegaP())
-        return None
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
 # Additional DehnenSmooth instances to catch all smoothing cases
 class mockDehnenSmoothBarPotentialT1(DehnenSmoothWrapperPotential):
-    def __init__(self):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
         dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
                                 barphi=25.*numpy.pi/180.,beta=0.,
                                 alpha=0.01,Af=0.04,
                                 tform=-99.,tsteady=1.)
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+#                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
             tform=0.5,tsteady=0.5)
 class mockDehnenSmoothBarPotentialTm1(DehnenSmoothWrapperPotential):
-    def __init__(self):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
         dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
                                 barphi=25.*numpy.pi/180.,beta=0.,
                                 alpha=0.01,Af=0.04,
                                 tform=-99.,tsteady=1.)
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
             tform=-1.,tsteady=1.01)
 class mockDehnenSmoothBarPotentialTm5(DehnenSmoothWrapperPotential):
-    def __init__(self):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
         dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
                                 barphi=25.*numpy.pi/180.,beta=0.,
                                 alpha=0.01,Af=0.04,
                                 tform=-99.,tsteady=1.)
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,pot=dpn,\
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
             tform=-5.,tsteady=2.)
 class mockFlatDehnenSmoothBarPotential(testMWPotential):
     def __init__(self):
@@ -2725,17 +2765,21 @@ class mockSlowFlatDehnenSmoothBarPotential(testMWPotential):
         return self._potlist[1]._pot.OmegaP()
 # A DehnenSmoothWrappered version of LogarithmicHaloPotential for simple aAtest
 class mockSmoothedLogarithmicHaloPotential(DehnenSmoothWrapperPotential):
-    def __init__(self):
-        DehnenSmoothWrapperPotential.__init__(self,amp=1.,
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,
             pot=potential.LogarithmicHaloPotential(normalize=1.),
             tform=-1.,tsteady=0.5)
 #SolidBodyWrapperPotential
 class SolidBodyRotationSpiralArmsPotential(SolidBodyRotationWrapperPotential):
-    def __init__(self):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
         spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
-        SolidBodyRotationWrapperPotential.__init__(self,amp=1.,pot=spn,\
-                                                       omega=1.1,pa=0.4)
-        return None
+        return SolidBodyRotationWrapperPotential.__new__(cls,amp=1.,
+                                                         pot=spn.toPlanar(),
+                                                         omega=1.1,pa=0.4)
 class mockFlatSolidBodyRotationSpiralArmsPotential(testMWPotential):
     def __init__(self):
         testMWPotential.__init__(self,
