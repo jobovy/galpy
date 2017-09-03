@@ -935,7 +935,7 @@ To add a Python implementation of a new wrapper, classes need to
 inherit from ``parentWrapperPotential``, take the potentials to be
 wrapped as a ``pot=`` (a ``Potential``, ``planarPotential``, or a list
 thereof; automatically assigned to ``self._pot``) input to
-``__init__`, and implement the
+``__init__``, and implement the
 ``_wrap(self,attribute,*args,**kwargs)`` function. This function
 modifies the Potential functions ``_evaluate``, ``_Rforce``, etc. (all
 of those listed :ref:`above <addpypot>`), with ``attribute`` the
@@ -966,7 +966,7 @@ and raise an error if it is not 3 in this case). Wrapping a 2D
 potential automatically results in a wrapper that is a subclass of
 ``planarPotential`` rather than ``Potential``; this is done by the
 setup in ``parentWrapperPotential`` and hidden from the user. For
-wrappers of planar Potenitals, ``self._wrap_pot_func(attribute)`` will
+wrappers of planar Potentials, ``self._wrap_pot_func(attribute)`` will
 return the ``evaluateplanarPotentials`` etc. functions instead, but
 this is again hidden from the user if you implement the ``_wrap``
 function as explained above.
@@ -987,9 +987,36 @@ superclass ``WrapperPotential``, and the ``_wrap`` function returns
 the corresponding function for the wrapped potentials with the
 amplitude modified by ``smooth(t)``. Therefore, one does not need to
 implement each of the ``_evaluate``, ``_Rforce``, etc. functions like
-for regular potential. The source code for
-``DehnenSmoothWrapperPotential`` potential may act as a guide to
-implementing new wrappers.
+for regular potential. The rest of the
+``DehnenSmoothWrapperPotential`` is essentially (slightly simplified
+in non-crucial aspects)
+
+.. code-block:: Python
+
+    def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
+    	# Note: (i) don't assign self._pot and (ii) don't run super.__init__
+        self._tform= tform
+        if tsteady is None:
+            self._tsteady= self._tform/2.
+        else:
+            self._tsteady= self._tform+tsteady
+        self.hasC= True
+        self.hasC_dxdv= True
+
+    def _smooth(self,t):
+        #Calculate relevant time
+        if t < self._tform:
+            smooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else: #bar is fully on
+            smooth= 1.
+        return smooth
+
+The source code for ``DehnenSmoothWrapperPotential`` potential may act
+as a guide to implementing new wrappers.
 
 C implementations of potential wrappers can also be added in a similar
 way as C implementations of regular potentials (all of the steps
