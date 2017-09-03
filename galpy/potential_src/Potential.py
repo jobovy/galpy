@@ -2661,11 +2661,11 @@ def _check_c(Pot,dxdv=False):
     from galpy.potential import planarPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
-    from galpy.potential_src.WrapperPotential import WrapperPotential
+    from galpy.potential_src.WrapperPotential import parentWrapperPotential
     if isinstance(Pot,list):
         return nu.all(nu.array([_check_c(p,dxdv=dxdv) for p in Pot],
                                dtype='bool'))
-    elif isinstance(Pot,WrapperPotential):
+    elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
     elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential):
         return Pot.__dict__[hasC_attr]
