@@ -1,12 +1,12 @@
 ###############################################################################
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
-from galpy.potential_src.WrapperPotential import WrapperPotential
+from galpy.potential_src.WrapperPotential import parentWrapperPotential
 from galpy.potential_src.Potential import _APY_LOADED
 from galpy.util import bovy_conversion
 if _APY_LOADED:
     from astropy import units
-class DehnenSmoothWrapperPotential(WrapperPotential):
+class DehnenSmoothWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements the growth of a gravitational potential following `Dehnen (2000) <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. The amplitude A applied to a potential wrapped by an instance of this class is changed as
 
     .. math::
@@ -23,7 +23,6 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
         1 & t > t_\\mathrm{form}+t_\\mathrm{steady}
         \\end{cases}
     """
-    normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
         """
         NAME:
@@ -53,7 +52,6 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
            2017-06-26 - Started - Bovy (UofT)
 
         """
-        WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(tform,units.Quantity):
             tform= tform.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
@@ -80,6 +78,6 @@ class DehnenSmoothWrapperPotential(WrapperPotential):
             smooth= 1.
         return smooth
 
-    def _wrap(self,attribute,R,Z,phi=0.,t=0.):
-        return self._smooth(t)\
-                *self._wrap_pot_func(attribute)(self._pot,R,Z,phi=phi,t=t)
+    def _wrap(self,attribute,*args,**kwargs):
+        return self._smooth(kwargs.get('t',0.))\
+                *self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)

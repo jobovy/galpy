@@ -3,12 +3,12 @@
 #                                         with a fixed pattern speed, around
 #                                         the z axis
 ###############################################################################
-from galpy.potential_src.WrapperPotential import WrapperPotential
+from galpy.potential_src.WrapperPotential import parentWrapperPotential
 from galpy.potential_src.Potential import _APY_LOADED
 from galpy.util import bovy_conversion
 if _APY_LOADED:
     from astropy import units
-class SolidBodyRotationWrapperPotential(WrapperPotential):
+class SolidBodyRotationWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing 
 
     .. math::
@@ -17,7 +17,6 @@ class SolidBodyRotationWrapperPotential(WrapperPotential):
 
     with :math:`\\Omega` the fixed pattern speed and :math:`\\mathrm{pa}` the position angle at :math:`t=0`.
     """
-    normalize= property() # turn off normalize
     def __init__(self,amp=1.,pot=None,omega=1.,pa=0.,ro=None,vo=None):
         """
         NAME:
@@ -47,7 +46,6 @@ class SolidBodyRotationWrapperPotential(WrapperPotential):
            2017-08-22 - Started - Bovy (UofT)
 
         """
-        WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(omega,units.Quantity):
             omega= omega.to(units.km/units.s/units.kpc).value\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
@@ -73,6 +71,7 @@ class SolidBodyRotationWrapperPotential(WrapperPotential):
         """
         return self._omega
 
-    def _wrap(self,attribute,R,Z,phi=0.,t=0.):
-        return self._wrap_pot_func(attribute)(self._pot,R,Z,t=t,
-                                              phi=phi-self._omega*t-self._pa)
+    def _wrap(self,attribute,*args,**kwargs):
+        kwargs['phi']= \
+            kwargs.get('phi',0.)-self._omega*kwargs.get('t',0.)-self._pa
+        return self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
