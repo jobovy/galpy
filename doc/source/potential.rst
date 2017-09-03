@@ -932,9 +932,10 @@ economically in Python than new ``Potential`` instances as described
 :ref:`above <addpot>`.
 
 To add a Python implementation of a new wrapper, classes need to
-inherit from ``parentWrapperPotential``, store the potentials to be
-wrapped as ``self._pot`` (a ``Potential``, ``planarPotential``, or a
-list thereof), and implement the
+inherit from ``parentWrapperPotential``, take the potentials to be
+wrapped as a ``pot=`` (a ``Potential``, ``planarPotential``, or a list
+thereof; automatically assigned to ``self._pot``) input to
+``__init__`, and implement the
 ``_wrap(self,attribute,*args,**kwargs)`` function. This function
 modifies the Potential functions ``_evaluate``, ``_Rforce``, etc. (all
 of those listed :ref:`above <addpypot>`), with ``attribute`` the
@@ -947,17 +948,23 @@ function for each attribute. For example,
 ``self._wrap_pot_func('_evaluate')(self._pot,R,Z,phi=phi,t=t)`` to
 evaluate the potentials being wrapped. By making use of
 ``self._wrap_pot_func``, wrapper potentials can be implemented in just
-a few lines. 
+a few lines. Your ``__init__`` function should *only* initialize
+things in your wrapper; there is no need to manually assign
+``self._pot`` or to call the superclass' ``__init__`` (all
+automatically done for you!).
 
 To correctly work with 2D potentials, inputs to ``_wrap`` need to be
 specified as ``*args,**kwargs``: grab the values you need for
-R,z,phi,t from these as ``R=args[0], z=0 if len(args) == 1 else
+``R,z,phi,t`` from these as ``R=args[0], z=0 if len(args) == 1 else
 args[1], phi=kwargs.get('phi',0.), t=kwargs.get('t',0.)``, where the
 complicated expression for z is to correctly deal with both 3D and 2D
 potentials (of course, if your wrapper depends on z, it probably
-doesn't make much sense to apply it to a 2D planarPotential). Wrapping
-a 2D potential automatically results in a wrapper that is a subclass
-of ``planarPotential`` rather than ``Potential``; this is done by the
+doesn't make much sense to apply it to a 2D planarPotential; you could
+check the dimensionality of ``self._pot`` in your wrapper's
+``__init__`` function with ``from galpy.potential_src.Potential._dim``
+and raise an error if it is not 3 in this case). Wrapping a 2D
+potential automatically results in a wrapper that is a subclass of
+``planarPotential`` rather than ``Potential``; this is done by the
 setup in ``parentWrapperPotential`` and hidden from the user. For
 wrappers of planar Potenitals, ``self._wrap_pot_func(attribute)`` will
 return the ``evaluateplanarPotentials`` etc. functions instead, but
