@@ -2915,7 +2915,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plot(*args,**kwargs)
+        return self._orb.plot(*args,**kwargs)
 
     def plot3d(self,*args,**kwargs):
         """
@@ -2955,7 +2955,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            2010-01-08 - Adapted to 3D - Bovy (NYU)
         """
-        self._orb.plot3d(*args,**kwargs)
+        return self._orb.plot3d(*args,**kwargs)
 
     def plotE(self,*args,**kwargs):
         """
@@ -2994,7 +2994,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2014-06-16 - Changed to actually plot E rather than E/E0 - Bovy (IAS)
 
         """
-        self._orb.plotE(*args,**kwargs)
+        return self._orb.plotE(*args,**kwargs)
 
     def plotEz(self,*args,**kwargs):
         """
@@ -3031,7 +3031,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotEz(*args,**kwargs)
+        return self._orb.plotEz(*args,**kwargs)
 
     def plotER(self,*args,**kwargs):
         """
@@ -3068,7 +3068,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotER(*args,**kwargs)
+        return self._orb.plotER(*args,**kwargs)
 
     def plotEzJz(self,*args,**kwargs):
         """
@@ -3097,7 +3097,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-08-08 - Written - Bovy (NYU)
 
         """
-        self._orb.plotEzJz(*args,**kwargs)
+        return self._orb.plotEzJz(*args,**kwargs)
 
     def plotJacobi(self,*args,**kwargs):
         """
@@ -3137,7 +3137,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-10-10 - Written - Bovy (IAS)
 
         """
-        self._orb.plotJacobi(*args,**kwargs)
+        return self._orb.plotJacobi(*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
         """
@@ -3168,7 +3168,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotR(*args,**kwargs)
+        return self._orb.plotR(*args,**kwargs)
 
     def plotz(self,*args,**kwargs):
         """
@@ -3199,7 +3199,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotz(*args,**kwargs)
+        return self._orb.plotz(*args,**kwargs)
 
     def plotvR(self,*args,**kwargs):
         """
@@ -3228,7 +3228,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotvR(*args,**kwargs)
+        return self._orb.plotvR(*args,**kwargs)
 
     def plotvT(self,*args,**kwargs):
         """
@@ -3257,7 +3257,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotvT(*args,**kwargs)
+        return self._orb.plotvT(*args,**kwargs)
 
     def plotphi(self,*args,**kwargs):
         """
@@ -3284,7 +3284,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotphi(*args,**kwargs)
+        return self._orb.plotphi(*args,**kwargs)
 
     def plotvz(self,*args,**kwargs):
         """
@@ -3312,7 +3312,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._orb.plotvz(*args,**kwargs)
+        return self._orb.plotvz(*args,**kwargs)
 
     def plotx(self,*args,**kwargs):
         """
@@ -3343,7 +3343,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        self._orb.plotx(*args,**kwargs)
+        return self._orb.plotx(*args,**kwargs)
 
     def plotvx(self,*args,**kwargs):
         """
@@ -3372,7 +3372,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        self._orb.plotvx(*args,**kwargs)
+        return self._orb.plotvx(*args,**kwargs)
 
     def ploty(self,*args,**kwargs):
         """
@@ -3403,7 +3403,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        self._orb.ploty(*args,**kwargs)
+        return self._orb.ploty(*args,**kwargs)
 
     def plotvy(self,*args,**kwargs):
         """
@@ -3432,7 +3432,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-21 - Written - Bovy (NYU)
 
         """
-        self._orb.plotvy(*args,**kwargs)
+        return self._orb.plotvy(*args,**kwargs)
 
     def toPlanar(self):
         """

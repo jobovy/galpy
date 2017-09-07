@@ -1585,7 +1585,7 @@ class OrbitTop(object):
             kwargs['xlabel']= labeldict[d1]
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= labeldict[d2]
-        plot.bovy_plot(x,y,*args,**kwargs)
+        return plot.bovy_plot(x,y,*args,**kwargs)
 
     def plot3d(self,*args,**kwargs):
         """
@@ -1854,7 +1854,7 @@ class OrbitTop(object):
             kwargs['ylabel']= labeldict[d2]
         if not 'zlabel' in kwargs:
             kwargs['zlabel']= labeldict[d3]
-        plot.bovy_plot3d(x,y,z,*args,**kwargs)
+        return plot.bovy_plot3d(x,y,z,*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
         """
@@ -1870,7 +1870,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'R'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotz(self,*args,**kwargs):
         """
@@ -1886,7 +1886,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'z'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotx(self,*args,**kwargs):
         """
@@ -1902,7 +1902,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'x'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotvx(self,*args,**kwargs):
         """
@@ -1918,7 +1918,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vx'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def ploty(self,*args,**kwargs):
         """
@@ -1934,7 +1934,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'y'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotvy(self,*args,**kwargs):
         """
@@ -1950,7 +1950,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vy'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotvR(self,*args,**kwargs):
         """
@@ -1966,7 +1966,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vR'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotvT(self,*args,**kwargs):
         """
@@ -1982,7 +1982,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vT'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotphi(self,*args,**kwargs):
         """
@@ -1998,7 +1998,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'phi'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
 
     def plotvz(self,*args,**kwargs):
         """
@@ -2014,7 +2014,7 @@ class OrbitTop(object):
            2010-07-10 - Written - Bovy (NYU)
         """
         kwargs['d2']= 'vz'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotE(self,*args,**kwargs):
         """
@@ -2033,7 +2033,7 @@ class OrbitTop(object):
             kwargs['d2']= 'Enorm'
         else:
             kwargs['d2']= 'E'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotJacobi(self,*args,**kwargs):
         """
@@ -2052,7 +2052,7 @@ class OrbitTop(object):
             kwargs['d2']= 'Jacobinorm'
         else:
             kwargs['d2']= 'Jacobi'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def _setupOrbitInterp(self):
         if not hasattr(self,"_orbInterp"):

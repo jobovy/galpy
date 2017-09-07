@@ -460,7 +460,7 @@ class FullOrbit(OrbitTop):
             kwargs['d2']= 'Eznorm'
         else:
             kwargs['d2']= 'Ez'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotER(self,*args,**kwargs):
         """
@@ -479,7 +479,7 @@ class FullOrbit(OrbitTop):
             kwargs['d2']= 'ERnorm'
         else:
             kwargs['d2']= 'ER'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotEzJz(self,*args,**kwargs):
         """
@@ -524,23 +524,29 @@ class FullOrbit(OrbitTop):
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= r'$E_z/\sqrt{\rho}$'
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(nu.array(self.t),
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,3],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,0],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,1],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,2],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,4],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
 
 def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
