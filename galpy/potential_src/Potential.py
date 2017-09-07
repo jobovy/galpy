@@ -849,7 +849,7 @@ class Potential(object):
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,phi=None,xy=False,
              xrange=None,yrange=None,
-             justcontours=False,
+             justcontours=False,levels=None,cntrcolors=None,
              ncontours=21,savefilename=None):
         """
         NAME:
@@ -884,13 +884,17 @@ class Potential(object):
 
            Lz= (None) angular momentum to use for the effective potential when effective=True
 
-           ncontours - number of contours
-
            justcontours= (False) if True, just plot contours
 
            savefilename - save to or restore from this savefile (pickle)
 
            xrange, yrange= can be specified independently from rmin,zmin, etc.
+
+           levels= (None) contours to plot
+
+           ncontours - number of contours when levels is None
+
+           cntrcolors= (None) colors of the contours (single color or array with length ncontours)
 
         OUTPUT:
 
@@ -956,6 +960,10 @@ class Potential(object):
         else:
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
+        if levels is None:
+            levels= nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),ncontours)
+        if cntrcolors is None:
+            cntrcolors= 'k'
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=xlabel,ylabel=ylabel,
                                 xrange=xrange,
@@ -963,8 +971,7 @@ class Potential(object):
                                 aspect=.75*(rmax-rmin)/(zmax-zmin),
                                 cntrls='-',
                                 justcontours=justcontours,
-                                levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
-                                                   ncontours))
+                                levels=levels,cntrcolors=cntrcolors)
         
     def plotDensity(self,t=0.,
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -1956,9 +1963,9 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
-                   phi=None,xy=False,t=0.,
+                   phi=None,xy=False,t=0.,effective=False,Lz=None,
                    ncontours=21,savefilename=None,aspect=None,
-                   justcontours=False):
+                   justcontours=False,levels=None,cntrcolors=None):
         """
         NAME:
 
@@ -1990,9 +1997,17 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
            xy= (False) if True, plot the potential in X-Y
 
-           ncontours= number of contours
+           effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
+
+           Lz= (None) angular momentum to use for the effective potential when effective=True
 
            justcontours= (False) if True, just plot contours
+
+           levels= (None) contours to plot
+
+           ncontours - number of contours when levels is None
+
+           cntrcolors= (None) colors of the contours (single color or array with length ncontours)
 
            savefilename= save to or restore from this savefile (pickle)
 
@@ -2026,6 +2041,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             zs= pickle.load(savefile)
             savefile.close()
         else:
+            if effective and Lz is None:
+                raise RuntimeError("When effective=True, you need to specify Lz=")
             Rs= nu.linspace(rmin,rmax,nrs)
             zs= nu.linspace(zmin,zmax,nzs)
             potRz= nu.zeros((nrs,nzs))
@@ -2038,6 +2055,8 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(R),
                                                      z,phi=phi,t=t,
                                                      use_physical=False)
+                if effective:
+                    potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -2053,6 +2072,10 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         else:
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
+        if levels is None:
+            levels= nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),ncontours)
+        if cntrcolors is None:
+            cntrcolors= 'k'
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
                                 xlabel=xlabel,ylabel=ylabel,
                                 aspect=aspect,
@@ -2060,8 +2083,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 yrange=[zmin,zmax],
                                 cntrls='-',
                                 justcontours=justcontours,
-                                levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
-                                                   ncontours))
+                                levels=levels,cntrcolors=cntrcolors)
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,

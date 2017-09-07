@@ -2017,6 +2017,14 @@ def test_plotting():
     try:
         kp.plot(effective=True,Lz=None)
     except RuntimeError:
+        print("Here")
+        pass
+    else:
+        raise AssertionError("Potential.plot with effective=True, but Lz=None did not return a RuntimeError")
+    potential.plotPotentials([kp],effective=True,Lz=1.)
+    try:
+        potential.plotPotentials([kp],effective=True,Lz=None)
+    except RuntimeError:
         pass
     else:
         raise AssertionError("Potential.plot with effective=True, but Lz=None did not return a RuntimeError")
