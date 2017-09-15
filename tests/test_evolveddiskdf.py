@@ -573,6 +573,16 @@ def test_call_special():
     codeint= edf(o,0,integrate_method='odeint',log=True)
     crk6c= edf(o,0.,integrate_method='rk6_c',log=True)
     assert numpy.fabs(codeint-crk6c) < 10.**-4., 'edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c'
+    # Call w/ just one t and fallback to odeint
+    # turn off C
+    edf._pot[0].hasC= False
+    edf._pot[0].hasC_dxdv= False
+    codeint= edf(o,0,integrate_method='dopr54_c',log=True)
+    assert numpy.fabs(codeint-crk6c) < 10.**-4., 'edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c'
+    # Call w/ just one t and fallback to leaprog
+    cleapfrog= edf(o,0,integrate_method='leapfrog_c',log=True)
+    assert numpy.fabs(cleapfrog-crk6c) < 10.**-4., 'edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c'
+
 
 def test_call_marginalizevperp():
     from galpy.orbit import Orbit

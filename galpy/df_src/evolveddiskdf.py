@@ -21,6 +21,7 @@ from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
 from galpy.df_src.df import df, _APY_LOADED
+from galpy.potential_src.Potential import _check_c
 from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot
 from galpy.util.bovy_conversion import physical_conversion, \
@@ -113,6 +114,14 @@ class evolveddiskdf(df):
 
         """
         integrate_method= kwargs.pop('integrate_method','dopr54_c')
+        # Must match Python fallback for non-C potentials here, bc odeint needs
+        # custom t list to avoid numerically instabilities
+        if '_c' in integrate_method and not _check_c(self._pot):
+            if ('leapfrog' in integrate_method \
+                    or 'symplec' in integrate_method):
+                integrate_method= 'leapfrog'
+            else:
+                integrate_method= 'odeint'
         deriv= kwargs.get('deriv',None)
         if isinstance(args[0],Orbit):
             if len(args) == 1:
