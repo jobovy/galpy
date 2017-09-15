@@ -17,7 +17,7 @@ class CosmphiDiskPotential(planarPotential):
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,phio=0.01,m=1.,r1=1.,
+                 p=1.,phio=0.01,m=4,r1=1.,
                  cp=None,sp=None,ro=None,vo=None):
         """
         NAME:
@@ -83,6 +83,8 @@ class CosmphiDiskPotential(planarPotential):
                 self._phib= math.pi+self._phib
         self._p= p
         self._mphib= self._m*self._phib
+        self.hasC= True
+        self.hasC_dxdv= True
 
     def _evaluate(self,R,phi=0.,t=0.):
         """
@@ -160,7 +162,6 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
                  p=1.,phio=0.01,r1=1.,
-                 tform=None,tsteady=None,
                  cp=None,sp=None,ro=None,vo=None):
         CosmphiDiskPotential.__init__(self,
                                       amp=amp,

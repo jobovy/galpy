@@ -2536,7 +2536,14 @@ class mockFlatLopsidedDiskPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
+                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.)])
+    def OmegaP(self):
+        return 0.
+class mockFlatCosmphiDiskPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.CosmphiDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.)])
     def OmegaP(self):
         return 0.
 class mockFlatDehnenBarPotential(testMWPotential):

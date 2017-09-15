@@ -14,6 +14,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
+    mockFlatCosmphiDiskPotential, \
     mockSlowFlatEllipticalDiskPotential, \
     mockFlatDehnenBarPotential, \
     mockSlowFlatDehnenBarPotential, \
@@ -77,6 +78,7 @@ def test_energy_jacobi_conservation():
                and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockFlatCosmphiDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
@@ -158,7 +160,8 @@ def test_energy_jacobi_conservation():
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \
-                             or 'Dehnen' in p): ttimes= growtimes
+                             or 'Dehnen' in p or 'Cosmphi' in p):
+                ttimes= growtimes
             elif integrator == 'dopr54_c' \
                     and not 'MovingObject' in p \
                     and not p == 'FerrersPotential': ttimes= times
@@ -182,7 +185,8 @@ def test_energy_jacobi_conservation():
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
                     or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
-                    or p == 'mockMovingObjectLongIntPotential':
+                    or p == 'mockMovingObjectLongIntPotential' \
+                    or 'Cosmphi' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -479,6 +483,7 @@ def test_liouville_planar():
                and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockFlatCosmphiDiskPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatDehnenBarPotential')
