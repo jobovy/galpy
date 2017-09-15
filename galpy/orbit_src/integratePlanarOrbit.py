@@ -98,12 +98,7 @@ def _parse_pot(pot):
             pot_args.extend([p._Pot._amp,p._Pot._a,p._Pot._b])
         elif isinstance(p,potential.LopsidedDiskPotential):
             pot_type.append(6)
-            if p._tform is None:
-                pot_args.extend([p._amp,float('nan'), float('nan'),
-                                 p._mphio,p._p,p._phib])
-            else:
-                pot_args.extend([p._amp,p._tform,p._tsteady,
-                                 p._mphio,p._p,p._phib])
+            pot_args.extend([p._amp,p._mphio,p._p,p._phib])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.PowerSphericalPotential):
             pot_type.append(7)

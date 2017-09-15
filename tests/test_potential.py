@@ -85,9 +85,6 @@ def test_forceAsDeriv_potential():
     pots.append('mockInterpRZPotential')
     pots.append('mockSnapshotRZPotential')
     pots.append('mockInterpSnapshotRZPotential')
-    pots.append('mockCosmphiDiskPotentialT1')
-    pots.append('mockCosmphiDiskPotentialTm1')
-    pots.append('mockCosmphiDiskPotentialTm5')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -258,9 +255,6 @@ def test_2ndDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
-    pots.append('mockCosmphiDiskPotentialT1')
-    pots.append('mockCosmphiDiskPotentialTm1')
-    pots.append('mockCosmphiDiskPotentialTm5')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -584,9 +578,6 @@ def test_evaluateAndDerivs_potential():
     pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
-    pots.append('mockCosmphiDiskPotentialT1')
-    pots.append('mockCosmphiDiskPotentialTm1')
-    pots.append('mockCosmphiDiskPotentialTm5')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -2343,27 +2334,9 @@ class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
                                                    zsym=True)
 # Some special cases of 2D, non-axisymmetric potentials, to make sure they
 # are covered; need 3 to capture all of the transient behavior
-from galpy.potential import CosmphiDiskPotential, DehnenBarPotential, \
+from galpy.potential import DehnenBarPotential, \
     EllipticalDiskPotential, SteadyLogSpiralPotential, \
     TransientLogSpiralPotential
-class mockCosmphiDiskPotentialT1(CosmphiDiskPotential):
-    def __init__(self):
-        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
-                                      p=1.,phio=0.01,m=1., 
-                                      tform=0.5,tsteady=1.,
-                                      cp=0.05,sp=0.05)
-class mockCosmphiDiskPotentialTm1(CosmphiDiskPotential):
-    def __init__(self):
-        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
-                                      p=1.,phio=0.01,m=1., 
-                                      tform=-1.,tsteady=None,
-                                      cp=-0.05,sp=0.05)
-class mockCosmphiDiskPotentialTm5(CosmphiDiskPotential):
-    def __init__(self):
-        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
-                                      p=1.,phio=0.01,m=1., 
-                                      tform=-5.,tsteady=-1.,
-                                      cp=-0.05,sp=0.05)
 class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
@@ -2564,13 +2537,6 @@ class mockFlatLopsidedDiskPotential(testplanarMWPotential):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=None,tsteady=None,phio=10./220.)])
-    def OmegaP(self):
-        return 0.
-class mockSlowFlatLopsidedDiskPotential(testplanarMWPotential):
-    def __init__(self):
-        testplanarMWPotential.__init__(self,
-                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.LopsidedDiskPotential(phib=numpy.pi/2.,p=0.,tform=1.,tsteady=250.,phio=10./220.)])
     def OmegaP(self):
         return 0.
 class mockFlatDehnenBarPotential(testMWPotential):
