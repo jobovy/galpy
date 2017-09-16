@@ -15,6 +15,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
     mockFlatCosmphiDiskPotential, \
+    mockFlatCosmphiDiskwBreakPotential, \
     mockSlowFlatEllipticalDiskPotential, \
     mockFlatDehnenBarPotential, \
     mockSlowFlatDehnenBarPotential, \
@@ -79,6 +80,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
+    pots.append('mockFlatCosmphiDiskwBreakPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
@@ -484,6 +486,7 @@ def test_liouville_planar():
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
+    pots.append('mockFlatCosmphiDiskwBreakPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatDehnenBarPotential')

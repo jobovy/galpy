@@ -243,7 +243,8 @@ def _parse_pot(pot):
             pot_args.extend(p._Pot._Cs)
         elif isinstance(p,potential.CosmphiDiskPotential):
             pot_type.append(28)
-            pot_args.extend([p._amp,p._mphio,p._p,p._mphib,p._m])
+            pot_args.extend([p._amp,p._mphio,p._p,p._mphib,p._m,
+                             p._rb,p._rbp,p._rb2p,p._r1p])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

@@ -86,6 +86,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockSnapshotRZPotential')
     pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialnegcp')
+    pots.append('mockCosmphiDiskPotentialnegp')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -257,6 +258,7 @@ def test_2ndDeriv_potential():
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
     pots.append('mockCosmphiDiskPotentialnegcp')
+    pots.append('mockCosmphiDiskPotentialnegp')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -581,6 +583,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
     pots.append('mockCosmphiDiskPotentialnegcp')
+    pots.append('mockCosmphiDiskPotentialnegp')
     pots.append('mockDehnenBarPotentialT1')
     pots.append('mockDehnenBarPotentialTm1')
     pots.append('mockDehnenBarPotentialTm5')
@@ -2361,7 +2364,12 @@ class mockDehnenBarPotentialTm5(DehnenBarPotential):
 class mockCosmphiDiskPotentialnegcp(CosmphiDiskPotential):
     def __init__(self):
         CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
-                                      p=1.,phio=0.01,m=1., 
+                                      p=1.,phio=0.01,m=1.,rb=0.9,
+                                      cp=-0.05,sp=0.05)
+class mockCosmphiDiskPotentialnegp(CosmphiDiskPotential):
+    def __init__(self):
+        CosmphiDiskPotential.__init__(self,amp=1.,phib=25.*numpy.pi/180.,
+                                      p=-1.,phio=0.01,m=1.,
                                       cp=-0.05,sp=0.05)
 class mockEllipticalDiskPotentialT1(EllipticalDiskPotential):
     def __init__(self):
@@ -2552,6 +2560,13 @@ class mockFlatCosmphiDiskPotential(testplanarMWPotential):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                                                 potential.CosmphiDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.)])
+    def OmegaP(self):
+        return 0.
+class mockFlatCosmphiDiskwBreakPotential(testplanarMWPotential):
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                       potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                                potential.CosmphiDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.,rb=0.95,m=6)])
     def OmegaP(self):
         return 0.
 class mockFlatDehnenBarPotential(testMWPotential):

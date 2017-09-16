@@ -2282,12 +2282,14 @@ def test_potential_paramunits_2d():
                                         phib=20.*units.deg,
                                         phio=1290.*units.km**2/units.s**2,
                                         r1=8.*units.kpc,
+                                        rb=7.*units.kpc,
                                         ro=ro,vo=vo)
     pot_nounits= potential.CosmphiDiskPotential(amp=1.,
                                                 m=3,
                                                 phib=20./180.*numpy.pi,
                                                 phio=1290./vo**2.,
                                                 r1=8./ro,
+                                                rb=7./ro,
                                                 ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./bovy_conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"   
