@@ -2566,7 +2566,7 @@ class mockFlatCosmphiDiskwBreakPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(self,
                                        potlist=[potential.LogarithmicHaloPotential(normalize=1.),
-                                                potential.CosmphiDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.,rb=0.95,m=6)])
+                                                potential.CosmphiDiskPotential(phib=numpy.pi/2.,p=0.,phio=10./220.,rb=0.99,m=6)])
     def OmegaP(self):
         return 0.
 class mockFlatDehnenBarPotential(testMWPotential):
