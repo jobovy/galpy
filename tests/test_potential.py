@@ -1915,6 +1915,12 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_vtermnegl_issue314():
+    # Test related to issue 314: vterm for negative l
+    rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
+    assert numpy.fabs(rp.vterm(0.5)+rp.vterm(-0.5)) < 10.**-8., 'vterm for negative l does not behave as expected'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail

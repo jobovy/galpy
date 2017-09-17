@@ -1343,7 +1343,7 @@ class Potential(object):
             sinl= nu.sin(l/180.*nu.pi)
         else:
             sinl= nu.sin(l)
-        return sinl*(self.omegac(sinl,use_physical=False)\
+        return sinl*(self.omegac(nu.fabs(sinl),use_physical=False)\
                          -self.omegac(1.,use_physical=False))
 
     def plotRotcurve(self,*args,**kwargs):
