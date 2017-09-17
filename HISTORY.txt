@@ -37,6 +37,10 @@ v1.3 (2017-XX-XX)
 - Upgraded DehnenBarPotential to a 3D potential following Monari et
   al. (2016) (#304).
 
+- Generalized CosmphiDiskPotential to allow for a break radius within
+  which the radial dependence of the potential changes from R^p to
+  R^-p; also added C implementation of CosmphiDiskPotential.
+
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
 
