@@ -14,12 +14,19 @@ Types of disk distribution functions
 ---------------------------------------
 
 galpy contains the following distribution functions for razor-thin
-disks: ``galpy.df.dehnendf`` and ``galpy.df.shudf``. These are the
-distribution functions of Dehnen (`1999AJ....118.1201D
-<http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_) and Shu
+disks: ``galpy.df.dehnendf``, ``galpy.df.shudf``, and
+``galpy.df.schwarzschilddf``. These are the distribution functions of
+Dehnen (`1999AJ....118.1201D
+<http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_), Shu
 (`1969ApJ...158..505S
-<http://adsabs.harvard.edu/abs/1969ApJ...158..505S>`_). Everything
-shown below for ``dehnendf`` can also be done for ``shudf``.
+<http://adsabs.harvard.edu/abs/1969ApJ...158..505S>`_), and
+Schwarzschild (the Shu DF in the epicycle approximation, see Binney &
+Tremaine 2008). Everything shown below for ``dehnendf`` can also be
+done for ``shudf`` and ``schwarzschilddf``. The Schwarzschild DF is
+primarily included as an educational tool; it is *not* a true
+steady-state DF, because it uses the approximate energy from the
+epicycle approximation rather than the true energy, and is fully
+superseded by the Shu DF, which *is* a good steady-state DF.
 
 These disk distribution functions are functions of the energy and the
 angular momentum alone. They can be evaluated for orbits, or for a

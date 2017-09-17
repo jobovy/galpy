@@ -66,6 +66,7 @@ Specific distribution functions
    :maxdepth: 2
 
    Dehnen DF <dfdehnen.rst>
+   Schwarzschild DF <dfschwarzschild.rst>
    Shu DF <dfshu.rst>
 
 
