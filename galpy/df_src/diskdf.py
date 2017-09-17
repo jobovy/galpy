@@ -164,27 +164,31 @@ class diskdf(df):
                     return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
                                                         args[0]._orb.vxvv[2],
                                                         args[0]._orb.vxvv[0],
-                                                        self._beta)))
+                                                        self._beta,
+                                                        self._dftype)))
             else:
                 no= args[0](args[1])
                 return sc.real(self.eval(*vRvTRToEL(no._orb.vxvv[1],
                                                     no._orb.vxvv[2],
                                                     no._orb.vxvv[0],
-                                                    self._beta)))
+                                                    self._beta,
+                                                    self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
             #Grab all of the vR, vT, and R
             vR= nu.array([o._orb.vxvv[1] for o in args[0]])
             vT= nu.array([o._orb.vxvv[2] for o in args[0]])
             R= nu.array([o._orb.vxvv[0] for o in args[0]])
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                self._dftype)))
         elif isinstance(args[0],nu.ndarray) and \
                 not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
             R= args[0][0]
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                self._dftype)))
         else:
             return sc.real(self.eval(*args))
 
@@ -2127,7 +2131,7 @@ class shudf(diskdf):
 
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
-        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
         if self._beta == 0.:
             xL= L
             dRldR= vT
@@ -2147,7 +2151,7 @@ class shudf(diskdf):
     
     def _dlnfdvR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
-        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
         if self._beta == 0.:
             xL= L
         else: #non-flat rotation curve
@@ -2157,7 +2161,7 @@ class shudf(diskdf):
     
     def _dlnfdvT(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
-        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
         if self._beta == 0.:
             xL= L
             dRldvT= R
@@ -2175,39 +2179,94 @@ class shudf(diskdf):
                  -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldvT\
                  +dECLEdvT/sigma2xL
     
+class schwarzschilddf(shudf):
+    """Schwarzschild's df"""
+    def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
+                 profileParams=(1./3.,1.0,0.2),
+                 correct=False,
+                 beta=0.,**kwargs):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize a Schwarzschild DF
+        INPUT:
+           surfaceSigma - instance or class name of the target 
+                      surface density and sigma_R profile 
+                      (default: both exponential)
+           profileParams - parameters of the surface and sigma_R profile:
+                      (xD,xS,Sro) where
+          
+                        xD - disk surface mass scalelength (can be Quantity)
+              
+                        xS - disk velocity dispersion scalelength (can be Quantity)
+                        
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
+                        
+                        Directly given to the 'surfaceSigmaProfile class, so
+                        could be anything that class takes
+
+           beta - power-law index of the rotation curve
+
+           correct - if True, correct the DF
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
+           +DFcorrection kwargs (except for those already specified)
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+            2017-09-17 - Written - Bovy (UofT)
+
+        """
+        # Schwarzschild == Shu w/ energy computed in epicycle approx.
+        # so all functions are the same as in Shu, only thing different is
+        # how E is computed
+        return diskdf.__init__(self,surfaceSigma=surfaceSigma,
+                               profileParams=profileParams,
+                               correct=correct,dftype='schwarzschild',
+                               beta=beta,**kwargs)
+    
+
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _sigma2surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
                              n,m):
     """Internal function that is the integrand for the velocity moment times
     surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
                                   gamma,n,m,deriv):
     """Internal function that is the integrand for the derivative of velocity 
     moment times surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     if deriv.lower() == 'r':
         return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma*df._dlnfdR(R,vR*sigmaR1,vT*sigmaR1/gamma) #correct
     else:
         return 0.
 
-def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma):
+def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma,dftype='dehnen'):
     """Internal function that calculates E and L given velocities normalized by the velocity dispersion"""
     vR*= sigmaR1
     vT*= sigmaR1/gamma
-    return vRvTRToEL(vR,vT,R,beta)
+    return vRvTRToEL(vR,vT,R,beta,dftype)
 
 def _oned_intFunc(x,twodfunc,gfun,hfun,tol,args):
     """Internal function for bovy_dblquad"""
@@ -2444,7 +2503,7 @@ class DFcorrectionError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def vRvTRToEL(vR,vT,R,beta):
+def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
     """
     NAME:
        vRvTRToEL
@@ -2458,7 +2517,19 @@ def vRvTRToEL(vR,vT,R,beta):
     HISTORY:
        2010-03-10 - Written - Bovy (NYU)
     """
-    return (axipotential(R,beta)+0.5*vR**2.+0.5*vT**2.,vT*R)
+    if dftype == 'schwarzschild':
+        # Compute E in the epicycle approximation
+        gamma= sc.sqrt(2./(1.+beta))
+        L= R*vT
+        if beta == 0.:
+            xL= L
+        else: #non-flat rotation curve
+            xL= L**(1./(beta+1.))   
+        return (0.5*vR**2.+0.5*gamma**2.*(vT-R**beta)**2.
+                +xL**(2.*beta)/2.+axipotential(xL,beta=beta),
+                L)
+    else:
+        return (axipotential(R,beta)+0.5*vR**2.+0.5*vT**2.,vT*R)
 
 def axipotential(R,beta=0.):
     """
@@ -2572,10 +2643,10 @@ def _vtmaxEq(vT,R,diskdf):
 def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
                                             vlos,vcirc,sigma):
     return df(*vRvTRToEL(vR*sigma,cotalpha*vR*sigma+vlos/sinalpha+vcirc,
-                        R,df._beta))
+                        R,df._beta,df._dftype))
 
 def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma):
     return df(*vRvTRToEL(tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,
-                        R,df._beta))
+                        R,df._beta,df._dftype))
 

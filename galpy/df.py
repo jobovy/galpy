@@ -22,6 +22,7 @@ impulse_deltav_plummerstream_curvedstream= streamgapdf.impulse_deltav_plummerstr
 #
 shudf= diskdf.shudf
 dehnendf= diskdf.dehnendf
+schwarzschilddf= diskdf.schwarzschilddf
 DFcorrection= diskdf.DFcorrection
 diskdf= diskdf.diskdf
 evolveddiskdf= evolveddiskdf.evolveddiskdf

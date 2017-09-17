@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import os
 import numpy
 from scipy import stats
-from galpy.df import dehnendf, shudf
+from galpy.df import dehnendf, shudf, schwarzschilddf
 import pytest
 _FEWERLONGINTEGRALS= True
 #So we can reuse the following
@@ -1426,6 +1426,38 @@ def test_shudf_sample_flat_EL():
     assert numpy.fabs(numpy.mean(rs)-0.5) < 0.05, 'mean R of sampled points does not agree with that of the input surface profile'
     assert numpy.fabs(numpy.std(rs)-numpy.sqrt(2.)/4.) < 0.03, 'stddev R of sampled points does not agree with that of the input surface profile'
     #BOVY: Could use another test
+    return None
+
+def test_schwarzschild_vs_shu_flat():
+    # Schwarzschild DF should be ~~ Shu for small sigma, test w/ flat rotcurve
+    dfs= shudf(profileParams=(0.3333333333333333,1.0, 0.05),
+               beta=0.,correct=False)
+    dfw= schwarzschilddf(profileParams=(0.3333333333333333,1.0, 0.05),
+                         beta=0.,correct=False)
+    assert numpy.fabs(dfs.meanvT(0.97)-dfw.meanvT(0.97)) < 10.**-3., 'Shu and Schwarschild DF differ more than expected for small sigma'
+    assert numpy.fabs(dfs.oortA(0.97)-dfw.oortA(0.97)) < 10.**-2.9, 'Shu and Schwarschild DF differ more than expected for small sigma'
+    return None
+
+def test_schwarzschild_vs_shu_powerfall():
+    # Schwarzschild DF should be ~~ Shu for small sigma, test w/ flat rotcurve
+    beta= -0.2
+    dfs= shudf(profileParams=(0.3333333333333333,1.0, 0.05),
+               beta=beta,correct=False)
+    dfw= schwarzschilddf(profileParams=(0.3333333333333333,1.0, 0.05),
+                         beta=beta,correct=False)
+    assert numpy.fabs(dfs.meanvT(0.97)-dfw.meanvT(0.97)) < 10.**-3., 'Shu and Schwarschild DF differ more than expected for small sigma'
+    assert numpy.fabs(dfs.oortA(0.97)-dfw.oortA(0.97)) < 10.**-3., 'Shu and Schwarschild DF differ more than expected for small sigma'
+    return None
+
+def test_schwarzschild_vs_shu_powerrise():
+    # Schwarzschild DF should be ~~ Shu for small sigma, test w/ flat rotcurve
+    beta= 0.2
+    dfs= shudf(profileParams=(0.3333333333333333,1.0, 0.05),
+               beta=beta,correct=False)
+    dfw= schwarzschilddf(profileParams=(0.3333333333333333,1.0, 0.05),
+                         beta=beta,correct=False)
+    assert numpy.fabs(dfs.meanvT(0.97)-dfw.meanvT(0.97)) < 10.**-3., 'Shu and Schwarschild DF differ more than expected for small sigma'
+    assert numpy.fabs(dfs.oortA(0.97)-dfw.oortA(0.97)) < 10.**-2.8, 'Shu and Schwarschild DF differ more than expected for small sigma'
     return None
 
 ###############################################################################
