@@ -2125,6 +2125,56 @@ class shudf(diskdf):
                 dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
+    def _dlnfdR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        if self._beta == 0.:
+            xL= L
+            dRldR= vT
+            ECL= sc.log(xL)+0.5
+            dECLEdR= 0.
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+            dRldR= L**(1./(self._beta+1.))/R/(self._beta+1.)
+            ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
+            dECLdRl= (1.+self._beta)*xL**(2.*self._beta-1)
+            dEdR= R**(2.*self._beta-1.)
+            dECLEdR= dECLdRl*dRldR-dEdR
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
+                 -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldR\
+                 +dECLEdR/sigma2xL
+    
+    def _dlnfdvR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        if self._beta == 0.:
+            xL= L
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return -vR/sigma2xL
+    
+    def _dlnfdvT(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta)
+        if self._beta == 0.:
+            xL= L
+            dRldvT= R
+            ECL= sc.log(xL)+0.5
+            dECLEdvT= 1./vT-vT
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+            dRldvT= L**(1./(self._beta+1.))/vT/(self._beta+1.)
+            ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
+            dECLdRl= (1.+self._beta)*xL**(2.*self._beta-1)
+            dEdvT= vT
+            dECLEdvT= dECLdRl*dRldvT-dEdvT
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
+                 -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldvT\
+                 +dECLEdvT/sigma2xL
+    
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)

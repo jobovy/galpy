@@ -943,7 +943,6 @@ def test_dehnendf_dlnfdl_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "dehnendf's dlnfdl does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdR_flat():
     dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
     dR= 10**-8.
@@ -954,18 +953,17 @@ def test_shudf_dlnfdR_flat():
     assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "shudf's dlnfdR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdR_powerfall():
     dfc= shudf(beta=-0.2,profileParams=(1./4.,1.,0.2))
     dR= 10**-6.
     R,vR,vT= 0.8,0.1,0.9
     Rn= R+dR
     dR= Rn-R #representable number
+    #print((dfc._dlnfdR(R+dR,vR,vT)-dfc._dlnfdR(R,vR,vT))/dR)
     dlnf= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
     assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "shudf's dlnfdR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdR_powerrise():
     dfc= shudf(beta=0.2,profileParams=(1./4.,1.,0.2))
     dR= 10**-8.
@@ -976,7 +974,6 @@ def test_shudf_dlnfdR_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdR(R,vR,vT)) < 10.**-6., "shudf's dlnfdR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvR_flat():
     dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
     dvR= 10**-8.
@@ -987,7 +984,6 @@ def test_shudf_dlnfdvR_flat():
     assert numpy.fabs(dlnf-dfc._dlnfdvR(R,vR,vT)) < 10.**-6., "shudf's dlnfdvR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvR_powerfall():
     dfc= shudf(beta=-0.2,profileParams=(1./4.,1.,0.2))
     dvR= 10**-8.
@@ -998,7 +994,6 @@ def test_shudf_dlnfdvR_powerfall():
     assert numpy.fabs(dlnf-dfc._dlnfdvR(R,vR,vT)) < 10.**-6., "shudf's dlnfdvR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvR_powerrise():
     dfc= shudf(beta=0.2,profileParams=(1./4.,1.,0.2))
     dvR= 10**-8.
@@ -1009,7 +1004,6 @@ def test_shudf_dlnfdvR_powerrise():
     assert numpy.fabs(dlnf-dfc._dlnfdvR(R,vR,vT)) < 10.**-6., "shudf's dlnfdvR does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvT_flat():
     dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
     dvT= 10**-8.
@@ -1020,7 +1014,6 @@ def test_shudf_dlnfdvT_flat():
     assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "shudf's dlnfdvT does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvT_powerfall():
     dfc= shudf(beta=-0.2,profileParams=(1./4.,1.,0.2))
     dvT= 10**-8.
@@ -1031,7 +1024,6 @@ def test_shudf_dlnfdvT_powerfall():
     assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "shudf's dlnfdvT does not work"
     return None
 
-@pytest.mark.xfail(raises=AttributeError,strict=True)
 def test_shudf_dlnfdvT_powerrise():
     dfc= shudf(beta=0.2,profileParams=(1./4.,1.,0.2))
     dvT= 10**-8.
@@ -1040,232 +1032,6 @@ def test_shudf_dlnfdvT_powerrise():
     dvT= vTn-vT #representable number
     dlnf= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
     assert numpy.fabs(dlnf-dfc._dlnfdvT(R,vR,vT)) < 10.**-6., "shudf's dlnfdvT does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdRl_flat():
-    dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdRl w/ the chain rule; first calculate dR
-    dR= 10**-6.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+numpy.log(R) 
-    RE= numpy.exp(E-.5) 
-    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
-    dRE= numpy.exp(dE-.5) 
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-6.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-6.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dRl etc. from matrix inversion
-    dRvRvTdRl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdRl[0,0]+dlnfdvR*dRvRvTdRl[1,0]\
-        +dlnfdvT*dRvRvTdRl[2,0]
-    assert numpy.fabs(dlnf-dfc._dlnfdRl(R,vR,vT)) < 10.**-5., "shudf's dlnfdRl does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdRl_powerfall():
-    beta= -0.2
-    dfc= shudf(beta=beta,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdRl w/ the chain rule; first calculate dR
-    dR= 10**-6.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    RE= (2.*E/(1.+1./beta))**(1./2./beta)
-    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-6.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-6.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dRl etc. from matrix inversion
-    dRvRvTdRl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdRl[0,0]+dlnfdvR*dRvRvTdRl[1,0]\
-        +dlnfdvT*dRvRvTdRl[2,0]
-    assert numpy.fabs(dlnf-dfc._dlnfdRl(R,vR,vT)) < 10.**-5., "shudf's dlnfdRl does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdRl_powerrise():
-    beta= 0.2
-    dfc= shudf(beta=beta,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdRl w/ the chain rule; first calculate dR
-    dR= 10**-8.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    RE= (2.*E/(1.+1./beta))**(1./2./beta)
-    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-8.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-8.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dRl etc. from matrix inversion
-    dRvRvTdRl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdRl[0,0]+dlnfdvR*dRvRvTdRl[1,0]\
-        +dlnfdvT*dRvRvTdRl[2,0]
-    assert numpy.fabs(dlnf-dfc._dlnfdRl(R,vR,vT)) < 10.**-5., "shudf's dlnfdRl does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdl_flat():
-    dfc= shudf(beta=0.,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdl w/ the chain rule; first calculate dR
-    dR= 10**-6.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+numpy.log(R) 
-    RE= numpy.exp(E-.5) 
-    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
-    dRE= numpy.exp(dE-.5) 
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-6.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-6.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dl etc. from matrix inversion
-    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
-        +dlnfdvT*dRvRvTdl[2,1]
-    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "shudf's dlnfdl does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdl_powerfall():
-    beta= -0.2
-    dfc= shudf(beta=beta,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdl w/ the chain rule; first calculate dR
-    dR= 10**-6.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    RE= (2.*E/(1.+1./beta))**(1./2./beta)
-    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-6.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-6.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dl etc. from matrix inversion
-    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
-        +dlnfdvT*dRvRvTdl[2,1]
-    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "shudf's dlnfdl does not work"
-    return None
-
-@pytest.mark.xfail(raises=AttributeError,strict=True)
-def test_shudf_dlnfdl_powerrise():
-    beta= 0.2
-    dfc= shudf(beta=beta,profileParams=(1./4.,1.,0.2))
-    #Calculate dlndfdl w/ the chain rule; first calculate dR
-    dR= 10**-8.
-    R,vR,vT= 0.8,0.1,0.9
-    Rn= R+dR
-    dR= Rn-R #representable number
-    dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    RE= (2.*E/(1.+1./beta))**(1./2./beta)
-    dE= vR**2./2.+vT**2./2.+1./2./beta*(R+dR)**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldR= (dRE-RE)/dR
-    #dvR
-    dvR= 10**-8.
-    vRn= vR+dvR
-    dvR= vRn-vR #representable number
-    dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvR= (dRE-RE)/dvR
-    #dvT
-    dvT= 10**-8.
-    vTn= vT+dvT
-    dvT= vTn-vT #representable number
-    dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+1./2./beta*R**(2.*beta)
-    dRE= (2.*dE/(1.+1./beta))**(1./2./beta)
-    dRldvT= (dRE-RE)/dvT
-    #Calculate dR/dl etc. from matrix inversion
-    dRvRvTdl= numpy.linalg.inv(numpy.array([[dRldR,dRldvR,dRldvT],[vT,0.,R],[0.,1.,0.]]))
-    dlnf= dlnfdR*dRvRvTdl[0,1]+dlnfdvR*dRvRvTdl[1,1]\
-        +dlnfdvT*dRvRvTdl[2,1]
-    assert numpy.fabs(dlnf-dfc._dlnfdl(R,vR,vT)) < 10.**-5., "shudf's dlnfdl does not work"
     return None
 
 def test_estimatemeanvR():
