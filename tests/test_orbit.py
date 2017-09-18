@@ -14,8 +14,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
     mockFlatLopsidedDiskPotential, \
+    mockFlatCosmphiDiskPotential, \
+    mockFlatCosmphiDiskwBreakPotential, \
     mockSlowFlatEllipticalDiskPotential, \
-    mockSlowFlatLopsidedDiskPotential, \
     mockFlatDehnenBarPotential, \
     mockSlowFlatDehnenBarPotential, \
     mockFlatSteadyLogSpiralPotential, \
@@ -78,8 +79,9 @@ def test_energy_jacobi_conservation():
                and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockFlatCosmphiDiskPotential')
+    pots.append('mockFlatCosmphiDiskwBreakPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
-    pots.append('mockSlowFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')
     pots.append('mockFlatSteadyLogSpiralPotential')
@@ -137,7 +139,6 @@ def test_energy_jacobi_conservation():
     jactol['mockFlatDehnenSmoothBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
-    jactol['mockSlowFlatLopsidedDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
@@ -161,7 +162,8 @@ def test_energy_jacobi_conservation():
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \
-                             or 'Dehnen' in p): ttimes= growtimes
+                             or 'Dehnen' in p or 'Cosmphi' in p):
+                ttimes= growtimes
             elif integrator == 'dopr54_c' \
                     and not 'MovingObject' in p \
                     and not p == 'FerrersPotential': ttimes= times
@@ -185,7 +187,8 @@ def test_energy_jacobi_conservation():
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
                     or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
-                    or p == 'mockMovingObjectLongIntPotential':
+                    or p == 'mockMovingObjectLongIntPotential' \
+                    or 'Cosmphi' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -482,8 +485,9 @@ def test_liouville_planar():
                and not 'evaluate' in p and not 'Wrapper' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
+    pots.append('mockFlatCosmphiDiskPotential')
+    pots.append('mockFlatCosmphiDiskwBreakPotential')
     pots.append('mockSlowFlatEllipticalDiskPotential')
-    pots.append('mockSlowFlatLopsidedDiskPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockFlatDehnenBarPotential')
     pots.append('mockSlowFlatDehnenBarPotential')

@@ -98,12 +98,7 @@ def _parse_pot(pot):
             pot_args.extend([p._Pot._amp,p._Pot._a,p._Pot._b])
         elif isinstance(p,potential.LopsidedDiskPotential):
             pot_type.append(6)
-            if p._tform is None:
-                pot_args.extend([p._amp,float('nan'), float('nan'),
-                                 p._mphio,p._p,p._phib])
-            else:
-                pot_args.extend([p._amp,p._tform,p._tsteady,
-                                 p._mphio,p._p,p._phib])
+            pot_args.extend([p._amp,p._mphio,p._p,p._phib])
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.PowerSphericalPotential):
             pot_type.append(7)
@@ -246,6 +241,10 @@ def _parse_pot(pot):
             pot_args.extend([len(p._Pot._Cs), p._Pot._amp, p._Pot._N, p._Pot._sin_alpha,
                              p._Pot._tan_alpha, p._Pot._r_ref, p._Pot._phi_ref, p._Pot._Rs, p._Pot._H, p._Pot._omega])
             pot_args.extend(p._Pot._Cs)
+        elif isinstance(p,potential.CosmphiDiskPotential):
+            pot_type.append(28)
+            pot_args.extend([p._amp,p._mphio,p._p,p._mphib,p._m,
+                             p._rb,p._rbp,p._rb2p,p._r1p])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

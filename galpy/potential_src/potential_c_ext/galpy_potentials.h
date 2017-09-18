@@ -451,6 +451,17 @@ double SolidBodyRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double SolidBodyRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//CosmphiDiskPotential
+double CosmphiDiskPotentialRforce(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialphiforce(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialR2deriv(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialphi2deriv(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialRphideriv(double,double,double,
+					   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

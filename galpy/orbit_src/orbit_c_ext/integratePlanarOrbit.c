@@ -73,13 +73,13 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 3;
       break;
-    case 6: //LopsidedDiskPotential, 6 arguments
+    case 6: //LopsidedDiskPotential, 4 arguments
       potentialArgs->planarRforce= &LopsidedDiskPotentialRforce;
       potentialArgs->planarphiforce= &LopsidedDiskPotentialphiforce;
       potentialArgs->planarR2deriv= &LopsidedDiskPotentialR2deriv;
       potentialArgs->planarphi2deriv= &LopsidedDiskPotentialphi2deriv;
       potentialArgs->planarRphideriv= &LopsidedDiskPotentialRphideriv;
-      potentialArgs->nargs= 6;
+      potentialArgs->nargs= 4;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->planarRforce= &PowerSphericalPotentialPlanarRforce;
@@ -226,6 +226,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv = &SpiralArmsPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv = &SpiralArmsPotentialPlanarRphideriv;
       potentialArgs->nargs = (int) 10 + *pot_args;
+      break;
+    case 28: //CosmphiDiskPotential, 9 arguments
+      potentialArgs->planarRforce= &CosmphiDiskPotentialRforce;
+      potentialArgs->planarphiforce= &CosmphiDiskPotentialphiforce;
+      potentialArgs->planarR2deriv= &CosmphiDiskPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &CosmphiDiskPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &CosmphiDiskPotentialRphideriv;
+      potentialArgs->nargs= 9;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
