@@ -34,6 +34,9 @@ v1.3 (2017-XX-XX)
   potential from Cox and Gomez
   (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
 
+- Added galpy.df.schwarzschilddf, the simple Schwarzschild
+  distribution function for a razor-thin disk.
+
 - Upgraded DehnenBarPotential to a 3D potential following Monari et
   al. (2016) (#304).
 
