@@ -1,5 +1,15 @@
-DF
-===
+DF (``galpy.df``)
+==================
+
+General instance routines for all df classes
+----------------------------------------------------------
+
+
+.. toctree::
+   :maxdepth: 2
+
+   turn_physical_off <dfturnphysicaloff.rst>
+   turn_physical_on <dfturnphysicalon.rst>
 
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
@@ -56,6 +66,7 @@ Specific distribution functions
    :maxdepth: 2
 
    Dehnen DF <dfdehnen.rst>
+   Schwarzschild DF <dfschwarzschild.rst>
    Shu DF <dfshu.rst>
 
 
@@ -158,11 +169,13 @@ General instance routines
    __init__ <streamdf.rst>
    calc_stream_lb <streamdfcalcstreamlb.rst>
    callMarg <streamdfcallmarg.rst>
+   density_par <streamdfdenspar.rst>
    estimateTdisrupt <streamdfestimatetdisrupt.rst>
    find_closest_trackpoint <streamdffindclosesttrackpoint.rst>
    find_closest_trackpointLB <streamdffindclosesttrackpointlb.rst>
    freqEigvalRatio <streamdffreqeigvalratio.rst>
    gaussApprox <streamdfgaussapprox.rst>
+   length <streamdflength.rst>
    meanangledAngle <streamdfmeanangledangle.rst>
    meanOmega <streamdfmeanomega.rst>
    meantdAngle <streamdfmeantdangle.rst>
@@ -171,9 +184,42 @@ General instance routines
    plotCompareTrackAAModel <streamdfplotcomparetrackaamodel.rst>
    plotProgenitor <streamdfplotprogenitor.rst>
    plotTrack <streamdfplottrack.rst>
+   pOparapar <streamdfpoparapar.rst>
    ptdAngle <streamdfptdangle.rst>
    sample <streamdfsample.rst>
    sigangledAngle <streamdfsigangledangle.rst>
    sigOmega <streamdfsigomega.rst>
    sigtdAngle <streamdfsigtdangle.rst>
+   subhalo_encounters <streamdfsubhaloencounters.rst>
 
+The distribution function of a gap in a tidal stream
+----------------------------------------------------
+
+From `Sanders, Bovy, & Erkal 2015 <http://arxiv.org/abs/1510.03426>`_;
+see :ref:`streamgap-tutorial`. Implemented as a subclass of
+``streamdf``. No full implementation is available currently, but the
+model can be set up and sampled as in the above paper.
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __init__ <streamgapdf.rst>
+   sample <streamdfsample.rst>
+
+Helper routines to compute kicks
++++++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   impulse_deltav_plummer <impulse_deltav_plummer.rst>
+   impulse_deltav_plummer_curvedstream <impulse_deltav_plummer_curvedstream.rst>
+   impulse_deltav_hernquist <impulse_deltav_hernquist.rst>
+   impulse_deltav_hernquist_curvedstream <impulse_deltav_hernquist_curvedstream.rst>
+   impulse_deltav_general <impulse_deltav_general.rst>
+   impulse_deltav_general_curvedstream <impulse_deltav_general_curvedstream.rst>
+   impulse_deltav_general_orbitintegration <impulse_deltav_general_orbitintegration.rst>
+   impulse_deltav_general_fullplummerintegration <impulse_deltav_general_fullplummerintegration.rst>

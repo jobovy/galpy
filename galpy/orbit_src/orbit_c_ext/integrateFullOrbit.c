@@ -21,18 +21,6 @@ void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
-double calcRforce(double, double,double, double, 
-			int, struct potentialArg *);
-double calczforce(double, double,double, double, 
-			int, struct potentialArg *);
-double calcPhiforce(double, double,double, double, 
-			int, struct potentialArg *);
-double calcR2deriv(double, double, double,double, 
-			 int, struct potentialArg *);
-double calcphi2deriv(double, double, double,double, 
-			   int, struct potentialArg *);
-double calcRphideriv(double, double, double,double, 
-			   int, struct potentialArg *);
 /*
   Actual functions
 */
@@ -43,13 +31,8 @@ void parse_leapFuncArgs_Full(int npot,
   int ii,jj,kk;
   int nR, nz;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    potentialArgs->i2drforce= NULL;
-    potentialArgs->accxrforce= NULL;
-    potentialArgs->accyrforce= NULL;
-    potentialArgs->i2dzforce= NULL;
-    potentialArgs->accxzforce= NULL;
-    potentialArgs->accyzforce= NULL;
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -59,6 +42,12 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
+      break;
+    case 1: //DehnenBarPotential, 6 arguments
+      potentialArgs->Rforce= &DehnenBarPotentialRforce;
+      potentialArgs->phiforce= &DehnenBarPotentialphiforce;
+      potentialArgs->zforce= &DehnenBarPotentialzforce;
+      potentialArgs->nargs= 6;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
@@ -183,6 +172,96 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
       potentialArgs->nargs= 2;
       break;
+    case 18: //PseudoIsothermalPotential, 2 arguments
+      potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
+      potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->nargs= 2;
+      break;
+    case 19: //KuzminDiskPotential, 2 arguments
+      potentialArgs->Rforce= &KuzminDiskPotentialRforce;
+      potentialArgs->zforce= &KuzminDiskPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 20: //BurkertPotential, 2 arguments
+      potentialArgs->Rforce= &BurkertPotentialRforce;
+      potentialArgs->zforce= &BurkertPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 21: //TriaxialHernquistPotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialHernquistPotentialRforce;
+      potentialArgs->zforce= &TriaxialHernquistPotentialzforce;
+      potentialArgs->phiforce= &TriaxialHernquistPotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 22: //TriaxialNFWPotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialNFWPotentialRforce;
+      potentialArgs->zforce= &TriaxialNFWPotentialzforce;
+      potentialArgs->phiforce= &TriaxialNFWPotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 23: //TriaxialJaffePotential, lots of arguments
+      potentialArgs->Rforce= &TriaxialJaffePotentialRforce;
+      potentialArgs->zforce= &TriaxialJaffePotentialzforce;
+      potentialArgs->phiforce= &TriaxialJaffePotentialphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;      
+    case 24: //SCFPotential, many arguments
+      potentialArgs->Rforce= &SCFPotentialRforce;
+      potentialArgs->zforce= &SCFPotentialzforce;
+      potentialArgs->phiforce= &SCFPotentialphiforce;
+      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
+      break;
+    case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
+      potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
+      potentialArgs->phiforce= &SoftenedNeedleBarPotentialphiforce;
+      potentialArgs->nargs= (int) 13;
+      break;      
+    case 26: //DiskSCFPotential, nsigma+3 arguments
+      potentialArgs->Rforce= &DiskSCFPotentialRforce;
+      potentialArgs->zforce= &DiskSCFPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= (int) *(pot_args) + 3;
+      break;
+    case 27: // SpiralArmsPotential, 10 arguments + array of Cs
+      potentialArgs->Rforce = &SpiralArmsPotentialRforce;
+      potentialArgs->zforce = &SpiralArmsPotentialzforce;
+      potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
+      //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
+      potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
+      //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
+      potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
+      potentialArgs->nargs = (int) 10 + *pot_args;
+      break;    
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
+      potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
+      potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      break;
+    case -2: //SolidBodyRotationWrapperPotential
+      potentialArgs->Rforce= &SolidBodyRotationWrapperPotentialRforce;
+      potentialArgs->zforce= &SolidBodyRotationWrapperPotentialzforce;
+      potentialArgs->phiforce= &SolidBodyRotationWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      break;
+    }
+    if ( *(pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs_Full(potentialArgs->nwrapped,
+			      potentialArgs->wrappedPotentialArg,
+			      pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
@@ -207,7 +286,6 @@ void integrateFullOrbit(double *yo,
 			int * err,
 			int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
@@ -257,11 +335,7 @@ void integrateFullOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -278,7 +352,6 @@ void integrateOrbit_dxdv(double *yo,
 			 int * err,
 			 int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,pot_type,pot_args);
@@ -328,11 +401,7 @@ void integrateOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
 	      rtol,atol,result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -383,42 +452,6 @@ void evalRectDeriv(double t, double *q, double *a,
   *a= zforce;
 }
 
-double calcRforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double Rforce= 0.;
-  for (ii=0; ii < nargs; ii++){
-    Rforce+= potentialArgs->Rforce(R,Z,phi,t,
-				   potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return Rforce;
-}
-double calczforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double zforce= 0.;
-  for (ii=0; ii < nargs; ii++){
-    zforce+= potentialArgs->zforce(R,Z,phi,t,
-				   potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return zforce;
-}
-double calcPhiforce(double R, double Z, double phi, double t, 
-			  int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double phiforce= 0.;
-  for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->phiforce(R,Z,phi,t,
-				       potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return phiforce;
-}
 // LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
@@ -479,41 +512,4 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a= 0; //BOVY: PUT IN Z2DERIVS
 }
 
-double calcR2deriv(double R, double Z, double phi, double t, 
-		   int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double R2deriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,
-				     potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return R2deriv;
-}
-
-double calcphi2deriv(double R, double Z, double phi, double t, 
-			 int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double phi2deriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,
-					 potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return phi2deriv;
-}
-double calcRphideriv(double R, double Z, double phi, double t, 
-			   int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double Rphideriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,
-					 potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return Rphideriv;
-}
 // LCOV_EXCL_STOP

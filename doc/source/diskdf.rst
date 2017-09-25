@@ -57,15 +57,15 @@ parameters. We can estimate the DF's actual radial scale length near
 :math:`R_0` as
 
 >>> qdf.estimate_hr(1.)
-0.32908034635647182
+# 0.32908034635647182
 
 which is quite close to the input value of 1/3. Similarly, we can
 estimate the scale lengths of the dispersions
 
 >>> qdf.estimate_hsr(1.)
-1.1913935820372923
+# 1.1913935820372923
 >>> qdf.estimate_hsz(1.)
-1.0506918075359255
+# 1.0506918075359255
 
 The vertical profile is fully specified by the velocity dispersions
 and radial density / dispersion profiles under the assumption of
@@ -73,18 +73,18 @@ dynamical equilibrium. We can estimate the scale height of this DF at
 a given radius and height as follows
 
 >>> qdf.estimate_hz(1.,0.125)
-0.021389597757156088
+# 0.021389597757156088
 
 Near the mid-plane this vertical scale height becomes very large
 because the vertical profile flattens, e.g., 
 
 >>> qdf.estimate_hz(1.,0.125/100.)
-1.006386030587223
+# 1.006386030587223
 
 or even
 
 >>> qdf.estimate_hz(1.,0.)
-187649.98447377066
+# 187649.98447377066
 
 which is basically infinity.
 
@@ -97,18 +97,18 @@ velocity is again everywhere zero because the potential and the DF are
 axisymmetric
 
 >>> qdf.meanvR(1.,0.)
-0.0
+# 0.0
 
 Likewise, the mean vertical velocity is everywhere zero
 
 >>> qdf.meanvz(1.,0.)
-0.0
+# 0.0
 
 The mean rotational velocity has a more interesting dependence on
 position. Near the plane, this is the same as that calculated for a similar two-dimensional disk DF (see :ref:`dftwod-moments`)
 
 >>> qdf.meanvT(1.,0.)
-0.91988346380781227
+# 0.91988346380781227
 
 However, this value decreases as one moves further from the plane. The
 ``quasiisothermaldf`` allows us to calculate the average rotational
@@ -128,20 +128,20 @@ whether the radial and velocity dispersions at :math:`R_0` are close
 to their input values
 
 >>> numpy.sqrt(qdf.sigmaR2(1.,0.))
-0.20807112565801389
+# 0.20807112565801389
 >>> numpy.sqrt(qdf.sigmaz2(1.,0.))
-0.090453510526130904
+# 0.090453510526130904
 
 and they are pretty close. We can also calculate the mixed *R* and *z*
 moment, for example,
 
 >>> qdf.sigmaRz(1.,0.125)
-0.0
+# 0.0
 
 or expressed as an angle (the *tilt of the velocity ellipsoid*)
 
 >>> qdf.tilt(1.,0.125)
-0.0
+# 0.0
 
 This tilt is zero because we are using the adiabatic approximation. As
 this approximation assumes that the motions in the plane are decoupled
@@ -158,7 +158,7 @@ instance with the Staeckel approximation
 we can similarly calculate the tilt
 
 >>> qdfS.tilt(1.,0.125)
-5.9096430410862419
+# 5.9096430410862419
 
 or about 5 degrees. As a function of height, we find
 
@@ -217,7 +217,7 @@ Evaluating and sampling the full probability distribution function
 We can evaluate the distribution itself by calling the object, e.g.,
 
 >>> qdf(1.,0.1,1.1,0.1,0.) #input: R,vR,vT,z,vz
-array([ 16.86790643])
+# array([ 16.86790643])
 
 or as a function of rotational velocity, for example in the mid-plane
 
@@ -235,7 +235,7 @@ vertical velocities. We can calculate the distribution of rotational
 velocities marginalized over the radial and vertical velocities as
 
 >>> qdfS.pvT(1.,1.,0.) #input vT,R,z
-14.677231196899195
+# 14.677231196899195
 
 or as a function of rotational velocity
 

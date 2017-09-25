@@ -10,7 +10,10 @@ import math as m
 import numpy
 from scipy import special, optimize
 from galpy.util import bovy_conversion
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
@@ -19,7 +22,8 @@ class TwoPowerSphericalPotential(Potential):
 
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^\\alpha\\,(1+r/a)^{\\beta-\\alpha}}
     """
-    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -31,15 +35,17 @@ class TwoPowerSphericalPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            alpha - inner power
 
            beta - outer power
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -50,20 +56,22 @@ class TwoPowerSphericalPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        self.a= a
-        self._scale= self.a
-        self.alpha= alpha
-        self.beta= beta
         if alpha == round(alpha) and beta == round(beta):
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
                                                            alpha=int(alpha),
                                                            beta=int(beta),
                                                            normalize=False)
             self.integerSelf= integerSelf
         else:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             self.integerSelf= None
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        self.a= a
+        self._scale= self.a
+        self.alpha= alpha
+        self.beta= beta
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -217,52 +225,56 @@ class TwoPowerSphericalPotential(Potential):
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
     the case of integer powers"""
-    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False):
+    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
            __init__
         PURPOSE:
            initialize a two-power-density potential for integer powers
         INPUT:
-           amp - amplitude to be applied to the potential (default: 1)
-           a - "scale" (in terms of Ro)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           a - scale radius (can be Quantity)
            alpha - inner power (default: NFW)
            beta - outer power (default: NFW)
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
         OUTPUT:
            (none)
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        self.alpha= alpha
-        self.beta= beta
-        self.a= a
-        self._scale= self.a
         if alpha == 1 and beta == 4:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= HernquistSelf
             self.JaffeSelf= None
             self.NFWSelf= None
         elif alpha == 2 and beta == 4:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             JaffeSelf= JaffePotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= JaffeSelf
             self.NFWSelf= None
         elif alpha == 1 and beta == 3:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             NFWSelf= NFWPotential(amp=1.,a=a,normalize=False)
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= NFWSelf
         else:
-            Potential.__init__(self,amp=amp)
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             self.HernquistSelf= None
             self.JaffeSelf= None
             self.NFWSelf= None
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        self.alpha= alpha
+        self.beta= beta
+        self.a= a
+        self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -358,7 +370,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{3}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -370,11 +383,13 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -385,7 +400,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
         self.alpha= 1
@@ -518,7 +535,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^2\\,(1+r/a)^{2}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False):
+    def __init__(self,amp=1.,a=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -530,11 +548,13 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -545,7 +565,9 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -682,7 +704,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
     """
     def __init__(self,amp=1.,a=1.,normalize=False,
                  conc=None,mvir=None,
-                 vo=220.,ro=8.,
+                 vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
         """
         NAME:
@@ -695,9 +717,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "scale" (in terms of Ro)
+           a - scale radius (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -710,10 +732,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
            in which case you also need to supply the following keywords
            
-              vo= (220.) velocity unit in km/s
-
-              ro= (8.) length unit in kpc
-
               H= (default: 70) Hubble constant in km/s/Mpc
            
               Om= (default: 0.3) Omega matter
@@ -722,6 +740,8 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
               wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
            
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
 
            (none)
@@ -733,7 +753,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
         if conc is None:
             self.a= a
             self.alpha= 1
@@ -744,10 +766,14 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
                 self.normalize(normalize)
         else:
             if wrtcrit:
-                od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+                od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
+                                                                  self._ro,H=H)
             else:
-                od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
-            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(vo,ro)
+                od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
+                                                                    self._ro,
+                                                                    H=H,Om=Om)
+            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
+                                                                    self._ro)
             rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
@@ -878,7 +904,9 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    def rvir(self,vo,ro,H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+    @bovy_conversion.physical_conversion('position',pop=False)
+    def rvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,ro=None,vo=None,
+             use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
         NAME:
 
@@ -890,10 +918,6 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           vo - velocity unit in km/s
-
-           ro - length unit in kpc
-
            H= (default: 70) Hubble constant in km/s/Mpc
            
            Om= (default: 0.3) Omega matter
@@ -901,21 +925,28 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            overdens= (200) overdensity which defines the virial radius
 
            wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-           
+
+           ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
+
+           vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
+
         OUTPUT:
         
-           virial radius in natural units
+           virial radius
         
         HISTORY:
 
            2014-01-29 - Written - Bovy (IAS)
 
         """
+        if ro is None: ro= self._ro
+        if vo is None: vo= self._vo
         if wrtcrit:
             od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
         else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
-        dc= 12.*self.dens(self.a,0.)/od
+            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,
+                                                                H=H,Om=Om)
+        dc= 12.*self.dens(self.a,0.,use_physical=False)/od
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
                            0.01,100.)
         return x*self.a

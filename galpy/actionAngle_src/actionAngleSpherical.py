@@ -13,7 +13,8 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential import evaluatePotentials, epifreq, omegac
+from galpy.potential import epifreq, omegac
+from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.actionAngle_src.actionAngle import *
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
@@ -21,15 +22,32 @@ class actionAngleSpherical(actionAngle):
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleSpherical object
+
         INPUT:
+
            pot= a Spherical potential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
+
            2013-12-28 - Written - Bovy (IAS)
+
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= kwargs['pot']
@@ -46,12 +64,14 @@ class actionAngleSpherical(actionAngle):
             self._c= True #pragma: no cover
         else:
             self._c= False
+        # Check the units
+        self._check_consistent_units()
         return None
 
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -72,12 +92,12 @@ class actionAngleSpherical(actionAngle):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -91,7 +111,8 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= _evaluatePotentials(self._pot,R,z)\
+                +vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -111,10 +132,10 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
             return (nu.array(Jr),Jphi,Jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -135,12 +156,12 @@ class actionAngleSpherical(actionAngle):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -154,7 +175,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -176,8 +197,8 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR[ii]))
-                    Op.append(omegac(self._pot,axiR[ii]))
+                    Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
+                    Op.append(omegac(self._pot,axiR[ii],use_physical=False))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
@@ -187,10 +208,10 @@ class actionAngleSpherical(actionAngle):
             Op[vT < 0.]*= -1.
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
     
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,ap,az)
@@ -212,13 +233,13 @@ class actionAngleSpherical(actionAngle):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
-            phi= meta._phi
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+            phi= self._eval_phi
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -233,7 +254,7 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            E= evaluatePotentials(R,z,self._pot)+vR**2./2.+vT**2./2.+vz**2./2.
+            E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             #Actions
             Jphi= Lz
@@ -261,8 +282,8 @@ class actionAngleSpherical(actionAngle):
                 #Radial period
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR[ii]))
-                    Op.append(omegac(self._pot,axiR[ii]))
+                    Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
+                    Op.append(omegac(self._pot,axiR[ii],use_physical=False))
                 else:
                     Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                     Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))

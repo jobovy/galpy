@@ -15,7 +15,12 @@ import copy
 import numpy as nu
 from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential
-class actionAngleIsochrone(object):
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+class actionAngleIsochrone(actionAngle):
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
     def __init__(self,*args,**kwargs):
         """
@@ -26,23 +31,38 @@ class actionAngleIsochrone(object):
         INPUT:
            Either:
 
-              b= scale parameter of the isochrone parameter
+              b= scale parameter of the isochrone parameter (can be Quantity)
 
               ip= instance of a IsochronePotential
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+        
+           instance
+
         HISTORY:
            2013-09-08 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
         if 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+            # Check the units
+            self._pot= ip
+            self._check_consistent_units()
             self.b= ip.b
             self.amp= ip._amp
         else:
             self.b= kwargs['b']
+            if _APY_LOADED and isinstance(self.b,units.Quantity):
+                self.b= self.b.to(units.kpc).value/self._ro
             rb= nu.sqrt(self.b**2.+1.)
             self.amp= (self.b+rb)**2.*rb
         self._c= False
@@ -56,12 +76,14 @@ class actionAngleIsochrone(object):
             self._ip= IsochronePotential(amp=self.amp,b=self.b)
         #Define _pot, because some functions that use actionAngle instances need this
         self._pot= IsochronePotential(amp=self.amp,b=self.b)
+        # Check the units
+        self._check_consistent_units()
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -80,12 +102,12 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -108,10 +130,10 @@ class actionAngleIsochrone(object):
                 -0.5*(L+nu.sqrt((L2+4.*self.amp*self.b)))
             return (Jr,Jphi,Jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -130,12 +152,12 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -164,10 +186,10 @@ class actionAngleIsochrone(object):
             Omegaphi[indx]*= -1.
             return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz)
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
@@ -187,13 +209,13 @@ class actionAngleIsochrone(object):
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
-            meta= actionAngle(*args)
-            R= meta._R
-            vR= meta._vR
-            vT= meta._vT
-            z= meta._z
-            vz= meta._vz
-            phi= meta._phi
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+            phi= self._eval_phi
         if isinstance(R,float):
             R= nu.array([R])
             vR= nu.array([vR])
@@ -267,7 +289,7 @@ class actionAngleIsochrone(object):
             Omega= phi-u
             anglephi= Omega
             anglephi[indx]-= anglez[indx]
-            anglephi[True-indx]+= anglez[True-indx]
+            anglephi[True^indx]+= anglez[True^indx]
             angler= angler % (2.*nu.pi)
             anglephi= anglephi % (2.*nu.pi)
             anglez= anglez % (2.*nu.pi)

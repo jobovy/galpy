@@ -17,13 +17,21 @@ import warnings
 import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
-from galpy.potential import dvcircdR, vcirc
+from galpy.potential import dvcircdR, vcirc, _isNonAxi
 from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
+from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, time_in_Gyr
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
-class actionAngleIsochroneApprox(object):
+_APY_LOADED= True
+try:
+    from astropy import units
+except ImportError:
+    _APY_LOADED= False
+class actionAngleIsochroneApprox(actionAngle):
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
         """
@@ -35,7 +43,7 @@ class actionAngleIsochroneApprox(object):
 
            Either:
 
-              b= scale parameter of the isochrone parameter
+              b= scale parameter of the isochrone parameter (can be Quantity)
 
               ip= instance of a IsochronePotential
 
@@ -43,16 +51,29 @@ class actionAngleIsochroneApprox(object):
 
            pot= potential to calculate action-angle variables for
 
-           tintJ= (default: 100) time to integrate orbits for to estimate actions
+           tintJ= (default: 100) time to integrate orbits for to estimate actions (can be Quantity)
 
            ntintJ= (default: 10000) number of time-integration points
 
            integrate_method= (default: 'dopr54_c') integration method to use
 
+           dt= (None) orbit.integrate dt keyword (for fixed stepsize integration)
+
+           maxn= (default: 3) Default value for all methods when using a grid in vec(n) up to this n (zero-based)
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
         OUTPUT:
+
+           instance
+
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= kwargs['pot']
@@ -72,12 +93,21 @@ class actionAngleIsochroneApprox(object):
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
-            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=kwargs['b'],
+            if _APY_LOADED and isinstance(kwargs['b'],units.Quantity):
+                b= kwargs['b'].to(units.kpc).value/self._ro
+            else:
+                b= kwargs['b']
+            self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=b,
                                                                   normalize=1.))
         self._tintJ= kwargs.get('tintJ',100.)
+        if _APY_LOADED and isinstance(self._tintJ,units.Quantity):
+            self._tintJ= self._tintJ.to(units.Gyr).value\
+                /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
+        self._integrate_dt= kwargs.get('dt',None)
         self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
+        self._maxn= kwargs.get('maxn',3)
         self._c= False
         ext_loaded= False
         if ext_loaded and (('c' in kwargs and kwargs['c'])
@@ -85,12 +115,14 @@ class actionAngleIsochroneApprox(object):
             self._c= True
         else:
             self._c= False
+        # Check the units
+        self._check_consistent_units()
         return None
     
-    def __call__(self,*args,**kwargs):
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           __call__
+           _evaluate
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -101,8 +133,6 @@ class actionAngleIsochroneApprox(object):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
            cumul= if True, return the cumulative average actions (to look 
                   at convergence)
         OUTPUT:
@@ -115,12 +145,12 @@ class actionAngleIsochroneApprox(object):
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
-            acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                               vR.flatten(),
-                                               vT.flatten(),
-                                               z.flatten(),
-                                               vz.flatten(),
-                                               phi.flatten())
+            acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                vR.flatten(),
+                                                vT.flatten(),
+                                                z.flatten(),
+                                                vz.flatten(),
+                                                phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -139,7 +169,7 @@ class actionAngleIsochroneApprox(object):
                 sumFunc= nu.sum
             jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
             jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            if kwargs.get('nonaxi',False):
+            if _isNonAxi(self._pot):
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
@@ -151,10 +181,10 @@ class actionAngleIsochroneApprox(object):
                 lz= R[:,0]*vT[:,0]
             return (jr,lz,jz)
 
-    def actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqs
+           _actionsFreqs
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -165,20 +195,18 @@ class actionAngleIsochroneApprox(object):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        acfs= self.actionsFreqsAngles(*args,**kwargs)
+        acfs= self._actionsFreqsAngles(*args,**kwargs)
         return (acfs[0],acfs[1],acfs[2],acfs[3],acfs[4],acfs[5])
 
-    def actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           actionsFreqsAngles
+           _actionsFreqsAngles
         PURPOSE:
            evaluate the actions, frequencies, and angles 
            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
@@ -190,9 +218,7 @@ class actionAngleIsochroneApprox(object):
                  3) numpy.ndarray: [N,M] phase-space values for N objects at M
                     times
               b) Orbit instance or list thereof; can be integrated already
-           maxn= (default: 3) Use a grid in vec(n) up to this n (zero-based)
-           nonaxi= set to True to also calculate Lz using the isochrone 
-                   approximation for non-axisymmetric potentials
+           maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
            _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
@@ -201,8 +227,6 @@ class actionAngleIsochroneApprox(object):
            2013-09-10 - Written - Bovy (IAS)
         """
         from galpy.orbit import Orbit
-        if kwargs.get('nonaxi',False):
-            raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet') #once this is implemented, remove the pragma further down
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
         if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
@@ -215,23 +239,26 @@ class actionAngleIsochroneApprox(object):
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
+            if _APY_LOADED and isinstance(ts,units.Quantity):
+                ts= ts.to(units.Gyr).value\
+                    /time_in_Gyr(self._vo,self._ro)
         else:
             ts= nu.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
             ts[:self._ntintJ-1]= -self._tsJ[1:][::-1]
-        maxn= kwargs.get('maxn',3)
+        maxn= kwargs.get('maxn',self._maxn)
         if self._c: #pragma: no cover
             pass
         else:
             #Use self._aAI to calculate the actions and angles in the isochrone potential
             if '_acfs' in kwargs: acfs= kwargs['_acfs']
             else:
-                acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                                   vR.flatten(),
-                                                   vT.flatten(),
-                                                   z.flatten(),
-                                                   vz.flatten(),
-                                                   phi.flatten())
+                acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                                    vR.flatten(),
+                                                    vT.flatten(),
+                                                    z.flatten(),
+                                                    vz.flatten(),
+                                                    phi.flatten())
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
             anglerI= nu.reshape(acfs[6],R.shape)
@@ -246,7 +273,7 @@ class actionAngleIsochroneApprox(object):
             danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
             jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
-            if kwargs.get('nonaxi',False): #pragma: no cover
+            if _isNonAxi(self._pot): #pragma: no cover
                 lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
                 anglephiI= nu.reshape(acfs[7],R.shape)
                 if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
@@ -264,12 +291,16 @@ class actionAngleIsochroneApprox(object):
             anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
             negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
             negFreqPhi[negFreqIndx]= True
-            anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+            anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
             angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
             #Write the angle-fit as Y=AX, build A and Y
             nt= len(ts)
             no= R.shape[0]
-            nn= maxn*(2*maxn-1)-maxn #remove 0,0,0
+            #remove 0,0,0 and half-plane
+            if _isNonAxi(self._pot):
+                nn= (2*maxn-1)**2*maxn-(maxn-1)*(2*maxn-1)-maxn
+            else:
+                nn= maxn*(2*maxn-1)-maxn 
             A= nu.zeros((no,nt,2+nn))
             A[:,:,0]= 1.
             A[:,:,1]= ts
@@ -277,19 +308,33 @@ class actionAngleIsochroneApprox(object):
             phig= list(nu.arange(-maxn+1,maxn,1))
             phig.sort(key = lambda x: abs(x))
             phig= nu.array(phig,dtype='int')
-            grid= nu.meshgrid(nu.arange(maxn),
-                              phig)
+            if _isNonAxi(self._pot):
+                grid= nu.meshgrid(nu.arange(maxn),phig,phig)
+            else:
+                grid= nu.meshgrid(nu.arange(maxn),phig)
             gridR= grid[0].T.flatten()[1:] #remove 0,0,0
             gridZ= grid[1].T.flatten()[1:]
             mask = nu.ones(len(gridR),dtype=bool)
-            mask[:2*maxn-3:2]= False
+            # excludes axis that is not in half-space
+            if _isNonAxi(self._pot):
+                gridphi= grid[2].T.flatten()[1:]
+                mask= True\
+                    ^(gridR == 0)*((gridphi < 0)+((gridphi==0)*(gridZ < 0)))
+            else:
+                mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
             gridZ= gridZ[mask]
             tangleR= nu.tile(angleRT.T,(nn,1,1)).T
             tgridR= nu.tile(gridR,(no,nt,1))
             tangleZ= nu.tile(angleZT.T,(nn,1,1)).T
             tgridZ= nu.tile(gridZ,(no,nt,1))
-            sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
+            if _isNonAxi(self._pot):
+                gridphi= gridphi[mask]
+                tgridphi= nu.tile(gridphi,(no,nt,1))
+                tanglephi= nu.tile(anglephiT.T,(nn,1,1)).T
+                sinnR= nu.sin(tgridR*tangleR+tgridphi*tanglephi+tgridZ*tangleZ)
+            else:
+                sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
             A[:,:,2:]= sinnR
             #Matrix magic
             atainv= nu.empty((no,2+nn,2+nn))
@@ -352,12 +397,12 @@ class actionAngleIsochroneApprox(object):
         #Parse input
         R,vR,vT,z,vz,phi= self._parse_args('a' in type,False,*args)
         #Use self._aAI to calculate the actions and angles in the isochrone potential
-        acfs= self._aAI.actionsFreqsAngles(R.flatten(),
-                                           vR.flatten(),
-                                           vT.flatten(),
-                                           z.flatten(),
-                                           vz.flatten(),
-                                           phi.flatten())
+        acfs= self._aAI._actionsFreqsAngles(R.flatten(),
+                                            vR.flatten(),
+                                            vT.flatten(),
+                                            z.flatten(),
+                                            vz.flatten(),
+                                            phi.flatten())
         if type == 'jr' or type == 'lz' or type == 'jz':
             jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
             jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
@@ -438,8 +483,6 @@ class actionAngleIsochroneApprox(object):
                                     colorbar=True,
                                     **kwargs)
         else:
-            if kwargs.get('nonaxi',False):
-                raise NotImplementedError('angles for non-axisymmetric potentials not implemented yet')
             if deperiod:
                 if 'ar' in type:
                     angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
@@ -452,7 +495,7 @@ class actionAngleIsochroneApprox(object):
                     anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
                     negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
                     negFreqPhi[negFreqIndx]= True
-                    anglephiT[True-negFreqIndx,:]= dePeriod(acfs7[True-negFreqIndx,:])
+                    anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
                 else:
                     anglephiT= nu.reshape(acfs[7],R.shape)
                 if 'az' in type:
@@ -565,6 +608,7 @@ class actionAngleIsochroneApprox(object):
                 os= args[0]
                 if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
+            self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0]._orb,'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
@@ -572,7 +616,8 @@ class actionAngleIsochroneApprox(object):
                         o._orb.vxvv[2]= -o._orb.vxvv[2]
                         o._orb.vxvv[4]= -o._orb.vxvv[4]
                 [o.integrate(self._tsJ,pot=self._pot,
-                             method=self._integrate_method) for o in os]
+                             method=self._integrate_method,
+                             dt=self._integrate_dt) for o in os]
                 if _firstFlip:
                     for o in os:
                         o._orb.vxvv[1]= -o._orb.vxvv[1]
@@ -631,7 +676,8 @@ class actionAngleIsochroneApprox(object):
                 os= [Orbit([R[ii,0],-vR[ii,0],-vT[ii,0],z[ii,0],-vz[ii,0],phi[ii,0]]) for ii in range(R.shape[0])]
             #integrate orbits
             [o.integrate(self._tsJ,pot=self._pot,
-                         method=self._integrate_method) for o in os]
+                         method=self._integrate_method,
+                         dt=self._integrate_dt) for o in os]
             #extract phase-space points along the orbit
             ts= self._tsJ
             if _firstFlip:
@@ -656,32 +702,55 @@ class actionAngleIsochroneApprox(object):
         else:
             return (R,vR,vT,z,vz,phi)
 
-def estimateBIsochrone(R,z,pot=None):
+@potential_physical_input
+@physical_conversion('position',pop=True)
+def estimateBIsochrone(pot,R,z,phi=None):
     """
     NAME:
+
        estimateBIsochrone
+
     PURPOSE:
+
        Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
+
     INPUT:
-       R,z = coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       pot= Potential instance or list thereof
+
+       pot- Potential instance or list thereof
+
+       R,z - coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
+
+       phi= (None) azimuth to use for non-axisymmetric potentials (array if R and z are arrays)
+
     OUTPUT:
+
        b if 1 R,Z given
+
        bmin,bmedian,bmax if multiple R given       
+
     HISTORY:
+
        2013-09-12 - Written - Bovy (IAS)
+
+       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+
+       2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
     """
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,nu.ndarray):
-        bs= nu.array([estimateBIsochrone(R[ii],z[ii],pot=pot) for ii in range(len(R))])
-        return (nu.amin(bs[True-nu.isnan(bs)]),
-                nu.median(bs[True-nu.isnan(bs)]),
-                nu.amax(bs[True-nu.isnan(bs)]))
+        if phi is None: phi= [None for r in R]
+        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
+                                         use_physical=False)
+                      for ii in range(len(R))])
+        return nu.array([nu.amin(bs[True^nu.isnan(bs)]),
+                         nu.median(bs[True^nu.isnan(bs)]),
+                         nu.amax(bs[True^nu.isnan(bs)])])
     else:
         r2= R**2.+z**2
         r= math.sqrt(r2)
-        dlvcdlr= dvcircdR(pot,r)/vcirc(pot,r)*r
+        dlvcdlr= dvcircdR(pot,r,phi=phi,use_physical=False)/vcirc(pot,r,phi=phi,use_physical=False)*r
         try:
             b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)

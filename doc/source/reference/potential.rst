@@ -1,6 +1,6 @@
 .. _potential-api:
-Potential
-=========
+Potential (``galpy.potential``)
+===============================
 
 3D potentials
 -------------
@@ -32,9 +32,12 @@ Use as ``Potential-instance.method(...)``
    R2deriv <potentialr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
+   rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   turn_physical_off <potentialturnphysicaloff.rst>
+   turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
    verticalfreq <potentialverticalfreq.rst>
    vesc <potentialvesc.rst>
@@ -67,6 +70,7 @@ Use as ``method(...)``
    evaluateR2derivs <potentialr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
+   evaluaterforces <potentialsphrforces.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
    flattening <potentialflattenings.rst>
@@ -79,45 +83,99 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
    vterm <potentialvterms.rst>
 
+In addition to these, the following methods are available to compute expansion coefficients for the ``SCFPotential`` class for a given density
+
+.. toctree::
+   :maxdepth: 2
+
+   scf_compute_coeffs <potentialscfcompute.rst>
+   scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>
+   scf_compute_coeffs_spherical <potentialscfcomputesphere.rst>
+
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
+
+All of the following potentials can also be modified by the specific ``WrapperPotentials`` listed :ref:`below <potwrapperapi>`.
+
+Spherical potentials
+********************
 
 .. toctree::
    :maxdepth: 2
 
    potentialburkert.rst
-   potentialdoubleexp.rst
    potentialdoublepowerspher.rst
    potentialjaffe.rst
-   potentialflattenedpower.rst
    potentialhernquist.rst
-   potentialinterprz.rst
-   potentialinterpsnapshotrzpotential.rst
    potentialisochrone.rst
    potentialkepler.rst
-   potentialkuzminkutuzov.rst
-   potentialloghalo.rst
-   potentialmiyamoto.rst
-   potential3mn.rst
-   potentialmovingobj.rst
    potentialnfw.rst
    potentialplummer.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
+   potentialpseudoiso.rst
+
+Axisymmetric potentials
+***********************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdoubleexp.rst
+   potentialflattenedpower.rst
+   potentialinterprz.rst
+   potentialinterpsnapshotrzpotential.rst
+   potentialkuzmindisk.rst
+   potentialkuzminkutuzov.rst
+   potentialloghalo.rst
+   potentialmiyamoto.rst
+   potential3mn.rst
    potentialrazorexp.rst
    potentialsnapshotrzpotential.rst
+
+Triaxial, spiral, and bar potentials
+************************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdehnenbar.rst
+   potentialdoublepowertriaxial.rst
+   potentialferrers.rst
+   potentialmovingobj.rst
+   potentialsoftenedneedle.rst
+   potentialspiralarms.rst
+   potentialtriaxialjaffe.rst
+   potentialtriaxialhernquist.rst
+   potentialtriaxialnfw.rst
+
+All ``galpy`` potentials can also be made to rotate using the ``SolidBodyRotationWrapperPotential`` listed in the section on wrapper potentials :ref:`below <potwrapperapi>`.
+
+General Poisson solvers for disks and halos
+*******************************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdiskscf.rst
+   potentialscf.rst
 
 .. _potential-mw:
 
 In addition to these classes, a simple Milky-Way-like potential fit to
 data on the Milky Way is included as
 ``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
-details). This potential is defined as
+details). Note that this potential assumes a circular velocity of 220
+km/s at the solar radius at 8 kpc; see `arXiv/1412.3451
+<http://arxiv.org/abs/1412.3451>`_ for full information on how this
+potential was fit. This potential is defined as
 
 >>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
 >>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
@@ -164,6 +222,8 @@ Use as ``Potential-instance.method(...)``
    __call__ <potential2dcall.rst>
    phiforce <potential2dphiforce.rst>
    Rforce <potential2drforce.rst>
+   turn_physical_off <potential2dturnphysicaloff.rst>
+   turn_physical_on <potential2dturnphysicalon.rst>
 
 General axisymmetric potential instance routines
 ++++++++++++++++++++++++++++++++++++++++++++++++
@@ -199,9 +259,11 @@ Use as ``method(...)``
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
 
 All of the 3D potentials above can be used as two-dimensional
 potentials in the mid-plane. 
@@ -209,9 +271,10 @@ potentials in the mid-plane.
 .. toctree::
    :maxdepth: 2
 
+   toPlanarPotential (general) <potential2dtoplanar.rst>
    RZToplanarPotential <potential2dRZtoplanar.rst>
 
-In addition, a two-dimensional bar potential and a two spiral potentials are included
+In addition, a two-dimensional bar potential, two spiral potentials, and some static non-axisymmetric perturbations are included
 
 .. toctree::
    :maxdepth: 2
@@ -239,7 +302,8 @@ Use as ``Potential-instance.method(...)``
    __call__ <potential1dcall.rst>
    force <potential1dforce.rst>
    plot <potential1dplot.rst>
-
+   turn_physical_off <potential1dturnphysicaloff.rst>
+   turn_physical_on <potential1dturnphysicalon.rst>
 
 General 1D potential routines
 +++++++++++++++++++++++++++++
@@ -252,9 +316,11 @@ Use as ``method(...)``
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
    plotlinearPotentials <potential1dplots.rst>
+   turn_physical_off <potentialturnphysicaloffs.rst>
+   turn_physical_on <potentialturnphysicalons.rst>
 
 Specific potentials
-++++++++++++++++++++
++++++++++++++++++++
 
 .. toctree::
    :maxdepth: 2
@@ -267,3 +333,19 @@ One-dimensional potentials can also be derived from 3D axisymmetric potentials a
    :maxdepth: 2
 
    RZToverticalPotential <potential1dRZtolinear.rst>
+
+.. _potwrapperapi:
+
+Potential wrappers
+-------------------
+
+Gravitational potentials in ``galpy`` can also be modified using wrappers, for example, to change their amplitude as a function of time. These wrappers can be applied to *any* ``galpy`` potential (although whether they can be used in C depends on whether the wrapper *and* all of the potentials that it wraps are implemented in C). Multiple wrappers can be applied to the same potential.
+
+Specific wrappers
+++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialdehnensmoothwrapper.rst
+   potentialsolidbodyrotationwrapper.rst

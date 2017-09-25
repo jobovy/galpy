@@ -4,7 +4,10 @@
 ###############################################################################
 import warnings
 import numpy as nu
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 from galpy.util import galpyWarning
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
@@ -15,7 +18,8 @@ class LogarithmicHaloPotential(Potential):
         \\Phi(R,z) = \\frac{\\mathrm{amp}}{2}\\,\\ln\\left(R^2+(z/q)^2+\\mathrm{core}^2\\right)
 
     """
-    def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False):
+    def __init__(self,amp=1.,core=_CORE,q=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -27,13 +31,15 @@ class LogarithmicHaloPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of velocity-squared
 
-           core - core radius at which the logarithm is cut
+           core - core radius at which the logarithm is cut (can be Quantity)
 
            q - potential flattening (z/q)**2.
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -44,7 +50,9 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
+        if _APY_LOADED and isinstance(core,units.Quantity):
+            core= core.to(units.kpc).value/self._ro
         self.hasC= True
         self.hasC_dxdv= True
         self._core2= core**2.

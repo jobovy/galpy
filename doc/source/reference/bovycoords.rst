@@ -1,6 +1,9 @@
 galpy.util.bovy_coords
 =======================
 
+.. WARNING::
+   ``galpy`` uses a left-handed coordinate frame, as is common in studies of the kinematics of the Milky Way. Care should be taken when using the coordinate transformation routines below for coordinates in a right-handed frame, the routines do not always apply and are only tested for the standard ``galpy`` left-handed frame.
+
 Various coordinate transformation routines with fairly
 self-explanatory names:
 
@@ -20,7 +23,9 @@ self-explanatory names:
    lbd_to_XYZ <coordslbdtoxyz.rst>
    pmllpmbb_to_pmrapmdec <coordspmllpmbbtopmrapmdec.rst>
    pmrapmdec_to_pmllpmbb <coordspmrapmdectopmllpmbb.rst>
+   pmrapmdec_to_custom <coordspmrapmdectocustom.rst>
    radec_to_lb <coordsradectolb.rst>
+   radec_to_custom <coordsradectocustom.rst>
    rectgal_to_sphergal <coordsrectgaltosphergal.rst>
    rect_to_cyl <coordsrecttocyl.rst>
    rect_to_cyl_vec <coordsrecttocylvec.rst>

@@ -32,10 +32,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "signal.h"
+#include <bovy_symplecticode.h>
 #include <bovy_rk.h>
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
 #define _MAX_STEPREDUCE 10000.
+#define _MAX_DT_REDUCE 10000.
 /*
 Runge-Kutta 4 integrator
 Usage:
@@ -58,6 +61,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void bovy_rk4(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
@@ -87,7 +91,17 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a);
       to+= dt;
@@ -102,6 +116,9 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -172,7 +189,17 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a,
 		       k1,k2,k3,k4,k5);
@@ -189,6 +216,9 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
     //reset yn
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -281,6 +311,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double err= 2.;
   double max_val;
   double to= *t;
+  double init_dt= dt;
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -319,7 +350,11 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    dt/= fmax(ceil(pow(err,1./5.)),1.);
+    if ( ceil(pow(err,1./5.)) > 1. 
+	 && init_dt / dt * ceil(pow(err,1./5.)) < _MAX_DT_REDUCE)
+      dt/= ceil(pow(err,1./5.));
+    else 
+      break;
   }
   //free what we allocated
   free(yn);
@@ -344,6 +379,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double err= 2.;
   double max_val;
   double to= *t;
+  double init_dt= dt;
   double *yn= (double *) malloc ( dim * sizeof(double) );
   double *y1= (double *) malloc ( dim * sizeof(double) );
   double *y21= (double *) malloc ( dim * sizeof(double) );
@@ -390,7 +426,11 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    dt/= fmax(ceil(pow(err,1./7.)),1.);
+    if ( ceil(pow(err,1./7.)) > 1. 
+	 && init_dt / dt * ceil(pow(err,1./7.)) < _MAX_DT_REDUCE)
+      dt/= ceil(pow(err,1./7.));
+    else 
+      break;
   }
   //free what we allocated
   free(yn);
@@ -432,7 +472,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
-       int * err: if non-zero, something bad happened (1: maximum step reduction happened)
+       int * err: if non-zero, something bad happened (1: maximum step reduction happened; -10: interrupted by CTRL-C (SIGINT)
 */
 void bovy_dopr54(void (*func)(double t, double *q, double *a,
 			      int nargs, struct potentialArg * potentialArgs),
@@ -469,7 +509,17 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   double to= *t;
   //set up a1
   func(to,yn,a1,nargs,potentialArgs);
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
 			nargs,potentialArgs,rtol,atol,
 			a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,err);
@@ -477,6 +527,10 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
     save_rk(dim,yn,result);
     result+= dim;
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
+  // Free allocated memory
   free(a);
   free(a1);
   free(k1);
@@ -508,7 +562,8 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
   while ( ( dt >= 0. && *to < (init_to+dt)) 
 	  || ( dt < 0. && *to > (init_to+dt)) ) {
     accept= 0;
-    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE) {
+    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE 
+	 || *dt_one != *dt_one) { // check for NaN
       *dt_one= init_dt_one/_MAX_STEPREDUCE;
       accept= 1;
       if ( *err % 2 ==  0) *err+= 1;

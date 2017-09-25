@@ -5,8 +5,11 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                                        distance
 ###############################################################################
+import copy
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 from galpy.potential_src.ForceSoftening import PlummerSoftening
 class MovingObjectPotential(Potential):
     """Class that implements the potential coming from a moving object
@@ -25,6 +28,7 @@ class MovingObjectPotential(Potential):
 
     """
     def __init__(self,orbit,amp=1.,GM=.06,
+                 ro=None,vo=None,
                  softening=None,
                  softening_model='plummer',softening_length=0.01):
         """
@@ -40,9 +44,9 @@ class MovingObjectPotential(Potential):
 
            orbit - the Orbit of the object (Orbit object)
 
-           amp= - amplitude to be applied to the potential (default: 1)
+           amp= - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           GM - 'mass' of the object (degenerate with amp)
+           GM - 'mass' of the object (degenerate with amp, don't use both); can be a Quantity with units of mass or Gxmass
 
            Softening: either provide
 
@@ -50,7 +54,9 @@ class MovingObjectPotential(Potential):
 
               b) softening_model=  type of softening to use ('plummer')
 
-                 softening_length= (optional)
+                 softening_length= (optional; can be Quantity)
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -61,9 +67,12 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
-        self._gm= GM
-        self._orb= orbit
+        Potential.__init__(self,amp=amp*GM,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(softening_length,units.Quantity):
+            softening_length= softening_length.to(units.kpc).value/self._ro
+        # Make sure we aren't getting physical outputs
+        self._orb= copy.deepcopy(orbit)
+        self._orb.turn_physical_off()
         if softening is None:
             if softening_model.lower() == 'plummer':
                 self._softening= PlummerSoftening(softening_length=softening_length)
@@ -92,7 +101,7 @@ class MovingObjectPotential(Potential):
         dist= _cyldist(R,phi,z,
                        self._orb.R(t),self._orb.phi(t),self._orb.z(t))
         #Evaluate potential
-        return -self._gm*self._softening.potential(dist)
+        return -self._softening.potential(dist)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -116,7 +125,7 @@ class MovingObjectPotential(Potential):
                                    R,phi,z)
                                    
         #Evaluate force
-        return self._gm*(nu.cos(phi)*xd+nu.sin(phi)*yd)/dist\
+        return (nu.cos(phi)*xd+nu.sin(phi)*yd)/dist\
             *self._softening(dist)
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -141,7 +150,7 @@ class MovingObjectPotential(Potential):
                                    R,phi,z)
                                    
         #Evaluate force
-        return self._gm*zd/dist*self._softening(dist)
+        return zd/dist*self._softening(dist)
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -165,7 +174,7 @@ class MovingObjectPotential(Potential):
                                    R,phi,z)
                                    
         #Evaluate force
-        return self._gm*R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/dist\
+        return R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/dist\
             *self._softening(dist)
 
     def _dens(self,R,z,phi=0.,t=0.):
@@ -186,7 +195,7 @@ class MovingObjectPotential(Potential):
         """
         dist= _cyldist(R,phi,z,
                        self._orb.R(t),self._orb.phi(t),self._orb.z(t))
-        return self._gm*self._softening.density(dist)
+        return self._softening.density(dist)
 
 def _cyldist(R1,phi1,z1,R2,phi2,z2):
     return nu.sqrt( (R1*nu.cos(phi1)-R2*nu.cos(phi2))**2.

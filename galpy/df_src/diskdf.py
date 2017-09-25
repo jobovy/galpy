@@ -33,8 +33,13 @@ from galpy.df_src.surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.util import save_pickles
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
+from galpy.df_src.df import df, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 #scipy version
 try:
     sversion=re.split(r'\.',sc.__version__)
@@ -43,13 +48,13 @@ except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= math.pi/180.
-class diskdf(object):
+class diskdf(df):
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
                  surfaceSigma=expSurfaceSigmaProfile,
                  profileParams=(1./3.,1.0,0.2),
                  correct=False,
-                 beta=0.,**kwargs):
+                 beta=0.,ro=None,vo=None,**kwargs):
         """
         NAME:
            __init__
@@ -74,10 +79,19 @@ class diskdf(object):
         HISTORY:
             2010-03-10 - Written - Bovy (NYU)
         """
+        df.__init__(self,ro=ro,vo=vo)
         self._dftype= dftype
         if isinstance(surfaceSigma,surfaceSigmaProfile):
             self._surfaceSigmaProfile= surfaceSigma
         else:
+            if _APY_LOADED and isinstance(profileParams[0],units.Quantity):
+                newprofileParams=\
+                    (profileParams[0].to(units.kpc).value/self._ro,
+                     profileParams[1].to(units.kpc).value/self._ro,
+                     profileParams[2].to(units.km/units.s).value/self._vo)
+                self._roSet= True
+                self._voSet= True
+                profileParams= newprofileParams
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
         self._gamma= sc.sqrt(2./(1.+self._beta))
@@ -95,6 +109,7 @@ class diskdf(object):
                                                                    alpha=2.-2.*self._beta),gamma=0.)
         return None
     
+    @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
         NAME:
@@ -114,10 +129,10 @@ class diskdf(object):
               b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
-              E - energy (/vo^2)
-              L - angular momentun (/ro/vo)
+              E - energy (/vo^2; or can be Quantity)
+              L - angular momentun (/ro/vo; or can be Quantity)
 
-           3) array vxvv [3/4,nt]
+           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input)
 
         KWARGS:
 
@@ -149,26 +164,31 @@ class diskdf(object):
                     return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
                                                         args[0]._orb.vxvv[2],
                                                         args[0]._orb.vxvv[0],
-                                                        self._beta)))
+                                                        self._beta,
+                                                        self._dftype)))
             else:
                 no= args[0](args[1])
                 return sc.real(self.eval(*vRvTRToEL(no._orb.vxvv[1],
                                                     no._orb.vxvv[2],
                                                     no._orb.vxvv[0],
-                                                    self._beta)))
+                                                    self._beta,
+                                                    self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
             #Grab all of the vR, vT, and R
             vR= nu.array([o._orb.vxvv[1] for o in args[0]])
             vT= nu.array([o._orb.vxvv[2] for o in args[0]])
             R= nu.array([o._orb.vxvv[0] for o in args[0]])
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
-        elif isinstance(args[0],nu.ndarray):
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                self._dftype)))
+        elif isinstance(args[0],nu.ndarray) and \
+                not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
             R= args[0][0]
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta)))
+            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                self._dftype)))
         else:
             return sc.real(self.eval(*args))
 
@@ -176,9 +196,9 @@ class diskdf(object):
         """Call the DF, marginalizing over perpendicular velocity"""
         #Get l, vlos
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        vlos= o.vlos(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
         vcirc= R**self._beta
         vcirclos= vcirc*math.sin(phi+l)
@@ -190,7 +210,7 @@ class diskdf(object):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -221,9 +241,9 @@ class diskdf(object):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
         l= o.ll(obs=[1.,0.,0.],ro=1.)*_DEGTORAD
-        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])[0]
-        R= o.R()
-        phi= o.phi()
+        vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
+        R= o.R(use_physical=False)
+        phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         vcirc= R**self._beta
@@ -236,7 +256,7 @@ class diskdf(object):
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        sigmaR2= self.targetSigma2(R)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= sc.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
@@ -265,6 +285,1564 @@ class diskdf(object):
                                         vperp-vcircperp,vcirc,sigmaR1),
                                   **kwargs)[0]/math.fabs(sinalphaperp)*sigmaR1
         
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
+    def targetSigma2(self,R,log=False):
+        """
+        NAME:
+
+           targetSigma2
+
+        PURPOSE:
+
+           evaluate the target Sigma_R^2(R)
+
+        INPUT:
+
+            R - radius at which to evaluate (can be Quantity)
+
+        OUTPUT:
+
+           target Sigma_R^2(R)
+
+           log - if True, return the log (default: False)
+
+        HISTORY:
+
+           2010-03-28 - Written - Bovy (NYU)
+
+        """
+        return self._surfaceSigmaProfile.sigma2(R,log=log)
+
+    @potential_physical_input
+    @physical_conversion('surfacedensity',pop=True)        
+    def targetSurfacemass(self,R,log=False):
+         """
+         NAME:
+
+            targetSurfacemass
+
+         PURPOSE:
+
+            evaluate the target surface mass at R
+
+         INPUT:
+
+            R - radius at which to evaluate (can be Quantity)
+
+            log - if True, return the log (default: False)
+
+         OUTPUT:
+
+            Sigma(R)
+
+         HISTORY:
+
+            2010-03-28 - Written - Bovy (NYU)
+
+         """
+         return self._surfaceSigmaProfile.surfacemass(R,log=log)
+
+    @physical_conversion('surfacedensitydistance',pop=True)        
+    def targetSurfacemassLOS(self,d,l,log=False,deg=True):
+        """
+        NAME:
+
+            targetSurfacemassLOS
+
+        PURPOSE:
+
+            evaluate the target surface mass along the LOS given l and d
+
+        INPUT:
+
+            d - distance along the line of sight (can be Quantity)
+
+            l - Galactic longitude (in deg, unless deg=False; can be Quantity)
+
+            deg= if False, l is in radians
+
+            log - if True, return the log (default: False)
+
+        OUTPUT:
+
+            Sigma(d,l) x d
+
+        HISTORY:
+
+            2011-03-23 - Written - Bovy (NYU)
+
+        """
+        #Calculate R and phi
+        if _APY_LOADED and isinstance(l,units.Quantity):
+            lrad= l.to(units.rad).value
+        elif deg:
+            lrad= l*_DEGTORAD
+        else:
+            lrad= l
+        if _APY_LOADED and isinstance(d,units.Quantity):
+            d= d.to(units.kpc).value/self._ro
+        R, phi= _dlToRphi(d,lrad)
+        if log:
+            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
+                +math.log(d)
+        else:
+            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
+                *d
+
+    @physical_conversion('surfacedensitydistance',pop=True)        
+    def surfacemassLOS(self,d,l,deg=True,target=True,
+                       romberg=False,nsigma=None,relative=None):
+        """
+        NAME:
+
+           surfacemassLOS
+
+        PURPOSE:
+
+           evaluate the surface mass along the LOS given l and d
+
+        INPUT:
+
+           d - distance along the line of sight (can be Quantity)
+
+           l - Galactic longitude (in deg, unless deg=False; can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           target= if True, use target surfacemass (default)
+
+           romberg - if True, use a romberg integrator (default: False)
+
+           deg= if False, l is in radians
+
+        OUTPUT:
+
+           Sigma(d,l) x d
+
+        HISTORY:
+
+           2011-03-24 - Written - Bovy (NYU)
+
+        """
+        #Calculate R and phi
+        if _APY_LOADED and isinstance(l,units.Quantity):
+            lrad= l.to(units.rad).value
+        elif deg:
+            lrad= l*_DEGTORAD
+        else:
+            lrad= l
+        if _APY_LOADED and isinstance(d,units.Quantity):
+            d= d.to(units.kpc).value/self._ro
+        R, phi= _dlToRphi(d,lrad)
+        if target:
+            if relative: return d
+            else: return self.targetSurfacemass(R,use_physical=False)*d
+        else:
+            return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                    relative=relative,use_physical=False)\
+                                    *d
+
+    @physical_conversion('position',pop=True)
+    def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
+        """
+        NAME:
+
+           sampledSurfacemassLOS
+
+        PURPOSE:
+
+           sample a distance along the line of sight
+
+        INPUT:
+
+           l - Galactic longitude (in rad; can be Quantity)
+
+           n= number of distances to sample
+
+           maxd= maximum distance to consider (for the rejection sampling) (can be Quantity)
+
+           target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
+
+        OUTPUT:
+
+           list of samples
+
+        HISTORY:
+
+           2011-03-24 - Written - Bovy (NYU)
+
+        """
+        #First calculate where the maximum is
+        if target:
+            minR= optimize.fmin_bfgs(lambda x: \
+                                         -self.targetSurfacemassLOS(x,l,
+                                                                    use_physical=False,
+                                                                    deg=False),
+                                     0.,disp=False)[0]
+            maxSM= self.targetSurfacemassLOS(minR,l,deg=False,
+                                             use_physical=False)
+        else:
+            minR= optimize.fmin_bfgs(lambda x: \
+                                         -self.surfacemassLOS(x,l,
+                                                              deg=False,
+                                                              use_physical=False),
+                                     0.,disp=False)[0]
+            maxSM= self.surfacemassLOS(minR,l,deg=False,use_physical=False)
+        #Now rejection-sample
+        if _APY_LOADED and isinstance(l,units.Quantity):
+                l= l.to(units.rad).value
+        if _APY_LOADED and isinstance(maxd,units.Quantity):
+            maxd= maxd.to(units.kpc).value/self._ro
+        if maxd is None:
+            maxd= _MAXD_REJECTLOS
+        out= []
+        while len(out) < n:
+            #sample
+            prop= nu.random.random()*maxd
+            if target:
+                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False,
+                                                          use_physical=False)
+            else:
+                surfmassatprop= self.surfacemassLOS(prop,l,deg=False,
+                                                    use_physical=False)
+            if surfmassatprop/maxSM > nu.random.random(): #accept
+                out.append(prop)
+        return nu.array(out)
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
+    def sampleVRVT(self,R,n=1,nsigma=None,target=True):
+        """
+        NAME:
+
+           sampleVRVT
+
+        PURPOSE:
+
+           sample a radial and azimuthal velocity at R
+
+        INPUT:
+
+           R - Galactocentric distance (can be Quantity)
+
+           n= number of distances to sample
+
+           nsigma= number of sigma to rejection-sample on
+
+           target= if True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True)
+
+        OUTPUT:
+
+           list of samples
+
+        BUGS:
+
+           should use the fact that vR and vT separate
+
+        HISTORY:
+
+           2011-03-24 - Written - Bovy (NYU)
+
+        """
+        #Determine where the max of the v-distribution is using asymmetric drift
+        maxVR= 0.
+        maxVT= optimize.brentq(_vtmaxEq,0.,R**self._beta+0.2,(R,self))
+        maxVD= self(Orbit([R,maxVR,maxVT]))
+        #Now rejection-sample
+        if nsigma == None:
+            nsigma= _NSIGMA
+        out= []
+        if target:
+            sigma= math.sqrt(self.targetSigma2(R,use_physical=False))
+        else:
+            sigma= math.sqrt(self.sigma2(R,use_physical=False))
+        while len(out) < n:
+            #sample
+            vrg, vtg= nu.random.normal(), nu.random.normal()
+            propvR= vrg*nsigma*sigma
+            propvT= vtg*nsigma*sigma/self._gamma+maxVT
+            VDatprop= self(Orbit([R,propvR,propvT]))
+            if VDatprop/maxVD > nu.random.uniform()*nu.exp(-0.5*(vrg**2.+vtg**2.)): #accept
+                out.append(sc.array([propvR,propvT]))
+        return nu.array(out)
+
+    def sampleLOS(self,los,n=1,deg=True,maxd=None,nsigma=None,
+                  targetSurfmass=True,targetSigma2=True):
+        """
+        NAME:
+
+           sampleLOS
+
+        PURPOSE:
+
+           sample along a given LOS
+
+        INPUT:
+
+           los - line of sight (in deg, unless deg=False; can be Quantity)
+
+           n= number of desired samples
+
+           deg= los in degrees? (default=True)
+
+           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
+                   (default=True)
+
+        OUTPUT:
+
+           returns list of Orbits
+
+        BUGS:
+           target=False uses target distribution for derivatives (this is a detail)
+
+        HISTORY:
+
+           2011-03-24 - Started  - Bovy (NYU)
+
+        """
+        if _APY_LOADED and isinstance(los,units.Quantity):
+            l= los.to(units.rad).value
+        elif deg:
+            l= los*_DEGTORAD
+        else:
+            l= los
+        out= []
+        #sample distances
+        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass,
+                                       use_physical=False)
+        for ii in range(int(n)):
+            #Calculate R and phi
+            thisR,thisphi= _dlToRphi(ds[ii],l)
+            #sample velocities
+            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2,
+                                use_physical=False)[0]
+            if self._roSet and self._voSet:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi],ro=self._ro,
+                                 vo=self._vo))
+            else:
+                out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
+        return out
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
+    def asymmetricdrift(self,R):
+        """
+        NAME:
+
+           asymmetricdrift
+
+        PURPOSE:
+
+           estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation
+
+        INPUT:
+
+           R - radius at which to calculate the asymmetric drift (can be Quantity)
+
+        OUTPUT:
+
+           asymmetric drift at R
+
+        HISTORY:
+
+           2011-04-02 - Written - Bovy (NYU)
+
+        """
+        sigmaR2= self.targetSigma2(R,use_physical=False)
+        return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                         -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                         -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+
+
+    @potential_physical_input
+    @physical_conversion('surfacedensity',pop=True)        
+    def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
+        """
+        NAME:
+
+           surfacemass
+
+        PURPOSE:
+
+           calculate the surface-mass at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate the surfacemass density (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           surface mass at R
+
+        HISTORY:
+
+           2010-03-XX - Written - Bovy (NYU)
+
+        """
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
+        sigmaR1= sc.sqrt(sigmaR2)
+        logsigmaR2= sc.log(sigmaR2)
+        if relative:
+            norm= 1.
+        else:
+            norm= sc.exp(logSigmaR)
+        #Use the asymmetric drift equation to estimate va
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if romberg:
+            return sc.real(bovy_dblquad(_surfaceIntegrand,
+                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                        lambda x: 0., lambda x: nsigma,
+                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                         self._gamma],
+                                        tol=10.**-8)/sc.pi*norm)
+        else:
+            return integrate.dblquad(_surfaceIntegrand,
+                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                     lambda x: 0., lambda x: nsigma,
+                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                      self._gamma),
+                                     epsrel=_EPSREL)[0]/sc.pi*norm
+
+    @potential_physical_input
+    @physical_conversion('velocity2surfacedensity',pop=True)
+    def sigma2surfacemass(self,R,romberg=False,nsigma=None,
+                                relative=False):
+        """
+
+        NAME:
+
+           sigma2surfacemass
+
+        PURPOSE:
+
+           calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate the sigma_R^2 x surfacemass density (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           sigma_R^2 x surface-mass at R
+
+        HISTORY:
+
+           2010-03-XX - Written - Bovy (NYU)
+
+        """
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
+        sigmaR1= sc.sqrt(sigmaR2)
+        logsigmaR2= sc.log(sigmaR2)
+        if relative:
+            norm= 1.
+        else:
+            norm= sc.exp(logSigmaR+logsigmaR2)
+        #Use the asymmetric drift equation to estimate va
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if romberg:
+            return sc.real(bovy_dblquad(_sigma2surfaceIntegrand,
+                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                        lambda x: 0., lambda x: nsigma,
+                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                         self._gamma],
+                                        tol=10.**-8)/sc.pi*norm)
+        else:
+            return integrate.dblquad(_sigma2surfaceIntegrand,
+                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                     lambda x: 0., lambda x: nsigma,
+                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                      self._gamma),
+                                     epsrel=_EPSREL)[0]/sc.pi*norm
+
+    def vmomentsurfacemass(self,*args,**kwargs):
+        """
+        NAME:
+
+           vmomentsurfacemass
+           
+        PURPOSE:
+
+           calculate the an arbitrary moment of the velocity distribution 
+           at R times the surfacmass
+
+        INPUT:
+
+           R - radius at which to calculate the moment (in natural units)
+
+           n - vR^n
+
+           m - vT^m
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi
+
+        OUTPUT:
+
+           <vR^n vT^m  x surface-mass> at R (no support for units)
+
+        HISTORY:
+
+           2011-03-30 - Written - Bovy (NYU)
+
+        """
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if use_physical and not vo is None and not ro is None:
+            fac= surfdens_in_msolpc2(vo,ro)*vo**(args[1]+args[2])
+            if _APY_UNITS:
+                u= units.Msun/units.pc**2*(units.km/units.s)**(args[1]+args[2])
+            out= self._vmomentsurfacemass(*args,**kwargs)
+            if _APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._vmomentsurfacemass(*args,**kwargs)
+          
+    def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
+                           relative=False,phi=0.,deriv=None):
+        """Non-physical version of vmomentsurfacemass, otherwise the same"""
+        #odd moments of vR are zero
+        if isinstance(n,int) and n%2 == 1:
+            return 0.
+        if nsigma == None:
+            nsigma= _NSIGMA
+        logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
+        sigmaR2= self.targetSigma2(R,use_physical=False)
+        sigmaR1= sc.sqrt(sigmaR2)
+        logsigmaR2= sc.log(sigmaR2)
+        if relative:
+            norm= 1.
+        else:
+            norm= sc.exp(logSigmaR+logsigmaR2*(n+m)/2.)/self._gamma**m
+        #Use the asymmetric drift equation to estimate va
+        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
+                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
+                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
+        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if deriv is None:
+            if romberg:
+                return sc.real(bovy_dblquad(_vmomentsurfaceIntegrand,
+                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                            lambda x: -nsigma, lambda x: nsigma,
+                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                             self._gamma,n,m],
+                                            tol=10.**-8)/sc.pi*norm/2.)
+            else:
+                return integrate.dblquad(_vmomentsurfaceIntegrand,
+                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                         lambda x: -nsigma, lambda x: nsigma,
+                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                          self._gamma,n,m),
+                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
+        else:
+            if romberg:
+                return sc.real(bovy_dblquad(_vmomentderivsurfaceIntegrand,
+                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                            lambda x: -nsigma, lambda x: nsigma,
+                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                             self._gamma,n,m,deriv],
+                                            tol=10.**-8)/sc.pi*norm/2.)
+            else:
+                return integrate.dblquad(_vmomentderivsurfaceIntegrand,
+                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
+                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
+                                         lambda x: -nsigma, lambda x: nsigma,
+                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
+                                          self._gamma,n,m,deriv),
+                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
+
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
+    def oortA(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+
+        NAME:
+
+           oortA
+
+        PURPOSE:
+
+           calculate the Oort function A
+
+        INPUT:
+
+           R - radius at which to calculate A (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           Oort A at R
+
+        HISTORY:
+
+           2011-04-19 - Written - Bovy (NYU)
+
+        BUGS:
+
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+
+        """
+        #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
+        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            /surfmass**2.\
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+        return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
+
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
+    def oortB(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           oortB
+
+        PURPOSE:
+
+           calculate the Oort function B
+
+        INPUT:
+
+           R - radius at which to calculate B (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           Oort B at R
+
+        HISTORY:
+
+           2011-04-19 - Written - Bovy (NYU)
+
+        BUGS:
+
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+
+        """
+        #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
+        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                              use_physical=False)
+        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvphidR= self._vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass\
+            -self._vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
+            /surfmass**2.\
+            *self._vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
+        return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
+
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
+    def oortC(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           oortC
+
+        PURPOSE:
+
+           calculate the Oort function C
+
+        INPUT:
+
+           R - radius at which to calculate C (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           Oort C at R
+
+        HISTORY:
+
+           2011-04-19 - Written - Bovy (NYU)
+
+        BUGS:
+
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+           we know this is zero, but it is calculated anyway (bug or feature?)
+
+        """
+        #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
+        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass #other terms is zero because f is even in vR
+        return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
+
+    @potential_physical_input
+    @physical_conversion('frequency_kmskpc',pop=True)
+    def oortK(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           oortK
+
+        PURPOSE:
+
+           calculate the Oort function K
+
+        INPUT:
+
+           R - radius at which to calculate K (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           Oort K at R
+
+        HISTORY:
+
+           2011-04-19 - Written - Bovy (NYU)
+
+        BUGS:
+
+           could be made more efficient, e.g., surfacemass is calculated multiple times
+           we know this is zero, but it is calculated anyway (bug or feature?)
+
+        """
+        #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
+        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi,
+                            use_physical=False)
+        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
+        surfmass= self._vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
+        dmeanvRdR= self._vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
+            surfmass #other terms is zero because f is even in vR
+        return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
+
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
+    def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           sigma2
+
+        PURPOSE:
+
+           calculate sigma_R^2 at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate sigma_R^2 density (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           sigma_R^2 at R
+
+        HISTORY:
+
+           2010-03-XX - Written - Bovy (NYU)
+
+        """
+        return self.sigma2surfacemass(R,romberg,nsigma,use_physical=False)\
+            /self.surfacemass(R,romberg,nsigma,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
+    def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+
+        NAME:
+
+           sigmaT2
+
+        PURPOSE:
+
+           calculate sigma_T^2 at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate sigma_T^2 (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           sigma_T^2 at R
+
+        HISTORY:
+
+           2011-03-30 - Written - Bovy (NYU)
+
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        return (self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
+                -self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+                    **2.\
+                    /surfmass)/surfmass
+
+    @potential_physical_input
+    @physical_conversion('velocity2',pop=True)        
+    def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           sigmaR2 (duplicate of sigma2 for consistency)
+
+        PURPOSE:
+
+           calculate sigma_R^2 at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate sigma_R^2 (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           sigma_R^2 at R
+
+        HISTORY:
+
+           2011-03-30 - Written - Bovy (NYU)
+
+        """
+        return self.sigma2(R,romberg=romberg,nsigma=nsigma,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
+    def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           meanvT
+
+        PURPOSE:
+
+           calculate <vT> at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vT> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           <vT> at R
+
+        HISTORY:
+
+           2011-03-30 - Written - Bovy (NYU)
+
+        """
+        return self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('velocity',pop=True)
+    def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           meanvR
+
+        PURPOSE:
+
+           calculate <vR> at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vR> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           <vR> at R
+
+        HISTORY:
+
+           2011-03-30 - Written - Bovy (NYU)
+
+        """
+        return self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                              use_physical=False)
+
+    @potential_physical_input
+    def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           skewvT
+
+        PURPOSE:
+
+           calculate skew in vT at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vR> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           skewvT
+
+        HISTORY:
+
+           2011-12-07 - Written - Bovy (NYU)
+
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vt2-vt**2.
+        return (vt3-3.*vt*vt2+2.*vt**3.)*s2**(-1.5)
+
+    @potential_physical_input
+    def skewvR(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           skewvR
+
+        PURPOSE:
+
+           calculate skew in vR at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vR> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           skewvR
+
+        HISTORY:
+
+           2011-12-07 - Written - Bovy (NYU)
+
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vr2-vr**2.
+        return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
+
+    @potential_physical_input
+    def kurtosisvT(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           kurtosisvT
+
+        PURPOSE:
+
+           calculate excess kurtosis in vT at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vR> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           kurtosisvT
+
+        HISTORY:
+
+           2011-12-07 - Written - Bovy (NYU)
+
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vt= self._vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt2= self._vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt3= self._vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vt4= self._vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vt2-vt**2.
+        return (vt4-4.*vt*vt3+6.*vt**2.*vt2-3.*vt**4.)*s2**(-2.)-3.
+
+    @potential_physical_input
+    def kurtosisvR(self,R,romberg=False,nsigma=None,phi=0.):
+        """
+        NAME:
+
+           kurtosisvR
+
+        PURPOSE:
+
+           calculate excess kurtosis in vR at R by marginalizing over velocity
+
+        INPUT:
+
+           R - radius at which to calculate <vR> (can be Quantity)
+
+        OPTIONAL INPUT:
+
+           nsigma - number of sigma to integrate the velocities over
+
+        KEYWORDS:
+
+           romberg - if True, use a romberg integrator (default: False)
+
+        OUTPUT:
+
+           kurtosisvR
+
+        HISTORY:
+
+           2011-12-07 - Written - Bovy (NYU)
+
+        """
+        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma,
+                                   use_physical=False)
+        vr= self._vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr2= self._vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr3= self._vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        vr4= self._vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
+            /surfmass
+        s2= vr2-vr**2.
+        return (vr4-4.*vr*vr3+6.*vr**2.*vr2-3.*vr**4.)*s2**(-2.)-3.
+
+    def _ELtowRRapRperi(self,E,L):
+        """
+        NAME:
+           _ELtowRRapRperi
+        PURPOSE:
+           calculate the radial frequency based on E,L, also return rap and 
+           rperi
+        INPUT:
+           E - energy
+           L - angular momentum
+        OUTPUT:
+           wR(E.L)
+        HISTORY:
+           2010-07-11 - Written - Bovy (NYU)
+        """
+        if self._beta == 0.:
+            xE= sc.exp(E-.5)
+        else: #non-flat rotation curve                                      
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+        rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
+        #Replace the above w/
+        aA= actionAngleAxi(xE,0.,L/xE,
+                           pot=PowerSphericalPotential(normalize=1.,
+                                                       alpha=2.-2.*self._beta).toPlanar())
+        TR= aA.TR()
+        return (2.*math.pi/TR,rap,rperi)
+
+    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
+               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
+        """
+        NAME:
+
+           sample
+
+        PURPOSE:
+
+           sample n*nphi points from this DF
+
+        INPUT:
+
+           n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
+
+           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit) (can be Quantity)
+
+           returnROrbit - if True, return a planarROrbit instance: 
+                          [R,vR,vT] (default)
+
+           returnOrbit - if True, return a planarOrbit instance (including phi)
+
+           nphi - number of azimuths to sample for each E,L
+
+           los= line of sight sampling along this line of sight (can be Quantity)
+
+           losdeg= los in degrees? (default=True)
+
+           target= if True, use target surface mass and sigma2 profiles (default=True)
+
+           nsigma= number of sigma to rejection-sample on
+
+           maxd= maximum distance to consider (for the rejection sampling)
+
+        OUTPUT:
+
+           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
+
+           CAUTION: lists of EL need to be post-processed to account for the 
+                    \kappa/\omega_R discrepancy
+
+        HISTORY:
+
+           2010-07-10 - Started  - Bovy (NYU)
+
+        """
+        raise NotImplementedError("'sample' method for this disk df is not implemented")
+
+    def _estimatemeanvR(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimatemeanvR
+        PURPOSE:
+            quickly estimate meanvR (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return 0.
+
+    def _estimatemeanvT(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimatemeanvT
+        PURPOSE:
+            quickly estimate meanvR (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return R**self._beta-self.asymmetricdrift(R,use_physical=False)
+
+    def _estimateSigmaR2(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimateSigmaR2
+        PURPOSE:
+            quickly estimate SigmaR2 (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        return self.targetSigma2(R,log=log,use_physical=False)
+
+    def _estimateSigmaT2(self,R,phi=0.,log=False):
+        """
+        NAME:
+           _estimateSigmaT2
+        PURPOSE:
+            quickly estimate SigmaT2 (useful in evolveddiskdf where we
+            need an estimate of this but we do not want to spend too
+            much time on it)
+        INPUT:
+           R - radius at which to evaluate (/ro)
+           phi= azimuth (not used)
+        OUTPUT:
+           target Sigma_R^2(R)
+           log - if True, return the log (default: False)
+        HISTORY:
+           2010-03-28 - Written - Bovy (NYU)
+        """
+        if log:
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                -2.*nu.log(self._gamma)
+        else:
+            return self.targetSigma2(R,log=log,use_physical=False)\
+                /self._gamma**2.
+
+
+class dehnendf(diskdf):
+    """Dehnen's 'new' df"""
+    def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
+                 profileParams=(1./3.,1.0,0.2),
+                 correct=False,
+                 beta=0.,**kwargs):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize a Dehnen 'new' DF
+        INPUT:
+           surfaceSigma - instance or class name of the target 
+                      surface density and sigma_R profile 
+                      (default: both exponential)
+           profileParams - parameters of the surface and sigma_R profile:
+                      (xD,xS,Sro) where
+
+                        xD - disk surface mass scalelength (can be Quantity)
+
+                        xS - disk velocity dispersion scalelength (can be Quantity)
+
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
+
+                        Directly given to the 'surfaceSigmaProfile class, so
+                        could be anything that class takes
+
+           beta - power-law index of the rotation curve
+
+           correct - if True, correct the DF
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
+           +DFcorrection kwargs (except for those already specified)
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+            2010-03-10 - Written - Bovy (NYU)
+
+        """
+        return diskdf.__init__(self,surfaceSigma=surfaceSigma,
+                               profileParams=profileParams,
+                               correct=correct,dftype='dehnen',
+                               beta=beta,**kwargs)
+
+    def eval(self,E,L,logSigmaR=0.,logsigmaR2=0.):
+        """
+        NAME:
+           eval
+        PURPOSE:
+           evaluate the distribution function
+        INPUT:
+           E - energy (can be Quantity)
+           L - angular momentum (can be Quantity)
+       OUTPUT:
+           DF(E,L)
+        HISTORY:
+           2010-03-10 - Written - Bovy (NYU)
+           2010-03-28 - Moved to dehnenDF - Bovy (NYU)
+        """
+        if _PROFILE: #pragma: no cover
+            import time
+            start= time.time()
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+        #Calculate Re,LE, OmegaE
+        if self._beta == 0.:
+            xE= sc.exp(E-.5)
+            logOLLE= sc.log(L/xE-1.)
+        else: #non-flat rotation curve
+            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
+            logOLLE= self._beta*sc.log(xE)+sc.log(L/xE-xE**self._beta)
+        if _PROFILE: #pragma: no cover
+            one_time= (time.time()-start)
+            start= time.time()
+        if self._correct: 
+            correction= self._corr.correct(xE,log=True)
+        else:
+            correction= sc.zeros(2)
+        if _PROFILE: #pragma: no cover
+            corr_time= (time.time()-start)
+            start= time.time()
+        SRE2= self.targetSigma2(xE,log=True,use_physical=False)+correction[1]
+        if _PROFILE: #pragma: no cover
+            targSigma_time= (time.time()-start)
+            start= time.time()
+            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            out_time= (time.time()-start)
+            tot_time= one_time+corr_time+targSigma_time+out_time
+            print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
+            return out
+        else:
+            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+
+    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
+               nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
+               targetSigma2=True,
+               maxd=None,**kwargs):
+        """
+        NAME:
+           sample
+        PURPOSE:
+           sample n*nphi points from this DF
+        INPUT:
+           n - number of desired sample (specifying this rather than calling 
+               this routine n times is more efficient)
+           rrange - if you only want samples in this rrange, set this keyword 
+                    (only works when asking for an (RZ)Orbit
+           returnROrbit - if True, return a planarROrbit instance: 
+                          [R,vR,vT] (default)
+           returnOrbit - if True, return a planarOrbit instance (including phi)
+           nphi - number of azimuths to sample for each E,L
+           los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
+           losdeg= if False, los is in radians (default=True)
+           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
+                   (default=True)
+           nsigma= number of sigma to rejection-sample on
+           maxd= maximum distance to consider (for the rejection sampling)
+        OUTPUT:
+           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
+           CAUTION: lists of EL need to be post-processed to account for the 
+                    \kappa/\omega_R discrepancy; EL not returned in physical units        
+        HISTORY:
+           2010-07-10 - Started  - Bovy (NYU)
+        """
+        if not los is None:
+            return self.sampleLOS(los,deg=losdeg,n=n,maxd=maxd,
+                                  nsigma=nsigma,targetSurfmass=targetSurfmass,
+                                  targetSigma2=targetSigma2)
+        #First sample xE
+        if self._correct:
+            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            self._corr)))
+        else:
+            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                  _ars_hpx,nsamples=n,
+                                  hxparams=(self._surfaceSigmaProfile,
+                                            None)))
+        #Calculate E
+        if self._beta == 0.:
+            E= sc.log(xE)+0.5
+        else: #non-flat rotation curve
+            E= .5*xE**(2.*self._beta)*(1.+1./self._beta)
+        #Then sample Lz
+        LCE= xE**(self._beta+1.)
+        OR= xE**(self._beta-1.)
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
+        if self._correct:
+            Lz*= self._corr.correct(xE,log=False)[1,:]
+        Lz+= LCE
+        if not returnROrbit and not returnOrbit:
+            out= [[e,l] for e,l in zip(E,Lz)]
+        else:
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
+                rrange[0]= rrange[0].to(units.kpc).value/self._ro
+                rrange[1]= rrange[1].to(units.kpc).value/self._ro
+            if not hasattr(self,'_psp'):
+                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
+            out= []
+            for ii in range(int(n)):
+                try:
+                    wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
+                except ValueError:
+                    continue
+                TR= 2.*math.pi/wR
+                tr= stats.uniform.rvs()*TR
+                if tr > TR/2.:
+                    tr-= TR/2.
+                    thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
+                else:
+                    thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
+                thisOrbit.integrate(sc.array([0.,tr]),self._psp)
+                if returnOrbit:
+                    vxvv= thisOrbit(tr)._orb.vxvv
+                    thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
+                                                    stats.uniform.rvs()\
+                                                        *math.pi*2.])\
+                                         .reshape(4))
+                else:
+                    thisOrbit= thisOrbit(tr)
+                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
+                if not rrange == None:
+                    if thisOrbit._orb.vxvv[0] < rrange[0] \
+                            or thisOrbit._orb.vxvv[0] > rrange[1]:
+                        continue
+                mult= sc.ceil(kappa/wR*nphi)-1.
+                kappawR= kappa/wR*nphi-mult
+                while mult > 0:
+                    if returnOrbit:
+                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
+                                                            vxvv[2],
+                                                            stats.uniform.rvs()*math.pi*2.]).reshape(4)))
+                    else:
+                        out.append(thisOrbit)
+                    mult-= 1
+                if stats.uniform.rvs() > kappawR:
+                    continue
+                out.append(thisOrbit)
+        #Recurse to get enough
+        if len(out) < n*nphi:
+            out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
+                                   returnROrbit=returnROrbit,
+                                   returnOrbit=returnOrbit,nphi=int(nphi),
+                                   los=los,losdeg=losdeg))
+        if len(out) > n*nphi:
+            print(n, nphi, n*nphi)
+            out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
+        return out
+
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
@@ -349,1428 +1927,6 @@ class diskdf(object):
                 OE= xE**(self._beta-1.)
         sigma2xE= self._surfaceSigmaProfile.sigma2(xE,log=False)
         return OE/sigma2xE
-        
-    def targetSigma2(self,R,log=False):
-        """
-        NAME:
-
-           targetSigma2
-
-        PURPOSE:
-
-           evaluate the target Sigma_R^2(R)
-
-        INPUT:
-
-            R - radius at which to evaluate (/ro)
-
-        OUTPUT:
-
-           target Sigma_R^2(R)
-
-           log - if True, return the log (default: False)
-
-        HISTORY:
-
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        return self._surfaceSigmaProfile.sigma2(R,log=log)
-
-    def targetSurfacemass(self,R,log=False):
-         """
-         NAME:
-
-            targetSurfacemass
-
-         PURPOSE:
-
-            evaluate the target surface mass at R
-
-         INPUT:
-
-            R - radius at which to evaluate
-
-            log - if True, return the log (default: False)
-
-         OUTPUT:
-
-            Sigma(R)
-
-         HISTORY:
-
-            2010-03-28 - Written - Bovy (NYU)
-         """
-         return self._surfaceSigmaProfile.surfacemass(R,log=log)
-
-    def targetSurfacemassLOS(self,d,l,log=False,deg=True):
-        """
-        NAME:
-
-            targetSurfacemassLOS
-
-        PURPOSE:
-
-            evaluate the target surface mass along the LOS given l and d
-
-        INPUT:
-
-            d - distance along the line of sight
-
-            l - Galactic longitude (in deg, unless deg=False)
-
-            deg= if False, l is in radians
-
-            log - if True, return the log (default: False)
-
-        OUTPUT:
-
-            Sigma(d,l)
-
-        HISTORY:
-
-            2011-03-23 - Written - Bovy (NYU)
-        """
-        #Calculate R and phi
-        if deg:
-            lrad= l*_DEGTORAD
-        else:
-            lrad= l
-        R, phi= _dlToRphi(d,lrad)
-        if log:
-            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +math.log(d)
-            pass
-        else:
-            return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                *d
-
-    def surfacemassLOS(self,d,l,deg=True,target=True,
-                       romberg=False,nsigma=None,relative=None):
-        """
-        NAME:
-
-           surfacemassLOS
-
-        PURPOSE:
-
-           evaluate the surface mass along the LOS given l and d
-
-        INPUT:
-
-           d - distance along the line of sight
-
-           l - Galactic longitude (in deg, unless deg=False)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           target= if True, use target surfacemass (default)
-
-           romberg - if True, use a romberg integrator (default: False)
-
-           deg= if False, l is in radians
-
-        OUTPUT:
-
-           Sigma(d,l)
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
-        """
-        #Calculate R and phi
-        if deg:
-            lrad= l*_DEGTORAD
-        else:
-            lrad= l
-        R, phi= _dlToRphi(d,lrad)
-        if target:
-            if relative: return d
-            else: return self.targetSurfacemass(R)*d
-        else:
-            return self.surfacemass(R,romberg=romberg,nsigma=nsigma,
-                                    relative=relative)\
-                                    *d
-
-    def sampledSurfacemassLOS(self,l,n=1,maxd=None,target=True):
-        """
-        NAME:
-
-           sampledSurfacemassLOS
-
-        PURPOSE:
-
-           sample a distance along the line of sight
-
-        INPUT:
-
-           l - Galactic longitude (in rad)
-
-           n= number of distances to sample
-
-           maxd= maximum distance to consider (for the rejection sampling)
-
-           target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
-
-        OUTPUT:
-
-           list of samples
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
-        """
-        #First calculate where the maximum is
-        if target:
-            minR= optimize.fmin_bfgs(lambda x: \
-                                         -self.targetSurfacemassLOS(x,l,
-                                                                      deg=False),
-                                     0.,disp=False)[0]
-            maxSM= self.targetSurfacemassLOS(minR,l,deg=False)
-        else:
-            minR= optimize.fmin_bfgs(lambda x: \
-                                         -self.surfacemassLOS(x,l,
-                                                              deg=False),
-                                     0.,disp=False)[0]
-            maxSM= self.surfacemassLOS(minR,l,deg=False)
-        #Now rejection-sample
-        if maxd is None:
-            maxd= _MAXD_REJECTLOS
-        out= []
-        while len(out) < n:
-            #sample
-            prop= nu.random.random()*maxd
-            if target:
-                surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False)
-            else:
-                surfmassatprop= self.surfacemassLOS(prop,l,deg=False)
-            if surfmassatprop/maxSM > nu.random.random(): #accept
-                out.append(prop)
-        return nu.array(out)
-
-    def sampleVRVT(self,R,n=1,nsigma=None,target=True):
-        """
-        NAME:
-
-           sampleVRVT
-
-        PURPOSE:
-
-           sample a radial and azimuthal velocity at R
-
-        INPUT:
-
-           R - Galactocentric distance
-
-           n= number of distances to sample
-
-           nsigma= number of sigma to rejection-sample on
-
-           target= if True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True)
-
-        OUTPUT:
-
-           list of samples
-
-        BUGS:
-
-           should use the fact that vR and vT separate
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
-        """
-        #Determine where the max of the v-distribution is using asymmetric drift
-        maxVR= 0.
-        maxVT= optimize.brentq(_vtmaxEq,0.,R**self._beta+0.2,(R,self))
-        maxVD= self(Orbit([R,maxVR,maxVT]))
-        #Now rejection-sample
-        if nsigma == None:
-            nsigma= _NSIGMA
-        out= []
-        if target:
-            sigma= math.sqrt(self.targetSigma2(R))
-        else:
-            sigma= math.sqrt(self.sigma2(R))
-        while len(out) < n:
-            #sample
-            vrg, vtg= nu.random.normal(), nu.random.normal()
-            propvR= vrg*nsigma*sigma
-            propvT= vtg*nsigma*sigma/self._gamma+maxVT
-            VDatprop= self(Orbit([R,propvR,propvT]))
-            if VDatprop/maxVD > nu.random.uniform()*nu.exp(-0.5*(vrg**2.+vtg**2.)): #accept
-                out.append(sc.array([propvR,propvT]))
-        return nu.array(out)
-
-    def sampleLOS(self,los,n=1,deg=True,maxd=None,nsigma=None,
-                  targetSurfmass=True,targetSigma2=True):
-        """
-        NAME:
-
-           sampleLOS
-
-        PURPOSE:
-
-           sample along a given LOS
-
-        INPUT:
-
-           los - line of sight (in deg, unless deg=False)
-
-           n= number of desired samples
-
-           deg= los in degrees? (default=True)
-
-           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
-                   (default=True)
-
-        OUTPUT:
-
-           returns list of Orbits
-
-        BUGS:
-           target=False uses target distribution for derivatives (this is a detail)
-
-        HISTORY:
-
-           2011-03-24 - Started  - Bovy (NYU)
-        """
-        if deg:
-            l= los*_DEGTORAD
-        else:
-            l= los
-        out= []
-        #sample distances
-        ds= self.sampledSurfacemassLOS(l,n=n,maxd=maxd,target=targetSurfmass)
-        for ii in range(int(n)):
-            #Calculate R and phi
-            thisR,thisphi= _dlToRphi(ds[ii],l)
-            #sample velocities
-            vv= self.sampleVRVT(thisR,n=1,nsigma=nsigma,target=targetSigma2)[0]
-            out.append(Orbit([thisR,vv[0],vv[1],thisphi]))
-        return out
-
-    def asymmetricdrift(self,R):
-        """
-        NAME:
-
-           asymmetricdrift
-
-        PURPOSE:
-
-           estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation
-
-        INPUT:
-
-           R - radius at which to calculate the asymmetric drift (/ro)
-
-        OUTPUT:
-
-           asymmetric drift at R
-
-        HISTORY:
-
-           2011-04-02 - Written - Bovy (NYU)
-
-        """
-        sigmaR2= self.targetSigma2(R)
-        return sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
-                                         -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
-                                         -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-
-
-    def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
-        """
-        NAME:
-
-           surfacemass
-
-        PURPOSE:
-
-           calculate the surface-mass at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate the surfacemass density (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           surface mass at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
-
-        """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
-        if relative:
-            norm= 1.
-        else:
-            norm= sc.exp(logSigmaR)
-        #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
-                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
-                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
-        if romberg:
-            return sc.real(bovy_dblquad(_surfaceIntegrand,
-                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                        lambda x: 0., lambda x: nsigma,
-                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                         self._gamma],
-                                        tol=10.**-8)/sc.pi*norm)
-        else:
-            return integrate.dblquad(_surfaceIntegrand,
-                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                     lambda x: 0., lambda x: nsigma,
-                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      self._gamma),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
-
-    def sigma2surfacemass(self,R,romberg=False,nsigma=None,
-                                relative=False):
-        """
-
-        NAME:
-
-           sigma2surfacemass
-
-        PURPOSE:
-
-           calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate the sigma_R^2 x surfacemass density (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 x surface-mass at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
-
-        """
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
-        if relative:
-            norm= 1.
-        else:
-            norm= sc.exp(logSigmaR+logsigmaR2)
-        #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
-                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
-                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if romberg:
-            return sc.real(bovy_dblquad(_sigma2surfaceIntegrand,
-                                        self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                        self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                        lambda x: 0., lambda x: nsigma,
-                                        [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                         self._gamma],
-                                        tol=10.**-8)/sc.pi*norm)
-        else:
-            return integrate.dblquad(_sigma2surfaceIntegrand,
-                                     self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                     self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                     lambda x: 0., lambda x: nsigma,
-                                     (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                      self._gamma),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
-
-    def vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
-                           relative=False,phi=0.,deriv=None):
-        """
-        NAME:
-
-           vmomentsurfacemass
-
-        PURPOSE:
-
-           calculate the an arbitrary moment of the velocity distribution 
-           at R times the surfacmass
-
-        INPUT:
-
-           R - radius at which to calculate the moment(/ro)
-
-           n - vR^n
-
-           m - vT^m
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi
-
-        OUTPUT:
-
-           <vR^n vT^m  x surface-mass> at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
-        """
-        #odd moments of vR are zero
-        if isinstance(n,int) and n%2 == 1:
-            return 0.
-        if nsigma == None:
-            nsigma= _NSIGMA
-        logSigmaR= self.targetSurfacemass(R,log=True)
-        sigmaR2= self.targetSigma2(R)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
-        if relative:
-            norm= 1.
-        else:
-            norm= sc.exp(logSigmaR+logsigmaR2*(n+m)/2.)/self._gamma**m
-        #Use the asymmetric drift equation to estimate va
-        va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
-                                      -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
-                                      -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if math.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if deriv is None:
-            if romberg:
-                return sc.real(bovy_dblquad(_vmomentsurfaceIntegrand,
-                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                            lambda x: -nsigma, lambda x: nsigma,
-                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                             self._gamma,n,m],
-                                            tol=10.**-8)/sc.pi*norm/2.)
-            else:
-                return integrate.dblquad(_vmomentsurfaceIntegrand,
-                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                         lambda x: -nsigma, lambda x: nsigma,
-                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                          self._gamma,n,m),
-                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
-        else:
-            if romberg:
-                return sc.real(bovy_dblquad(_vmomentderivsurfaceIntegrand,
-                                            self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                            self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                            lambda x: -nsigma, lambda x: nsigma,
-                                            [R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                             self._gamma,n,m,deriv],
-                                            tol=10.**-8)/sc.pi*norm/2.)
-            else:
-                return integrate.dblquad(_vmomentderivsurfaceIntegrand,
-                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
-                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
-                                         lambda x: -nsigma, lambda x: nsigma,
-                                         (R,self,logSigmaR,logsigmaR2,sigmaR1,
-                                          self._gamma,n,m,deriv),
-                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
-
-    def oortA(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-
-        NAME:
-
-           oortA
-
-        PURPOSE:
-
-           calculate the Oort function A
-
-        INPUT:
-
-           R - radius at which to calculate A (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort A at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-        """
-        #2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
-        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
-            surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
-            /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
-        return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
-
-    def oortB(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           oortB
-
-        PURPOSE:
-
-           calculate the Oort function B
-
-        INPUT:
-
-           R - radius at which to calculate B (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort B at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-        """
-        #2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
-        meanvphi= self.meanvT(R,romberg=romberg,nsigma=nsigma,phi=phi)
-        dmeanvRRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvphidR= self.vmomentsurfacemass(R,0,1,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
-            surfmass\
-            -self.vmomentsurfacemass(R,0,1,phi=phi,romberg=romberg,nsigma=nsigma)\
-            /surfmass**2.\
-            *self.vmomentsurfacemass(R,0,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)
-        return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
-
-    def oortC(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           oortC
-
-        PURPOSE:
-
-           calculate the Oort function C
-
-        INPUT:
-
-           R - radius at which to calculate C (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort C at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-           we know this is zero, but it is calculated anyway (bug or feature?)
-        """
-        #2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
-        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
-            surfmass #other terms is zero because f is even in vR
-        return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
-
-    def oortK(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           oortK
-
-        PURPOSE:
-
-           calculate the Oort function K
-
-        INPUT:
-
-           R - radius at which to calculate K (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort K at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-           we know this is zero, but it is calculated anyway (bug or feature?)
-        """
-        #2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
-        meanvr= self.meanvR(R,romberg=romberg,nsigma=nsigma,phi=phi)
-        dmeanvphiRdphi= 0. #We know this, since the DF does not depend on phi
-        surfmass= self.vmomentsurfacemass(R,0,0,phi=phi,romberg=romberg,nsigma=nsigma)
-        dmeanvRdR= self.vmomentsurfacemass(R,1,0,deriv='R',phi=phi,romberg=romberg,nsigma=nsigma)/\
-            surfmass #other terms is zero because f is even in vR
-        return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
-
-    def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           sigma2
-
-        PURPOSE:
-
-           calculate sigma_R^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_R^2 density (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
-        """
-        return self.sigma2surfacemass(R,romberg,nsigma)/self.surfacemass(R,romberg,nsigma)
-
-    def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-
-        NAME:
-
-           sigmaT2
-
-        PURPOSE:
-
-           calculate sigma_T^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_T^2 (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_T^2 at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-        """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        return (self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)
-                -self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-                    **2.\
-                    /surfmass)/surfmass
-
-    def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           sigmaR2 (duplicate of sigma2 for consistency)
-
-        PURPOSE:
-
-           calculate sigma_R^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_R^2 (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.sigma2(R,romberg=romberg,nsigma=nsigma)
-
-    def meanvT(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           meanvT
-
-        PURPOSE:
-
-           calculate <vT> at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vT> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           <vT> at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-
-    def meanvR(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           meanvR
-
-        PURPOSE:
-
-           calculate <vR> at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           <vR> at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-        """
-        return self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
-            /self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-
-    def skewvT(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           skewvT
-
-        PURPOSE:
-
-           calculate skew in vT at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           skewvT
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-        """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        s2= vt2-vt**2.
-        return (vt3-3.*vt*vt2+2.*vt**3.)*s2**(-1.5)
-
-    def skewvR(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           skewvR
-
-        PURPOSE:
-
-           calculate skew in vR at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           skewvR
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-        """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        s2= vr2-vr**2.
-        return (vr3-3.*vr*vr2+2.*vr**3.)*s2**(-1.5)
-
-    def kurtosisvT(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           kurtosisvT
-
-        PURPOSE:
-
-           calculate excess kurtosis in vT at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           kurtosisvT
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-        """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vt= self.vmomentsurfacemass(R,0,1,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vt2= self.vmomentsurfacemass(R,0,2,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vt3= self.vmomentsurfacemass(R,0,3,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vt4= self.vmomentsurfacemass(R,0,4,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        s2= vt2-vt**2.
-        return (vt4-4.*vt*vt3+6.*vt**2.*vt2-3.*vt**4.)*s2**(-2.)-3.
-
-    def kurtosisvR(self,R,romberg=False,nsigma=None,phi=0.):
-        """
-        NAME:
-
-           kurtosisvR
-
-        PURPOSE:
-
-           calculate excess kurtosis in vR at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (/ro)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           kurtosisvR
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-        """
-        surfmass= self.surfacemass(R,romberg=romberg,nsigma=nsigma)
-        vr= self.vmomentsurfacemass(R,1,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vr2= self.vmomentsurfacemass(R,2,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vr3= self.vmomentsurfacemass(R,3,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        vr4= self.vmomentsurfacemass(R,4,0,romberg=romberg,nsigma=nsigma)\
-            /surfmass
-        s2= vr2-vr**2.
-        return (vr4-4.*vr*vr3+6.*vr**2.*vr2-3.*vr**4.)*s2**(-2.)-3.
-
-    def _ELtowRRapRperi(self,E,L):
-        """
-        NAME:
-           _ELtowRRapRperi
-        PURPOSE:
-           calculate the radial frequency based on E,L, also return rap and 
-           rperi
-        INPUT:
-           E - energy
-           L - angular momentum
-        OUTPUT:
-           wR(E.L)
-        HISTORY:
-           2010-07-11 - Written - Bovy (NYU)
-        """
-        if self._beta == 0.:
-            xE= sc.exp(E-.5)
-        else: #non-flat rotation curve                                      
-            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-        rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
-        #Replace the above w/
-        aA= actionAngleAxi(xE,0.,L/xE,
-                           pot=PowerSphericalPotential(normalize=1.,
-                                                       alpha=2.-2.*self._beta).toPlanar())
-        TR= aA.TR()
-        return (2.*math.pi/TR,rap,rperi)
-
-    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
-        """
-        NAME:
-
-           sample
-
-        PURPOSE:
-
-           sample n*nphi points from this DF
-
-        INPUT:
-
-           n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
-
-           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit
-
-           returnROrbit - if True, return a planarROrbit instance: 
-                          [R,vR,vT] (default)
-
-           returnOrbit - if True, return a planarOrbit instance (including phi)
-
-           nphi - number of azimuths to sample for each E,L
-
-           los= line of sight sampling along this line of sight
-
-           losdeg= los in degrees? (default=True)
-
-           target= if True, use target surface mass and sigma2 profiles (default=True)
-
-           nsigma= number of sigma to rejection-sample on
-
-           maxd= maximum distance to consider (for the rejection sampling)
-
-        OUTPUT:
-
-           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-
-           CAUTION: lists of EL need to be post-processed to account for the 
-                    \kappa/\omega_R discrepancy
-
-        HISTORY:
-
-           2010-07-10 - Started  - Bovy (NYU)
-
-        """
-        raise NotImplementedError("'sample' method for this disk df is not implemented")
-
-    def _estimatemeanvR(self,R,phi=0.,log=False):
-        """
-        NAME:
-           _estimatemeanvR
-        PURPOSE:
-            quickly estimate meanvR (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        return 0.
-
-    def _estimatemeanvT(self,R,phi=0.,log=False):
-        """
-        NAME:
-           _estimatemeanvT
-        PURPOSE:
-            quickly estimate meanvR (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        return R**self._beta-self.asymmetricdrift(R)
-
-    def _estimateSigmaR2(self,R,phi=0.,log=False):
-        """
-        NAME:
-           _estimateSigmaR2
-        PURPOSE:
-            quickly estimate SigmaR2 (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        return self.targetSigma2(R,log=log)
-
-    def _estimateSigmaT2(self,R,phi=0.,log=False):
-        """
-        NAME:
-           _estimateSigmaT2
-        PURPOSE:
-            quickly estimate SigmaT2 (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
-        """
-        if log:
-            return self.targetSigma2(R,log=log)-2.*nu.log(self._gamma)
-        else:
-            return self.targetSigma2(R,log=log)/self._gamma**2.
-
-
-class dehnendf(diskdf):
-    """Dehnen's 'new' df"""
-    def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
-                 profileParams=(1./3.,1.0,0.2),
-                 correct=False,
-                 beta=0.,**kwargs):
-        """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize a Dehnen 'new' DF
-        INPUT:
-           surfaceSigma - instance or class name of the target 
-                      surface density and sigma_R profile 
-                      (default: both exponential)
-           profileParams - parameters of the surface and sigma_R profile:
-                      (xD,xS,Sro) where
-
-                        xD - disk surface mass scalelength / Ro
-
-                        xS - disk velocity dispersion scalelength / Ro
-
-                        Sro - disk velocity dispersion at Ro (/vo)
-
-                        Directly given to the 'surfaceSigmaProfile class, so
-                        could be anything that class takes
-
-           beta - power-law index of the rotation curve
-
-           correct - if True, correct the DF
-
-           +DFcorrection kwargs (except for those already specified)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2010-03-10 - Written - Bovy (NYU)
-
-        """
-        return diskdf.__init__(self,surfaceSigma=surfaceSigma,
-                               profileParams=profileParams,
-                               correct=correct,dftype='dehnen',
-                               beta=beta,**kwargs)
-
-    def eval(self,E,L,logSigmaR=0.,logsigmaR2=0.):
-        """
-        NAME:
-           eval
-        PURPOSE:
-           evaluate the distribution function
-        INPUT:
-           E - energy (/vo^2)
-           L - angular momentun (/ro/vo)
-       OUTPUT:
-           DF(E,L)
-        HISTORY:
-           2010-03-10 - Written - Bovy (NYU)
-           2010-03-28 - Moved to dehnenDF - Bovy (NYU)
-        """
-        if _PROFILE: #pragma: no cover
-            import time
-            start= time.time()
-        #Calculate Re,LE, OmegaE
-        if self._beta == 0.:
-            xE= sc.exp(E-.5)
-            logOLLE= sc.log(L/xE-1.)
-        else: #non-flat rotation curve
-            xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-            logOLLE= self._beta*sc.log(xE)+sc.log(L/xE-xE**self._beta)
-        if _PROFILE: #pragma: no cover
-            one_time= (time.time()-start)
-            start= time.time()
-        if self._correct: 
-            correction= self._corr.correct(xE,log=True)
-        else:
-            correction= sc.zeros(2)
-        if _PROFILE: #pragma: no cover
-            corr_time= (time.time()-start)
-            start= time.time()
-        SRE2= self.targetSigma2(xE,log=True)+correction[1]
-        if _PROFILE: #pragma: no cover
-            targSigma_time= (time.time()-start)
-            start= time.time()
-            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
-            out_time= (time.time()-start)
-            tot_time= one_time+corr_time+targSigma_time+out_time
-            print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
-            return out
-        else:
-            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
-
-    def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
-               nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
-               targetSigma2=True,
-               maxd=None):
-        """
-        NAME:
-           sample
-        PURPOSE:
-           sample n*nphi points from this DF
-        INPUT:
-           n - number of desired sample (specifying this rather than calling 
-               this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword 
-                    (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance: 
-                          [R,vR,vT] (default)
-           returnOrbit - if True, return a planarOrbit instance (including phi)
-           nphi - number of azimuths to sample for each E,L
-           los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
-           losdeg= if False, los is in radians (default=True)
-           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
-                   (default=True)
-           nsigma= number of sigma to rejection-sample on
-           maxd= maximum distance to consider (for the rejection sampling)
-        OUTPUT:
-           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-           CAUTION: lists of EL need to be post-processed to account for the 
-                    \kappa/\omega_R discrepancy
-        HISTORY:
-           2010-07-10 - Started  - Bovy (NYU)
-        """
-        if not los is None:
-            return self.sampleLOS(los,deg=losdeg,n=n,maxd=maxd,
-                                  nsigma=nsigma,targetSurfmass=targetSurfmass,
-                                  targetSigma2=targetSigma2)
-        #First sample xE
-        if self._correct:
-            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            self._corr)))
-        else:
-            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            None)))
-        #Calculate E
-        if self._beta == 0.:
-            E= sc.log(xE)+0.5
-        else: #non-flat rotation curve
-            E= .5*xE**(2.*self._beta)*(1.+1./self._beta)
-        #Then sample Lz
-        LCE= xE**(self._beta+1.)
-        OR= xE**(self._beta-1.)
-        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
-        if self._correct:
-            Lz*= self._corr.correct(xE,log=False)[1,:]
-        Lz+= LCE
-        if not returnROrbit and not returnOrbit:
-            out= [[e,l] for e,l in zip(E,Lz)]
-        else:
-            if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
-            out= []
-            for ii in range(int(n)):
-                try:
-                    wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
-                except ValueError:
-                    continue
-                TR= 2.*math.pi/wR
-                tr= stats.uniform.rvs()*TR
-                if tr > TR/2.:
-                    tr-= TR/2.
-                    thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
-                else:
-                    thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
-                thisOrbit.integrate(sc.array([0.,tr]),self._psp)
-                if returnOrbit:
-                    vxvv= thisOrbit(tr)._orb.vxvv
-                    thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                    stats.uniform.rvs()\
-                                                        *math.pi*2.])\
-                                         .reshape(4))
-                else:
-                    thisOrbit= thisOrbit(tr)
-                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
-                if not rrange == None:
-                    if thisOrbit._orb.vxvv[0] < rrange[0] \
-                            or thisOrbit._orb.vxvv[0] > rrange[1]:
-                        continue
-                mult= sc.ceil(kappa/wR*nphi)-1.
-                kappawR= kappa/wR*nphi-mult
-                while mult > 0:
-                    if returnOrbit:
-                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
-                                                            vxvv[2],
-                                                            stats.uniform.rvs()*math.pi*2.]).reshape(4)))
-                    else:
-                        out.append(thisOrbit)
-                    mult-= 1
-                if stats.uniform.rvs() > kappawR:
-                    continue
-                out.append(thisOrbit)
-        #Recurse to get enough
-        if len(out) < n*nphi:
-            out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
-                                   returnROrbit=returnROrbit,
-                                   returnOrbit=returnOrbit,nphi=int(nphi),
-                                   los=los,losdeg=losdeg))
-        if len(out) > n*nphi:
-            print(n, nphi, n*nphi)
-            out= out[0:int(n*nphi)]
-        return out
 
 class shudf(diskdf):
     """Shu's df (1969)"""
@@ -1790,11 +1946,11 @@ class shudf(diskdf):
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
           
-                        xD - disk surface mass scalelength / Ro
+                        xD - disk surface mass scalelength (can be Quantity)
               
-                        xS - disk velocity dispersion scalelength / Ro
+                        xS - disk velocity dispersion scalelength (can be Quantity)
                         
-                        Sro - disk velocity dispersion at Ro (/vo)
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
                         
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
@@ -1803,6 +1959,9 @@ class shudf(diskdf):
 
            correct - if True, correct the DF
 
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
 
            +DFcorrection kwargs (except for those already specified)
 
@@ -1834,6 +1993,10 @@ class shudf(diskdf):
         HISTORY:
            2010-05-09 - Written - Bovy (NYU)
         """
+        if _APY_LOADED and isinstance(E,units.Quantity):
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        if _APY_LOADED and isinstance(L,units.Quantity):
+            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
@@ -1847,12 +2010,12 @@ class shudf(diskdf):
             correction= self._corr.correct(xL,log=True)
         else:
             correction= sc.zeros(2)
-        SRE2= self.targetSigma2(xL,log=True)+correction[1]
-        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
+        SRE2= self.targetSigma2(xL,log=True,use_physical=False)+correction[1]
+        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True,use_physical=False)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
-               targetSurfmass=True,targetSigma2=True):
+               targetSurfmass=True,targetSigma2=True,**kwargs):
         """
         NAME:
            sample
@@ -1909,6 +2072,10 @@ class shudf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
+            if not rrange is None \
+                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
+                rrange[0]= rrange[0].to(units.kpc).value/self._ro
+                rrange[1]= rrange[1].to(units.kpc).value/self._ro
             if not hasattr(self,'_psp'):
                 self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
@@ -1956,41 +2123,150 @@ class shudf(diskdf):
                                    returnOrbit=returnOrbit,nphi=nphi))
         if len(out) > n*nphi:
             out= out[0:int(n*nphi)]
+        if kwargs.get('use_physical',True) and \
+                self._roSet and self._voSet:
+            if isinstance(out[0],Orbit):
+                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
+
+    def _dlnfdR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
+        if self._beta == 0.:
+            xL= L
+            dRldR= vT
+            ECL= sc.log(xL)+0.5
+            dECLEdR= 0.
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+            dRldR= L**(1./(self._beta+1.))/R/(self._beta+1.)
+            ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
+            dECLdRl= (1.+self._beta)*xL**(2.*self._beta-1)
+            dEdR= R**(2.*self._beta-1.)
+            dECLEdR= dECLdRl*dRldR-dEdR
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
+                 -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldR\
+                 +dECLEdR/sigma2xL
+    
+    def _dlnfdvR(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
+        if self._beta == 0.:
+            xL= L
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return -vR/sigma2xL
+    
+    def _dlnfdvT(self,R,vR,vT):
+        #Calculate a bunch of stuff that we need
+        E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
+        if self._beta == 0.:
+            xL= L
+            dRldvT= R
+            ECL= sc.log(xL)+0.5
+            dECLEdvT= 1./vT-vT
+        else: #non-flat rotation curve
+            xL= L**(1./(self._beta+1.))
+            dRldvT= L**(1./(self._beta+1.))/vT/(self._beta+1.)
+            ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
+            dECLdRl= (1.+self._beta)*xL**(2.*self._beta-1)
+            dEdvT= vT
+            dECLEdvT= dECLdRl*dRldvT-dEdvT
+        sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
+        return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
+                 -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldvT\
+                 +dECLEdvT/sigma2xL
+    
+class schwarzschilddf(shudf):
+    """Schwarzschild's df"""
+    def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
+                 profileParams=(1./3.,1.0,0.2),
+                 correct=False,
+                 beta=0.,**kwargs):
+        """
+        NAME:
+           __init__
+        PURPOSE:
+           Initialize a Schwarzschild DF
+        INPUT:
+           surfaceSigma - instance or class name of the target 
+                      surface density and sigma_R profile 
+                      (default: both exponential)
+           profileParams - parameters of the surface and sigma_R profile:
+                      (xD,xS,Sro) where
+          
+                        xD - disk surface mass scalelength (can be Quantity)
+              
+                        xS - disk velocity dispersion scalelength (can be Quantity)
+                        
+                        Sro - disk velocity dispersion at Ro (can be Quantity)
+                        
+                        Directly given to the 'surfaceSigmaProfile class, so
+                        could be anything that class takes
+
+           beta - power-law index of the rotation curve
+
+           correct - if True, correct the DF
+
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
+           +DFcorrection kwargs (except for those already specified)
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+            2017-09-17 - Written - Bovy (UofT)
+
+        """
+        # Schwarzschild == Shu w/ energy computed in epicycle approx.
+        # so all functions are the same as in Shu, only thing different is
+        # how E is computed
+        return diskdf.__init__(self,surfaceSigma=surfaceSigma,
+                               profileParams=profileParams,
+                               correct=correct,dftype='schwarzschild',
+                               beta=beta,**kwargs)
+    
 
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _sigma2surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
                              n,m):
     """Internal function that is the integrand for the velocity moment times
     surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
 
 def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
                                   gamma,n,m,deriv):
     """Internal function that is the integrand for the derivative of velocity 
     moment times surface mass integration"""
-    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma)
+    E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     if deriv.lower() == 'r':
         return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma*df._dlnfdR(R,vR*sigmaR1,vT*sigmaR1/gamma) #correct
     else:
         return 0.
 
-def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma):
+def _vRpvTpRToEL(vR,vT,R,beta,sigmaR1,gamma,dftype='dehnen'):
     """Internal function that calculates E and L given velocities normalized by the velocity dispersion"""
     vR*= sigmaR1
     vT*= sigmaR1/gamma
-    return vRvTRToEL(vR,vT,R,beta)
+    return vRvTRToEL(vR,vT,R,beta,dftype)
 
 def _oned_intFunc(x,twodfunc,gfun,hfun,tol,args):
     """Internal function for bovy_dblquad"""
@@ -2206,9 +2482,12 @@ class DFcorrection(object):
                                         interp_k=self._interp_k)
             newcorrections= sc.zeros((self._npoints,2))
             for jj in range(self._npoints):
-                thisSurface= currentDF.surfacemass(self._rs[jj])
-                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj])/thisSurface
-                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj])*thisSurface/currentDF.sigma2surfacemass(self._rs[jj])
+                thisSurface= currentDF.surfacemass(self._rs[jj],
+                                                   use_physical=False)
+                newcorrections[jj,0]= currentDF.targetSurfacemass(self._rs[jj],use_physical=False)/thisSurface
+                newcorrections[jj,1]= currentDF.targetSigma2(self._rs[jj],use_physical=False)*thisSurface\
+                    /currentDF.sigma2surfacemass(self._rs[jj],
+                                                 use_physical=False)
                 #print(jj, newcorrections[jj,:])
             corrections*= newcorrections
         #Save
@@ -2224,7 +2503,7 @@ class DFcorrectionError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def vRvTRToEL(vR,vT,R,beta):
+def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
     """
     NAME:
        vRvTRToEL
@@ -2238,7 +2517,19 @@ def vRvTRToEL(vR,vT,R,beta):
     HISTORY:
        2010-03-10 - Written - Bovy (NYU)
     """
-    return (axipotential(R,beta)+0.5*vR**2.+0.5*vT**2.,vT*R)
+    if dftype == 'schwarzschild':
+        # Compute E in the epicycle approximation
+        gamma= sc.sqrt(2./(1.+beta))
+        L= R*vT
+        if beta == 0.:
+            xL= L
+        else: #non-flat rotation curve
+            xL= L**(1./(beta+1.))   
+        return (0.5*vR**2.+0.5*gamma**2.*(vT-R**beta)**2.
+                +xL**(2.*beta)/2.+axipotential(xL,beta=beta),
+                L)
+    else:
+        return (axipotential(R,beta)+0.5*vR**2.+0.5*vT**2.,vT*R)
 
 def axipotential(R,beta=0.):
     """
@@ -2352,10 +2643,10 @@ def _vtmaxEq(vT,R,diskdf):
 def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
                                             vlos,vcirc,sigma):
     return df(*vRvTRToEL(vR*sigma,cotalpha*vR*sigma+vlos/sinalpha+vcirc,
-                        R,df._beta))
+                        R,df._beta,df._dftype))
 
 def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma):
     return df(*vRvTRToEL(tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,
-                        R,df._beta))
+                        R,df._beta,df._dftype))
 

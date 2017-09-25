@@ -21,16 +21,6 @@ void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
-double calcPlanarRforce(double, double, double, 
-			int, struct potentialArg *);
-double calcPlanarphiforce(double, double, double, 
-			int, struct potentialArg *);
-double calcPlanarR2deriv(double, double, double, 
-			 int, struct potentialArg *);
-double calcPlanarphi2deriv(double, double, double, 
-			   int, struct potentialArg *);
-double calcPlanarRphideriv(double, double, double, 
-			   int, struct potentialArg *);
 /*
   Actual functions
 */
@@ -38,6 +28,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			int * pot_type,
 			double * pot_args){
   int ii,jj;
+  init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
     case 0: //LogarithmicHaloPotential, 2 arguments
@@ -48,13 +39,13 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
-    case 1: //DehnenBarPotential, 7 arguments
-      potentialArgs->planarRforce= &DehnenBarPotentialRforce;
-      potentialArgs->planarphiforce= &DehnenBarPotentialphiforce;
-      potentialArgs->planarR2deriv= &DehnenBarPotentialR2deriv;
-      potentialArgs->planarphi2deriv= &DehnenBarPotentialphi2deriv;
-      potentialArgs->planarRphideriv= &DehnenBarPotentialRphideriv;
-      potentialArgs->nargs= 7;
+    case 1: //DehnenBarPotential, 6 arguments
+      potentialArgs->planarRforce= &DehnenBarPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &DehnenBarPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &DehnenBarPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &DehnenBarPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &DehnenBarPotentialPlanarRphideriv;
+      potentialArgs->nargs= 6;
       break;
     case 2: //TransientLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &TransientLogSpiralPotentialRforce;
@@ -82,13 +73,13 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 3;
       break;
-    case 6: //LopsidedDiskPotential, 6 arguments
+    case 6: //LopsidedDiskPotential, 4 arguments
       potentialArgs->planarRforce= &LopsidedDiskPotentialRforce;
       potentialArgs->planarphiforce= &LopsidedDiskPotentialphiforce;
       potentialArgs->planarR2deriv= &LopsidedDiskPotentialR2deriv;
       potentialArgs->planarphi2deriv= &LopsidedDiskPotentialphi2deriv;
       potentialArgs->planarRphideriv= &LopsidedDiskPotentialRphideriv;
-      potentialArgs->nargs= 6;
+      potentialArgs->nargs= 4;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->planarRforce= &PowerSphericalPotentialPlanarRforce;
@@ -171,6 +162,107 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
+    case 18: //PseudoIsothermalPotential, 2 arguments
+      potentialArgs->planarRforce= &PseudoIsothermalPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &PseudoIsothermalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 19: //KuzminDiskPotential, 2 arguments
+      potentialArgs->planarRforce= &KuzminDiskPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &KuzminDiskPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 20: //BurkertPotential, 2 arguments
+      potentialArgs->planarRforce= &BurkertPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &BurkertPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 21: //TriaxialHernquistPotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialHernquistPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialHernquistPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 22: //TriaxialNFWPotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialNFWPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialNFWPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;
+    case 23: //TriaxialJaffePotential, lots of arguments
+      potentialArgs->planarRforce= &TriaxialJaffePotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TriaxialJaffePotentialPlanarphiforce;
+      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      break;    
+    case 24: //SCFPotential, many arguments
+      potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SCFPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &SCFPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SCFPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SCFPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
+      break;
+    case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SoftenedNeedleBarPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) 13;
+      break;    
+    case 26: //DiskSCFPotential, nsigma+3 arguments
+      potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->nargs= (int) *(pot_args) + 3;
+      break;
+    case 27: // SpiralArmsPotential, 10 arguments + array of Cs
+      potentialArgs->planarRforce = &SpiralArmsPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &SpiralArmsPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv = &SpiralArmsPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &SpiralArmsPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &SpiralArmsPotentialPlanarRphideriv;
+      potentialArgs->nargs = (int) 10 + *pot_args;
+      break;
+    case 28: //CosmphiDiskPotential, 9 arguments
+      potentialArgs->planarRforce= &CosmphiDiskPotentialRforce;
+      potentialArgs->planarphiforce= &CosmphiDiskPotentialphiforce;
+      potentialArgs->planarR2deriv= &CosmphiDiskPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &CosmphiDiskPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &CosmphiDiskPotentialRphideriv;
+      potentialArgs->nargs= 9;
+      break;
+//////////////////////////////// WRAPPERS /////////////////////////////////////
+    case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->planarRforce= &DehnenSmoothWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &DehnenSmoothWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &DehnenSmoothWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) 3;
+      break;
+    case -2: //SolidBodyRotationWrapperPotential
+      potentialArgs->planarRforce= &SolidBodyRotationWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &SolidBodyRotationWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &SolidBodyRotationWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SolidBodyRotationWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SolidBodyRotationWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) 3;
+      break;
+    }
+    if ( *(pot_type-1) < 0) { // Parse wrapped potential for wrappers
+      potentialArgs->nwrapped= (int) *pot_args++;
+      potentialArgs->wrappedPotentialArg= \
+	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
+					 * sizeof (struct potentialArg) );
+      parse_leapFuncArgs(potentialArgs->nwrapped,
+			 potentialArgs->wrappedPotentialArg,
+			 pot_type,pot_args+1);
+      pot_type+= potentialArgs->nwrapped;
+      pot_args+= ( (int) *pot_args ) +  1;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
@@ -195,7 +287,6 @@ void integratePlanarOrbit(double *yo,
 			  int * err,
 			  int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
@@ -245,11 +336,7 @@ void integratePlanarOrbit(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -267,7 +354,6 @@ void integratePlanarOrbit_dxdv(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
-  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
@@ -302,11 +388,7 @@ void integratePlanarOrbit_dxdv(double *yo,
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
   //Free allocated memory
-  for (ii=0; ii < npot; ii++) {
-    free(potentialArgs->args);
-    potentialArgs++;
-  }
-  potentialArgs-= npot;
+  free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
@@ -348,31 +430,6 @@ void evalPlanarRectDeriv(double t, double *q, double *a,
   phiforce= calcPlanarphiforce(R,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a= sinphi*Rforce+1./R*cosphi*phiforce;
-}
-
-double calcPlanarRforce(double R, double phi, double t, 
-			int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double Rforce= 0.;
-  for (ii=0; ii < nargs; ii++){
-    Rforce+= potentialArgs->planarRforce(R,phi,t,
-					 potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return Rforce;
-}
-double calcPlanarphiforce(double R, double phi, double t, 
-			  int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double phiforce= 0.;
-  for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->planarphiforce(R,phi,t,
-					     potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return phiforce;
 }
 
 void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
@@ -426,42 +483,4 @@ void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
     -cosphi*cosphi/R/R*phi2deriv;
   *a++= dFxdx * *(q+4) + dFxdy * *(q+5);
   *a= dFydx * *(q+4) + dFydy * *(q+5);
-}
-
-double calcPlanarR2deriv(double R, double phi, double t, 
-			 int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double R2deriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    R2deriv+= potentialArgs->planarR2deriv(R,phi,t,
-					   potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return R2deriv;
-}
-
-double calcPlanarphi2deriv(double R, double phi, double t, 
-			 int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double phi2deriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    phi2deriv+= potentialArgs->planarphi2deriv(R,phi,t,
-					       potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return phi2deriv;
-}
-double calcPlanarRphideriv(double R, double phi, double t, 
-			 int nargs, struct potentialArg * potentialArgs){
-  int ii;
-  double Rphideriv= 0.;
-  for (ii=0; ii < nargs; ii++){
-    Rphideriv+= potentialArgs->planarRphideriv(R,phi,t,
-					       potentialArgs);
-    potentialArgs++;
-  }
-  potentialArgs-= nargs;
-  return Rphideriv;
 }

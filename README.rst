@@ -13,7 +13,7 @@ galpy
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?version=latest
-  :target: http://galpy.readthedocs.org/en/latest/
+  :target: http://galpy.readthedocs.io/en/latest/
 
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
@@ -24,10 +24,13 @@ galpy
 .. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
    :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
 
+.. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
+   :target: http://www.astropy.org/
+
 AUTHOR
 -------
 
-Jo Bovy - bovy at ias dot edu
+Jo Bovy - bovy at astro dot utoronto dot ca
 
 See `AUTHORS.txt
 <https://github.com/jobovy/galpy/blob/master/AUTHORS.txt>`__ for a
@@ -39,22 +42,22 @@ know. **If you use galpy in a publication, please cite** `Bovy (2015)
 http://github.com/jobovy/galpy**. Please also send me a reference to
 the paper or send a pull request including your paper in the list of
 galpy papers on `this page
-<http://galpy.readthedocs.org/en/latest/>`__ (this page is at
+<http://galpy.readthedocs.io/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 
 
 DOCUMENTATION
 --------------
 
-The latest documentation can be found `here <http://galpy.readthedocs.org/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
+The latest documentation can be found `here <http://galpy.readthedocs.io/en/latest/>`__. An alternative that is kept up-to-date less frequently is `here <http://jobovy.github.com/galpy>`__.
 
 PYTHON VERSIONS AND DEPENDENCIES
 ---------------------------------
 
 ``galpy`` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.3 and 3.4. It may also work on earlier Python
+Python 2.7 and Python 3.4 and 3.5. It may also work on earlier Python
 3.* versions, but this has not been tested. Travis CI builds regularly
-check support for Python 2.7 and 3.4.
+check support for Python 2.7 and 3.5.
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
 <http://www.scipy.org/>`__, and `Matplotlib
@@ -63,7 +66,9 @@ require the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`__), with action calculations
 requiring version 1.14 or higher. Use of ``SnapshotRZPotential`` and
 ``InterpSnapshotRZPotential`` requires `pynbody
-<https://github.com/pynbody/pynbody>`__.
+<https://github.com/pynbody/pynbody>`__. Support for providing inputs
+and getting outputs as Quantities with units is provided through
+`astropy <http://www.astropy.org/>`__.
 
 ISSUES
 -------
@@ -72,12 +77,14 @@ If you find *any* bug in the code, please report these using the `Issue Tracker 
 
 If you are having issues with the installation of ``galpy``, please
 first consult the `Installation FAQ
-<http://galpy.readthedocs.org/en/latest/installation.html#installation-faq>`__.
+<http://galpy.readthedocs.io/en/latest/installation.html#installation-faq>`__.
 
 CONTRIBUTING TO GALPY
 ----------------------
 
-Some development notes can be found on the `wiki
+If you are interested in contributing to galpy's development, take a look at `this brief guide <https://github.com/jobovy/galpy/wiki/Guide-for-new-contributors>`__ on the wiki. This will hopefully help you get started!
+
+Some further development notes can be found on the `wiki
 <http://github.com/jobovy/galpy/wiki/>`__. This includes a list of
 small and larger extensions of galpy that would be useful `here
 <http://github.com/jobovy/galpy/wiki/Possible-galpy-extensions>`__ as
@@ -100,7 +107,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://codecov.io/github/jobovy/galpy?branch=master
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/master/
+  :target: http://galpy.readthedocs.io/en/master/
 
 
 **development branch** (if it exists):
@@ -115,7 +122,7 @@ DETAILED BUILD, COVERAGE, AND DOCUMENTATION STATUS
   :target: http://codecov.io/github/jobovy/galpy?branch=dev
 
 .. image:: https://readthedocs.org/projects/galpy/badge/?branch=master?version=latest
-  :target: http://galpy.readthedocs.org/en/dev/
+  :target: http://galpy.readthedocs.io/en/dev/
 
 DISK DF CORRECTIONS
 --------------------

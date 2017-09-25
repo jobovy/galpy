@@ -1,8 +1,10 @@
+import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
-    evaluatePotentials, evaluateDensities
+from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
+    evaluatePotentials, evaluateDensities, _check_c
+from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
@@ -108,15 +110,14 @@ class RZOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],thiso[3],pot,
-                                      t=t)\
+            return evaluatePotentials(pot,thiso[0],thiso[3],
+                                      t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.\
                                       +thiso[4]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
-                                                pot,
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
@@ -153,14 +154,13 @@ class RZOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],0.,pot,
-                                      t=t)\
+            return evaluatePotentials(pot,thiso[0],0.,
+                                      t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],0.,
-                                                pot,
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],0.,
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -196,18 +196,17 @@ class RZOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],thiso[3],pot,
-                                      t=t)\
-                                      -evaluatePotentials(thiso[0],0.,pot,
-                                                          t=t)\
+            return evaluatePotentials(pot,thiso[0],thiso[3],
+                                      t=t,use_physical=False)\
+                                      -evaluatePotentials(pot,thiso[0],0.,
+                                                          t=t,
+                                                          use_physical=False)\
                                                           +thiso[4]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
-                                                pot,
-                                                t=t[ii])\
-                                 -evaluatePotentials(thiso[0,ii],0.,
-                                                     pot,
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
+                                                t=t[ii],use_physical=False)\
+                                 -evaluatePotentials(pot,thiso[0,ii],0.,
+                                                t=t[ii],use_physical=False)\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     @physical_conversion('energy')
@@ -369,7 +368,7 @@ class RZOrbit(OrbitTop):
             kwargs['d2']= 'Eznorm'
         else:
             kwargs['d2']= 'Ez'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotER(self,*args,**kwargs):
         """
@@ -388,7 +387,7 @@ class RZOrbit(OrbitTop):
             kwargs['d2']= 'ERnorm'
         else:
             kwargs['d2']= 'ER'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotEzJz(self,*args,**kwargs):
         """
@@ -417,35 +416,43 @@ class RZOrbit(OrbitTop):
         else:
             pot= kwargs.pop('pot')
         d1= kwargs.pop('d1','t')
-        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                        pot,t=self.t[ii])-
-                     evaluatePotentials(self.orbit[ii,0],0.,pot,t=self.t[ii])+
+        self.EzJz= [(evaluatePotentials(pot,self.orbit[ii,0],self.orbit[ii,3],
+                                        t=self.t[ii],use_physical=False)-
+                     evaluatePotentials(pot,self.orbit[ii,0],0.,t=self.t[ii],
+                                        use_physical=False)+
                      self.orbit[ii,4]**2./2.)/\
-                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,
-                                                  t=self.t[ii]))\
+                        nu.sqrt(evaluateDensities(pot,self.orbit[ii,0],0.,
+                                                  t=self.t[ii],
+                                                  use_physical=False))\
                         for ii in range(len(self.t))]
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= r'$E_z/\sqrt{\rho}$'
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(nu.array(self.t),
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,3],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,0],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,1],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,2],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,4],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
 
 def _integrateRZOrbit(vxvv,pot,t,method,dt):
     """
@@ -467,14 +474,12 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
-            method= 'odeint'
+        if not _check_c(pot):
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
@@ -520,7 +525,7 @@ def _RZEOM(y,t,pot,l2):
        2010-04-16 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(y[0],y[2],pot,t=t),
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[2],t=t),
             y[3],
-            evaluatezforces(y[0],y[2],pot,t=t)]
+            _evaluatezforces(pot,y[0],y[2],t=t)]
 

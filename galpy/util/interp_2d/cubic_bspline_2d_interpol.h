@@ -2,7 +2,10 @@
  *	This code is based on work by Phillipe Thevenaz, which can be found
  * at http://bigwww.epfl.ch/thevenaz/interpolation/
  ****************************************************************************/ 
- 
+#ifdef __cplusplus
+extern "C" {
+#endif
+  
 #include	<math.h>
 #include	<stddef.h>
 #include	<stdio.h>
@@ -35,3 +38,6 @@ extern double	cubic_bspline_2d_interpol_dy
     double	x,			/* x coordinate where to interpolate */
     double	y			/* y coordinate where to interpolate */
 );
+#ifdef __cplusplus
+}
+#endif

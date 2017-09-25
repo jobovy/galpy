@@ -6,7 +6,9 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
@@ -15,7 +17,8 @@ class IsochronePotential(Potential):
         \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
 
     """
-    def __init__(self,amp=1.,b=1.,normalize=False):
+    def __init__(self,amp=1.,b=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -27,11 +30,13 @@ class IsochronePotential(Potential):
 
         INPUT:
 
-           amp= amplitude to be applied to the potential (default: 1)
+           amp= amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           b= scale radius of the isochrone potential
+           b= scale radius of the isochrone potential (can be Quantity)
 
            normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -42,7 +47,9 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         self.b= b
         self._scale= self.b
         self.b2= self.b**2.

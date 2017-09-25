@@ -10,9 +10,11 @@ class galpyWarning(Warning):
     pass
 def _warning(
     message,
-    category = galpyWarning,
-    filename = '',
-    lineno = -1):
+    category=galpyWarning,
+    filename='',
+    lineno=-1,
+    file=None,
+    line=None):
     if issubclass(category,galpyWarning):
         print("galpyWarning: "+str(message))
     else:
@@ -44,7 +46,7 @@ def save_pickles(savefilename,*args,**kwargs):
             if kwargs.get('testKeyboardInterrupt',False) and not interrupted:
                 raise KeyboardInterrupt
             for f in args:
-                pickle.dump(f,savefile)
+                pickle.dump(f,savefile,pickle.HIGHEST_PROTOCOL)
             savefile.close()
             file_open= False
             shutil.move(tmp_savefilename,savefilename)
@@ -115,3 +117,25 @@ def fast_cholesky_invert(A,logdet=False,tiny=_TINY):
                 2.*numpy.sum(numpy.log(numpy.diag(L[0]))))
     else:
         return linalg.cho_solve(L,numpy.eye(A.shape[0]))
+
+def _rotate_to_arbitrary_vector(v,a,inv=False):
+    """ Return a rotation matrix that rotates v to align with unit vector a
+        i.e. R . v = |v|\hat{a} """
+    normv= v/numpy.tile(numpy.sqrt(numpy.sum(v**2.,axis=1)),(3,1)).T
+    rotaxis= numpy.cross(normv,a)
+    rotaxis/= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.,axis=1)),(3,1)).T
+    crossmatrix= numpy.empty((len(v),3,3))
+    crossmatrix[:,0,:]= numpy.cross(rotaxis,[1,0,0])
+    crossmatrix[:,1,:]= numpy.cross(rotaxis,[0,1,0])
+    crossmatrix[:,2,:]= numpy.cross(rotaxis,[0,0,1])
+    costheta= numpy.dot(normv,a)
+    sintheta= numpy.sqrt(1.-costheta**2.)
+    if inv: sgn= 1.
+    else: sgn= -1.
+    out= numpy.tile(costheta,(3,3,1)).T*numpy.tile(numpy.eye(3),(len(v),1,1))\
+        +sgn*numpy.tile(sintheta,(3,3,1)).T*crossmatrix\
+        +numpy.tile(1.-costheta,(3,3,1)).T\
+        *(rotaxis[:,:,numpy.newaxis]*rotaxis[:,numpy.newaxis,:])
+    out[numpy.fabs(costheta-1.) < 10.**-10.]= numpy.eye(3)
+    out[numpy.fabs(costheta+1.) < 10.**-10.]= -numpy.eye(3)
+    return out

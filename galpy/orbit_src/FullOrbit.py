@@ -1,5 +1,4 @@
 import warnings
-import copy
 import math as m
 import numpy as nu
 from scipy import integrate, optimize
@@ -8,8 +7,8 @@ if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
     from scipy.misc import logsumexp
-from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
-    evaluatePotentials, evaluatephiforces, evaluateDensities
+from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
+    evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -175,15 +174,15 @@ class FullOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],thiso[3],pot,
-                                      phi=thiso[5],t=t)\
+            return evaluatePotentials(pot,thiso[0],thiso[3],
+                                      phi=thiso[5],t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.\
                                       +thiso[4]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
-                                                pot,phi=thiso[5,ii],
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
+                                                phi=thiso[5,ii],
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2.\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
@@ -220,14 +219,14 @@ class FullOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],0.,pot,
-                                      phi=thiso[5],t=t)\
+            return evaluatePotentials(pot,thiso[0],0.,
+                                      phi=thiso[5],t=t,use_physical=False)\
                                       +thiso[1]**2./2.\
                                       +thiso[2]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],0.,
-                                                pot,phi=thiso[5,ii],
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],0.,
+                                                phi=thiso[5,ii],
+                                                t=t[ii],use_physical=False)\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
 
@@ -263,18 +262,19 @@ class FullOrbit(OrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluatePotentials(thiso[0],thiso[3],pot,
-                                      phi=thiso[5],t=t)\
-                                      -evaluatePotentials(thiso[0],0.,pot,
-                                                          phi=thiso[5],t=t)\
+            return evaluatePotentials(pot,thiso[0],thiso[3],
+                                      phi=thiso[5],t=t,use_physical=False)\
+                                      -evaluatePotentials(pot,thiso[0],0.,
+                                                          phi=thiso[5],t=t,
+                                                          use_physical=False)\
                                                           +thiso[4]**2./2.
         else:
-            return nu.array([evaluatePotentials(thiso[0,ii],thiso[3,ii],
-                                                pot,phi=thiso[5,ii],
-                                                t=t[ii])\
-                                 -evaluatePotentials(thiso[0,ii],0.,
-                                                     pot,phi=thiso[5,ii],
-                                                t=t[ii])\
+            return nu.array([evaluatePotentials(pot,thiso[0,ii],thiso[3,ii],
+                                                phi=thiso[5,ii],
+                                                t=t[ii],use_physical=False)\
+                                 -evaluatePotentials(pot,thiso[0,ii],0.,
+                                                     phi=thiso[5,ii],
+                                                t=t[ii],use_physical=False)\
                                  +thiso[4,ii]**2./2. for ii in range(len(t))])
 
     def e(self,analytic=False,pot=None):
@@ -387,12 +387,12 @@ class FullOrbit(OrbitTop):
            fit an Orbit to data using the current orbit as the initial 
            condition
         INPUT:
-           vxvv - [:,6] array of positions and velocities along the orbit
-           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01)
+           vxvv - [:,6] array of positions and velocities along the orbit [cannot be Quantities]
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) [cannot be Quantities]
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
-               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates; Note that for speed reasons, galpy's internal transformation between (l,b) and (ra,dec) is used, rather than astropy's
                lb= if True, input vxvv and vxvv_err are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
@@ -460,7 +460,7 @@ class FullOrbit(OrbitTop):
             kwargs['d2']= 'Eznorm'
         else:
             kwargs['d2']= 'Ez'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotER(self,*args,**kwargs):
         """
@@ -479,7 +479,7 @@ class FullOrbit(OrbitTop):
             kwargs['d2']= 'ERnorm'
         else:
             kwargs['d2']= 'ER'
-        self.plot(*args,**kwargs)
+        return self.plot(*args,**kwargs)
         
     def plotEzJz(self,*args,**kwargs):
         """
@@ -508,35 +508,45 @@ class FullOrbit(OrbitTop):
         else:
             pot= kwargs.pop('pot')
         d1= kwargs.pop('d1','t')
-        self.EzJz= [(evaluatePotentials(self.orbit[ii,0],self.orbit[ii,3],
-                                        pot,t=self.t[ii])-
-                     evaluatePotentials(self.orbit[ii,0],0.,pot,
-                                        phi= self.orbit[ii,5],t=self.t[ii])+
+        self.EzJz= [(evaluatePotentials(pot,self.orbit[ii,0],self.orbit[ii,3],
+                                        t=self.t[ii],use_physical=False)-
+                     evaluatePotentials(pot,self.orbit[ii,0],0.,
+                                        phi= self.orbit[ii,5],t=self.t[ii],
+                                        use_physical=False)+
                      self.orbit[ii,4]**2./2.)/\
-                        nu.sqrt(evaluateDensities(self.orbit[ii,0],0.,pot,phi=self.orbit[ii,5],t=self.t[ii]))\
+                        nu.sqrt(evaluateDensities(pot,self.orbit[ii,0],0.,
+                                                  phi=self.orbit[ii,5],
+                                                  t=self.t[ii],
+                                                  use_physical=False))\
                         for ii in range(len(self.t))]
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict[d1]
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= r'$E_z/\sqrt{\rho}$'
         if d1 == 't':
-            plot.bovy_plot(nu.array(self.t),nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(nu.array(self.t),
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'z':
-            plot.bovy_plot(self.orbit[:,3],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,3],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'R':
-            plot.bovy_plot(self.orbit[:,0],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,0],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vR':
-            plot.bovy_plot(self.orbit[:,1],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,1],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vT':
-            plot.bovy_plot(self.orbit[:,2],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,2],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
         elif d1 == 'vz':
-            plot.bovy_plot(self.orbit[:,4],nu.array(self.EzJz)/self.EzJz[0],
-                           *args,**kwargs)
+            return plot.bovy_plot(self.orbit[:,4],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
 
 def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
@@ -558,14 +568,12 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
-            method= 'odeint'
+        if not _check_c(pot):
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
@@ -654,12 +662,12 @@ def _FullEOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateRforces(y[0],y[4],pot,phi=y[2],t=t),
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(evaluatephiforces(y[0],y[4],pot,phi=y[2],t=t)-
-                         2.*y[0]*y[1]*y[3]),
+            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t)
+                         -2.*y[0]*y[1]*y[3]),
             y[5],
-            evaluatezforces(y[0],y[4],pot,phi=y[2],t=t)]
+            _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t)]
 
 def _rectForce(x,pot,t=0.):
     """
@@ -683,11 +691,11 @@ def _rectForce(x,pot,t=0.):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateRforces(R,x[2],pot,phi=phi,t=t)
-    phiforce= evaluatephiforces(R,x[2],pot,phi=phi,t=t)
+    Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
+    phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
-                     evaluatezforces(R,x[2],pot,phi=phi,t=t)])
+                     _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                customsky=False,lb_to_customsky=None,
@@ -695,14 +703,18 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
                ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
+    # Need to turn this off for speed
+    coords._APY_COORDS= False
     #Import here, because otherwise there is an infinite loop of imports
-    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngle
     #Mock this up, bc we want to use its orbit-integration routines
     class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
         def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
+            actionAngle.__init__(self)
             self._tintJ= tintJ
             self._ntintJ=ntintJ
             self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
+            self._integrate_dt= None
             self._pot= pot
             self._integrate_method= integrate_method
             return None
@@ -719,6 +731,7 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                                customsky,lb_to_customsky,pmllpmbb_to_customsky,
                                tmockAA,
                                ro,vo,obs)
+    coords._APY_COORDS= True
     return (opt_vxvv,maxLogL)
 
 def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
@@ -740,12 +753,11 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
         X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
                                         iz.flatten(),
                                         Xsun=obs[0]/ro,
-                                        Ysun=obs[1]/ro,
-                                        Zsun=obs[2]/ro)
+                                        Zsun=obs[2]/ro).T
         vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
                                               ivz.flatten(),iphi.flatten(),
                                               vsun=nu.array(\
-                obs[3:6])/vo)
+                obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx: X[bad_indx]+= ro/10000.
         lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,

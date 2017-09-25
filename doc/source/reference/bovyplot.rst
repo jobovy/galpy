@@ -1,6 +1,9 @@
 galpy.util.bovy_plot
 ====================
 
+.. WARNING::
+   Importing ``galpy.util.bovy_plot`` (or having it be imported by other ``galpy`` routines) with ``seaborn`` installed may change the ``seaborn`` plot style. If you don't like this, set the configuration parameter ``seaborn-plotting-defaults`` to False in the :ref:`configuration file <configfile>`
+
 Various plotting routines:
 
 .. toctree::

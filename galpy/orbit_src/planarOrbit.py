@@ -2,14 +2,13 @@ import math as m
 import warnings
 import numpy as nu
 from scipy import integrate
-import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.orbit_src.OrbitTop import OrbitTop
-from galpy.potential_src.planarPotential import evaluateplanarRforces,\
-    RZToplanarPotential, evaluateplanarphiforces,\
-    evaluateplanarPotentials
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
+    RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
+    _evaluateplanarPotentials
+from galpy.potential_src.Potential import Potential, _check_c
 from galpy.util import galpyWarning
 #try:
 from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
@@ -289,13 +288,13 @@ class planarROrbit(planarOrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluateplanarPotentials(thiso[0],thispot,
-                                            t=t)\
+            return _evaluateplanarPotentials(thispot,thiso[0],
+                                             t=t)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
-            return nu.array([evaluateplanarPotentials(thiso[0,ii],thispot,
-                                                     t=t[ii])\
+            return nu.array([_evaluateplanarPotentials(thispot,thiso[0,ii],
+                                                      t=t[ii])\
                                  +thiso[1,ii]**2./2.\
                                  +thiso[2,ii]**2./2. for ii in range(len(t))])
         
@@ -362,7 +361,7 @@ class planarOrbit(planarOrbitTop):
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        thispot= RZToplanarPotential(pot)
+        thispot= toPlanarPotential(pot)
         self.t= nu.array(t)
         self._pot= thispot
         self.orbit, msg= _integrateOrbit(self.vxvv,thispot,t,method,dt)
@@ -393,7 +392,7 @@ class planarOrbit(planarOrbitTop):
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        thispot= RZToplanarPotential(pot)
+        thispot= toPlanarPotential(pot)
         self.t= nu.array(t)
         self._pot_dxdv= thispot
         self._pot= thispot
@@ -427,11 +426,11 @@ class planarOrbit(planarOrbitTop):
         else:
             pot= kwargs.pop('pot')
         if isinstance(pot,Potential):
-            thispot= RZToplanarPotential(pot)
+            thispot= toPlanarPotential(pot)
         elif isinstance(pot,list):
             thispot= []
             for p in pot:
-                if isinstance(p,Potential): thispot.append(RZToplanarPotential(p))
+                if isinstance(p,Potential): thispot.append(toPlanarPotential(p))
                 else: thispot.append(p)
         else:
             thispot= pot
@@ -443,12 +442,12 @@ class planarOrbit(planarOrbitTop):
         thiso= self(*args,**kwargs)
         onet= (len(thiso.shape) == 1)
         if onet:
-            return evaluateplanarPotentials(thiso[0],thispot,
+            return _evaluateplanarPotentials(thispot,thiso[0],
                                             phi=thiso[3],t=t)\
                                             +thiso[1]**2./2.\
                                             +thiso[2]**2./2.
         else:
-            return nu.array([evaluateplanarPotentials(thiso[0,ii],thispot,
+            return nu.array([_evaluateplanarPotentials(thispot,thiso[0,ii],
                                                       phi=thiso[3,ii],
                                                       t=t[ii])\
                                  +thiso[1,ii]**2./2.\
@@ -498,14 +497,12 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
-            method= 'odeint'
+        if not _check_c(pot):
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
@@ -557,7 +554,7 @@ def _REOM(y,t,pot,l2):
        2010-07-20 - Written - Bovy (NYU)
     """
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,t=t)]
+            l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],t=t)]
 
 def _integrateOrbit(vxvv,pot,t,method,dt):
     """
@@ -579,14 +576,12 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC for p in pot])
-        else:
-            allHasC= pot.hasC
-        if not allHasC and ('leapfrog' in method or 'symplec' in method):
-            method= 'leapfrog'
-        elif not allHasC:
-            method= 'odeint'
+        if not _check_c(pot):
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
@@ -675,10 +670,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     """
     #First check that the potential has C
     if '_c' in method:
-        if isinstance(pot,list):
-            allHasC= nu.prod([p.hasC and p.hasC_dxdv for p in pot])
-        else:
-            allHasC= pot.hasC and pot.hasC_dxdv
+        allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
         if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
             method= 'odeint'
             warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
@@ -767,11 +759,11 @@ def _EOM_dxdv(x,t,pot):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
-    phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
-    R2deriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=2)
-    phi2deriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dphi=2)
-    Rphideriv= evaluateplanarPotentials(R,pot,phi=phi,t=t,dR=1,dphi=1)
+    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
+    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
+    R2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
+    phi2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
+    Rphideriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
     #Calculate derivatives and derivatives+time derivatives
     dFxdx= -cosphi**2.*R2deriv\
            +2.*cosphi*sinphi/R**2.*phiforce\
@@ -819,9 +811,9 @@ def _EOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+evaluateplanarRforces(y[0],pot,phi=y[2],t=t),
+            l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(evaluateplanarphiforces(y[0],pot,phi=y[2],t=t)-
+            1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
 
 def _rectForce(x,pot,t=0.):
@@ -846,8 +838,8 @@ def _rectForce(x,pot,t=0.):
     cosphi= x[0]/R
     if x[1] < 0.: phi= 2.*nu.pi-phi
     #calculate forces
-    Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
-    phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
+    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
+    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
     return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
 

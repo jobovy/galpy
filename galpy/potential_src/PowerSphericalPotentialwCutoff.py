@@ -7,17 +7,21 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{r^\\alpha}\\,\\exp\\left(-(r/rc)^2\\right)
+        \\rho(r) = \\mathrm{amp}\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
-    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,r1=1.,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -29,13 +33,17 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         INPUT:
 
-           amp= amplitude to be applied to the potential (default: 1)
+           amp= amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
            alpha= inner power
 
-           rc= cut-off radius
+           rc= cut-off radius (can be Quantity)
+
+           r1= (1.) reference radius for amplitude (can be Quantity)
 
            normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -46,8 +54,14 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(rc,units.Quantity):
+            rc= rc.to(units.kpc).value/self._ro
         self.alpha= alpha
+        # Back to old definition
+        self._amp*= r1**self.alpha
         self.rc= rc
         self._scale= self.rc
         if normalize or \

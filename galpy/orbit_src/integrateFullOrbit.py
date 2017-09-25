@@ -37,7 +37,7 @@ if _lib is None: #pragma: no cover
 else:
     _ext_loaded= True
 
-def _parse_pot(pot,potforactions=False):
+def _parse_pot(pot,potforactions=False,potfortorus=False):
     """Parse the potential so it can be fed to C"""
     #Figure out what's in pot
     if not isinstance(pot,list):
@@ -50,6 +50,10 @@ def _parse_pot(pot,potforactions=False):
         if isinstance(p,potential.LogarithmicHaloPotential):
             pot_type.append(0)
             pot_args.extend([p._amp,p._q,p._core2])
+        elif isinstance(p,potential.DehnenBarPotential):
+            pot_type.append(1)
+            pot_args.extend([p._amp*p._af,p._tform,p._tsteady,p._rb,p._omegab,
+                             p._barphi])
         elif isinstance(p,potential.MiyamotoNagaiPotential):
             pot_type.append(5)
             pot_args.extend([p._amp,p._a,p._b])
@@ -87,9 +91,9 @@ def _parse_pot(pot,potforactions=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            if potforactions:
+            if potforactions or potfortorus:
                 pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            else:
+            if not potforactions:
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])
@@ -115,9 +119,111 @@ def _parse_pot(pot,potforactions=False):
         elif isinstance(p,potential.PlummerPotential):
             pot_type.append(17)
             pot_args.extend([p._amp,p._b])
+        elif isinstance(p,potential.PseudoIsothermalPotential):
+            pot_type.append(18)
+            pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.KuzminDiskPotential):
+            pot_type.append(19)
+            pot_args.extend([p._amp,p._a])
+        elif isinstance(p,potential.BurkertPotential):
+            pot_type.append(20)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.TwoPowerTriaxialPotential):
+            if isinstance(p,potential.TriaxialHernquistPotential):
+                pot_type.append(21)
+            elif isinstance(p,potential.TriaxialNFWPotential):
+                pot_type.append(22)
+            elif isinstance(p,potential.TriaxialJaffePotential):
+                pot_type.append(23)
+            pot_args.extend([p._amp,p.a,p._b2,p._c2,int(p._aligned)])
+            if not p._aligned:
+                pot_args.extend(list(p._rot.flatten()))
+            else:
+                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+            pot_args.append(p._glorder)
+            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
+            # this adds some common factors to the integration weights
+            pot_args.extend([-p._glw[ii]*p._b*p._c/p.a**3.\
+                                  /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+                                           *(1.+(p._c2-1.)*p._glx[ii]**2.))
+                             for ii in range(p._glorder)])
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
+        elif isinstance(p,potential.SCFPotential):
+            # Type 24, see stand-alone parser below
+            pt,pa= _parse_scf_pot(p)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+        elif isinstance(p,potential.SoftenedNeedleBarPotential):
+            pot_type.append(25)
+            pot_args.extend([p._amp,p._a,p._b,p._c2,p._pa,p._omegab])
+            pot_args.extend([0.,0.,0.,0.,0.,0.,0.]) # for caching
+        elif isinstance(p,potential.DiskSCFPotential):
+            # Need to pull this apart into: (a) SCF part, (b) constituent
+            # [Sigma_i,h_i] parts
+            # (a) SCF, multiply in any add'l amp
+            pt,pa= _parse_scf_pot(p._scf,extra_amp=p._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            # (b) constituent [Sigma_i,h_i] parts
+            for Sigma,hz in zip(p._Sigma_dict,p._hz_dict):
+                npot+= 1
+                pot_type.append(26)
+                stype= Sigma.get('type','exp')
+                if stype == 'exp' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([3,0,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     Sigma.get('h',1./3.)])
+                elif stype == 'expwhole' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([4,1,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     Sigma.get('h',1./3.),
+                                     Sigma.get('Rhole',0.5)])
+                hztype= hz.get('type','exp')
+                if hztype == 'exp':
+                    pot_args.extend([0,hz.get('h',0.0375)])
+                elif hztype == 'sech2':
+                    pot_args.extend([1,hz.get('h',0.0375)])
+        elif isinstance(p, potential.SpiralArmsPotential):
+            pot_type.append(27)
+            pot_args.extend([len(p._Cs), p._amp, p._N, p._sin_alpha, p._tan_alpha, p._r_ref, p._phi_ref,
+                             p._Rs, p._H, p._omega])
+            pot_args.extend(p._Cs)
+        ############################## WRAPPERS ###############################
+        elif isinstance(p,potential.DehnenSmoothWrapperPotential):
+            pot_type.append(-1)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._tform,p._tsteady])
+        elif isinstance(p,potential.SolidBodyRotationWrapperPotential):
+            pot_type.append(-2)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._omega,p._pa])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
+
+def _parse_scf_pot(p,extra_amp=1.):
+    # Stand-alone parser for SCF, bc re-used
+    isNonAxi= p.isNonAxi
+    pot_args= [p._a, isNonAxi]
+    pot_args.extend(p._Acos.shape)
+    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
+    if isNonAxi:
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))   
+    pot_args.extend([-1.,0,0,0,0,0,0])    
+    return (24,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """
@@ -186,6 +292,9 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+    
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
@@ -257,6 +366,9 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                     result,
                     ctypes.byref(err),
                     ctypes.c_int(int_method_c))
+
+    if int(err.value) == -10: #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)

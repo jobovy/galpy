@@ -1,3 +1,163 @@
+v1.3 (2017-XX-XX)
+==================
+
+- Added support for potential wrappers---classes that wrap existing
+  potentials to modify their behavior (#307). See the documentation on
+  potentials and the potential API for more information on these.
+
+- Added DehnenSmoothWrapperPotential, a potential wrapper to smoothly
+  grow a gravitational potential (e.g., a bar) following Dehnen
+  (2000).
+
+- Added SolidBodyRotationWrapperPotential, a potential wrapper to make
+  a gravitational potential rotate around the z axis with a fixed,
+  uniform pattern speed.
+
+- Added DiskSCFPotential, a class that implements general
+  density/potential pairs for disk potentials by combining Kuijken &
+  Dubinski (1995)'s trick for turning a separable disk density
+  [rho(R,z) = \Sigma(R) x h(z)] into a ellipsoidal-ish density, with
+  the SCF basis-function-expansion approach of Hernquist & Ostriker
+  (1992) for solving for the ellipsoidal-ish density's potential. This
+  is a fully general Poisson solver (i.e., any density can be
+  represented in this way).
+
+- Added SoftenedNeedleBarPotential, a simple potential for a bar that
+  consists of a needle softened by a Miyamoto-Nagai kernel (Long &
+  Murali 1992).
+
+- Added FerrersPotential, a class that implements the potential for
+  triaxial ellipsoids (Binney & Tremaine 2008, Ch 2.5) with an option
+  to give a pattern speed to the ellipsoid.
+
+- Added SpiralArmsPotential, a class that implements the spiral arms
+  potential from Cox and Gomez
+  (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
+
+- Added galpy.df.schwarzschilddf, the simple Schwarzschild
+  distribution function for a razor-thin disk.
+
+- Upgraded DehnenBarPotential to a 3D potential following Monari et
+  al. (2016) (#304).
+
+- Generalized CosmphiDiskPotential to allow for a break radius within
+  which the radial dependence of the potential changes from R^p to
+  R^-p; also added C implementation of CosmphiDiskPotential.
+
+- Allow transformations of (ra,dec) and (pmra,pmdec) to custom
+  coordinate systems.
+
+- Allow plotting of the spherical radius in Orbit.plot
+
+- Made SCFPotential compatible with GSL v2.
+
+- Orbit methods now all return a scalar when called with a single
+  time (see #247 and #294).
+
+- Added a warning whenever the orbit-integration method that is used
+  is different from the requested one (for when C integration falls
+  back onto Python; see #286).
+
+- Turn off changing the seaborn default plot configuration to that
+  preferred by this code's maintainer; can be turned back on by
+  specifying ``seaborn-bovy-defaults = True`` in the configuration
+  file (see documentation). Old configuration files will be
+  automatically updated to add this option (but remain otherwise the
+  same).
+
+- Added button to code examples in the documentation that copies the
+  examples to the user's clipboard for easy pasting into a Python
+  interpreter.
+
+- Switched test suite from nose to pytest (#303).
+
+v1.2 (2016-09-06)
+==================
+
+- Added support for providing inputs to all initializations, methods,
+  and functions as Quantities with units and for providing outputs as
+  astropy Quantities. See pull request #258 and the documentation for
+  full details.
+
+- Added TwoPowerTriaxialPotential, a set of triaxial potentials with
+  iso-density contours that are arbitrary, similar, coaxial ellipsoids
+  whose 'radial' density is a (different) power-law at small and large
+  radii: 1/m^alpha/(1+m)^beta-alpha (the triaxial generalization of
+  TwoPowerSphericalPotential, with flattening in the density rather
+  than in the potential, see Merritt & Fridman 1996, Binney & Tremaine
+  2008). These include triaxial Hernquist and NFW potentials. Includes
+  fast C implementations that allow efficient orbit integration in
+  these potentials (<~5 ms / orbit).
+
+- Added SCFPotential, a class that implements general
+  density/potential pairs through the basis expansion approach to
+  solving the Poisson equation of Hernquist & Ostriker (1992).  Also
+  implemented functions to compute the coefficients for a given
+  density function.
+
+- Implemented galpy.actionAngle.actionAngleIsochroneApprox (Bovy 2014)
+  for the general case of a time-independent potential, allowing
+  action-angle coordinates to be computed for triaxial
+  potentials. Previously, this module only supported axisymmetric
+  potentials. Also allow the maximum number of terms in the expansion
+  to be set object-wide and allow a fixed time-step to be used in the
+  necessary orbit integration.
+
+- Added an (experimental) interface to Binney & McMillan's TorusMapper
+  code for computing positions and velocities for given actions and
+  angles. See the installation instructions for how to properly
+  install this.
+
+- Re-defined the amplitude parameters of a few potentials to allow for
+  easier setups with amplitudes provided as Quantities with
+  units. This is the case for FlattenedPowerPotential,
+  PowerSphericalPotential, and PowerSphericalPotentialwCutoff,
+  CosmphiDiskPotential, LopsidedDiskPotential, and
+  EllipticalDiskPotential.
+
+- Added a module for modeling the effect of a subhalo impact on a
+  tidal stream (galpy.df.streamgapdf); see Sanders, Bovy, & Erkal
+  (2016). Also includes the fast methods for computing the density
+  along the stream and the stream track for a perturbed stream from
+  Bovy, Erkal, & Sanders (2016).
+
+- Added functions to galpy.df.streamdf to compute the length of the
+  stream, the density along the stream quickly (in various
+  coordinates, including custom sky coordinates), to compute the
+  probability p(freq_parallel,angle_parallel), and to estimate the
+  number of encounters with DM subhalos. Also allow the stream track
+  to be computing using the new actionAngleTorus (this last addition
+  is still very experimental).
+
+- Added PseudoIsothermalPotential, a standard pseudo-isothermal-sphere
+  potential.
+
+- Added KuzminDiskPotential, a potential represented by a razor thin
+  disk
+
+- Allow transformations to custom sets of sky coordinates in
+  galpy.util.bovy_coords.
+
+- Added the spherical radius as an Orbit method.
+
+- Added the spherical-radial force as a Potential method (rforce) and
+  function (evaluaterforces).
+
+- Support for flipping the velocities of an orbit in-place (useful for
+  backwards integration).
+
+- quasiisothermaldf input ro replaced by refr to avoid clash with ro
+  that specifies units (see above).
+
+- Properly intercept CTRL-C (SIGINT) signals during orbit integration
+  in C, allowing long orbit integrations to be interrupted without
+  killing an entire Python session.
+
+- Internally use astropy.coordinates transformations to transform
+  between (ra,dec) and (l,b). Can be tuned using the astropy-coords
+  configuration parameter. Also allow general epochs for the (ra,dec)
+  specification.
+
 v1.1 (2015-06-30)
 ==================
 

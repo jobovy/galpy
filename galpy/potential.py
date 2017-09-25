@@ -1,3 +1,6 @@
+import warnings
+from galpy.util import galpyWarning
+warnings.warn("A major change in versions > 1.1 is that all galpy.potential functions and methods take the potential as the first argument; previously methods such as evaluatePotentials, evaluateDensities, etc. would be called with (R,z,Pot), now they are called as (Pot,R,z) for greater consistency across the codebase",galpyWarning)
 from galpy.potential_src import Potential
 from galpy.potential_src import planarPotential
 from galpy.potential_src import linearPotential
@@ -27,6 +30,16 @@ from galpy.potential_src import BurkertPotential
 from galpy.potential_src import MN3ExponentialDiskPotential
 from galpy.potential_src import KuzminKutuzovStaeckelPotential
 from galpy.potential_src import PlummerPotential
+from galpy.potential_src import PseudoIsothermalPotential
+from galpy.potential_src import KuzminDiskPotential
+from galpy.potential_src import TwoPowerTriaxialPotential
+from galpy.potential_src import FerrersPotential
+from galpy.potential_src import SCFPotential
+from galpy.potential_src import SoftenedNeedleBarPotential
+from galpy.potential_src import DiskSCFPotential
+from galpy.potential_src import SpiralArmsPotential
+from galpy.potential_src import DehnenSmoothWrapperPotential
+from galpy.potential_src import SolidBodyRotationWrapperPotential
 #
 # Functions
 #
@@ -35,10 +48,12 @@ evaluateDensities= Potential.evaluateDensities
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
+evaluaterforces= Potential.evaluaterforces
 evaluateR2derivs= Potential.evaluateR2derivs
 evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
+toPlanarPotential= planarPotential.toPlanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
@@ -68,6 +83,13 @@ PotentialError= Potential.PotentialError
 LinShuReductionFactor= planarPotential.LinShuReductionFactor
 nemo_accname= Potential.nemo_accname
 nemo_accpars= Potential.nemo_accpars
+turn_physical_off= Potential.turn_physical_off
+turn_physical_on= Potential.turn_physical_on
+_dim= Potential._dim
+_isNonAxi= Potential._isNonAxi
+scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
+scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
+scf_compute_coeffs = SCFPotential.scf_compute_coeffs
 #
 # Classes
 #
@@ -103,7 +125,20 @@ BurkertPotential= BurkertPotential.BurkertPotential
 MN3ExponentialDiskPotential= MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
 KuzminKutuzovStaeckelPotential = KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
 PlummerPotential = PlummerPotential.PlummerPotential
-
+PseudoIsothermalPotential = PseudoIsothermalPotential.PseudoIsothermalPotential
+KuzminDiskPotential = KuzminDiskPotential.KuzminDiskPotential
+TriaxialHernquistPotential= TwoPowerTriaxialPotential.TriaxialHernquistPotential
+TriaxialNFWPotential= TwoPowerTriaxialPotential.TriaxialNFWPotential
+TriaxialJaffePotential= TwoPowerTriaxialPotential.TriaxialJaffePotential
+TwoPowerTriaxialPotential= TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
+FerrersPotential= FerrersPotential.FerrersPotential
+SCFPotential = SCFPotential.SCFPotential
+SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotential
+DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
+SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
+#Wrappers
+DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
+SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 

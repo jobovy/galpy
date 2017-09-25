@@ -9,7 +9,9 @@ import warnings
 from scipy import special, integrate
 from galpy.util import galpyWarning
 from galpy.potential_src.PowerSphericalPotential import KeplerPotential
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
@@ -22,6 +24,7 @@ class DoubleExponentialDiskPotential(Potential):
     """
     def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
+                 ro=None,vo=None,
                  new=True,kmaxFac=2.,glorder=10):
         """
         NAME:
@@ -34,17 +37,19 @@ class DoubleExponentialDiskPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           hr - disk scale-length
+           hr - disk scale-length (can be Quantity)
 
-           hz - scale-height
+           hz - scale-height (can be Quantity)
 
            tol - relative accuracy of potential-evaluations
 
            maxiter - scipy.integrate keyword
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -57,7 +62,11 @@ class DoubleExponentialDiskPotential(Potential):
            2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        if _APY_LOADED and isinstance(hr,units.Quantity):
+            hr= hr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(hz,units.Quantity):
+            hz= hz.to(units.kpc).value/self._ro
         self.hasC= True
         self._kmaxFac= kmaxFac
         self._glorder= glorder
@@ -126,7 +135,7 @@ class DoubleExponentialDiskPotential(Potential):
                 floatIn= False
             out= nu.empty(len(R))
             indx= (R <= 6.)
-            out[True-indx]= self._kp(R[True-indx],z[True-indx])
+            out[True^indx]= self._kp(R[True^indx],z[True^indx])
             R4max= nu.copy(R)
             R4max[(R < 1.)]= 1.
             kmax= self._kmaxFac*self._beta

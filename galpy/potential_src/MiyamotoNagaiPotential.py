@@ -6,7 +6,10 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy as nu
-from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator
+from galpy.potential_src.Potential import Potential, kms_to_kpcGyrDecorator, \
+    _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 
@@ -15,7 +18,8 @@ class MiyamotoNagaiPotential(Potential):
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+(a+\\sqrt{z^2+b^2})^2}}
 
     """
-    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False):
+    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -27,13 +31,15 @@ class MiyamotoNagaiPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           a - "disk scale" (in terms of Ro)
+           a - scale length (can be Quantity)
 
-           b - "disk height" (in terms of Ro)
+           b - scale height (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -44,7 +50,11 @@ class MiyamotoNagaiPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         self._a= a
         self._scale= self._a
         self._b= b

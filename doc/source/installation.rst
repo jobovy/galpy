@@ -3,35 +3,62 @@ Installation
 
 galpy can be installed using pip as::
 
-      > pip install galpy
+      pip install galpy
 
 or to upgrade without upgrading the dependencies::
 
-      > pip install -U --no-deps galpy
+      pip install -U --no-deps galpy
 
 Some advanced features require the GNU Scientific Library (GSL; see below). If you want to use these, install the GSL first (or install it later and re-install using the upgrade command above).
 
 The latest updates in galpy can be installed using::
     
-    > pip install -U --no-deps git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps git+git://github.com/jobovy/galpy.git#egg=galpy
 
 or::
 
-    > pip install -U --no-deps --install-option="--prefix=~/local" git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --install-option="--prefix=~/local" git+git://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. The latest updates can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
 
-      > python setup.py install
+      python setup.py install
 
 or::
 
-	> python setup.py install --prefix=~/local
+	python setup.py install --prefix=~/local
 
 for a local installation. A basic installation works with just the
 numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
 
-		       > nosetests -v -w nose/
+		       nosetests -v -w nose/
 
+
+.. _install_tm:
+
+**NEW in v1.2**: Installing the TorusMapper code
+-------------------------------------------------
+
+Since v1.2, ``galpy`` contains a basic interface to the TorusMapper
+code of `Binney & McMillan (2016)
+<http://adsabs.harvard.edu/abs/2016MNRAS.456.1982B>`__. This interface
+uses a stripped-down version of the TorusMapper code, that is not
+bundled with the galpy code, but kept in a fork of the original
+TorusMapper code. Installation of the TorusMapper interface is
+therefore only possible when installing from source after downloading
+or cloning the galpy code and using the ``python setup.py install``
+method above.
+
+To install the TorusMapper code, *before* running the installation of
+galpy, navigate to the top-level galpy directory (which contains the
+``setup.py`` file) and do::
+
+	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     git checkout galpy
+	     cd -
+
+Then proceed to install galpy using the ``python setup.py install``
+technique or its variants as usual.
 
 Installation FAQ
 -----------------
@@ -44,6 +71,26 @@ What is the required ``numpy`` version?
 normalization of certain distribution functions using Gauss-Legendre
 integration require ``numpy`` version 1.7.0 or higher.
 
+I get warnings like "galpyWarning: integrateFullOrbit_c extension module not loaded, because galpy_integrate_c.so image was not found"
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This typically means that the GNU Scientific Library (`GSL
+<http://www.gnu.org/software/gsl/>`_) was unavailable during galpy's
+installation, causing the C extensions not to be compiled. Most of the
+galpy code will still run, but slower because it will run in pure
+Python. The code requires GSL versions >= 1.14. If you believe that
+the correct GSL version is installed for galpy, check that the library
+can be found during installation (see :ref:`below <gsl_cflags>`).
+
+I get the warning "galpyWarning: actionAngleTorus_c extension module not loaded, because galpy_actionAngleTorus_c.so image was not found"
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This is typically because the TorusMapper code was not compiled,
+because it was unavailable during installation. This code is only
+necessary if you want to use
+``galpy.actionAngle.actionAngleTorus``. See :ref:`above <install_tm>`
+for instructions on how to install the TorusMapper code.
+
 How do I install the GSL?
 ++++++++++++++++++++++++++
 
@@ -52,16 +99,17 @@ Certain advanced features require the GNU Scientific Library (`GSL
 requiring version 1.14 or higher. On a Mac, the easiest way to install
 the GSL is using `Homebrew <http://brew.sh/>`_ as::
 
-		> brew install gsl --universal
+		brew install gsl --universal
 
 You should be able to check your version  using::
 
-   > gsl-config --version
+   gsl-config --version
 
 On Linux distributions with ``apt-get``, the GSL can be installed using::
 
    apt-get install libgsl0-dev
 
+.. _gsl_cflags:
 
 The ``galpy`` installation fails because of C compilation errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -108,11 +156,11 @@ setup.py`` commands above::
 
 or when using pip as follows::
 
-    > pip install -U --no-deps --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
 
 or::
 
-    > pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
@@ -128,3 +176,53 @@ install without OpenMP, or specify to use ``gcc`` by specifying the
 ``CC`` and ``LDSHARED`` environment variables to use ``gcc``. Note
 that ``clang`` does not seem to have this issue anymore in more recent
 versions, but it still does not support ``OpenMP``.
+
+.. _configfile:
+
+**NEW in v1.2**: Configuration file
+------------------------------------
+
+Since v1.2, ``galpy`` uses a configuration file to set a small number
+of configuration variables. This configuration file is parsed using
+`ConfigParser
+<https://docs.python.org/2/library/configparser.html>`__/`configparser
+<https://docs.python.org/3/library/configparser.html>`__. It is
+currently used to set a default set of distance and velocity scales
+(``ro`` and ``vo`` throughout galpy) for conversion between physical
+and internal galpy units, to decide whether to change the seaborn plotting defaults, to specify whether output from functions or
+methods should be given as an `astropy Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+with units as much as possible or not, and whether or not to use
+astropy's `coordinate transformations
+<http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these
+are typically somewhat slower than galpy's own coordinate
+transformations, but they are more accurate and more general). The
+current configuration file therefore looks like this::
+
+	  [normalization]
+	  ro = 8.
+	  vo = 220.
+
+	  [plot]
+	  seaborn-bovy-defaults = False
+
+	  [astropy]
+	  astropy-units = False
+	  astropy-coords = True
+
+where ``ro`` is the distance scale specified in kpc, ``vo`` the
+velocity scale in km/s, and the setting is to *not* return output as a
+Quantity. These are the current default settings.
+
+A user-wide configuration file should be located at
+``$HOME/.galpyrc``. This user-wide file can be overridden by a
+``$PWD/.galpyrc`` file in the current directory. If no configuration
+file is found, the code will automatically write the default
+configuration to ``$HOME/.galpyrc``. Thus, after installing galpy, you
+can simply use some of its simplest functionality (e.g., integrate an
+orbit), and after this the default configuration file will be present
+at ``$HOME/.galpyrc``. If you want to change any of the settings (for
+example, you want Quantity output), you can edit this file. The
+default configuration file can also be found :download:`here
+<examples/galpyrc>`.
+

@@ -32,7 +32,14 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "signal.h"
 #include <bovy_symplecticode.h>
+#define _MAX_DT_REDUCE 10000.
+volatile sig_atomic_t interrupted= 0;
+void handle_sigint(int signum)
+{
+  interrupted= 1;
+}
 inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
   int ii;
   for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
@@ -69,6 +76,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void leapfrog(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
@@ -103,7 +111,17 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     //drift half
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
     //now drift full for a while
@@ -131,6 +149,9 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     save_qp(dim,qo,po,result);
     result+= 2 * dim;
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(qo);
   free(po);
@@ -161,6 +182,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void symplec4(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
@@ -203,7 +225,17 @@ void symplec4(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
     to+= c1*dt;
@@ -258,6 +290,9 @@ void symplec4(void (*func)(double t, double *q, double *a,
     save_qp(dim,qo,po,result);
     result+= 2 * dim;
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(qo);
   free(po);
@@ -288,6 +323,7 @@ Usage:
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
        double *result: result (nt blocks of size 2dim)
+       int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void symplec6(void (*func)(double t, double *q, double *a,
 			   int nargs, struct potentialArg * potentialArgs),
@@ -338,7 +374,17 @@ void symplec6(void (*func)(double t, double *q, double *a,
   long ndt= (long) (init_dt/dt);
   //Integrate the system
   double to= *t;
+  // Handle KeyboardInterrupt gracefully
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
   for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0; // need to reset, bc library and vars stay in memory
+      break;
+    }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
     to+= c1*dt;
@@ -441,6 +487,9 @@ void symplec6(void (*func)(double t, double *q, double *a,
     save_qp(dim,qo,po,result);
     result+= 2 * dim;
   }
+  // Back to default handler
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
   //Free allocated memory
   free(qo);
   free(po);
@@ -459,6 +508,7 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -487,7 +537,7 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1.  && init_dt / dt < _MAX_DT_REDUCE){
     dt/= 2.;
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
@@ -543,6 +593,7 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -571,7 +622,7 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1. && init_dt / dt < _MAX_DT_REDUCE ){
     dt/= 2.;
     //do one step with step dt, and one with step dt/2.
     /*
@@ -695,6 +746,7 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
   double err= 2.;
   double max_val_q, max_val_p;
   double to= *t;
+  double init_dt= dt;
   //allocate and initialize
   double *q11= (double *) malloc ( dim * sizeof(double) );
   double *q12= (double *) malloc ( dim * sizeof(double) );
@@ -723,7 +775,7 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
-  while ( err > 1. ){
+  while ( err > 1. && init_dt / dt < _MAX_DT_REDUCE ){
     dt/= 2.;
     //do one step with step dt, and one with step dt/2.
     /*

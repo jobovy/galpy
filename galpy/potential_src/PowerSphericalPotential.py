@@ -8,16 +8,19 @@
 ###############################################################################
 import numpy as nu
 from scipy import special, integrate
-from galpy.potential_src.Potential import Potential
+from galpy.potential_src.Potential import Potential, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 
     .. math::
 
-        \\rho(r) = \\mathrm{amp}\\,\\frac{3-\\alpha}{4\\,\\pi}\\,r^{-\\alpha}
+        \\rho(r) = \\frac{\\mathrm{amp}}{r_1^3}\\,\\left(\\frac{r_1}{r}\\right)^{\\alpha}
 
     """
-    def __init__(self,amp=1.,alpha=1.,normalize=False):
+    def __init__(self,amp=1.,alpha=1.,normalize=False,r1=1.,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -29,11 +32,15 @@ class PowerSphericalPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
            alpha - inner power
 
+           r1= (1.) reference radius for amplitude (can be Quantity)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -44,8 +51,13 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        if _APY_LOADED and isinstance(r1,units.Quantity):
+            r1= r1.to(units.kpc).value/self._ro
         self.alpha= alpha
+        # Back to old definition
+        if self.alpha != 3.:
+            self._amp*= r1**(self.alpha-3.)*4.*nu.pi/(3.-self.alpha)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
@@ -192,7 +204,8 @@ class KeplerPotential(PowerSphericalPotential):
         \\Phi(r) = -\\frac{\\mathrm{amp}}{r}
 
     """
-    def __init__(self,amp=1.,normalize=False):
+    def __init__(self,amp=1.,normalize=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -204,11 +217,13 @@ class KeplerPotential(PowerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
            alpha - inner power
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
 
@@ -220,7 +235,7 @@ class KeplerPotential(PowerSphericalPotential):
 
         """
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
-                                         alpha=3.)
+                                         alpha=3.,ro=ro,vo=vo)
 
     def _mass(self,R,z=0.,t=0.):
         """
