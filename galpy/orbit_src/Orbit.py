@@ -3570,6 +3570,43 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
 
+    def animate(self,*args,**kwargs):
+        """
+        NAME:
+
+           animate
+
+        PURPOSE:
+
+           animate a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+
+           d2= second dimension to plot
+
+           width= (600) width of output div in px
+
+           height= (400) height of output div in px
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+
+        HISTORY:
+
+           2017-09-17-24 - Written - Bovy (UofT)
+
+        """
+        return self._orb.animate(*args,**kwargs)
+
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
     if dt is None:

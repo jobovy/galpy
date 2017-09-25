@@ -1,4 +1,7 @@
 import warnings
+import json
+from random import choice
+from string import ascii_lowercase
 import math as m
 import numpy as nu
 import scipy
@@ -2094,6 +2097,423 @@ class OrbitTop(object):
             except: pass
         return None
 
+    def animate(self,*args,**kwargs):
+        """
+        NAME:
+           animate
+        PURPOSE:
+           animate an Orbit
+        INPUT:
+           width= (600) width of output div in px
+           height= (400) height of output div in px
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           +kwargs for ra,dec,ll,bb, etc. functions
+        OUTPUT:
+           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+        HISTORY:
+           2017-09-17-24 - Written - Bovy (UofT)
+        """
+        try:
+            from IPython.display import HTML
+        except ImportError:
+            raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':'t (Gyr)',
+                        'R':'R (kpc)',
+                        'vR':'v_R (km/s)',
+                        'vT':'v_T (km/s)',
+                        'z':'z (kpc)',
+                        'vz':'v_z\ (km/s)',
+                        'phi':'azimuthal angle',
+                        'r':'r (\mathrm{kpc})',
+                        'x':'x (kpc)',
+                        'y':'y (kpc)',
+                        'vx':'v_x (km/s)',
+                        'vy':'v_y (km/s)',
+                        'E':'E (km^2/s^2)$',
+                        'Ez':'E_z (km^2/s^2)',
+                        'ER':'E_R (km^2/s^2)',
+                        'Enorm':'E(t)/E(0.)',
+                        'Eznorm':'E_z(t)/E_z(0.)',
+                        'ERnorm':'E_R(t)/E_R(0.)',
+                        'Jacobi':'E-\Omega_p\,L (km^2/s^2)',
+                        'Jacobinorm':'(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+        else:
+            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
+                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
+                        'r':'r',
+                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
+                        'E':'E','Enorm':'E(t)/E(0.)',
+                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
+                        'ER':r'E_R','ERnorm':r'$E_R(t)/E_R(0.)',
+                        'Jacobi':r'E-\Omega_p\,L',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)'}
+        labeldict.update({'ra':'\alpha (deg)',
+                          'dec':'\delta (deg)',
+                          'll':'l (deg)',
+                          'bb':'b (deg)',
+                          'dist':'d (kpc)',
+                          'pmra':'\mu_\alpha (mas/yr)',
+                          'pmdec':'\mu_\delta (mas/yr)',
+                          'pmll':'\mu_l (mas/yr)',
+                          'pmbb':'\mu_b (mas/yr)',
+                          'vlos':'v_los (km/s)',
+                          'helioX':'X (kpc)',
+                          'helioY':'Y (kpc)',
+                          'helioZ':'Z (kpc)',
+                          'U':'U (km/s)',
+                          'V':'V (km/s)',
+                          'W':'W (km/s)'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs:
+            if len(self.vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif len(self.vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+            elif len(self.vxvv) == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
+                d1= 'R'
+                d2= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+        #Get x and y
+        if d1 == 't':
+            x= self.time(self.t,**kwargs)
+        elif d1 == 'R':
+            x= self.R(self.t,**kwargs)
+        elif d1 == 'r':
+            x= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
+        elif d1 == 'z':
+            x= self.z(self.t,**kwargs)
+        elif d1 == 'vz':
+            x= self.vz(self.t,**kwargs)
+        elif d1 == 'vR':
+            x= self.vR(self.t,**kwargs)
+        elif d1 == 'vT':
+            x= self.vT(self.t,**kwargs)
+        elif d1 == 'x':
+            x= self.x(self.t,**kwargs)
+        elif d1 == 'y':
+            x= self.y(self.t,**kwargs)
+        elif d1 == 'vx':
+            x= self.vx(self.t,**kwargs)
+        elif d1 == 'vy':
+            x= self.vy(self.t,**kwargs)
+        elif d1 == 'phi':
+            x= self.phi(self.t,**kwargs)
+        elif d1.lower() == 'ra':
+            x= self.ra(self.t,**kwargs)
+        elif d1.lower() == 'dec':
+            x= self.dec(self.t,**kwargs)
+        elif d1 == 'll':
+            x= self.ll(self.t,**kwargs)
+        elif d1 == 'bb':
+            x= self.bb(self.t,**kwargs)
+        elif d1 == 'dist':
+            x= self.dist(self.t,**kwargs)
+        elif d1 == 'pmra':
+            x= self.pmra(self.t,**kwargs)
+        elif d1 == 'pmdec':
+            x= self.pmdec(self.t,**kwargs)
+        elif d1 == 'pmll':
+            x= self.pmll(self.t,**kwargs)
+        elif d1 == 'pmbb':
+            x= self.pmbb(self.t,**kwargs)
+        elif d1 == 'vlos':
+            x= self.vlos(self.t,**kwargs)
+        elif d1 == 'helioX':
+            x= self.helioX(self.t,**kwargs)
+        elif d1 == 'helioY':
+            x= self.helioY(self.t,**kwargs)
+        elif d1 == 'helioZ':
+            x= self.helioZ(self.t,**kwargs)
+        elif d1 == 'U':
+            x= self.U(self.t,**kwargs)
+        elif d1 == 'V':
+            x= self.V(self.t,**kwargs)
+        elif d1 == 'W':
+            x= self.W(self.t,**kwargs)
+        elif d1 == 'E':
+            x= self.E(self.t,**kwargs)
+        elif d1 == 'Enorm':
+            x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+        elif d1 == 'Ez':
+            x= self.Ez(self.t,**kwargs)
+        elif d1 == 'Eznorm':
+            x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+        elif d1 == 'ER':
+            x= self.ER(self.t,**kwargs)
+        elif d1 == 'ERnorm':
+            x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d1 == 'Jacobi':
+            x= self.Jacobi(self.t,**kwargs)
+        elif d1 == 'Jacobinorm':
+            x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+        if d2 == 't':
+            y= self.time(self.t,**kwargs)
+        elif d2 == 'R':
+            y= self.R(self.t,**kwargs)
+        elif d2 == 'r':
+            y= nu.sqrt(self.R(self.t,**kwargs)**2.
+                       +self.z(self.t,**kwargs)**2.)
+        elif d2 == 'z':
+            y= self.z(self.t,**kwargs)
+        elif d2 == 'vz':
+            y= self.vz(self.t,**kwargs)
+        elif d2 == 'vR':
+            y= self.vR(self.t,**kwargs)
+        elif d2 == 'vT':
+            y= self.vT(self.t,**kwargs)
+        elif d2 == 'x':
+            y= self.x(self.t,**kwargs)
+        elif d2 == 'y':
+            y= self.y(self.t,**kwargs)
+        elif d2 == 'vx':
+            y= self.vx(self.t,**kwargs)
+        elif d2 == 'vy':
+            y= self.vy(self.t,**kwargs)
+        elif d2 == 'phi':
+            y= self.phi(self.t,**kwargs)
+        elif d2.lower() == 'ra':
+            y= self.ra(self.t,**kwargs)
+        elif d2.lower() == 'dec':
+            y= self.dec(self.t,**kwargs)
+        elif d2 == 'll':
+            y= self.ll(self.t,**kwargs)
+        elif d2 == 'bb':
+            y= self.bb(self.t,**kwargs)
+        elif d2 == 'dist':
+            y= self.dist(self.t,**kwargs)
+        elif d2 == 'pmra':
+            y= self.pmra(self.t,**kwargs)
+        elif d2 == 'pmdec':
+            y= self.pmdec(self.t,**kwargs)
+        elif d2 == 'pmll':
+            y= self.pmll(self.t,**kwargs)
+        elif d2 == 'pmbb':
+            y= self.pmbb(self.t,**kwargs)
+        elif d2 == 'vlos':
+            y= self.vlos(self.t,**kwargs)
+        elif d2 == 'helioX':
+            y= self.helioX(self.t,**kwargs)
+        elif d2 == 'helioY':
+            y= self.helioY(self.t,**kwargs)
+        elif d2 == 'helioZ':
+            y= self.helioZ(self.t,**kwargs)
+        elif d2 == 'U':
+            y= self.U(self.t,**kwargs)
+        elif d2 == 'V':
+            y= self.V(self.t,**kwargs)
+        elif d2 == 'W':
+            y= self.W(self.t,**kwargs)
+        elif d2 == 'E':
+            y= self.E(self.t,**kwargs)
+        elif d2 == 'Enorm':
+            y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+        elif d2 == 'Ez':
+            y= self.Ez(self.t,**kwargs)
+        elif d2 == 'Eznorm':
+            y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+        elif d2 == 'ER':
+            y= self.ER(self.t,**kwargs)
+        elif d2 == 'ERnorm':
+            y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+        elif d2 == 'Jacobi':
+            y= self.Jacobi(self.t,**kwargs)
+        elif d2 == 'Jacobinorm':
+            y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        width= kwargs.pop('width',600)
+        height= kwargs.pop('height',400)
+        # G
+        jd= json.dumps({'x':x.tolist(),'y':y.tolist()})
+        self.divid= ''.join(choice(ascii_lowercase) for i in range(24))
+        button_width= 419.51+4.*10.
+        button_margin_left= int(nu.round((width-button_width)/2.))
+        if button_margin_left < 0: button_margin_left= 0
+        return HTML("""
+<style>
+.galpybutton {{
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #1f77b4;
+    display:inline-block;
+    cursor:pointer;
+    color:#1f77b4;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+}}
+.galpybutton:hover {{
+    background-color:#ffffff;
+}}
+.galpybutton:active {{
+    position:relative;
+    top:1px;
+}}
+.galpybutton:focus{{
+    outline:0;
+}}
+</style>
+
+<div id='{divid}' style='width:{width}px;height:{height}px;'></div>
+<div class="controlbutton" id="play" style="margin-left:{button_margin_left}px;display: inline-block;">
+<button class="galpybutton">Play</button></div>
+<div class="controlbutton" id="pause" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Pause</button></div>
+<div class="controlbutton" id="timestwo" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="timeshalf" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="replay" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Replay</button></div>
+
+<script>
+require.config({{
+  paths: {{
+    Plotly: 'https://cdn.plot.ly/plotly-latest.min',
+  }}
+}});
+let data= JSON.parse('{jd}');
+var layout = {{
+  xaxis: {{title: '{xlabel}'}},
+  yaxis: {{title: '{ylabel}'}},
+  margin: {{t: 20}},
+  hovermode: 'closest',
+  showlegend: false,
+}};
+require(['Plotly'], function (Plotly) {{
+  let numPerFrame= 5;    
+  let cnt= 1;
+  let interval;
+  let trace_slice_len;
+  let trace_slice_begin;
+  let trace_slice_end;
+
+  setup_trace();
+  
+  $('.controlbutton button').click(function() {{
+    let button_type= this.parentNode.id;
+    if ( button_type === 'play' ) {{
+      clearInterval(interval);
+      interval= animate_trace();
+    }}
+    else if ( button_type === 'pause' )
+      clearInterval(interval);
+    else if ( button_type === 'timestwo' ) {{
+      cnt/= 2;
+      numPerFrame*= 2;
+    }}
+    else if ( button_type === 'timeshalf' ) {{
+      cnt*= 2;
+      numPerFrame/= 2;
+    }}
+    else if ( button_type === 'replay' ) {{
+      cnt= 1;
+      try {{ // doesn't exist if animation has already ended
+        Plotly.deleteTraces('{divid}',1);
+      }}
+      catch (err) {{
+      }}
+      Plotly.deleteTraces('{divid}',0);
+      clearInterval(interval);
+      setup_trace();
+      interval= animate_trace();
+    }}
+  }});
+    
+  function setup_trace() {{
+    Plotly.plot('{divid}',
+                [{{x: data.x.slice(0,numPerFrame), 
+                   y: data.y.slice(0,numPerFrame),
+                   mode: 'lines',
+                   line: {{
+                       shape: 'spline',
+                       width: 0.8,
+                       color: '#1f77b4',
+                   }}
+                 }}],
+                layout);
+    Plotly.addTraces('{divid}', 
+                     {{x: data.x.slice(0,numPerFrame), 
+                       y: data.y.slice(0,numPerFrame),
+                       mode: 'lines',
+                       line: {{
+                           shape: 'spline',
+                           width: 3.,
+                           color: '#d62728',
+                       }},
+                    }},
+                    1);
+  }}
+
+  function animate_trace() {{
+    return setInterval(function() {{
+      Plotly.deleteTraces('{divid}', 1);
+      // Make sure narrow and thick trace end in the same 
+      // and the highlighted length has constant length
+      trace_slice_len= Math.floor(numPerFrame);
+      if ( trace_slice_len < 1) trace_slice_len= 1;
+      trace_slice_begin= Math.floor(cnt*numPerFrame);
+      trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x.length-1));
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y.slice(trace_slice_begin,trace_slice_end)],
+      }}, [0]);
+      trace_slice_begin-= trace_slice_len;
+      Plotly.addTraces('{divid}', 
+                       {{x: data.x.slice(trace_slice_begin,trace_slice_end),
+                         y: data.y.slice(trace_slice_begin,trace_slice_end),
+                         mode: 'lines',
+                         line: {{
+                           shape: 'spline',
+                           width: 3.,
+                           color: '#d62728',
+                         }},
+                      }},
+                      1);
+      cnt+= 1;
+      if(cnt*numPerFrame+trace_slice_len > data.x.length/1) {{
+          clearInterval(interval);
+          Plotly.deleteTraces('{divid}',1);
+      }}
+    }}, 20);
+    }}
+}});
+</script>""".format(jd=jd,divid=self.divid,width=width,height=height,
+                    button_margin_left=button_margin_left,
+                    xlabel=labeldict[d1],
+                    ylabel=labeldict[d2]))
 
 class _fakeInterp(object): 
     """Fake class to simulate interpolation when orbit was not integrated"""
