@@ -2447,7 +2447,6 @@ class OrbitTop(object):
             delete_trace4= """Plotly.deleteTraces('{divid}', 3);""".format(divid=self.divid)
             delete_trace3= """Plotly.deleteTraces('{divid}', 0);""".format(divid=self.divid)
             update_trace34= """
-      Plotly.deleteTraces('{divid}', 3);
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
         x: [data.x2.slice(trace_slice_begin,trace_slice_end)],
@@ -2455,19 +2454,11 @@ class OrbitTop(object):
       }}, [2]);
 
       trace_slice_begin-= trace_slice_len;
-      Plotly.addTraces('{divid}', 
-                       {{x: data.x2.slice(trace_slice_begin,trace_slice_end),
-                         y: data.y2.slice(trace_slice_begin,trace_slice_end),
-                         xaxis: 'x2',
-                         yaxis: 'y2',
-                         mode: 'lines',
-                         line: {{
-                           shape: 'spline',
-                           width: 3.,
-                           color: '#d62728',
-                         }},
-                      }},
-                      3);
+      trace4= {{
+        x: [data.x2.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y2.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace4,[3]);
 """.format(divid=self.divid)
         else:
             setup_trace2= """
@@ -2509,7 +2500,6 @@ class OrbitTop(object):
             delete_trace6= """Plotly.deleteTraces('{divid}', 5);""".format(divid=self.divid)
             delete_trace5= """Plotly.deleteTraces('{divid}', 0);""".format(divid=self.divid)
             update_trace56= """
-      Plotly.deleteTraces('{divid}', 5);
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
         x: [data.x3.slice(trace_slice_begin,trace_slice_end)],
@@ -2517,19 +2507,11 @@ class OrbitTop(object):
       }}, [4]);
 
       trace_slice_begin-= trace_slice_len;
-      Plotly.addTraces('{divid}', 
-                       {{x: data.x3.slice(trace_slice_begin,trace_slice_end),
-                         y: data.y3.slice(trace_slice_begin,trace_slice_end),
-                         xaxis: 'x3',
-                         yaxis: 'y3',
-                         mode: 'lines',
-                         line: {{
-                           shape: 'spline',
-                           width: 3.,
-                           color: '#d62728',
-                         }},
-                      }},
-                      5);
+      trace6= {{
+        x: [data.x3.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y3.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace6,[5]);
 """.format(divid=self.divid)
         elif len(d1s) > 1:
             setup_trace3= """
@@ -2574,15 +2556,15 @@ class OrbitTop(object):
 </style>
 
 <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
-<div class="controlbutton" id="play" style="margin-left:{button_margin_left}px;display: inline-block;">
+<div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
 <button class="galpybutton">Play</button></div>
-<div class="controlbutton" id="pause" style="margin-left:10px;display: inline-block;">
+<div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Pause</button></div>
-<div class="controlbutton" id="timestwo" style="margin-left:10px;display: inline-block;">
+<div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
-<div class="controlbutton" id="timeshalf" style="margin-left:10px;display: inline-block;">
+<div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
-<div class="controlbutton" id="replay" style="margin-left:10px;display: inline-block;">
+<div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Replay</button></div>
 
 <script>
@@ -2591,9 +2573,9 @@ require.config({{
     Plotly: 'https://cdn.plot.ly/plotly-latest.min',
   }}
 }});
-let data= JSON.parse('{jd}');
-var layout = {layout};
 require(['Plotly'], function (Plotly) {{
+  let data= JSON.parse('{jd}');
+  let layout = {layout};
   let numPerFrame= 5;    
   let cnt= 1;
   let interval;
@@ -2605,21 +2587,21 @@ require(['Plotly'], function (Plotly) {{
   
   $('.controlbutton button').click(function() {{
     let button_type= this.parentNode.id;
-    if ( button_type === 'play' ) {{
+    if ( button_type === '{divid}-play' ) {{
       clearInterval(interval);
       interval= animate_trace();
     }}
-    else if ( button_type === 'pause' )
+    else if ( button_type === '{divid}-pause' )
       clearInterval(interval);
-    else if ( button_type === 'timestwo' ) {{
+    else if ( button_type === '{divid}-timestwo' ) {{
       cnt/= 2;
       numPerFrame*= 2;
     }}
-    else if ( button_type === 'timeshalf' ) {{
+    else if ( button_type === '{divid}-timeshalf' ) {{
       cnt*= 2;
       numPerFrame/= 2;
     }}
-    else if ( button_type === 'replay' ) {{
+    else if ( button_type === '{divid}-replay' ) {{
       cnt= 1;
       try {{ // doesn't exist if animation has already ended
         {delete_trace6}
@@ -2669,7 +2651,6 @@ require(['Plotly'], function (Plotly) {{
 
   function animate_trace() {{
     return setInterval(function() {{
-      Plotly.deleteTraces('{divid}', 1);
       // Make sure narrow and thick trace end in the same 
       // and the highlighted length has constant length
       trace_slice_len= Math.floor(numPerFrame);
@@ -2681,17 +2662,12 @@ require(['Plotly'], function (Plotly) {{
         y: [data.y.slice(trace_slice_begin,trace_slice_end)],
       }}, [0]);
       trace_slice_begin-= trace_slice_len;
-      Plotly.addTraces('{divid}', 
-                       {{x: data.x.slice(trace_slice_begin,trace_slice_end),
-                         y: data.y.slice(trace_slice_begin,trace_slice_end),
-                         mode: 'lines',
-                         line: {{
-                           shape: 'spline',
-                           width: 3.,
-                           color: '#d62728',
-                         }},
-                      }},
-                      1);
+      trace2= {{
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y.slice(trace_slice_begin,trace_slice_end)],
+      }};
+      Plotly.restyle('{divid}',trace2,[1]);
+
       {update_trace34}
       {update_trace56}
       cnt+= 1;
@@ -2701,7 +2677,7 @@ require(['Plotly'], function (Plotly) {{
           {delete_trace4}
           Plotly.deleteTraces('{divid}',1);
       }}
-    }}, 20);
+    }}, 30);
     }}
 }});
 </script>""".format(jd=jd,divid=self.divid,width=width,height=height,
