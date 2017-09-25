@@ -3570,7 +3570,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
 
-    def animate(self,*args,**kwargs):
+    def animate(self,*args,**kwargs): #pragma: no cover
         """
         NAME:
 
@@ -3582,9 +3582,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots
 
-           d2= second dimension to plot
+           d2= second dimension to plot; can be list with up to three entries for three subplots
 
            width= (600) width of output div in px
 
