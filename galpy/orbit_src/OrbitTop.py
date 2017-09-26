@@ -2104,8 +2104,11 @@ class OrbitTop(object):
         PURPOSE:
            animate an Orbit
         INPUT:
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots
+           d2= second dimension to plot; can be list with up to three entries for three subplots
            width= (600) width of output div in px
            height= (400) height of output div in px
+           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
            ro= (Object-wide default) physical scale for distances to use to convert
            vo= (Object-wide default) physical scale for velocities to use to convert
            use_physical= use to override Object-wide default for using a physical scale for output
@@ -2376,7 +2379,16 @@ class OrbitTop(object):
         for ii in range(1,nplots):
             jsonDict['x%i' % (ii+1)]= xs[ii].tolist()
             jsonDict['y%i' % (ii+1)]= ys[ii].tolist()
-        jd= json.dumps(jsonDict)
+        json_filename= kwargs.pop('json_filename',None)
+        if json_filename is None:
+            jd= json.dumps(jsonDict)
+            json_code= """  let data= JSON.parse('{jd}');""".format(jd=jd)
+            close_json_code= ""
+        else:
+            with open(json_filename,'w') as jfile:
+                json.dump(jsonDict,jfile)
+            json_code= """Plotly.d3.json('{jfilename}',function(data){{""".format(jfilename=json_filename)
+            close_json_code= "});"
         self.divid= 'galpy-'\
             +''.join(choice(ascii_lowercase) for i in range(24))
         button_width= 419.51+4.*10.
@@ -2574,7 +2586,7 @@ require.config({{
   }}
 }});
 require(['Plotly'], function (Plotly) {{
-  let data= JSON.parse('{jd}');
+{json_code}
   let layout = {layout};
   let numPerFrame= 5;    
   let cnt= 1;
@@ -2679,8 +2691,9 @@ require(['Plotly'], function (Plotly) {{
       }}
     }}, 30);
     }}
-}});
-</script>""".format(jd=jd,divid=self.divid,width=width,height=height,
+{close_json_code}}});
+</script>""".format(json_code=json_code,close_json_code=close_json_code,
+                    divid=self.divid,width=width,height=height,
                     button_margin_left=button_margin_left,
                     layout=layout,
                     setup_trace2=setup_trace2,setup_trace3=setup_trace3,

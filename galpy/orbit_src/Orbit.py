@@ -3590,6 +3590,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            height= (400) height of output div in px
 
+           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
