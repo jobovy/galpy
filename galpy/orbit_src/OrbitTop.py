@@ -2456,8 +2456,8 @@ class OrbitTop(object):
       }},
     }};
 """.format(divid=self.divid) # not used!
-            delete_trace4= """Plotly.deleteTraces('{divid}', 3);""".format(divid=self.divid)
-            delete_trace3= """Plotly.deleteTraces('{divid}', 0);""".format(divid=self.divid)
+            delete_trace4= """Plotly.deleteTraces('{divid}',3);""".format(divid=self.divid)
+            delete_trace3= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
             update_trace34= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
@@ -2509,8 +2509,8 @@ class OrbitTop(object):
 
     let traces= [trace1,trace2,trace3,trace4,trace5,trace6];
 """.format(divid=self.divid)
-            delete_trace6= """Plotly.deleteTraces('{divid}', 5);""".format(divid=self.divid)
-            delete_trace5= """Plotly.deleteTraces('{divid}', 0);""".format(divid=self.divid)
+            delete_trace6= """Plotly.deleteTraces('{divid}',5);""".format(divid=self.divid)
+            delete_trace5= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
             update_trace56= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
