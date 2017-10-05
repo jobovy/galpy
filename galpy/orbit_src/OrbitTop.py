@@ -2139,14 +2139,14 @@ class OrbitTop(object):
                         'y':'y (kpc)',
                         'vx':'v_x (km/s)',
                         'vy':'v_y (km/s)',
-                        'E':'E (km^2/s^2)$',
+                        'E':'E (km^2/s^2)',
                         'Ez':'E_z (km^2/s^2)',
                         'ER':'E_R (km^2/s^2)',
                         'Enorm':'E(t)/E(0.)',
                         'Eznorm':'E_z(t)/E_z(0.)',
                         'ERnorm':'E_R(t)/E_R(0.)',
                         'Jacobi':'E-Omega_p L (km^2/s^2)',
-                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)$'}
+                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
         else:
             labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
                         'z':'z','vz':'v_z','phi':r'azimuthal angle',
@@ -2156,7 +2156,7 @@ class OrbitTop(object):
                         'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
                         'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
                         'Jacobi':r'E-Omega_p L',
-                        'Jacobinorm':r'$(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
         labeldict.update({'ra':'RA (deg)',
                           'dec':'Dec (deg)',
                           'll':'Galactic lon (deg)',
