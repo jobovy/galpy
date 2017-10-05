@@ -244,6 +244,8 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+.. _orbanim:
+
 **NEW in v1.3**: Animating the orbit
 -------------------------------------
 

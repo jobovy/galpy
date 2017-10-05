@@ -27,6 +27,13 @@ to `contribute to the code
 please head over to `galpy's GitHub page
 <https://github.com/jobovy/galpy>`_ for more information.
 
+As a preview of the kinds of things you can do with galpy, here's an
+:ref:`animation <orbanim>` of the orbit of the Sun in galpy's
+``MWPotential2014`` potential over 7 Gyr:
+
+.. raw:: html
+   :file: orbitsun.html
+
 Quick-start guide
 -----------------
 
