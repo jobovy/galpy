@@ -244,6 +244,33 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+.. _orbanim:
+
+**NEW in v1.3**: Animating the orbit
+-------------------------------------
+
+.. WARNING::
+   Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
+
+In a `jupyter notebook <http://jupyter.org>`__ you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
+
+>>> op.animate()
+
+This will create the following animation
+
+.. raw:: html
+   :file: orbitanim.html
+
+``animate`` has options to specify the width and height of the resulting animation, and it can also animate up to three projections of an orbit at the same time. For example, we can look at the orbit in both (x,y) and (R,z) at the same time with
+
+>>> op.animate(d1=['x','R'],d2=['y','z'],width=800)
+
+which gives
+
+.. raw:: html
+   :file: orbitanim2proj.html
+
+   
 Orbit characterization
 ------------------------
 
