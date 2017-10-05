@@ -219,10 +219,14 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to investigate the orbits of hypervelocity-star candidates in *Gaia* DR1.
 #. *GalRotpy: an educational tool to understand and parametrize the rotation curve and gravitational potential of disk-like galaxies*, Andrés Granados, Lady-J. Henao-O., Santiago Vanegas, & Leonardo Castañeda (2017; `arXiv/1705.01665 <http://arxiv.org/abs/1705.01665>`_):
      These authors build an interactive tool to decompose observed rotation curves into bulge, disk (Miyamoto-Nagai or exponential), and NFW halo components on top of ``galpy.potential`` routines.
-#. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017; `arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
+#. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
      Uses ``galpy`` to compute orbital parameters for stars in the AMBRE sample of high-resolution spectra and uses these orbital parameters to aid in the comparison between the data and chemical-evolution models.
-#. *Detailed chemical abundance analysis of the thick disk star cluster Gaia 1*, Andreas Koch, Terese T. Hansen, & Andrea Kunder (2017; `arXiv/1709.04022 <http://arxiv.org/abs/1709.04022>`_):
+#. *Detailed chemical abundance analysis of the thick disk star cluster Gaia 1*, Andreas Koch, Terese T. Hansen, & Andrea Kunder (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.04022 <http://arxiv.org/abs/1709.04022>`_):
      Employs ``galpy.orbit`` integration to compute the orbits of four red-giant members of the *Gaia 1* Milky Way star cluster, finding that the orbits of these stars are similar to those of the oldest stars in the Milky Way's disk.
+#. *Proper motions in the VVV Survey: Results for more than 15 million stars across NGC 6544*, R. Contreras Ramos, M. Zoccali, F. Rojas, A. Rojas-Arriagada, M. Gárate, P. Huijse, F. Gran, M. Soto, A.A.R. Valcarce, P. A. Estévez, & D. Minniti (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.07919 <http://arxiv.org/abs/1709.07919>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to calculate the orbit of NGC 6544, a Milky-Way globular cluster, using a newly determined proper motion, finding that it is likely a halo globular cluster based on its orbit.
+#. *How to make a mature accreting magnetar*, A. P. Igoshev & S. B. Popov (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1709.10385 <http://arxiv.org/abs/1709.10385>`_):
+     Employs ``galpy.orbit`` integration of the magnetar candidate 4U 0114+65 in the potential model from `Irrgang et al. (2013) <http://adsabs.harvard.edu/abs/2013A%26A...549A.137I>`__ to aid in the determination of its likely age.
 
 Indices and tables
 ==================

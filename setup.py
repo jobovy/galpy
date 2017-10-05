@@ -264,7 +264,7 @@ else:
     actionAngleTorus_c_incl= False
     
 setup(name='galpy',
-      version='1.2',
+      version='1.3.dev',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
