@@ -1666,7 +1666,7 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
     else:
         return (d,l)
 
-def Rz_to_coshucosv(R,z,delta=1.):
+def Rz_to_coshucosv(R,z,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1684,6 +1684,7 @@ def Rz_to_coshucosv(R,z,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
     OUTPUT:
 
        (cosh(u),cos(v))
@@ -1692,14 +1693,22 @@ def Rz_to_coshucosv(R,z,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    d12= (z+delta)**2.+R**2.
-    d22= (z-delta)**2.+R**2.
+    if oblate:
+        d12= (R+delta)**2.+z**2.
+        d22= (R-delta)**2.+z**2.
+    else:
+        d12= (z+delta)**2.+R**2.
+        d22= (z-delta)**2.+R**2.
     coshu= 0.5/delta*(sc.sqrt(d12)+sc.sqrt(d22))
     cosv=  0.5/delta*(sc.sqrt(d12)-sc.sqrt(d22))
+    if oblate: # cosv is currently really sinv
+        cosv= sc.sqrt(1.-cosv**2.)
     return (coshu,cosv)
 
-def Rz_to_uv(R,z,delta=1.):
+def Rz_to_uv(R,z,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1707,7 +1716,7 @@ def Rz_to_uv(R,z,delta=1.):
 
     PURPOSE:
 
-       calculate prolate confocal u and v coordinates from R,z, and delta
+       calculate prolate or oblate confocal u and v coordinates from R,z, and delta
 
     INPUT:
 
@@ -1717,6 +1726,8 @@ def Rz_to_uv(R,z,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
     OUTPUT:
 
        (u,v)
@@ -1725,13 +1736,15 @@ def Rz_to_uv(R,z,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    coshu, cosv= Rz_to_coshucosv(R,z,delta)
+    coshu, cosv= Rz_to_coshucosv(R,z,delta,oblate=oblate)
     u= sc.arccosh(coshu)
     v= sc.arccos(cosv)
     return (u,v)
 
-def uv_to_Rz(u,v,delta=1.):
+def uv_to_Rz(u,v,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1749,6 +1762,8 @@ def uv_to_Rz(u,v,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
     OUTPUT:
 
        (R,z)
@@ -1757,9 +1772,15 @@ def uv_to_Rz(u,v,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    R= delta*sc.sinh(u)*sc.sin(v)
-    z= delta*sc.cosh(u)*sc.cos(v)
+    if oblate:
+        R= delta*sc.cosh(u)*sc.sin(v)
+        z= delta*sc.sinh(u)*sc.cos(v)
+    else:
+        R= delta*sc.sinh(u)*sc.sin(v)
+        z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
 
 def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
