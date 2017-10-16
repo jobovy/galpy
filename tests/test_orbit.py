@@ -49,7 +49,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatDehnenSmoothBarPotential, \
     mockSlowFlatDehnenSmoothBarPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
-    mockFlatSolidBodyRotationPlanarSpiralArmsPotential
+    mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
+    triaxialLogarithmicHaloPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -117,6 +118,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockSlowFlatDehnenSmoothBarPotential')
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -188,7 +190,7 @@ def test_energy_jacobi_conservation():
             if 'Elliptical' in p or 'Lopsided' in p \
                     or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
                     or p == 'mockMovingObjectLongIntPotential' \
-                    or 'Cosmphi' in p:
+                    or 'Cosmphi' in p or 'triaxialLog' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -507,6 +509,7 @@ def test_liouville_planar():
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential') 
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -531,6 +534,7 @@ def test_liouville_planar():
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
     tol['TriaxialNFWPotential']= -4. #more difficult
+    tol['triaxialLogarithmicHaloPotential']= -7. #more difficult
     tol['FerrersPotential']= -2.
     firstTest= True
     for p in pots:

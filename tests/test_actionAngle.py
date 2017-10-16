@@ -917,6 +917,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
     jp= potential.JaffePotential(normalize=1.)
     np= potential.NFWPotential(normalize=1.)
@@ -931,7 +932,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     scfzp = mockSCFZeeuwPotential(); scfzp.normalize(1.); 
     msoftneedlep= mockSphericalSoftenedNeedleBarPotential()
     msmlp= mockSmoothedLogarithmicHaloPotential()
-    pots= [lp,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,msoftneedlep,msmlp]
+    pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
+           msoftneedlep,msmlp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
