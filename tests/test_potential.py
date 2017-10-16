@@ -434,6 +434,7 @@ def test_2ndDeriv_potential():
                     #Excluding KuzminDiskPotential at z = 0
                     if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue 
 #                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
+                    if p == 'FerrersPotential': continue 
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
@@ -1918,6 +1919,17 @@ def test_vtermnegl_issue314():
     rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
     assert numpy.fabs(rp.vterm(0.5)+rp.vterm(-0.5)) < 10.**-8., 'vterm for negative l does not behave as expected'
     return None
+
+@pytest.mark.xfail
+def test_Ferrers_Rzderiv_issue319():
+    # Test that the Rz derivative works for the FerrersPotential (issue 319)
+     fp= potential.FerrersPotential(normalize=1.)
+     from scipy.misc import derivative
+     rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
+     rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
+                                    0.5,dx=10.**-8.)
+     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-8., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
+     return None
 
 def test_plotting():
     import tempfile
