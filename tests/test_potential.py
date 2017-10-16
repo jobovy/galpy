@@ -2268,6 +2268,8 @@ class triaxialLogarithmicHaloPotential(LogarithmicHaloPotential):
         LogarithmicHaloPotential.__init__(self,normalize=1.,b=0.7,q=0.9,
                                           core=0.5)
         return None
+    def OmegaP(self):
+        return 0.
 # Implementations through TwoPowerTriaxialPotential
 class HernquistTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):

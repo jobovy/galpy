@@ -346,19 +346,3 @@ class LogarithmicHaloPotential(Potential):
         return "0,%s,%s,1.0,%s" % (ampl,
                                   self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
                                   self._q)
-
-    def OmegaP(self):
-        """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        HISTORY:
-           2017-10-15 - Written - Bovy (UofT)
-        """
-        return 0.
-
