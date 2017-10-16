@@ -91,8 +91,16 @@ double LogarithmicHaloPotentialPlanarRforce(double ,double, double,
 				    struct potentialArg *);
 double LogarithmicHaloPotentialzforce(double,double,double,double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialphiforce(double,double,double,double,
+					struct potentialArg *);
+double LogarithmicHaloPotentialPlanarphiforce(double,double,double,
+					      struct potentialArg *);
 double LogarithmicHaloPotentialPlanarR2deriv(double ,double, double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialPlanarphi2deriv(double ,double, double,
+					       struct potentialArg *);
+double LogarithmicHaloPotentialPlanarRphideriv(double ,double, double,
+					       struct potentialArg *);
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);

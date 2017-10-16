@@ -286,7 +286,7 @@ class LogarithmicHaloPotential(Potential):
             Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             return -self._1m1overb2\
-                *(2.*R**4.*nu.sin(2.*phi)**2./4.*self._1m1overb2\
+                *(R**4.*nu.sin(2.*phi)**2./2.*self._1m1overb2\
                       *denom**2.
                   +R**2.*denom*nu.cos(2.*phi))
         else:
@@ -311,8 +311,7 @@ class LogarithmicHaloPotential(Potential):
         if self.isNonAxi:
             Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return -2.*(denom-Rt2*denom**2.)\
-                *R*nu.sin(2.*phi)/2.*self._1m1overb2 
+            return -(denom-Rt2*denom**2.)*R*nu.sin(2.*phi)*self._1m1overb2 
         else:
             return 0.
 
@@ -347,3 +346,19 @@ class LogarithmicHaloPotential(Potential):
         return "0,%s,%s,1.0,%s" % (ampl,
                                   self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
                                   self._q)
+
+    def OmegaP(self):
+        """
+        NAME:
+           OmegaP
+        PURPOSE:
+           return the pattern speed
+        INPUT:
+           (none)
+        OUTPUT:
+           pattern speed
+        HISTORY:
+           2017-10-15 - Written - Bovy (UofT)
+        """
+        return 0.
+

@@ -34,14 +34,14 @@ void parse_leapFuncArgs_Full(int npot,
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
-    case 0: //LogarithmicHaloPotential, 2 arguments
+    case 0: //LogarithmicHaloPotential, 4 arguments
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phiforce= &LogarithmicHaloPotentialphiforce;
       //potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
-      potentialArgs->nargs= 3;
+      potentialArgs->nargs= 4;
       break;
     case 1: //DehnenBarPotential, 6 arguments
       potentialArgs->Rforce= &DehnenBarPotentialRforce;

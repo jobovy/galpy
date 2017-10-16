@@ -14,11 +14,11 @@ void parse_actionAngleArgs(int npot,
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *pot_type++ ) {
-    case 0: //LogarithmicHaloPotential, 3 arguments
+    case 0: //LogarithmicHaloPotential, 4 arguments
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
-      potentialArgs->nargs= 3;
+      potentialArgs->nargs= 4;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;

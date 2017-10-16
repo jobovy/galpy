@@ -61,10 +61,14 @@ def _parse_pot(pot):
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
-        if isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+        if (isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) 
+            or isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.extend([p._Pot._amp,p._Pot._core2])
+            if p._Pot.isNonAxi:
+                pot_args.extend([p._Pot._amp,p._Pot._core2,p._Pot._1m1overb2])
+            else:
+                pot_args.extend([p._Pot._amp,p._Pot._core2,2.]) # 1m1overb2 > 1: axi
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.DehnenBarPotential):
             pot_type.append(1)
