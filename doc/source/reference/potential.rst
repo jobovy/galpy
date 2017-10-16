@@ -149,6 +149,7 @@ Triaxial, spiral, and bar potentials
    potentialdehnenbar.rst
    potentialdoublepowertriaxial.rst
    potentialferrers.rst
+   potentialloghalo.rst
    potentialmovingobj.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
