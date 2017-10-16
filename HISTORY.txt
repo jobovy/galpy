@@ -40,6 +40,9 @@ v1.3 (2017-XX-XX)
 - Added galpy.df.schwarzschilddf, the simple Schwarzschild
   distribution function for a razor-thin disk.
 
+- Upgraded LogarithmicHaloPotential to allow it to be a triaxial
+  potential.
+
 - Upgraded DehnenBarPotential to a 3D potential following Monari et
   al. (2016) (#304).
 
