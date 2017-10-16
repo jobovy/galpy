@@ -133,6 +133,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -292,6 +293,7 @@ def test_2ndDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5') 
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -508,6 +510,7 @@ def test_poisson_potential():
     pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -621,6 +624,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2130,7 +2134,8 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
-    FerrersPotential, DiskSCFPotential, SpiralArmsPotential
+    FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
+    LogarithmicHaloPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -2257,6 +2262,11 @@ class fullyRotatednoGLTriaxialNFWPotential(TriaxialNFWPotential):
         TriaxialNFWPotential.__init__(self,normalize=1.,b=1.5,c=.2,
                                       zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)],
                                       pa=0.2,glorder=None)
+        return None
+class triaxialLogarithmicHaloPotential(LogarithmicHaloPotential):
+    def __init__(self):
+        LogarithmicHaloPotential.__init__(self,normalize=1.,b=0.7,q=0.9,
+                                          core=0.5)
         return None
 # Implementations through TwoPowerTriaxialPotential
 class HernquistTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
