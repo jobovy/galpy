@@ -275,7 +275,7 @@ potentials in the mid-plane.
    toPlanarPotential (general) <potential2dtoplanar.rst>
    RZToplanarPotential <potential2dRZtoplanar.rst>
 
-In addition, a two-dimensional bar potential, two spiral potentials, and some static non-axisymmetric perturbations are included
+In addition, a two-dimensional bar potential, two spiral potentials, the `Henon & Heiles (1964) <http://adsabs.harvard.edu/abs/1964AJ.....69...73H>`__ potential, and some static non-axisymmetric perturbations are included
 
 .. toctree::
    :maxdepth: 2
@@ -283,6 +283,7 @@ In addition, a two-dimensional bar potential, two spiral potentials, and some st
    potentialdehnenbar.rst
    potentialcosmphidisk.rst
    potentialellipticaldisk.rst
+   potentialhenonheiles.rst
    potentiallopsideddisk.rst
    potentialsteadylogspiral.rst
    potentialtransientlogspiral.rst
