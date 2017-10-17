@@ -50,7 +50,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockSlowFlatDehnenSmoothBarPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
-    triaxialLogarithmicHaloPotential
+    triaxialLogarithmicHaloPotential, \
+    testorbitHenonHeilesPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -119,6 +120,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
+    pots.append('testorbitHenonHeilesPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -171,7 +173,7 @@ def test_energy_jacobi_conservation():
                     and not p == 'FerrersPotential': ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
-            o= setup_orbit_energy(tp,axi=False)
+            o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
             if isinstance(tp,testMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
             elif isinstance(tp,testplanarMWPotential):
@@ -190,7 +192,8 @@ def test_energy_jacobi_conservation():
             if 'Elliptical' in p or 'Lopsided' in p \
                     or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
                     or p == 'mockMovingObjectLongIntPotential' \
-                    or 'Cosmphi' in p or 'triaxialLog' in p:
+                    or 'Cosmphi' in p or 'triaxialLog' in p \
+                    or 'Henon' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             elif isinstance(tp,potential.linearPotential):
                 tJacobis= tEs #hack
@@ -220,7 +223,7 @@ def test_energy_jacobi_conservation():
                         "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                     assert (o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
-                o= setup_orbit_energy(tp,axi=False)
+                o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
                 try:
                     o.E()
                 except AttributeError:
@@ -244,7 +247,7 @@ def test_energy_jacobi_conservation():
                 else: continue
             #Now do axisymmetric
             if not tp.isNonAxi:
-                o= setup_orbit_energy(tp,axi=True)
+                o= setup_orbit_energy(tp,axi=True,henon='Henon' in p)
                 if isinstance(tp,testMWPotential) \
                         or isinstance(tp,testplanarMWPotential):
                     o.integrate(ttimes,tp._potlist,method=integrator)
@@ -272,7 +275,7 @@ def test_energy_jacobi_conservation():
                         "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
-                    o= setup_orbit_energy(tp,axi=True)
+                    o= setup_orbit_energy(tp,axi=True,henon='Henon' in p)
                     try:
                         o.E()
                     except AttributeError:
@@ -510,6 +513,7 @@ def test_liouville_planar():
     pots.append('mockSlowFlatDehnenSmoothBarPotential') 
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
+    pots.append('testorbitHenonHeilesPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -554,7 +558,7 @@ def test_liouville_planar():
             if integrator == 'odeint' or not tp.hasC \
                 and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
-            o= setup_orbit_liouville(ptp,axi=False)
+            o= setup_orbit_liouville(ptp,axi=False,henon='Henon' in p)
             #Calculate the Jacobian d x / d x
             if hasattr(tp,'_potlist'):
                 if isinstance(tp,testMWPotential):
@@ -3620,15 +3624,22 @@ def test_full_plotting():
     return None
 
 # Setup the orbit for the energy test
-def setup_orbit_energy(tp,axi=False):
+def setup_orbit_energy(tp,axi=False,henon=False):
+    # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
     from galpy.orbit import Orbit
     if isinstance(tp,potential.linearPotential): 
         o= Orbit([1.,1.])
     elif isinstance(tp,potential.planarPotential): 
-        if axi:
-            o= Orbit([1.,1.1,1.1])
+        if henon:
+            if axi:
+                o= Orbit([0.1,0.3,0.,])
+            else:
+                o= Orbit([0.1,0.3,0.,numpy.pi])
         else:
-            o= Orbit([1.,1.1,1.1,numpy.pi/2.])
+            if axi:
+                o= Orbit([1.,1.1,1.1])
+            else:
+                o= Orbit([1.,1.1,1.1,numpy.pi/2.])
     else:
         if axi:
             o= Orbit([1.,1.1,1.1,0.1,0.1])
@@ -3637,15 +3648,21 @@ def setup_orbit_energy(tp,axi=False):
     return o
 
 # Setup the orbit for the Liouville test
-def setup_orbit_liouville(tp,axi=False):
+def setup_orbit_liouville(tp,axi=False,henon=False):
     from galpy.orbit import Orbit
     if isinstance(tp,potential.linearPotential): 
         o= Orbit([1.,1.])
     elif isinstance(tp,potential.planarPotential): 
-        if axi:
-            o= Orbit([1.,0.1,1.1])
+        if henon:
+            if axi:
+                o= Orbit([0.1,0.3,0.,])
+            else:
+                o= Orbit([0.1,0.3,0.,numpy.pi])
         else:
-            o= Orbit([1.,0.1,1.1,0.])
+            if axi:
+                o= Orbit([1.,0.1,1.1])
+            else:
+                o= Orbit([1.,0.1,1.1,0.])
     else:
         if axi:
             o= Orbit([1.,0.1,1.1,0.1,0.1])

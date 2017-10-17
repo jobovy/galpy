@@ -2373,7 +2373,7 @@ class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import DehnenBarPotential, CosmphiDiskPotential, \
     EllipticalDiskPotential, SteadyLogSpiralPotential, \
-    TransientLogSpiralPotential
+    TransientLogSpiralPotential, HenonHeilesPotential
 class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
@@ -2830,3 +2830,13 @@ class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
                                           SolidBodyRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential().toPlanar(),omega=1.3)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+class testorbitHenonHeilesPotential(testplanarMWPotential):
+    # Need this class, bc orbit tests skip potentials that do not have 
+    # .normalize, and HenonHeiles as a non-axi planarPotential instance
+    # does not
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                 potlist=[HenonHeilesPotential(amp=1.)])
+    def OmegaP(self):
+        # Non-axi, so need to set this to zero for Jacobi
+        return 0.
