@@ -35,6 +35,8 @@ class HenonHeilesPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
+        self.hasC= True
+        self.hasC_dxdv= True
 
     def _evaluate(self,R,phi=0.,t=0.):
         """

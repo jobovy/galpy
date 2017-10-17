@@ -235,6 +235,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &CosmphiDiskPotentialRphideriv;
       potentialArgs->nargs= 9;
       break;
+    case 29: //HenonHeilesPotential, 1 argument
+      potentialArgs->planarRforce= &HenonHeilesPotentialRforce;
+      potentialArgs->planarphiforce= &HenonHeilesPotentialphiforce;
+      potentialArgs->planarR2deriv= &HenonHeilesPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &HenonHeilesPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &HenonHeilesPotentialRphideriv;
+      potentialArgs->nargs= 1;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->planarRforce= &DehnenSmoothWrapperPotentialPlanarRforce;

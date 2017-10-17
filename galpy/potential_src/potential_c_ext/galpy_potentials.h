@@ -470,6 +470,17 @@ double CosmphiDiskPotentialphi2deriv(double,double,double,
 					   struct potentialArg *);
 double CosmphiDiskPotentialRphideriv(double,double,double,
 					   struct potentialArg *);
+//HenonHeilesPotential
+double HenonHeilesPotentialRforce(double,double,double,
+				  struct potentialArg *);
+double HenonHeilesPotentialphiforce(double,double,double,
+				    struct potentialArg *);
+double HenonHeilesPotentialR2deriv(double,double,double,
+				   struct potentialArg *);
+double HenonHeilesPotentialphi2deriv(double,double,double,
+				     struct potentialArg *);
+double HenonHeilesPotentialRphideriv(double,double,double,
+				     struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

@@ -249,6 +249,9 @@ def _parse_pot(pot):
             pot_type.append(28)
             pot_args.extend([p._amp,p._mphio,p._p,p._mphib,p._m,
                              p._rb,p._rbp,p._rb2p,p._r1p])
+        elif isinstance(p,potential.HenonHeilesPotential):
+            pot_type.append(29)
+            pot_args.extend([p._amp])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
