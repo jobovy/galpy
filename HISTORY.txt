@@ -34,6 +34,8 @@ v1.3 (2017-XX-XX)
   potential from Cox and Gomez
   (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
 
+- Added the Henon & Heiles (1964) potential
+
 - Added an Orbit method to display an animation of an integrated orbit
   in jupyter notebooks (Orbit.animate).
 
