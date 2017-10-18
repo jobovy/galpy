@@ -229,6 +229,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to calculate the orbit of NGC 6544, a Milky-Way globular cluster, using a newly determined proper motion, finding that it is likely a halo globular cluster based on its orbit.
 #. *How to make a mature accreting magnetar*, A. P. Igoshev & S. B. Popov (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1709.10385 <http://arxiv.org/abs/1709.10385>`_):
      Employs ``galpy.orbit`` integration of the magnetar candidate 4U 0114+65 in the potential model from `Irrgang et al. (2013) <http://adsabs.harvard.edu/abs/2013A%26A...549A.137I>`__ to aid in the determination of its likely age.
+#. *iota Horologii is unlikely to be an evaporated Hyades star*, I. Ramirez, D. Yong, E. Gutierrez, M. Endl, D. L. Lambert, J.-D. Do Nascimento Jr (2017) *Astrophys. J.*, in press (`arXiv/1710.05930 <http://arxiv.org/abs/1710.05930>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to determine the approximate orbit of the star iota Horologii, a planet-hosting suspected former member of the Hyades cluster, to investigate whether it could have coincided with the Hyades cluster in the past.
 
 Indices and tables
 ==================
