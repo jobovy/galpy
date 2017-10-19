@@ -276,7 +276,7 @@ class FerrersPotential(Potential):
         ang = self._omegab*t + self._pa
         c, s = np.cos(ang), np.sin(ang)
         phixz = c*phixza + s*phiyza
-        phiyz = c*phixza - s*phiyza
+        phiyz = -s*phixza + c*phiyza
         return np.cos(phi)*phixz + np.sin(phi)*phiyz
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
