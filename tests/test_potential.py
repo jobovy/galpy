@@ -1923,7 +1923,6 @@ def test_vtermnegl_issue314():
     assert numpy.fabs(rp.vterm(0.5)+rp.vterm(-0.5)) < 10.**-8., 'vterm for negative l does not behave as expected'
     return None
 
-@pytest.mark.xfail
 def test_Ferrers_Rzderiv_issue319():
     # Test that the Rz derivative works for the FerrersPotential (issue 319)
      fp= potential.FerrersPotential(normalize=1.)
