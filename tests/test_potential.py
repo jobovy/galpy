@@ -436,7 +436,6 @@ def test_2ndDeriv_potential():
                     #Excluding KuzminDiskPotential at z = 0
                     if p == 'KuzminDiskPotential' and Zs[jj] == 0: continue 
 #                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
-                    if p == 'FerrersPotential': continue 
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
@@ -1924,7 +1923,6 @@ def test_vtermnegl_issue314():
     assert numpy.fabs(rp.vterm(0.5)+rp.vterm(-0.5)) < 10.**-8., 'vterm for negative l does not behave as expected'
     return None
 
-@pytest.mark.xfail
 def test_Ferrers_Rzderiv_issue319():
     # Test that the Rz derivative works for the FerrersPotential (issue 319)
      fp= potential.FerrersPotential(normalize=1.)
