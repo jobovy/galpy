@@ -416,14 +416,14 @@ def test_XYZ_to_galcenrect_negXsun():
     assert numpy.fabs(gcXYZ[1]-gcXYZn[1]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
     assert numpy.fabs(gcXYZ[2]-gcXYZn[2]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
 
-def test_galcenrect_to_XYZ():
+def test_galcenrect_to_XYZ_negXsun():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= numpy.array(bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.2))
     XYZn= numpy.array(bovy_coords.galcenrect_to_XYZ(-gcX,gcY,gcZ,Xsun=-1.,Zsun=0.2))
     assert numpy.all(numpy.fabs(XYZ-XYZn) < 10.**-10.), 'galcenrect_to_XYZ conversion did not work as expected for negative Xsun'
     return None
 
-def test_galcenrect_to_XYZ_negXsun():
+def test_galcenrect_to_XYZ():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.)
     assert numpy.fabs(XYZ[0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
