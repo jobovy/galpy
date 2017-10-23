@@ -949,10 +949,12 @@ class OrbitTop(object):
                                                     Xsun=obs.x(*args,**kwargs),
                                                     Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=nu.sqrt(obs.x(*args,**kwargs)**2.
+                                     +obs.y(*args,**kwargs)**2.),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro)
 
