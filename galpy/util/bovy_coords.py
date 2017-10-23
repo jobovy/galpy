@@ -930,14 +930,26 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2017-10-23 - Fix behavior for array inputs for all arguments (incl. Xsun/Zsun)
+
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [-nu.sign(Xsun)*sintheta,0.,
-                              nu.sign(Xsun)*costheta]]),
-                  nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
+    if isinstance(Xsun,nu.ndarray):
+        zero= nu.zeros(len(Xsun))
+        one= nu.ones(len(Xsun))
+        Carr= nu.rollaxis(nu.array([[-costheta,zero,-sintheta],
+                                    [zero,one,zero],
+                                    [-nu.sign(Xsun)*sintheta,zero,
+                                      nu.sign(Xsun)*costheta]]),2)
+        return ((Carr*nu.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
+                 +nu.array([dgc,zero,zero]).T)
+    else:
+        return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                                [0.,1.,0.],
+                                [-nu.sign(Xsun)*sintheta,0.,
+                                  nu.sign(Xsun)*costheta]]),
+                      nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
     """

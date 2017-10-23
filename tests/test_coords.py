@@ -429,6 +429,26 @@ def test_galcenrect_to_XYZ():
     assert numpy.fabs(XYZ[0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Also for arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.,Zsun=0.)
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Check 2nd one
+    assert numpy.fabs(XYZ[1,0]-3.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Also for arrays with Xsun/Zsun also arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.*s,Zsun=0.*s)
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Check 2nd one
+    assert numpy.fabs(XYZ[1,0]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     return None
 
 def test_XYZ_to_galcencyl():
@@ -451,6 +471,26 @@ def test_galcencyl_to_XYZ():
     assert numpy.fabs(XYZ[0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also for arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.,Zsun=0.)
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also test the second one
+    assert numpy.fabs(XYZ[1,0]-10.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also for arrays where Xsun/Zsun are also arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.*s,Zsun=0.*s)
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also test the second one
+    assert numpy.fabs(XYZ[1,0]-18.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     return None
 
 def test_vxvyvz_to_galcenrect():
