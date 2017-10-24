@@ -2840,6 +2840,108 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
     return None
 
+def test_orbit_obs_list_issue322():
+    # Further tests of obs= list parameter for orbit output, mainly in relation
+    # to issue #322
+    from galpy.orbit import Orbit
+    # The basic case, for a planar orbit
+    o= Orbit([0.9,0.1,1.2,0.])
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Full orbit
+    # The basic case, for a full orbit
+    o= Orbit([0.9,0.1,1.2,0.,0.,0.])
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    return None
+
+def test_orbit_obs_Orbit_issue322():
+    #Further tests of obs= Orbit parameter for orbit output, mainly in relation
+    # to issue #322
+    from galpy.orbit import Orbit
+    # The basic case, for a planar orbit
+    o= Orbit([0.9,0.1,1.2,0.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Full orbit
+    # The basic case, for a full orbit
+    o= Orbit([0.9,0.1,1.2,0.,0.,0.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Now use non-zero Ysun
+    o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    return None
+
+def test_orbit_obs_Orbits_issue322():
+    #Further tests of obs= Orbit parameter for orbit output, mainly in relation
+    # to issue #322; specific case where the orbit gets evaluated at multiple 
+    # times
+    from galpy.orbit import Orbit
+    # Do non-zero Ysun case for planarOrbit
+    o= Orbit([0.9,0.1,1.2,numpy.pi/2.],ro=1.)
+    obs= Orbit([1.,0.,0.,numpy.pi/2.],ro=1.)
+    times= numpy.linspace(0.,2.,2)
+    from galpy.potential import MWPotential2014
+    o.integrate(times,MWPotential2014)
+    obs.integrate(times,MWPotential2014)
+    for ii in range(len(times)):
+        # Test against individual
+        assert numpy.fabs(o.helioX(times,obs=obs,ro=1.)[ii]-o.helioX(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+        assert numpy.fabs(o.helioY(times,obs=obs,ro=1.)[ii]-o.helioY(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Do non-zero Ysun case for planarOrbit, but giving FullOrbit for obs
+    o= Orbit([0.9,0.1,1.2,numpy.pi/2.],ro=1.)
+    obs= Orbit([1.,0.,0.,0.,0.,numpy.pi/2.],ro=1.)
+    times= numpy.linspace(0.,2.,2)
+    from galpy.potential import MWPotential2014
+    o.integrate(times,MWPotential2014)
+    obs.integrate(times,MWPotential2014)
+    for ii in range(len(times)):
+        # Test against individual
+        assert numpy.fabs(o.helioX(times,obs=obs,ro=1.)[ii]-o.helioX(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),obs.z(times[ii])],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+        assert numpy.fabs(o.helioY(times,obs=obs,ro=1.)[ii]-o.helioY(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),obs.z(times[ii])],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    # Do non-zero Ysun case for FullOrbit
+    o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.],ro=1.)
+    obs= Orbit([1.,0.,0.,0.,0.,numpy.pi/2.],ro=1.)
+    times= numpy.linspace(0.,2.,2)
+    from galpy.potential import MWPotential2014
+    o.integrate(times,MWPotential2014)
+    obs.integrate(times,MWPotential2014)
+    for ii in range(len(times)):
+        # Test against individual
+        assert numpy.fabs(o.helioX(times,obs=obs,ro=1.)[ii]-o.helioX(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),obs.z(times[ii])],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+        assert numpy.fabs(o.helioY(times,obs=obs,ro=1.)[ii]-o.helioY(times[ii],obs=[obs.x(times[ii]),obs.y(times[ii]),obs.z(times[ii])],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    return None
+
 def test_orbit_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
