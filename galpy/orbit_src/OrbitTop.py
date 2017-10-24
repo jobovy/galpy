@@ -921,39 +921,43 @@ class OrbitTop(object):
             raise AttributeError("orbit must track azimuth to use radeclbd functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),0.,
+                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                    Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                thiso[3,:],
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                    thiso[3,:],
+                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                    Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(\
                         thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
                         thiso[3,:],
-                        Xsun=nu.sqrt(obs.x(*args,**kwargs)**2.
-                                     +obs.y(*args,**kwargs)**2.),
+                        Xsun=obs.R(*args,**kwargs),
                         Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro)
@@ -992,7 +996,7 @@ class OrbitTop(object):
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
                                                           thiso[2,:],
                                                           0.,
-                                                          thiso[3,:],
+                                                           thiso[3,:],
                                                           vsun=nu.array([\
                                 obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
                                 nu.zeros(len(thiso[0,:]))]),
