@@ -916,9 +916,9 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
 
        X, Y, Z - Galactocentric rectangular coordinates
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as X)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as X)
 
     OUTPUT:
 
@@ -930,7 +930,7 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
-       2017-10-23 - Fix behavior for array inputs for all arguments (incl. Xsun/Zsun)
+       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
 
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
@@ -1110,9 +1110,9 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
 
        R, phi, Z - Galactocentric cylindrical coordinates
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as R)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as R)
 
     OUTPUT:
 
@@ -1121,6 +1121,8 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     HISTORY:
 
        2011-02-23 - Written - Bovy (NYU)
+
+       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
 
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
@@ -1235,11 +1237,11 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        vZg - Galactocentric z-velocity
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vXg; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
     OUTPUT:
 
@@ -1251,14 +1253,28 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (UofT)
+
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [-nu.sign(Xsun)*sintheta,0.,
-                              nu.sign(Xsun)*costheta]]),
-                  nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+    if isinstance(Xsun,nu.ndarray):
+        zero= nu.zeros(len(Xsun))
+        one= nu.ones(len(Xsun))
+        Carr= nu.rollaxis(nu.array([[-costheta,zero,-sintheta],
+                                    [zero,one,zero],
+                                    [-nu.sign(Xsun)*sintheta,zero,
+                                      nu.sign(Xsun)*costheta]]),2)
+        return ((Carr
+                 *nu.array([[vXg-vsun[0],vXg-vsun[0],vXg-vsun[0]],
+                            [vYg-vsun[1],vYg-vsun[1],vYg-vsun[1]],
+                            [vZg-vsun[2],vZg-vsun[2],vZg-vsun[2]]]).T).sum(-1))
+    else:
+        return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                                [0.,1.,0.],
+                                [-nu.sign(Xsun)*sintheta,0.,
+                                  nu.sign(Xsun)*costheta]]),
+                      nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
 
 @scalarDecorator
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
@@ -1281,11 +1297,11 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        phi - Galactocentric azimuth
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vRg; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vRg)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vRg)
 
     OUTPUT:
 
@@ -1294,6 +1310,8 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     HISTORY:
 
        2011-02-24 - Written - Bovy (NYU)
+
+       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (NYU)
 
     """
     vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
