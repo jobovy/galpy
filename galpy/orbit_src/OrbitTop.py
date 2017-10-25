@@ -980,84 +980,92 @@ class OrbitTop(object):
             raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],thiso[2,:],0.,
-                                                      thiso[3,:],
-                                                      vsun=nu.array(\
-                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
+                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                    thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                    vsun=nu.array(# have to rotate
+                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                         obs[5]])/vo,
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          0.,
-                                                           thiso[3,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                        thiso[3,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                                0.]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          0.,
-                                                          thiso[3,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),
-                                obs.vy(*args,**kwargs),
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                        thiso[3,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),
+                                obs.vT(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=obs.z(*args,**kwargs)).T
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                thiso[3,:],
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                      thiso[2,:],
-                                                      thiso[4,:],
-                                                      thiso[5,:],
-                                                      vsun=nu.array(\
-                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
+                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),thiso[3,:],
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                    vsun=nu.array(# have to rotate
+                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                         obs[5]])/vo,
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          thiso[4,:],
-                                                          thiso[5,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]),Xsun=obs.x(*args,**kwargs),Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],thiso[4,:],
+                        thiso[5,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                                0.]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          thiso[4,:],
-                                                          thiso[5,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),
-                                obs.vy(*args,**kwargs),
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],thiso[4,:],
+                        thiso[5,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),
+                                obs.vT(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=obs.z(*args,**kwargs)).T
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
