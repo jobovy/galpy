@@ -882,9 +882,10 @@ class OrbitTop(object):
         HISTORY:
            2015-06-02 - Written - Bovy (IAS)
         """
+        kwargs.pop('quantity',None) # rm useless keyword to no conflict later
         _check_roSet(self,kwargs,'SkyCoord')
         radec= self._radec(*args,**kwargs)
-        tdist= self.dist(*args,**kwargs)
+        tdist= self.dist(quantity=False,*args,**kwargs)
         return coordinates.SkyCoord(radec[:,0]*units.degree,
                                     radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,

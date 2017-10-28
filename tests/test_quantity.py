@@ -4955,3 +4955,24 @@ def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
     assert isinstance(o.V(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
     assert isinstance(o.W(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
     return None
+
+def test_SkyCoord_nodoubleunits_issue325():
+    # make sure that SkyCoord doesn't return distances with units like kpc^2
+    # which happened before, because it would use a distance with units of 
+    # kpc and then again multiply with kpc
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[0.,0.,0.,0.,0.,0.],radec=True)
+    # Check return units of SkyCoord
+    try:
+        o.SkyCoord().ra.to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the right ascension')
+    try:
+        o.SkyCoord().dec.to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the declination')
+    try:
+        o.SkyCoord().distance.to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the distance')
+    return None
