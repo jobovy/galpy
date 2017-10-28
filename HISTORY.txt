@@ -79,6 +79,8 @@ v1.3 (2017-XX-XX)
 
 - Switched test suite from nose to pytest (#303).
 
+- evolveddiskdf.vertexdev return unit switched from deg to rad.
+
 v1.2 (2016-09-06)
 ==================
 

@@ -259,14 +259,14 @@ def test_mildnonaxi_vertexdev_grid():
     edf= evolveddiskdf(idf,pot=pot,to=-10.)
     vdev, grid= edf.vertexdev(0.9,phi=0.2,integrate_method='rk6_c',grid=True,
                               returnGrid=True,gridpoints=_GRIDPOINTS)
-    assert numpy.fabs(vdev) < 2., 'vertexdev of evolveddiskdf for axisymmetric potential is not close to zero' #2 is pretty big, but the weak spiral creates that
+    assert numpy.fabs(vdev) < 2./180.*numpy.pi, 'vertexdev of evolveddiskdf for axisymmetric potential is not close to zero' #2 is pretty big, but the weak spiral creates that
     vdev= edf.vertexdev(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
                         gridpoints=_GRIDPOINTS)
-    assert numpy.fabs(vdev) < 2., 'vertexdev of evolveddiskdf for axisymmetric potential is not equal zero when calculated with pre-computed grid'
+    assert numpy.fabs(vdev) < 2./180.*numpy.pi, 'vertexdev of evolveddiskdf for axisymmetric potential is not equal zero when calculated with pre-computed grid'
     vdev= edf.vertexdev(0.9,phi=0.2,integrate_method='rk6_c',grid=grid,
                         sigmaR2=_maxi_sigmar2,sigmaT2=_maxi_sigmat2,
                         sigmaRT=_maxi_sigmart,gridpoints=_GRIDPOINTS)
-    assert numpy.fabs(vdev) < 2., 'sigmart of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed sigmaR2,sigmaT2,sigmaRT'
+    assert numpy.fabs(vdev) < 2./180.*numpy.pi, 'sigmart of evolveddiskdf for axisymmetric potential is not equal to zero when calculated with pre-computed sigmaR2,sigmaT2,sigmaRT'
     return None
                        
 def test_mildnonaxi_vertexdev_direct():
@@ -276,7 +276,7 @@ def test_mildnonaxi_vertexdev_direct():
     pot= [LogarithmicHaloPotential(normalize=1.)]
     edf= evolveddiskdf(idf,pot=pot,to=-10.)
     vdev= edf.vertexdev(0.9,phi=0.2,integrate_method='rk6_c',grid=False)
-    assert numpy.fabs(vdev) < 0.01, 'vertexdev of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
+    assert numpy.fabs(vdev) < 0.01/180.*numpy.pi, 'vertexdev of evolveddiskdf for axisymmetric potential is not equal to zero when calculated directly'
     return None
                        
 def test_mildnonaxi_oortA_grid():
@@ -455,12 +455,12 @@ def test_elliptical_cold_vertexdev():
     vdev, grid= edf.vertexdev(0.9,phi=-numpy.pi/4.,
                               integrate_method='rk6_c',grid=True,nsigma=7.,
                               returnGrid=True,gridpoints=_GRIDPOINTS)
-    assert numpy.fabs(vdev/180.*numpy.pi+2.*cp) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
+    assert numpy.fabs(vdev+2.*cp) < 10.**-3., 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
     #Should be 0
     vdev, grid= edf.vertexdev(0.9,phi=0.,
                               integrate_method='rk6_c',grid=True,nsigma=7.,
                               returnGrid=True,gridpoints=_GRIDPOINTS)
-    assert numpy.fabs(vdev) < 10.**-2., 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
+    assert numpy.fabs(vdev) < 10.**-2./180.*numpy.pi, 'Cold elliptical disk does not agree with analytical calculation for vertexdev'
     return None
 
 def test_elliptical_cold_oortABCK_position1():
