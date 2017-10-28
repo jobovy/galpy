@@ -81,6 +81,8 @@ v1.3 (2017-XX-XX)
 
 - quasiisothermaldf.tilt return unit switched from deg to rad.
 
+- streamdf.misalignment return unit switched from deg to rad.
+
 - evolveddiskdf.vertexdev return unit switched from deg to rad.
 
 v1.2 (2016-09-06)

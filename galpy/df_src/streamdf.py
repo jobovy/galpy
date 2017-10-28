@@ -361,8 +361,8 @@ class streamdf(df):
                            self._deltaAngleTrack)
         return None
 
-    @physical_conversion('angle_deg',pop=True)
-    def misalignment(self,isotropic=False):
+    @physical_conversion('angle',pop=True)
+    def misalignment(self,isotropic=False,**kwargs):
         """
         NAME:
 
@@ -379,19 +379,22 @@ class streamdf(df):
 
         OUTPUT:
 
-           misalignment in degree
+           misalignment in rad
 
         HISTORY:
 
            2013-12-05 - Written - Bovy (IAS)
 
+           2017-10-28 - Changed output unit to rad - Bovy (UofT)
+
         """
+        warnings.warn("In versions >1.3, the output unit of streamdf.misalignment has been changed to radian (from degree before)",galpyWarning)
         if isotropic:
             dODir= self._dOdJpEig[1][:,numpy.argmax(numpy.fabs(self._dOdJpEig[0]))]
         else:
             dODir= self._dsigomeanProgDirection
-        out= numpy.arccos(numpy.sum(self._progenitor_Omega*dODir)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))/numpy.pi*180.
-        if out > 90.: return out-180.
+        out= numpy.arccos(numpy.sum(self._progenitor_Omega*dODir)/numpy.sqrt(numpy.sum(self._progenitor_Omega**2.)))
+        if out > numpy.pi/2.: return out-numpy.pi
         else: return out
 
     def freqEigvalRatio(self,isotropic=False):
@@ -906,12 +909,12 @@ class streamdf(df):
         if not nTrackIterations is None:
             self.nTrackIterations= nTrackIterations
             return None
-        if numpy.fabs(self.misalignment()) < 1.:
+        if numpy.fabs(self.misalignment(quantity=False)) < 1./180.*numpy.pi:
             self.nTrackIterations= 0
-        elif numpy.fabs(self.misalignment()) >= 1. \
-                and numpy.fabs(self.misalignment()) < 3.:
+        elif numpy.fabs(self.misalignment(quantity=False)) >= 1./180.*numpy.pi \
+                and numpy.fabs(self.misalignment(quantity=False)) < 3./180.*numpy.pi:
             self.nTrackIterations= 1
-        elif numpy.fabs(self.misalignment()) >= 3.:
+        elif numpy.fabs(self.misalignment(quantity=False)) >= 3./180.*numpy.pi:
             self.nTrackIterations= 2
         return None
 
