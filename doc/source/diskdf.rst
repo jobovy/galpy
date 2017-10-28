@@ -158,12 +158,13 @@ instance with the Staeckel approximation
 we can similarly calculate the tilt
 
 >>> qdfS.tilt(1.,0.125)
-# 5.9096430410862419
+# 0.10314272868452541
 
-or about 5 degrees. As a function of height, we find
+or about 5 degrees (the returned value has units of rad). As a
+function of height, we find
 
 >>> tilts= numpy.array([qdfS.tilt(1.,z) for z in zs])
->>> plot(zs,tilts)
+>>> plot(zs,tilts*180./numpy.pi)
 
 which gives
 

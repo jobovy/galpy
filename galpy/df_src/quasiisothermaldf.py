@@ -1027,7 +1027,7 @@ class quasiisothermaldf(df):
                                             **kwargs))
         
     @potential_physical_input
-    @physical_conversion('angle_deg',pop=True)
+    @physical_conversion('angle',pop=True)
     def tilt(self,R,z,nsigma=None,mc=False,nmc=10000,
              gl=True,ngl=_DEFAULTNGL,**kwargs):
         """
@@ -1061,11 +1061,13 @@ class quasiisothermaldf(df):
 
         OUTPUT:
 
-           tilt in degree
+           tilt in rad
 
         HISTORY:
 
            2012-12-23 - Written - Bovy (IAS)
+
+           2017-10-28 - Changed return unit to rad - Bovy (UofT)
 
         """
         if mc:
@@ -1102,7 +1104,8 @@ class quasiisothermaldf(df):
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
-            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
+            warnings.warn("In versions >1.3, the output unit of quasiisothermaldf.tilt has been changed to radian (from degree before)",galpyWarning)
+            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
         

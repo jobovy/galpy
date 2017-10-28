@@ -401,8 +401,9 @@ def test_qdf():
     assert numpy.fabs(sqrt(df.sigmaR2(0.9,0.05))-0.22695537077102387) < 10.**-4., 'qdf does not behave as expected'
     assert numpy.fabs(sqrt(df.sigmaz2(0.9,0.05))-0.094215523962105044) < 10.**-4., 'qdf does not behave as expected'
     # Calculate the tilt of the velocity ellipsoid
+    # 2017/10-28: CHANGED bc tilt now returns angle in rad, no longer in deg
     df.tilt(0.9,0.05)
-    assert numpy.fabs(df.tilt(0.9,0.05)-2.5166061974413765) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(df.tilt(0.9,0.05)-2.5166061974413765/180.*numpy.pi) < 10.**-4., 'qdf does not behave as expected'
     # Calculate a higher-order moment of the velocity DF
     df.vmomentdensity(0.9,0.05,6.,2.,2.,gl=True)
     assert numpy.fabs(df.vmomentdensity(0.9,0.05,6.,2.,2.,gl=True)-0.0001591100892366438) < 10.**-4., 'qdf does not behave as expected'
