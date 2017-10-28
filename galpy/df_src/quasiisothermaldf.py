@@ -1070,6 +1070,7 @@ class quasiisothermaldf(df):
            2017-10-28 - Changed return unit to rad - Bovy (UofT)
 
         """
+        warnings.warn("In versions >1.3, the output unit of quasiisothermaldf.tilt has been changed to radian (from degree before)",galpyWarning)
         if mc:
             surfmass, vrs, vts, vzs= self._vmomentdensity(R,z,0.,0.,0.,
                                                              nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=True,
@@ -1086,7 +1087,7 @@ class quasiisothermaldf(df):
                                               nsigma=nsigma,mc=mc,nmc=nmc,_returnmc=False,
                                               _vrs=vrs,_vts=vts,_vzs=vzs,
                                               **kwargs)/surfmass
-            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))/numpy.pi*180.
+            return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))
         elif gl:
             surfmass, glqeval= self._vmomentdensity(R,z,0.,0.,0.,
                                                        gl=gl,ngl=ngl,
@@ -1104,7 +1105,6 @@ class quasiisothermaldf(df):
                                               ngl=ngl,gl=gl,
                                               _glqeval=glqeval,
                                               **kwargs)/surfmass
-            warnings.warn("In versions >1.3, the output unit of quasiisothermaldf.tilt has been changed to radian (from degree before)",galpyWarning)
             return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
