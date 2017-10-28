@@ -584,6 +584,7 @@ class evolveddiskdf(df):
                                   nlevels=nlevels,
                                   integrate_method=integrate_method,
                                   use_physical=False)
+        warnings.warn("In versions >1.3, the output unit of evolveddiskdf.vertexdev has been changed to radian (from degree before)",galpyWarning)
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
