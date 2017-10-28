@@ -4914,3 +4914,33 @@ def test_streamgapdf_sample():
     assert numpy.fabs(lbdt[5].to(units.mas/units.yr).value-lbdtnou[5]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     assert numpy.fabs(lbdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     return None
+
+def test_orbitmethodswunits_quantity_issue326():
+    # Methods that *always* return a number with implied units 
+    # (like Orbit.dist), should return always return a Quantity when 
+    # apy-units=True in the configuration file (see issue 326)
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
+    # First make sure we're testing what we want to test
+    assert not o._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._orb._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    assert not o._orb._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    # Then test methods
+    assert isinstance(o.ra(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dec(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.ll(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.bb(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dist(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmra(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmdec(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmll(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmbb(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.vlos(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioX(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioY(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioZ(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.U(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.V(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.W(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    return None
