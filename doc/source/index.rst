@@ -231,6 +231,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration of the magnetar candidate 4U 0114+65 in the potential model from `Irrgang et al. (2013) <http://adsabs.harvard.edu/abs/2013A%26A...549A.137I>`__ to aid in the determination of its likely age.
 #. *iota Horologii is unlikely to be an evaporated Hyades star*, I. Ramirez, D. Yong, E. Gutierrez, M. Endl, D. L. Lambert, J.-D. Do Nascimento Jr (2017) *Astrophys. J.*, in press (`arXiv/1710.05930 <http://arxiv.org/abs/1710.05930>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to determine the approximate orbit of the star iota Horologii, a planet-hosting suspected former member of the Hyades cluster, to investigate whether it could have coincided with the Hyades cluster in the past.
+#. *Confirming chemical clocks: asteroseismic age dissection of the Milky Way disk(s)*, V. Silva Aguirre, M. Bojsen-Hansen, D. Slumstrup, et al. (2017) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1710.09847 <http://arxiv.org/abs/1710.09847>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to compute the orbits of a sample of 1989 red giants with spectroscopic and asteroseismic data from the APOKASC catalog, to shed light on the properties of stellar populations defined by age and metallicity.
 
 Indices and tables
 ==================
