@@ -193,6 +193,9 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->nargs= (int) 3;
+      break;
+    }
+    if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *pot_args++;
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
@@ -201,7 +204,6 @@ void parse_actionAngleArgs(int npot,
 			    potentialArgs->wrappedPotentialArg,
 			    pot_type,pot_args+1,forTorus);
       pot_args+= ( (int) *pot_args ) +  1;
-      break;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
