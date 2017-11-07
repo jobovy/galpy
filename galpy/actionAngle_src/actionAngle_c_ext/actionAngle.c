@@ -5,7 +5,7 @@
 #include <cubic_bspline_2d_coeffs.h>
 void parse_actionAngleArgs(int npot,
 			   struct potentialArg * potentialArgs,
-			   int * pot_type,
+			   int ** pot_type,
 			   double * pot_args,
 			   bool forTorus){
   int ii,jj,kk;
@@ -13,7 +13,7 @@ void parse_actionAngleArgs(int npot,
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    switch ( *pot_type++ ) {
+    switch ( *(*pot_type)++ ) {
     case 0: //LogarithmicHaloPotential, 4 arguments
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
@@ -200,7 +200,6 @@ void parse_actionAngleArgs(int npot,
       parse_actionAngleArgs(potentialArgs->nwrapped,
 			    potentialArgs->wrappedPotentialArg,
 			    pot_type,pot_args+1,forTorus);
-      pot_type+= potentialArgs->nwrapped;
       pot_args+= ( (int) *pot_args ) +  1;
       break;
     }

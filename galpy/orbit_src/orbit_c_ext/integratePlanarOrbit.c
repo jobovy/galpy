@@ -25,12 +25,12 @@ void evalPlanarRectDeriv_dxdv(double, double *, double *,
   Actual functions
 */
 void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
-			int * pot_type,
+			int ** pot_type,
 			double * pot_args){
   int ii,jj;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    switch ( *pot_type++ ) {
+    switch ( *(*pot_type)++ ) {
     case 0: //LogarithmicHaloPotential, 3 arguments
       potentialArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
       potentialArgs->planarphiforce= &LogarithmicHaloPotentialPlanarphiforce;
@@ -261,7 +261,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->nargs= (int) 3;
       break;
     }
-    if ( *(pot_type-1) < 0) { // Parse wrapped potential for wrappers
+    if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *pot_args++;
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
@@ -269,7 +269,6 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       parse_leapFuncArgs(potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg,
 			 pot_type,pot_args+1);
-      pot_type+= potentialArgs->nwrapped;
       pot_args+= ( (int) *pot_args ) +  1;
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -297,7 +296,7 @@ void integratePlanarOrbit(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
+  parse_leapFuncArgs(npot,potentialArgs,&pot_type,pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -364,7 +363,7 @@ void integratePlanarOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
+  parse_leapFuncArgs(npot,potentialArgs,&pot_type,pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
