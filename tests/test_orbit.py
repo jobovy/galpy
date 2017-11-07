@@ -3495,6 +3495,66 @@ def test_intrinsic_physical_output():
     assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-8., 'Orbit.helioZ does not return correct helioZ in kpc'
     return None
 
+def test_doublewrapper_2d():
+    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # by comparing orbit integrated in C to that in python
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, \
+        DehnenBarPotential, \
+        SolidBodyRotationWrapperPotential, \
+        DehnenSmoothWrapperPotential
+    # potential= flat vc + doubly-wrapped bar
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SolidBodyRotationWrapperPotential(\
+            pot=DehnenSmoothWrapperPotential(\
+                pot=DehnenBarPotential(omegab=1.,rb=5./8.,Af=1./100.),
+                tform=5.,tsteady=15.),omega=1.3)]
+    # Integrate orbit in C and python
+    o= Orbit([1.,0.1,1.1,0.1])
+    oc= o()
+    ts= numpy.linspace(0.,20.,1001)
+    o.integrate(ts,pot,method='leapfrog')
+    oc.integrate(ts,pot,method='leapfrog_c')
+    # Check that they end up in the same point
+    o= o(ts[-1])
+    oc= oc(ts[-1])
+    assert numpy.fabs(o.x()-oc.x()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.y()-oc.y()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.vx()-oc.vx()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.vy()-oc.vy()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
+    return None
+
+def test_doublewrapper_3d():
+    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # by comparing orbit integrated in C to that in python
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, \
+        DehnenBarPotential, \
+        SolidBodyRotationWrapperPotential, \
+        DehnenSmoothWrapperPotential
+    # potential= flat vc + doubly-wrapped bar
+    pot= [LogarithmicHaloPotential(normalize=1.),
+          SolidBodyRotationWrapperPotential(\
+            pot=DehnenSmoothWrapperPotential(\
+                pot=DehnenBarPotential(omegab=1.,rb=5./8.,Af=1./100.),
+                tform=5.,tsteady=15.),omega=1.3)]
+    # Integrate orbit in C and python
+    o= Orbit([1.,0.1,1.1,0.1,-0.03,numpy.pi])
+    oc= o()
+    ts= numpy.linspace(0.,20.,1001)
+    o.integrate(ts,pot,method='leapfrog')
+    oc.integrate(ts,pot,method='leapfrog_c')
+    # Check that they end up in the same point
+    o= o(ts[-1])
+    oc= oc(ts[-1])
+    assert numpy.fabs(o.x()-oc.x()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.y()-oc.y()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.z()-oc.z()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.vx()-oc.vx()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.vy()-oc.vy()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
+    assert numpy.fabs(o.vz()-oc.vz()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
