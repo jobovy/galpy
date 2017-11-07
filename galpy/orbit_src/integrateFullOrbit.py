@@ -199,7 +199,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._tform,p._tsteady])
@@ -209,7 +209,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])

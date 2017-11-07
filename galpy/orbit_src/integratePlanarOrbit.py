@@ -260,7 +260,7 @@ def _parse_pot(pot):
                 p= p._Pot
             pot_type.append(-1)
             # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._tform,p._tsteady])
@@ -271,7 +271,7 @@ def _parse_pot(pot):
                 p= p._Pot
             pot_type.append(-2)
             # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])
