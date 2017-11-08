@@ -277,7 +277,6 @@ def _parse_pot(pot):
             pot_args.extend([p._amp,p._omega,p._pa])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
-    print(npot,pot_type,pot_args)
     return (npot,pot_type,pot_args)
 
 def _parse_integrator(int_method):
