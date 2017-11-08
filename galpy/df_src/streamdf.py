@@ -4,7 +4,9 @@ import numpy
 import multiprocessing
 import scipy
 from scipy import special, interpolate, integrate, optimize
-if int(scipy.__version__.split('.')[1]) < 10: #pragma: no cover
+_SCIPY_VERSION= [int(v.split('rc')[0])
+                 for v in scipy.__version__.split('.')]
+if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
     from scipy.misc import logsumexp
