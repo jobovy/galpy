@@ -2575,6 +2575,40 @@ def test_actionAngleIsochroneInverse_basic_freqs():
         'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
     return None
 
+def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
+    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
+    jr= 0.1
+    jz= 0.2
+    ip= IsochronePotential(normalize=1.04,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    # at Lz=1
+    tol= -10.
+    jphi= 1.
+    Or,Op,Oz= aAII.Freqs(jr,jphi,jz)
+    # Compute frequency with actionAngleIsochrone
+    _,_,_,Ori,Opi,Ozi= aAI.actionsFreqs(*aAII(jr,jphi,jz,0.,1.,2.).T)
+    assert numpy.fabs((Or-Ori)/Or) < 10.**tol, \
+        'Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    assert numpy.fabs((Op-Opi)/Op) < 10.**tol, \
+        'Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    assert numpy.fabs((Oz-Ozi)/Oz) < 10.**tol, \
+        'Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    # at Lz=1.5
+    jphi= 1.51
+    Or,Op,Oz= aAII.Freqs(jr,jphi,jz)
+    # Compute frequency with actionAngleIsochrone
+    _,_,_,Ori,Opi,Ozi= aAI.actionsFreqs(*aAII(jr,jphi,jz,0.,1.,2.).T)
+    assert numpy.fabs((Or-Ori)/Or) < 10.**tol, \
+        'Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    assert numpy.fabs((Op-Opi)/Op) < 10.**tol, \
+        'Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    assert numpy.fabs((Oz-Ozi)/Oz) < 10.**tol, \
+        'Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone'
+    return None
+
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
 def test_actionAngleIsochroneInverseTorus_orbit():
     from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
