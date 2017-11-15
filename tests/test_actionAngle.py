@@ -2543,6 +2543,80 @@ def test_actionAngleIsochroneInverse_wrtIsochrone():
                                                    tol,ntimes=1001)
     return None
 
+#Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
+def test_actionAngleIsochroneInverse_basic_freqs():
+    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.potential import epifreq, omegac, verticalfreq, rl, \
+        IsochronePotential
+    jr= 10.**-6.
+    jz= 10.**-6.
+    ip= IsochronePotential(normalize=1.)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    tol= -5.
+    # at Lz=1
+    jphi= 1.
+    om= aAII.Freqs(jr,jphi,jz)
+    assert numpy.fabs((om[0]-epifreq(ip,rl(ip,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
+    assert numpy.fabs((om[1]-omegac(ip,rl(ip,jphi)))/om[1]) < 10.**tol, \
+        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
+    assert numpy.fabs((om[2]-verticalfreq(ip,rl(ip,jphi)))/om[2]) < 10.**tol, \
+        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
+    # at Lz=1.5, w/ different potential normalization
+    ip= IsochronePotential(normalize=1.2)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    jphi= 1.5
+    om= aAII.Freqs(jr,jphi,jz)
+    assert numpy.fabs((om[0]-epifreq(ip,rl(ip,jphi)))/om[0]) < 10.**tol, \
+        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
+    assert numpy.fabs((om[1]-omegac(ip,rl(ip,jphi)))/om[1]) < 10.**tol, \
+        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
+    assert numpy.fabs((om[2]-verticalfreq(ip,rl(ip,jphi)))/om[2]) < 10.**tol, \
+        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
+    return None
+
+#Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
+def test_actionAngleIsochroneInverseTorus_orbit():
+    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    # Set up instance
+    ip= IsochronePotential(normalize=1.03,b=1.2)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    jr,jphi,jz= 0.05,1.1,0.025
+    # First calculate frequencies and the initial RvR
+    RvRom= aAII.xvFreqs(jr,jphi,jz,
+                        numpy.array([0.]),
+                        numpy.array([1.]),
+                        numpy.array([2.]))
+    om= RvRom[1:]
+    # Angles along an orbit
+    ts= numpy.linspace(0.,100.,1001)
+    angler= ts*om[0]
+    anglephi= 1.+ts*om[1]
+    anglez= 2.+ts*om[2]
+    # Calculate the orbit using actionAngleTorus
+    RvR= aAII(jr,jphi,jz,angler,anglephi,anglez).T
+    # Calculate the orbit using orbit integration
+    orb= Orbit([RvRom[0][:,0],RvRom[0][:,1],RvRom[0][:,2],
+                RvRom[0][:,3],RvRom[0][:,4],RvRom[0][:,5]])
+    orb.integrate(ts,ip)
+    # Compare
+    tol= -3.
+    assert numpy.all(numpy.fabs(orb.R(ts)-RvR[0]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in R'
+    assert numpy.all(numpy.fabs(orb.vR(ts)-RvR[1]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vR'
+    assert numpy.all(numpy.fabs(orb.vT(ts)-RvR[2]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vT'
+    assert numpy.all(numpy.fabs(orb.z(ts)-RvR[3]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in z'
+    assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in vz'
+    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+        'Integrated orbit does not agree with torus orbit in phi'
+    return None
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
                                                    tol,ntimes=1001):
     times= numpy.linspace(0.,30.,ntimes)
@@ -2551,7 +2625,7 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
                                                     obs.vT(times),obs.z(times),
                                                     obs.vz(times),obs.phi(times))
     Ri, vRi, vTi, zi, vzi, phii= \
-        aAII(numpy.median(jr),numpy.median(jp),numpy.median(jz),ar,ap,az)
+        aAII(numpy.median(jr),numpy.median(jp),numpy.median(jz),ar,ap,az).T
     assert numpy.amax(numpy.fabs(obs.R(times)-Ri)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.phi(times)-phii)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.z(times)-zi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
