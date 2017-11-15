@@ -2514,6 +2514,52 @@ def test_MWPotential_warning_torus():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+# Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
+def test_actionAngleIsochroneInverse_wrtIsochrone():
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=2.,b=1.5)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    # Check a few orbits
+    tol= -7.
+    R,vR,vT,z,vz,phi= 1.1,0.1,1.1,0.1,0.2,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,0.1,-1.1,0.1,0.2,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,-0.1,1.1,0.1,0.2,0.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,-0.1,1.1,0.1,-0.2,0.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    return None
+
+def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
+                                                   tol,ntimes=1001):
+    times= numpy.linspace(0.,30.,ntimes)
+    obs.integrate(times,pot)
+    jr,jp,jz,_,_,_,ar,ap,az= aAI.actionsFreqsAngles(obs.R(times),obs.vR(times),
+                                                    obs.vT(times),obs.z(times),
+                                                    obs.vz(times),obs.phi(times))
+    Ri, vRi, vTi, zi, vzi, phii= \
+        aAII(numpy.median(jr),numpy.median(jp),numpy.median(jz),ar,ap,az)
+    assert numpy.amax(numpy.fabs(obs.R(times)-Ri)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.phi(times)-phii)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.z(times)-zi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vR(times)-vRi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vT(times)-vTi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vz(times)-vzi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    return None
+
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
                                         ntimes=1001,fixed_quad=False,
