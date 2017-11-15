@@ -114,6 +114,42 @@ class actionAngleIsochroneInverse(actionAngle):
            2017-11-14 - Written - Bovy (UofT)
 
         """
+        return self.xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[0]
+        
+    def xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
+        """
+        NAME:
+
+           xvFreqs
+
+        PURPOSE:
+
+           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
+
+        INPUT:
+
+           jr - radial action (scalar)
+
+           jphi - azimuthal action (scalar)
+
+           jz - vertical action (scalar)
+
+           angler - radial angle (array [N])
+
+           anglephi - azimuthal angle (array [N])
+
+           anglez - vertical angle (array [N])
+
+
+        OUTPUT:
+
+           ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz)
+
+        HISTORY:
+
+           2017-11-15 - Written - Bovy (UofT)
+
+        """
         L= jz+numpy.fabs(jphi) # total angular momentum
         L2= L**2.
         sqrtfourbkL2= numpy.sqrt(L2+4.*self.b*self.amp)
@@ -126,9 +162,9 @@ class actionAngleIsochroneInverse(actionAngle):
         ab= a+self.b
         e= numpy.sqrt(1.+L2/(2.*H*a**2.))
         # Solve Kepler's-ish equation
-        angler= numpy.atleast_1d(angler)
-        anglephi= numpy.atleast_1d(anglephi)
-        anglez= numpy.atleast_1d(anglez)
+        angler= numpy.atleast_1d(angler) % (2.*numpy.pi)
+        anglephi= numpy.atleast_1d(anglephi) % (2.*numpy.pi)
+        anglez= numpy.atleast_1d(anglez) % (2.*numpy.pi)
         psi= numpy.empty(len(angler))
         for ii,ar in enumerate(angler):
             try:
@@ -163,4 +199,41 @@ class actionAngleIsochroneInverse(actionAngle):
         phi= anglephi-numpy.sign(jphi)*anglez+u
         phi= phi % (2.*numpy.pi)
         phi[phi < 0.]+= 2.*numpy.pi
-        return (R,vR,jphi/R,z,vz,phi)
+        return (numpy.array([R,vR,jphi/R,z,vz,phi]).T,
+                omegar,numpy.sign(jphi)*omegaz,omegaz)
+        
+    def Freqs(self,jr,jphi,jz,**kwargs):
+        """
+        NAME:
+
+           Freqs
+
+        PURPOSE:
+
+           return the frequencies corresponding to a torus
+
+        INPUT:
+
+           jr - radial action (scalar)
+
+           jphi - azimuthal action (scalar)
+
+           jz - vertical action (scalar)
+
+        OUTPUT:
+
+           (OmegaR,Omegaphi,Omegaz)
+
+        HISTORY:
+
+           2017-11-15 - Written - Bovy (UofT)
+
+        """
+        L= jz+numpy.fabs(jphi) # total angular momentum
+        sqrtfourbkL2= numpy.sqrt(L**2.+4.*self.b*self.amp)
+        H= -2.*self.amp**2./(2.*jr+L+sqrtfourbkL2)**2.
+        # Calculate the frequencies
+        omegar= (-2.*H)**1.5/self.amp
+        omegaz= (1.+L/sqrtfourbkL2)/2.*omegar
+        return (omegar,numpy.sign(jphi)*omegaz,omegaz)
+
