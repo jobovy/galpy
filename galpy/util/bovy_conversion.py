@@ -800,3 +800,91 @@ def actionAngle_physical_input(method):
         args= newargs
         return method(*args,**kwargs)
     return wrapper
+
+def physical_conversion_actionAngleInverse(quantity,pop=False):
+    """Decorator to convert to physical coordinates for the actionAngleInverse methods: 
+    quantity= call, xvFreqs, or Freqs"""
+    def wrapper(method):
+        @wraps(method)
+        def wrapped(*args,**kwargs):
+            use_physical= kwargs.get('use_physical',True)
+            ro= kwargs.get('ro',None)
+            if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
+                ro= args[0]._ro
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
+            vo= kwargs.get('vo',None)
+            if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
+                vo= args[0]._vo
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+            #Remove ro and vo kwargs if necessary
+            if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
+            if pop and 'ro' in kwargs: kwargs.pop('ro')
+            if pop and 'vo' in kwargs: kwargs.pop('vo')
+            if use_physical and not vo is None and not ro is None:
+                fac= []
+                u= []
+                if 'call' in quantity or 'xv' in quantity:
+                    fac.extend([ro,vo,vo,ro,vo,1.])
+                    if _APY_UNITS:
+                        u.extend([units.kpc,units.km/units.s,
+                                  units.km/units.s,units.kpc,units.km/units.s,
+                                  units.rad])
+                if 'Freqs' in quantity:
+                    FreqsFac= freq_in_Gyr(vo,ro)
+                    fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                    if _APY_UNITS:
+                        Freqsu= units.Gyr**-1.
+                        u.extend([Freqsu,Freqsu,Freqsu])
+                out= method(*args,**kwargs)
+                if _APY_UNITS:
+                    newOut= ()
+                    for ii in range(len(out)):
+                        newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                       unit=u[ii]),)
+                else:
+                    newOut= ()
+                    for ii in range(len(out)):
+                        newOut= newOut+(out[ii]*fac[ii],)
+                return newOut
+            else:
+                return method(*args,**kwargs)
+        return wrapped
+    return wrapper
+
+def actionAngleInverse_physical_input(method):
+    """Decorator to convert inputs to actionAngleInverse functions from 
+    physical to internal coordinates"""
+    @wraps(method)
+    def wrapper(*args,**kwargs):
+        if len(args) < 3: # orbit input
+            return method(*args,**kwargs)
+        ro= kwargs.get('ro',None)
+        if ro is None and hasattr(args[0],'_ro'):
+            ro= args[0]._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.get('vo',None)
+        if vo is None and hasattr(args[0],'_vo'):
+            vo= args[0]._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        # Loop through args
+        newargs= ()
+        for ii in range(len(args)):
+            if _APY_LOADED and isinstance(args[ii],units.Quantity):
+                try:
+                    targ= args[ii].to(units.kpc*units.km/units.s).value/ro/vo
+                except units.UnitConversionError:
+                    try:
+                        targ= args[ii].to(units.rad).value
+                    except units.UnitConversionError:
+                        raise units.UnitConversionError("Input units not understood")               
+                newargs= newargs+(targ,)
+            else:
+                newargs= newargs+(args[ii],)
+        args= newargs
+        return method(*args,**kwargs)
+    return wrapper
+
