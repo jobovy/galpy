@@ -10,21 +10,26 @@
 import numpy
 from scipy import optimize
 from galpy.potential import IsochronePotential
-from galpy.actionAngle_src.actionAngle import actionAngle
+from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 _APY_LOADED= True
 try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
-class actionAngleIsochroneInverse(actionAngle):
+class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleIsochroneInverse object
+
         INPUT:
+
            Either:
 
               b= scale parameter of the isochrone parameter (can be Quantity)
@@ -44,8 +49,7 @@ class actionAngleIsochroneInverse(actionAngle):
            2017-11-14 - Started - Bovy (UofT)
 
         """
-        actionAngle.__init__(self,
-                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
+        actionAngleInverse.__init__(self,*args,**kwargs)
         if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
             raise IOError("Must specify b= for actionAngleIsochrone")
         if 'ip' in kwargs:
@@ -79,7 +83,7 @@ class actionAngleIsochroneInverse(actionAngle):
         self._check_consistent_units()
         return None
     
-    def __call__(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
+    def _evaluate(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
 
@@ -114,9 +118,9 @@ class actionAngleIsochroneInverse(actionAngle):
            2017-11-14 - Written - Bovy (UofT)
 
         """
-        return self.xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[0]
+        return self._xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[:6]
         
-    def xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
+    def _xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
 
@@ -199,10 +203,10 @@ class actionAngleIsochroneInverse(actionAngle):
         phi= anglephi-numpy.sign(jphi)*anglez+u
         phi= phi % (2.*numpy.pi)
         phi[phi < 0.]+= 2.*numpy.pi
-        return (numpy.array([R,vR,jphi/R,z,vz,phi]).T,
+        return (R,vR,jphi/R,z,vz,phi,
                 omegar,numpy.sign(jphi)*omegaz,omegaz)
         
-    def Freqs(self,jr,jphi,jz,**kwargs):
+    def _Freqs(self,jr,jphi,jz,**kwargs):
         """
         NAME:
 
