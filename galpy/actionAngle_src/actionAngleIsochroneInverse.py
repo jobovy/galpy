@@ -165,17 +165,19 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         a= -self.amp/2./H-self.b
         ab= a+self.b
         e= numpy.sqrt(1.+L2/(2.*H*a**2.))
-        # Solve Kepler's-ish equation
-        angler= numpy.atleast_1d(angler) % (2.*numpy.pi)
-        anglephi= numpy.atleast_1d(anglephi) % (2.*numpy.pi)
-        anglez= numpy.atleast_1d(anglez) % (2.*numpy.pi)
+        # Solve Kepler's-ish equation; ar must be between 0 and 2pi
+        angler= (numpy.atleast_1d(angler) % (-2.*numpy.pi)) % (2.*numpy.pi)
+        anglephi= numpy.atleast_1d(anglephi)
+        anglez= numpy.atleast_1d(anglez)
         psi= numpy.empty(len(angler))
         for ii,ar in enumerate(angler):
             try:
                 psi[ii]= optimize.newton(lambda x: x-a*e/ab*numpy.sin(x)-ar,
                                          0.,
                                          lambda x: 1-a*e/ab*numpy.cos(x))
-            except RuntimeError: # Newton-Raphson did not converge
+            except RuntimeError:
+                # Newton-Raphson did not converge, this has to work, 
+                # bc 0 <= ra < 2pi the following start x have different signs
                 psi[ii]= optimize.brentq(lambda x: x-a*e/ab*numpy.sin(x)-ar,
                                          0.,2.*numpy.pi)
         cospsi= numpy.cos(psi)
