@@ -2655,6 +2655,28 @@ def test_actionAngleIsochroneInverseTorus_orbit():
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
+# Test physical output for actionAngleIsochroneInverse
+def test_physical_actionAngleIsochroneInverse():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    ip= IsochronePotential(normalize=1.01,b=1.02)
+    aAII= actionAngleIsochroneInverse(ip=ip,ro=ro,vo=vo)
+    aAIInu= actionAngleIsochroneInverse(ip=ip)
+    correct_fac= [ro,vo,vo,ro,vo,1.]
+    for ii in range(6):
+        assert numpy.fabs(aAII(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
+    correct_fac= [ro,vo,vo,ro,vo,1.,
+                  bovy_conversion.freq_in_Gyr(vo,ro),
+                  bovy_conversion.freq_in_Gyr(vo,ro),
+                  bovy_conversion.freq_in_Gyr(vo,ro)]
+    for ii in range(9):
+        assert numpy.fabs(aAII.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
+    for ii in range(3):
+        assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    return None
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
                                                    tol,ntimes=1001):
     times= numpy.linspace(0.,30.,ntimes)

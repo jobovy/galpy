@@ -2975,7 +2975,8 @@ def test_actionAngle_method_value():
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     # actionAngleIsochroneInverse
-    aA= actionAngleIsochroneInverse(b=0.8,ro=ro,vo=vo)
+    aA= actionAngleIsochroneInverse(b=0.8,
+                                    ro=ro*units.kpc,vo=vo*units.km/units.s)
     aAnu= actionAngleIsochroneInverse(b=0.8)
     correct_unit= [units.kpc,units.km/units.s,units.km/units.s,
                    units.kpc,units.km/units.s,units.rad]
@@ -3165,13 +3166,22 @@ def test_actionAngleIsochrone_setup_b_units():
     assert numpy.fabs(aA.b-aAu.b) < 10.**-10., 'b with units in actionAngleIsochrone setup does not work as expected'
     return None
 
-def test_actionAngleIsochroneApprix_setup_b_units():
+def test_actionAngleIsochroneApprox_setup_b_units():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.potential import MWPotential
     ro= 9.
     aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.7*ro*units.kpc,ro=ro)
     aAu= actionAngleIsochroneApprox(pot=MWPotential,b=0.7)
     assert numpy.fabs(aA._aAI.b-aAu._aAI.b) < 10.**-10., 'b with units in actionAngleIsochroneApprox setup does not work as expected'
+    return None
+
+def test_actionAngleIsochroneInverse_setup_b_units():
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import MWPotential
+    ro= 9.
+    aA= actionAngleIsochroneInverse(pot=MWPotential,b=0.7*ro*units.kpc,ro=ro)
+    aAu= actionAngleIsochroneInverse(pot=MWPotential,b=0.7)
+    assert numpy.fabs(aA.b-aAu.b) < 10.**-10., 'b with units in actionAngleIsochroneInverse setup does not work as expected'
     return None
 
 def test_actionAngleIsochroneApprix_setup_tintJ_units():
@@ -3423,7 +3433,21 @@ def test_actionAngle_input_wrongunits():
            0.2*units.km/units.s,0.1*units.rad)
     return None
     
-
+def test_actionAngleInverse_input_wrongunits():
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+    ip= IsochronePotential(normalize=1.,b=0.7)
+    aAII= actionAngleIsochroneInverse(ip=ip,ro=8.,vo=220.)
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        aAII(1.*units.Gyr,0.1*units.kpc*units.km/units.s,
+             1.1*units.kpc*units.km/units.s,0.1*units.rad,
+             0.2*units.rad,0.1*units.rad)
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        aAII(1.*units.Gyr,0.1*units.kpc*units.km/units.s,
+             1.1*units.kpc*units.km/units.s,0.1*units.km,
+             0.2*units.rad,0.1*units.rad)
+    return None
+    
 def test_estimateDeltaStaeckel_method_returntype():
     from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
