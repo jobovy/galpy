@@ -858,8 +858,6 @@ def actionAngleInverse_physical_input(method):
     physical to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
-        if len(args) < 3: # orbit input
-            return method(*args,**kwargs)
         ro= kwargs.get('ro',None)
         if ro is None and hasattr(args[0],'_ro'):
             ro= args[0]._ro
