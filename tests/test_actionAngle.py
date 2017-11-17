@@ -2541,6 +2541,10 @@ def test_actionAngleIsochroneInverse_wrtIsochrone():
     o= Orbit([R,vR,vT,z,vz,phi])
     check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
                                                    tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,-4.1,1.1,0.1,-0.2,0.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
     return None
 
 #Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
