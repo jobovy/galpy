@@ -2982,7 +2982,7 @@ def test_actionAngle_method_value():
                    units.kpc,units.km/units.s,units.rad]
     correct_fac= [ro,vo,vo,ro,vo,1.]
     for ii in range(6):
-        assert numpy.fabs(aA(0.1,1.1,0.1,0.1,0.2,0.)[ii].to(correct_unit[ii]).value-aAnu(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
+        assert numpy.fabs(aA(0.1,1.1,0.1,0.1,0.2,0.,ro=ro*units.kpc,vo=vo*units.km/units.s)[ii].to(correct_unit[ii]).value-aAnu(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
     correct_unit= [units.kpc,units.km/units.s,units.km/units.s,
                    units.kpc,units.km/units.s,units.rad,
                    1/units.Gyr,1/units.Gyr,1/units.Gyr]
