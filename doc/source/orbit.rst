@@ -244,6 +244,23 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+Finally, it is also possible to plot arbitrary functions of time with
+``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. This
+is for example useful if you want to display the orbit in a different
+coordinate system. For example, to display the orbital velocity in the
+spherical radial direction (which is currently not a pre-defined
+option), you can do the following
+
+>>> o.plot(d1='r',
+	   d2=lambda t: o.vR(t)*o.R(t)/o.r(t)+o.vz(t)*o.z(t)/o.r(t),
+	   ylabel='v_r')
+
+where ``d2=`` converts the velocity to spherical coordinates. This
+gives the following orbit (which is closed in this projection, because
+we are using a spherical potential):
+
+.. image:: images/lp-orbit-integration-rvr.png
+
 .. _orbanim:
 
 **NEW in v1.3**: Animating the orbit
