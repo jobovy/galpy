@@ -259,7 +259,7 @@ where ``d2=`` converts the velocity to spherical coordinates. This
 gives the following orbit (which is closed in this projection, because
 we are using a spherical potential):
 
-.. image:: images/lp-orbit-integration-rvr.png
+.. image:: images/lp-orbit-integration-spherrvr.png
 
 .. _orbanim:
 
