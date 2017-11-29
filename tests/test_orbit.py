@@ -3993,7 +3993,7 @@ def test_full_plotting():
     o.plot3d(d1='helioZ',d2='W',d3='U')
     o.plot3d(d2='helioZ',d1='W',d3='helioX')
     # callables
-    o.plot(d1=lambda t: t,d2=lambda t: o.R(t),d3=lambda t: o.z(t))
+    o.plot3d(d1=lambda t: t,d2=lambda t: o.R(t),d3=lambda t: o.z(t))
     # Test AttributeErrors
     try: o.plot3d(d1='R') #shouldn't work, bc there is no default
     except AttributeError: pass
