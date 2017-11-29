@@ -429,17 +429,21 @@ number of symplectic integrators available
 The higher order symplectic integrators are described in `Yoshida
 (1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
 
-For most applications I recommend ``dopr54_c``. For example, compare
+For most applications I recommend ``symplec4_c``, which is speedy and
+reliable. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
->>> timeit(o.integrate(ts,mp))
-# 1 loops, best of 3: 553 ms per loop
->>> timeit(o.integrate(ts,mp,method='dopr54_c'))
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 1.34 s ± 41.8 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='leapfrog_c'))
 # galpyWarning: Using C implementation to integrate orbits
-# 10 loops, best of 3: 25.6 ms per loop
+# 91 ms ± 2.42 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='symplec4_c'))
+# galpyWarning: Using C implementation to integrate orbits
+# 9.67 ms ± 48.3 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
 As this example shows, galpy will issue a warning that C is being
-used. Speed-ups by a factor of 20 are typical.
+used.
 
 Integration of the phase-space volume
 --------------------------------------
