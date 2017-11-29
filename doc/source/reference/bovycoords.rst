@@ -35,6 +35,7 @@ self-explanatory names:
    sphergal_to_rectgal <coordssphergaltorectgal.rst>
    uv_to_Rz <coordsuvtoRz.rst>
    vrpmllpmbb_to_vxvyvz <coordsvrpmllpmbbtovxvyvz.rst>
+   vRvz_to_pupv <coordsvRvztopupv.rst>
    vxvyvz_to_galcencyl <coordsvxvyvztogalcencyl.rst>
    vxvyvz_to_galcenrect <coordsvxvyvztogalcenrect.rst>
    vxvyvz_to_vrpmllpmbb <coordsvxvyvztovrpmllpmbb.rst>
