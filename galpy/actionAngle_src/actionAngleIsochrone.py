@@ -298,3 +298,33 @@ class actionAngleIsochrone(actionAngle):
             anglez= anglez % (2.*nu.pi)
             return (Jr,Jphi,Jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
+    def _drdEL_constant_angler(self,R,vR,vT,L,dEdr):
+        """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
+        L2= L**2.
+        E= self._ip(R,0.)+vR**2./2.+vT**2./2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-R/c)
+        else:
+            s= 1.+nu.sqrt(1.+R**2./self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        pindx= (coseta > 1.)*(coseta < (1.+10.**-7.))
+        coseta[pindx]= 1.
+        pindx= (coseta < -1.)*(coseta > (-1.-10.**-7.))
+        coseta[pindx]= -1.           
+        eta= nu.arccos(coseta)
+        eta[vR < 0.]= 2.*nu.pi-eta[vR < 0.]
+        sineta= nu.sin(eta)
+        bcmecce= (self.b+c-e*c*coseta)
+        c2e2ob= c**2.*sineta**2./self.b
+        dcdLfac= (1.-e*coseta)/self.b+e2*c2e2ob/bcmecce*(1./c-1./(self.b+c))
+        dcdLoverdrdL= self.amp/2./E**2.*dEdr
+        dedLfac= -c*coseta/e/self.b+c2e2ob/bcmecce
+        numfordrdE= dcdLfac*self.amp/2./E**2.+dedLfac*L2/4./c**2./E**2*(1.+2.*self.b/c)
+        return (numfordrdE/(R/self.b**2./(s-1.)-numfordrdE*dEdr),
+                -dedLfac*L/self.amp/c*(1.+self.b/c)\
+                    /(R/self.b**2./(s-1.)-dcdLfac*dcdLoverdrdL
+                      -dedLfac*L2/2./self.amp/c**2.*(1.+2.*self.b/c)*dcdLoverdrdL))
+        
