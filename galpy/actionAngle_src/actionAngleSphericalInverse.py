@@ -15,6 +15,7 @@ from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
 from galpy.actionAngle import actionAngleSpherical
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
+from galpy.actionAngle_src.actionAngleIsochrone import _actionAngleIsochroneHelper
 _APY_LOADED= True
 try:
     from astropy import units
@@ -178,7 +179,8 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
                  jr=None,jphi=None,jz=None,
                  Omegar=None,Omegaphi=None,Omegaz=None,
                  rperi=None,rap=None,
-                 pot=None,ntr='auto',max_ntr=512):
+                 pot=None,ntr='auto',max_ntr=512,
+                 use_newton=False):
         """
         NAME:
 
@@ -207,6 +209,8 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
            ntr= 'auto'
 
            max_ntr= (512) Maximum number of radial angles to use to determine the torus mapping when using ntr='auto'
+
+           use_newton= (False) if True, solve for radii for which angler = given angler using Newton-Raphson instead of using Brent's method (might be faster sometimes)
 
         OUTPUT:
 
@@ -275,6 +279,7 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
                           *self._Omegaz/self._Omegar)**3.)
         self._ip= IsochronePotential(amp=amp,b=ampb/amp)
         self._isoaa= actionAngleIsochrone(ip=self._ip)
+        self._isoaa_helper= _actionAngleIsochroneHelper(ip=self._ip)
         self._isoaainv= actionAngleIsochroneInverse(ip=self._ip)
         # Now need to determine the Sn and dSn mapping       
         if ntr == 'auto': ntr= 128 # BOVY: IMPLEMENT CORRECTLY
@@ -289,20 +294,29 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
             elif ii == ntr//2:
                 tr= self._rap
             else:
-                # Replace with newton and better ar calc.
-                opt_func= lambda r: self._isoaa.actionsFreqsAngles(r,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.),L/r,0.,0.,0.)[6]-tra
-                tr= optimize.brentq(opt_func,self._rperi,self._rap)
-            tjra,_,_,tora,_,_= self._isoaa.actionsFreqs(tr,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,tr,0.))-L2/tr**2.),L/tr,0.,0.,0.)
+                use_brent= not use_newton
+                if use_newton:
+                    if ii == ntr//2-1: tr= self._rap # Hack?
+                    try:
+                        tr= optimize.newton(lambda r: self._isoaa_helper.angler(r,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.),L,reuse=True)-tra,
+                                            tr,
+                                            lambda r: self._isoaa_helper.danglerdr_constant_L(r,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.),L,evaluateRforces(self._pot,r,0.)-evaluateRforces(self._ip,r,0.)))
+                    except RuntimeError:
+                        use_brent= True # fallback for non-convergence
+                if use_brent:
+                    tr= optimize.brentq(lambda r: self._isoaa_helper.angler(r,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.),L,reuse=False)-tra,tr,self._rap)
+            tE= E+self._ip(tr,0.)-evaluatePotentials(self._pot,tr,0.)
+            tjra= self._isoaa_helper.Jr(tE,L)
+            tora= self._isoaa_helper.Or(tE)
             solvera[ii]= tr
             jra[ii]= tjra
             # Compute dEA/dE and dEA/dL
             dEAdr= evaluateRforces(self._pot,tr,0.)\
                 -evaluateRforces(self._ip,tr,0.)
-            drdE,drdL= self._isoaa._drdEL_constant_angler(\
-                numpy.atleast_1d(tr),
-                numpy.sqrt(2.*(E-evaluatePotentials(self._pot,tr,0.))
-                           -L2/tr**2.),
-                L/tr,L,dEAdr)
+            drdE,drdL= self._isoaa_helper.drdEL_constant_angler(\
+                tr,numpy.sqrt(2.*(E-evaluatePotentials(self._pot,tr,0.))
+                              -L2/tr**2.),
+                tE,L,dEAdr)
             dEdE= drdE*dEAdr+1.
             dEdL[ii]= drdL*dEAdr/tora
             ora[ii]= tora/dEdE
