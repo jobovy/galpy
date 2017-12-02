@@ -86,6 +86,50 @@ def test_actionAngleIsochrone_linear_angles():
                                         -8.,-8.,-8.)
     return None
 
+#Test that the angles of an actionAngleIsochrone increase linearly for an
+#orbit in the mid-plane (non-inclined; has potential issues, because the 
+#the ascending node is not well defined)
+def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -5.,-5.,-5.,
+                                        -6.,-6.,-6.,
+                                        -5.,-5.,-5.)
+    else:
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.)
+    return None
+
+def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    eps= 1e-10
+    obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -5.,-5.,-5.,
+                                        -6.,-6.,-6.,
+                                        -5.,-5.,-5.)
+    else:
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.)
+    return None
+
 #Test that the Kelperian limit of the isochrone actions/angles works
 def test_actionAngleIsochrone_kepler_actions():
     from galpy.potential import IsochronePotential
