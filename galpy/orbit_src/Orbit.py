@@ -2894,9 +2894,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
-           d2= second dimension to plot
+           d2= second dimension to plot; can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2929,7 +2929,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
            d2= second dimension to plot
 
@@ -3582,13 +3582,17 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
-           d2= second dimension to plot; can be list with up to three entries for three subplots
+           d2= second dimension to plot; can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
            width= (600) width of output div in px
 
            height= (400) height of output div in px
+
+           xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+           ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
 

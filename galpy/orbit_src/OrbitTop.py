@@ -1371,6 +1371,7 @@ class OrbitTop(object):
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
@@ -1445,7 +1446,9 @@ class OrbitTop(object):
             d1= kwargs.pop('d1')
             d2= kwargs.pop('d2')
         #Get x and y
-        if d1 == 't':
+        if callable(d1):
+            x= d1(self.t)
+        elif d1 == 't':
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
@@ -1518,7 +1521,9 @@ class OrbitTop(object):
             x= self.Jacobi(self.t,**kwargs)
         elif d1 == 'Jacobinorm':
             x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-        if d2 == 't':
+        if callable(d2):
+            y= d2(self.t)
+        elif d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
@@ -1600,9 +1605,9 @@ class OrbitTop(object):
         kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict[d1]
+            kwargs['xlabel']= labeldict.get(d1,'\mathrm{No\ xlabel\ specified}')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict[d2]
+            kwargs['ylabel']= labeldict.get(d2,'\mathrm{No\ ylabel\ specified}')
         return plot.bovy_plot(x,y,*args,**kwargs)
 
     def plot3d(self,*args,**kwargs):
@@ -1625,6 +1630,7 @@ class OrbitTop(object):
            2010-01-08 - Adapted to 3D - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
@@ -1689,7 +1695,9 @@ class OrbitTop(object):
             d2= kwargs.pop('d2')
             d3= kwargs.pop('d3')
         #Get x, y, and z
-        if d1 == 't':
+        if callable(d1):
+            x= d1(self.t)
+        elif d1 == 't':
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
@@ -1746,7 +1754,9 @@ class OrbitTop(object):
             x= self.V(self.t,**kwargs)
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
-        if d2 == 't':
+        if callable(d2):
+            y= d2(self.t)
+        elif d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
@@ -1803,7 +1813,9 @@ class OrbitTop(object):
             y= self.V(self.t,**kwargs)
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
-        if d3 == 't':
+        if callable(d3):
+            z= d3(self.t)
+        elif d3 == 't':
             z= self.time(self.t,**kwargs)
         elif d3 == 'R':
             z= self.R(self.t,**kwargs)
@@ -1867,11 +1879,11 @@ class OrbitTop(object):
         kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict[d1]
+            kwargs['xlabel']= labeldict.get(d1,'\mathrm{No\ xlabel\ specified}')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict[d2]
+            kwargs['ylabel']= labeldict.get(d2,'\mathrm{No\ ylabel\ specified}')
         if not 'zlabel' in kwargs:
-            kwargs['zlabel']= labeldict[d3]
+            kwargs['zlabel']= labeldict.get(d3,'\mathrm{No\ zlabel\ specified}')
         return plot.bovy_plot3d(x,y,z,*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
@@ -2133,6 +2145,7 @@ class OrbitTop(object):
            IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
         HISTORY:
            2017-09-17-24 - Written - Bovy (UofT)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
         """
         try:
             from IPython.display import HTML
@@ -2217,7 +2230,7 @@ class OrbitTop(object):
         ys= []
         xlabels= []
         ylabels= []
-        if isinstance(d1,str):
+        if isinstance(d1,str) or callable(d1):
             d1s= [d1]
             d2s= [d2]
         else:
@@ -2225,9 +2238,13 @@ class OrbitTop(object):
             d2s= d2
         if len(d1s) > 3:
             raise ValueError('Orbit.animate only works for up to three subplots')
-        for d1,d2 in zip(d1s,d2s):
+        all_xlabel= kwargs.get('xlabel',[None for d in d1])
+        all_ylabel= kwargs.get('ylabel',[None for d in d2])
+        for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
            #Get x and y for each subplot
-            if d1 == 't':
+            if callable(d1):
+                x= d1(self.t)
+            elif d1 == 't':
                 x= self.time(self.t,**kwargs)
             elif d1 == 'R':
                 x= self.R(self.t,**kwargs)
@@ -2300,7 +2317,9 @@ class OrbitTop(object):
                 x= self.Jacobi(self.t,**kwargs)
             elif d1 == 'Jacobinorm':
                 x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-            if d2 == 't':
+            if callable(d2):
+                y= d2(self.t)
+            elif d2 == 't':
                 y= self.time(self.t,**kwargs)
             elif d2 == 'R':
                 y= self.R(self.t,**kwargs)
@@ -2375,8 +2394,14 @@ class OrbitTop(object):
                 y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
             xs.append(x)
             ys.append(y)
-            xlabels.append(labeldict[d1])
-            ylabels.append(labeldict[d2])
+            if xlabel is None:
+                xlabels.append(labeldict.get(d1,'\mathrm{No\ xlabel\ specified}'))
+            else:
+                xlabels.append(xlabel)
+            if ylabel is None:
+                ylabels.append(labeldict.get(d2,'\mathrm{No\ ylabel\ specified}'))
+            else:
+                ylabels.append(ylabel)
         kwargs.pop('ro',None)
         kwargs.pop('vo',None)
         kwargs.pop('obs',None)

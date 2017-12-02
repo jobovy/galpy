@@ -57,6 +57,13 @@ v1.3 (2017-XX-XX)
 
 - Allow plotting of the spherical radius in Orbit.plot
 
+- Allow plotting of arbitrary user-supplied functions of time in
+  Orbit.plot, Orbit.plot3d, and Orbit.animate. 
+
+- Added conversion to and from oblate spheroidal coordinates. Also
+  added conversion of velocities to the momenta in oblate or prolate
+  spheroidal coordinates (but not the other way around).
+
 - Made SCFPotential compatible with GSL v2.
 
 - Orbit methods now all return a scalar when called with a single
