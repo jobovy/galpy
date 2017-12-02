@@ -203,6 +203,8 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         u= numpy.arcsin(sinu)
         u[vtheta < 0.]= numpy.pi-u[vtheta < 0.]
         phi= anglephi-numpy.sign(jphi)*anglez+u
+        # For non-inclined orbits, phi == chi (psi in BT08 notation)
+        phi[True^numpy.isfinite(phi)]= chi
         phi= phi % (2.*numpy.pi)
         phi[phi < 0.]+= 2.*numpy.pi
         return (R,vR,jphi/R,z,vz,phi,
