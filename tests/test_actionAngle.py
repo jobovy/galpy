@@ -324,6 +324,54 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
                                         fixed_quad=True)
     return None
   
+#Test that the angles of an actionAngleSpherical increase linearly for an
+#orbit in the mid-plane (non-inclined; has potential issues, because the 
+#the ascending node is not well defined)
+def test_actionAngleSpherical_noninclinedorbit_linear_angles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501) #need fine sampling for de-period
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501) #need fine sampling for de-period
+    return None
+  
+def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    eps= 1e-10
+    obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501) #need fine sampling for de-period
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501) #need fine sampling for de-period
+    return None
+  
 #Test the actionAngleSpherical against an isochrone potential: actions
 def test_actionAngleSpherical_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
