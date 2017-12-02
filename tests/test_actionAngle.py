@@ -2639,6 +2639,40 @@ def test_actionAngleIsochroneInverse_wrtIsochrone():
                                                    tol,ntimes=1001)
     return None
 
+# Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone,
+# for an orbit that is not inclined (at z=0); possibly problematic, because 
+# the longitude of the ascending node is ambiguous; set to zero by convention
+# in actionAngleIsochrone
+def test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit():
+    from galpy.actionAngle import actionAngleIsochrone, \
+        actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=2.,b=1.5)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    # Check a few orbits
+    tol= -7.
+    R,vR,vT,z,vz,phi= 1.1,0.1,1.1,0.,0.,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,0.1,-1.1,0.,0.,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    # also some almost non-inclined orbits
+    eps= 1e-10
+    R,vR,vT,z,vz,phi= 1.1,0.1,1.1,0.,eps,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,0.1,-1.1,0.,eps,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    return None
+
 #Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
 def test_actionAngleIsochroneInverse_basic_freqs():
     from galpy.actionAngle import actionAngleIsochroneInverse
@@ -2706,7 +2740,7 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
     return None
 
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
-def test_actionAngleIsochroneInverseTorus_orbit():
+def test_actionAngleIsochroneInverse_orbit():
     from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
