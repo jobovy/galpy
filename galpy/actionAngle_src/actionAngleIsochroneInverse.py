@@ -169,32 +169,32 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         angler= (numpy.atleast_1d(angler) % (-2.*numpy.pi)) % (2.*numpy.pi)
         anglephi= numpy.atleast_1d(anglephi)
         anglez= numpy.atleast_1d(anglez)
-        psi= numpy.empty(len(angler))
+        eta= numpy.empty(len(angler))
         for ii,ar in enumerate(angler):
             try:
-                psi[ii]= optimize.newton(lambda x: x-a*e/ab*numpy.sin(x)-ar,
+                eta[ii]= optimize.newton(lambda x: x-a*e/ab*numpy.sin(x)-ar,
                                          0.,
                                          lambda x: 1-a*e/ab*numpy.cos(x))
             except RuntimeError:
                 # Newton-Raphson did not converge, this has to work, 
                 # bc 0 <= ra < 2pi the following start x have different signs
-                psi[ii]= optimize.brentq(lambda x: x-a*e/ab*numpy.sin(x)-ar,
+                eta[ii]= optimize.brentq(lambda x: x-a*e/ab*numpy.sin(x)-ar,
                                          0.,2.*numpy.pi)
-        cospsi= numpy.cos(psi)
-        r= a*numpy.sqrt((1.-e*cospsi)*(1.-e*cospsi+2.*self.b/a))
-        vr= numpy.sqrt(self.amp/ab)*a*e*numpy.sin(psi)/r
-        tanpsi2= numpy.tan(psi/2.)
-        tan11= numpy.arctan(numpy.sqrt((1.+e)/(1.-e))*tanpsi2)
+        coseta= numpy.cos(eta)
+        r= a*numpy.sqrt((1.-e*coseta)*(1.-e*coseta+2.*self.b/a))
+        vr= numpy.sqrt(self.amp/ab)*a*e*numpy.sin(eta)/r
+        taneta2= numpy.tan(eta/2.)
+        tan11= numpy.arctan(numpy.sqrt((1.+e)/(1.-e))*taneta2)
         tan12= numpy.arctan(\
-            numpy.sqrt((a*(1.+e)+2.*self.b)/(a*(1.-e)+2.*self.b))*tanpsi2)
+            numpy.sqrt((a*(1.+e)+2.*self.b)/(a*(1.-e)+2.*self.b))*taneta2)
         tan11[tan11 < 0.]+= numpy.pi
         tan12[tan12 < 0.]+= numpy.pi
-        Lambdapsi= tan11+L/sqrtfourbkL2*tan12
-        chi= anglez-omegaz/omegar*angler+Lambdapsi
+        Lambdaeta= tan11+L/sqrtfourbkL2*tan12
+        psi= anglez-omegaz/omegar*angler+Lambdaeta
         lowerl= numpy.sqrt(1.-jphi**2./L2)
-        sintheta= numpy.sin(chi)*lowerl
+        sintheta= numpy.sin(psi)*lowerl
         costheta= numpy.sqrt(1.-sintheta**2.)
-        vtheta= L*lowerl*numpy.cos(chi)/costheta/r
+        vtheta= L*lowerl*numpy.cos(psi)/costheta/r
         R= r*costheta
         z= r*sintheta
         vR= vr*costheta-vtheta*sintheta
@@ -203,6 +203,8 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         u= numpy.arcsin(sinu)
         u[vtheta < 0.]= numpy.pi-u[vtheta < 0.]
         phi= anglephi-numpy.sign(jphi)*anglez+u
+        # For non-inclined orbits, phi == psi
+        phi[True^numpy.isfinite(phi)]= psi[True^numpy.isfinite(phi)]
         phi= phi % (2.*numpy.pi)
         phi[phi < 0.]+= 2.*numpy.pi
         return (R,vR,jphi/R,z,vz,phi,

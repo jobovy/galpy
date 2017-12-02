@@ -1813,6 +1813,53 @@ def uv_to_Rz(u,v,delta=1.,oblate=False):
         z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
 
+def vRvz_to_pupv(vR,vz,R,z,delta=1.,oblate=False,uv=False):
+    """
+    NAME:
+
+       vRvz_to_pupv
+
+    PURPOSE:
+
+       calculate momenta in prolate or oblate confocal u and v coordinates from cylindrical velocities vR,vz for a given focal length delta
+
+    INPUT:
+
+       vR - radial velocity in cylindrical coordinates
+
+       vz - vertical velocity in cylindrical coordinates
+
+       R - radius
+
+       z - height
+
+       delta= focus
+
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
+       uv= (False) if True, the given R,z are actually u,v
+
+    OUTPUT:
+
+       (pu,pv)
+
+    HISTORY:
+
+       2017-11-28 - Written - Bovy (UofT)
+
+    """
+    if not uv:
+        u,v= Rz_to_uv(R,z,delta,oblate=oblate)
+    else:
+        u,v= R,z
+    if oblate:
+        pu= delta*(vR*sc.sinh(u)*sc.sin(v)+vz*sc.cosh(u)*sc.cos(v))
+        pv= delta*(vR*sc.cosh(u)*sc.cos(v)-vz*sc.sinh(u)*sc.sin(v))
+    else:
+        pu= delta*(vR*sc.cosh(u)*sc.sin(v)+vz*sc.sinh(u)*sc.cos(v))
+        pv= delta*(vR*sc.sinh(u)*sc.cos(v)-vz*sc.cosh(u)*sc.sin(v))
+    return (pu,pv)
+
 def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     """
     NAME:

@@ -86,6 +86,50 @@ def test_actionAngleIsochrone_linear_angles():
                                         -8.,-8.,-8.)
     return None
 
+#Test that the angles of an actionAngleIsochrone increase linearly for an
+#orbit in the mid-plane (non-inclined; has potential issues, because the 
+#the ascending node is not well defined)
+def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -5.,-5.,-5.,
+                                        -6.,-6.,-6.,
+                                        -5.,-5.,-5.)
+    else:
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.)
+    return None
+
+def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    eps= 1e-10
+    obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -5.,-5.,-5.,
+                                        -6.,-6.,-6.,
+                                        -5.,-5.,-5.)
+    else:
+        check_actionAngle_linear_angles(aAI,obs,ip,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.)
+    return None
+
 #Test that the Kelperian limit of the isochrone actions/angles works
 def test_actionAngleIsochrone_kepler_actions():
     from galpy.potential import IsochronePotential
@@ -278,6 +322,54 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
                                         -8.,-8.,-8.,
                                         ntimes=501, #need fine sampling for de-period
                                         fixed_quad=True)
+    return None
+  
+#Test that the angles of an actionAngleSpherical increase linearly for an
+#orbit in the mid-plane (non-inclined; has potential issues, because the 
+#the ascending node is not well defined)
+def test_actionAngleSpherical_noninclinedorbit_linear_angles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501) #need fine sampling for de-period
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501) #need fine sampling for de-period
+    return None
+  
+def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    eps= 1e-10
+    obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    if not ext_loaded: #odeint is not as accurate as dopr54_c
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        -4.,-4.,-4.,
+                                        ntimes=501) #need fine sampling for de-period
+    else:
+        check_actionAngle_linear_angles(aAS,obs,lp,
+                                        -6.,-6.,-6.,
+                                        -8.,-8.,-8.,
+                                        -8.,-8.,-8.,
+                                        ntimes=501) #need fine sampling for de-period
     return None
   
 #Test the actionAngleSpherical against an isochrone potential: actions
@@ -2547,6 +2639,40 @@ def test_actionAngleIsochroneInverse_wrtIsochrone():
                                                    tol,ntimes=1001)
     return None
 
+# Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone,
+# for an orbit that is not inclined (at z=0); possibly problematic, because 
+# the longitude of the ascending node is ambiguous; set to zero by convention
+# in actionAngleIsochrone
+def test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit():
+    from galpy.actionAngle import actionAngleIsochrone, \
+        actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=2.,b=1.5)
+    aAI= actionAngleIsochrone(ip=ip)
+    aAII= actionAngleIsochroneInverse(ip=ip)
+    # Check a few orbits
+    tol= -7.
+    R,vR,vT,z,vz,phi= 1.1,0.1,1.1,0.,0.,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,0.1,-1.1,0.,0.,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    # also some almost non-inclined orbits
+    eps= 1e-10
+    R,vR,vT,z,vz,phi= 1.1,0.1,1.1,0.,eps,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    R,vR,vT,z,vz,phi= 1.1,0.1,-1.1,0.,eps,2.3
+    o= Orbit([R,vR,vT,z,vz,phi])
+    check_actionAngleIsochroneInverse_wrtIsochrone(ip,aAI,aAII,o,
+                                                   tol,ntimes=1001)
+    return None
+
 #Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
 def test_actionAngleIsochroneInverse_basic_freqs():
     from galpy.actionAngle import actionAngleIsochroneInverse
@@ -2614,7 +2740,7 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
     return None
 
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
-def test_actionAngleIsochroneInverseTorus_orbit():
+def test_actionAngleIsochroneInverse_orbit():
     from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
