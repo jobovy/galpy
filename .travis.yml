@@ -54,7 +54,7 @@ before_install:
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
 #Download corrections for some tests
- - curl -O https://cloud.github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
+ - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
 # command to install dependencies
 install:
