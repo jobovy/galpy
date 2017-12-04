@@ -1860,6 +1860,50 @@ def vRvz_to_pupv(vR,vz,R,z,delta=1.,oblate=False,uv=False):
         pv= delta*(vR*sc.sinh(u)*sc.cos(v)-vz*sc.cosh(u)*sc.sin(v))
     return (pu,pv)
 
+def pupv_to_vRvz(pu,pv,u,v,delta=1.,oblate=False):
+    """
+    NAME:
+
+       pupv_to_vRvz
+
+    PURPOSE:
+
+       calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinatesfor a given focal length delta
+
+    INPUT:
+
+       pu - u momentum
+
+       pv - v momentum
+
+       u - u coordinate
+
+       v - v coordinate
+
+       delta= focus
+
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
+
+    OUTPUT:
+
+       (vR,vz)
+
+    HISTORY:
+
+       2017-12-04 - Written - Bovy (UofT)
+
+    """
+    if oblate:
+        denom= delta*(sc.sinh(u)**2.+sc.cos(v)**2.)
+        vR= (pu*sc.sinh(u)*sc.sin(v)+pv*sc.cosh(u)*sc.cos(v))/denom
+        vz= (pu*sc.cosh(u)*sc.cos(v)-pv*sc.sinh(u)*sc.sin(v))/denom
+    else:
+        denom= delta*(sc.sinh(u)**2.+sc.sin(v)**2.)
+        vR= (pu*sc.cosh(u)*sc.sin(v)+pv*sc.sinh(u)*sc.cos(v))/denom
+        vz= (pu*sc.sinh(u)*sc.cos(v)-pv*sc.cosh(u)*sc.sin(v))/denom
+    return (vR,vz)
+
 def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     """
     NAME:
