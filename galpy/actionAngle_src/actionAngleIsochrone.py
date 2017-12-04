@@ -340,7 +340,7 @@ class _actionAngleIsochroneHelper(object):
         self._ip= ip
         return None
     
-    def angler(self,r,vr,L,reuse=False):
+    def angler(self,r,vr2,L,reuse=False,vrneg=False):
         """
         NAME:
            angler
@@ -348,8 +348,9 @@ class _actionAngleIsochroneHelper(object):
            calculate the radial angle
         INPUT:
            r - radius
-           vr - radial velocity
+           vr2 - radial velocity squared
            L - angular momentum
+           vrneg= (False) True if vr is negative
            reuse= (False) if True, re-use all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
         OUTPUT:
            radial angle
@@ -358,7 +359,8 @@ class _actionAngleIsochroneHelper(object):
         """
         if reuse: 
             return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*nu.pi)
-        E= self._ip(r,0.)+vr**2./2.+L**2./2./r**2.
+        E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
+        if E > 0.: return -1.
         c= -self.amp/2./E-self.b
         e2= 1.-L*L/self.amp/c*(1.+self.b/c)
         e= nu.sqrt(e2)
@@ -370,13 +372,13 @@ class _actionAngleIsochroneHelper(object):
         if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
         elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
         eta= nu.arccos(coseta)
-        if vr < 0.: eta= 2.*nu.pi-eta
+        if vrneg: eta= 2.*nu.pi-eta
         angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
         return angler
 
-    def danglerdr_constant_L(self,r,vr,L,dEdr):
+    def danglerdr_constant_L(self,r,vr2,L,dEdr,vrneg=False):
         """Function used in actionAngleSphericalInverse when finding r at which angler has a particular value on the isochrone torus"""
-        E= self._ip(r,0.)+vr**2./2.+L**2./2./r**2.
+        E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
         L2= L**2.
         self._c= -self.amp/2./E-self.b
         L2overampc= L2/self.amp/self._c
@@ -390,7 +392,7 @@ class _actionAngleIsochroneHelper(object):
         if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
         elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
         self._eta= nu.arccos(coseta)
-        if vr < 0.: self._eta= 2.*nu.pi-self._eta
+        if vrneg: self._eta= 2.*nu.pi-self._eta
         self._sineta= nu.sin(self._eta)
         L2overampc*= (1.+2.*self.b/self._c)/(2.*self._e) # from now on need L2/(2GM c e)
         dcdr= self.amp/2./E**2.*dEdr
@@ -406,7 +408,7 @@ class _actionAngleIsochroneHelper(object):
     def Or(self,E):
         return (-2.*E)**1.5/self.amp
         
-    def drdEL_constant_angler(self,r,vr,E,L,dEdr):
+    def drdEL_constant_angler(self,r,vr2,E,L,dEdr,vrneg=False):
         """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
         L2= L**2.
         c= -self.amp/2./E-self.b
@@ -420,7 +422,7 @@ class _actionAngleIsochroneHelper(object):
         if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
         elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
         eta= nu.arccos(coseta)
-        if vr < 0.: eta= 2.*nu.pi-eta
+        if vrneg: eta= 2.*nu.pi-eta
         sineta= nu.sin(eta)
         bcmecce= (self.b+c-e*c*coseta)
         c2e2ob= c**2.*sineta**2./self.b
