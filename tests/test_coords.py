@@ -1015,6 +1015,36 @@ def test_vRvz_to_pupv_oblate():
     assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[1]-bovy_coords.vRvz_to_pupv(vR,vz,*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True,uv=True)[1]) < 10.**-3., 'vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates'
     return None
 
+def test_pupv_to_vRvz():
+    # Test that this is the inverse of vRvz_to_pupv
+    delta= 0.5
+    R,z= delta/2., delta*3.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta),*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta),*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    # Another one
+    delta= 1.5
+    R,z= delta*2., -delta/3.
+    vR, vz= -0.2,0.5
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta),*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta),*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    return None
+
+def test_pupv_to_vRvz_oblate():
+    # Test that this is the inverse of vRvz_to_pupv
+    delta= 0.5
+    R,z= delta/2., delta*3.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True),*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True),*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    # Another one
+    delta= 1.5
+    R,z= delta*2., -delta/3.
+    vR, vz= -0.2,0.5
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True),*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(*bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True),*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    return None
+
 def test_lbd_to_XYZ_jac():
     #Just position
     l,b,d= 180.,30.,2.
