@@ -1868,7 +1868,7 @@ def pupv_to_vRvz(pu,pv,u,v,delta=1.,oblate=False):
 
     PURPOSE:
 
-       calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinatesfor a given focal length delta
+       calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinates for a given focal length delta
 
     INPUT:
 
