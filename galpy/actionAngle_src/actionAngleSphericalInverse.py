@@ -298,13 +298,13 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
                 if use_newton:
                     if ii == ntr//2-1: tr= self._rap # Hack?
                     try:
-                        tr= optimize.newton(lambda r: self._isoaa_helper.angler(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L,reuse=True)-tra,
+                        tr= optimize.newton(lambda r: self._isoaa_helper.angler(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L2,reuse=True)-tra,
                                             tr,
-                                            lambda r: self._isoaa_helper.danglerdr_constant_L(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L,evaluateRforces(self._pot,r,0.)-evaluateRforces(self._ip,r,0.)))
+                                            lambda r: self._isoaa_helper.danglerdr_constant_L(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L2,evaluateRforces(self._pot,r,0.)-evaluateRforces(self._ip,r,0.)))
                     except RuntimeError:
                         use_brent= True # fallback for non-convergence
                 if use_brent:
-                    tr= optimize.brentq(lambda r: self._isoaa_helper.angler(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L,reuse=False)-tra,tr,self._rap)
+                    tr= optimize.brentq(lambda r: self._isoaa_helper.angler(r,2.*(E-evaluatePotentials(self._pot,r,0.))-L2/r**2.,L2,reuse=False)-tra,tr,self._rap)
             tE= E+self._ip(tr,0.)-evaluatePotentials(self._pot,tr,0.)
             tjra= self._isoaa_helper.Jr(tE,L)
             tora= self._isoaa_helper.Or(tE)
