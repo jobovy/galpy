@@ -340,7 +340,7 @@ class _actionAngleIsochroneHelper(object):
         self._ip= ip
         return None
     
-    def angler(self,r,vr2,L,reuse=False,vrneg=False):
+    def angler(self,r,vr2,L2,reuse=False,vrneg=False):
         """
         NAME:
            angler
@@ -349,7 +349,7 @@ class _actionAngleIsochroneHelper(object):
         INPUT:
            r - radius
            vr2 - radial velocity squared
-           L - angular momentum
+           L2 - angular momentum squared
            vrneg= (False) True if vr is negative
            reuse= (False) if True, re-use all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
         OUTPUT:
@@ -357,12 +357,12 @@ class _actionAngleIsochroneHelper(object):
         HISTORY:
            2017-11-30 - Written - Bovy (UofT)
         """
-        if reuse: 
+        if reuse:
             return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*nu.pi)
-        E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
+        E= self._ip(r,0.)+vr2/2.+L2/2./r**2.
         if E > 0.: return -1.
         c= -self.amp/2./E-self.b
-        e2= 1.-L*L/self.amp/c*(1.+self.b/c)
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
         e= nu.sqrt(e2)
         if self.b == 0.:
             coseta= 1/e*(1.-r/c)
@@ -400,6 +400,191 @@ class _actionAngleIsochroneHelper(object):
         detadr= (dsdrtimesb+(coseta*(self._e+L2overampc)-1.)*dcdr)/(self._e*self._c*self._sineta)
         return detadr*(1.-self._e*self._c*coseta/(self._c+self.b))\
             -self._sineta/(self._c+self.b)*(self._e*self.b/(self._c+self.b)+L2overampc)*dcdr
+
+    def anglerz(self,r,vr2,L2,Lz2,costheta,vrneg,vthetapos):
+        """
+        NAME:
+           anglerz
+        PURPOSE:
+           calculate the radial and vertical angle
+        INPUT:
+           r - radius
+           vr2 - radial velocity squared
+           L2 - angular momentum squared
+           Lz2 - z-component of the angular momentum squared(for anglez, not necessary for angler)
+           costheta - z/r
+           vrneg - index of inputs with vr is negative
+           vthetaneg - index of inputs with vtheta is positive
+        OUTPUT:
+           radial and vertical angle
+        HISTORY:
+           2017-12-06 - Written - Bovy (UofT)
+        """
+        E= self._ip(r,0.)+vr2/2.+L2/2./r**2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        coseta[coseta > 1.]= 1.
+        coseta[coseta < -1.]= -1.
+        eta= nu.arccos(coseta)
+        eta[vrneg]= 2.*nu.pi-eta[vrneg]
+        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        # Now do the vertical angle
+        tan11= nu.arctan(nu.sqrt((1.+e)/(1.-e))*nu.tan(0.5*eta))
+        tan12= nu.arctan(nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))*nu.tan(0.5*eta))
+        tan11[tan11 < 0.]+= nu.pi
+        tan12[tan12 < 0.]+= nu.pi
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        anglez= (psi+0.5*angler\
+            +1./nu.sqrt(1.+4.*self.amp*self.b/L2)*(0.5*angler-tan12)-tan11) \
+            % (2.*nu.pi)
+        angler[E > 0.]= -1.
+        anglez[E > 0.]= -1.
+        return (angler,anglez)       
+
+    def danglerzduv_constant_ELzI3(self,r,vr2,L2,Lz2,costheta,vrneg,vthetapos,
+                                   u,v,pu,pv,delta2,r2vtheta2,
+                                   dEdu,dEdv,dpudu,dpvdv):
+        """Function used in actionAngleStaeckelInverse when finding (u,v) at which (angler,anglez) have a particular value on the isochrone torus"""
+        sinhu= nu.sinh(u)
+        coshu= nu.cosh(u)
+        sinv= nu.sin(v)
+        cosv= nu.cos(v)
+        dr2du= 2.*delta2*sinhu*coshu
+        dr2dv= -2.*delta2*sinv*cosv
+        sinh2usin2vinv= 1./(sinhu**2.+sinv**2.)
+        dr2vtheta2du= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cosh(2.*u)*pv+sinv*cosv*dpudu)
+                                         -2.*r2vtheta2*sinhu*coshu
+                                             /sinh2usin2vinv)
+        dr2vtheta2dv= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cos(2.*v)*pu+sinhu*coshu*dpvdv)
+                                         -2.*r2vtheta2*sinv*cosv
+                                             /sinh2usin2vinv)
+        dL2du= dr2vtheta2du-2.*Lz2/sinhu**3.*coshu*cosv**2./sinv**2.
+        dL2dv= dr2vtheta2dv-2.*Lz2/sinv**3.*cosv*(1.+1./sinhu**2.)
+        # Need to compute all of the same stuff as to calculate angler
+        E= self._ip(r,0.)+vr2/2.+L2/2./r**2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        coseta[coseta > 1.]= 1.
+        coseta[coseta < -1.]= -1.
+        eta= nu.arccos(coseta)
+        eta[vrneg]= 2.*nu.pi-eta[vrneg]
+        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        # Now back to the derivatives
+        dcdu= self.amp/2./E**2.*dEdu
+        dcdv= self.amp/2./E**2.*dEdv
+        dedu= (L2/self.amp/c**2.*(1.+2.*self.b/c)*dcdu+(e2-1.)/L2*dL2du)/2./e
+        dedv= (L2/self.amp/c**2.*(1.+2.*self.b/c)*dcdv+(e2-1.)/L2*dL2dv)/2./e
+        dsdu= dr2du/2./self.b**2./(s-1.)
+        dsdv= dr2dv/2./self.b**2./(s-1.)
+        sineta= nu.sin(eta)
+        detadu= (dsdu-(s-2.)/c*dcdu+c/self.b*coseta*dedu)\
+            /(e*c/self.b*sineta)
+        detadv= (dsdv-(s-2.)/c*dcdv+c/self.b*coseta*dedv)\
+            /(e*c/self.b*sineta)
+        danglerdu= detadu*(1.-e*c/(c+self.b)*coseta)\
+            -sineta/(c+self.b)*(c*dedu+dcdu*e*(1.-c/(c+self.b)))
+        danglerdv= detadv*(1.-e*c/(c+self.b)*coseta)\
+            -sineta/(c+self.b)*(c*dedv+dcdv*e*(1.-c/(c+self.b)))
+        # Next, we work on the derivatives of the vertical angle
+        # First need to compute all of the same stuff as to calculate anglez
+        taneta= nu.tan(0.5*eta)
+        atan11prefac= nu.sqrt((1.+e)/(1.-e))
+        atan11= atan11prefac*taneta
+        tan11= nu.arctan(atan11)
+        atan12prefac= nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))
+        atan12= atan12prefac*taneta
+        tan12= nu.arctan(atan12)
+        tan11[tan11 < 0.]+= nu.pi
+        tan12[tan12 < 0.]+= nu.pi
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        # Back to derivatives
+        dtan11du= 1./(1.+atan11**2.)*(1./atan11prefac/(1.-e)**2.\
+                                          *taneta*dedu
+                                      +nu.sqrt((1.+e)/(1.-e))
+                                      /2./nu.cos(0.5*eta)**2.*detadu)
+        dtan11dv= 1./(1.+atan11**2.)*(1./atan11prefac/(1.-e)**2.\
+                                          *taneta*dedv
+                                      +nu.sqrt((1.+e)/(1.-e))
+                                      /2./nu.cos(0.5*eta)**2.*detadv)
+        cos12eta2= nu.cos(0.5*eta)**2.
+        dtan12du= 1./(1.+atan12**2.)\
+            *(1./atan12prefac/(1.-e+2.*self.b/c)**2.*taneta\
+                  *((1.+2.*self.b/c)*dedu+2.*e*self.b/c**2.*dcdu)
+              +atan12prefac/2./cos12eta2*detadu)
+        dtan12dv= 1./(1.+atan12**2.)\
+            *(1./atan12prefac/(1.-e+2.*self.b/c)**2.*taneta\
+                  *((1.+2.*self.b/c)*dedv+2.*e*self.b/c**2.*dcdv)
+              +atan12prefac/2./cos12eta2*detadv)
+        oneplus4ampbL2= 1./nu.sqrt(1.+4.*self.amp*self.b/L2)
+        dtan12du= 2.*self.amp*self.b/L2**2.*oneplus4ampbL2**3.*dL2du\
+            *(tan12-0.5*angler)+oneplus4ampbL2*dtan12du
+        dtan12dv= 2.*self.amp*self.b/L2**2.*oneplus4ampbL2**3.*dL2dv\
+            *(tan12-0.5*angler)+oneplus4ampbL2*dtan12dv
+        tanpsi= nu.tan(psi)
+        dpsidu= tanpsi*(sinhu/coshu-sinhu*coshu/(sinhu**2.+cosv**2.)
+                        -0.5*dL2du/(L2-Lz2)*Lz2/L2)
+        dpsidv= tanpsi*(-sinv/cosv+sinv*cosv/(sinhu**2.+cosv**2.)
+                        -0.5*dL2dv/(L2-Lz2)*Lz2/L2)
+        danglezdu= dpsidu+0.5*(1.+oneplus4ampbL2)*danglerdu-dtan11du-dtan12du
+        danglezdv= dpsidv+0.5*(1.+oneplus4ampbL2)*danglerdv-dtan11dv-dtan12dv
+        return (danglerdu,danglerdv,danglezdu,danglezdv)
+
+    def dpsiduv_constant_ELzI3(self,L2,Lz2,costheta,vthetapos,
+                                  u,v,pu,pv,delta2,r2vtheta2,
+                                  dpudu,dpvdv):
+        """Function used in actionAngleStaeckelInverse when finding (u,v) at which (angler=0,anglez) have a particular value on the isochrone torus"""
+        sinhu= nu.sinh(u)
+        coshu= nu.cosh(u)
+        sinv= nu.sin(v)
+        cosv= nu.cos(v)
+        sinh2usin2vinv= 1./(sinhu**2.+sinv**2.)
+        dr2vtheta2du= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cosh(2.*u)*pv+sinv*cosv*dpudu)
+                                         -2.*r2vtheta2*sinhu*coshu
+                                             /sinh2usin2vinv)
+        dr2vtheta2dv= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cos(2.*v)*pu+sinhu*coshu*dpvdv)
+                                         -2.*r2vtheta2*sinv*cosv
+                                             /sinh2usin2vinv)
+        dL2du= dr2vtheta2du-2.*Lz2/sinhu**3.*coshu*cosv**2./sinv**2.
+        dL2dv= dr2vtheta2dv-2.*Lz2/sinv**3.*cosv*(1.+1./sinhu**2.)
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        # Back to derivatives
+        tanpsi= nu.tan(psi)
+        dpsidu= tanpsi*(sinhu/coshu-sinhu*coshu/(sinhu**2.+cosv**2.)
+                        -0.5*dL2du/(L2-Lz2)*Lz2/L2)
+        dpsidv= tanpsi*(-sinv/cosv+sinv*cosv/(sinhu**2.+cosv**2.)
+                         -0.5*dL2dv/(L2-Lz2)*Lz2/L2)
+        return (dpsidu,dpsidv)
 
     def Jr(self,E,L):
         return self.amp/nu.sqrt(-2.*E)\
