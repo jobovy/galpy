@@ -1137,6 +1137,62 @@ def test_actionAngleStaeckel_linear_angles_u0():
                                     ntimes=1001,u0=1.23) #need fine sampling for de-period
     return None
 
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,0.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.1,0.2, 1.3, 0.3,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,MWPotential,
+                                                -1.8,-1.4,-1.8,-1.8,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
+        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
+        TriaxialHernquistPotential, TriaxialJaffePotential, \
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    pots= [MWPotential,
+           DoubleExponentialDiskPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.,alpha=0.),
+           KuzminDiskPotential(normalize=1.,a=1./8.),
+           TriaxialHernquistPotential(normalize=1.,c=0.2,pa=1.1), # tests rot, but not well
+           TriaxialNFWPotential(normalize=1.,c=0.3,pa=1.1),
+           TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
+           SCFPotential(normalize=1.),
+           DiskSCFPotential(normalize=1.),
+           ip]
+    for pot in pots:
+        aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
+        obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+        check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,pot,
+                                                    -1.8,-1.3,-1.8,-1.8,
+                                                    ntimes=101)
+    return None
+
+#HERE
+
 #Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -2668,3 +2724,19 @@ def check_actionAngle_linear_angles(aA,obs,pot,
     maxdev= numpy.amax(numpy.fabs(devs))
     assert maxdev < 10.**toldaz, 'Maximum deviation from linear trend in the vertical angles is %g' % maxdev
     return None
+
+#Test that the ecc, zmax, rperi, rap are conserved along an orbit
+def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
+                                                tolrperi,tolrap,
+                                                ntimes=1001):
+    times= numpy.linspace(0.,100.,ntimes)
+    obs.integrate(times,pot,method='dopr54_c')
+    es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
+        obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+        obs.vz(times),obs.phi(times))
+    assert numpy.amax(numpy.fabs(es/numpy.mean(es)-1)) < 10.**tole, 'Eccentricity conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(es/numpy.mean(es)-1)))
+    assert numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)) < 10.**tolzmax, 'Zmax conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)))
+    assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
+    assert numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)) < 10.**tolrap, 'Rap conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)))
+    return None
+
