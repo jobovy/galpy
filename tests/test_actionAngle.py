@@ -894,6 +894,67 @@ def test_actionAngleStaeckel_circular_angles_c():
     assert numpy.fabs(js[8]) < 10.**-8., 'Circular orbit does not have zero angles'
     return None
 
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions():
     from galpy.potential import MWPotential
