@@ -21,7 +21,8 @@ from galpy.potential_src.Potential import _evaluatePotentials, \
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, physical_conversion_actionAngle, \
+    actionAngle_physical_input
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -86,6 +87,46 @@ class actionAngleStaeckel(actionAngle):
         self._check_consistent_units()
         return None
     
+    @actionAngle_physical_input
+    @physical_conversion_actionAngle('EccZmaxRperiRap',pop=True)
+    def EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-12 - Written - Bovy (UofT)
+
+        """
+        umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
+        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=self._delta)[0]
+        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=self._delta)
+        rap= nu.sqrt(rap_tmp**2.+zmax**2.)
+        e= (rap-rperi)/(rap+rperi)
+        return (e,zmax,rperi,rap)
+
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -311,6 +352,94 @@ class actionAngleStaeckel(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
+
+    def _uminumaxvmin(self,*args,**kwargs):
+        """
+        NAME:
+           _uminumaxvmin
+        PURPOSE:
+           evaluate u_min, u_max, and v_min
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+            c= True/False; overrides the object's c= keyword to use C or not
+        OUTPUT:
+           (umin,umax,vmin)
+        HISTORY:
+           2017-12-12 - Written - Bovy (UofT)
+        """
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                and _check_c(self._pot):
+            if len(args) == 5: #R,vR.vT, z, vz
+                R,vR,vT, z, vz= args
+            elif len(args) == 6: #R,vR.vT, z, vz, phi
+                R,vR,vT, z, vz, phi= args
+            else:
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
+            if isinstance(R,float):
+                R= nu.array([R])
+                vR= nu.array([vR])
+                vT= nu.array([vT])
+                z= nu.array([z])
+                vz= nu.array([vz])
+            Lz= R*vT
+            if self._useu0:
+                #First calculate u0
+                if 'u0' in kwargs:
+                    u0= nu.asarray(kwargs['u0'])
+                else:
+                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                                 +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
+                                                                         self._pot,
+                                                                         self._delta)[0]
+                kwargs.pop('u0',None)
+            else:
+                u0= None
+            umin, umax, vmin, err= \
+                actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(\
+                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+            if err == 0:
+                return (umin,umax,vmin)
+            else: #pragma: no cover
+                raise RuntimeError("C-code for calculation actions failed; try with c=False")
+        else:
+            if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+            kwargs.pop('c',None)
+            if (len(args) == 5 or len(args) == 6) \
+                    and isinstance(args[0],nu.ndarray):
+                oumin= nu.zeros((len(args[0])))
+                oumax= nu.zeros((len(args[0])))
+                ovmin= nu.zeros((len(args[0])))
+                for ii in range(len(args[0])):
+                    if len(args) == 5:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii])
+                    elif len(args) == 6:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii],args[5][ii])
+                    tumin,tumax,tvmin= self._uminumaxvmin(\
+                        *targs,**copy.copy(kwargs))
+                    oumin[ii]= tumin
+                    oumax[ii]= tumax
+                    ovmin[ii]= tvmin
+                return (oumin,oumax,ovmin)
+            else:
+                #Set up the actionAngleStaeckelSingle object
+                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                                     delta=self._delta)
+                umin, umax= aASingle.calcUminUmax()
+                vmin= aASingle.calcVmin()
+                return (umin,umax,vmin)
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
