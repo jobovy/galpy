@@ -933,7 +933,7 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
@@ -951,7 +951,8 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    print("Should be here")
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
@@ -1396,6 +1397,7 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
 def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.potential import MWPotential, interpRZPotential
+    from galpy.orbit import Orbit
     rzpot= interpRZPotential(RZPot=MWPotential,
                              rgrid=(numpy.log(0.01),numpy.log(20.),201),
                              logR=True,
@@ -1420,7 +1422,7 @@ def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     #Another close-to-circular orbit
     R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
-    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
@@ -1430,11 +1432,12 @@ def test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
-    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=True,
                                  interpecc=True)
     check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
-                                                -2.,-2.,-2.,-2.,ntimes=101)
+                                                -2.,-2.,-2.,-2.,ntimes=101,
+                                                inclphi=True)
     return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
