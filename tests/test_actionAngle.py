@@ -933,7 +933,7 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
@@ -942,10 +942,11 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
 def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
     aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
-    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
@@ -1156,7 +1157,8 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
     aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
     obs= Orbit([1.1,0.2, 1.3, 0.3,0.,2.])
     check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,MWPotential,
-                                                -1.8,-1.4,-1.8,-1.8,ntimes=101)
+                                                -1.8,-1.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
     return None
 
 #Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
@@ -2783,12 +2785,17 @@ def check_actionAngle_linear_angles(aA,obs,pot,
 #Test that the ecc, zmax, rperi, rap are conserved along an orbit
 def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
                                                 tolrperi,tolrap,
-                                                ntimes=1001):
+                                                ntimes=1001,inclphi=False):
     times= numpy.linspace(0.,100.,ntimes)
     obs.integrate(times,pot,method='dopr54_c')
-    es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
-        obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-        obs.vz(times))
+    if inclphi:
+        es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
+            obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+            obs.vz(times),obs.phi(times))
+    else:
+        es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
+            obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+            obs.vz(times))
     assert numpy.amax(numpy.fabs(es/numpy.mean(es)-1)) < 10.**tole, 'Eccentricity conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(es/numpy.mean(es)-1)))
     assert numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)) < 10.**tolzmax, 'Zmax conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)))
     assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
