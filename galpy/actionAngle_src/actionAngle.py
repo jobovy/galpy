@@ -305,6 +305,43 @@ class actionAngle(object):
         except AttributeError: #pragma: no cover
             raise NotImplementedError("'actionsFreqsAngles' method not implemented for this actionAngle module")
 
+    @actionAngle_physical_input
+    @physical_conversion_actionAngle('EccZmaxRperiRap',pop=True)
+    def EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-12 - Written - Bovy (UofT)
+
+        """
+        try:
+            return self._EccZmaxRperiRap(*args,**kwargs)
+        except AttributeError: #pragma: no cover
+            raise NotImplementedError("'EccZmaxRperiRap' method not implemented for this actionAngle module")
 
 class UnboundError(Exception): #pragma: no cover
     def __init__(self, value):

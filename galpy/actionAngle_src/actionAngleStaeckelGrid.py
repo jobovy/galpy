@@ -279,146 +279,6 @@ class actionAngleStaeckelGrid(actionAngle):
         self._check_consistent_units()
         return None
 
-    @actionAngle_physical_input
-    @physical_conversion_actionAngle('EccZmaxRperiRap',pop=True)
-    def EccZmaxRperiRap(self,*args,**kwargs):
-        """
-        NAME:
-
-           EccZmaxRperiRap
-
-        PURPOSE:
-
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
-        OUTPUT:
-
-           (e,zmax,rperi,rap)
-
-        HISTORY:
-
-           2017-12-15 - Written - Bovy (UofT)
-
-        """
-        if len(args) == 5: #R,vR.vT, z, vz
-            R,vR,vT, z, vz= args
-        elif len(args) == 6: #R,vR.vT, z, vz, phi
-            R,vR,vT, z, vz, phi= args
-        else:
-            self._parse_eval_args(*args)
-            R= self._eval_R
-            vR= self._eval_vR
-            vT= self._eval_vT
-            z= self._eval_z
-            vz= self._eval_vz
-        Lz= R*vT
-        Phi= _evaluatePotentials(self._pot,R,z)
-        E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
-        thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
-        thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
-        if isinstance(R,numpy.ndarray):
-            indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
-                *(((E-thisERa)/(thisERL-thisERa)-1.) < 10.**-2.)
-            E[indx]= thisERL[indx]
-            indx= ((E-thisERa)/(thisERL-thisERa) < 0.)\
-                *((E-thisERa)/(thisERL-thisERa) > -10.**-2.)
-            E[indx]= thisERa[indx]
-            indx= (Lz < self._Lzmin)
-            indx+= (Lz > self._Lzmax)
-            indx+= ((E-thisERa)/(thisERL-thisERa) > 1.)
-            indx+= ((E-thisERa)/(thisERL-thisERa) < 0.)
-            indxc= True^indx
-            ecc= numpy.empty(R.shape)
-            zmax= numpy.empty(R.shape)
-            rperi= numpy.empty(R.shape)
-            rap= numpy.empty(R.shape)
-            if numpy.sum(indxc) > 0:
-                u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
-                                                   (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
-                sinh2u0= numpy.sinh(u0)**2.
-                thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
-                                E[indxc],Lz[indxc],sinh2u0,u0)
-                thisEz= self.Ez(R[indxc],z[indxc],vR[indxc],vz[indxc],
-                                E[indxc],Lz[indxc],sinh2u0,u0)
-                thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
-                cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
-                cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
-                indxCos2psi= (cos2psi > 1.)
-                indxCos2psi+= (cos2psi < 0.)
-                indxc[indxc]= True^indxCos2psi#Handle these two cases as off-grid
-                indx= True^indxc
-                psi= numpy.arccos(numpy.sqrt(cos2psi[True^indxCos2psi]))
-                coords= numpy.empty((3,numpy.sum(indxc)))
-                coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
-                y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
-                coords[1,:]= y*(self._nE-1.)
-                coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-                ecc[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._eccFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False))-10.**-10.)
-                rperi[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rperiFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._rperiLzInterp(Lz[indxc]))-10.**-5.)
-                # We do rap below with zmax
-                #Switch to Ez-calculated psi
-                sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
-                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
-                indxSin2psi= (sin2psi > 1.)
-                indxSin2psi+= (sin2psi < 0.)
-                indxc[indxc]= True^indxSin2psi#Handle these two cases as off-grid
-                indx= True^indxc
-                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True^indxSin2psi]))
-                newcoords= numpy.empty((3,numpy.sum(indxc)))
-                newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
-                newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
-                zmax[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._zmaxFiltered,
-                                                                           newcoords,
-                                                                           order=3,
-                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._zmaxLzInterp(Lz[indxc]))-10.**-5.)
-                rap[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rapFiltered,
-                                                                           newcoords,
-                                                                           order=3,
-                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._rapLzInterp(Lz[indxc]))-10.**-5.)
-            if numpy.sum(indx) > 0:
-                eccindiv, zmaxindiv, rperiindiv, rapindiv=\
-                    self._aA.EccZmaxRperiRap(R[indx],
-                                             vR[indx],
-                                             vT[indx],
-                                             z[indx],
-                                             vz[indx],
-                                             **kwargs)
-                ecc[indx]= eccindiv
-                zmax[indx]= zmaxindiv
-                rperi[indx]= rperiindiv
-                rap[indx]= rapindiv
-        else:
-            ecc,zmax,rperi,rap= self.EccZmaxRperiRap(numpy.array([R]),
-                                                     numpy.array([vR]),
-                                                     numpy.array([vT]),
-                                                     numpy.array([z]),
-                                                     numpy.array([vz]),
-                                                     **kwargs)
-            return (ecc[0],zmax[0],rperi[0],rap[0])
-        ecc[ecc < 0.]= 0.
-        zmax[zmax < 0.]= 0.
-        rperi[rperi < 0.]= 0.
-        rap[rap < 0.]= 0.
-        return (ecc,zmax,rperi,rap)
-
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -582,6 +442,144 @@ class actionAngleStaeckelGrid(actionAngle):
            2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         return self(*args,**kwargs)[0]
+
+    def _EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-15 - Written - Bovy (UofT)
+
+        """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        Lz= R*vT
+        Phi= _evaluatePotentials(self._pot,R,z)
+        E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
+        thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
+        thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
+        if isinstance(R,numpy.ndarray):
+            indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
+                *(((E-thisERa)/(thisERL-thisERa)-1.) < 10.**-2.)
+            E[indx]= thisERL[indx]
+            indx= ((E-thisERa)/(thisERL-thisERa) < 0.)\
+                *((E-thisERa)/(thisERL-thisERa) > -10.**-2.)
+            E[indx]= thisERa[indx]
+            indx= (Lz < self._Lzmin)
+            indx+= (Lz > self._Lzmax)
+            indx+= ((E-thisERa)/(thisERL-thisERa) > 1.)
+            indx+= ((E-thisERa)/(thisERL-thisERa) < 0.)
+            indxc= True^indx
+            ecc= numpy.empty(R.shape)
+            zmax= numpy.empty(R.shape)
+            rperi= numpy.empty(R.shape)
+            rap= numpy.empty(R.shape)
+            if numpy.sum(indxc) > 0:
+                u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
+                                                   (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
+                sinh2u0= numpy.sinh(u0)**2.
+                thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
+                thisEz= self.Ez(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
+                thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
+                cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
+                cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
+                indxCos2psi= (cos2psi > 1.)
+                indxCos2psi+= (cos2psi < 0.)
+                indxc[indxc]= True^indxCos2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psi= numpy.arccos(numpy.sqrt(cos2psi[True^indxCos2psi]))
+                coords= numpy.empty((3,numpy.sum(indxc)))
+                coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
+                y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
+                coords[1,:]= y*(self._nE-1.)
+                coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
+                ecc[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._eccFiltered,
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False))-10.**-10.)
+                rperi[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rperiFiltered,
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._rperiLzInterp(Lz[indxc]))-10.**-5.)
+                # We do rap below with zmax
+                #Switch to Ez-calculated psi
+                sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
+                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
+                indxSin2psi= (sin2psi > 1.)
+                indxSin2psi+= (sin2psi < 0.)
+                indxc[indxc]= True^indxSin2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True^indxSin2psi]))
+                newcoords= numpy.empty((3,numpy.sum(indxc)))
+                newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
+                newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
+                zmax[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._zmaxFiltered,
+                                                                           newcoords,
+                                                                           order=3,
+                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._zmaxLzInterp(Lz[indxc]))-10.**-5.)
+                rap[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rapFiltered,
+                                                                           newcoords,
+                                                                           order=3,
+                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._rapLzInterp(Lz[indxc]))-10.**-5.)
+            if numpy.sum(indx) > 0:
+                eccindiv, zmaxindiv, rperiindiv, rapindiv=\
+                    self._aA.EccZmaxRperiRap(R[indx],
+                                             vR[indx],
+                                             vT[indx],
+                                             z[indx],
+                                             vz[indx],
+                                             **kwargs)
+                ecc[indx]= eccindiv
+                zmax[indx]= zmaxindiv
+                rperi[indx]= rperiindiv
+                rap[indx]= rapindiv
+        else:
+            ecc,zmax,rperi,rap= self.EccZmaxRperiRap(numpy.array([R]),
+                                                     numpy.array([vR]),
+                                                     numpy.array([vT]),
+                                                     numpy.array([z]),
+                                                     numpy.array([vz]),
+                                                     **kwargs)
+            return (ecc[0],zmax[0],rperi[0],rap[0])
+        ecc[ecc < 0.]= 0.
+        zmax[zmax < 0.]= 0.
+        rperi[rperi < 0.]= 0.
+        rap[rap < 0.]= 0.
+        return (ecc,zmax,rperi,rap)
 
     def vatu0(self,E,Lz,u0,R,retv2=False):
         """

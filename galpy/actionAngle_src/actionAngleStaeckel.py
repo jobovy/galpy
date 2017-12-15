@@ -87,46 +87,6 @@ class actionAngleStaeckel(actionAngle):
         self._check_consistent_units()
         return None
     
-    @actionAngle_physical_input
-    @physical_conversion_actionAngle('EccZmaxRperiRap',pop=True)
-    def EccZmaxRperiRap(self,*args,**kwargs):
-        """
-        NAME:
-
-           EccZmaxRperiRap
-
-        PURPOSE:
-
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
-        OUTPUT:
-
-           (e,zmax,rperi,rap)
-
-        HISTORY:
-
-           2017-12-12 - Written - Bovy (UofT)
-
-        """
-        umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
-        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=self._delta)[0]
-        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=self._delta)
-        rap= nu.sqrt(rap_tmp**2.+zmax**2.)
-        e= (rap-rperi)/(rap+rperi)
-        return (e,zmax,rperi,rap)
-
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -352,6 +312,44 @@ class actionAngleStaeckel(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
+
+    def _EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           _EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-12 - Written - Bovy (UofT)
+
+        """
+        umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
+        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=self._delta)[0]
+        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=self._delta)
+        rap= nu.sqrt(rap_tmp**2.+zmax**2.)
+        e= (rap-rperi)/(rap+rperi)
+        return (e,zmax,rperi,rap)
 
     def _uminumaxvmin(self,*args,**kwargs):
         """
