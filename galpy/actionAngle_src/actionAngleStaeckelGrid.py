@@ -181,11 +181,11 @@ class actionAngleStaeckelGrid(actionAngle):
                                              fixed_quad=True)
             if interpecc:
                 mecc[indx], mzmax[indx], mrperi[indx], mrap[indx]=\
-                    self._aA.EccZmaxRperiRap(thisR, #R
-                                             thisv*numpy.cos(thispsi), #vR
-                                             thisLzs/thisR, #vT
-                                             numpy.zeros(len(thisR)), #z
-                                             thisv*numpy.sin(thispsi)) #vz
+                    self._aA.EccZmaxRperiRap(thisR[indx], #R
+                                             thisv[indx]*numpy.cos(thispsi[indx]), #vR
+                                             thisLzs[indx]/thisR[indx], #vT
+                                             numpy.zeros(numpy.sum(indx)), #z
+                                             thisv[indx]*numpy.sin(thispsi[indx])) #vz
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
         if interpecc:
@@ -200,9 +200,9 @@ class actionAngleStaeckelGrid(actionAngle):
             jrLzE[ii]= numpy.nanmax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
             jzLzE[ii]= numpy.nanmax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
             if interpecc:
-                zmaxLzE[ii]= numpy.nanmax(zmax[ii,(jz[ii,:,:] != 9999.99)])
-                rperiLzE[ii]= numpy.nanmax(rperi[ii,(jz[ii,:,:] != 9999.99)])
-                rapLzE[ii]= numpy.nanmax(rap[ii,(jz[ii,:,:] != 9999.99)])
+                zmaxLzE[ii]= numpy.amax(zmax[ii,numpy.isfinite(zmax[ii])])
+                rperiLzE[ii]= numpy.amax(rperi[ii,numpy.isfinite(rperi[ii])])
+                rapLzE[ii]= numpy.amax(rap[ii,numpy.isfinite(rap[ii])])
         jrLzE[(jrLzE == 0.)]= numpy.nanmin(jrLzE[(jrLzE > 0.)])
         jzLzE[(jzLzE == 0.)]= numpy.nanmin(jzLzE[(jzLzE > 0.)])
         if interpecc:
@@ -225,12 +225,16 @@ class actionAngleStaeckelGrid(actionAngle):
         if interpecc:
             ecc[(ecc > 1.)]= 1.
             ecc[numpy.isnan(ecc)]= 0.
+            ecc[numpy.isinf(ecc)]= 1.
             zmax[(zmax > 1.)]= 1.
             zmax[numpy.isnan(zmax)]= 0.
+            zmax[numpy.isinf(zmax)]= 1.
             rperi[(rperi > 1.)]= 1.
             rperi[numpy.isnan(rperi)]= 0.
+            rperi[numpy.isinf(rperi)]= 0. # typically orbits that can reach 0
             rap[(rap > 1.)]= 1.
             rap[numpy.isnan(rap)]= 0.
+            rap[numpy.isinf(rap)]= 1.
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
