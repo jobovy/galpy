@@ -19,6 +19,8 @@ from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loade
 import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.util import multi, bovy_coords
+from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
+    actionAngle_physical_input
 _PRINTOUTSIDEGRID= False
 _APY_LOADED= True
 try:
@@ -29,6 +31,7 @@ class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
                  nE=25,npsi=25,nLz=30,numcores=1,
+                 interpecc=False,
                  **kwargs):
         """
         NAME:
@@ -44,6 +47,8 @@ class actionAngleStaeckelGrid(actionAngle):
 
            nE=, npsi=, nLz= grid size
 
+           interpecc= (False) if True, also interpolate the approximate eccentricity, zmax, rperi, and rapo
+
            numcores= number of cpus to use to parallellize
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
@@ -57,6 +62,8 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
 
             2012-11-29 - Written - Bovy (IAS)
+
+            2017-12-15 - Written - Bovy (UofT)
 
         """
         actionAngle.__init__(self,
@@ -153,6 +160,13 @@ class actionAngleStaeckelGrid(actionAngle):
                                 numpy.zeros(len(thisR)), #z
                                 thisv*numpy.sin(thispsi), #vz
                                 fixed_quad=True) 
+        if interpecc:
+            mecc, mzmax, mrperi, mrap=\
+                self._aA.EccZmaxRperiRap(thisR, #R
+                                         thisv*numpy.cos(thispsi), #vR
+                                         thisLzs/thisR, #vT
+                                         numpy.zeros(len(thisR)), #z
+                                         thisv*numpy.sin(thispsi)) #vz
         if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             #Interpolated potentials have problems with extreme orbits
             indx= (mjr == 9999.99)
@@ -165,22 +179,58 @@ class actionAngleStaeckelGrid(actionAngle):
                                              numpy.zeros(numpy.sum(indx)), #z
                                              thisv[indx]*numpy.sin(thispsi[indx]), #vz
                                              fixed_quad=True)
+            if interpecc:
+                mecc[indx], mzmax[indx], mrperi[indx], mrap[indx]=\
+                    self._aA.EccZmaxRperiRap(thisR, #R
+                                             thisv*numpy.cos(thispsi), #vR
+                                             thisLzs/thisR, #vT
+                                             numpy.zeros(len(thisR)), #z
+                                             thisv*numpy.sin(thispsi)) #vz
         jr= numpy.reshape(mjr,(nLz,nE,npsi))
         jz= numpy.reshape(mjz,(nLz,nE,npsi))
+        if interpecc:
+            ecc= numpy.reshape(mecc,(nLz,nE,npsi))
+            zmax= numpy.reshape(mzmax,(nLz,nE,npsi))
+            rperi= numpy.reshape(mrperi,(nLz,nE,npsi))
+            rap= numpy.reshape(mrap,(nLz,nE,npsi))
+            zmaxLzE= numpy.zeros((nLz))
+            rperiLzE= numpy.zeros((nLz))
+            rapLzE= numpy.zeros((nLz))
         for ii in range(nLz):
             jrLzE[ii]= numpy.nanmax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
             jzLzE[ii]= numpy.nanmax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
+            if interpecc:
+                zmaxLzE[ii]= numpy.nanmax(zmax[ii,(jz[ii,:,:] != 9999.99)])
+                rperiLzE[ii]= numpy.nanmax(rperi[ii,(jz[ii,:,:] != 9999.99)])
+                rapLzE[ii]= numpy.nanmax(rap[ii,(jz[ii,:,:] != 9999.99)])
         jrLzE[(jrLzE == 0.)]= numpy.nanmin(jrLzE[(jrLzE > 0.)])
         jzLzE[(jzLzE == 0.)]= numpy.nanmin(jzLzE[(jzLzE > 0.)])
+        if interpecc:
+            zmaxLzE[(zmaxLzE == 0.)]= numpy.nanmin(zmaxLzE[(zmaxLzE > 0.)])
+            rperiLzE[(rperiLzE == 0.)]= numpy.nanmin(rperiLzE[(rperiLzE > 0.)])
+            rapLzE[(rapLzE == 0.)]= numpy.nanmin(rapLzE[(rapLzE > 0.)])
         for ii in range(nLz):
             jr[ii,:,:]/= jrLzE[ii]
             jz[ii,:,:]/= jzLzE[ii]
+            if interpecc:
+                zmax[ii,:,:]/= zmaxLzE[ii]
+                rperi[ii,:,:]/= rperiLzE[ii]
+                rap[ii,:,:]/= rapLzE[ii]
         #Deal w/ 9999.99
         jr[(jr > 1.)]= 1.
         jz[(jz > 1.)]= 1.
         #Deal w/ NaN
         jr[numpy.isnan(jr)]= 0.
         jz[numpy.isnan(jz)]= 0.
+        if interpecc:
+            ecc[(ecc > 1.)]= 1.
+            ecc[numpy.isnan(ecc)]= 0.
+            zmax[(zmax > 1.)]= 1.
+            zmax[numpy.isnan(zmax)]= 0.
+            rperi[(rperi > 1.)]= 1.
+            rperi[numpy.isnan(rperi)]= 0.
+            rap[(rap > 1.)]= 1.
+            rap[numpy.isnan(rap)]= 0.
         #First interpolate the maxima
         self._jr= jr
         self._jz= jz
@@ -191,6 +241,23 @@ class actionAngleStaeckelGrid(actionAngle):
                                                                    numpy.log(jrLzE+10.**-5.),k=3)
         self._jzLzInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                    numpy.log(jzLzE+10.**-5.),k=3)
+        if interpecc:
+            self._ecc= ecc
+            self._zmax= zmax
+            self._rperi= rperi
+            self._rap= rap
+            self._zmaxLzE= zmaxLzE
+            self._rperiLzE= rperiLzE
+            self._rapLzE= rapLzE
+            self._zmaxLzInterp=\
+                interpolate.InterpolatedUnivariateSpline(self._Lzs,
+                                                         numpy.log(zmaxLzE+10.**-5.),k=3)
+            self._rperiLzInterp=\
+                interpolate.InterpolatedUnivariateSpline(self._Lzs,
+                                                         numpy.log(rperiLzE+10.**-5.),k=3)
+            self._rapLzInterp=\
+                interpolate.InterpolatedUnivariateSpline(self._Lzs,
+                                                         numpy.log(rapLzE+10.**-5.),k=3)
         #Interpolate u0
         self._logu0Interp= interpolate.RectBivariateSpline(self._Lzs,
                                                            y,
@@ -199,9 +266,154 @@ class actionAngleStaeckelGrid(actionAngle):
         #spline filter jr and jz, such that they can be used with ndimage.map_coordinates
         self._jrFiltered= ndimage.spline_filter(numpy.log(self._jr+10.**-10.),order=3)
         self._jzFiltered= ndimage.spline_filter(numpy.log(self._jz+10.**-10.),order=3)
+        if interpecc:
+            self._eccFiltered= ndimage.spline_filter(numpy.log(self._ecc+10.**-10.),order=3)
+            self._zmaxFiltered= ndimage.spline_filter(numpy.log(self._zmax+10.**-10.),order=3)
+            self._rperiFiltered= ndimage.spline_filter(numpy.log(self._rperi+10.**-10.),order=3)
+            self._rapFiltered= ndimage.spline_filter(numpy.log(self._rap+10.**-10.),order=3)
         # Check the units
         self._check_consistent_units()
         return None
+
+    @actionAngle_physical_input
+    @physical_conversion_actionAngle('EccZmaxRperiRap',pop=True)
+    def EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-15 - Written - Bovy (UofT)
+
+        """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        Lz= R*vT
+        Phi= _evaluatePotentials(self._pot,R,z)
+        E= Phi+vR**2./2.+vT**2./2.+vz**2./2.
+        thisERL= -numpy.exp(self._ERLInterp(Lz))+self._ERLmax
+        thisERa= -numpy.exp(self._ERaInterp(Lz))+self._ERamax
+        if isinstance(R,numpy.ndarray):
+            indx= ((E-thisERa)/(thisERL-thisERa) > 1.)\
+                *(((E-thisERa)/(thisERL-thisERa)-1.) < 10.**-2.)
+            E[indx]= thisERL[indx]
+            indx= ((E-thisERa)/(thisERL-thisERa) < 0.)\
+                *((E-thisERa)/(thisERL-thisERa) > -10.**-2.)
+            E[indx]= thisERa[indx]
+            indx= (Lz < self._Lzmin)
+            indx+= (Lz > self._Lzmax)
+            indx+= ((E-thisERa)/(thisERL-thisERa) > 1.)
+            indx+= ((E-thisERa)/(thisERL-thisERa) < 0.)
+            indxc= True^indx
+            ecc= numpy.empty(R.shape)
+            zmax= numpy.empty(R.shape)
+            rperi= numpy.empty(R.shape)
+            rap= numpy.empty(R.shape)
+            if numpy.sum(indxc) > 0:
+                u0= numpy.exp(self._logu0Interp.ev(Lz[indxc],
+                                                   (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))))
+                sinh2u0= numpy.sinh(u0)**2.
+                thisEr= self.Er(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
+                thisEz= self.Ez(R[indxc],z[indxc],vR[indxc],vz[indxc],
+                                E[indxc],Lz[indxc],sinh2u0,u0)
+                thisv2= self.vatu0(E[indxc],Lz[indxc],u0,self._delta*numpy.sinh(u0),retv2=True)
+                cos2psi= 2.*thisEr/thisv2/(1.+sinh2u0) #latter is cosh2u0
+                cos2psi[(cos2psi > 1.)*(cos2psi < 1.+10.**-5.)]= 1.
+                indxCos2psi= (cos2psi > 1.)
+                indxCos2psi+= (cos2psi < 0.)
+                indxc[indxc]= True^indxCos2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psi= numpy.arccos(numpy.sqrt(cos2psi[True^indxCos2psi]))
+                coords= numpy.empty((3,numpy.sum(indxc)))
+                coords[0,:]= (Lz[indxc]-self._Lzmin)/(self._Lzmax-self._Lzmin)*(self._nLz-1.)
+                y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
+                coords[1,:]= y*(self._nE-1.)
+                coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
+                ecc[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._eccFiltered,
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False))-10.**-10.)
+                rperi[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rperiFiltered,
+                                                                            coords,
+                                                                            order=3,
+                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._rperiLzInterp(Lz[indxc]))-10.**-5.)
+                # We do rap below with zmax
+                #Switch to Ez-calculated psi
+                sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
+                sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
+                indxSin2psi= (sin2psi > 1.)
+                indxSin2psi+= (sin2psi < 0.)
+                indxc[indxc]= True^indxSin2psi#Handle these two cases as off-grid
+                indx= True^indxc
+                psiz= numpy.arcsin(numpy.sqrt(sin2psi[True^indxSin2psi]))
+                newcoords= numpy.empty((3,numpy.sum(indxc)))
+                newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
+                newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
+                zmax[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._zmaxFiltered,
+                                                                           newcoords,
+                                                                           order=3,
+                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._zmaxLzInterp(Lz[indxc]))-10.**-5.)
+                rap[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rapFiltered,
+                                                                           newcoords,
+                                                                           order=3,
+                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._rapLzInterp(Lz[indxc]))-10.**-5.)
+            if numpy.sum(indx) > 0:
+                eccindiv, zmaxindiv, rperiindiv, rapindiv=\
+                    self._aA.EccZmaxRperiRap(R[indx],
+                                             vR[indx],
+                                             vT[indx],
+                                             z[indx],
+                                             vz[indx],
+                                             **kwargs)
+                ecc[indx]= eccindiv
+                zmax[indx]= zmaxindiv
+                rperi[indx]= rperiindiv
+                rap[indx]= rapindiv
+        else:
+            ecc,zmax,rperi,rap= self.EccZmaxRperiRap(numpy.array([R]),
+                                                     numpy.array([vR]),
+                                                     numpy.array([vT]),
+                                                     numpy.array([z]),
+                                                     numpy.array([vz]),
+                                                     **kwargs)
+            return (ecc[0],zmax[0],rperi[0],rap[0])
+        ecc[ecc < 0.]= 0.
+        zmax[zmax < 0.]= 0.
+        rperi[rperi < 0.]= 0.
+        rap[rap < 0.]= 0.
+        return (ecc,zmax,rperi,rap)
 
     def _evaluate(self,*args,**kwargs):
         """
