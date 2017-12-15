@@ -223,6 +223,7 @@ class actionAngleStaeckelGrid(actionAngle):
         jr[numpy.isnan(jr)]= 0.
         jz[numpy.isnan(jz)]= 0.
         if interpecc:
+            ecc[(ecc < 0.)]= 0.
             ecc[(ecc > 1.)]= 1.
             ecc[numpy.isnan(ecc)]= 0.
             ecc[numpy.isinf(ecc)]= 1.
