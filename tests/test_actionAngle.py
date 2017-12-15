@@ -1291,25 +1291,35 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     assert daz < 10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for az at %g%%' % (daz*100.)
     return None
 
-#Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved, bc takes a lot of time)
+#Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved and ecc etc., bc takes a lot of time)
 def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False,nLz=20)
+    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False,nLz=20,
+                                 interpecc=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     assert numpy.fabs(aAA.JR(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(aAA.Jz(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAA(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     #Check that actions are conserved along the orbit
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
     check_actionAngle_conserved_actions(aAA,obs,MWPotential,
                                         -1.2,-8.,-1.7,ntimes=101)
+    # and the eccentricity etc.
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101)
     return None
 
 #Basic sanity checking of the actionAngleStaeckel actions
@@ -1378,6 +1388,51 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
     assert djz < 10.**-1.2, 'actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Basic sanity checking of the actionAngleStaeckelGrid eccentricity etc.
+def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.potential import MWPotential, interpRZPotential
+    rzpot= interpRZPotential(RZPot=MWPotential,
+                             rgrid=(numpy.log(0.01),numpy.log(20.),201),
+                             logR=True,
+                             zgrid=(0.,1.,101),
+                             interpPot=True,use_c=True,enable_c=True,
+                             zsym=True)
+    aAA= actionAngleStaeckelGrid(pot=rzpot,delta=0.71,c=True,interpecc=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.orbit import Orbit
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
+    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=True,
+                                 interpecc=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101)
     return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
@@ -2733,7 +2788,7 @@ def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
     obs.integrate(times,pot,method='dopr54_c')
     es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
         obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-        obs.vz(times),obs.phi(times))
+        obs.vz(times))
     assert numpy.amax(numpy.fabs(es/numpy.mean(es)-1)) < 10.**tole, 'Eccentricity conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(es/numpy.mean(es)-1)))
     assert numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)) < 10.**tolzmax, 'Zmax conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)))
     assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
