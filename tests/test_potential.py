@@ -134,6 +134,8 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('KuzminOblateStaeckelWrapperPotential')
+    pots.append('KuzminKutuzovOblateStaeckelWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -224,7 +226,9 @@ def test_forceAsDeriv_potential():
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
                 ##Excluding KuzminDiskPotential when z = 0
-                if Zs[jj]==0 and isinstance(tp,potential.KuzminDiskPotential):
+                if Zs[jj]==0 and \
+                        (isinstance(tp,potential.KuzminDiskPotential) \
+                             or isinstance(tp,KuzminOblateStaeckelWrapperPotential)):
                     continue
                 dz= 10.**-8.
                 newZ= Zs[jj]+dz
@@ -1917,6 +1921,18 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_OblateStaeckelWrapperPotential_againstKuzmin():
+    # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
+    # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
+    delta= 1.75
+    kzp= potential.KuzminDiskPotential(normalize=1.,a=delta)
+    asp= potential.OblateStaeckelWrapperPotential(pot=kzp,delta=delta,u0=1.2)
+    us= numpy.linspace(0.,3.,1001)
+    assert numpy.amax(numpy.fabs(asp._U(us)+kzp._amp/delta*numpy.cosh(us))) < 1e-10, 'OblateStaeckelWrapped KuzminDisk does not have the expected U(u)'
+    vs= numpy.linspace(0.,numpy.pi,1001)
+    assert numpy.amax(numpy.fabs(asp._V(vs)+kzp._amp/delta*numpy.fabs(numpy.cos(vs)))) < 1e-10, 'OblateStaeckelWrapped KuzminDisk does not have the expected V(v)'
+    return None
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
@@ -2726,7 +2742,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
         return None
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
-    SolidBodyRotationWrapperPotential
+    SolidBodyRotationWrapperPotential, OblateStaeckelWrapperPotential
 from galpy.potential_src.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -2838,3 +2854,24 @@ class testorbitHenonHeilesPotential(testplanarMWPotential):
     def OmegaP(self):
         # Non-axi, so need to set this to zero for Jacobi
         return 0.
+class KuzminOblateStaeckelWrapperPotential(OblateStaeckelWrapperPotential):
+    # Kuzmin-wrapped-as-oblate-staeckel = Kuzmin! 
+    #
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        kzp= potential.KuzminDiskPotential(normalize=1.,a=2.)
+        return OblateStaeckelWrapperPotential.__new__(cls,amp=1.,pot=kzp,
+                                                      delta=2.,u0=1.)
+class KuzminKutuzovOblateStaeckelWrapperPotential(OblateStaeckelWrapperPotential):
+    # Kuzmin-wrapped-as-oblate-staeckel = Kuzmin! 
+    #
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        kzp= potential.KuzminKutuzovStaeckelPotential(normalize=1.,
+                                                      ac=2.,Delta=3.)
+        return OblateStaeckelWrapperPotential.__new__(cls,amp=1.,pot=kzp,
+                                                      delta=3.,u0=1.)
