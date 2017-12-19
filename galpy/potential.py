@@ -41,6 +41,7 @@ from galpy.potential_src import SpiralArmsPotential
 from galpy.potential_src import HenonHeilesPotential
 from galpy.potential_src import DehnenSmoothWrapperPotential
 from galpy.potential_src import SolidBodyRotationWrapperPotential
+from galpy.potential_src import OblateStaeckelWrapperPotential
 #
 # Functions
 #
@@ -141,6 +142,7 @@ HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
+OblateStaeckelWrapperPotential= OblateStaeckelWrapperPotential.OblateStaeckelWrapperPotential
 #Softenings
 PlummerSoftening= ForceSoftening.PlummerSoftening
 
