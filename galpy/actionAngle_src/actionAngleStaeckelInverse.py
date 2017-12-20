@@ -316,9 +316,23 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         # Therefore, we correct the input actions
         self._jr-= (self._jr-numpy.nanmean(self._jra)) #nanmean just to be sure
         self._jz-= (self._jz-numpy.nanmean(self._jza)) #nanmean just to be sure
-        return None
         # Compute Sn and dSn/dJr, remove n=0
-        self._nforSn= numpy.arange(len(self._ora)//2+1)
+        zfreq= numpy.fft.fftfreq(ntz,d=self._thetaza[1]-self._thetaza[0])
+        rfreq= numpy.fft.rfftfreq(ntr,d=self._thetara[1]-self._thetara[0])
+        self._nrForSn= 2.*numpy.pi*numpy.tile(rfreq,(len(zfreq),1))
+        self._nzForSn= 2.*numpy.pi*numpy.tile(zfreq,(len(rfreq),1)).T
+        self._jra= numpy.reshape(self._jra,(ntz,ntr))
+        self._jza= numpy.reshape(self._jza,(ntz,ntr))
+        #nSnFromjr/nrForSn = nSnFromjz/nzForSn a.e., but might as well get both
+        self._nSnFromjr= numpy.fft.rfft2(self._jra-self._jr)/ntr/ntz
+        self._nSnFromjz= numpy.fft.rfft2(self._jza-self._jr)/ntr/ntz
+        # Account for the slightly offset grid, following should be real
+        self._nSnFromjr*=\
+            numpy.exp(-1j*(self._nrForSn*self._thetar_offset
+                           +self._nzForSn*self._thetaz_offset))
+        self._nSnFromjz*=\
+            numpy.exp(-1j*(self._nrForSn*self._thetar_offset
+                           +self._nzForSn*self._thetaz_offset))
         #self._nSn= numpy.real(numpy.fft.rfft(self._jra-self._jr))[1:]/len(self._jra)
         #self._dSndJr= (numpy.real(numpy.fft.rfft(self._Omegar/self._ora-1.))/self._nforSn)[1:]/len(self._ora)
         #self._dSndLish= (numpy.real(numpy.fft.rfft(self._dEdL))/self._nforSn)[1:]/len(self._ora)
