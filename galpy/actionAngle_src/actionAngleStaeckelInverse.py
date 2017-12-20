@@ -11,7 +11,8 @@ import numpy
 from scipy import optimize
 from scipy.spatial import cKDTree
 from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
-    evaluatePotentials, evaluateRforces, toPlanarPotential
+    evaluatePotentials, evaluateRforces, toPlanarPotential, \
+    OblateStaeckelWrapperPotential
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
 from galpy.actionAngle import actionAngleSpherical
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
@@ -230,6 +231,12 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._I3= I3
         self._delta= delta
         delta2= self._delta**2.
+        # Store a staeckelized version of the potential
+        # BOVY: NEED TO SET OR DETERMINE u0
+        self._staeckelwrappedpot=\
+            OblateStaeckelWrapperPotential(pot=self._pot,
+                                           delta=self._delta,
+                                           u0=1.)
         # Calculate jr if not given
         if jr is None or umin is None or umax is None or vmin is None \
                 or Omegar is None or Omegaphi is None or Omegaz is None:
@@ -301,9 +308,14 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._jra, self._jza=\
             _jrz(numpy.fabs(self._ugrid),numpy.fabs(self._vgrid),
                  self._E,self._Lz2,self._I3,self._pot,self._delta,
-                 self._isoaa_helper,
+                 self._isoaa_helper,self._staeckelwrappedpot,
                  sgnu=numpy.sign(self._ugrid),
                  sgnv=numpy.sign(self._vgrid))
+        # If input jr and jz are imprecise, there's a mean offset (e.g., 
+        # actionAngleStaeckel has default errors of ~ few x 10^-4)
+        # Therefore, we correct the input actions
+        self._jr-= (self._jr-numpy.nanmean(self._jra)) #nanmean just to be sure
+        self._jz-= (self._jz-numpy.nanmean(self._jza)) #nanmean just to be sure
         return None
         # Compute Sn and dSn/dJr, remove n=0
         self._nforSn= numpy.arange(len(self._ora)//2+1)
@@ -366,6 +378,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
                 tuvtra, tuvtza= _anglerz(us,vs,
                                          self._E,self._Lz2,self._I3,self._pot,
                                          self._delta,self._isoaa_helper,
+                                         self._staeckelwrappedpot,
                                          sgnu=sgnu,sgnv=sgnv)
                 uvtra[ii*ntr:(ii+1)*ntr,jj*ntz:(jj+1)*ntz]= tuvtra
                 uvtza[ii*ntr:(ii+1)*ntr,jj*ntz:(jj+1)*ntz]= tuvtza
@@ -404,6 +417,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
             jac= _danglerz(numpy.fabs(uout[unconv]),numpy.fabs(vout[unconv]),
                            self._E,self._Lz2,self._I3,self._pot,
                            self._delta,self._isoaa_helper,
+                           self._staeckelwrappedpot,
                            sgnu=numpy.sign(uout[unconv]),
                            sgnv=numpy.sign(vout[unconv]))
             detJ= jac[0]*jac[3]-jac[1]*jac[2]
@@ -452,6 +466,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
                                      numpy.fabs(vout[unconv]),
                                      self._E,self._Lz2,self._I3,self._pot,
                                      self._delta,self._isoaa_helper,
+                                     self._staeckelwrappedpot,
                                      sgnu=numpy.sign(uout[unconv]),
                                      sgnv=numpy.sign(vout[unconv]))
             tra[unconv]= newtra
@@ -469,7 +484,8 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._mtza= mtza
         return(uout,vout)
 
-def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
+def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
+             sgnu=1.,sgnv=1.):
     """
     NAME:
        _anglerz
@@ -485,6 +501,7 @@ def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
        pot - potential
        delta - focal length
        isoaa_helper - _actionAngleIsochroneHelper object
+       staeckel_wrapper - OblateStaeckelWrapperPotential instance which provides U(u), V(v), dUdu(u), and dVdv(v)
        sgnu= sign of p_u to choose
        sgnv= sign of p_v to choose
     OUTPUT:
@@ -495,13 +512,9 @@ def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     # For Kuzmin?!
     v[v==0]= 1e-8
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    # Currently specific to Kuzmin!                             
-    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.
-                       +pot._amp/pot._a*numpy.cosh(u)-I3)\
+    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.-staeckel_wrapper._U(u)-I3)\
                        -Lz2/numpy.sinh(u)**2.
-    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.
-                       -pot._amp/pot._a*numpy.fabs(numpy.cos(v))
-                       +I3)\
+    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
     pu2[pu2 < 0.]= 0.
     pu= sgnu*numpy.sqrt(pu2)
@@ -514,17 +527,14 @@ def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     L2= r**2.*(vtheta**2.+Lz2/R**2.)
     return isoaa_helper.anglerz(r,vr**2.,L2,Lz2,z/r,vr < 0.,vtheta > 0.)
 
-def _danglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
+def _danglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
+              sgnu=1.,sgnv=1.):
     # For Kuzmin?!
     v[v==0]= 1e-8
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    # Currently specific to Kuzmin!                             
-    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.
-                       +pot._amp/pot._a*numpy.cosh(u)-I3)\
+    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.-staeckel_wrapper._U(u)-I3)\
                        -Lz2/numpy.sinh(u)**2.
-    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.
-                       -pot._amp/pot._a*numpy.fabs(numpy.cos(v))
-                       +I3)\
+    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
     pu2[pu2 < 0.]= 0.
     pu= sgnu*numpy.sqrt(pu2)
@@ -541,20 +551,20 @@ def _danglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
         -isoaa_helper._ip.Rforce(r,0.)*dr2du/2./r
     dEdv= pot.Rforce(R,z)*R/numpy.tan(v)-pot.zforce(R,z)*z*numpy.tan(v)\
         -isoaa_helper._ip.Rforce(r,0.)*dr2dv/2./r  
-    # SPECIFIC TO KUZMIN FOR NOW!
-    dpudu= (delta**2.*(2.*E*numpy.sinh(u)*numpy.cosh(u)+pot._amp/pot._a*numpy.sinh(u))\
-        +Lz2/numpy.sinh(u)**3.*numpy.cosh(u))/pu
-    dVdv= pot._amp/pot._a*numpy.sin(v)
-    dVdv[numpy.cos(v) < 0.]*= -1.
-    dpvdv= (delta**2.*(2.*E*numpy.sin(v)*numpy.cos(v)+dVdv)\
-        +Lz2/numpy.sin(v)**3.*numpy.cos(v))/pv
+    dpudu= (delta**2.*(2.*E*numpy.sinh(u)*numpy.cosh(u)
+                       -staeckel_wrapper._dUdu(u))\
+                +Lz2/numpy.sinh(u)**3.*numpy.cosh(u))/pu
+    dpvdv= (delta**2.*(2.*E*numpy.sin(v)*numpy.cos(v)
+                       +staeckel_wrapper._dVdv(v))\
+                +Lz2/numpy.sin(v)**3.*numpy.cos(v))/pv
     return isoaa_helper.danglerzduv_constant_ELzI3(r,vr**2.+1e-12,L2,Lz2,z/r,
                                                    vr < 0.,vtheta > 0.,
                                                    u,v,pu,pv,delta**2.,
                                                    r**2.*vtheta**2.,
                                                    dEdu,dEdv,dpudu,dpvdv)
 
-def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
+def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
+         sgnu=1.,sgnv=1.):
     """
     NAME:
        _jrz
@@ -570,6 +580,7 @@ def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
        pot - potential
        delta - focal length
        isoaa_helper - _actionAngleIsochroneHelper object
+       staeckel_wrapper - OblateStaeckelWrapperPotential instance which provides U(u), V(v), dUdu(u), and dVdv(v)
        sgnu= sign of p_u to choose
        sgnv= sign of p_v to choose
     OUTPUT:
@@ -580,13 +591,9 @@ def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     # For Kuzmin?!
     v[v==0]= 1e-8
     R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
-    # Currently specific to Kuzmin!                             
-    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.
-                       +pot._amp/pot._a*numpy.cosh(u)-I3)\
+    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.-staeckel_wrapper._U(u)-I3)\
                        -Lz2/numpy.sinh(u)**2.
-    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.
-                       -pot._amp/pot._a*numpy.fabs(numpy.cos(v))
-                       +I3)\
+    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
     pu= sgnu*numpy.sqrt(pu2)
     pv= sgnv*numpy.sqrt(pv2)
@@ -597,7 +604,7 @@ def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     L2= r**2.*(vtheta**2.+Lz2/R**2.)
     E= isoaa_helper._ip(r,0.)+vr**2./2.+L2/2./r**2.
     L= numpy.sqrt(L2)
-    return isoaa_helper.Jr(E,L), L-numpy.fabs(numpy.sqrt(Lz2))
+    return isoaa_helper.Jr(E,L), L-numpy.sqrt(Lz2)
 
 def _anglerzero_eqs(u,v,tza,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     v[v==0]= 1e-8
