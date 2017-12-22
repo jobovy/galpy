@@ -461,6 +461,69 @@ def test_actionAngleAdiabatic_zerolz_actions_c():
     assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
     return None
 
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=0.,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_u0_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.,c=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    print("Should be here")
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
 #Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions():
     from galpy.potential import MWPotential
@@ -522,6 +585,56 @@ def test_actionAngleAdiabatic_conserved_actions_interppot_c():
     aAA= actionAngleAdiabatic(pot=ip,c=True)
     check_actionAngle_conserved_actions(aAA,obs,ip,
                                         -1.4,-8.,-1.7,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=False,gamma=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,0.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=False,gamma=1.)
+    obs= Orbit([1.1,0.2, 1.3, 0.1,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -1.1,-0.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_singlepot_c():
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    mp= MiyamotoNagaiPotential(normalize=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=mp,c=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,mp,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRa_interppot_c():
+    from galpy.potential import MWPotential, interpRZPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=ip,c=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,ip,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
     return None
 
 #Test the actionAngleAdiabatic against an isochrone potential: actions
@@ -1193,8 +1306,6 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
                                                     -1.8,-1.3,-1.8,-1.8,
                                                     ntimes=101)
     return None
-
-#HERE
 
 #Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions():
