@@ -309,6 +309,78 @@ class actionAngleSpherical(actionAngle):
             return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz,
                     ar,ap,az)
     
+    def _EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+
+           _EccZmaxRperiRap
+
+        PURPOSE:
+
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter for a spherical potential
+
+        INPUT:
+
+           Either:
+
+              a) R,vR,vT,z,vz[,phi]:
+
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+                 
+        OUTPUT:
+
+           (e,zmax,rperi,rap)
+
+        HISTORY:
+
+           2017-12-22 - Written - Bovy (UofT)
+
+        """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
+        if self._c: #pragma: no cover
+            pass
+        else:
+            Lz= R*vT
+            Lx= -z*vT
+            Ly= z*vR-R*vz
+            L2= Lx*Lx+Ly*Ly+Lz*Lz
+            L= nu.sqrt(L2)
+            #Set up an actionAngleAxi object for EL and rap/rperi calculations
+            axiR= nu.sqrt(R**2.+z**2.)
+            axivT= L/axiR
+            axivR= (R*vR+z*vz)/axiR
+            rperi, rap= [], []
+            for ii in range(len(axiR)):
+                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
+                                      pot=self._2dpot)
+                trperi,trap= axiaA.calcRapRperi()
+                rperi.append(trperi)
+                rap.append(trap)
+            rperi= nu.array(rperi)
+            rap= nu.array(rap)
+            return ((rap-rperi)/(rap+rperi),rap*nu.sqrt(1.-Lz**2./L2),
+                    rperi,rap)
+
     def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
         if fixed_quad:
             return integrate.fixed_quad(_JrSphericalIntegrand,
