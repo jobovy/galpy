@@ -50,6 +50,52 @@ def test_actionAngleIsochrone_basic_freqs():
     assert numpy.fabs((jos[5]-ip.verticalfreq(1.))/ip.verticalfreq(1.)) < 10.**-2., 'Close-to-circular orbit in the isochrone potential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-ip.verticalfreq(1.))/ip.verticalfreq(1.)))
     return None
 
+# Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
+# by comparing to a numerical orbit integration
+def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o)
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-5, 'Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    # Another one
+    o= Orbit([1.,0.1,1.1,0.2,-0.3,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),
+                                               o.z(),o.vz(),o.phi())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-3, 'Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    return None
+
+# Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
+# by comparing to a numerical orbit integration for a Kepler potential
+def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=0)
+    aAI= actionAngleIsochrone(ip=ip)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    # Don't do zmax, because zmax for Kepler is approximate
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    return None
+
 #Test the actions of an actionAngleIsochrone
 def test_actionAngleIsochrone_conserved_actions():
     from galpy.potential import IsochronePotential
