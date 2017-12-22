@@ -593,20 +593,19 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
     return None
 
 #Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
-def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_u0_c():
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma_c():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
     aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.,c=True)
     #circular orbit
-    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
-    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
+    R,vR,vT,z,vz,phi= 1.,0.,1.,0.,0.,2.
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz,phi]))
     assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
-    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    print("Should be here")
-    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
+    R,vR,vT,z,vz,phi= 1.01,0.01,1.,0.01,0.01,2.
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz,phi)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
