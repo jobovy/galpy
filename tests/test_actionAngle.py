@@ -246,6 +246,34 @@ def test_actionAngleSpherical_basic_freqsAngles():
     assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
     return None
 
+# Test that EccZmaxRperiRap for a spherical potential are correctly computed
+# by comparing to a numerical orbit integration
+def test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleSpherical
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAS.EccZmaxRperiRap(o)
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,lp)
+    assert numpy.fabs(ecc-o.e()) < 1e-9, 'Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-4, 'Analytically calculated zmax does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-8, 'Analytically calculated rperi does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rap-o.rap()) < 1e-8, 'Analytically calculated rap does not agree with numerically calculated one for a spherical potential'
+    # Another one
+    o= Orbit([1.,0.1,1.1,0.2,-0.3,0.])
+    ecc, zmax, rperi, rap= aAS.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),
+                                               o.z(),o.vz(),o.phi())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,lp)
+    assert numpy.fabs(ecc-o.e()) < 1e-9, 'Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-3, 'Analytically calculated zmax does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-8, 'Analytically calculated rperi does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rap-o.rap()) < 1e-8, 'Analytically calculated rap does not agree with numerically calculated one for a spherical potential'
+    return None
+
 #Test the actions of an actionAngleSpherical
 def test_actionAngleSpherical_conserved_actions():
     from galpy import potential
@@ -326,6 +354,19 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
                                         fixed_quad=True)
     return None
   
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleSpherical
+def test_actionAngleSpherical_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import NFWPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    np= NFWPotential(normalize=1.,a=2.)
+    aAS= actionAngleSpherical(pot=np)
+    obs= Orbit([1.1,0.2, 1.3, 0.1,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,np,
+                                                -1.1,-0.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
+    return None
+
 #Test the actionAngleSpherical against an isochrone potential: actions
 def test_actionAngleSpherical_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
