@@ -18,6 +18,7 @@ for more info (e.g., ``?actionAngleIsochrone.__call__``)
    __call__ <aacall.rst>
    actionsFreqs <aaactionsfreqs.rst>
    actionsFreqsAngles <aaactionsfreqsangles.rst>
+   EccZmaxRperiRap <aaecczmaxrperirap.rst>
    turn_physical_off <aaturnphysicaloff.rst>
    turn_physical_on <aaturnphysicalon.rst>
 
