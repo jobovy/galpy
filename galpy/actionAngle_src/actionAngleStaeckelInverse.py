@@ -176,8 +176,10 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
     def __init__(self,E,Lz,I3,delta,
                  jr=None,jphi=None,jz=None,
                  Omegar=None,Omegaphi=None,Omegaz=None,
+                 dI3dJr=None,dI3dLz=None,dI3dJz=None,
                  umin=None,umax=None,vmin=None,
-                 pot=None,ntr='auto',ntz='auto',max_ntrz=512):
+                 pot=None,ntr='auto',ntz='auto',max_ntrz=512,
+                 **kwargs): #BOVY: KWARGS TEMP. FOR dEdE ETC.
         """
         NAME:
 
@@ -290,12 +292,19 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         amp= numpy.sqrt(self._Omegar
                         *(self._jr+numpy.sqrt(self._Lz2+4.*ampb)
                           *self._Omegaphi/self._Omegar)**3.)
+
+        #BOVY: FIXED!!
+        amp= 222.40751128922656
+        ampb= amp*3.729274128248953
+
         self._ip= IsochronePotential(amp=amp,b=ampb/amp)
         self._isoaa= actionAngleIsochrone(ip=self._ip)
         self._isoaa_helper= _actionAngleIsochroneHelper(ip=self._ip)
         self._isoaainv= actionAngleIsochroneInverse(ip=self._ip)
         # Now need to determine the Sn and dSn mapping       
         if ntr == 'auto': ntr= 128 # BOVY: IMPLEMENT CORRECTLY
+        self._ntr= ntr
+        self._ntz= ntz
         thetara= numpy.linspace(0.,2.*numpy.pi*(1.-1./ntr),ntr)
         self._thetar_offset= (thetara[1]-thetara[0])*1e-4
         thetara+= self._thetar_offset
@@ -305,12 +314,23 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._thetara= thetara
         self._thetaza= thetaza
         self._ugrid, self._vgrid= self._create_uvgrid(ntr,ntz,thetara,thetaza)
-        self._jra, self._jza=\
-            _jrz(numpy.fabs(self._ugrid),numpy.fabs(self._vgrid),
-                 self._E,self._Lz2,self._I3,self._pot,self._delta,
-                 self._isoaa_helper,self._staeckelwrappedpot,
-                 sgnu=numpy.sign(self._ugrid),
-                 sgnv=numpy.sign(self._vgrid))
+        self._jra, self._jza, self._ora, self._oza=\
+            _jrzorz(numpy.fabs(self._ugrid),numpy.fabs(self._vgrid),
+                    self._E,self._Lz2,self._I3,self._pot,self._delta,
+                    self._isoaa_helper,self._staeckelwrappedpot,
+                    sgnu=numpy.sign(self._ugrid),
+                    sgnv=numpy.sign(self._vgrid))
+
+        # BOVY: TEMP FOR CALC. OF dJRdBLAHBLAH
+        self._Ea, self._La=\
+            _EaLa(numpy.fabs(self._ugrid),numpy.fabs(self._vgrid),
+                  self._E,self._Lz2,self._I3,self._pot,self._delta,
+                  self._isoaa_helper,self._staeckelwrappedpot,
+                  sgnu=numpy.sign(self._ugrid),
+                  sgnv=numpy.sign(self._vgrid))
+
+        self._calc_dJAdJ(dI3dJr,dI3dLz,dI3dJz,**kwargs)
+
         # If input jr and jz are imprecise, there's a mean offset (e.g., 
         # actionAngleStaeckel has default errors of ~ few x 10^-4)
         # Therefore, we correct the input actions
@@ -337,6 +357,26 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         #self._dSndJr= (numpy.real(numpy.fft.rfft(self._Omegar/self._ora-1.))/self._nforSn)[1:]/len(self._ora)
         #self._dSndLish= (numpy.real(numpy.fft.rfft(self._dEdL))/self._nforSn)[1:]/len(self._ora)
         #self._nforSn= self._nforSn[1:]
+        return None
+
+    def _calc_dJAdJ(self,dI3dJr,dI3dLz,dI3dJz,**kwargs):
+        dEAdE= kwargs.get('dEAdE',numpy.ones(self._ntz*self._ntr))
+        dEAdI3= kwargs.get('dEAdI3',numpy.ones(self._ntz*self._ntr))
+        dEAdLz= kwargs.get('dEAdLz',numpy.ones(self._ntz*self._ntr))
+        dLAdE= kwargs.get('dLAdE',numpy.ones(self._ntz*self._ntr))
+        dLAdI3= kwargs.get('dLAdI3',numpy.ones(self._ntz*self._ntr))
+        dLAdLz= kwargs.get('dLAdLz',numpy.ones(self._ntz*self._ntr))
+        self._dJArdJr= ((dEAdE -self._oza*dLAdE)*self._Omegar
+                       +(dEAdI3-self._oza*dLAdI3)*dI3dJr)/self._ora
+        self._dJArdJz= ((dEAdE -self._oza*dLAdE)*self._Omegaz
+                       +(dEAdI3-self._oza*dLAdI3)*dI3dJz)/self._ora
+        self._dJArdLz= ((dEAdE -self._oza*dLAdE)*self._Omegaphi
+                       +(dEAdI3-self._oza*dLAdI3)*dI3dLz
+                       +(dEAdLz-self._oza*dLAdLz))/self._ora
+        self._dJAzdJr= dLAdE*self._Omegar+dLAdI3*dI3dJr
+        self._dJAzdJz= dLAdE*self._Omegaz+dLAdI3*dI3dJz
+        self._dJAzdLz= dLAdE*self._Omegaphi+dLAdI3*dI3dLz\
+            +dLAdLz-numpy.sign(self._Lz)
         return None
 
     def __call__(self,angler,anglephi,anglez,jphi=None):
@@ -577,14 +617,14 @@ def _danglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
                                                    r**2.*vtheta**2.,
                                                    dEdu,dEdv,dpudu,dpvdv)
 
-def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
-         sgnu=1.,sgnv=1.):
+def _jrzorz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
+            sgnu=1.,sgnv=1.):
     """
     NAME:
-       _jrz
+       _jrzorz
     PURPOSE:
-       compute radial and vertical action in the isochrone potential for a 
-       grid in (u,v)
+       compute radial and vertical action and frequency in the isochrone 
+       potential for a grid in (u,v)
     INPUT:
        u - u
        v - v
@@ -618,7 +658,28 @@ def _jrz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
     L2= r**2.*(vtheta**2.+Lz2/R**2.)
     E= isoaa_helper._ip(r,0.)+vr**2./2.+L2/2./r**2.
     L= numpy.sqrt(L2)
-    return isoaa_helper.Jr(E,L), L-numpy.sqrt(Lz2)
+    return isoaa_helper.Jr(E,L), L-numpy.sqrt(Lz2), \
+        isoaa_helper.Or(E), isoaa_helper.Oz(E,L) 
+
+def _EaLa(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
+          sgnu=1.,sgnv=1.):
+    # For Kuzmin?!
+    v[v==0]= 1e-8
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    pu2= 2.*delta**2.*(E*numpy.sinh(u)**2.-staeckel_wrapper._U(u)-I3)\
+                       -Lz2/numpy.sinh(u)**2.
+    pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
+                       -Lz2/numpy.sin(v)**2.
+    pu= sgnu*numpy.sqrt(pu2)
+    pv= sgnv*numpy.sqrt(pv2)
+    r= numpy.sqrt(R**2.+z**2.)
+    vR,vz= bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)
+    vr= vR*R/r+vz*z/r
+    vtheta= vR*z/r-vz*R/r
+    L2= r**2.*(vtheta**2.+Lz2/R**2.)
+    E= isoaa_helper._ip(r,0.)+vr**2./2.+L2/2./r**2.
+    L= numpy.sqrt(L2)
+    return E,L
 
 def _anglerzero_eqs(u,v,tza,E,Lz2,I3,pot,delta,isoaa_helper,sgnu=1.,sgnv=1.):
     v[v==0]= 1e-8

@@ -592,6 +592,10 @@ class _actionAngleIsochroneHelper(object):
         
     def Or(self,E):
         return (-2.*E)**1.5/self.amp
+
+    def Oz(self,E,L):
+        return (-2.*E)**1.5/self.amp*\
+            0.5*(1.+L/nu.sqrt(L**2.+4.*self.amp*self.b))
         
     def drdEL_constant_angler(self,r,vr2,E,L,dEdr,vrneg=False):
         """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
