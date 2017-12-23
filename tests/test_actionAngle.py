@@ -265,7 +265,7 @@ def test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit():
     # Another one
     o= Orbit([1.,0.1,1.1,0.2,-0.3,0.])
     ecc, zmax, rperi, rap= aAS.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),
-                                               o.z(),o.vz(),o.phi())
+                                               o.z(),o.vz())
     ts= numpy.linspace(0.,100.,100001)
     o.integrate(ts,lp)
     assert numpy.fabs(ecc-o.e()) < 1e-9, 'Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential'
@@ -578,8 +578,9 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap():
 #Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
 def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
     from galpy.actionAngle import actionAngleAdiabatic
-    from galpy.potential import MWPotential
-    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=0.,useu0=True)
+    from galpy.potential import MiyamotoNagaiPotential
+    mp= MiyamotoNagaiPotential(normalize=1.,a=1.5,b=0.3)
+    aAA= actionAngleAdiabatic(pot=mp,gamma=0.,c=False)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
