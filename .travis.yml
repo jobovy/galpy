@@ -84,7 +84,7 @@ after_success:
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --no-external --output-file coverage_full.info
  - lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info
  # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash); fi
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
