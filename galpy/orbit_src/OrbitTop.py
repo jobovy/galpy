@@ -1230,20 +1230,21 @@ class OrbitTop(object):
             self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
                                                        **kwargs)
         elif self._aAType.lower() == 'staeckel':
-            try:
-                delta= \
-                    kwargs.pop('delta',
-                               actionAngle.estimateDeltaStaeckel(self._aAPot,
-                                                                 self.R(),
-                                                                 self.z()))
-            except PotentialError as e:
-                if '_R2deriv' in repr(e):
-                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
-                elif 'non-axi' in repr(e):
-                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
-                    pass
-                else:
-                    raise
+            if len(self.vxvv) < 5: # planar
+                delta= kwargs.pop('delta',1e-10) # can't go all the way to zero
+            else:
+                try:
+                    delta= \
+                        kwargs.pop('delta',
+                                   actionAngle.estimateDeltaStaeckel(\
+                            self._aAPot,self.R(),self.z()))
+                except PotentialError as e:
+                    if 'deriv' in repr(e):
+                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
+                    elif 'non-axi' in repr(e):
+                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
+                    else:
+                        raise
             self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
                                                       delta=delta,
                                                       **kwargs)
