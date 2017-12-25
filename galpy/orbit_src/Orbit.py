@@ -1027,7 +1027,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1078,7 +1078,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1129,7 +1129,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1180,7 +1180,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1227,7 +1227,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1274,7 +1274,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1321,7 +1321,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1374,7 +1374,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1426,7 +1426,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1471,7 +1471,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1524,7 +1524,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1573,7 +1573,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1621,7 +1621,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
