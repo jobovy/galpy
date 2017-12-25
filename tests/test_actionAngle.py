@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import os
+import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
@@ -2690,6 +2691,54 @@ def test_orbit_interface_staeckel():
                         obs.wz(pot=MWPotential,type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
+    return None
+
+# Further tests of the Orbit interface for actionAngleStaeckel
+def test_orbit_interface_staeckel_defaultdelta():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    est_delta= estimateDeltaStaeckel(MWPotential2014,obs.R(),obs.z())
+    # Just need to trigger delta estimation in orbit
+    jr_orb= obs.jr(pot=MWPotential2014,type='staeckel')
+    assert numpy.fabs(est_delta-obs._orb._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=est_delta)
+    acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
+    type= 'staeckel'
+    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type,delta=0.71),
+                        obs.jp(pot=MWPotential2014,type=type),
+                        obs.jz(pot=MWPotential2014,type=type),
+                        obs.Or(pot=MWPotential2014,type=type),
+                        obs.Op(pot=MWPotential2014,type=type),
+                        obs.Oz(pot=MWPotential2014,type=type),
+                        obs.wr(pot=MWPotential2014,type=type),
+                        obs.wp(pot=MWPotential2014,type=type),
+                        obs.wz(pot=MWPotential2014,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_staeckel_PotentialErrors():
+    # staeckel approx. w/ automatic delta should fail if delta cannot be found
+    from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
+    from galpy.potential import PotentialError
+    from galpy.orbit import Orbit
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    # Currently doesn't have second derivs
+    tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
+    # Check that this potential indeed does not have second derivs
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        dummy= tp.R2deriv(1.,0.1)
+    # Now check that estimating delta fails
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        obs.jr(pot=tp,type='staeckel')
+    assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
+    # Generic non-axi
+    sp= SpiralArmsPotential()
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        obs.jr(pot=sp,type='staeckel')
+    assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
