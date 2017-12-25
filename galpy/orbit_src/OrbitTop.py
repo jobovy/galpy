@@ -1237,7 +1237,8 @@ class OrbitTop(object):
                     delta= \
                         kwargs.pop('delta',
                                    actionAngle.estimateDeltaStaeckel(\
-                            self._aAPot,self.R(),self.z()))
+                            self._aAPot,self.R(),
+                            self.z()+(2.*(self.z() >= 0)-1.)*1e-10)) # try to make sure this is not 0
                 except PotentialError as e:
                     if 'deriv' in repr(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
@@ -1245,9 +1246,12 @@ class OrbitTop(object):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
                     else:
                         raise
-            self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
-                                                      delta=delta,
-                                                      **kwargs)
+            if delta < 1e-6:
+                self._setupaA(pot=pot,type='spherical')
+            else:
+                self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
+                                                          delta=delta,
+                                                          **kwargs)
         elif self._aAType.lower() == 'isochroneapprox':
             from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
             self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
