@@ -290,7 +290,7 @@ class actionAngleAdiabatic(actionAngle):
                                gamma=self._gamma)
         return aAAxi.calcRapRperi(**kwargs)
 
-    def calczmax(self,*args,**kwargs):
+    def calczmax(self,*args,**kwargs): #pragma: no cover
         """
         NAME:
            calczmax
@@ -306,6 +306,7 @@ class actionAngleAdiabatic(actionAngle):
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
         """
+        warnings.warn("actionAngleAdiabatic.calczmax function will soon be deprecated; please contact galpy's maintainer if you require this function")
         #Set up the actionAngleAxi object
         self._parse_eval_args(*args)
         if isinstance(self._pot,list):
