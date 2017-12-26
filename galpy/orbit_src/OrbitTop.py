@@ -1237,8 +1237,8 @@ class OrbitTop(object):
                     delta= \
                         kwargs.pop('delta',
                                    actionAngle.estimateDeltaStaeckel(\
-                            self._aAPot,self.R(),
-                            self.z()+(nu.fabs(self.z()) < 1e-8) * (2.*(self.z() >= 0)-1.)*1e-10)) # try to make sure this is not 0
+                            self._aAPot,self.R(use_physical=False),
+                            self.z(use_physical=False)+(nu.fabs(self.z(use_physical=False)) < 1e-8) * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10)) # try to make sure this is not 0
                 except PotentialError as e:
                     if 'deriv' in repr(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
