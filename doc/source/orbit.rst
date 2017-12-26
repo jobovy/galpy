@@ -298,6 +298,11 @@ its eccentricity, and the maximal height above the plane of the orbit
 >>> o.rap(), o.rperi(), o.e(), o.zmax()
 # (1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
 
+These four quantities can also be computed using analytical means (exact or approximations depending on the potential) by specifying ``analytic=True``
+
+>>> o.rap(analytic=True), o.rperi(analytic=True), o.e(analytic=True), o.zmax(analytic=True)
+# (1.2581448917376636,0.97981640959995842,0.12436697719989584,0.11390708640305315)
+
 We can also calculate the energy of the orbit, either in the potential
 that the orbit was integrated in, or in another potential:
 
