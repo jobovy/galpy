@@ -1,6 +1,12 @@
 v1.3 (2017-XX-XX)
 ==================
 
+- Added a fast and precise method for approximating an orbit's
+  eccentricity, peri- and apocenter radii, and maximum height above
+  the midplane using the Staeckel approximation (see Mackereth & Bovy
+  2018); available as an actionAngle method EccZmaxRperiRap and for
+  Orbit instances through the e, rperi, rap, and zmax methods.
+
 - Added support for potential wrappers---classes that wrap existing
   potentials to modify their behavior (#307). See the documentation on
   potentials and the potential API for more information on these.
@@ -51,6 +57,10 @@ v1.3 (2017-XX-XX)
 - Generalized CosmphiDiskPotential to allow for a break radius within
   which the radial dependence of the potential changes from R^p to
   R^-p; also added C implementation of CosmphiDiskPotential.
+
+- Changed default method for computing actions, frequencies, and
+  angles for Orbit instances to be the Staeckel approximation with an
+  automatically-estimated delta parameter.
 
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
