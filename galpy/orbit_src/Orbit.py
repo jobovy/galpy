@@ -858,7 +858,7 @@ class Orbit(object):
         if not isinstance(out,float) and len(out) == 1: return out[0]
         else: return out
 
-    def e(self,analytic=False,pot=None):
+    def e(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -866,13 +866,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the eccentricity
+           calculate the eccentricity, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
         OUTPUT:
 
@@ -882,9 +894,11 @@ class Orbit(object):
 
            2010-09-15 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
-        return self._orb.e(analytic=analytic,pot=pot)
+        return self._orb.e(analytic=analytic,pot=pot,**kwargs)
 
     def rap(self,analytic=False,pot=None,**kwargs):
         """
@@ -894,13 +908,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the apocenter radius
+           calculate the apocenter radius, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -914,6 +940,8 @@ class Orbit(object):
 
            2010-09-20 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
         return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
@@ -926,13 +954,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the pericenter radius
+           calculate the pericenter radius, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -946,6 +986,8 @@ class Orbit(object):
 
            2010-09-20 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
         return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
@@ -958,13 +1000,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the maximum vertical height
+           calculate the maximum vertical height, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -977,6 +1031,8 @@ class Orbit(object):
         HISTORY:
 
            2010-09-20 - Written - Bovy (NYU)
+
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
         _check_consistent_units(self,pot)
