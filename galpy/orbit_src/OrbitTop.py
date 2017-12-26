@@ -1240,9 +1240,9 @@ class OrbitTop(object):
                             self._aAPot,self.R(use_physical=False),
                             self.z(use_physical=False)+(nu.fabs(self.z(use_physical=False)) < 1e-8) * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10)) # try to make sure this is not 0
                 except PotentialError as e:
-                    if 'deriv' in repr(e):
+                    if 'deriv' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
-                    elif 'non-axi' in repr(e):
+                    elif 'non-axi' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
                     else:
                         raise
