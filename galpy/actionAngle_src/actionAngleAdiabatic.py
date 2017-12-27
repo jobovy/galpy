@@ -74,18 +74,20 @@ class actionAngleAdiabatic(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
            scipy.integrate.quadrature keywords
            _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
         OUTPUT:
-           (jr,lz,jz), where jr=[jr,jrerr], and jz=[jz,jzerr]
+           (jr,lz,jz)
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
@@ -163,33 +165,20 @@ class actionAngleAdiabatic(actionAngle):
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
-
-           _EccZmaxRperiRap
-
+           EccZmaxRperiRap (_EccZmaxRperiRap)
         PURPOSE:
-
            evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the adiabatic approximation
-
         INPUT:
-
            Either:
-
               a) R,vR,vT,z,vz[,phi]:
-
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
         OUTPUT:
-
            (e,zmax,rperi,rap)
-
         HISTORY:
-
            2017-12-21 - Written - Bovy (UofT)
-
         """
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \

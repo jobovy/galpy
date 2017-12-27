@@ -90,7 +90,7 @@ class actionAngleStaeckel(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
@@ -98,8 +98,11 @@ class actionAngleStaeckel(actionAngle):
               a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
-            c= True/False; overrides the object's c= keyword to use C or not
-           scipy.integrate.quadrature keywords
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -177,7 +180,7 @@ class actionAngleStaeckel(actionAngle):
     def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqs
+           actionsFreqs (_actionsFreqs)
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
@@ -185,7 +188,11 @@ class actionAngleStaeckel(actionAngle):
               a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
-           scipy.integrate.quadrature keywords
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -245,16 +252,19 @@ class actionAngleStaeckel(actionAngle):
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqsAngles
+           actionsFreqsAngles (_actionsFreqsAngles)
         PURPOSE:
-           evaluate the actions, frequencies, and angles 
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz,phi (MUST HAVE PHI)
+              a) R,vR,vT,z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
-           scipy.integrate.quadrature keywords
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
@@ -316,33 +326,20 @@ class actionAngleStaeckel(actionAngle):
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
-
-           _EccZmaxRperiRap
-
+           EccZmaxRperiRap (_EccZmaxRperiRap)
         PURPOSE:
-
            evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-
         INPUT:
-
            Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
         OUTPUT:
-
            (e,zmax,rperi,rap)
-
         HISTORY:
-
            2017-12-12 - Written - Bovy (UofT)
-
         """
         umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
         rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=self._delta)[0]

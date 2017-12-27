@@ -283,13 +283,16 @@ class actionAngleStaeckelGrid(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              R,vR,vT,z,vz
-           scipy.integrate.quadrature keywords (for off-the-grid calcs)
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+           Keywords for actionAngleStaeckel.__call__ for off-the-grid evaluations
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -447,33 +450,19 @@ class actionAngleStaeckelGrid(actionAngle):
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
-
-           EccZmaxRperiRap
-
+           EccZmaxRperiRap (_EccZmaxRperiRap)
         PURPOSE:
-
            evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-
         INPUT:
-
            Either:
-
               a) R,vR,vT,z,vz[,phi]:
-
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
         OUTPUT:
-
            (e,zmax,rperi,rap)
-
         HISTORY:
-
            2017-12-15 - Written - Bovy (UofT)
-
         """
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args

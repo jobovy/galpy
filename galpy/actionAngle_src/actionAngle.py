@@ -1,3 +1,6 @@
+from future.utils import with_metaclass
+import types
+import copy
 import math as m
 from galpy.util import config
 from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
@@ -7,7 +10,31 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
-class actionAngle(object):
+# Metaclass for copying docstrings from subclass methods, first func 
+# to copy func
+def copyfunc(func):
+    return types.FunctionType(func.__code__,func.__globals__,
+                              name=func.__name__,
+                              argdefs=func.__defaults__,
+                              closure=func.__closure__)
+class MetaActionAngle(type):
+    """Metaclass to assign subclass' docstrings for methods _evaluate, _actionsFreqs, _actionsFreqsAngles, and _EccZmaxRperiRap to their public cousins __call__, actionsFreqs, etc."""
+    def __new__(meta,name,bases,attrs):
+        for key in copy.copy(attrs): # copy bc size changes
+            if key[0] == '_':
+                skey= copy.copy(key[1:])
+                if skey == 'evaluate': skey= '__call__'
+                for base in bases:
+                    original= getattr(base,skey,None)
+                    if original is not None:
+                        funccopy= copyfunc(original)
+                        funccopy.__doc__= attrs[key].__doc__
+                        attrs[skey]= funccopy
+                        break
+        return type.__new__(meta,name,bases,attrs)
+
+# Python 2 & 3 compatible way to have a metaclass
+class actionAngle(with_metaclass(MetaActionAngle,object)):
     """Top-level class for actionAngle classes"""
     def __init__(self,ro=None,vo=None):
         """

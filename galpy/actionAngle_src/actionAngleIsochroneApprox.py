@@ -10,6 +10,8 @@
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
+#             actionsFreqs: returns (jr,lz,jz,Or,Op,Oz)
+#             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
 import math
@@ -122,17 +124,15 @@ class actionAngleIsochroneApprox(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz:
-                 1) floats: phase-space value for single object
-                 2) numpy.ndarray: [N] phase-space values for N objects 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-              b) Orbit instance or list thereof; can be integrated already
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
            cumul= if True, return the cumulative average actions (to look 
                   at convergence)
         OUTPUT:
@@ -184,17 +184,18 @@ class actionAngleIsochroneApprox(actionAngle):
     def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqs
+           actionsFreqs (_actionsFreqs)
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz:
-                 1) floats: phase-space value for single object
-                 2) numpy.ndarray: [N] phase-space values for N objects 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-              b) Orbit instance or list thereof; can be integrated already
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+           maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
+           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
+           _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -206,18 +207,15 @@ class actionAngleIsochroneApprox(actionAngle):
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqsAngles
+           actionsFreqsAngles (_actionsFreqsAngles)
         PURPOSE:
-           evaluate the actions, frequencies, and angles 
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz:
-                 1) floats: phase-space value for single object
-                 2) numpy.ndarray: [N] phase-space values for N objects 
-                 3) numpy.ndarray: [N,M] phase-space values for N objects at M
-                    times
-              b) Orbit instance or list thereof; can be integrated already
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
            maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
            ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
            _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object

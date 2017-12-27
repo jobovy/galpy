@@ -85,15 +85,15 @@ class actionAngleIsochrone(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
@@ -135,15 +135,15 @@ class actionAngleIsochrone(actionAngle):
     def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqs
+           actionsFreqs (_actionsFreqs)
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
@@ -191,16 +191,15 @@ class actionAngleIsochrone(actionAngle):
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqsAngles
+           actionsFreqsAngles (_actionsFreqsAngles)
         PURPOSE:
-           evaluate the actions, frequencies, and angles 
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz,phi (MUST HAVE PHI)
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
@@ -303,33 +302,19 @@ class actionAngleIsochrone(actionAngle):
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
-
            _EccZmaxRperiRap
-
         PURPOSE:
-
            evaluate the eccentricity, maximum height above the plane, peri- and apocenter for an isochrone potential
-
         INPUT:
-
            Either:
-
               a) R,vR,vT,z,vz[,phi]:
-
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
         OUTPUT:
-
            (e,zmax,rperi,rap)
-
         HISTORY:
-
            2017-12-22 - Written - Bovy (UofT)
-
         """
         if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
             R,vR,vT, z, vz= args
