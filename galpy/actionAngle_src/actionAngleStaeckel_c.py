@@ -59,6 +59,10 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up result arrays
     jr= numpy.empty(len(R))
     jz= numpy.empty(len(R))
@@ -77,7 +81,8 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int)]
@@ -88,13 +93,15 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
              vz.flags['F_CONTIGUOUS'],
-             u0.flags['F_CONTIGUOUS']]
+             u0.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     jr= numpy.require(jr,dtype=numpy.float64,requirements=['C','W'])
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
 
@@ -109,7 +116,8 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     jr,
                                     jz,
                                     ctypes.byref(err))
@@ -121,6 +129,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
+    if f_cont[6]: delta= numpy.asfortranarray(delta)
 
     return (jr,jz,err.value)
 
@@ -148,6 +157,10 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
     u0= numpy.empty(len(E))
     err= ctypes.c_int(0)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     actionAngleStaeckel_actionsFunc= _lib.calcu0
@@ -157,15 +170,18 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int)]
 
     #Array requirements, first store old order
     f_cont= [E.flags['F_CONTIGUOUS'],
-             Lz.flags['F_CONTIGUOUS']]
+             Lz.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     E= numpy.require(E,dtype=numpy.float64,requirements=['C','W'])
     Lz= numpy.require(Lz,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
 
     #Run the C code
@@ -175,13 +191,15 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     u0,
                                     ctypes.byref(err))
 
     #Reset input arrays
     if f_cont[0]: E= numpy.asfortranarray(E)
     if f_cont[1]: Lz= numpy.asfortranarray(Lz)
+    if f_cont[2]: delta= numpy.asfortranarray(delta)
 
     return (u0,err.value)
 
@@ -208,6 +226,10 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up result arrays
     jr= numpy.empty(len(R))
     jz= numpy.empty(len(R))
@@ -229,7 +251,8 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -243,13 +266,15 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
              vz.flags['F_CONTIGUOUS'],
-             u0.flags['F_CONTIGUOUS']]
+             u0.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     jr= numpy.require(jr,dtype=numpy.float64,requirements=['C','W'])
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
@@ -268,7 +293,8 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     jr,
                                     jz,
                                     Omegar,
@@ -283,6 +309,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
+    if f_cont[6]: delta= numpy.asfortranarray(delta)
 
     return (jr,jz,Omegar,Omegaphi,Omegaz,err.value)
 
@@ -309,6 +336,10 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up result arrays
     jr= numpy.empty(len(R))
     jz= numpy.empty(len(R))
@@ -333,7 +364,8 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -350,13 +382,15 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
              vz.flags['F_CONTIGUOUS'],
-             u0.flags['F_CONTIGUOUS']]
+             u0.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     jr= numpy.require(jr,dtype=numpy.float64,requirements=['C','W'])
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
@@ -379,7 +413,8 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     jr,
                                     jz,
                                     Omegar,
@@ -397,6 +432,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
+    if f_cont[6]: delta= numpy.asfortranarray(delta)
     
     badAngle = Anglephi != 9999.99
     Anglephi[badAngle]= (Anglephi[badAngle] + phi[badAngle] % (2.*numpy.pi)) % (2.*numpy.pi)
@@ -427,6 +463,10 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up result arrays
     umin= numpy.empty(len(R))
     umax= numpy.empty(len(R))
@@ -446,7 +486,8 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -458,13 +499,15 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
              vz.flags['F_CONTIGUOUS'],
-             u0.flags['F_CONTIGUOUS']]
+             u0.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     umin= numpy.require(umin,dtype=numpy.float64,requirements=['C','W'])
     umax= numpy.require(umax,dtype=numpy.float64,requirements=['C','W'])
     vmin= numpy.require(vmin,dtype=numpy.float64,requirements=['C','W'])
@@ -480,7 +523,8 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     umin,
                                     umax,
                                     vmin,
@@ -493,6 +537,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
+    if f_cont[6]: delta= numpy.asfortranarray(delta)
 
     return (umin,umax,vmin,err.value)
 
