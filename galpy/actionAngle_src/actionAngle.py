@@ -1,4 +1,4 @@
-from future.utils import with_metaclass
+from six import with_metaclass
 import types
 import copy
 import math as m
