@@ -55,7 +55,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        2012-12-01 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
+        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
@@ -222,7 +222,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        2013-08-23 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
+        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
@@ -332,7 +332,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
        2013-08-27 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
+        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
@@ -459,7 +459,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        2017-12-12 - Written - Bovy (UofT)
     """
     if u0 is None:
-        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=delta)
+        u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 

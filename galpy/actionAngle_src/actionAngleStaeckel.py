@@ -95,9 +95,11 @@ class actionAngleStaeckel(actionAngle):
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
            When not using C:
@@ -107,7 +109,9 @@ class actionAngleStaeckel(actionAngle):
            (jr,lz,jz)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
+           2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        delta= kwargs.pop('delta',self._delta)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -136,14 +140,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (jr,Lz,jz)
             else: #pragma: no cover
@@ -164,7 +167,12 @@ class actionAngleStaeckel(actionAngle):
                     elif len(args) == 6:
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
-                    tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
+                    tkwargs= copy.copy(kwargs)
+                    try:
+                        tkwargs['delta']= delta[ii]
+                    except TypeError:
+                        tkwargs['delta']= delta
+                    tjr,tlz,tjz= self(*targs,**tkwargs)
                     ojr[ii]= tjr
                     ojz[ii]= tjz
                     olz[ii]= tlz
@@ -172,7 +180,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 #Set up the actionAngleStaeckelSingle object
                 aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=self._delta)
+                                                     delta=delta)
                 return (aASingle.JR(**copy.copy(kwargs)),
                         aASingle._R*aASingle._vT,
                         aASingle.Jz(**copy.copy(kwargs)))
@@ -185,9 +193,11 @@ class actionAngleStaeckel(actionAngle):
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
            When not using C:
@@ -198,6 +208,7 @@ class actionAngleStaeckel(actionAngle):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
+        delta= kwargs.pop('delta',self._delta)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -226,14 +237,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -257,9 +267,11 @@ class actionAngleStaeckel(actionAngle):
            evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
            When not using C:
@@ -270,6 +282,7 @@ class actionAngleStaeckel(actionAngle):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
+        delta= kwargs.pop('delta',self._delta)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -300,14 +313,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,phi,u0=u0)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -331,9 +343,11 @@ class actionAngleStaeckel(actionAngle):
            evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
         OUTPUT:
@@ -341,9 +355,10 @@ class actionAngleStaeckel(actionAngle):
         HISTORY:
            2017-12-12 - Written - Bovy (UofT)
         """
+        delta= kwargs.get('delta',self._delta)
         umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
-        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=self._delta)[0]
-        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=self._delta)
+        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=delta)[0]
+        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=delta)
         rap= nu.sqrt(rap_tmp**2.+zmax**2.)
         e= (rap-rperi)/(rap+rperi)
         return (e,zmax,rperi,rap)
@@ -365,6 +380,7 @@ class actionAngleStaeckel(actionAngle):
         HISTORY:
            2017-12-12 - Written - Bovy (UofT)
         """
+        delta= kwargs.pop('delta',self._delta)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -393,15 +409,14 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             umin, umax, vmin, err= \
                 actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0)
             if err == 0:
                 return (umin,umax,vmin)
             else: #pragma: no cover
@@ -422,8 +437,13 @@ class actionAngleStaeckel(actionAngle):
                     elif len(args) == 6:
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
+                    tkwargs= copy.copy(kwargs)
+                    try:
+                        tkwargs['delta']= delta[ii]
+                    except TypeError:
+                        tkwargs['delta']= delta
                     tumin,tumax,tvmin= self._uminumaxvmin(\
-                        *targs,**copy.copy(kwargs))
+                        *targs,**tkwargs)
                     oumin[ii]= tumin
                     oumax[ii]= tumax
                     ovmin[ii]= tvmin
@@ -431,7 +451,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 #Set up the actionAngleStaeckelSingle object
                 aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=self._delta)
+                                                     delta=delta)
                 umin, umax= aASingle.calcUminUmax()
                 vmin= aASingle.calcVmin()
                 return (umin,umax,vmin)
