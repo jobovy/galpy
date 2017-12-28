@@ -303,8 +303,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
 
         PURPOSE:
 
-           evaluate the actions, frequencies, and angles 
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
         INPUT:
 
