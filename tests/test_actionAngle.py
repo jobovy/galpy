@@ -1158,6 +1158,206 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     return None
 
+#Test that using different delta for different phase-space points works
+def test_actionAngleStaeckel_indivdelta_actions():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=False)
+    jr0,jp0,jz0= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=False)
+    jr1,jp1,jz1= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_actions_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_freqs_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0,or0,op0,oz0= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1,or1,op1,oz1= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi,ori,opi,ozi= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]),
+                                              delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or0[0]-ori[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or1[1]-ori[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op0[0]-opi[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op1[1]-opi[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz0[0]-ozi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz1[1]-ozi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_angles_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0,or0,op0,oz0,ar0,ap0,az0=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1,or1,op1,oz1,ar1,ap1,az1=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi,ori,opi,ozi,ari,api,azi=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]),
+                               delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or0[0]-ori[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or1[1]-ori[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op0[0]-opi[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op1[1]-opi[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz0[0]-ozi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz1[1]-ozi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ar0[0]-ari[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ar1[1]-ari[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ap0[0]-api[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ap1[1]-api[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(az0[0]-azi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(az1[1]-azi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=False)
+    e0,z0,rp0,ra0= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=False)
+    e1,z1,rp1,ra1= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    ei,zi,rpi,rai= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(e0[0]-ei[0]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(e1[1]-ei[1]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z0[0]-zi[0]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z1[1]-zi[1]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp0[0]-rpi[0]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp1[1]-rpi[1]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra0[0]-rai[0]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra1[1]-rai[1]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    e0,z0,rp0,ra0= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    e1,z1,rp1,ra1= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    ei,zi,rpi,rai= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(e0[0]-ei[0]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(e1[1]-ei[1]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z0[0]-zi[0]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z1[1]-zi[1]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp0[0]-rpi[0]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp1[1]-rpi[1]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra0[0]-rai[0]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra1[1]-rai[1]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
 #Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions():
     from galpy.potential import MWPotential
