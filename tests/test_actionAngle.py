@@ -976,6 +976,37 @@ def test_actionAngleStaeckel_zerolz_actions_c():
     assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
     return None
 
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_actions_order():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=False)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt= aAS(o,order=10000,fixed_quad=True)
+    jr1,jp1,jz1= aAS(o,order=5,fixed_quad=True)
+    jr2,jp2,jz2= aAS(o,order=50,fixed_quad=True)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
+def test_actionAngleStaeckel_actions_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt= aAS(o,order=10000)
+    jr1,jp1,jz1= aAS(o,order=5)
+    jr2,jp2,jz2= aAS(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel frequencies
 def test_actionAngleStaeckel_basic_freqs_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -1069,6 +1100,25 @@ def test_actionAngleStaeckel_unboundr_freqs_c():
     assert js[5] > 1000., 'Unbound in R orbit in the MWPotential does not have large Oz'
     return None
 
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_freqs_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt,ort,opt,ozt= aAS.actionsFreqs(o,order=10000)
+    jr1,jp1,jz1,or1,op1,oz1= aAS.actionsFreqs(o,order=5)
+    jr2,jp2,jz2,or2,op2,oz2= aAS.actionsFreqs(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(or1-ort) > numpy.fabs(or2-ort), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(op1-opt) > numpy.fabs(op2-opt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(oz1-ozt) > numpy.fabs(oz2-ozt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel actions, unbound
 def test_actionAngleStaeckel_unboundr_angles_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -1093,6 +1143,28 @@ def test_actionAngleStaeckel_circular_angles_c():
     js= aAS.actionsFreqsAngles(R,vR,vT,z,vz,phi)
     assert numpy.fabs(js[6]) < 10.**-8., 'Circular orbit does not have zero angles'
     assert numpy.fabs(js[8]) < 10.**-8., 'Circular orbit does not have zero angles'
+    return None
+
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_angles_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt,ort,opt,ozt,art,apt,azt= aAS.actionsFreqsAngles(o,order=10000)
+    jr1,jp1,jz1,or1,op1,oz1,ar1,ap1,az1= aAS.actionsFreqsAngles(o,order=5)
+    jr2,jp2,jz2,or2,op2,oz2,ar2,ap2,az2= aAS.actionsFreqsAngles(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(or1-ort) > numpy.fabs(or2-ort), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(op1-opt) > numpy.fabs(op2-opt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(oz1-ozt) > numpy.fabs(oz2-ozt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(ar1-art) > numpy.fabs(ar2-art), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(ap1-apt) > numpy.fabs(ap2-apt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(az1-azt) > numpy.fabs(az2-azt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
     return None
 
 #Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
