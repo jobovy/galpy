@@ -49,6 +49,8 @@ class actionAngleStaeckel(actionAngle):
 
            c= if True, always use C for calculations
 
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
+
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
@@ -81,6 +83,7 @@ class actionAngleStaeckel(actionAngle):
             self._c= False
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
+        self._order= kwargs.get('order',10)
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
             self._delta= self._delta.to(units.kpc).value/self._ro
         # Check the units
@@ -102,6 +105,7 @@ class actionAngleStaeckel(actionAngle):
            delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (object-wide default, int) number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals  
            When not using C:
               fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
               scipy.integrate.fixed_quad or .quad keywords
@@ -112,6 +116,7 @@ class actionAngleStaeckel(actionAngle):
            2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
         delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -146,7 +151,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 u0= None
             jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
-                self._pot,delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
             if err == 0:
                 return (jr,Lz,jz)
             else: #pragma: no cover
@@ -200,6 +205,7 @@ class actionAngleStaeckel(actionAngle):
            delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action and frequency integrals
            When not using C:
               fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
               scipy.integrate.fixed_quad or .quad keywords
@@ -209,6 +215,7 @@ class actionAngleStaeckel(actionAngle):
            2013-08-28 - Written - Bovy (IAS)
         """
         delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -243,7 +250,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
-                self._pot,delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -274,6 +281,7 @@ class actionAngleStaeckel(actionAngle):
            delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
            u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
            When not using C:
               fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
               scipy.integrate.fixed_quad or .quad keywords
@@ -283,6 +291,7 @@ class actionAngleStaeckel(actionAngle):
            2013-08-28 - Written - Bovy (IAS)
         """
         delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -319,7 +328,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
-                self._pot,delta,R,vR,vT,z,vz,phi,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,phi,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -615,6 +624,7 @@ class actionAngleStaeckelSingle(actionAngle):
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
         if (umax-umin)/umax < 10.**-6: return nu.array([0.])
+        order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
@@ -625,7 +635,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                             self._u0,self._sinhu0**2.,
                                             self._vx,self._sinvx**2.,
                                             self._potu0v0,self._pot),
-                                      n=10,
+                                      n=order,
                                       **kwargs)[0]
         else:
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
@@ -657,6 +667,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JZ
         vmin= self.calcVmin()
         if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
+        order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
@@ -667,7 +678,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                             self._ux,self._coshux**2.,
                                             self._sinhux**2.,
                                             self._potupi2,self._pot),
-                                      n=10,
+                                      n=order,
                                       **kwargs)[0]
         else:
             # factor in next line bc integrand=/2delta^2

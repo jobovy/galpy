@@ -37,7 +37,7 @@ if _lib is None: #pragma: no cover
 else:
     _ext_loaded= True
 
-def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
+def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     """
     NAME:
        actionAngleStaeckel_c
@@ -47,6 +47,8 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        pot - Potential or list of such instances
        delta - focal length of prolate spheroidal coordinates
        R, vR, vT, z, vz - coordinates (arrays)
+       u0= (None) if set, u0 to use
+       order= (10) order of Gauss-Legendre integration of the relevant integrals
     OUTPUT:
        (jr,jz,err)
        jr,jz : array, shape (len(R))
@@ -83,6 +85,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int)]
@@ -118,6 +121,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     pot_args,
                                     ctypes.c_int(ndelta),
                                     delta,
+                                    ctypes.c_int(order),
                                     jr,
                                     jz,
                                     ctypes.byref(err))
@@ -203,7 +207,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
 
     return (u0,err.value)
 
-def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
+def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     """
     NAME:
        actionAngleFreqStaeckel_c
@@ -214,6 +218,8 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        pot - Potential or list of such instances
        delta - focal length of prolate spheroidal coordinates
        R, vR, vT, z, vz - coordinates (arrays)
+       u0= (None) if set, u0 to use
+       order= (10) order of Gauss-Legendre integration of the relevant integrals
     OUTPUT:
        (jr,jz,Omegar,Omegaphi,Omegaz,err)
        jr,jz,Omegar,Omegaphi,Omegaz : array, shape (len(R))
@@ -253,6 +259,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -295,6 +302,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     pot_args,
                                     ctypes.c_int(ndelta),
                                     delta,
+                                    ctypes.c_int(order),
                                     jr,
                                     jz,
                                     Omegar,
@@ -313,7 +321,8 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
 
     return (jr,jz,Omegar,Omegaphi,Omegaz,err.value)
 
-def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
+def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
+                                   u0=None,order=10):
     """
     NAME:
        actionAngleFreqAngleStaeckel_c
@@ -324,6 +333,8 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
        pot - Potential or list of such instances
        delta - focal length of prolate spheroidal coordinates
        R, vR, vT, z, vz, phi - coordinates (arrays)
+       u0= (None) if set, u0 to use
+       order= (10) order of Gauss-Legendre integration of the relevant integrals
     OUTPUT:
        (jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez,err)
        jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez : array, shape (len(R))
@@ -366,6 +377,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -415,6 +427,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,u0=None):
                                     pot_args,
                                     ctypes.c_int(ndelta),
                                     delta,
+                                    ctypes.c_int(order),
                                     jr,
                                     jz,
                                     Omegar,
