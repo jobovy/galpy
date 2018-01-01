@@ -950,6 +950,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   free(detA);
   free(dI3dJR);
   free(dI3dJz);
+  free(dI3dLz);
 }
 void calcFreqsFromDerivsStaeckel(int ndata,
 				 double * Omegar,
