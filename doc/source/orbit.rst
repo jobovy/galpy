@@ -346,6 +346,20 @@ behavior
 
 .. image:: images/lp-orbit-integration-EzJz.png
 
+Fast orbit characterization
+-----------------------
+
+It is also possible to use galpy for the fast estimation of orbit parameters without 
+performing any orbit integration via the Staeckel approximation. These methods use 
+the estimated geometry of the (assumed) filled orbital tori to analytically calculate 
+the orbit parameters. After initialising an ``Orbit`` instance, this is done (as in the
+previous section) specifying ``analytic=True`` and selecting ``type='staeckel'`` (default
+in vX.X of galpy).
+
+>>> o.e(analytic=True, type='staeckel')
+
+
+
 
 Accessing the raw orbit
 -----------------------
