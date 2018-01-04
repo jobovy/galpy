@@ -78,7 +78,7 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
     assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
     assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
     return None
-
+    
 # Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
 # by comparing to a numerical orbit integration for a Kepler potential
 def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
@@ -96,6 +96,7 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
     assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
     assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
     return None
+
 
 #Test the actions of an actionAngleIsochrone
 def test_actionAngleIsochrone_conserved_actions():
@@ -1257,6 +1258,24 @@ def test_actionAngleStaeckel_indivdelta_actions():
     assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
     assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
     return None
+    
+# Test that no_median option for estimateDeltaStaeckel returns the same results as when
+# individual values are calculated separately
+def test_estimateDeltaStaeckel_no_median():
+	from galpy.potential import MWPotential2014
+	from galpy.orbit import Orbit
+	from galpy.actionAngle import estimateDeltaStaeckel
+	# Briefly integrate orbit to get multiple points
+	o= Orbit([1.,0.1,1.1,0.001,0.25,1.])
+	ts= numpy.linspace(0.,1.,101)
+	o.integrate(ts,MWPotential2014)
+	#generate no_median deltas
+	nomed = estimateDeltaStaeckel(MWPotential2014, o.R(ts[:10]), o.z(ts[:10]), no_median=True)
+	#and the individual ones
+	indiv = numpy.array([estimateDeltaStaeckel(MWPotential2014, o.R(ts[i]), o.z(ts[i])) for i in range(10)])
+	#check that values agree
+	assert (numpy.fabs(nomed-indiv) < 1e10).all(), 'no_median option returns different values to individual Delta estimation'
+	return None
 
 def test_actionAngleStaeckel_indivdelta_actions_c():
     from galpy.potential import MWPotential2014
