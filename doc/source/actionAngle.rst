@@ -1,3 +1,5 @@
+.. _actionangle:
+
 Action-angle coordinates
 =========================
 
