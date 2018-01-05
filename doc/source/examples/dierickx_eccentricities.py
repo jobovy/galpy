@@ -1,5 +1,4 @@
 import os, os.path
-import pexpect
 import subprocess
 from astropy.io import fits, ascii
 from astropy import units

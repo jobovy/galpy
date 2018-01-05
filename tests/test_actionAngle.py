@@ -1274,7 +1274,7 @@ def test_estimateDeltaStaeckel_no_median():
 	#and the individual ones
 	indiv = numpy.array([estimateDeltaStaeckel(MWPotential2014, o.R(ts[i]), o.z(ts[i])) for i in range(10)])
 	#check that values agree
-	assert (numpy.fabs(nomed-indiv) < 1e10).all(), 'no_median option returns different values to individual Delta estimation'
+	assert (numpy.fabs(nomed-indiv) < 1e-10).all(), 'no_median option returns different values to individual Delta estimation'
 	return None
 
 def test_actionAngleStaeckel_indivdelta_actions_c():
