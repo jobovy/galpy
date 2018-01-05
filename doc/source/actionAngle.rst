@@ -381,6 +381,8 @@ vertical action to approximately five percent.
 .. WARNING::
    Frequencies and angles using the adiabatic approximation are not implemented at this time.
 
+.. _actionanglestaeckel:
+
 Action-angle coordinates using the Staeckel approximation
 -----------------------------------------------------------
 
