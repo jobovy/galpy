@@ -1,3 +1,5 @@
+.. _actionangle:
+
 Action-angle coordinates
 =========================
 
@@ -378,6 +380,8 @@ vertical action to approximately five percent.
 
 .. WARNING::
    Frequencies and angles using the adiabatic approximation are not implemented at this time.
+
+.. _actionanglestaeckel:
 
 Action-angle coordinates using the Staeckel approximation
 -----------------------------------------------------------
@@ -839,29 +843,32 @@ instance
 >>> from galpy.potential import MWPotential2014
 >>> o= Orbit([1.,0.1,1.1,0.,0.25,0.])
 
-and we can then calculate the actions (default is to use the adiabatic
-approximation)
+and we can then calculate the actions (default is to use the staeckel
+approximation with an automatically-estimated delta parameter, but
+this can be adjusted)
 
 >>> o.jr(MWPotential2014), o.jp(MWPotential2014), o.jz(MWPotential2014)
-# (0.01685643005901713, 1.1, 0.015897730620467752)
+# (0.018194068808944613,1.1,0.01540155584446606)
 
 ``o.jp`` here gives the azimuthal action (which is the *z* component
 of the angular momentum for axisymmetric potentials). We can also use
-the other methods described above, but note that these require extra
-parameters related to the approximation to be specified (see above):
+the other methods described above or adjust the parameters of the
+approximation (see above):
 
 >>> o.jr(MWPotential2014,type='staeckel',delta=0.4), o.jp(MWPotential2014,type='staeckel',delta=0.4), o.jz(MWPotential2014,type='staeckel',delta=0.4)
-# (array([ 0.01922167]), array([ 1.1]), array([ 0.01527683]))
+# (0.019221672966336707, 1.1, 0.015276825017286827)
+>>> o.jr(MWPotential2014,type='adiabatic'), o.jp(MWPotential2014,type='adiabatic'), o.jz(MWPotential2014,type='adiabatic')
+# (0.016856430059017123, 1.1, 0.015897730620467752)
 >>> o.jr(MWPotential2014,type='isochroneApprox',b=0.8), o.jp(MWPotential2014,type='isochroneApprox',b=0.8), o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
-# (array([ 0.01906609]), array([ 1.1]), array([ 0.01528049]))
+# (0.019066091295488922, 1.1, 0.015280492319332751)
 
 These two methods give very precise actions for this orbit (both are
 converged to about 1%) and they agree very well
 
 >>> (o.jr(MWPotential2014,type='staeckel',delta=0.4)-o.jr(MWPotential2014,type='isochroneApprox',b=0.8))/o.jr(MWPotential2014,type='isochroneApprox',b=0.8)
-# array([ 0.00816012])
->>>  (o.jz(MWPotential2014,type='staeckel',delta=0.4)-o.jz(MWPotential2014,type='isochroneApprox',b=0.8))/o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
-# array([-0.00024])
+# 0.00816012408818143
+>>> (o.jz(MWPotential2014,type='staeckel',delta=0.4)-o.jz(MWPotential2014,type='isochroneApprox',b=0.8))/o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
+# 0.00023999894566772273
 
 .. WARNING:: Once an action, frequency, or angle is calculated for a given type of calculation (e.g., staeckel), the parameters for that type are fixed in the Orbit instance. Call o.resetaA() to reset the action-angle instance used when using different parameters (i.e., different ``delta=`` for staeckel or different ``b=`` for isochroneApprox.
 

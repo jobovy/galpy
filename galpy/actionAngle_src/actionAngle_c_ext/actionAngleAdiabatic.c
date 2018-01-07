@@ -38,6 +38,9 @@ struct JzAdiabaticArg{
 /*
   Function Declarations
 */
+void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
+				       double *,int,int *,double *,double,
+				       double *,double *,double *,int *);
 void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
@@ -85,6 +88,49 @@ inline void calcEREzL(int ndata,
 /*
   MAIN FUNCTIONS
  */
+void actionAngleAdiabatic_RperiRapZmax(int ndata,
+				       double *R,
+				       double *vR,
+				       double *vT,
+				       double *z,
+				       double *vz,
+				       int npot,
+				       int * pot_type,
+				       double * pot_args,
+				       double gamma,
+				       double *rperi,
+				       double *rap,
+				       double *zmax,
+				       int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  //ER, Ez, Lz
+  double *ER= (double *) malloc ( ndata * sizeof(double) );
+  double *Ez= (double *) malloc ( ndata * sizeof(double) );
+  double *Lz= (double *) malloc ( ndata * sizeof(double) );
+  calcEREzL(ndata,R,vR,vT,z,vz,ER,Ez,Lz,npot,actionAngleArgs);
+  //Calculate peri and apocenters
+  double *jz= (double *) malloc ( ndata * sizeof(double) );
+  calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
+  //Adjust planar effective potential for gamma
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
+      - 0.5 * *(vT+ii) * *(vT+ii);
+  }
+  calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
+  free_potentialArgs(npot,actionAngleArgs);
+  free(actionAngleArgs);
+  free(ER);
+  free(Ez);
+  free(Lz);
+  free(jz);
+}
 void actionAngleAdiabatic_actions(int ndata,
 				  double *R,
 				  double *vR,

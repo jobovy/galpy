@@ -298,6 +298,11 @@ its eccentricity, and the maximal height above the plane of the orbit
 >>> o.rap(), o.rperi(), o.e(), o.zmax()
 # (1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
 
+These four quantities can also be computed using analytical means (exact or approximations depending on the potential) by specifying ``analytic=True``
+
+>>> o.rap(analytic=True), o.rperi(analytic=True), o.e(analytic=True), o.zmax(analytic=True)
+# (1.2581448917376636,0.97981640959995842,0.12436697719989584,0.11390708640305315)
+
 We can also calculate the energy of the orbit, either in the potential
 that the orbit was integrated in, or in another potential:
 
@@ -341,6 +346,79 @@ behavior
 
 .. image:: images/lp-orbit-integration-EzJz.png
 
+.. _fastchar:
+
+**NEW in v1.3** Fast orbit characterization
+--------------------------------------------
+
+It is also possible to use galpy for the fast estimation of orbit parameters as demonstrated
+in Mackereth & Bovy (2018, in prep.) via the Staeckel approximation (originally used by `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_
+for the appoximation of actions in axisymmetric potentials), without performing any orbit integration. 
+The method uses the geometry of the orbit tori to estimate the orbit parameters. After initialising 
+an ``Orbit`` instance, the method is applied by specifying ``analytic=True`` and 
+selecting ``type='staeckel'``.
+
+>>> o.e(analytic=True, type='staeckel')
+
+if running the above without integrating the orbit, the potential should also be specified
+in the usual way
+
+>>> o.e(analytic=True, type='staeckel', pot=mp)
+
+This interface automatically estimates the necessary delta parameter based on the initial 
+condition of the ``Orbit`` object.
+
+While this is useful and fast for individual ``Orbit`` objects, it is likely that users will
+want to rapidly evaluate the orbit parameters of large numbers of objects. It is possible
+to perform the orbital parameter estimation above through the :ref:`actionAngle <actionangle>` 
+interface. To do this, we need arrays of the phase-space points ``R``, ``vR``, ``vT``, ``z``, ``vz``, and 
+``phi`` for the objects.  The orbit parameters are then calculated by first 
+specifying an ``actionAngleStaeckel`` instance (this requires a single ``delta`` focal-length parameter, see :ref:`the documentation of the actionAngleStaeckel class <actionanglestaeckel>`), then using the 
+``EccZmaxRperiRap`` method with the data points:
+
+>>> aAS = actionAngleStaeckel(pot=mp, delta=0.4)
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi)
+
+Alternatively, you can specify an array for ``delta`` when calling ``aAS.EccZmaxRperiRap``, for example by first estimating good ``delta`` parameters as follows:
+
+>>> from galpy.actionAngle import estimateDeltaStaeckel
+>>> delta = estimateDeltaStaeckel(mp, R, z, no_median=True)
+
+where ``no_median=True`` specifies that the function return the delta parameter at each given point
+rather than the median of the calculated deltas (which is the default option). Then one can compute the eccetrncity etc. using individual delta values as:
+
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi, delta=delta)
+
+Th ``EccZmaxRperiRap`` method also exists for the ``actionAngleIsochrone``, 
+``actionAngleSpherical``, and ``actionAngleAdiabatic`` modules. 
+
+We can test the speed of this method in iPython by finding the parameters at 100000 steps 
+along an orbit in MWPotential2014, like this
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
+>>> ts = numpy.linspace(0,100,100000)
+>>> o.integrate(ts,MWPotential2014)
+>>> aAS = actionAngleStaeckel(pot=MWPotential2014,delta=0.3) 
+>>> R, vR, vT, z, vz, phi = o.getOrbit().T
+>>> delta = estimateDeltaStaeckel(MWPotential2014, R, z, no_median=True)
+>>> %timeit -n 10 es, zms, rps, ras = aAS.EccZmaxRperiRap(R,vR,vT,z,vz,phi,delta=delta)
+#10 loops, best of 3: 899 ms per loop
+
+you can see that in this potential, each phase space point is calculated in roughly 9µs.
+further speed-ups can be gained by using the ``actionAngleStaeckelGrid`` module, which first
+calculates the parameters using a grid-based interpolation
+
+>>> from galpy.actionAngle import actionAngleStaeckelGrid
+>>> aASG= actionAngleStaeckelGrid(pot=mp,delta=0.4,nE=51,npsi=51,nLz=61,c=True,interpecc=True)
+>>> %timeit -n 10 es, zms, rps, ras = aASG.EccZmaxRperiRap(R,vR,vT,z,vz,phi)
+#10 loops, best of 3: 587 ms per loop
+
+where ``interpecc=True`` is required to perform the interpolation of the orbit parameter grid.
+Looking at how the eccentricity estimation varies along the orbit, and comparing to the calculation
+using the orbit integration, we see that the estimation good job
+
+.. image:: images/lp-orbit-integration-et.png
+	:scale: 40 % 
 
 Accessing the raw orbit
 -----------------------
@@ -502,32 +580,74 @@ a set of thick disk stars. We start by downloading the sample of SDSS
 SEGUE (`2009AJ....137.4377Y
 <http://adsabs.harvard.edu/abs/2009AJ....137.4377Y>`_) thick disk
 stars compiled by Dierickx et al. (`2010arXiv1009.1616D
-<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) at
-
-http://www.mpia-hd.mpg.de/homes/rix/Data/Dierickx-etal-tab2.txt
+<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) from CDS at `this 
+link <http://vizier.cfa.harvard.edu/viz-bin/Cat?cat=J%2FApJ%2F725%2FL186&target=http&>`_.
+Downloading the table and the ReadMe will allow you to read in the data using ``astropy.io.ascii``
+like so
+ 
+>>> from astropy.io import ascii
+>>> dierickx = ascii.read('table2.dat', readme='ReadMe')
+>>> vxvv = numpy.dstack([dierickx['RAdeg'], dierickx['DEdeg'], dierickx['Dist']/1e3, dierickx['pmRA'], dierickx['pmDE'], dierickx['HRV']])[0]
 
 After reading in the data (RA,Dec,distance,pmRA,pmDec,vlos; see above)
 as a vector ``vxvv`` with dimensions [6,ndata] we (a) define the
 potential in which we want to integrate the orbits, and (b) integrate
-each orbit and save its eccentricity (running this for all 30,000-ish
+each orbit and save its eccentricity as calculated analytically following the :ref:`Staeckel 
+approximation method <fastchar>` and by orbit integration (running this for all 30,000-ish
 stars will take about half an hour)
 
+>>> from galpy.actionAngle import UnboundError
+>>> ts= np.linspace(0.,20.,10000)
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> ts= nu.linspace(0.,20.,10000)
->>> mye= nu.zeros(ndata)
->>> for ii in range(len(e)):
-...         o= Orbit(vxvv[ii,:],radec=True,vo=220.,ro=8.) #Initialize
-...         o.integrate(ts,lp) #Integrate
-...         mye[ii]= o.e() #Calculate eccentricity
+>>> e_ana = numpy.zeros(len(vxvv))
+>>> e_int = numpy.zeros(len(vxvv))
+>>> for i in range(len(vxvv)):
+...	#calculate analytic e estimate, catch any 'unbound' orbits
+...     try:
+...         orbit = Orbit(vxvv[i], radec=True, vo=220., ro=8.)
+...         e_ana[i] = orbit.e(analytic=True, pot=lp, c=True)
+...     except UnboundError:
+...         #parameters cannot be estimated analytically
+...         e_ana[i] = np.nan
+...     #integrate the orbit and return the numerical e value
+...     orbit.integrate(ts, lp)
+...     e_int[i] = orbit.e(analytic=False)
 
-We then find the following eccentricity distribution
+We then find the following eccentricity distribution (from the numerical eccentricities)
 
-.. image:: images/dierickx-myehist.png
+.. image:: images/dierickx-integratedehist.png
+	:scale: 40 %
 
-The eccentricity calculated by galpy compare well with those
+The eccentricity calculated by integration in galpy compare well with those
 calculated by Dierickx et al., except for a few objects
 
-.. image:: images/dierickx-myee.png
+.. image:: images/dierickx-integratedee.png
+	:scale: 40 %
 
-The script that calculates and plots everything can be downloaded
-:download:`here <examples/dierickx-edist.py>`.
+and the analytical estimates are equally as good:
+
+.. image:: images/dierickx-analyticee.png
+	:scale: 40 %
+
+In comparing the analytic and integrated eccentricity estimates - one can see that in this case
+the estimation is almost exact, due to the spherical symmetry of the chosen potential:
+
+.. image:: images/dierickx-integratedeanalytice.png
+	:scale: 40 %
+
+A script that calculates and plots everything can be downloaded
+:download:`here <examples/dierickx_eccentricities.py>`. To generate the plots just run::
+
+    python dierickx_eccentricities.py ../path/to/folder
+
+specifiying the location you want to put the plots and data.
+
+Alternatively - one can transform the observed coordinates into spherical coordinates and perform 
+the estimations in one batch using the ``actionAngle`` interface, which takes considerably less time:
+
+>>> from galpy import actionAngle
+>>> deltas = actionAngle.estimateDeltaStaeckel(lp, Rphiz[:,0], Rphiz[:,2], no_median=True)
+>>> aAS = actionAngleStaeckel(pot=lp, delta=0.)
+>>> par = aAS.EccZmaxRperiRap(Rphiz[:,0], vRvTvz[:,0], vRvTvz[:,1], Rphiz[:,2], vRvTvz[:,2], Rphiz[:,1], delta=deltas)
+
+The above code calculates the parameters in roughly 100ms on a single core.

@@ -256,7 +256,7 @@ class RZOrbit(OrbitTop):
             kwargs.pop('use_physical')
         return out
 
-    def e(self,analytic=False,pot=None):
+    def e(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
            e
@@ -271,11 +271,10 @@ class RZOrbit(OrbitTop):
            2010-09-15 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return (rap-rperi)/(rap+rperi)
+            self._setupaA(pot=pot,**kwargs)
+            return float(self._aA.EccZmaxRperiRap(self)[0])
         if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first")
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return (nu.amax(self.rs)-nu.amin(self.rs))/(nu.amax(self.rs)+nu.amin(self.rs))
@@ -296,11 +295,10 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return rap
+            self._setupaA(pot=pot,**kwargs)
+            return float(self._aA.EccZmaxRperiRap(self)[3])
         if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first")
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate rap")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amax(self.rs)
@@ -321,11 +319,10 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return rperi
+            self._setupaA(pot=pot,**kwargs)
+            return float(self._aA.EccZmaxRperiRap(self)[2])
         if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first")
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate rperi")
         if not hasattr(self,'rs'):
             self.rs= nu.sqrt(self.orbit[:,0]**2.+self.orbit[:,3]**2.)
         return nu.amin(self.rs)
@@ -344,11 +341,10 @@ class RZOrbit(OrbitTop):
            2010-09-20 - Written - Bovy (NYU)
         """
         if analytic:
-            self._setupaA(pot=pot,type='adiabatic')
-            zmax= self._aA.calczmax(self)
-            return zmax
+            self._setupaA(pot=pot,**kwargs)
+            return float(self._aA.EccZmaxRperiRap(self)[1])
         if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first")
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate zmax")
         return nu.amax(nu.fabs(self.orbit[:,3]))
 
     def plotEz(self,*args,**kwargs):

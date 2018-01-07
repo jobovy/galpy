@@ -2697,6 +2697,8 @@ def test_actionAngle_method_returntype():
         assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
     for ii in range(9):
         assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method EccZmaxRperiRap does not return Quantity when it should'
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
@@ -2706,10 +2708,14 @@ def test_actionAngle_method_returntype():
         assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
     for ii in range(9):
         assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method EccZmaxRperiRap does not return Quantity when it should'
     # actionAngleAdiabatic
     aA= actionAngleAdiabatic(pot=MWPotential,ro=8.,vo=220.)
     for ii in range(3):
         assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method __call__ does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method EccZmaxRperiRap does not return Quantity when it should'
     # actionAngleStaeckel
     aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=8.,vo=220.)
     for ii in range(3):
@@ -2718,6 +2724,8 @@ def test_actionAngle_method_returntype():
         assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqs does not return Quantity when it should'
     for ii in range(9):
         assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method actionsFreqsAngles does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii],units.Quantity), 'actionAngleIsochrone method EccZmaxRperiRap does not return Quantity when it should'
     # actionAngleIsochroneApprox
     aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=8.,vo=220.)
     for ii in range(3):
@@ -2773,6 +2781,15 @@ def test_actionAngle_method_returnunit():
             aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
         except units.UnitConversionError:
             raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    try:
+        aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
+    for ii in range(1,4):
+        try:
+            aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
@@ -2806,6 +2823,15 @@ def test_actionAngle_method_returnunit():
             aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
         except units.UnitConversionError:
             raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    try:
+        aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
+    for ii in range(1,4):
+        try:
+            aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
     # actionAngleAdiabatic
     aA= actionAngleAdiabatic(pot=MWPotential,ro=8.,vo=220.)
     for ii in range(3):
@@ -2813,6 +2839,15 @@ def test_actionAngle_method_returnunit():
             aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s)
         except units.UnitConversionError:
             raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    try:
+        aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
+    for ii in range(1,4):
+        try:
+            aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
     # actionAngleStaeckel
     aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=8.,vo=220.)
     for ii in range(3):
@@ -2845,6 +2880,15 @@ def test_actionAngle_method_returnunit():
             aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad)
         except units.UnitConversionError:
             raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    try:
+        aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
+    for ii in range(1,4):
+        try:
+            aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc)
+        except units.UnitConversionError:
+            raise AssertionError('actionAngle function EccZmaxRperiRap does not return Quantity with the right units')
     # actionAngleIsochroneApprox
     aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=8.,vo=220.)
     for ii in range(3):
@@ -2923,6 +2967,9 @@ def test_actionAngle_method_value():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0]) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
+    for ii in range(1,4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=ro,vo=vo)
@@ -2939,11 +2986,17 @@ def test_actionAngle_method_value():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0]) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
+    for ii in range(1,4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
     # actionAngleAdiabatic
     aA= actionAngleAdiabatic(pot=MWPotential,ro=ro,vo=vo)
     aAnu= actionAngleAdiabatic(pot=MWPotential)
     for ii in range(3):
         assert numpy.fabs(aA(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc*units.km/units.s).value-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
+    assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0]) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
+    for ii in range(1,4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
     # actionAngleStaeckel
     aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=ro,vo=vo)
     aAnu= actionAngleStaeckel(pot=MWPotential,delta=0.45)
@@ -2959,6 +3012,9 @@ def test_actionAngle_method_value():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(1/units.Gyr).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.rad).value-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0].to(units.dimensionless_unscaled).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[0]) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
+    for ii in range(1,4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii].to(units.kpc).value-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro) < 10.**-8., 'actionAngle function EccZmaxRperiRap does not return Quantity with the right value'
     # actionAngleIsochroneApprox
     aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=ro,vo=vo)
     aAnu= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
@@ -3218,6 +3274,8 @@ def test_actionAngle_method_inputAsQuantity():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
+    for ii in range(4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method EccZmaxRperiRap does not return the correct value when input is Quantity'
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=ro,vo=vo)
@@ -3239,6 +3297,8 @@ def test_actionAngle_method_inputAsQuantity():
     aAnu= actionAngleAdiabatic(pot=MWPotential)
     for ii in range(3):
         assert numpy.fabs(aA(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method __call__ does not return the correct value when input is Quantity'
+    for ii in range(4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method EccZmaxRperiRap does not return the correct value when input is Quantity'
     # actionAngleStaeckel
     aA= actionAngleStaeckel(pot=MWPotential,delta=0.45,ro=ro,vo=vo)
     aAnu= actionAngleStaeckel(pot=MWPotential,delta=0.45)
@@ -3254,6 +3314,8 @@ def test_actionAngle_method_inputAsQuantity():
         assert numpy.fabs(aA.actionsFreqsAngles(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
+    for ii in range(4):
+        assert numpy.fabs(aA.EccZmaxRperiRap(1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,0.1*ro*units.kpc,0.2*vo*units.km/units.s,0.*units.rad,use_physical=False)[ii]-aAnu.EccZmaxRperiRap(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle method EccZmaxRperiRap does not return the correct value when input is Quantity'
     # actionAngleIsochroneApprox
     aA= actionAngleIsochroneApprox(pot=MWPotential,b=0.8,ro=ro,vo=vo)
     aAnu= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
