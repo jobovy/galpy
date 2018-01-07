@@ -126,9 +126,9 @@ void calcdI3dJFromDerivsStaeckel(int,double *,double *,double *,double *,
 void calcJRStaeckel(int,double *,double *,double *,double *,double *,double *,
 		    int,double *,double *,double *,double *,double *,double *,
 		    int,struct potentialArg *,int);
-void calcJzStaeckel(int,double *,double *,double *,double *,double *,double *,
-			int,double *,double *,double *,double *,double *,double *,
-			int,struct potentialArg *,int);
+void calcJzStaeckel(int,double *,double *,double *,double *,double *,
+		    int,double *,double *,double *,double *,double *,
+		    int,struct potentialArg *,int);
 void calcdJRStaeckel(int,double *,double *,double *,double *,double *,
 		     double *,double *,double *,int,
 		     double *,double *,double *,double *,double *,double *,int,
