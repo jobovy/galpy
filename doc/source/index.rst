@@ -237,10 +237,16 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit and its uncertainty of 2MASS J151113.24–213003.0, an extremely metal-poor field star with measureable r-process abundances, and of other similar metal-poor stars. The authors find that all of these stars are on highly eccentric orbits, possibly indicating that they originated in dwarf galaxies.
 #. *The Gaia-ESO Survey: Churning through the Milky Way*, M. R. Hayden, A. Recio-Blanco, P. de Laverny, et al. (2017) *Astron. & Astrophys.*, in press (`arXiv/1711.05751 <http://arxiv.org/abs/1711.05751>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to study the orbital characteristics (eccentricity, pericentric radius) of a sample of 2,364 stars observed in the Milky Way as part of the Gaia-ESO survey.
-#. *The Evolution of the Galactic Thick Disk with the LAMOST Survey*, Chengdong Li & Gang Zhao (2017) *Astrophys. J.*, **850**, 25s (`2017ApJ...850...25L <http://adsabs.harvard.edu/abs/2017ApJ...850...25L>`_):
+#. *The Evolution of the Galactic Thick Disk with the LAMOST Survey*, Chengdong Li & Gang Zhao (2017) *Astrophys. J.*, **850**, 25 (`2017ApJ...850...25L <http://adsabs.harvard.edu/abs/2017ApJ...850...25L>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbital characteristics (eccentricity, maximum height above the plane, angular momentum) of a sample of about 2,000 stars in the thicker-disk component of the Milky Way.
 #. *The Orbit and Origin of the Ultra-faint Dwarf Galaxy Segue 1*, T. K. Fritz, M. Lokken, N. Kallivayalil, A. Wetzel, S. T. Linden, P. Zivick, & E. J. Tollerud (2017) *Astrophys. J.*, submitted (`arXiv/1711.09097 <http://arxiv.org/abs/1711.09097>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` and a version of this potential with a more massive dark-matter halo to investigate the orbit and origin of the dwarf-spheroidal galaxy Segue 1 using a newly measured proper motion with SDSS and LBC data.
+#. *Prospects for detection of hypervelocity stars with Gaia*, T. Marchetti, O. Contigiani, E. M. Rossi, J. G. Albert, A. G. A. Brown, & A. Sesana (2017) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1711.11397 <http://arxiv.org/abs/1711.11397>`_):
+     Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to create mock catalogs of hypervelocity stars in the Milky Way for different ejection mechanisms and study the prospects of their detection with *Gaia*.
+#. *The AMBRE project: The thick thin disk and thin thick disk of the Milky Way*, Hayden, M. R., Recio-Blanco, A., de Laverny, P., Mikolaitis, S., & Worley, C. C. (2017) *Astron. & Astrophys.*, **608**, L1 (`arXiv/1712.02358 <http://arxiv.org/abs/1712.02358>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 494 nearby stars analyzed as part of the AMBRE project to learn about their distribution within the Milky Way.
+#. *KELT-21b: A Hot Jupiter Transiting the Rapidly-Rotating Metal-Poor Late-A Primary of a Likely Hierarchical Triple System*, Marshall C. Johnson, Joseph E. Rodriguez, George Zhou, et al. (2017) *Astrophys. J.*, submitted (`arXiv/1712.03241 <http://arxiv.org/abs/1712.03241>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the Galactic orbit of KELT-21b, a hot jupiter around a low-metallicity A-type star.
 
 
 Indices and tables

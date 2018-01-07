@@ -1180,13 +1180,27 @@ def test_analytic_ecc_rperi_rap():
                         o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s, by %g" %(p,integrator,(tecc-tecc_analytic)**2.)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1194,7 +1208,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic)**2.)
@@ -1219,13 +1240,27 @@ def test_analytic_ecc_rperi_rap():
                     o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1233,7 +1268,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic))
@@ -1258,13 +1300,27 @@ def test_analytic_ecc_rperi_rap():
                     o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate by %g for potential %s and integrator %s" %((tecc-tecc_analytic)**2.,p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1272,7 +1328,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1310,7 +1373,8 @@ def test_analytic_zmax():
         pots.remove(p)
     #tolerances in log10
     tol= {}
-    tol['default']= -10.
+    tol['default']= -9.
+    tol['IsochronePotential']= -4. #these are more difficult
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -4. #these are more difficult
     tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
@@ -1360,8 +1424,15 @@ def test_analytic_zmax():
                 else:
                     o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
-                tzmax_analytic= o.zmax(analytic=True)
-                #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tzmax_analytic= o.zmax(analytic=True,type='adiabatic')
+                else:
+                    tzmax_analytic= o.zmax(analytic=True)
+                #print(p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.)
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
                 assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \
