@@ -348,8 +348,8 @@ behavior
 
 .. _fastchar:
 
-Fast orbit characterization
-----------------------------
+**NEW in v1.3** Fast orbit characterization
+--------------------------------------------
 
 It is also possible to use galpy for the fast estimation of orbit parameters as demonstrated
 in Mackereth & Bovy (2018, in prep.) via the Staeckel approximation (originally used by `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_
@@ -373,20 +373,23 @@ want to rapidly evaluate the orbit parameters of large numbers of objects. It is
 to perform the orbital parameter estimation above through the :ref:`actionAngle <actionangle>` 
 interface. To do this, we need arrays of the phase-space points ``R``, ``vR``, ``vT``, ``z``, ``vz``, and 
 ``phi`` for the objects.  The orbit parameters are then calculated by first 
-specifying an ``actionAngle`` instance (with an arbitrary delta parameter), then using the 
-``EccZmaxRperiRap`` method with the data points and the estimated delta array:
+specifying an ``actionAngleStaeckel`` instance (this requires a single ``delta`` focal-length parameter, see :ref:`the documentation of the actionAngleStaeckel class <actionanglestaeckel>`), then using the 
+``EccZmaxRperiRap`` method with the data points:
 
 >>> aAS = actionAngleStaeckel(pot=mp, delta=0.4)
->>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi, delta=delta)
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi)
 
-Here, one can either specify a single scalar value for ``delta`` (applied to all the objects), or alternatively 
-give an array of estimates for ``delta`` at each phase space point using
+Alternatively, you can specify an array for ``delta`` when calling ``aAS.EccZmaxRperiRap``, for example by first estimating good ``delta`` parameters as follows:
 
 >>> from galpy.actionAngle import estimateDeltaStaeckel
 >>> delta = estimateDeltaStaeckel(mp, R, z, no_median=True)
 
 where ``no_median=True`` specifies that the function return the delta parameter at each given point
-rather than the median of the calculated deltas. This method is also applicable in the ``actionAngleIsochrone``, 
+rather than the median of the calculated deltas (which is the default option). Then one can compute the eccetrncity etc. using individual delta values as:
+
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi, delta=delta)
+
+Th ``EccZmaxRperiRap`` method also exists for the ``actionAngleIsochrone``, 
 ``actionAngleSpherical``, and ``actionAngleAdiabatic`` modules. 
 
 We can test the speed of this method in iPython by finding the parameters at 100000 steps 
@@ -416,9 +419,6 @@ using the orbit integration, we see that the estimation good job
 
 .. image:: images/lp-orbit-integration-et.png
 	:scale: 40 % 
-
-
-
 
 Accessing the raw orbit
 -----------------------
