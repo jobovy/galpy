@@ -447,6 +447,8 @@ def velocity_in_kpcGyr(vo,ro):
 def print_physical_warning():
     warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, energies and the Jacobi integral in (km/s)^2, the angular momentum o.L() and actions in km/s kpc, frequencies in 1/Gyr, and times and periods in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
                   galpyWarning)   
+# NOTE: names with underscores in them signify return values that *always* have
+# units, which is depended on in the Orbit returns (see issue #326)
 _roNecessary= {'time': True,
                'position': True,
                'position_kpc': True,
@@ -465,7 +467,7 @@ _roNecessary= {'time': True,
                'mass': True,
                'action': True,
                'frequency':True,
-               'frequency_kmskpc':True,
+               'frequency-kmskpc':True,
                'forcederivative':True,
                'angle':True,
                'angle_deg':True,
@@ -492,8 +494,15 @@ def physical_conversion(quantity,pop=False):
         def wrapped(*args,**kwargs):
             use_physical= kwargs.get('use_physical',True) and \
                 not kwargs.get('log',False)
+            # Parse whether ro or vo should be considered to be set, because 
+            # the return value will have units anyway
+            # (like in Orbit methods that return numbers with units, like ra)
+            roSet= '_' in quantity # _ in quantity name means always units
+            voSet= '_' in quantity # _ in quantity name means always units
+            use_physical= use_physical or '_' in quantity # _ in quantity name means always units
             ro= kwargs.get('ro',None)
-            if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
+            if ro is None and \
+                    (roSet or (hasattr(args[0],'_roSet') and args[0]._roSet)):
                 ro= args[0]._ro
             if ro is None and isinstance(args[0],list) \
                     and hasattr(args[0][0],'_roSet') and args[0][0]._roSet:
@@ -502,7 +511,8 @@ def physical_conversion(quantity,pop=False):
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             vo= kwargs.get('vo',None)
-            if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
+            if vo is None and \
+                    (voSet or (hasattr(args[0],'_voSet') and args[0]._voSet)):
                 vo= args[0]._vo
             if vo is None and isinstance(args[0],list) \
                     and hasattr(args[0][0],'_voSet') and args[0][0]._voSet:
@@ -552,7 +562,7 @@ def physical_conversion(quantity,pop=False):
                         fac= freq_in_Gyr(vo,ro)
                         if _apy_units:
                             u= units.Gyr**-1.
-                elif quantity.lower() == 'frequency_kmskpc':
+                elif quantity.lower() == 'frequency-kmskpc':
                     fac= freq_in_kmskpc(vo,ro)
                     if _apy_units:
                         u= units.km/units.s/units.kpc

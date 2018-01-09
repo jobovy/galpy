@@ -25,19 +25,19 @@ void evalPlanarRectDeriv_dxdv(double, double *, double *,
   Actual functions
 */
 void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
-			int * pot_type,
-			double * pot_args){
+			int ** pot_type,
+			double ** pot_args){
   int ii,jj;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
-    switch ( *pot_type++ ) {
-    case 0: //LogarithmicHaloPotential, 2 arguments
+    switch ( *(*pot_type)++ ) {
+    case 0: //LogarithmicHaloPotential, 3 arguments
       potentialArgs->planarRforce= &LogarithmicHaloPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarphiforce= &LogarithmicHaloPotentialPlanarphiforce;
       potentialArgs->planarR2deriv= &LogarithmicHaloPotentialPlanarR2deriv;
-      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
-      potentialArgs->planarRphideriv= &ZeroPlanarForce;
-      potentialArgs->nargs= 2;
+      potentialArgs->planarphi2deriv= &LogarithmicHaloPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &LogarithmicHaloPotentialPlanarRphideriv;
+      potentialArgs->nargs= 3;
       break;
     case 1: //DehnenBarPotential, 6 arguments
       potentialArgs->planarRforce= &DehnenBarPotentialPlanarRforce;
@@ -120,7 +120,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments
-      potentialArgs->nargs= (int) (8 + 2 * *(pot_args+5) + 4 * ( *(pot_args+4) + 1 ));
+      potentialArgs->nargs= (int) (8 + 2 * *(*pot_args+5) + 4 * ( *(*pot_args+4) + 1 ));
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->planarRforce= &FlattenedPowerPotentialPlanarRforce;
@@ -189,17 +189,17 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 21: //TriaxialHernquistPotential, lots of arguments
       potentialArgs->planarRforce= &TriaxialHernquistPotentialPlanarRforce;
       potentialArgs->planarphiforce= &TriaxialHernquistPotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
       potentialArgs->planarRforce= &TriaxialNFWPotentialPlanarRforce;
       potentialArgs->planarphiforce= &TriaxialNFWPotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
       potentialArgs->planarRforce= &TriaxialJaffePotentialPlanarRforce;
       potentialArgs->planarphiforce= &TriaxialJaffePotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(pot_args+14));
+      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
       break;    
     case 24: //SCFPotential, many arguments
       potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
@@ -207,7 +207,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &SCFPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &SCFPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &SCFPotentialPlanarRphideriv;
-      potentialArgs->nargs= (int) (5 + (1 + *(pot_args + 1)) * *(pot_args+2) * *(pot_args+3)* *(pot_args+4) + 7);
+      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
       break;
     case 25: //SoftenedNeedleBarPotential, 13 arguments
       potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
@@ -217,7 +217,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
       potentialArgs->planarphiforce= &ZeroPlanarForce;
-      potentialArgs->nargs= (int) *(pot_args) + 3;
+      potentialArgs->nargs= (int) **pot_args + 3;
       break;
     case 27: // SpiralArmsPotential, 10 arguments + array of Cs
       potentialArgs->planarRforce = &SpiralArmsPotentialPlanarRforce;
@@ -225,7 +225,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv = &SpiralArmsPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv = &SpiralArmsPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv = &SpiralArmsPotentialPlanarRphideriv;
-      potentialArgs->nargs = (int) 10 + *pot_args;
+      potentialArgs->nargs = (int) 10 + **pot_args;
       break;
     case 28: //CosmphiDiskPotential, 9 arguments
       potentialArgs->planarRforce= &CosmphiDiskPotentialRforce;
@@ -234,6 +234,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &CosmphiDiskPotentialphi2deriv;
       potentialArgs->planarRphideriv= &CosmphiDiskPotentialRphideriv;
       potentialArgs->nargs= 9;
+      break;
+    case 29: //HenonHeilesPotential, 1 argument
+      potentialArgs->planarRforce= &HenonHeilesPotentialRforce;
+      potentialArgs->planarphiforce= &HenonHeilesPotentialphiforce;
+      potentialArgs->planarR2deriv= &HenonHeilesPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &HenonHeilesPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &HenonHeilesPotentialRphideriv;
+      potentialArgs->nargs= 1;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
@@ -253,20 +261,18 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->nargs= (int) 3;
       break;
     }
-    if ( *(pot_type-1) < 0) { // Parse wrapped potential for wrappers
-      potentialArgs->nwrapped= (int) *pot_args++;
+    if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
+      potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
 					 * sizeof (struct potentialArg) );
       parse_leapFuncArgs(potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg,
-			 pot_type,pot_args+1);
-      pot_type+= potentialArgs->nwrapped;
-      pot_args+= ( (int) *pot_args ) +  1;
+			 pot_type,pot_args);
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
-      *(potentialArgs->args)= *pot_args++;
+      *(potentialArgs->args)= *(*pot_args)++;
       potentialArgs->args++;
     }
     potentialArgs->args-= potentialArgs->nargs;
@@ -289,7 +295,7 @@ void integratePlanarOrbit(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
+  parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -356,7 +362,7 @@ void integratePlanarOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs(npot,potentialArgs,pot_type,pot_args);
+  parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),

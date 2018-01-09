@@ -217,7 +217,7 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,false);
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -288,7 +288,7 @@ void actionAngleStaeckel_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,false);
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -536,7 +536,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,false);
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -678,7 +678,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,false);
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );

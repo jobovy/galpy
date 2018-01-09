@@ -442,15 +442,16 @@ the DF, e.g.,
 which returns the mean rotational velocity, and
 
 >>> print(edfcold.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
-# 3.21160878582
+# 0.0560531474616
 >>> print(edfwarm.vertexdev(0.9,phi=22.5,deg=True,t=0.,grid=gridwarm))
-# 4.23510254333
+# 0.0739164830253
 
-which gives the vertex deviation. The reason we have to calculate the
-grid out to ``6nsigma`` for the cold response is that the response is
-much bigger than the velocity dispersion of the population. This
-velocity dispersion is used to automatically to set the grid edges,
-but sometimes has to be adjusted to contain the full DF.
+which gives the vertex deviation in rad. The reason we have to
+calculate the grid out to ``6nsigma`` for the cold response is that
+the response is much bigger than the velocity dispersion of the
+population. This velocity dispersion is used to automatically to set
+the grid edges, but sometimes has to be adjusted to contain the full
+DF.
 
 ``evolveddiskdf`` can also calculate the Oort functions, by directly
 calculating the spatial derivatives of the DF. These can also be calculated on a grid, such that we can do

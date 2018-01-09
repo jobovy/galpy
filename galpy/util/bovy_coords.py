@@ -916,9 +916,9 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
 
        X, Y, Z - Galactocentric rectangular coordinates
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as X)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as X)
 
     OUTPUT:
 
@@ -930,14 +930,26 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
+
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [-nu.sign(Xsun)*sintheta,0.,
-                              nu.sign(Xsun)*costheta]]),
-                  nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
+    if isinstance(Xsun,nu.ndarray):
+        zero= nu.zeros(len(Xsun))
+        one= nu.ones(len(Xsun))
+        Carr= nu.rollaxis(nu.array([[-costheta,zero,-sintheta],
+                                    [zero,one,zero],
+                                    [-nu.sign(Xsun)*sintheta,zero,
+                                      nu.sign(Xsun)*costheta]]),2)
+        return ((Carr*nu.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
+                 +nu.array([dgc,zero,zero]).T)
+    else:
+        return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                                [0.,1.,0.],
+                                [-nu.sign(Xsun)*sintheta,0.,
+                                  nu.sign(Xsun)*costheta]]),
+                      nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
 
 def rect_to_cyl(X,Y,Z):
     """
@@ -1098,9 +1110,9 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
 
        R, phi, Z - Galactocentric cylindrical coordinates
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as R)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as R)
 
     OUTPUT:
 
@@ -1109,6 +1121,8 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     HISTORY:
 
        2011-02-23 - Written - Bovy (NYU)
+
+       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
 
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
@@ -1223,11 +1237,11 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        vZg - Galactocentric z-velocity
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vXg; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
     OUTPUT:
 
@@ -1239,14 +1253,28 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (UofT)
+
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [-nu.sign(Xsun)*sintheta,0.,
-                              nu.sign(Xsun)*costheta]]),
-                  nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+    if isinstance(Xsun,nu.ndarray):
+        zero= nu.zeros(len(Xsun))
+        one= nu.ones(len(Xsun))
+        Carr= nu.rollaxis(nu.array([[-costheta,zero,-sintheta],
+                                    [zero,one,zero],
+                                    [-nu.sign(Xsun)*sintheta,zero,
+                                      nu.sign(Xsun)*costheta]]),2)
+        return ((Carr
+                 *nu.array([[vXg-vsun[0],vXg-vsun[0],vXg-vsun[0]],
+                            [vYg-vsun[1],vYg-vsun[1],vYg-vsun[1]],
+                            [vZg-vsun[2],vZg-vsun[2],vZg-vsun[2]]]).T).sum(-1))
+    else:
+        return nu.dot(nu.array([[-costheta,0.,-sintheta],
+                                [0.,1.,0.],
+                                [-nu.sign(Xsun)*sintheta,0.,
+                                  nu.sign(Xsun)*costheta]]),
+                      nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
 
 @scalarDecorator
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
@@ -1269,11 +1297,11 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        phi - Galactocentric azimuth
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vRg; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vRg)
        
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vRg)
 
     OUTPUT:
 
@@ -1282,6 +1310,8 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     HISTORY:
 
        2011-02-24 - Written - Bovy (NYU)
+
+       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (NYU)
 
     """
     vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
@@ -1666,7 +1696,7 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
     else:
         return (d,l)
 
-def Rz_to_coshucosv(R,z,delta=1.):
+def Rz_to_coshucosv(R,z,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1684,6 +1714,7 @@ def Rz_to_coshucosv(R,z,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
     OUTPUT:
 
        (cosh(u),cos(v))
@@ -1692,14 +1723,22 @@ def Rz_to_coshucosv(R,z,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    d12= (z+delta)**2.+R**2.
-    d22= (z-delta)**2.+R**2.
+    if oblate:
+        d12= (R+delta)**2.+z**2.
+        d22= (R-delta)**2.+z**2.
+    else:
+        d12= (z+delta)**2.+R**2.
+        d22= (z-delta)**2.+R**2.
     coshu= 0.5/delta*(sc.sqrt(d12)+sc.sqrt(d22))
     cosv=  0.5/delta*(sc.sqrt(d12)-sc.sqrt(d22))
+    if oblate: # cosv is currently really sinv
+        cosv= sc.sqrt(1.-cosv**2.)
     return (coshu,cosv)
 
-def Rz_to_uv(R,z,delta=1.):
+def Rz_to_uv(R,z,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1707,7 +1746,7 @@ def Rz_to_uv(R,z,delta=1.):
 
     PURPOSE:
 
-       calculate prolate confocal u and v coordinates from R,z, and delta
+       calculate prolate or oblate confocal u and v coordinates from R,z, and delta
 
     INPUT:
 
@@ -1717,6 +1756,8 @@ def Rz_to_uv(R,z,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
     OUTPUT:
 
        (u,v)
@@ -1725,13 +1766,15 @@ def Rz_to_uv(R,z,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    coshu, cosv= Rz_to_coshucosv(R,z,delta)
+    coshu, cosv= Rz_to_coshucosv(R,z,delta,oblate=oblate)
     u= sc.arccosh(coshu)
     v= sc.arccos(cosv)
     return (u,v)
 
-def uv_to_Rz(u,v,delta=1.):
+def uv_to_Rz(u,v,delta=1.,oblate=False):
     """
     NAME:
 
@@ -1749,6 +1792,8 @@ def uv_to_Rz(u,v,delta=1.):
 
        delta= focus
 
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
     OUTPUT:
 
        (R,z)
@@ -1757,10 +1802,107 @@ def uv_to_Rz(u,v,delta=1.):
 
        2012-11-27 - Written - Bovy (IAS)
 
+       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+
     """
-    R= delta*sc.sinh(u)*sc.sin(v)
-    z= delta*sc.cosh(u)*sc.cos(v)
+    if oblate:
+        R= delta*sc.cosh(u)*sc.sin(v)
+        z= delta*sc.sinh(u)*sc.cos(v)
+    else:
+        R= delta*sc.sinh(u)*sc.sin(v)
+        z= delta*sc.cosh(u)*sc.cos(v)
     return (R,z)
+
+def vRvz_to_pupv(vR,vz,R,z,delta=1.,oblate=False,uv=False):
+    """
+    NAME:
+
+       vRvz_to_pupv
+
+    PURPOSE:
+
+       calculate momenta in prolate or oblate confocal u and v coordinates from cylindrical velocities vR,vz for a given focal length delta
+
+    INPUT:
+
+       vR - radial velocity in cylindrical coordinates
+
+       vz - vertical velocity in cylindrical coordinates
+
+       R - radius
+
+       z - height
+
+       delta= focus
+
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
+       uv= (False) if True, the given R,z are actually u,v
+
+    OUTPUT:
+
+       (pu,pv)
+
+    HISTORY:
+
+       2017-11-28 - Written - Bovy (UofT)
+
+    """
+    if not uv:
+        u,v= Rz_to_uv(R,z,delta,oblate=oblate)
+    else:
+        u,v= R,z
+    if oblate:
+        pu= delta*(vR*sc.sinh(u)*sc.sin(v)+vz*sc.cosh(u)*sc.cos(v))
+        pv= delta*(vR*sc.cosh(u)*sc.cos(v)-vz*sc.sinh(u)*sc.sin(v))
+    else:
+        pu= delta*(vR*sc.cosh(u)*sc.sin(v)+vz*sc.sinh(u)*sc.cos(v))
+        pv= delta*(vR*sc.sinh(u)*sc.cos(v)-vz*sc.cosh(u)*sc.sin(v))
+    return (pu,pv)
+
+def pupv_to_vRvz(pu,pv,u,v,delta=1.,oblate=False):
+    """
+    NAME:
+
+       pupv_to_vRvz
+
+    PURPOSE:
+
+       calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinates for a given focal length delta
+
+    INPUT:
+
+       pu - u momentum
+
+       pv - v momentum
+
+       u - u coordinate
+
+       v - v coordinate
+
+       delta= focus
+
+       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
+
+
+    OUTPUT:
+
+       (vR,vz)
+
+    HISTORY:
+
+       2017-12-04 - Written - Bovy (UofT)
+
+    """
+    if oblate:
+        denom= delta*(sc.sinh(u)**2.+sc.cos(v)**2.)
+        vR= (pu*sc.sinh(u)*sc.sin(v)+pv*sc.cosh(u)*sc.cos(v))/denom
+        vz= (pu*sc.cosh(u)*sc.cos(v)-pv*sc.sinh(u)*sc.sin(v))/denom
+    else:
+        denom= delta*(sc.sinh(u)**2.+sc.sin(v)**2.)
+        vR= (pu*sc.cosh(u)*sc.sin(v)+pv*sc.sinh(u)*sc.cos(v))/denom
+        vz= (pu*sc.sinh(u)*sc.cos(v)-pv*sc.cosh(u)*sc.sin(v))/denom
+    return (vR,vz)
 
 def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     """

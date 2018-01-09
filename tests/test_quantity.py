@@ -12,12 +12,12 @@ def test_orbit_setup_radec_basic():
     o= Orbit([10.*units.deg,-20.*units.deg,3.*units.kpc,
               -3.*units.mas/units.yr,2.*units.mas/units.yr,
               130.*units.km/units.s],radec=True)
-    assert numpy.fabs(o.ra(use_physical=False)-10.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
-    assert numpy.fabs(o.dec(use_physical=False)+20.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.pmra(use_physical=False)+3.) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
-    assert numpy.fabs(o.pmdec(use_physical=False)-2.) < 10.**-8., 'Orbit initialization with pmdec as Quantity does not work as expected'
-    assert numpy.fabs(o.vlos(use_physical=False)-130.) < 10.**-8., 'Orbit initialization with vlos as Quantity does not work as expected'
+    assert numpy.fabs(o.ra(quantity=False)-10.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
+    assert numpy.fabs(o.dec(quantity=False)+20.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.pmra(quantity=False)+3.) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
+    assert numpy.fabs(o.pmdec(quantity=False)-2.) < 10.**-8., 'Orbit initialization with pmdec as Quantity does not work as expected'
+    assert numpy.fabs(o.vlos(quantity=False)-130.) < 10.**-8., 'Orbit initialization with vlos as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_radec_oddunits():
@@ -25,12 +25,12 @@ def test_orbit_setup_radec_oddunits():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.lyr,
               -3.*units.mas/units.s,2.*units.mas/units.kyr,
               130.*units.pc/units.Myr],radec=True)
-    assert numpy.fabs(o.ra(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
-    assert numpy.fabs(o.dec(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3./3.26156) < 10.**-5., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs((o.pmra(use_physical=False)+3.*units.yr.to(units.s))/o.pmra(use_physical=False)) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
-    assert numpy.fabs((o.pmdec(use_physical=False)-2./10.**3.)/o.pmdec(use_physical=False)) < 10.**-4., 'Orbit initialization with pmdec as Quantity does not work as expected'
-    assert numpy.fabs(o.vlos(use_physical=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with vlos as Quantity does not work as expected'
+    assert numpy.fabs(o.ra(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
+    assert numpy.fabs(o.dec(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3./3.26156) < 10.**-5., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs((o.pmra(quantity=False)+3.*units.yr.to(units.s))/o.pmra(quantity=False)) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
+    assert numpy.fabs((o.pmdec(quantity=False)-2./10.**3.)/o.pmdec(quantity=False)) < 10.**-4., 'Orbit initialization with pmdec as Quantity does not work as expected'
+    assert numpy.fabs(o.vlos(quantity=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with vlos as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_radec_uvw():
@@ -38,12 +38,12 @@ def test_orbit_setup_radec_uvw():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.pc,
               -30.*units.km/units.s,20.*units.km/units.s,
               130.*units.km/units.s],radec=True,uvw=True)
-    assert numpy.fabs(o.ra(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
-    assert numpy.fabs(o.dec(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.U(use_physical=False)+30.) < 10.**-8., 'Orbit initialization with U as Quantity does not work as expected'
-    assert numpy.fabs(o.V(use_physical=False)-20.) < 10.**-8., 'Orbit initialization with V as Quantity does not work as expected'
-    assert numpy.fabs(o.W(use_physical=False)-130.) < 10.**-8., 'Orbit initialization with W as Quantity does not work as expected'
+    assert numpy.fabs(o.ra(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
+    assert numpy.fabs(o.dec(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.U(quantity=False)+30.) < 10.**-8., 'Orbit initialization with U as Quantity does not work as expected'
+    assert numpy.fabs(o.V(quantity=False)-20.) < 10.**-8., 'Orbit initialization with V as Quantity does not work as expected'
+    assert numpy.fabs(o.W(quantity=False)-130.) < 10.**-8., 'Orbit initialization with W as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_radec_uvw_oddunits():
@@ -51,12 +51,12 @@ def test_orbit_setup_radec_uvw_oddunits():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.pc,
               -30.*units.pc/units.Myr,20.*units.pc/units.Myr,
               130.*units.pc/units.Myr],radec=True,uvw=True)
-    assert numpy.fabs(o.ra(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
-    assert numpy.fabs(o.dec(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.U(use_physical=False)+30./1.0227121655399913) < 10.**-5., 'Orbit initialization with U as Quantity does not work as expected'
-    assert numpy.fabs(o.V(use_physical=False)-20./1.0227121655399913) < 10.**-5., 'Orbit initialization with V as Quantity does not work as expected'
-    assert numpy.fabs(o.W(use_physical=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with W as Quantity does not work as expected'
+    assert numpy.fabs(o.ra(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with RA as Quantity does not work as expected'
+    assert numpy.fabs(o.dec(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with Dec as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.U(quantity=False)+30./1.0227121655399913) < 10.**-5., 'Orbit initialization with U as Quantity does not work as expected'
+    assert numpy.fabs(o.V(quantity=False)-20./1.0227121655399913) < 10.**-5., 'Orbit initialization with V as Quantity does not work as expected'
+    assert numpy.fabs(o.W(quantity=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with W as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_lb_basic():
@@ -64,12 +64,12 @@ def test_orbit_setup_lb_basic():
     o= Orbit([10.*units.deg,-20.*units.deg,3.*units.kpc,
               -3.*units.mas/units.yr,2.*units.mas/units.yr,
               130.*units.km/units.s],lb=True)
-    assert numpy.fabs(o.ll(use_physical=False)-10.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
-    assert numpy.fabs(o.bb(use_physical=False)+20.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.pmll(use_physical=False)+3.) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
-    assert numpy.fabs(o.pmbb(use_physical=False)-2.) < 10.**-8., 'Orbit initialization with pmdec as Quantity does not work as expected'
-    assert numpy.fabs(o.vlos(use_physical=False)-130.) < 10.**-8., 'Orbit initialization with vlos as Quantity does not work as expected'
+    assert numpy.fabs(o.ll(quantity=False)-10.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
+    assert numpy.fabs(o.bb(quantity=False)+20.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.pmll(quantity=False)+3.) < 10.**-8., 'Orbit initialization with pmra as Quantity does not work as expected'
+    assert numpy.fabs(o.pmbb(quantity=False)-2.) < 10.**-8., 'Orbit initialization with pmdec as Quantity does not work as expected'
+    assert numpy.fabs(o.vlos(quantity=False)-130.) < 10.**-8., 'Orbit initialization with vlos as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_lb_oddunits():
@@ -77,12 +77,12 @@ def test_orbit_setup_lb_oddunits():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.lyr,
               -3.*units.mas/units.s,2.*units.mas/units.kyr,
               130.*units.pc/units.Myr],lb=True)
-    assert numpy.fabs(o.ll(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
-    assert numpy.fabs(o.bb(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3./3.26156) < 10.**-5., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs((o.pmll(use_physical=False)+3.*units.yr.to(units.s))/o.pmll(use_physical=False)) < 10.**-8., 'Orbit initialization with pmll as Quantity does not work as expected'
-    assert numpy.fabs((o.pmbb(use_physical=False)-2./10.**3.)/o.pmbb(use_physical=False)) < 10.**-4., 'Orbit initialization with pmbb as Quantity does not work as expected'
-    assert numpy.fabs(o.vlos(use_physical=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with vlos as Quantity does not work as expected'
+    assert numpy.fabs(o.ll(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
+    assert numpy.fabs(o.bb(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3./3.26156) < 10.**-5., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs((o.pmll(quantity=False)+3.*units.yr.to(units.s))/o.pmll(quantity=False)) < 10.**-8., 'Orbit initialization with pmll as Quantity does not work as expected'
+    assert numpy.fabs((o.pmbb(quantity=False)-2./10.**3.)/o.pmbb(quantity=False)) < 10.**-4., 'Orbit initialization with pmbb as Quantity does not work as expected'
+    assert numpy.fabs(o.vlos(quantity=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with vlos as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_lb_uvw():
@@ -90,12 +90,12 @@ def test_orbit_setup_lb_uvw():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.pc,
               -30.*units.km/units.s,20.*units.km/units.s,
               130.*units.km/units.s],lb=True,uvw=True)
-    assert numpy.fabs(o.ll(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
-    assert numpy.fabs(o.bb(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.U(use_physical=False)+30.) < 10.**-8., 'Orbit initialization with pmll as Quantity does not work as expected'
-    assert numpy.fabs(o.V(use_physical=False)-20.) < 10.**-8., 'Orbit initialization with pmbb as Quantity does not work as expected'
-    assert numpy.fabs(o.W(use_physical=False)-130.) < 10.**-8., 'Orbit initialization with W as Quantity does not work as expected'
+    assert numpy.fabs(o.ll(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
+    assert numpy.fabs(o.bb(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.U(quantity=False)+30.) < 10.**-8., 'Orbit initialization with pmll as Quantity does not work as expected'
+    assert numpy.fabs(o.V(quantity=False)-20.) < 10.**-8., 'Orbit initialization with pmbb as Quantity does not work as expected'
+    assert numpy.fabs(o.W(quantity=False)-130.) < 10.**-8., 'Orbit initialization with W as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_lb_uvw_oddunits():
@@ -103,12 +103,12 @@ def test_orbit_setup_lb_uvw_oddunits():
     o= Orbit([1.*units.rad,-0.25*units.rad,3000.*units.pc,
               -30.*units.pc/units.Myr,20.*units.pc/units.Myr,
               130.*units.pc/units.Myr],lb=True,uvw=True)
-    assert numpy.fabs(o.ll(use_physical=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
-    assert numpy.fabs(o.bb(use_physical=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
-    assert numpy.fabs(o.dist(use_physical=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
-    assert numpy.fabs(o.U(use_physical=False)+30./1.0227121655399913) < 10.**-5., 'Orbit initialization with U as Quantity does not work as expected'
-    assert numpy.fabs(o.V(use_physical=False)-20./1.0227121655399913) < 10.**-5., 'Orbit initialization with V as Quantity does not work as expected'
-    assert numpy.fabs(o.W(use_physical=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with W as Quantity does not work as expected'
+    assert numpy.fabs(o.ll(quantity=False)-1./numpy.pi*180.) < 10.**-8., 'Orbit initialization with ll as Quantity does not work as expected'
+    assert numpy.fabs(o.bb(quantity=False)+.25/numpy.pi*180.) < 10.**-8., 'Orbit initialization with bb as Quantity does not work as expected'
+    assert numpy.fabs(o.dist(quantity=False)-3.) < 10.**-8., 'Orbit initialization with distance as Quantity does not work as expected'
+    assert numpy.fabs(o.U(quantity=False)+30./1.0227121655399913) < 10.**-5., 'Orbit initialization with U as Quantity does not work as expected'
+    assert numpy.fabs(o.V(quantity=False)-20./1.0227121655399913) < 10.**-5., 'Orbit initialization with V as Quantity does not work as expected'
+    assert numpy.fabs(o.W(quantity=False)-130./1.0227121655399913) < 10.**-5., 'Orbit initialization with W as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_vxvv_fullorbit():
@@ -585,26 +585,26 @@ def test_orbit_method_value():
     assert numpy.fabs(o.y().to(units.kpc).value-oc.y()*o._ro) < 10.**-8., 'Orbit method y does not return the correct value as Quantity'
     assert numpy.fabs(o.vx().to(units.km/units.s).value-oc.vx()*o._vo) < 10.**-8., 'Orbit method vx does not return the correct value as Quantity'
     assert numpy.fabs(o.vy().to(units.km/units.s).value-oc.vy()*o._vo) < 10.**-8., 'Orbit method vy does not return the correct value as Quantity'
-    assert numpy.fabs(o.ra().to(units.deg).value-oc.ra()) < 10.**-8., 'Orbit method ra does not return the correct value as Quantity'
-    assert numpy.fabs(o.dec().to(units.deg).value-oc.dec()) < 10.**-8., 'Orbit method dec does not return the correct value as Quantity'
-    assert numpy.fabs(o.ll().to(units.deg).value-oc.ll()) < 10.**-8., 'Orbit method ll does not return the correct value as Quantity'
-    assert numpy.fabs(o.bb().to(units.deg).value-oc.bb()) < 10.**-8., 'Orbit method bb does not return the correct value as Quantity'
-    assert numpy.fabs(o.dist().to(units.kpc).value-oc.dist()) < 10.**-8., 'Orbit method dist does not return the correct value as Quantity'
-    assert numpy.fabs(o.pmra().to(units.mas/units.yr).value-oc.pmra()) < 10.**-8., 'Orbit method pmra does not return the correct value as Quantity'
-    assert numpy.fabs(o.pmdec().to(units.mas/units.yr).value-oc.pmdec()) < 10.**-8., 'Orbit method pmdec does not return the correct value as Quantity'
-    assert numpy.fabs(o.pmll().to(units.mas/units.yr).value-oc.pmll()) < 10.**-8., 'Orbit method pmll does not return the correct value as Quantity'
-    assert numpy.fabs(o.pmbb().to(units.mas/units.yr).value-oc.pmbb()) < 10.**-8., 'Orbit method pmbb does not return the correct value as Quantity'
-    assert numpy.fabs(o.vlos().to(units.km/units.s).value-oc.vlos()) < 10.**-8., 'Orbit method vlos does not return the correct value as Quantity'
-    assert numpy.fabs(o.vra().to(units.km/units.s).value-oc.vra()) < 10.**-8., 'Orbit method vra does not return the correct value as Quantity'
-    assert numpy.fabs(o.vdec().to(units.km/units.s).value-oc.vdec()) < 10.**-8., 'Orbit method vdec does not return the correct value as Quantity'
-    assert numpy.fabs(o.vll().to(units.km/units.s).value-oc.vll()) < 10.**-8., 'Orbit method vll does not return the correct value as Quantity'
-    assert numpy.fabs(o.vbb().to(units.km/units.s).value-oc.vbb()) < 10.**-8., 'Orbit method vbb does not return the correct value as Quantity'
-    assert numpy.fabs(o.helioX().to(units.kpc).value-oc.helioX()) < 10.**-8., 'Orbit method helioX does not return the correct value as Quantity'
-    assert numpy.fabs(o.helioY().to(units.kpc).value-oc.helioY()) < 10.**-8., 'Orbit method helioY does not return the correct value as Quantity'
-    assert numpy.fabs(o.helioZ().to(units.kpc).value-oc.helioZ()) < 10.**-8., 'Orbit method helioZ does not return the correct value as Quantity'
-    assert numpy.fabs(o.U().to(units.km/units.s).value-oc.U()) < 10.**-8., 'Orbit method U does not return the correct value as Quantity'
-    assert numpy.fabs(o.V().to(units.km/units.s).value-oc.V()) < 10.**-8., 'Orbit method V does not return the correct value as Quantity'
-    assert numpy.fabs(o.W().to(units.km/units.s).value-oc.W()) < 10.**-8., 'Orbit method W does not return the correct value as Quantity'
+    assert numpy.fabs(o.ra().to(units.deg).value-oc.ra(quantity=False)) < 10.**-8., 'Orbit method ra does not return the correct value as Quantity'
+    assert numpy.fabs(o.dec().to(units.deg).value-oc.dec(quantity=False)) < 10.**-8., 'Orbit method dec does not return the correct value as Quantity'
+    assert numpy.fabs(o.ll().to(units.deg).value-oc.ll(quantity=False)) < 10.**-8., 'Orbit method ll does not return the correct value as Quantity'
+    assert numpy.fabs(o.bb().to(units.deg).value-oc.bb(quantity=False)) < 10.**-8., 'Orbit method bb does not return the correct value as Quantity'
+    assert numpy.fabs(o.dist().to(units.kpc).value-oc.dist(quantity=False)) < 10.**-8., 'Orbit method dist does not return the correct value as Quantity'
+    assert numpy.fabs(o.pmra().to(units.mas/units.yr).value-oc.pmra(quantity=False)) < 10.**-8., 'Orbit method pmra does not return the correct value as Quantity'
+    assert numpy.fabs(o.pmdec().to(units.mas/units.yr).value-oc.pmdec(quantity=False)) < 10.**-8., 'Orbit method pmdec does not return the correct value as Quantity'
+    assert numpy.fabs(o.pmll().to(units.mas/units.yr).value-oc.pmll(quantity=False)) < 10.**-8., 'Orbit method pmll does not return the correct value as Quantity'
+    assert numpy.fabs(o.pmbb().to(units.mas/units.yr).value-oc.pmbb(quantity=False)) < 10.**-8., 'Orbit method pmbb does not return the correct value as Quantity'
+    assert numpy.fabs(o.vlos().to(units.km/units.s).value-oc.vlos(quantity=False)) < 10.**-8., 'Orbit method vlos does not return the correct value as Quantity'
+    assert numpy.fabs(o.vra().to(units.km/units.s).value-oc.vra(quantity=False)) < 10.**-8., 'Orbit method vra does not return the correct value as Quantity'
+    assert numpy.fabs(o.vdec().to(units.km/units.s).value-oc.vdec(quantity=False)) < 10.**-8., 'Orbit method vdec does not return the correct value as Quantity'
+    assert numpy.fabs(o.vll().to(units.km/units.s).value-oc.vll(quantity=False)) < 10.**-8., 'Orbit method vll does not return the correct value as Quantity'
+    assert numpy.fabs(o.vbb().to(units.km/units.s).value-oc.vbb(quantity=False)) < 10.**-8., 'Orbit method vbb does not return the correct value as Quantity'
+    assert numpy.fabs(o.helioX().to(units.kpc).value-oc.helioX(quantity=False)) < 10.**-8., 'Orbit method helioX does not return the correct value as Quantity'
+    assert numpy.fabs(o.helioY().to(units.kpc).value-oc.helioY(quantity=False)) < 10.**-8., 'Orbit method helioY does not return the correct value as Quantity'
+    assert numpy.fabs(o.helioZ().to(units.kpc).value-oc.helioZ(quantity=False)) < 10.**-8., 'Orbit method helioZ does not return the correct value as Quantity'
+    assert numpy.fabs(o.U().to(units.km/units.s).value-oc.U(quantity=False)) < 10.**-8., 'Orbit method U does not return the correct value as Quantity'
+    assert numpy.fabs(o.V().to(units.km/units.s).value-oc.V(quantity=False)) < 10.**-8., 'Orbit method V does not return the correct value as Quantity'
+    assert numpy.fabs(o.W().to(units.km/units.s).value-oc.W(quantity=False)) < 10.**-8., 'Orbit method W does not return the correct value as Quantity'
     return None
 
 def test_orbit_method_value_turnquantityoff():
@@ -648,26 +648,6 @@ def test_orbit_method_value_turnquantityoff():
     assert numpy.fabs(o.y(quantity=False)-oc.y()*o._ro) < 10.**-8., 'Orbit method y does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.vx(quantity=False)-oc.vx()*o._vo) < 10.**-8., 'Orbit method vx does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.vy(quantity=False)-oc.vy()*o._vo) < 10.**-8., 'Orbit method vy does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.ra(quantity=False)-oc.ra()) < 10.**-8., 'Orbit method ra does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.dec(quantity=False)-oc.dec()) < 10.**-8., 'Orbit method dec does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.ll(quantity=False)-oc.ll()) < 10.**-8., 'Orbit method ll does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.bb(quantity=False)-oc.bb()) < 10.**-8., 'Orbit method bb does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.dist(quantity=False)-oc.dist()) < 10.**-8., 'Orbit method dist does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.pmra(quantity=False)-oc.pmra()) < 10.**-8., 'Orbit method pmra does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.pmdec(quantity=False)-oc.pmdec()) < 10.**-8., 'Orbit method pmdec does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.pmll(quantity=False)-oc.pmll()) < 10.**-8., 'Orbit method pmll does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.pmbb(quantity=False)-oc.pmbb()) < 10.**-8., 'Orbit method pmbb does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vlos(quantity=False)-oc.vlos()) < 10.**-8., 'Orbit method vlos does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vra(quantity=False)-oc.vra()) < 10.**-8., 'Orbit method vra does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vdec(quantity=False)-oc.vdec()) < 10.**-8., 'Orbit method vdec does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vll(quantity=False)-oc.vll()) < 10.**-8., 'Orbit method vll does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vbb(quantity=False)-oc.vbb()) < 10.**-8., 'Orbit method vbb does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.helioX(quantity=False)-oc.helioX()) < 10.**-8., 'Orbit method helioX does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.helioY(quantity=False)-oc.helioY()) < 10.**-8., 'Orbit method helioY does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.helioZ(quantity=False)-oc.helioZ()) < 10.**-8., 'Orbit method helioZ does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.U(quantity=False)-oc.U()) < 10.**-8., 'Orbit method U does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.V(quantity=False)-oc.V()) < 10.**-8., 'Orbit method V does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.W(quantity=False)-oc.W()) < 10.**-8., 'Orbit method W does not return the correct value when Quantity turned off'
     return None
 
 def test_integrate_timeAsQuantity():
@@ -3851,7 +3831,7 @@ def test_evolveddiskdf_method_value():
     assert numpy.fabs(edfwarm.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaT2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaR2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaRT does not return correct Quantity when it should'
-    assert numpy.fabs(edfwarm.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.deg).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.rad).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvT does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvR does not return correct Quantity when it should'
     return None
@@ -3879,7 +3859,7 @@ def test_evolveddiskdf_method_inputAsQuantity():
     assert numpy.fabs(edfwarm.sigmaT2(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaT2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaT2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaR2(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaR2(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaR2 does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.sigmaRT(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s)**2).value-edfwarmnou.sigmaRT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo**2) < 10.**-8., 'evolveddiskdf method sigmaRT does not return correct Quantity when it should'
-    assert numpy.fabs(edfwarm.vertexdev(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.deg).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
+    assert numpy.fabs(edfwarm.vertexdev(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.rad).value-edfwarmnou.vertexdev(1.2,grid=True,returnGrid=False,gridpoints=3)) < 10.**-8., 'evolveddiskdf method vertexdev does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvT(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvT does not return correct Quantity when it should'
     assert numpy.fabs(edfwarm.meanvR(1.2*ro*units.kpc,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s).value-edfwarmnou.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3)*vo) < 10.**-8., 'evolveddiskdf method meanvR does not return correct Quantity when it should'
     return None
@@ -4079,7 +4059,7 @@ def test_quasiisothermaldf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method sigmaz2 does not return Quantity with the right units')
     try:
-        qdf.tilt(1.1,0.1).to(units.rad)
+        qdf.tilt(1.1,0.1).to(units.deg)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method tilt does not return Quantity with the right units')
     try:
@@ -4183,7 +4163,7 @@ def test_quasiisothermaldf_method_value():
     assert numpy.fabs(qdf.sigmaT2(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaT2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaT2 does not return correct Quantity'
     assert numpy.fabs(qdf.sigmaz2(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaz2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaz2 does not return correct Quantity'
     assert numpy.fabs(qdf.sigmaRz(1.1,0.1).to((units.km/units.s)**2).value-qdfnou.sigmaRz(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaRz does not return correct Quantity'
-    assert numpy.fabs(qdf.tilt(1.1,0.1).to(units.deg).value-qdfnou.tilt(1.1,0.1)) < 10.**-8., 'quasiisothermaldf method tilt does not return correct Quantity'
+    assert numpy.fabs(qdf.tilt(1.1,0.1).to(units.rad).value-qdfnou.tilt(1.1,0.1)) < 10.**-8., 'quasiisothermaldf method tilt does not return correct Quantity'
     assert numpy.fabs(qdf.meanvR(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvR(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvR does not return correct Quantity'
     assert numpy.fabs(qdf.meanvT(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvT(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvT does not return correct Quantity'
     assert numpy.fabs(qdf.meanvz(1.1,0.1).to(units.km/units.s).value-qdfnou.meanvz(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvz does not return correct Quantity'
@@ -4247,7 +4227,7 @@ def test_quasiisothermaldf_method_inputAsQuantity():
     assert numpy.fabs(qdf.sigmaT2(1.1*ro*units.kpc,0.1*ro*units.kpc).to((units.km/units.s)**2).value-qdfnou.sigmaT2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaT2 does not return correct Quantity'
     assert numpy.fabs(qdf.sigmaz2(1.1*ro*units.kpc,0.1*ro*units.kpc).to((units.km/units.s)**2).value-qdfnou.sigmaz2(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaz2 does not return correct Quantity'
     assert numpy.fabs(qdf.sigmaRz(1.1*ro*units.kpc,0.1*ro*units.kpc).to((units.km/units.s)**2).value-qdfnou.sigmaRz(1.1,0.1)*vo**2) < 10.**-8., 'quasiisothermaldf method sigmaRz does not return correct Quantity'
-    assert numpy.fabs(qdf.tilt(1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.deg).value-qdfnou.tilt(1.1,0.1)) < 10.**-8., 'quasiisothermaldf method tilt does not return correct Quantity'
+    assert numpy.fabs(qdf.tilt(1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.rad).value-qdfnou.tilt(1.1,0.1)) < 10.**-8., 'quasiisothermaldf method tilt does not return correct Quantity'
     assert numpy.fabs(qdf.meanvR(1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.km/units.s).value-qdfnou.meanvR(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvR does not return correct Quantity'
     assert numpy.fabs(qdf.meanvT(1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.km/units.s).value-qdfnou.meanvT(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvT does not return correct Quantity'
     assert numpy.fabs(qdf.meanvz(1.1*ro*units.kpc,0.1*ro*units.kpc).to(units.km/units.s).value-qdfnou.meanvz(1.1,0.1)*vo) < 10.**-8., 'quasiisothermaldf method meanvz does not return correct Quantity'
@@ -4406,7 +4386,7 @@ def test_streamdf_method_returnunit():
                  tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                  ro=ro,vo=vo,nosetup=True)
     try:
-        sdf_bovy14.misalignment().to(units.rad)
+        sdf_bovy14.misalignment().to(units.deg)
     except units.UnitConversionError:
         raise AssertionError('streamdf method misalignment does not return Quantity with the right units')
     try:
@@ -4462,7 +4442,7 @@ def test_streamdf_method_value():
                              nTrackChunks=11,
                              tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                              nosetup=True)
-    assert numpy.fabs(sdf_bovy14.misalignment().to(units.deg).value-sdf_bovy14_nou.misalignment()) < 10.**-8., 'streamdf method misalignment does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.misalignment().to(units.rad).value-sdf_bovy14_nou.misalignment()) < 10.**-8., 'streamdf method misalignment does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.estimateTdisrupt(0.1).to(units.Gyr).value-sdf_bovy14_nou.estimateTdisrupt(0.1)*bovy_conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method estimateTdisrupt does not return correct Quantity'
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.meanOmega(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8.), 'streamdf method meanOmega does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.sigOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.sigOmega(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method sigOmega does not return correct Quantity'
@@ -4913,4 +4893,86 @@ def test_streamgapdf_sample():
     assert numpy.fabs(lbdt[4].to(units.mas/units.yr).value-lbdtnou[4]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     assert numpy.fabs(lbdt[5].to(units.mas/units.yr).value-lbdtnou[5]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     assert numpy.fabs(lbdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    return None
+
+def test_orbitmethodswunits_quantity_issue326():
+    # Methods that *always* return a number with implied units 
+    # (like Orbit.dist), should return always return a Quantity when 
+    # apy-units=True in the configuration file (see issue 326)
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
+    # First make sure we're testing what we want to test
+    assert not o._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._orb._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    assert not o._orb._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    # Then test methods
+    assert isinstance(o.ra(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dec(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.ll(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.bb(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dist(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmra(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmdec(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmll(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmbb(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.vlos(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioX(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioY(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioZ(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.U(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.V(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.W(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    return None
+
+def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
+    # Methods that *always* return a number with implied units 
+    # (like Orbit.dist), should return always return a Quantity when 
+    # apy-units=True in the configuration file (see issue 326)
+    # This test: *even* when use_physical=False
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
+    # First make sure we're testing what we want to test
+    assert not o._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._orb._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
+    assert not o._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    assert not o._orb._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
+    # Then test methods
+    assert isinstance(o.ra(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dec(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.ll(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.bb(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.dist(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmra(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmdec(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmll(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.pmbb(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.vlos(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioX(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioY(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.helioZ(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.U(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.V(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    assert isinstance(o.W(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
+    return None
+
+def test_SkyCoord_nodoubleunits_issue325():
+    # make sure that SkyCoord doesn't return distances with units like kpc^2
+    # which happened before, because it would use a distance with units of 
+    # kpc and then again multiply with kpc
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[0.,0.,0.,0.,0.,0.],radec=True)
+    # Check return units of SkyCoord
+    try:
+        o.SkyCoord().ra.to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the right ascension')
+    try:
+        o.SkyCoord().dec.to(units.deg)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the declination')
+    try:
+        o.SkyCoord().distance.to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method SkyCoord has the wrong units for the distance')
     return None

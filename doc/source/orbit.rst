@@ -244,6 +244,53 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+Finally, it is also possible to plot arbitrary functions of time with
+``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. This
+is for example useful if you want to display the orbit in a different
+coordinate system. For example, to display the orbital velocity in the
+spherical radial direction (which is currently not a pre-defined
+option), you can do the following
+
+>>> o.plot(d1='r',
+	   d2=lambda t: o.vR(t)*o.R(t)/o.r(t)+o.vz(t)*o.z(t)/o.r(t),
+	   ylabel='v_r')
+
+where ``d2=`` converts the velocity to spherical coordinates. This
+gives the following orbit (which is closed in this projection, because
+we are using a spherical potential):
+
+.. image:: images/lp-orbit-integration-spherrvr.png
+
+.. _orbanim:
+
+**NEW in v1.3**: Animating the orbit
+-------------------------------------
+
+.. WARNING::
+   Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
+
+In a `jupyter notebook <http://jupyter.org>`__ you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
+
+>>> op.animate()
+
+This will create the following animation
+
+.. raw:: html
+   :file: orbitanim.html
+
+.. TIP::
+   There is currently no option to save the animation within ``galpy``, but you could use screen capture software (for example, QuickTime's `Screen Recording <https://support.apple.com/kb/ph5882?locale=en_CA>`__ feature) to record your screen while the animation is running and save it as a video.
+
+``animate`` has options to specify the width and height of the resulting animation, and it can also animate up to three projections of an orbit at the same time. For example, we can look at the orbit in both (x,y) and (R,z) at the same time with
+
+>>> op.animate(d1=['x','R'],d2=['y','z'],width=800)
+
+which gives
+
+.. raw:: html
+   :file: orbitanim2proj.html
+
+   
 Orbit characterization
 ------------------------
 
@@ -385,17 +432,21 @@ number of symplectic integrators available
 The higher order symplectic integrators are described in `Yoshida
 (1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
 
-For most applications I recommend ``dopr54_c``. For example, compare
+For most applications I recommend ``symplec4_c``, which is speedy and
+reliable. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
->>> timeit(o.integrate(ts,mp))
-# 1 loops, best of 3: 553 ms per loop
->>> timeit(o.integrate(ts,mp,method='dopr54_c'))
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 1.34 s ± 41.8 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='leapfrog_c'))
 # galpyWarning: Using C implementation to integrate orbits
-# 10 loops, best of 3: 25.6 ms per loop
+# 91 ms ± 2.42 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='symplec4_c'))
+# galpyWarning: Using C implementation to integrate orbits
+# 9.67 ms ± 48.3 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
 As this example shows, galpy will issue a warning that C is being
-used. Speed-ups by a factor of 20 are typical.
+used.
 
 Integration of the phase-space volume
 --------------------------------------

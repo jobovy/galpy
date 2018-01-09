@@ -260,9 +260,9 @@ def test_tilt_adiabatic_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAA,cutcounter=True)
     #should be zero everywhere
-    assert numpy.fabs(qdf.tilt(0.9,0.,gl=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    assert numpy.fabs(qdf.tilt(0.9,0.2,gl=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    assert numpy.fabs(qdf.tilt(0.9,-0.25,gl=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.,gl=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.2,gl=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,-0.25,gl=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
     return None
 
 def test_tilt_adiabatic_mc():
@@ -270,19 +270,19 @@ def test_tilt_adiabatic_mc():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAA,cutcounter=True)
     #should be zero everywhere
-    assert numpy.fabs(qdf.tilt(0.9,0.,mc=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    assert numpy.fabs(qdf.tilt(0.9,0.2,mc=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    assert numpy.fabs(qdf.tilt(0.9,-0.25,mc=True)) < 0.05, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.,mc=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.2,mc=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert numpy.fabs(qdf.tilt(0.9,-0.25,mc=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero for adiabatic approx."
     return None
 
 def test_tilt_staeckel_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #should be zero in the mid-plane and roughly toward the GC elsewhere
-    assert numpy.fabs(qdf.tilt(0.9,0.,gl=True)) < 0.05, "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."
-    assert numpy.fabs(qdf.tilt(0.9,0.1,gl=True)-numpy.arctan(0.1/0.9)/numpy.pi*180.) < 2., "qdf's tilt deviates more than expected from expected for staeckel approx."
-    assert numpy.fabs(qdf.tilt(0.9,-0.15,gl=True)-numpy.arctan(-0.15/0.9)/numpy.pi*180.) < 2.5, "qdf's tilt deviates more than expected from expected for staeckel approx."
-    assert numpy.fabs(qdf.tilt(0.9,-0.25,gl=True)-numpy.arctan(-0.25/0.9)/numpy.pi*180.) < 4., "qdf's tilt deviates more than expected from expected for staeckel approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.,gl=True)) < 0.05/180.*numpy.pi, "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.1,gl=True)-numpy.arctan(0.1/0.9)) < 2./180.*numpy.pi, "qdf's tilt deviates more than expected from expected for staeckel approx."
+    assert numpy.fabs(qdf.tilt(0.9,-0.15,gl=True)-numpy.arctan(-0.15/0.9)) < 2.5/180.*numpy.pi, "qdf's tilt deviates more than expected from expected for staeckel approx."
+    assert numpy.fabs(qdf.tilt(0.9,-0.25,gl=True)-numpy.arctan(-0.25/0.9)) < 4./180.*numpy.pi, "qdf's tilt deviates more than expected from expected for staeckel approx."
     return None
 
 def test_tilt_staeckel_mc():
@@ -290,8 +290,8 @@ def test_tilt_staeckel_mc():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     #should be zero in the mid-plane and roughly toward the GC elsewhere
-    assert numpy.fabs(qdf.tilt(0.9,0.,mc=True)) < 1., "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx." #this is tough
-    assert numpy.fabs(qdf.tilt(0.9,0.1,mc=True)-numpy.arctan(0.1/0.9)/numpy.pi*180.) < 3., "qdf's tilt deviates more than expected from expected for staeckel approx."
+    assert numpy.fabs(qdf.tilt(0.9,0.,mc=True)) < 1./180.*numpy.pi, "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx." #this is tough
+    assert numpy.fabs(qdf.tilt(0.9,0.1,mc=True)-numpy.arctan(0.1/0.9)) < 3./180.*numpy.pi, "qdf's tilt deviates more than expected from expected for staeckel approx."
     return None
 
 def test_estimate_hr():

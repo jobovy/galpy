@@ -1,4 +1,7 @@
 import warnings
+import json
+from random import choice
+from string import ascii_lowercase
 import math as m
 import numpy as nu
 import scipy
@@ -879,9 +882,10 @@ class OrbitTop(object):
         HISTORY:
            2015-06-02 - Written - Bovy (IAS)
         """
+        kwargs.pop('quantity',None) # rm useless keyword to no conflict later
         _check_roSet(self,kwargs,'SkyCoord')
         radec= self._radec(*args,**kwargs)
-        tdist= self.dist(*args,**kwargs)
+        tdist= self.dist(quantity=False,*args,**kwargs)
         return coordinates.SkyCoord(radec[:,0]*units.degree,
                                     radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,
@@ -918,38 +922,44 @@ class OrbitTop(object):
             raise AttributeError("orbit must track azimuth to use radeclbd functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),0.,
+                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                    Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                thiso[3,:],
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                    thiso[3,:],
+                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                    Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro)
 
@@ -971,84 +981,92 @@ class OrbitTop(object):
             raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
         elif len(thiso[:,0]) == 4: #planarOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],thiso[2,:],0.,
-                                                      thiso[3,:],
-                                                      vsun=nu.array(\
-                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
+                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                    thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                    vsun=nu.array(# have to rotate
+                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                         obs[5]])/vo,
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          0.,
-                                                          thiso[3,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                        thiso[3,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                                0.]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[3,:],0.,
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          0.,
-                                                          thiso[3,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),
-                                obs.vy(*args,**kwargs),
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                        nu.zeros_like(thiso[0]),
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                        thiso[3,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),
+                                obs.vT(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=obs.z(*args,**kwargs)).T
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                thiso[3,:],
-                                                Xsun=obs[0]/ro,
-                                                Zsun=obs[2]/ro).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                      thiso[2,:],
-                                                      thiso[4,:],
-                                                      thiso[5,:],
-                                                      vsun=nu.array(\
-                        obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
+                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),thiso[3,:],
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                    vsun=nu.array(# have to rotate
+                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                         obs[5]])/vo,
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=0.).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          thiso[4,:],
-                                                          thiso[5,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),obs.vy(*args,**kwargs),
-                                nu.zeros(len(thiso[0,:]))]),Xsun=obs.x(*args,**kwargs),Zsun=0.).T
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],thiso[4,:],
+                        thiso[5,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                                0.]),
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
                 else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(thiso[0,:],thiso[5,:],
-                                                    thiso[3,:],
-                                                    Xsun=obs.x(*args,**kwargs),
-                                                    Zsun=obs.z(*args,**kwargs)).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(thiso[1,:],
-                                                          thiso[2,:],
-                                                          thiso[4,:],
-                                                          thiso[5,:],
-                                                          vsun=nu.array([\
-                                obs.vx(*args,**kwargs),
-                                obs.vy(*args,**kwargs),
+                    X,Y,Z = coords.galcencyl_to_XYZ(\
+                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                        thiso[3,:],
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
+                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                        thiso[1,:],thiso[2,:],thiso[4,:],
+                        thiso[5,:]-obs.phi(*args,**kwargs),
+                        vsun=nu.array([\
+                                obs.vR(*args,**kwargs),
+                                obs.vT(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]),
-                                                          Xsun=obs.x(*args,**kwargs),
-                                                          Zsun=obs.z(*args,**kwargs)).T
+                        Xsun=obs.R(*args,**kwargs),
+                        Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
 
@@ -1353,6 +1371,7 @@ class OrbitTop(object):
            2010-09-22 - Adapted to more general framework - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
@@ -1427,7 +1446,9 @@ class OrbitTop(object):
             d1= kwargs.pop('d1')
             d2= kwargs.pop('d2')
         #Get x and y
-        if d1 == 't':
+        if callable(d1):
+            x= d1(self.t)
+        elif d1 == 't':
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
@@ -1500,7 +1521,9 @@ class OrbitTop(object):
             x= self.Jacobi(self.t,**kwargs)
         elif d1 == 'Jacobinorm':
             x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-        if d2 == 't':
+        if callable(d2):
+            y= d2(self.t)
+        elif d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
@@ -1582,9 +1605,9 @@ class OrbitTop(object):
         kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict[d1]
+            kwargs['xlabel']= labeldict.get(d1,'\mathrm{No\ xlabel\ specified}')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict[d2]
+            kwargs['ylabel']= labeldict.get(d2,'\mathrm{No\ ylabel\ specified}')
         return plot.bovy_plot(x,y,*args,**kwargs)
 
     def plot3d(self,*args,**kwargs):
@@ -1607,6 +1630,7 @@ class OrbitTop(object):
            2010-01-08 - Adapted to 3D - Bovy (NYU)
            2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
            2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
         """
         if (kwargs.get('use_physical',False) \
                 and kwargs.get('ro',self._roSet)) or \
@@ -1671,7 +1695,9 @@ class OrbitTop(object):
             d2= kwargs.pop('d2')
             d3= kwargs.pop('d3')
         #Get x, y, and z
-        if d1 == 't':
+        if callable(d1):
+            x= d1(self.t)
+        elif d1 == 't':
             x= self.time(self.t,**kwargs)
         elif d1 == 'R':
             x= self.R(self.t,**kwargs)
@@ -1728,7 +1754,9 @@ class OrbitTop(object):
             x= self.V(self.t,**kwargs)
         elif d1 == 'W':
             x= self.W(self.t,**kwargs)
-        if d2 == 't':
+        if callable(d2):
+            y= d2(self.t)
+        elif d2 == 't':
             y= self.time(self.t,**kwargs)
         elif d2 == 'R':
             y= self.R(self.t,**kwargs)
@@ -1785,7 +1813,9 @@ class OrbitTop(object):
             y= self.V(self.t,**kwargs)
         elif d2 == 'W':
             y= self.W(self.t,**kwargs)
-        if d3 == 't':
+        if callable(d3):
+            z= d3(self.t)
+        elif d3 == 't':
             z= self.time(self.t,**kwargs)
         elif d3 == 'R':
             z= self.R(self.t,**kwargs)
@@ -1849,11 +1879,11 @@ class OrbitTop(object):
         kwargs.pop('quantity',None)
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict[d1]
+            kwargs['xlabel']= labeldict.get(d1,'\mathrm{No\ xlabel\ specified}')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict[d2]
+            kwargs['ylabel']= labeldict.get(d2,'\mathrm{No\ ylabel\ specified}')
         if not 'zlabel' in kwargs:
-            kwargs['zlabel']= labeldict[d3]
+            kwargs['zlabel']= labeldict.get(d3,'\mathrm{No\ zlabel\ specified}')
         return plot.bovy_plot3d(x,y,z,*args,**kwargs)
 
     def plotR(self,*args,**kwargs):
@@ -2094,6 +2124,623 @@ class OrbitTop(object):
             except: pass
         return None
 
+    def animate(self,*args,**kwargs): #pragma: no cover
+        """
+        NAME:
+           animate
+        PURPOSE:
+           animate an Orbit
+        INPUT:
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots
+           d2= second dimension to plot; can be list with up to three entries for three subplots
+           width= (600) width of output div in px
+           height= (400) height of output div in px
+           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+           ro= (Object-wide default) physical scale for distances to use to convert
+           vo= (Object-wide default) physical scale for velocities to use to convert
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           +kwargs for ra,dec,ll,bb, etc. functions
+        OUTPUT:
+           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+        HISTORY:
+           2017-09-17-24 - Written - Bovy (UofT)
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+        """
+        try:
+            from IPython.display import HTML
+        except ImportError:
+            raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':'t (Gyr)',
+                        'R':'R (kpc)',
+                        'vR':'v_R (km/s)',
+                        'vT':'v_T (km/s)',
+                        'z':'z (kpc)',
+                        'vz':'v_z (km/s)',
+                        'phi':'azimuthal angle',
+                        'r':'r (kpc)',
+                        'x':'x (kpc)',
+                        'y':'y (kpc)',
+                        'vx':'v_x (km/s)',
+                        'vy':'v_y (km/s)',
+                        'E':'E (km^2/s^2)',
+                        'Ez':'E_z (km^2/s^2)',
+                        'ER':'E_R (km^2/s^2)',
+                        'Enorm':'E(t)/E(0.)',
+                        'Eznorm':'E_z(t)/E_z(0.)',
+                        'ERnorm':'E_R(t)/E_R(0.)',
+                        'Jacobi':'E-Omega_p L (km^2/s^2)',
+                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        else:
+            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
+                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
+                        'r':'r',
+                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
+                        'E':'E','Enorm':'E(t)/E(0.)',
+                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
+                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
+                        'Jacobi':r'E-Omega_p L',
+                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        labeldict.update({'ra':'RA (deg)',
+                          'dec':'Dec (deg)',
+                          'll':'Galactic lon (deg)',
+                          'bb':'Galactic lat (deg)',
+                          'dist':'distance (kpc)',
+                          'pmra':'pmRA (mas/yr)',
+                          'pmdec':'pmDec (mas/yr)',
+                          'pmll':'pmGlon (mas/yr)',
+                          'pmbb':'pmGlat (mas/yr)',
+                          'vlos':'line-of-sight vel (km/s)',
+                          'helioX':'X (kpc)',
+                          'helioY':'Y (kpc)',
+                          'helioZ':'Z (kpc)',
+                          'U':'U (km/s)',
+                          'V':'V (km/s)',
+                          'W':'W (km/s)'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs:
+            if len(self.vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif len(self.vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+            elif len(self.vxvv) == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif len(self.vxvv) == 5 or len(self.vxvv) == 6:
+                d1= 'R'
+                d2= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+        xs= []
+        ys= []
+        xlabels= []
+        ylabels= []
+        if isinstance(d1,str) or callable(d1):
+            d1s= [d1]
+            d2s= [d2]
+        else:
+            d1s= d1
+            d2s= d2
+        if len(d1s) > 3:
+            raise ValueError('Orbit.animate only works for up to three subplots')
+        all_xlabel= kwargs.get('xlabel',[None for d in d1])
+        all_ylabel= kwargs.get('ylabel',[None for d in d2])
+        for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
+           #Get x and y for each subplot
+            if callable(d1):
+                x= d1(self.t)
+            elif d1 == 't':
+                x= self.time(self.t,**kwargs)
+            elif d1 == 'R':
+                x= self.R(self.t,**kwargs)
+            elif d1 == 'r':
+                x= nu.sqrt(self.R(self.t,**kwargs)**2.
+                           +self.z(self.t,**kwargs)**2.)
+            elif d1 == 'z':
+                x= self.z(self.t,**kwargs)
+            elif d1 == 'vz':
+                x= self.vz(self.t,**kwargs)
+            elif d1 == 'vR':
+                x= self.vR(self.t,**kwargs)
+            elif d1 == 'vT':
+                x= self.vT(self.t,**kwargs)
+            elif d1 == 'x':
+                x= self.x(self.t,**kwargs)
+            elif d1 == 'y':
+                x= self.y(self.t,**kwargs)
+            elif d1 == 'vx':
+                x= self.vx(self.t,**kwargs)
+            elif d1 == 'vy':
+                x= self.vy(self.t,**kwargs)
+            elif d1 == 'phi':
+                x= self.phi(self.t,**kwargs)
+            elif d1.lower() == 'ra':
+                x= self.ra(self.t,**kwargs)
+            elif d1.lower() == 'dec':
+                x= self.dec(self.t,**kwargs)
+            elif d1 == 'll':
+                x= self.ll(self.t,**kwargs)
+            elif d1 == 'bb':
+                x= self.bb(self.t,**kwargs)
+            elif d1 == 'dist':
+                x= self.dist(self.t,**kwargs)
+            elif d1 == 'pmra':
+                x= self.pmra(self.t,**kwargs)
+            elif d1 == 'pmdec':
+                x= self.pmdec(self.t,**kwargs)
+            elif d1 == 'pmll':
+                x= self.pmll(self.t,**kwargs)
+            elif d1 == 'pmbb':
+                x= self.pmbb(self.t,**kwargs)
+            elif d1 == 'vlos':
+                x= self.vlos(self.t,**kwargs)
+            elif d1 == 'helioX':
+                x= self.helioX(self.t,**kwargs)
+            elif d1 == 'helioY':
+                x= self.helioY(self.t,**kwargs)
+            elif d1 == 'helioZ':
+                x= self.helioZ(self.t,**kwargs)
+            elif d1 == 'U':
+                x= self.U(self.t,**kwargs)
+            elif d1 == 'V':
+                x= self.V(self.t,**kwargs)
+            elif d1 == 'W':
+                x= self.W(self.t,**kwargs)
+            elif d1 == 'E':
+                x= self.E(self.t,**kwargs)
+            elif d1 == 'Enorm':
+                x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+            elif d1 == 'Ez':
+                x= self.Ez(self.t,**kwargs)
+            elif d1 == 'Eznorm':
+                x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+            elif d1 == 'ER':
+                x= self.ER(self.t,**kwargs)
+            elif d1 == 'ERnorm':
+                x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+            elif d1 == 'Jacobi':
+                x= self.Jacobi(self.t,**kwargs)
+            elif d1 == 'Jacobinorm':
+                x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+            if callable(d2):
+                y= d2(self.t)
+            elif d2 == 't':
+                y= self.time(self.t,**kwargs)
+            elif d2 == 'R':
+                y= self.R(self.t,**kwargs)
+            elif d2 == 'r':
+                y= nu.sqrt(self.R(self.t,**kwargs)**2.
+                           +self.z(self.t,**kwargs)**2.)
+            elif d2 == 'z':
+                y= self.z(self.t,**kwargs)
+            elif d2 == 'vz':
+                y= self.vz(self.t,**kwargs)
+            elif d2 == 'vR':
+                y= self.vR(self.t,**kwargs)
+            elif d2 == 'vT':
+                y= self.vT(self.t,**kwargs)
+            elif d2 == 'x':
+                y= self.x(self.t,**kwargs)
+            elif d2 == 'y':
+                y= self.y(self.t,**kwargs)
+            elif d2 == 'vx':
+                y= self.vx(self.t,**kwargs)
+            elif d2 == 'vy':
+                y= self.vy(self.t,**kwargs)
+            elif d2 == 'phi':
+                y= self.phi(self.t,**kwargs)
+            elif d2.lower() == 'ra':
+                y= self.ra(self.t,**kwargs)
+            elif d2.lower() == 'dec':
+                y= self.dec(self.t,**kwargs)
+            elif d2 == 'll':
+                y= self.ll(self.t,**kwargs)
+            elif d2 == 'bb':
+                y= self.bb(self.t,**kwargs)
+            elif d2 == 'dist':
+                y= self.dist(self.t,**kwargs)
+            elif d2 == 'pmra':
+                y= self.pmra(self.t,**kwargs)
+            elif d2 == 'pmdec':
+                y= self.pmdec(self.t,**kwargs)
+            elif d2 == 'pmll':
+                y= self.pmll(self.t,**kwargs)
+            elif d2 == 'pmbb':
+                y= self.pmbb(self.t,**kwargs)
+            elif d2 == 'vlos':
+                y= self.vlos(self.t,**kwargs)
+            elif d2 == 'helioX':
+                y= self.helioX(self.t,**kwargs)
+            elif d2 == 'helioY':
+                y= self.helioY(self.t,**kwargs)
+            elif d2 == 'helioZ':
+                y= self.helioZ(self.t,**kwargs)
+            elif d2 == 'U':
+                y= self.U(self.t,**kwargs)
+            elif d2 == 'V':
+                y= self.V(self.t,**kwargs)
+            elif d2 == 'W':
+                y= self.W(self.t,**kwargs)
+            elif d2 == 'E':
+                y= self.E(self.t,**kwargs)
+            elif d2 == 'Enorm':
+                y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+            elif d2 == 'Ez':
+                y= self.Ez(self.t,**kwargs)
+            elif d2 == 'Eznorm':
+                y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+            elif d2 == 'ER':
+                y= self.ER(self.t,**kwargs)
+            elif d2 == 'ERnorm':
+                y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+            elif d2 == 'Jacobi':
+                y= self.Jacobi(self.t,**kwargs)
+            elif d2 == 'Jacobinorm':
+                y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+            xs.append(x)
+            ys.append(y)
+            if xlabel is None:
+                xlabels.append(labeldict.get(d1,'\mathrm{No\ xlabel\ specified}'))
+            else:
+                xlabels.append(xlabel)
+            if ylabel is None:
+                ylabels.append(labeldict.get(d2,'\mathrm{No\ ylabel\ specified}'))
+            else:
+                ylabels.append(ylabel)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        width= kwargs.pop('width',600)
+        height= kwargs.pop('height',400)
+        # Dump data to HTML
+        nplots= len(xs)
+        jsonDict= {}
+        jsonDict['x']= xs[0].tolist()
+        jsonDict['y']= ys[0].tolist()
+        for ii in range(1,nplots):
+            jsonDict['x%i' % (ii+1)]= xs[ii].tolist()
+            jsonDict['y%i' % (ii+1)]= ys[ii].tolist()
+        json_filename= kwargs.pop('json_filename',None)
+        if json_filename is None:
+            jd= json.dumps(jsonDict)
+            json_code= """  let data= JSON.parse('{jd}');""".format(jd=jd)
+            close_json_code= ""
+        else:
+            with open(json_filename,'w') as jfile:
+                json.dump(jsonDict,jfile)
+            json_code= """Plotly.d3.json('{jfilename}',function(data){{""".format(jfilename=json_filename)
+            close_json_code= "});"
+        self.divid= 'galpy-'\
+            +''.join(choice(ascii_lowercase) for i in range(24))
+        button_width= 419.51+4.*10.
+        button_margin_left= int(nu.round((width-button_width)/2.))
+        if button_margin_left < 0: button_margin_left= 0
+        # Layout for multiple plots
+        if len(d1s) == 1:
+            xmin= [0,0,0]
+            xmax= [1,1,1]
+        elif len(d1s) == 2:
+            xmin= [0,0.55,0]
+            xmax= [0.45,1,1]
+        elif len(d1s) == 3:
+            xmin= [0,0.365,0.73]
+            xmax= [0.27,0.635,1]
+        layout= """{{
+  xaxis: {{
+    title: '{xlabel}',
+    domain: [{xmin},{xmax}],
+}},
+  yaxis: {{title: '{ylabel}'}},
+  margin: {{t: 20}},
+  hovermode: 'closest',
+  showlegend: false,
+""".format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
+        for ii in range(1,nplots):
+            layout+= """  xaxis{idx}: {{
+    title: '{xlabel}',
+    anchor: 'y{idx}',
+    domain: [{xmin},{xmax}],
+}},
+  yaxis{idx}: {{
+    title: '{ylabel}',
+    anchor: 'x{idx}',
+}},
+""".format(idx=ii+1,xlabel=xlabels[ii],ylabel=ylabels[ii],
+           xmin=xmin[ii],xmax=xmax[ii])
+        layout+="""}"""
+        # Additional traces for additional plots
+        if len(d1s) > 1:
+            setup_trace2= """
+    let trace3= {{
+      x: data.x2.slice(0,numPerFrame),
+      y: data.y2.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '#1f77b4',
+      }},
+    }};
+
+    let trace4= {{
+      x: data.x2.slice(0,numPerFrame), 
+      y: data.y2.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '#d62728',
+      }},
+    }};
+""".format(divid=self.divid) # not used!
+            delete_trace4= """Plotly.deleteTraces('{divid}',3);""".format(divid=self.divid)
+            delete_trace3= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+            update_trace34= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x2.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y2.slice(trace_slice_begin,trace_slice_end)],
+      }}, [2]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace4= {{
+        x: [data.x2.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y2.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace4,[3]);
+""".format(divid=self.divid)
+        else:
+            setup_trace2= """
+    let traces= [trace1,trace2];
+"""
+            delete_trace4= ""
+            delete_trace3= ""
+            update_trace34= ""
+        if len(d1s) > 2:
+            setup_trace3= """
+    let trace5= {{
+      x: data.x3.slice(0,numPerFrame),
+      y: data.y3.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '#1f77b4',
+      }},
+    }};
+
+    let trace6= {{
+      x: data.x3.slice(0,numPerFrame), 
+      y: data.y3.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '#d62728',
+      }},
+    }};
+
+    let traces= [trace1,trace2,trace3,trace4,trace5,trace6];
+""".format(divid=self.divid)
+            delete_trace6= """Plotly.deleteTraces('{divid}',5);""".format(divid=self.divid)
+            delete_trace5= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+            update_trace56= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x3.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y3.slice(trace_slice_begin,trace_slice_end)],
+      }}, [4]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace6= {{
+        x: [data.x3.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y3.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace6,[5]);
+""".format(divid=self.divid)
+        elif len(d1s) > 1:
+            setup_trace3= """
+    let traces= [trace1,trace2,trace3,trace4];
+"""
+            delete_trace5= ""
+            delete_trace6= ""
+            update_trace56= ""
+        else:
+            setup_trace3= ""
+            delete_trace5= ""
+            delete_trace6= ""
+            update_trace56= ""
+
+        return HTML("""
+<style>
+.galpybutton {{
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #1f77b4;
+    display:inline-block;
+    cursor:pointer;
+    color:#1f77b4;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+}}
+.galpybutton:hover {{
+    background-color:#ffffff;
+}}
+.galpybutton:active {{
+    position:relative;
+    top:1px;
+}}
+.galpybutton:focus{{
+    outline:0;
+}}
+</style>
+
+<div id='{divid}' style='width:{width}px;height:{height}px;'></div>
+<div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
+<button class="galpybutton">Play</button></div>
+<div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Pause</button></div>
+<div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Replay</button></div>
+
+<script>
+require.config({{
+  paths: {{
+    Plotly: 'https://cdn.plot.ly/plotly-latest.min',
+  }}
+}});
+require(['Plotly'], function (Plotly) {{
+{json_code}
+  let layout = {layout};
+  let numPerFrame= 5;    
+  let cnt= 1;
+  let interval;
+  let trace_slice_len;
+  let trace_slice_begin;
+  let trace_slice_end;
+
+  setup_trace();
+  
+  $('.controlbutton button').click(function() {{
+    let button_type= this.parentNode.id;
+    if ( button_type === '{divid}-play' ) {{
+      clearInterval(interval);
+      interval= animate_trace();
+    }}
+    else if ( button_type === '{divid}-pause' )
+      clearInterval(interval);
+    else if ( button_type === '{divid}-timestwo' ) {{
+      cnt/= 2;
+      numPerFrame*= 2;
+    }}
+    else if ( button_type === '{divid}-timeshalf' ) {{
+      cnt*= 2;
+      numPerFrame/= 2;
+    }}
+    else if ( button_type === '{divid}-replay' ) {{
+      cnt= 1;
+      try {{ // doesn't exist if animation has already ended
+        {delete_trace6}
+        {delete_trace4}
+        Plotly.deleteTraces('{divid}',1);
+      }}
+      catch (err) {{
+      }}
+      Plotly.deleteTraces('{divid}',0);
+      {delete_trace3}
+      {delete_trace5}
+      clearInterval(interval);
+      setup_trace();
+      interval= animate_trace();
+    }}
+  }});
+    
+  function setup_trace() {{
+    let trace1= {{
+      x: data.x.slice(0,numPerFrame), 
+      y: data.y.slice(0,numPerFrame),
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '#1f77b4',
+       }},
+    }};
+
+   let trace2= {{
+     x: data.x.slice(0,numPerFrame), 
+     y: data.y.slice(0,numPerFrame),
+     mode: 'lines',
+     line: {{
+       shape: 'spline',
+       width: 3.,
+       color: '#d62728',
+       }},
+     }};
+
+    {setup_trace2}
+
+    {setup_trace3}
+
+    Plotly.plot('{divid}',traces,layout);
+  }}
+
+  function animate_trace() {{
+    return setInterval(function() {{
+      // Make sure narrow and thick trace end in the same 
+      // and the highlighted length has constant length
+      trace_slice_len= Math.floor(numPerFrame);
+      if ( trace_slice_len < 1) trace_slice_len= 1;
+      trace_slice_begin= Math.floor(cnt*numPerFrame);
+      trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x.length-1));
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y.slice(trace_slice_begin,trace_slice_end)],
+      }}, [0]);
+      trace_slice_begin-= trace_slice_len;
+      trace2= {{
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y.slice(trace_slice_begin,trace_slice_end)],
+      }};
+      Plotly.restyle('{divid}',trace2,[1]);
+
+      {update_trace34}
+      {update_trace56}
+      cnt+= 1;
+      if(cnt*numPerFrame+trace_slice_len > data.x.length/1) {{
+          clearInterval(interval);
+          {delete_trace6}
+          {delete_trace4}
+          Plotly.deleteTraces('{divid}',1);
+      }}
+    }}, 30);
+    }}
+{close_json_code}}});
+</script>""".format(json_code=json_code,close_json_code=close_json_code,
+                    divid=self.divid,width=width,height=height,
+                    button_margin_left=button_margin_left,
+                    layout=layout,
+                    setup_trace2=setup_trace2,setup_trace3=setup_trace3,
+                    delete_trace4=delete_trace4,delete_trace6=delete_trace6,
+                    delete_trace3=delete_trace3,delete_trace5=delete_trace5,
+                    update_trace34=update_trace34,
+                    update_trace56=update_trace56))
 
 class _fakeInterp(object): 
     """Fake class to simulate interpolation when orbit was not integrated"""

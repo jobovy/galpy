@@ -247,8 +247,11 @@ class actionAngleIsochrone(actionAngle):
             c= -self.amp/2./E-self.b
             e2= 1.-L2/self.amp/c*(1.+self.b/c)
             e= nu.sqrt(e2)
-            s= 1.+nu.sqrt(1.+(R**2.+z**2.)/self.b**2.)
-            coseta= 1/e*(1.-self.b/c*(s-2.))
+            if self.b == 0.:
+                coseta= 1/e*(1.-nu.sqrt(R**2.+z**2.)/c)
+            else:
+                s= 1.+nu.sqrt(1.+(R**2.+z**2.)/self.b**2.)
+                coseta= 1/e*(1.-self.b/c*(s-2.))
             pindx= (coseta > 1.)*(coseta < (1.+10.**-7.))
             coseta[pindx]= 1.
             pindx= (coseta < -1.)*(coseta > (-1.-10.**-7.))

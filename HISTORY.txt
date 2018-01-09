@@ -34,8 +34,16 @@ v1.3 (2017-XX-XX)
   potential from Cox and Gomez
   (2002). https://arxiv.org/abs/astro-ph/0207635v1 (#305)
 
+- Added the Henon & Heiles (1964) potential
+
+- Added an Orbit method to display an animation of an integrated orbit
+  in jupyter notebooks (Orbit.animate).
+
 - Added galpy.df.schwarzschilddf, the simple Schwarzschild
   distribution function for a razor-thin disk.
+
+- Upgraded LogarithmicHaloPotential to allow it to be a triaxial
+  potential.
 
 - Upgraded DehnenBarPotential to a 3D potential following Monari et
   al. (2016) (#304).
@@ -48,6 +56,13 @@ v1.3 (2017-XX-XX)
   coordinate systems.
 
 - Allow plotting of the spherical radius in Orbit.plot
+
+- Allow plotting of arbitrary user-supplied functions of time in
+  Orbit.plot, Orbit.plot3d, and Orbit.animate. 
+
+- Added conversion to and from oblate spheroidal coordinates. Also
+  added conversion of velocities to the momenta in oblate or prolate
+  spheroidal coordinates (but not the other way around).
 
 - Made SCFPotential compatible with GSL v2.
 
@@ -70,6 +85,12 @@ v1.3 (2017-XX-XX)
   interpreter.
 
 - Switched test suite from nose to pytest (#303).
+
+- quasiisothermaldf.tilt return unit switched from deg to rad.
+
+- streamdf.misalignment return unit switched from deg to rad.
+
+- evolveddiskdf.vertexdev return unit switched from deg to rad.
 
 v1.2 (2016-09-06)
 ==================

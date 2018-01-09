@@ -39,7 +39,7 @@ struct pragmasolver{
 /*
   Function declarations
 */
-  void parse_actionAngleArgs(int,struct potentialArg *,int *,double *,bool);
+  void parse_actionAngleArgs(int,struct potentialArg *,int **,double **,bool);
 #ifdef __cplusplus
 }
 #endif

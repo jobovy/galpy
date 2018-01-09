@@ -101,7 +101,7 @@ void actionAngleAdiabatic_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,pot_type,pot_args,false);
+  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );

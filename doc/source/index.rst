@@ -27,6 +27,13 @@ to `contribute to the code
 please head over to `galpy's GitHub page
 <https://github.com/jobovy/galpy>`_ for more information.
 
+As a preview of the kinds of things you can do with galpy, here's an
+:ref:`animation <orbanim>` of the orbit of the Sun in galpy's
+``MWPotential2014`` potential over 7 Gyr:
+
+.. raw:: html
+   :file: orbitsun.html
+
 Quick-start guide
 -----------------
 
@@ -212,10 +219,35 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to investigate the orbits of hypervelocity-star candidates in *Gaia* DR1.
 #. *GalRotpy: an educational tool to understand and parametrize the rotation curve and gravitational potential of disk-like galaxies*, Andrés Granados, Lady-J. Henao-O., Santiago Vanegas, & Leonardo Castañeda (2017; `arXiv/1705.01665 <http://arxiv.org/abs/1705.01665>`_):
      These authors build an interactive tool to decompose observed rotation curves into bulge, disk (Miyamoto-Nagai or exponential), and NFW halo components on top of ``galpy.potential`` routines.
-#. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017; `arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
+#. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
      Uses ``galpy`` to compute orbital parameters for stars in the AMBRE sample of high-resolution spectra and uses these orbital parameters to aid in the comparison between the data and chemical-evolution models.
-#. *Detailed chemical abundance analysis of the thick disk star cluster Gaia 1*, Andreas Koch, Terese T. Hansen, & Andrea Kunder (2017; `arXiv/1709.04022 <http://arxiv.org/abs/1709.04022>`_):
+#. *ESO452-SC11: The lowest mass globular cluster with a potential chemical inhomogeneity*, Jeffrey D. Simpson, Gayandhi De Silva, Sarah L. Martell, Colin A. Navin, & Daniel B. Zucker (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1708.06875 <http://arxiv.org/abs/1708.06875>`_):
+     Uses ``galpy.orbit`` in ``MWPotential2014`` to compute the orbit of the MW bulge globular cluster ESO452-SC11.
+#. *Detailed chemical abundance analysis of the thick disk star cluster Gaia 1*, Andreas Koch, Terese T. Hansen, & Andrea Kunder (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.04022 <http://arxiv.org/abs/1709.04022>`_):
      Employs ``galpy.orbit`` integration to compute the orbits of four red-giant members of the *Gaia 1* Milky Way star cluster, finding that the orbits of these stars are similar to those of the oldest stars in the Milky Way's disk.
+#. *Proper motions in the VVV Survey: Results for more than 15 million stars across NGC 6544*, R. Contreras Ramos, M. Zoccali, F. Rojas, A. Rojas-Arriagada, M. Gárate, P. Huijse, F. Gran, M. Soto, A.A.R. Valcarce, P. A. Estévez, & D. Minniti (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.07919 <http://arxiv.org/abs/1709.07919>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to calculate the orbit of NGC 6544, a Milky-Way globular cluster, using a newly determined proper motion, finding that it is likely a halo globular cluster based on its orbit.
+#. *How to make a mature accreting magnetar*, A. P. Igoshev & S. B. Popov (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1709.10385 <http://arxiv.org/abs/1709.10385>`_):
+     Employs ``galpy.orbit`` integration of the magnetar candidate 4U 0114+65 in the potential model from `Irrgang et al. (2013) <http://adsabs.harvard.edu/abs/2013A%26A...549A.137I>`__ to aid in the determination of its likely age.
+#. *iota Horologii is unlikely to be an evaporated Hyades star*, I. Ramirez, D. Yong, E. Gutierrez, M. Endl, D. L. Lambert, J.-D. Do Nascimento Jr (2017) *Astrophys. J.*, in press (`arXiv/1710.05930 <http://arxiv.org/abs/1710.05930>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to determine the approximate orbit of the star iota Horologii, a planet-hosting suspected former member of the Hyades cluster, to investigate whether it could have coincided with the Hyades cluster in the past.
+#. *Confirming chemical clocks: asteroseismic age dissection of the Milky Way disk(s)*, V. Silva Aguirre, M. Bojsen-Hansen, D. Slumstrup, et al. (2017) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1710.09847 <http://arxiv.org/abs/1710.09847>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to compute the orbits of a sample of 1989 red giants with spectroscopic and asteroseismic data from the APOKASC catalog, to shed light on the properties of stellar populations defined by age and metallicity.
+#. *The universality of the rapid neutron-capture process revealed by a possible disrupted dwarf galaxy star*, Andrew R. Casey & Kevin C. Schlaufman (2017) *Astrophys. J.*, in press (`arXiv/1711.04776 <http://arxiv.org/abs/1711.04776>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit and its uncertainty of 2MASS J151113.24–213003.0, an extremely metal-poor field star with measureable r-process abundances, and of other similar metal-poor stars. The authors find that all of these stars are on highly eccentric orbits, possibly indicating that they originated in dwarf galaxies.
+#. *The Gaia-ESO Survey: Churning through the Milky Way*, M. R. Hayden, A. Recio-Blanco, P. de Laverny, et al. (2017) *Astron. & Astrophys.*, in press (`arXiv/1711.05751 <http://arxiv.org/abs/1711.05751>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to study the orbital characteristics (eccentricity, pericentric radius) of a sample of 2,364 stars observed in the Milky Way as part of the Gaia-ESO survey.
+#. *The Evolution of the Galactic Thick Disk with the LAMOST Survey*, Chengdong Li & Gang Zhao (2017) *Astrophys. J.*, **850**, 25 (`2017ApJ...850...25L <http://adsabs.harvard.edu/abs/2017ApJ...850...25L>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbital characteristics (eccentricity, maximum height above the plane, angular momentum) of a sample of about 2,000 stars in the thicker-disk component of the Milky Way.
+#. *The Orbit and Origin of the Ultra-faint Dwarf Galaxy Segue 1*, T. K. Fritz, M. Lokken, N. Kallivayalil, A. Wetzel, S. T. Linden, P. Zivick, & E. J. Tollerud (2017) *Astrophys. J.*, submitted (`arXiv/1711.09097 <http://arxiv.org/abs/1711.09097>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` and a version of this potential with a more massive dark-matter halo to investigate the orbit and origin of the dwarf-spheroidal galaxy Segue 1 using a newly measured proper motion with SDSS and LBC data.
+#. *Prospects for detection of hypervelocity stars with Gaia*, T. Marchetti, O. Contigiani, E. M. Rossi, J. G. Albert, A. G. A. Brown, & A. Sesana (2017) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1711.11397 <http://arxiv.org/abs/1711.11397>`_):
+     Uses ``galpy.orbit`` integration in a custom Milky-Way-like potential built from ``galpy.potential`` models to create mock catalogs of hypervelocity stars in the Milky Way for different ejection mechanisms and study the prospects of their detection with *Gaia*.
+#. *The AMBRE project: The thick thin disk and thin thick disk of the Milky Way*, Hayden, M. R., Recio-Blanco, A., de Laverny, P., Mikolaitis, S., & Worley, C. C. (2017) *Astron. & Astrophys.*, **608**, L1 (`arXiv/1712.02358 <http://arxiv.org/abs/1712.02358>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 494 nearby stars analyzed as part of the AMBRE project to learn about their distribution within the Milky Way.
+#. *KELT-21b: A Hot Jupiter Transiting the Rapidly-Rotating Metal-Poor Late-A Primary of a Likely Hierarchical Triple System*, Marshall C. Johnson, Joseph E. Rodriguez, George Zhou, et al. (2017) *Astrophys. J.*, submitted (`arXiv/1712.03241 <http://arxiv.org/abs/1712.03241>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the Galactic orbit of KELT-21b, a hot jupiter around a low-metallicity A-type star.
+
 
 Indices and tables
 ==================

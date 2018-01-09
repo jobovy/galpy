@@ -91,8 +91,16 @@ double LogarithmicHaloPotentialPlanarRforce(double ,double, double,
 				    struct potentialArg *);
 double LogarithmicHaloPotentialzforce(double,double,double,double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialphiforce(double,double,double,double,
+					struct potentialArg *);
+double LogarithmicHaloPotentialPlanarphiforce(double,double,double,
+					      struct potentialArg *);
 double LogarithmicHaloPotentialPlanarR2deriv(double ,double, double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialPlanarphi2deriv(double ,double, double,
+					       struct potentialArg *);
+double LogarithmicHaloPotentialPlanarRphideriv(double ,double, double,
+					       struct potentialArg *);
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);
@@ -462,6 +470,17 @@ double CosmphiDiskPotentialphi2deriv(double,double,double,
 					   struct potentialArg *);
 double CosmphiDiskPotentialRphideriv(double,double,double,
 					   struct potentialArg *);
+//HenonHeilesPotential
+double HenonHeilesPotentialRforce(double,double,double,
+				  struct potentialArg *);
+double HenonHeilesPotentialphiforce(double,double,double,
+				    struct potentialArg *);
+double HenonHeilesPotentialR2deriv(double,double,double,
+				   struct potentialArg *);
+double HenonHeilesPotentialphi2deriv(double,double,double,
+				     struct potentialArg *);
+double HenonHeilesPotentialRphideriv(double,double,double,
+				     struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

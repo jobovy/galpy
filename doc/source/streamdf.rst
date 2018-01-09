@@ -161,14 +161,14 @@ Similarly, we can calculate the angle between the frequency vector of
 the progenitor and of the model mean frequency vector
 
 >>> sdf.misalignment()
-# -0.49526013844831596
+# 0.0086441947505973005
 
-which returns this angle in degrees. We can also calculate the angle
+which returns this angle in radians. We can also calculate the angle
 between the frequency vector of the progenitor and the principal
 eigenvector of :math:`\partial \mathbf{\Omega} / \partial \mathbf{J}`
 
 >>> sdf.misalignment(isotropic=True)
-#  1.2825116841963993
+# 0.02238411611147997
 
 (the reason these are obtained by specifying ``isotropic=True`` is
 that these would be the ratio of the eigenvalues or the angle if we

@@ -60,11 +60,11 @@ from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D
 from galpy.util.config import __config__
-try:
-    import seaborn as sns
-except: pass
-else:
-    if __config__.getboolean('plot','seaborn-bovy-defaults'):
+if __config__.getboolean('plot','seaborn-bovy-defaults'):
+    try:
+        import seaborn as sns
+    except: pass
+    else:
         sns.set_style('ticks',
                       {'xtick.direction': u'in',
                        'ytick.direction': u'in',

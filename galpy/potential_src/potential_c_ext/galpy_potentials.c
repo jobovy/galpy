@@ -39,8 +39,11 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
       gsl_interp_accel_free ((potentialArgs+ii)->accxzforce);
     if ( (potentialArgs+ii)->accyzforce )
       gsl_interp_accel_free ((potentialArgs+ii)->accyzforce);
-   if ( (potentialArgs+ii)->wrappedPotentialArg )
+    if ( (potentialArgs+ii)->wrappedPotentialArg ) {
+      free_potentialArgs((potentialArgs+ii)->nwrapped,
+			 (potentialArgs+ii)->wrappedPotentialArg);
       free((potentialArgs+ii)->wrappedPotentialArg);
+    }
     free((potentialArgs+ii)->args);
   }
 }

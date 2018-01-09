@@ -416,19 +416,39 @@ def test_XYZ_to_galcenrect_negXsun():
     assert numpy.fabs(gcXYZ[1]-gcXYZn[1]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
     assert numpy.fabs(gcXYZ[2]-gcXYZn[2]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
 
-def test_galcenrect_to_XYZ():
+def test_galcenrect_to_XYZ_negXsun():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= numpy.array(bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.2))
     XYZn= numpy.array(bovy_coords.galcenrect_to_XYZ(-gcX,gcY,gcZ,Xsun=-1.,Zsun=0.2))
     assert numpy.all(numpy.fabs(XYZ-XYZn) < 10.**-10.), 'galcenrect_to_XYZ conversion did not work as expected for negative Xsun'
     return None
 
-def test_galcenrect_to_XYZ_negXsun():
+def test_galcenrect_to_XYZ():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.)
     assert numpy.fabs(XYZ[0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Also for arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.,Zsun=0.)
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Check 2nd one
+    assert numpy.fabs(XYZ[1,0]-3.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Also for arrays with Xsun/Zsun also arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.*s,Zsun=0.*s)
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    # Check 2nd one
+    assert numpy.fabs(XYZ[1,0]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
     return None
 
 def test_XYZ_to_galcencyl():
@@ -451,6 +471,26 @@ def test_galcencyl_to_XYZ():
     assert numpy.fabs(XYZ[0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also for arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.,Zsun=0.)
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also test the second one
+    assert numpy.fabs(XYZ[1,0]-10.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also for arrays where Xsun/Zsun are also arrays
+    s= numpy.arange(2)+1
+    XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.*s,Zsun=0.*s)
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    # Also test the second one
+    assert numpy.fabs(XYZ[1,0]-18.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
     return None
 
 def test_vxvyvz_to_galcenrect():
@@ -876,6 +916,141 @@ def test_Rz_to_coshucosv():
     coshu,cosv= bovy_coords.Rz_to_coshucosv(R*os,z*os,delta=3.)
     assert numpy.all(numpy.fabs(coshu-5./3.) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
     assert numpy.all(numpy.fabs(cosv-0.5) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
+    return None
+
+def test_uv_to_Rz_oblate():
+    u, v= numpy.arccosh(5./3.), numpy.pi/6.
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=3.,oblate=True)
+    assert numpy.fabs(R-2.5) < 10.**-10., 'uv_to_Rz conversion did not work as expected'
+    assert numpy.fabs(z-2.*numpy.sqrt(3.)) < 10.**-10., 'uv_to_Rz conversion did not work as expected'
+    #Also test for arrays
+    os= numpy.ones(2)
+    R,z= bovy_coords.uv_to_Rz(os*u,os*v,delta=3.,oblate=True)
+    assert numpy.all(numpy.fabs(R-2.5) < 10.**-10.), 'uv_to_Rz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(z-2.*numpy.sqrt(3.)) < 10.**-10.), 'uv_to_Rz conversion did not work as expected'
+    return None
+
+def test_Rz_to_uv_oblate():
+    u, v= numpy.arccosh(5./3.), numpy.pi/6.
+    ut,vt= bovy_coords.Rz_to_uv(*bovy_coords.uv_to_Rz(u,v,
+                                                      delta=3.,oblate=True),
+                                 delta=3.,oblate=True)
+    assert numpy.fabs(ut-u) < 10.**-10., 'Rz_to_uvz conversion did not work as expected'
+    assert numpy.fabs(vt-v) < 10.**-10., 'Rz_to_uv conversion did not work as expected'
+    #Also test for arrays
+    os= numpy.ones(2)
+    ut,vt= bovy_coords.Rz_to_uv(*bovy_coords.uv_to_Rz(u*os,v*os,
+                                                      delta=3.,oblate=True),
+                                 delta=3.,oblate=True)
+    assert numpy.all(numpy.fabs(ut-u) < 10.**-10.), 'Rz_to_uvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vt-v) < 10.**-10.), 'Rz_to_uv conversion did not work as expected'
+    return None
+
+def test_Rz_to_coshucosv_oblate():
+    u, v= numpy.arccosh(5./3.), numpy.pi/3.
+    R,z= bovy_coords.uv_to_Rz(u,v,delta=3.,oblate=True)
+    coshu,cosv= bovy_coords.Rz_to_coshucosv(R,z,delta=3.,oblate=True)
+    assert numpy.fabs(coshu-5./3.) < 10.**-10., 'Rz_to_coshucosv conversion did notwork as expected'
+    assert numpy.fabs(cosv-0.5) < 10.**-10., 'Rz_to_coshucosv conversion did notwork as expected'
+    #Also test for arrays
+    os= numpy.ones(2)
+    coshu,cosv= bovy_coords.Rz_to_coshucosv(R*os,z*os,delta=3.,oblate=True)
+    assert numpy.all(numpy.fabs(coshu-5./3.) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
+    assert numpy.all(numpy.fabs(cosv-0.5) < 10.**-10.), 'Rz_to_coshucosv conversion did notwork as expected'
+    return None
+
+def test_vRvz_to_pupv():
+    # Some sanity checks
+    # At R,z << Delta --> p_u ~ delta vR, p_v ~ -delta vz
+    delta= 0.5
+    R,z= delta/100., delta/300.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[0]-delta*vR) < 10.**-3., 'vRvz_to_pupv at small R,z does not behave as expected'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[1]+delta*vz) < 10.**-3., 'vRvz_to_pupv at small R,z does not behave as expected'
+    # At R,z >> Delta --> p_u ~ r v_r, p_v ~ r v_theta, spherical velocities
+    delta= 0.5
+    R,z= delta*100., delta*300.
+    vR, vz= 0.2,-0.5
+    # Compute spherical velocities
+    r= numpy.sqrt(R**2.+z**2.)
+    costheta= z/r
+    sintheta= R/r
+    vr= vR*sintheta+vz*costheta
+    vt= -vz*sintheta+vR*costheta
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[0]-r*vr) < 10.**-3., 'vRvz_to_pupv at large R,z does not behave as expected'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[1]-r*vt) < 10.**-3., 'vRvz_to_pupv at large R,z does not behave as expected'
+    # Also check that it does not matter whether we give R,z or u,v
+    delta= 0.5
+    R,z= delta*2., delta/3.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[0]-bovy_coords.vRvz_to_pupv(vR,vz,*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta,uv=True)[0]) < 10.**-3., 'vRvz_to_pupv with and without pre-computed u,v do not agree'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)[1]-bovy_coords.vRvz_to_pupv(vR,vz,*bovy_coords.Rz_to_uv(R,z,delta=delta),delta=delta,uv=True)[1]) < 10.**-3., 'vRvz_to_pupv with and without pre-computed u,v do not agree'
+    return None
+
+def test_vRvz_to_pupv_oblate():
+    # Some sanity checks
+    # At R,z << Delta --> p_u ~ delta vz, p_v ~ delta vR
+    delta= 0.5
+    R,z= delta/100., delta/300.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[0]-delta*vz) < 10.**-3., 'vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[1]-delta*vR) < 10.**-3., 'vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates'
+    # At R,z >> Delta --> p_u ~ r v_r, p_v ~ r v_theta, spherical velocities
+    delta= 0.5
+    R,z= delta*100., delta*300.
+    vR, vz= 0.2,-0.5
+    # Compute spherical velocities
+    r= numpy.sqrt(R**2.+z**2.)
+    costheta= z/r
+    sintheta= R/r
+    vr= vR*sintheta+vz*costheta
+    vt= -vz*sintheta+vR*costheta
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[0]-r*vr) < 10.**-3., 'vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[1]-r*vt) < 10.**-3., 'vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates'
+    # Also check that it does not matter whether we give R,z or u,v
+    delta= 0.5
+    R,z= delta*2., delta/3.
+    vR, vz= 0.2,-0.5
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[0]-bovy_coords.vRvz_to_pupv(vR,vz,*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True,uv=True)[0]) < 10.**-3., 'vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates'
+    assert numpy.fabs(bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)[1]-bovy_coords.vRvz_to_pupv(vR,vz,*bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True),delta=delta,oblate=True,uv=True)[1]) < 10.**-3., 'vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates'
+    return None
+
+def test_pupv_to_vRvz():
+    # Test that this is the inverse of vRvz_to_pupv
+    delta= 0.5
+    R,z= delta/2., delta*3.
+    vR, vz= 0.2,-0.5
+    u,v= bovy_coords.Rz_to_uv(R,z,delta=delta)
+    pu,pv= bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    # Another one
+    delta= 1.5
+    R,z= delta*2., -delta/3.
+    vR, vz= -0.2,0.5
+    u,v= bovy_coords.Rz_to_uv(R,z,delta=delta)
+    pu,pv= bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta)
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    return None
+
+def test_pupv_to_vRvz_oblate():
+    # Test that this is the inverse of vRvz_to_pupv
+    delta= 0.5
+    R,z= delta/2., delta*3.
+    vR, vz= 0.2,-0.5
+    u,v= bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True)
+    pu,pv= bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta,oblate=True)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta,oblate=True)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    # Another one
+    delta= 1.5
+    R,z= delta*2., -delta/3.
+    vR, vz= -0.2,0.5
+    u,v= bovy_coords.Rz_to_uv(R,z,delta=delta,oblate=True)
+    pu,pv= bovy_coords.vRvz_to_pupv(vR,vz,R,z,delta=delta,oblate=True)
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta,oblate=True)[0]-vR) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
+    assert numpy.fabs(bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta,oblate=True)[1]-vz) < 1e-8, 'pupv_to_vRvz is not the inverse of vRvz_to_pupv'
     return None
 
 def test_lbd_to_XYZ_jac():

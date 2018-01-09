@@ -133,6 +133,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -154,6 +155,7 @@ def test_forceAsDeriv_potential():
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
     tol['mockInterpRZPotential']= -4.
+    tol['FerrersPotential']= -7.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
@@ -181,9 +183,9 @@ def test_forceAsDeriv_potential():
                     tRforce= potential.evaluateplanarRforces(tp,Rs[ii],
                                                              phi=Zs[jj])
                 else:
-                    mpotderivR= (potential.evaluatePotentials(tp,Rs[ii],Zs[jj],phi=0.)
-                                 -potential.evaluatePotentials(tp,Rs[ii]+dr,Zs[jj],phi=0.))/dr
-                    tRforce= potential.evaluateRforces(tp,Rs[ii],Zs[jj],phi=0.)
+                    mpotderivR= (potential.evaluatePotentials(tp,Rs[ii],Zs[jj],phi=1.)
+                                 -potential.evaluatePotentials(tp,Rs[ii]+dr,Zs[jj],phi=1.))/dr
+                    tRforce= potential.evaluateRforces(tp,Rs[ii],Zs[jj],phi=1.)
                 if tRforce**2. < 10.**ttol:
                     assert mpotderivR**2. < 10.**ttol, \
                         "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
@@ -227,8 +229,8 @@ def test_forceAsDeriv_potential():
                 dz= 10.**-8.
                 newZ= Zs[jj]+dz
                 dz= newZ-Zs[jj] #Representable number
-                mpotderivz= (tp(Rs[ii],Zs[jj])-tp(Rs[ii],Zs[jj]+dz,phi=0.))/dz
-                tzforce= potential.evaluatezforces(tp,Rs[ii],Zs[jj],phi=0.)
+                mpotderivz= (tp(Rs[ii],Zs[jj],phi=1.)-tp(Rs[ii],Zs[jj]+dz,phi=1.))/dz
+                tzforce= potential.evaluatezforces(tp,Rs[ii],Zs[jj],phi=1.)
                 if tzforce**2. < 10.**ttol:
                     assert mpotderivz**2. < 10.**ttol, \
                         "Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
@@ -291,6 +293,7 @@ def test_2ndDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5') 
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -342,8 +345,8 @@ def test_2ndDeriv_potential():
                         tR2deriv= potential.evaluateplanarR2derivs(tp,Rs[ii],
                                                                    phi=Zs[jj])
                     else:
-                        mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii]+dr,Zs[jj]))/dr
-                        tR2deriv= potential.evaluateR2derivs(tp,Rs[ii],Zs[jj],phi=0.)
+                        mRforcederivR= (tp.Rforce(Rs[ii],Zs[jj],phi=1.)-tp.Rforce(Rs[ii]+dr,Zs[jj],phi=1.))/dr
+                        tR2deriv= potential.evaluateR2derivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tR2deriv**2. < 10.**ttol:
                         assert mRforcederivR**2. < 10.**ttol, \
                             "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
@@ -397,7 +400,7 @@ def test_2ndDeriv_potential():
                         if isinstance(tp,potential.planarPotential):
                             raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s Radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
                         else:
-                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -416,8 +419,8 @@ def test_2ndDeriv_potential():
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
-                    mzforcederivz= (tp.zforce(Rs[ii],Zs[jj])-tp.zforce(Rs[ii],Zs[jj]+dz))/dz
-                    tz2deriv= potential.evaluatez2derivs(tp,Rs[ii],Zs[jj],phi=0.)
+                    mzforcederivz= (tp.zforce(Rs[ii],Zs[jj],phi=1.)-tp.zforce(Rs[ii],Zs[jj]+dz,phi=1.))/dz
+                    tz2deriv= potential.evaluatez2derivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tz2deriv**2. < 10.**ttol:
                         assert mzforcederivz**2. < 10.**ttol, \
                             "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
@@ -436,8 +439,8 @@ def test_2ndDeriv_potential():
                     dz= 10.**-8.
                     newz= Zs[jj]+dz
                     dz= newz-Zs[jj] #Representable number
-                    mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj])-tp.Rforce(Rs[ii],Zs[jj]+dz))/dz
-                    tRzderiv= potential.evaluateRzderivs(tp,Rs[ii],Zs[jj],phi=0.)
+                    mRforcederivz= (tp.Rforce(Rs[ii],Zs[jj],phi=1.)-tp.Rforce(Rs[ii],Zs[jj]+dz,phi=1.))/dz
+                    tRzderiv= potential.evaluateRzderivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tRzderiv**2. < 10.**ttol:
                         assert mRforcederivz**2. < 10.**ttol, \
                             "Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
@@ -506,6 +509,7 @@ def test_poisson_potential():
     pots.append('specialSpiralArmsPotential')
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -619,6 +623,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('triaxialLogarithmicHaloPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1918,6 +1923,16 @@ def test_vtermnegl_issue314():
     assert numpy.fabs(rp.vterm(0.5)+rp.vterm(-0.5)) < 10.**-8., 'vterm for negative l does not behave as expected'
     return None
 
+def test_Ferrers_Rzderiv_issue319():
+    # Test that the Rz derivative works for the FerrersPotential (issue 319)
+     fp= potential.FerrersPotential(normalize=1.)
+     from scipy.misc import derivative
+     rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
+     rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
+                                    0.5,dx=10.**-8.)
+     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-8., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
+     return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -2117,7 +2132,8 @@ from galpy.potential import TwoPowerSphericalPotential, \
     MWPotential, FlattenedPowerPotential,MN3ExponentialDiskPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
-    FerrersPotential, DiskSCFPotential, SpiralArmsPotential
+    FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
+    LogarithmicHaloPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -2245,6 +2261,13 @@ class fullyRotatednoGLTriaxialNFWPotential(TriaxialNFWPotential):
                                       zvec=[numpy.sin(0.5),0.,numpy.cos(0.5)],
                                       pa=0.2,glorder=None)
         return None
+class triaxialLogarithmicHaloPotential(LogarithmicHaloPotential):
+    def __init__(self):
+        LogarithmicHaloPotential.__init__(self,normalize=1.,b=0.7,q=0.9,
+                                          core=0.5)
+        return None
+    def OmegaP(self):
+        return 0.
 # Implementations through TwoPowerTriaxialPotential
 class HernquistTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
     def __init__(self):
@@ -2348,7 +2371,7 @@ class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import DehnenBarPotential, CosmphiDiskPotential, \
     EllipticalDiskPotential, SteadyLogSpiralPotential, \
-    TransientLogSpiralPotential
+    TransientLogSpiralPotential, HenonHeilesPotential
 class mockDehnenBarPotentialT1(DehnenBarPotential):
     def __init__(self):
         DehnenBarPotential.__init__(self,omegab=1.9,rb=0.4,
@@ -2805,3 +2828,13 @@ class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
                                           SolidBodyRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential().toPlanar(),omega=1.3)])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+class testorbitHenonHeilesPotential(testplanarMWPotential):
+    # Need this class, bc orbit tests skip potentials that do not have 
+    # .normalize, and HenonHeiles as a non-axi planarPotential instance
+    # does not
+    def __init__(self):
+        testplanarMWPotential.__init__(self,
+                                 potlist=[HenonHeilesPotential(amp=1.)])
+    def OmegaP(self):
+        # Non-axi, so need to set this to zero for Jacobi
+        return 0.

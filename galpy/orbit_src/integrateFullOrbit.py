@@ -49,7 +49,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
     for p in pot:
         if isinstance(p,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.extend([p._amp,p._q,p._core2])
+            if p.isNonAxi:
+                pot_args.extend([p._amp,p._q,p._core2,p._1m1overb2])
+            else:
+                pot_args.extend([p._amp,p._q,p._core2,2.]) # 1m1overb2 > 1: axi
         elif isinstance(p,potential.DehnenBarPotential):
             pot_type.append(1)
             pot_args.extend([p._amp*p._af,p._tform,p._tsteady,p._rb,p._omegab,
@@ -196,7 +199,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._tform,p._tsteady])
@@ -206,7 +209,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             wrap_npot, wrap_pot_type, wrap_pot_args= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])

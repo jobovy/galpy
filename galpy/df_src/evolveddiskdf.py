@@ -482,7 +482,7 @@ class evolveddiskdf(df):
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
     @potential_physical_input
-    @physical_conversion('angle_deg',pop=True)
+    @physical_conversion('angle',pop=True)
     def vertexdev(self,R,t=0.,nsigma=None,deg=False,
                   epsrel=1.e-02,epsabs=1.e-05,phi=0.,
                   grid=None,gridpoints=101,returnGrid=False,
@@ -528,7 +528,7 @@ class evolveddiskdf(df):
 
         OUTPUT:
 
-           vertex deviation in degree
+           vertex deviation in rad
 
         HISTORY:
 
@@ -584,13 +584,13 @@ class evolveddiskdf(df):
                                   nlevels=nlevels,
                                   integrate_method=integrate_method,
                                   use_physical=False)
+        warnings.warn("In versions >1.3, the output unit of evolveddiskdf.vertexdev has been changed to radian (from degree before)",galpyWarning)
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
-            return (-nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG,
-                     grido)
+            return (-nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.,grido)
         else:
-            return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.*_RADTODEG
+            return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
@@ -1156,7 +1156,7 @@ class evolveddiskdf(df):
             return out
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortA(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1323,7 +1323,7 @@ class evolveddiskdf(df):
             return 0.5*(meanvT/R-dmeanvRdphi/R-dmeanvTdR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortB(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1490,7 +1490,7 @@ class evolveddiskdf(df):
             return 0.5*(-meanvT/R+dmeanvRdphi/R-dmeanvTdR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortC(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,
@@ -1657,7 +1657,7 @@ class evolveddiskdf(df):
             return 0.5*(-meanvR/R-dmeanvTdphi/R+dmeanvRdR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortK(self,R,t=0.,nsigma=None,deg=False,phi=0.,
               epsrel=1.e-02,epsabs=1.e-05,
               grid=None,gridpoints=101,returnGrids=False,

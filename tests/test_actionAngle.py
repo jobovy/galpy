@@ -86,6 +86,66 @@ def test_actionAngleIsochrone_linear_angles():
                                         -8.,-8.,-8.)
     return None
 
+#Test that the Kelperian limit of the isochrone actions/angles works
+def test_actionAngleIsochrone_kepler_actions():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=0.)
+    aAI= actionAngleIsochrone(ip=ip)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+    times= numpy.linspace(0.,100.,101)
+    obs.integrate(times,ip,method='dopr54_c')
+    jrs,jps,jzs= aAI(obs.R(times),obs.vR(times),obs.vT(times),
+                     obs.z(times),obs.vz(times),obs.phi(times))
+    jc= ip._amp/numpy.sqrt(-2.*obs.E())
+    L= numpy.sqrt(numpy.sum(obs.L()**2.))
+    # Jr = Jc-L
+    assert numpy.all(numpy.fabs(jrs-(jc-L)) < 10.**-5.), 'Radial action for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(jps-obs.R()*obs.vT()) < 10.**-10.), 'Azimuthal action for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(jzs-(L-numpy.fabs(obs.R()*obs.vT()))) < 10.**-10.), 'Vertical action for the Kepler potential not correct'
+    return None
+
+def test_actionAngleIsochrone_kepler_freqs():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=0.)
+    aAI= actionAngleIsochrone(ip=ip)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+    times= numpy.linspace(0.,100.,101)
+    obs.integrate(times,ip,method='dopr54_c')
+    _, _, _, ors,ops,ozs= aAI.actionsFreqs(obs.R(times),obs.vR(times),
+                                           obs.vT(times),obs.z(times),
+                                           obs.vz(times),obs.phi(times))
+    jc= ip._amp/numpy.sqrt(-2.*obs.E())
+    oc= ip._amp**2./jc**3. # (BT08 eqn. E4)
+    assert numpy.all(numpy.fabs(ors-oc) < 10.**-10.), 'Radial frequency for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(ops-oc) < 10.**-10.), 'Azimuthal frequency for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(ozs-numpy.sign(obs.R()*obs.vT())*oc) < 10.**-10.), 'Vertical frequency for the Kepler potential not correct'
+    return None
+
+def test_actionAngleIsochrone_kepler_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=1.,b=0.)
+    aAI= actionAngleIsochrone(ip=ip)
+    obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
+    times= numpy.linspace(0.,100.,101)
+    obs.integrate(times,ip,method='dopr54_c')
+    _, _, _, _, _, _,ars,aps,azs= \
+        aAI.actionsFreqsAngles(obs.R(times),obs.vR(times),
+                               obs.vT(times),obs.z(times),
+                               obs.vz(times),obs.phi(times))
+    jc= ip._amp/numpy.sqrt(-2.*obs.E())
+    oc= ip._amp**2./jc**3. # (BT08 eqn. E4)
+    # theta_r = Or x times + theta_r,0
+    assert numpy.all(numpy.fabs(ars-oc*times-ars[0]) < 10.**-10.), 'Radial angle for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(aps-oc*times-aps[0]) < 10.**-10.), 'Azimuthal angle for the Kepler potential not correct'
+    assert numpy.all(numpy.fabs(azs-oc*times-azs[0]) < 10.**-10.), 'Vertical angle for the Kepler potential not correct'
+    return None
+
 #Basic sanity checking of the actionAngleSpherical actions
 def test_actionAngleSpherical_basic_actions():
     from galpy.actionAngle import actionAngleSpherical
@@ -917,6 +977,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
     jp= potential.JaffePotential(normalize=1.)
     np= potential.NFWPotential(normalize=1.)
@@ -931,7 +992,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     scfzp = mockSCFZeeuwPotential(); scfzp.normalize(1.); 
     msoftneedlep= mockSphericalSoftenedNeedleBarPotential()
     msmlp= mockSmoothedLogarithmicHaloPotential()
-    pots= [lp,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,msoftneedlep,msmlp]
+    pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
+           msoftneedlep,msmlp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])

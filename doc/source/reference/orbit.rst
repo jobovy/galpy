@@ -20,6 +20,7 @@ Methods
 
    __add__ <orbitadd.rst>
    __call__ <orbitcall.rst>
+   animate <orbitanimate.rst>
    bb <orbitbb.rst>
    dec <orbitdec.rst>
    dist <orbitdist.rst>

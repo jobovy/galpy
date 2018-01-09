@@ -145,8 +145,8 @@ def test_bovy14_freqratio():
 
 def test_bovy14_misalignment():
     #Test the misalignment
-    assert (sdf_bovy14.misalignment()+0.5)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree'
-    assert (sdf_bovy14.misalignment(isotropic=True)-1.3)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree'
+    assert (sdf_bovy14.misalignment()/numpy.pi*180.+0.5)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree'
+    assert (sdf_bovy14.misalignment(isotropic=True)/numpy.pi*180.-1.3)**2. <10.**-2., 'streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree'
     return None
 
 def test_bovy14_track_prog_diff():
@@ -1271,7 +1271,7 @@ def test_fardalpot_trackaa():
                          nTrackChunks=21,
                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
-    assert numpy.fabs(sdf_fardal.misalignment()) > 4., 'misalignment in Fardal test is not large'
+    assert numpy.fabs(sdf_fardal.misalignment()/numpy.pi*180.) > 4., 'misalignment in Fardal test is not large'
     #Now run the test
     aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
     RvR = sdf_fardal._ObsTrack #the track in R,vR,...
@@ -1300,7 +1300,7 @@ def test_fardalwmwpot_trackaa():
                          nTrackChunks=21,
                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
-    assert numpy.fabs(sdf_fardal.misalignment()) > 1., 'misalignment in Fardal test is not large enough'
+    assert numpy.fabs(sdf_fardal.misalignment()/numpy.pi*180.) > 1., 'misalignment in Fardal test is not large enough'
     #Now run the test
     aastream= sdf_fardal._ObsTrackAA #freqs and angles that the track is based on
     RvR = sdf_fardal._ObsTrack #the track in R,vR,...

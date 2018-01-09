@@ -24,6 +24,7 @@ self-explanatory names:
    pmllpmbb_to_pmrapmdec <coordspmllpmbbtopmrapmdec.rst>
    pmrapmdec_to_pmllpmbb <coordspmrapmdectopmllpmbb.rst>
    pmrapmdec_to_custom <coordspmrapmdectocustom.rst>
+   pupv_to_vRvz <coordspupvtovRvz.rst>
    radec_to_lb <coordsradectolb.rst>
    radec_to_custom <coordsradectocustom.rst>
    rectgal_to_sphergal <coordsrectgaltosphergal.rst>
@@ -35,6 +36,7 @@ self-explanatory names:
    sphergal_to_rectgal <coordssphergaltorectgal.rst>
    uv_to_Rz <coordsuvtoRz.rst>
    vrpmllpmbb_to_vxvyvz <coordsvrpmllpmbbtovxvyvz.rst>
+   vRvz_to_pupv <coordsvRvztopupv.rst>
    vxvyvz_to_galcencyl <coordsvxvyvztogalcencyl.rst>
    vxvyvz_to_galcenrect <coordsvxvyvztogalcenrect.rst>
    vxvyvz_to_vrpmllpmbb <coordsvxvyvztovrpmllpmbb.rst>

@@ -61,10 +61,14 @@ def _parse_pot(pot):
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
-        if isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) \
+        if (isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential) 
+            or isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
-            pot_args.extend([p._Pot._amp,p._Pot._core2])
+            if p._Pot.isNonAxi:
+                pot_args.extend([p._Pot._amp,p._Pot._core2,p._Pot._1m1overb2])
+            else:
+                pot_args.extend([p._Pot._amp,p._Pot._core2,2.]) # 1m1overb2 > 1: axi
         elif isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.DehnenBarPotential):
             pot_type.append(1)
@@ -245,6 +249,9 @@ def _parse_pot(pot):
             pot_type.append(28)
             pot_args.extend([p._amp,p._mphio,p._p,p._mphib,p._m,
                              p._rb,p._rbp,p._rb2p,p._r1p])
+        elif isinstance(p,potential.HenonHeilesPotential):
+            pot_type.append(29)
+            pot_args.extend([p._amp])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
@@ -253,7 +260,7 @@ def _parse_pot(pot):
                 p= p._Pot
             pot_type.append(-1)
             # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._tform,p._tsteady])
@@ -264,7 +271,7 @@ def _parse_pot(pot):
                 p= p._Pot
             pot_type.append(-2)
             # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.extend([wrap_npot,len(wrap_pot_args)])
+            pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])

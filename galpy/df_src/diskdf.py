@@ -909,7 +909,7 @@ class diskdf(df):
                                          epsrel=_EPSREL)[0]/sc.pi*norm/2.
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortA(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -959,7 +959,7 @@ class diskdf(df):
         return 0.5*(meanvphi/R-dmeanvRRdphi/R-dmeanvphidR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortB(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1008,7 +1008,7 @@ class diskdf(df):
         return 0.5*(-meanvphi/R+dmeanvRRdphi/R-dmeanvphidR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortC(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1055,7 +1055,7 @@ class diskdf(df):
         return 0.5*(-meanvr/R-dmeanvphiRdphi/R+dmeanvRdR)
 
     @potential_physical_input
-    @physical_conversion('frequency_kmskpc',pop=True)
+    @physical_conversion('frequency-kmskpc',pop=True)
     def oortK(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:

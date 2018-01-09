@@ -2894,9 +2894,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
-           d2= second dimension to plot
+           d2= second dimension to plot; can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -2929,7 +2929,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         INPUT:
 
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
 
            d2= second dimension to plot
 
@@ -3569,6 +3569,49 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                self._orb.vxvv[0],self._orb.vxvv[1],
                                linOrb._orb.vxvv[3]],
                          **orbSetupKwargs)
+
+    def animate(self,*args,**kwargs): #pragma: no cover
+        """
+        NAME:
+
+           animate
+
+        PURPOSE:
+
+           animate a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot; can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           width= (600) width of output div in px
+
+           height= (400) height of output div in px
+
+           xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+           ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+
+        HISTORY:
+
+           2017-09-17-24 - Written - Bovy (UofT)
+
+        """
+        return self._orb.animate(*args,**kwargs)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
