@@ -309,6 +309,27 @@ as well as the vertical frequency
 >>> verticalfreq(MWPotential2014,1.)
 # 2.7255405754769875
 
+We can also for example easily make the diagram of :math:`\Omega-n
+\kappa /m` that is important for understanding kinematic spiral
+density waves. For example, for ``MWPotential2014``
+
+>>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.): # ro,vo for physical units
+        return omegac(pot,Rs,ro=ro,vo=vo)-n/m*epifreq(pot,Rs,ro=ro,vo=vo)
+>>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,0,1))
+>>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,2))
+>>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,1))
+>>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,-2))
+>>> ylim(-20.,100.)
+>>> xlabel(r'$R\,(\mathrm{kpc})$')
+>>> ylabel(r'$(\mathrm{km\,s}^{-1}\,\mathrm{kpc}^{-1})$')
+>>> text(3.,21.,r'$\Omega-\kappa/2$',size=18.)
+>>> text(5.,50.,r'$\Omega$',size=18.)
+>>> text(7.,60.,r'$\Omega+\kappa/2$',size=18.)
+>>> text(6.,-7.,r'$\Omega-\kappa$',size=18.)
+
+which gives
+
+.. image:: images/MWPotential2014-OmegaMinusnKappam.png
 
 For close-to-circular orbits, we can also compute the radii of the
 Lindblad resonances. For example, for a frequency similar to that of
