@@ -522,7 +522,9 @@ class quasiisothermaldf(df):
 
         OPTIONAL INPUT:
 
-           nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
+           nsigma - number of sigma to integrate the vR and vz velocities over (when doing explicit numerical integral; default: 4)
+           
+           vTmax - upper limit for integration over vT (default: 1.5)
 
            mc= if True, calculate using Monte Carlo integration
 
@@ -1706,9 +1708,9 @@ class quasiisothermaldf(df):
 
            ngl - order of Gauss-Legendre integration
 
-           nsigma - limits +/-(nsigma*sigma_z(R)) for integration over vz
+           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_z(R) for integration over vz (default: 4)
 
-           vTmax - upper limit for integration over vT
+           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
 
         OUTPUT:
 
@@ -1765,7 +1767,6 @@ class quasiisothermaldf(df):
                                          log=True,
                                          use_physical=False),
                                     (ngl,ngl))
-            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vTglw*vzglw*vzfac)*vTfac
 
     @actionAngle_physical_input
@@ -1792,7 +1793,7 @@ class quasiisothermaldf(df):
 
            ngl - order of Gauss-Legendre integration
 
-           nsigma - limits +/-(nsigma*sigma(R)) for integration over vz & vR
+           nsigma - sets integration limits to [-1,+1]*nsigma*sigma(R) for integration over vz and vR (default: 4)
 
         OUTPUT:
 
@@ -1801,6 +1802,7 @@ class quasiisothermaldf(df):
         HISTORY:
 
            2012-12-22 - Written - Bovy (IAS)
+           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
 
         """
         sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
@@ -1860,7 +1862,6 @@ class quasiisothermaldf(df):
                                          log=True,
                                          use_physical=False),
                                     (ngl,ngl))
-            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vRglw*vzglw*vRfac*vzfac)
 
     @actionAngle_physical_input
@@ -1892,9 +1893,9 @@ class quasiisothermaldf(df):
 
            ngl - order of Gauss-Legendre integration
 
-           nsigma - limits +/-(nsigma*sigma_z(R)) for integration over vz
+           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_R(R) for integration over vR (default: 4)
 
-           vTmax - upper limit for integration over vT
+           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
 
         OUTPUT:
 
@@ -2011,7 +2012,6 @@ class quasiisothermaldf(df):
                 result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)[0]*vRfac*vTfac
             else:
                 result= numpy.sum(numpy.exp(logqeval)*vTglw*vRglw,axis=1)*vRfac*vTfac
-                #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             if _return_actions and _return_freqs:
                 return (result,
                         jr,lz,jz,
@@ -2050,6 +2050,8 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
+           
+           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_z(R) for integration over vz (default: 4)
 
         OUTPUT:
 
@@ -2057,7 +2059,8 @@ class quasiisothermaldf(df):
 
         HISTORY:
 
-           2013-01-02 - Written - Bovy (IAS)
+           2013-01-02 - Written - Bovy (IAS)           
+           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
         sigmaz1= self._sz*numpy.exp((self._refr-R)/self._hsz)
@@ -2097,7 +2100,6 @@ class quasiisothermaldf(df):
                            z+numpy.zeros(ngl),
                            vzgl,
                            log=True,use_physical=False)
-            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             return numpy.sum(numpy.exp(logqeval)*vzglw*vzfac)
 
     @actionAngle_physical_input
@@ -2125,6 +2127,8 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
+           
+           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_R(R) for integration over vR (default: 4)
 
         OUTPUT:
 
@@ -2132,7 +2136,8 @@ class quasiisothermaldf(df):
 
         HISTORY:
 
-           2012-12-22 - Written - Bovy (IAS)
+           2012-12-22 - Written - Bovy (IAS)           
+           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
         sigmaR1= self._sr*numpy.exp((self._refr-R)/self._hsr)
@@ -2172,8 +2177,6 @@ class quasiisothermaldf(df):
                            z+numpy.zeros(ngl),
                            vz+numpy.zeros(ngl),
                            log=True,use_physical=False)
-            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
             return numpy.sum(numpy.exp(logqeval)*vRglw*vRfac)
 
     @actionAngle_physical_input
@@ -2201,6 +2204,8 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
+           
+           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
 
         OUTPUT:
 
@@ -2209,6 +2214,7 @@ class quasiisothermaldf(df):
         HISTORY:
 
            2013-01-02 - Written - Bovy (IAS)
+           2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
 
         """
         if gl:
@@ -2254,7 +2260,6 @@ class quasiisothermaldf(df):
                                          log=True,
                                          use_physical=False),
                                     (nR,ngl))
-            #Note to Jo: Please check, how and if you want to take care for the integration range!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             out= numpy.sum(numpy.exp(logqeval)*vTglw*vTfac,axis=1)
             if scalarOut: return out[0]
             else: return out
