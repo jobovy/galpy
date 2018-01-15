@@ -14,10 +14,10 @@ from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
     evaluatePotentials, evaluateRforces, toPlanarPotential, \
     OblateStaeckelWrapperPotential
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
-from galpy.actionAngle import actionAngleSpherical
-from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
+from galpy.actionAngle import actionAngleSpherical, actionAngleStaeckel
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 from galpy.actionAngle_src.actionAngleIsochrone import _actionAngleIsochroneHelper
+import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.util import bovy_coords
 _APY_LOADED= True
 try:
@@ -225,14 +225,13 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
 
         """
         if pot is None: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleSphericalInverse")
+            raise IOError("Must specify pot= for actionAngleStaeckelInverse")
         self._pot= pot
         self._E= E
         self._Lz= Lz
         self._Lz2= self._Lz**2.
         self._I3= I3
         self._delta= delta
-        delta2= self._delta**2.
         # Store a staeckelized version of the potential
         # BOVY: NEED TO SET OR DETERMINE u0
         self._staeckelwrappedpot=\
@@ -241,48 +240,48 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
                                            u0=1.)
         # Calculate jr if not given
         if jr is None or umin is None or umax is None or vmin is None \
-                or Omegar is None or Omegaphi is None or Omegaz is None:
-            #NEEDS EDITING
-
-            # Just setup an actionAngleAxi instance for all of this
+                or Omegar is None or Omegaphi is None or Omegaz is None \
+                or dI3dJr is None or dI3dLz is None or dI3dJz is None:
             # Setup the orbit at R_L s.t. R_L vc(R_L) = L
-            rl= optimize.newton(lambda x: x*vcirc(self._pot,x)-L,1.,
-                                lambda x: dvcircdR(self._pot,x)+x)
-            aAS= actionAngleAxi(rl,
-                                numpy.sqrt(2.*(E
-                                               -evaluatePotentials(self._pot,
-                                                                   rl,0.))
-                                           -L2/rl**2.),
-                                L/rl,pot=toPlanarPotential(self._pot))
-            self._jr= aAS.JR()
-            # Assume that the orbit is in the plane unless otherwise specified
-            if jphi is None and jz is None:
-                self._jphi= L
-                self._jz= 0.
-            else:
-                # Should probably check that jphi and jz are consistent with L
-                self._jphi= jphi
-                self._jz= jz
-            self._rperi,self._rap= aAS.calcRapRperi()
-            # Also compute the frequencies, use internal actionAngleSpherical
-            aAS= actionAngleSpherical(pot=self._pot)
-            Rmean= numpy.exp((numpy.log(self._rperi)+numpy.log(self._rap))/2.)
-            self._Omegar= aAS._calc_or(Rmean,self._rperi,self._rap,
-                                       self._E,self._L,False)
-            self._Omegaz= aAS._calc_op(self._Omegar,Rmean,
-                                       self._rperi,self._rap,
-                                       self._E,self._L,False)
-        else:
-            # Store everything
-            self._jr= jr
-            self._jphi= jphi
-            self._jz= jz
-            self._Omegar= Omegar
-            self._Omegaphi= Omegaphi
-            self._Omegaz= Omegaz
-            self._umin= umin
-            self._umax= umax
-            self._vmin= vmin
+            Rl= optimize.newton(lambda x: x*vcirc(self._pot,x)-self._Lz,1.,
+                                lambda x: x*dvcircdR(self._pot,x)\
+                                    +vcirc(self._pot,x))
+            # Now compute pu and pv for (R,z) = (Rl,0)
+            u,v= bovy_coords.Rz_to_uv(Rl,0.,delta=self._delta)
+            pu2= 2.*self._delta**2.*(self._E*numpy.sinh(u)**2.
+                                     -self._staeckelwrappedpot._U(u)-self._I3)\
+                                     -self._Lz2/numpy.sinh(u)**2.
+            pv2= 2.*self._delta**2.*(self._E*numpy.sin(v)**2.
+                                     +self._staeckelwrappedpot._V(v)+self._I3)\
+                                     -self._Lz2/numpy.sin(v)**2.
+            if pu2 < 0.: pu2= 0.
+            if pv2 < 0.: pv2= 0.
+            pu= numpy.sqrt(pu2)
+            pv= numpy.sqrt(pv2)
+            vR,vz= bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=self._delta)
+            # BOVY: SHOULD BE USING staeckelwrapedpot
+            aAS= actionAngleStaeckel(pot=self._pot,
+                                     delta=self._delta,order=100)
+            # BOVY: NEED TO ALLOW ORDER KEYWORD, MAYBE WRITE PROPER INTERFACE?
+            jr,jz,Omegar,Omegaphi,Omegaz,dI3dJr,dI3dLz,dI3dJz,_=\
+                actionAngleStaeckel_c.actionAngleFreqDerivsStaeckel_c(\
+                  self._pot,self._delta,numpy.atleast_1d(Rl),numpy.atleast_1d(vR),numpy.atleast_1d(self._Lz/Rl),numpy.atleast_1d(0.),numpy.atleast_1d(vz))
+            jphi= self._Lz
+            umin, umax, vmin= aAS._uminumaxvmin(Rl,vR,self._Lz/Rl,0.,vz)
+        # Store everything
+        print(jr,jphi,jz,Omegar,Omegaphi,Omegaz,umin,umax,vmin)
+        self._jr= jr
+        self._jphi= jphi
+        self._jz= jz
+        self._Omegar= Omegar
+        self._Omegaphi= Omegaphi
+        self._Omegaz= Omegaz
+        self._dI3dJr= dI3dJr
+        self._dI3dLz= dI3dLz
+        self._dI3dJz= dI3dJz
+        self._umin= umin
+        self._umax= umax
+        self._vmin= vmin
         self._OmegazoverOmegar= self._Omegaz/self._Omegar
         # First need to determine an appropriate IsochronePotential
         ampb= self._Lz2*self._Omegaphi*(self._Omegar-self._Omegaphi)\
@@ -329,7 +328,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
                          sgnu=numpy.sign(self._ugrid),
                          sgnv=numpy.sign(self._vgrid),
                          **kwargs) # BOVY: KWARGS SHOULDN"T BE NECESSARY AT END
-        self._calc_dJAdJ(dI3dJr,dI3dLz,dI3dJz,**kwargs)
+        self._calc_dJAdJ(**kwargs)
         # BOVY: TEMP FOR CALC. OF dJRdBLAHBLAH
         self._Ea, self._La, self._Ra, self._za=\
             _EaLa(numpy.fabs(self._ugrid),numpy.fabs(self._vgrid),
@@ -341,6 +340,8 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         # If input jr and jz are imprecise, there's a mean offset (e.g., 
         # actionAngleStaeckel has default errors of ~ few x 10^-4)
         # Therefore, we correct the input actions
+        print(self._jr-numpy.nanmean(self._jra))
+        print(self._jz-numpy.nanmean(self._jza))
         self._jr-= (self._jr-numpy.nanmean(self._jra)) #nanmean just to be sure
         self._jz-= (self._jz-numpy.nanmean(self._jza)) #nanmean just to be sure
         # Compute Sn and dSn/dJr, remove n=0
@@ -366,7 +367,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         #self._nforSn= self._nforSn[1:]
         return None
 
-    def _calc_dJAdJ(self,dI3dJr,dI3dLz,dI3dJz,**kwargs):
+    def _calc_dJAdJ(self,**kwargs):
         dEAdE= kwargs.get('dEAdE',self._dEAdE)
         dEAdI3= kwargs.get('dEAdI3',self._dEAdI3)
         dEAdLz= kwargs.get('dEAdLz',self._dEAdLz)
@@ -374,15 +375,15 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         dLAdI3= kwargs.get('dLAdI3',self._dLAdI3)
         dLAdLz= kwargs.get('dLAdLz',self._dLAdLz)
         self._dJArdJr= ((dEAdE -self._oza*dLAdE)*self._Omegar
-                       +(dEAdI3-self._oza*dLAdI3)*dI3dJr)/self._ora
+                       +(dEAdI3-self._oza*dLAdI3)*self._dI3dJr)/self._ora
         self._dJArdJz= ((dEAdE -self._oza*dLAdE)*self._Omegaz
-                       +(dEAdI3-self._oza*dLAdI3)*dI3dJz)/self._ora
+                       +(dEAdI3-self._oza*dLAdI3)*self._dI3dJz)/self._ora
         self._dJArdLz= ((dEAdE -self._oza*dLAdE)*self._Omegaphi
-                       +(dEAdI3-self._oza*dLAdI3)*dI3dLz
+                       +(dEAdI3-self._oza*dLAdI3)*self._dI3dLz
                        +(dEAdLz-self._oza*dLAdLz))/self._ora
-        self._dJAzdJr= dLAdE*self._Omegar+dLAdI3*dI3dJr
-        self._dJAzdJz= dLAdE*self._Omegaz+dLAdI3*dI3dJz
-        self._dJAzdLz= dLAdE*self._Omegaphi+dLAdI3*dI3dLz\
+        self._dJAzdJr= dLAdE*self._Omegar+dLAdI3*self._dI3dJr
+        self._dJAzdJz= dLAdE*self._Omegaz+dLAdI3*self._dI3dJz
+        self._dJAzdLz= dLAdE*self._Omegaphi+dLAdI3*self._dI3dLz\
             +dLAdLz-numpy.sign(self._Lz)
         return None
 
@@ -577,9 +578,9 @@ def _anglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
                        -Lz2/numpy.sinh(u)**2.
     pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
-    pu2[pu2 < 0.]= 0.
+    pu2[pu2 < 0.]= 1e-10
     pu= sgnu*numpy.sqrt(pu2)
-    pv2[pv2 < 0.]= 0.
+    pv2[pv2 < 0.]= 1e-10
     pv= sgnv*numpy.sqrt(pv2)
     r= numpy.sqrt(R**2.+z**2.)
     vR,vz= bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)
@@ -597,9 +598,9 @@ def _danglerz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
                        -Lz2/numpy.sinh(u)**2.
     pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
-    pu2[pu2 < 0.]= 0.
+    pu2[pu2 < 0.]= 1e-10
     pu= sgnu*numpy.sqrt(pu2)
-    pv2[pv2 < 0.]= 0.
+    pv2[pv2 < 0.]= 1e-10
     pv= sgnv*numpy.sqrt(pv2)
     r= numpy.sqrt(R**2.+z**2.)
     vR,vz= bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)
@@ -699,9 +700,9 @@ def _dEALAdEI3Lz(u,v,E,Lz2,I3,pot,delta,isoaa_helper,staeckel_wrapper,
                        -Lz2/numpy.sinh(u)**2.
     pv2= 2.*delta**2.*(E*numpy.sin(v)**2.+staeckel_wrapper._V(v)+I3)\
                        -Lz2/numpy.sin(v)**2.
-    pu2[pu2 < 0.]= 0.
+    pu2[pu2 < 0.]= 1e-10
     pu= sgnu*numpy.sqrt(pu2)
-    pv2[pv2 < 0.]= 0.
+    pv2[pv2 < 0.]= 1e-10
     pv= sgnv*numpy.sqrt(pv2)
     r= numpy.sqrt(R**2.+z**2.)
     vR,vz= bovy_coords.pupv_to_vRvz(pu,pv,u,v,delta=delta)
