@@ -684,3 +684,286 @@ class _actionAngleIsochroneHelper(object):
                     /(r/self.b**2./(s-1.)-dcdLfac*dcdLoverdrdL
                       -dedLfac*L2/2./self.amp/c**2.*(1.+2.*self.b/c)*dcdLoverdrdL))
         
+    def dELdEI3Lz_constant_anglerz(self,r,vr2,L2,Lz2,costheta,vrneg,vthetapos,
+                                   R,z,u,v,pu,pv,delta,r2vtheta2,
+                                   dEdu,dEdv,dpudu,dpvdv,dFR,dFz,
+                                   dRdE,dzdE,dRdI3,dzdI3,dRdLz,dzdLz):
+        """Function used in actionAngleStaeckelInverse to determine d(EA,La)/d(E,I3,Lz): derivatives wrt E, I3, and Lz necessary to have constant angler and anglez"""
+        delta2= delta**2.
+        L= nu.sqrt(L2)
+        Lz= nu.sqrt(Lz2)
+        sinhu= nu.sinh(u)
+        coshu= nu.cosh(u)
+        sinv= nu.sin(v)
+        cosv= nu.cos(v)
+        # Following stuff necessary for dLAdX
+        sinh2usin2vinv= 1./(sinhu**2.+sinv**2.)
+        dudR= sinh2usin2vinv/delta*coshu*sinv
+        dudz= sinh2usin2vinv/delta*sinhu*cosv
+        dvdR= dudz
+        dvdz= -dudR
+        dpu2dE= 2.*delta2*sinhu**2.
+        dpv2dE= 2.*delta2*sinv**2.
+        dpu2dI3= -2.*delta2
+        dpv2dI3= 2.*delta2
+        dpu2dLz= -2.*Lz/sinhu**2.
+        dpv2dLz= -2.*Lz/sinv**2.
+        dL2dE_constantuv= 2.*r2vtheta2/(sinv*cosv*pu+sinhu*coshu*pv)\
+            *(sinv*cosv*dpu2dE/pu/2.+sinhu*coshu*dpv2dE/pv/2.)
+        dL2dI3_constantuv= 2.*r2vtheta2/(sinv*cosv*pu+sinhu*coshu*pv)\
+            *(sinv*cosv*dpu2dI3/pu/2.+sinhu*coshu*dpv2dI3/pv/2.)
+        dL2dLz_constantuv= 2.*r2vtheta2/(sinv*cosv*pu+sinhu*coshu*pv)\
+            *(sinv*cosv*dpu2dLz/pu/2.+sinhu*coshu*dpv2dLz/pv/2.)\
+            +2.*Lz*r**2./R**2.
+        dr2du= 2.*delta2*sinhu*coshu
+        dr2dv= -2.*delta2*sinv*cosv
+        dr2vtheta2du= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cosh(2.*u)*pv+sinv*cosv*dpudu)
+                                         -2.*r2vtheta2*sinhu*coshu
+                                             /sinh2usin2vinv)
+        dr2vtheta2dv= 2.*sinh2usin2vinv**2.*((sinv*cosv*pu+sinhu*coshu*pv)
+                                        *(nu.cos(2.*v)*pu+sinhu*coshu*dpvdv)
+                                         -2.*r2vtheta2*sinv*cosv
+                                             /sinh2usin2vinv)
+        dL2du= dr2vtheta2du-2.*Lz2/sinhu**3.*coshu*cosv**2./sinv**2.
+        dL2dv= dr2vtheta2dv-2.*Lz2/sinv**3.*cosv*(1.+1./sinhu**2.)
+        # Need to compute all of the same stuff as to calculate angler
+        E= self._ip(r,0.)+vr2/2.+L2/2./r**2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        coseta[coseta > 1.]= 1.
+        coseta[coseta < -1.]= -1.
+        eta= nu.arccos(coseta)
+        eta[vrneg]= 2.*nu.pi-eta[vrneg]
+        sineta= nu.sin(eta)
+        sineta2= sineta**2.
+        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        # Now back to the derivatives
+        c2= c**2.
+        c2sineta2overbcpbmeccoseta= c2*sineta2/self.b/(c+self.b-e*c*coseta)
+        dcfac_ar= ((c2sineta2overbcpbmeccoseta-c*coseta/e/self.b)\
+                       *L2/(2.*self.amp*c2)*(1.+2.*self.b/c)
+                   +(s-2)/c+e2*c2sineta2overbcpbmeccoseta\
+                       *(1./c-1./(c+self.b)))\
+                  *self.amp/2./E**2.
+        dLAfac_ar= (c2sineta2overbcpbmeccoseta-c*coseta/e/self.b)*(e2-1.)/2./L2
+        dsfac_ar= 1./self.b**2./nu.sqrt(1.+r*r/self.b**2.)
+        # Calculate coefficients from angler equation
+        a11_E= dsfac_ar*R-dcfac_ar*dFR-dLAfac_ar*(dL2du*dudR+dL2dv*dvdR)
+        a12_E= dsfac_ar*z-dcfac_ar*dFz-dLAfac_ar*(dL2du*dudz+dL2dv*dvdz)
+        b11_E= dcfac_ar+dLAfac_ar*dL2dE_constantuv
+        a11_I3= dsfac_ar*R-dcfac_ar*dFR-dLAfac_ar*(dL2du*dudR+dL2dv*dvdR)
+        a12_I3= dsfac_ar*z-dcfac_ar*dFz-dLAfac_ar*(dL2du*dudz+dL2dv*dvdz)
+        b11_I3= dLAfac_ar*dL2dI3_constantuv
+        a11_Lz= dsfac_ar*R-dcfac_ar*dFR-dLAfac_ar*(dL2du*dudR+dL2dv*dvdR)
+        a12_Lz= dsfac_ar*z-dcfac_ar*dFz-dLAfac_ar*(dL2du*dudz+dL2dv*dvdz)
+        b11_Lz= dLAfac_ar*dL2dLz_constantuv
+
+        #print(a11_E*dRdE+a12_E*dzdE-b11_E)
+        #print(nu.amax(nu.fabs(a11_E*dRdE+a12_E*dzdE-b11_E)))
+        #print(a11_I3*dRdI3+a12_I3*dzdI3-b11_I3)
+        #print(nu.amax(nu.fabs(a11_I3*dRdI3+a12_I3*dzdI3-b11_I3)))
+        #print(a11_Lz*dRdLz+a12_Lz*dzdLz-b11_Lz)
+        #print(nu.amax(nu.fabs(a11_Lz*dRdLz+a12_Lz*dzdLz-b11_Lz)))
+
+        # Next, we work on the equation coming from the vertical angle
+        # First need to compute all of the same stuff as to calculate anglez
+        taneta= nu.tan(0.5*eta)
+        atan11prefac= nu.sqrt((1.+e)/(1.-e))
+        atan11= atan11prefac*taneta
+        tan11= nu.arctan(atan11)
+        atan12prefac= nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))
+        atan12= atan12prefac*taneta
+        tan12= nu.arctan(atan12)
+        tan11[tan11 < 0.]+= nu.pi
+        tan12[tan12 < 0.]+= nu.pi
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        cospsi= nu.cos(psi)
+        # Back to derivatives
+        dpsifac_az= -R/r**3./sini/cospsi
+        dpsiL2fac_az= -z/r/sini**3./cospsi/L2
+        oneplus4ampbL2= 1./nu.sqrt(1.+4.*self.amp*self.b/L2)
+        dnotpsiL2fac_az= 2.*self.amp*self.b*(tan12-angler/2.)\
+            /L2**2.*oneplus4ampbL2**3.
+        coseta2= 1./nu.cos(0.5*eta)**2.
+        csinetaovercpbmeccoseta= c*sineta/(c+self.b-e*c*coseta)
+        dnotpsiefac_az= (0.5/(1.+atan11**2.)*\
+            (2./(1.-e)/nu.sqrt(1.-e2)*taneta+atan11prefac*coseta2\
+                 *csinetaovercpbmeccoseta)
+                         +0.5*oneplus4ampbL2/(1.+atan12**2.)*
+                         ((2.+4.*self.b/c)/(1.-e+2.*self.b/c)/
+                          nu.sqrt((1.+2.*self.b/c)**2.-e2)*taneta
+                          +atan12prefac*coseta2*csinetaovercpbmeccoseta))
+        dnotpsicfac_az= (0.5/(1.+atan11**2.)*\
+                             (atan11prefac*coseta2*e*csinetaovercpbmeccoseta
+                              *(1./c-1./(c+self.b)))
+                         +0.5*oneplus4ampbL2/(1.+atan12**2.)*
+                         (4.*e/(1.-e+2.*self.b/c)/
+                          nu.sqrt((1.+2.*self.b/c)**2.-e2)*taneta*self.b/c2
+                          +atan12prefac*coseta2*e*csinetaovercpbmeccoseta
+                          *(1./c-1./(c+self.b))))
+        # Incorporate the part of de that is dc
+        dnotpsicfac_az+= dnotpsiefac_az/2./e*L2/self.amp/c2*(1.+2.*self.b/c)
+        dnotpsicfac_az*= self.amp/2./E**2.
+        # Also incorporate the part of de that is dL
+        dnotpsiL2fac_az+= dnotpsiefac_az*(e2-1.)/L2/2./e
+        # Calculate coefficients from anglez equation
+        a21_E= dnotpsicfac_az*dFR-dpsifac_az*z\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudR+dL2dv*dvdR)
+        a22_E= dnotpsicfac_az*dFz+dpsifac_az*R\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudz+dL2dv*dvdz)
+        b22_E= -dnotpsicfac_az\
+            -(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*dL2dE_constantuv
+        a21_I3= dnotpsicfac_az*dFR-dpsifac_az*z\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudR+dL2dv*dvdR)
+        a22_I3= dnotpsicfac_az*dFz+dpsifac_az*R\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudz+dL2dv*dvdz)
+        b22_I3= -(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*dL2dI3_constantuv
+        a21_Lz= dnotpsicfac_az*dFR-dpsifac_az*z\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudR+dL2dv*dvdR)
+        a22_Lz= dnotpsicfac_az*dFz+dpsifac_az*R\
+            +(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*(dL2du*dudz+dL2dv*dvdz)
+        b22_Lz= -(dnotpsiL2fac_az-0.5*dpsiL2fac_az*Lz2/L2)*dL2dLz_constantuv\
+            -dpsiL2fac_az*Lz
+        #print(a21_E*dRdE+a22_E*dzdE-b22_E)
+        #print(nu.amax(nu.fabs(a21_E*dRdE+a22_E*dzdE-b22_E)))
+        #print(a21_I3*dRdI3+a22_I3*dzdI3-b22_I3)
+        #print(nu.amax(nu.fabs(a21_I3*dRdI3+a22_I3*dzdI3-b22_I3)))
+        #print(a21_Lz*dRdLz+a22_Lz*dzdLz-b22_Lz)
+        #print(nu.amax(nu.fabs(a21_Lz*dRdLz+a22_Lz*dzdLz-b22_Lz)))
+        # Solve linear sets of equations for dRdX and dzdX
+        dEdet= a11_E*a22_E-a12_E*a21_E
+        dRdE= (b11_E*a22_E-b22_E*a12_E)/dEdet
+        dzdE= (b22_E*a11_E-b11_E*a21_E)/dEdet
+        dI3det= a11_I3*a22_I3-a12_I3*a21_I3
+        dRdI3= (b11_I3*a22_I3-b22_I3*a12_I3)/dI3det
+        dzdI3= (b22_I3*a11_I3-b11_I3*a21_I3)/dI3det
+        dLzdet= a11_Lz*a22_Lz-a12_Lz*a21_Lz
+        dRdLz= (b11_Lz*a22_Lz-b22_Lz*a12_Lz)/dLzdet
+        dzdLz= (b22_Lz*a11_Lz-b11_Lz*a21_Lz)/dLzdet
+        # These are the correct expressions
+        return (1.+dFR*dRdE+dFz*dzdE,
+                (dL2du*(dudR*dRdE+dudz*dzdE)+dL2dv*(dvdR*dRdE+dvdz*dzdE)
+                +dL2dE_constantuv)/2./L,
+                dFR*dRdI3+dFz*dzdI3,
+                (dL2du*(dudR*dRdI3+dudz*dzdI3)+dL2dv*(dvdR*dRdI3+dvdz*dzdI3)
+                +dL2dI3_constantuv)/2./L,
+                dFR*dRdLz+dFz*dzdLz,
+                (dL2du*(dudR*dRdLz+dudz*dzdLz)+dL2dv*(dvdR*dRdLz+dvdz*dzdLz)
+                +dL2dLz_constantuv)/2./L)
+
+
+        # Now back to the derivatives
+        dcdu= self.amp/2./E**2.*dEdu
+        dcdv= self.amp/2./E**2.*dEdv
+        dedu= (L2/self.amp/c**2.*(1.+2.*self.b/c)*dcdu+(e2-1.)/L2*dL2du)/2./e
+        dedv= (L2/self.amp/c**2.*(1.+2.*self.b/c)*dcdv+(e2-1.)/L2*dL2dv)/2./e
+        dsdu= dr2du/2./self.b**2./(s-1.)
+        dsdv= dr2dv/2./self.b**2./(s-1.)
+        sineta= nu.sin(eta)
+        detadu= (dsdu-(s-2.)/c*dcdu+c/self.b*coseta*dedu)\
+            /(e*c/self.b*sineta)
+        detadv= (dsdv-(s-2.)/c*dcdv+c/self.b*coseta*dedv)\
+            /(e*c/self.b*sineta)
+        danglerdu= detadu*(1.-e*c/(c+self.b)*coseta)\
+            -sineta/(c+self.b)*(c*dedu+dcdu*e*(1.-c/(c+self.b)))
+        danglerdv= detadv*(1.-e*c/(c+self.b)*coseta)\
+            -sineta/(c+self.b)*(c*dedv+dcdv*e*(1.-c/(c+self.b)))
+        # Next, we work on the derivatives of the vertical angle
+        # First need to compute all of the same stuff as to calculate anglez
+        taneta= nu.tan(0.5*eta)
+        atan11prefac= nu.sqrt((1.+e)/(1.-e))
+        atan11= atan11prefac*taneta
+        tan11= nu.arctan(atan11)
+        atan12prefac= nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))
+        atan12= atan12prefac*taneta
+        tan12= nu.arctan(atan12)
+        tan11[tan11 < 0.]+= nu.pi
+        tan12[tan12 < 0.]+= nu.pi
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        # Back to derivatives
+        dtan11du= 1./(1.+atan11**2.)*(1./atan11prefac/(1.-e)**2.\
+                                          *taneta*dedu
+                                      +nu.sqrt((1.+e)/(1.-e))
+                                      /2./nu.cos(0.5*eta)**2.*detadu)
+        dtan11dv= 1./(1.+atan11**2.)*(1./atan11prefac/(1.-e)**2.\
+                                          *taneta*dedv
+                                      +nu.sqrt((1.+e)/(1.-e))
+                                      /2./nu.cos(0.5*eta)**2.*detadv)
+        cos12eta2= nu.cos(0.5*eta)**2.
+        dtan12du= 1./(1.+atan12**2.)\
+            *(1./atan12prefac/(1.-e+2.*self.b/c)**2.*taneta\
+                  *((1.+2.*self.b/c)*dedu+2.*e*self.b/c**2.*dcdu)
+              +atan12prefac/2./cos12eta2*detadu)
+        dtan12dv= 1./(1.+atan12**2.)\
+            *(1./atan12prefac/(1.-e+2.*self.b/c)**2.*taneta\
+                  *((1.+2.*self.b/c)*dedv+2.*e*self.b/c**2.*dcdv)
+              +atan12prefac/2./cos12eta2*detadv)
+        oneplus4ampbL2= 1./nu.sqrt(1.+4.*self.amp*self.b/L2)
+        dtan12du= 2.*self.amp*self.b/L2**2.*oneplus4ampbL2**3.*dL2du\
+            *(tan12-0.5*angler)+oneplus4ampbL2*dtan12du
+        dtan12dv= 2.*self.amp*self.b/L2**2.*oneplus4ampbL2**3.*dL2dv\
+            *(tan12-0.5*angler)+oneplus4ampbL2*dtan12dv
+        tanpsi= nu.tan(psi)
+        dpsidu= tanpsi*(sinhu/coshu-sinhu*coshu/(sinhu**2.+cosv**2.)
+                        -0.5*dL2du/(L2-Lz2)*Lz2/L2)
+        dpsidv= tanpsi*(-sinv/cosv+sinv*cosv/(sinhu**2.+cosv**2.)
+                        -0.5*dL2dv/(L2-Lz2)*Lz2/L2)
+        danglezdu= dpsidu+0.5*(1.+oneplus4ampbL2)*danglerdu-dtan11du-dtan12du
+        danglezdv= dpsidv+0.5*(1.+oneplus4ampbL2)*danglerdv-dtan11dv-dtan12dv
+
+
+        return 0.
+
+    # BOVY: TEMP FOR DEBUGGING
+    def _psi(self,r,vr2,L2,Lz2,costheta,vrneg,vthetapos):
+        E= self._ip(r,0.)+vr2/2.+L2/2./r**2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        coseta[coseta > 1.]= 1.
+        coseta[coseta < -1.]= -1.
+        eta= nu.arccos(coseta)
+        eta[vrneg]= 2.*nu.pi-eta[vrneg]
+        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        # Now do the vertical angle
+        tan11= nu.arctan(nu.sqrt((1.+e)/(1.-e))*nu.tan(0.5*eta))
+        tan12= nu.arctan(nu.sqrt((1.+e+2.*self.b/c)/(1.-e+2.*self.b/c))*nu.tan(0.5*eta))
+        tan11[tan11 < 0.]+= nu.pi
+        tan12[tan12 < 0.]+= nu.pi
+        sini= nu.sqrt(1.-Lz2/L2) 
+        sini[Lz2/L2 > 1.]= 0.
+        sinpsi= costheta/sini
+        psi= nu.arcsin(sinpsi)
+        psi[vthetapos]= nu.pi-psi[vthetapos]
+        psi[True^nu.isfinite(psi)]= 0.
+        anglez= (psi+0.5*angler\
+            +1./nu.sqrt(1.+4.*self.amp*self.b/L2)*(0.5*angler-tan12)-tan11) \
+            % (2.*nu.pi)
+        angler[E > 0.]= -1.
+        anglez[E > 0.]= -1.
+#        return (anglez-psi) % (2.*nu.pi)
+#        return (psi)
+        return (1./sini)
+
