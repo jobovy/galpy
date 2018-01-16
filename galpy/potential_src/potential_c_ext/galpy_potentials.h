@@ -481,6 +481,15 @@ double HenonHeilesPotentialphi2deriv(double,double,double,
 				     struct potentialArg *);
 double HenonHeilesPotentialRphideriv(double,double,double,
 				     struct potentialArg *);
+//OblateStaeckelWrapperPotential
+double OblateStaeckelWrapperPotentialEval(double,double,double,double,
+					  struct potentialArg *);
+double OblateStaeckelWrapperPotentialRforce(double,double,double,double,
+					    struct potentialArg *);
+double OblateStaeckelWrapperPotentialzforce(double,double,double,double,
+					    struct potentialArg *);
+double OblateStaeckelWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif
