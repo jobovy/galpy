@@ -56,7 +56,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         R0,z0= bovy_coords.uv_to_Rz(self._u0,self._v0,delta=self._delta)
         self._refpot= evaluatePotentials(self._pot,R0,z0)\
             *numpy.cosh(self._u0)**2.
-        self.hasC= False
+        self.hasC= True
         self.hasC_dxdv= False
 
     def _evaluate(self,R,z,phi=0.,t=0.):

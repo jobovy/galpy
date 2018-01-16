@@ -275,6 +275,17 @@ def _parse_pot(pot):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])
+        elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+          and isinstance(p._Pot,potential.OblateStaeckelWrapperPotential)) \
+          or isinstance(p,potential.OblateStaeckelWrapperPotential):
+            if not isinstance(p,potential.OblateStaeckelWrapperPotential):
+                p= p._Pot
+            pot_type.append(-3)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._delta,p._u0,p._v0,p._refpot])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

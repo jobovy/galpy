@@ -260,6 +260,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &SolidBodyRotationWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 3;
       break;
+    case -3: //OblateStaeckelWrapperPotential
+      potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->nargs= (int) 5;
+      break;
     }
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
