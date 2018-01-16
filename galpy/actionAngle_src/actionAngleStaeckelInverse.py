@@ -265,7 +265,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
             # BOVY: NEED TO ALLOW ORDER KEYWORD, MAYBE WRITE PROPER INTERFACE?
             jr,jz,Omegar,Omegaphi,Omegaz,dI3dJr,dI3dLz,dI3dJz,_=\
                 actionAngleStaeckel_c.actionAngleFreqDerivsStaeckel_c(\
-                  self._pot,self._delta,numpy.atleast_1d(Rl),numpy.atleast_1d(vR),numpy.atleast_1d(self._Lz/Rl),numpy.atleast_1d(0.),numpy.atleast_1d(vz))
+                  self._pot,self._delta,numpy.atleast_1d(Rl),numpy.atleast_1d(vR),numpy.atleast_1d(self._Lz/Rl),numpy.atleast_1d(0.),numpy.atleast_1d(vz),order=100)
             jphi= self._Lz
             umin, umax, vmin= aAS._uminumaxvmin(Rl,vR,self._Lz/Rl,0.,vz)
         # Store everything
