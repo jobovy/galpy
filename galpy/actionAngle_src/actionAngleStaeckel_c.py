@@ -580,6 +580,10 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
+    #Parse delta
+    delta= numpy.atleast_1d(delta)
+    ndelta= len(delta)
+
     #Set up result arrays
     jr= numpy.empty(len(R))
     jz= numpy.empty(len(R))
@@ -604,7 +608,8 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_double,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -622,13 +627,15 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
              vT.flags['F_CONTIGUOUS'],
              z.flags['F_CONTIGUOUS'],
              vz.flags['F_CONTIGUOUS'],
-             u0.flags['F_CONTIGUOUS']]
+             u0.flags['F_CONTIGUOUS'],
+             delta.flags['F_CONTIGUOUS']]
     R= numpy.require(R,dtype=numpy.float64,requirements=['C','W'])
     vR= numpy.require(vR,dtype=numpy.float64,requirements=['C','W'])
     vT= numpy.require(vT,dtype=numpy.float64,requirements=['C','W'])
     z= numpy.require(z,dtype=numpy.float64,requirements=['C','W'])
     vz= numpy.require(vz,dtype=numpy.float64,requirements=['C','W'])
     u0= numpy.require(u0,dtype=numpy.float64,requirements=['C','W'])
+    delta= numpy.require(delta,dtype=numpy.float64,requirements=['C','W'])
     jr= numpy.require(jr,dtype=numpy.float64,requirements=['C','W'])
     jz= numpy.require(jz,dtype=numpy.float64,requirements=['C','W'])
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
@@ -650,7 +657,8 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
-                                    ctypes.c_double(delta),
+                                    ctypes.c_int(ndelta),
+                                    delta,
                                     ctypes.c_int(order),
                                     jr,
                                     jz,
@@ -669,6 +677,7 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     if f_cont[3]: z= numpy.asfortranarray(z)
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
+    if f_cont[6]: delta= numpy.asfortranarray(delta)
 
     return (jr,jz,Omegar,Omegaphi,Omegaz,dI3dJr,dI3dLz,dI3dJz,err.value)
 

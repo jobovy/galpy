@@ -107,10 +107,10 @@ void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,double *,int *);
 void actionAngleStaeckel_actionsFreqsDerivs(int,double *,double *,double *,
 					    double *,double *,double *,int,
-					    int *,double *,double,int,double *,
+					    int *,double *,int,double*,int,
 					    double *,double *,double *,
 					    double *,double *,double *,
-					    double *,int *);
+					    double *,double *,int *);
 void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
@@ -968,7 +968,8 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
 					    int npot,
 					    int * pot_type,
 					    double * pot_args,
-					    double delta,
+					    int ndelta,
+					    double * delta,
 					    int order,
 					    double *jr,
 					    double *jz,
@@ -980,6 +981,7 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
 					    double *dI3dJz,
 					    int * err){
   int ii;
+  double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
@@ -990,7 +992,7 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
   //Calculate all necessary parameters
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
-  Rz_to_uv_vec(ndata,R,z,ux,vx,1,&delta);
+  Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );
@@ -1005,53 +1007,55 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
   double *potupi2= (double *) malloc ( ndata * sizeof(double) );
   double *I3U= (double *) malloc ( ndata * sizeof(double) );
   double *I3V= (double *) malloc ( ndata * sizeof(double) );
+  int delta_stride= ndelta == 1 ? 0 : 1;
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
+    tdelta= *(delta+ii*delta_stride);
     *(coshux+ii)= cosh(*(ux+ii));
     *(sinhux+ii)= sinh(*(ux+ii));
     *(cosvx+ii)= cos(*(vx+ii));
     *(sinvx+ii)= sin(*(vx+ii));
-    *(pux+ii)= delta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
+    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
-    *(pvx+ii)= delta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
+    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
     *(v0+ii)= 0.5 * M_PI; //*(vx+ii);
     *(sin2v0+ii)= sin(*(v0+ii)) * sin(*(v0+ii));
-    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),delta,
+    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),*(v0+ii),tdelta,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
-      - 0.5 * *(pux+ii) * *(pux+ii) / delta / delta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta / *(sinhux+ii) / *(sinhux+ii) 
+      - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii) 
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
-      *evaluatePotentialsUV(*(ux+ii),*(v0+ii),delta,
+      *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
 			    npot,actionAngleArgs)
       + ( *(sinh2u0+ii) + *(sin2v0+ii) )* *(potu0v0+ii);
-    *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,delta,
+    *(potupi2+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
 					npot,actionAngleArgs);
     *(I3V+ii)= - *(E+ii) * *(sinvx+ii) * *(sinvx+ii)
-      + 0.5 * *(pvx+ii) * *(pvx+ii) / delta / delta
-      + 0.5 * *(Lz+ii) * *(Lz+ii) / delta / delta / *(sinvx+ii) / *(sinvx+ii)
+      + 0.5 * *(pvx+ii) * *(pvx+ii) / tdelta / tdelta
+      + 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinvx+ii) / *(sinvx+ii)
       - *(cosh2u0+ii) * *(potupi2+ii)
       + ( *(sinh2u0+ii) + *(sinvx+ii) * *(sinvx+ii))
-      * evaluatePotentialsUV(*(u0+ii),*(vx+ii),delta,
+      * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
 			     npot,actionAngleArgs);
   }
   //Calculate 'peri' and 'apo'centers
   double *umin= (double *) malloc ( ndata * sizeof(double) );
   double *umax= (double *) malloc ( ndata * sizeof(double) );
   double *vmin= (double *) malloc ( ndata * sizeof(double) );
-  calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,1,&delta,u0,sinh2u0,v0,sin2v0,
-	       potu0v0,npot,actionAngleArgs);
-  calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,1,&delta,u0,cosh2u0,sinh2u0,potupi2,
+  calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,
+	       sin2v0,potu0v0,npot,actionAngleArgs);
+  calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,
 	   npot,actionAngleArgs);
   //Calculate the actions
-  calcJRStaeckel(ndata,jr,umin,umax,E,Lz,I3U,1,&delta,u0,sinh2u0,v0,sin2v0,
+  calcJRStaeckel(ndata,jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,
 		 potu0v0,npot,actionAngleArgs,order);
-  calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,1,&delta,u0,cosh2u0,sinh2u0,potupi2,
-		 npot,actionAngleArgs,order);
+  calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,
+		 potupi2,npot,actionAngleArgs,order);
   //Calculate the derivatives of the actions wrt the integrals of motion
   double *dJRdE= (double *) malloc ( ndata * sizeof(double) );
   double *dJRdLz= (double *) malloc ( ndata * sizeof(double) );
@@ -1061,10 +1065,10 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
   double *dJzdI3= (double *) malloc ( ndata * sizeof(double) );
   double *detA= (double *) malloc ( ndata * sizeof(double) );
   calcdJRStaeckel(ndata,dJRdE,dJRdLz,dJRdI3,
-		  umin,umax,E,Lz,I3U,1,&delta,u0,sinh2u0,v0,sin2v0,
+		  umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,
 		  potu0v0,npot,actionAngleArgs,order);
   calcdJzStaeckel(ndata,dJzdE,dJzdLz,dJzdI3,
-		  vmin,E,Lz,I3V,1,&delta,u0,cosh2u0,sinh2u0,
+		  vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,
 		  potupi2,npot,actionAngleArgs,order);
   calcFreqsFromDerivsStaeckel(ndata,Omegar,Omegaphi,Omegaz,detA,
 			      dJRdE,dJRdLz,dJRdI3,
