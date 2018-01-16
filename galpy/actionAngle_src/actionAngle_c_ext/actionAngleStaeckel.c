@@ -107,7 +107,7 @@ void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,double *,int *);
 void actionAngleStaeckel_actionsFreqsDerivs(int,double *,double *,double *,
 					    double *,double *,double *,int,
-					    int *,double *,double,double *,
+					    int *,double *,double,int,double *,
 					    double *,double *,double *,
 					    double *,double *,double *,
 					    double *,int *);
@@ -969,6 +969,7 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
 					    int * pot_type,
 					    double * pot_args,
 					    double delta,
+					    int order,
 					    double *jr,
 					    double *jz,
 					    double *Omegar,
@@ -1048,9 +1049,9 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
 	   npot,actionAngleArgs);
   //Calculate the actions
   calcJRStaeckel(ndata,jr,umin,umax,E,Lz,I3U,1,&delta,u0,sinh2u0,v0,sin2v0,
-		 potu0v0,npot,actionAngleArgs,10);
+		 potu0v0,npot,actionAngleArgs,order);
   calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,1,&delta,u0,cosh2u0,sinh2u0,potupi2,
-		 npot,actionAngleArgs,10);
+		 npot,actionAngleArgs,order);
   //Calculate the derivatives of the actions wrt the integrals of motion
   double *dJRdE= (double *) malloc ( ndata * sizeof(double) );
   double *dJRdLz= (double *) malloc ( ndata * sizeof(double) );
@@ -1061,10 +1062,10 @@ void actionAngleStaeckel_actionsFreqsDerivs(int ndata,
   double *detA= (double *) malloc ( ndata * sizeof(double) );
   calcdJRStaeckel(ndata,dJRdE,dJRdLz,dJRdI3,
 		  umin,umax,E,Lz,I3U,1,&delta,u0,sinh2u0,v0,sin2v0,
-		  potu0v0,npot,actionAngleArgs,10);
+		  potu0v0,npot,actionAngleArgs,order);
   calcdJzStaeckel(ndata,dJzdE,dJzdLz,dJzdI3,
 		  vmin,E,Lz,I3V,1,&delta,u0,cosh2u0,sinh2u0,
-		  potupi2,npot,actionAngleArgs,10);
+		  potupi2,npot,actionAngleArgs,order);
   calcFreqsFromDerivsStaeckel(ndata,Omegar,Omegaphi,Omegaz,detA,
 			      dJRdE,dJRdLz,dJRdI3,
 			      dJzdE,dJzdLz,dJzdI3);		      

@@ -464,6 +464,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        pot - Potential or list of such instances
        delta - focal length of prolate spheroidal coordinates
        R, vR, vT, z, vz - coordinates (arrays)
+       u0= (None) if set, u0 to use
     OUTPUT:
        (umin,umax,vmin,err)
        umin,umax,vmin : array, shape (len(R))
@@ -554,7 +555,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
 
     return (umin,umax,vmin,err.value)
 
-def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
+def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     """
     NAME:
        actionAngleFreqDerivsStaeckel_c
@@ -565,6 +566,8 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
        pot - Potential or list of such instances
        delta - focal length of prolate spheroidal coordinates
        R, vR, vT, z, vz - coordinates (arrays)
+       u0= (None) if set, u0 to use
+       order= (10) order of Gauss-Legendre integration of the relevant integrals
     OUTPUT:
        (jr,jz,Omegar,Omegaphi,Omegaz,dI3dJr,dI3dLz,dI3dJz,err)
        jr,jz,Omegar,Omegaphi,Omegaz,dI3dJr,dI3dLz,dI3dJz : array, shape (len(R))
@@ -602,6 +605,7 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -647,6 +651,7 @@ def actionAngleFreqDerivsStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     pot_type,
                                     pot_args,
                                     ctypes.c_double(delta),
+                                    ctypes.c_int(order),
                                     jr,
                                     jz,
                                     Omegar,
