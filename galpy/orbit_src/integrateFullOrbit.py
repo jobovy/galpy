@@ -94,11 +94,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            if potforactions or potfortorus:
-                pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            if not potforactions:
-                pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
-                pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
+            pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
+            pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
+            pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             pot_args.extend([p._amp,int(p._logR)])
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)
