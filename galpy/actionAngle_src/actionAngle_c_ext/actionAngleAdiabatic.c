@@ -16,6 +16,7 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+#include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -101,7 +102,7 @@ void actionAngleAdiabatic_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );

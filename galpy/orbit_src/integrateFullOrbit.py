@@ -94,9 +94,24 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
-            pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
+            if hasattr(p,'_potGrid_splinecoeffs'):
+                pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the potential itself; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpPot=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+            if hasattr(p,'_rforceGrid_splinecoeffs'):
+                pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the Rforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpRforce=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+            if hasattr(p,'_zforceGrid_splinecoeffs'):
+                pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the zforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpzforce=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
             pot_args.extend([p._amp,int(p._logR)])
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)

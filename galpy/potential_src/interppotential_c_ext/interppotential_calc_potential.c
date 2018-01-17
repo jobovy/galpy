@@ -36,7 +36,7 @@ void calc_potential(int nR,
   double * row= (double *) malloc ( nthreads * nz * ( sizeof ( double ) ) );
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,potentialArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
   //Run through the grid and calculate
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
@@ -143,7 +143,7 @@ void eval_potential(int nR,
   int ii;
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,potentialArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
   //Run through and evaluate
   for (ii=0; ii < nR; ii++){
     *(out+ii)= evaluatePotentials(*(R+ii),*(z+ii),npot,potentialArgs);

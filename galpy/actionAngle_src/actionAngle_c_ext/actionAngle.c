@@ -3,6 +3,7 @@
 #include <galpy_potentials.h>
 #include <actionAngle.h>
 #include <cubic_bspline_2d_coeffs.h>
+// JB: bypassed by new parse_leapFuncArgs, which now also assigns PotentialEval
 void parse_actionAngleArgs(int npot,
 			   struct potentialArg * potentialArgs,
 			   int ** pot_type,
