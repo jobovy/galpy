@@ -48,8 +48,8 @@ before_install:
  - export PATH="$HOME/miniconda/bin:$PATH"
  - hash -r
  - conda config --set always_yes yes --set changeps1 no
- - conda update -q conda
- - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip cython>=0.20 pytest
+ - conda update conda
+ - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy<1.14" scipy matplotlib setuptools pip cython>=0.20 pytest
  - source activate test-environment
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
@@ -84,7 +84,7 @@ after_success:
  - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --no-external --output-file coverage_full.info
  - lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info
  # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash); fi
+ - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
