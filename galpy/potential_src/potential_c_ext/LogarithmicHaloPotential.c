@@ -1,7 +1,7 @@
 #include <math.h>
 #include <galpy_potentials.h>
 //LogarithmicHaloPotential
-//3 (2)  arguments: amp, c2, (and q), now also 1-1/b^2 for triaxial!
+//4 (3)  arguments: amp, c2, (and q), now also 1-1/b^2 for triaxial!
 double LogarithmicHaloPotentialEval(double R,double Z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
@@ -42,8 +42,8 @@ double LogarithmicHaloPotentialPlanarRforce(double R,double phi,
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
-  double c= *(args+1);
-  double onem1overb2= *(args+2);
+  double c= *(args+2); // skip q
+  double onem1overb2= *(args+3);
   //Calculate Rforce
   double Rt2;
   if ( onem1overb2 < 1 ) {
@@ -95,8 +95,8 @@ double LogarithmicHaloPotentialPlanarphiforce(double R,double phi,
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
-  double c= *(args+1);
-  double onem1overb2= *(args+2);
+  double c= *(args+2); // skip q
+  double onem1overb2= *(args+3);
   //Calculate phiforce
   double Rt2;
   if ( onem1overb2 < 1 ) {
@@ -111,8 +111,8 @@ double LogarithmicHaloPotentialPlanarR2deriv(double R,double phi,
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
-  double c= *(args+1);
-  double onem1overb2= *(args+2);
+  double c= *(args+2); // skip q
+  double onem1overb2= *(args+3);
   //Calculate Rforce
   double Rt2;
   if ( onem1overb2 < 1 ) {
@@ -127,8 +127,8 @@ double LogarithmicHaloPotentialPlanarphi2deriv(double R,double phi,
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
-  double c= *(args+1);
-  double onem1overb2= *(args+2);
+  double c= *(args+2); // skip q
+  double onem1overb2= *(args+3);
   //Calculate Rforce
   double Rt2;
   if ( onem1overb2 < 1 ) {
@@ -144,8 +144,8 @@ double LogarithmicHaloPotentialPlanarRphideriv(double R,double phi,
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
-  double c= *(args+1);
-  double onem1overb2= *(args+2);
+  double c= *(args+2); // skip q
+  double onem1overb2= *(args+3);
   //Calculate Rforce
   double Rt2;
   if ( onem1overb2 < 1 ) {
