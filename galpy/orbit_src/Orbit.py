@@ -858,7 +858,7 @@ class Orbit(object):
         if not isinstance(out,float) and len(out) == 1: return out[0]
         else: return out
 
-    def e(self,analytic=False,pot=None):
+    def e(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
 
@@ -866,13 +866,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the eccentricity
+           calculate the eccentricity, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
         OUTPUT:
 
@@ -882,9 +894,11 @@ class Orbit(object):
 
            2010-09-15 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
-        return self._orb.e(analytic=analytic,pot=pot)
+        return self._orb.e(analytic=analytic,pot=pot,**kwargs)
 
     def rap(self,analytic=False,pot=None,**kwargs):
         """
@@ -894,13 +908,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the apocenter radius
+           calculate the apocenter radius, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -914,6 +940,8 @@ class Orbit(object):
 
            2010-09-20 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
         return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
@@ -926,13 +954,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the pericenter radius
+           calculate the pericenter radius, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -946,6 +986,8 @@ class Orbit(object):
 
            2010-09-20 - Written - Bovy (NYU)
 
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
+
         """
         _check_consistent_units(self,pot)
         return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
@@ -958,13 +1000,25 @@ class Orbit(object):
 
         PURPOSE:
 
-           calculate the maximum vertical height
+           calculate the maximum vertical height, either numerically from the numerical orbit integration or using analytical means
 
         INPUT:
 
-           analytic - compute this analytically
+           analytic(= False) compute this analytically
 
            pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -977,6 +1031,8 @@ class Orbit(object):
         HISTORY:
 
            2010-09-20 - Written - Bovy (NYU)
+
+           2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
         _check_consistent_units(self,pot)
@@ -1027,7 +1083,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1059,9 +1115,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self(),use_physical=False)[0]
+            return float(self._orb._aA(self(),use_physical=False)[0])
         else:
-            return self._orb._aA(self,use_physical=False)[0]
+            return float(self._orb._aA(self,use_physical=False)[0])
 
     @physical_conversion('action')
     def jp(self,pot=None,**kwargs):
@@ -1078,7 +1134,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1110,9 +1166,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self(),use_physical=False)[1]
+            return float(self._orb._aA(self(),use_physical=False)[1])
         else:
-            return self._orb._aA(self,use_physical=False)[1]
+            return float(self._orb._aA(self,use_physical=False)[1])
 
     @physical_conversion('action')
     def jz(self,pot=None,**kwargs):
@@ -1129,7 +1185,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1161,9 +1217,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA(self(),use_physical=False)[2]
+            return float(self._orb._aA(self(),use_physical=False)[2])
         else:
-            return self._orb._aA(self,use_physical=False)[2]
+            return float(self._orb._aA(self,use_physical=False)[2])
 
     @physical_conversion('angle')
     def wr(self,pot=None,**kwargs):
@@ -1180,7 +1236,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1206,11 +1262,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self(),
-                                                    use_physical=False)[6][0]
+            return float(self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[6][0])
         else:
-            return self._orb._aA.actionsFreqsAngles(self,
-                                                    use_physical=False)[6][0]
+            return float(self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[6][0])
 
     @physical_conversion('angle')
     def wp(self,pot=None,**kwargs):
@@ -1227,7 +1283,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1253,11 +1309,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self(),
-                                                    use_physical=False)[7][0]
+            return float(self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[7][0])
         else:
-            return self._orb._aA.actionsFreqsAngles(self,
-                                                    use_physical=False)[7][0]
+            return float(self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[7][0])
 
     @physical_conversion('angle')
     def wz(self,pot=None,**kwargs):
@@ -1274,7 +1330,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1300,11 +1356,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqsAngles(self(),
-                                                    use_physical=False)[8][0]
+            return float(self._orb._aA.actionsFreqsAngles(self(),
+                                                    use_physical=False)[8][0])
         else:
-            return self._orb._aA.actionsFreqsAngles(self,
-                                                    use_physical=False)[8][0]
+            return float(self._orb._aA.actionsFreqsAngles(self,
+                                                    use_physical=False)[8][0])
 
     @physical_conversion('time')
     def Tr(self,pot=None,**kwargs):
@@ -1321,7 +1377,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1353,11 +1409,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
-                                                       use_physical=False)[3][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[3][0])
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
-                                                       use_physical=False)[3][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[3][0])
 
     @physical_conversion('time')
     def Tp(self,pot=None,**kwargs):
@@ -1374,7 +1430,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1406,11 +1462,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
-                                                       use_physical=False)[4][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[4][0])
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
-                                                       use_physical=False)[4][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[4][0])
 
     def TrTp(self,pot=None,**kwargs):
         """
@@ -1426,7 +1482,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1452,9 +1508,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self())[4][0]/self._orb._aA.actionsFreqs(self())[3][0]*nu.pi
+            return float(self._orb._aA.actionsFreqs(self())[4][0]/self._orb._aA.actionsFreqs(self())[3][0]*nu.pi)
         else:
-            return self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi
+            return float(self._orb._aA.actionsFreqs(self)[4][0]/self._orb._aA.actionsFreqs(self)[3][0]*nu.pi)
  
     @physical_conversion('time')
     def Tz(self,pot=None,**kwargs):
@@ -1471,7 +1527,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1503,11 +1559,11 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self(),
-                                                       use_physical=False)[5][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self(),
+                                                       use_physical=False)[5][0])
         else:
-            return 2.*nu.pi/self._orb._aA.actionsFreqs(self,
-                                                       use_physical=False)[5][0]
+            return float(2.*nu.pi/self._orb._aA.actionsFreqs(self,
+                                                       use_physical=False)[5][0])
 
     @physical_conversion('frequency')
     def Or(self,pot=None,**kwargs):
@@ -1524,7 +1580,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1554,9 +1610,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self(),use_physical=False)[3][0]
+            return float(self._orb._aA.actionsFreqs(self(),use_physical=False)[3][0])
         else:
-            return self._orb._aA.actionsFreqs(self,use_physical=False)[3][0]
+            return float(self._orb._aA.actionsFreqs(self,use_physical=False)[3][0])
 
     @physical_conversion('frequency')
     def Op(self,pot=None,**kwargs):
@@ -1573,7 +1629,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1602,9 +1658,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self(),use_physical=False)[4][0]
+            return float(self._orb._aA.actionsFreqs(self(),use_physical=False)[4][0])
         else:
-            return self._orb._aA.actionsFreqs(self,use_physical=False)[4][0]
+            return float(self._orb._aA.actionsFreqs(self,use_physical=False)[4][0])
 
     @physical_conversion('frequency')
     def Oz(self,pot=None,**kwargs):
@@ -1621,7 +1677,7 @@ class Orbit(object):
 
            pot - potential
 
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1650,9 +1706,9 @@ class Orbit(object):
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
-            return self._orb._aA.actionsFreqs(self(),use_physical=False)[5][0]
+            return float(self._orb._aA.actionsFreqs(self(),use_physical=False)[5][0])
         else:
-            return self._orb._aA.actionsFreqs(self,use_physical=False)[5][0]
+            return float(self._orb._aA.actionsFreqs(self,use_physical=False)[5][0])
 
     def time(self,*args,**kwargs):
         """
