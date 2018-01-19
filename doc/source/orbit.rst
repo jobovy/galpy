@@ -278,6 +278,9 @@ This will create the following animation
 .. raw:: html
    :file: orbitanim.html
 
+.. TIP::
+   There is currently no option to save the animation within ``galpy``, but you could use screen capture software (for example, QuickTime's `Screen Recording <https://support.apple.com/kb/ph5882?locale=en_CA>`__ feature) to record your screen while the animation is running and save it as a video.
+
 ``animate`` has options to specify the width and height of the resulting animation, and it can also animate up to three projections of an orbit at the same time. For example, we can look at the orbit in both (x,y) and (R,z) at the same time with
 
 >>> op.animate(d1=['x','R'],d2=['y','z'],width=800)

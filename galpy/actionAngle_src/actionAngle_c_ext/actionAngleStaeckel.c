@@ -16,6 +16,7 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+#include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -233,7 +234,7 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -416,7 +417,7 @@ void actionAngleStaeckel_actions(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -673,7 +674,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -820,7 +821,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );

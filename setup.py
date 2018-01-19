@@ -115,6 +115,7 @@ if float(gsl_version[0]) >= 1.:
 
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
+                     'galpy/orbit_src/orbit_c_ext',
                      'galpy/potential_src/potential_c_ext']
 
 #actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
@@ -128,8 +129,6 @@ actionAngleTorus_c_src.extend(\
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
-actionAngleTorus_c_src.append(\
-    'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngleTorus_c_src.extend(\
@@ -162,6 +161,7 @@ if single_ext: #add the code and libraries for the other extensions
     #includes
     orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
                                'galpy/util/interp_2d',
+                               'galpy/orbit_src/orbit_c_ext',
                                'galpy/potential_src/potential_c_ext'])
     orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
                                'galpy/util/interp_2d',
@@ -191,8 +191,11 @@ else:
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
-
+actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
+actionAngle_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 actionAngle_include_dirs= ['galpy/actionAngle_src/actionAngle_c_ext',
+                           'galpy/orbit_src/orbit_c_ext',
+                           'galpy/util/',
                            'galpy/util/interp_2d',
                            'galpy/potential_src/potential_c_ext']
 
@@ -218,7 +221,6 @@ else:
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
 interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
-interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
 interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
@@ -320,7 +322,7 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print('\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m')
 print('\033[1m'+'Finished installing galpy'+'\033[0m')
-print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
+print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 50 minutes to run)')
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so (use EXT_SUFFIX for python3 compatibility)
 if PY3:

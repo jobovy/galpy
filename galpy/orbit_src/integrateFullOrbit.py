@@ -94,11 +94,24 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             else:
                 pot_args.extend([p._rgrid[ii] for ii in range(len(p._rgrid))])
             pot_args.extend([p._zgrid[ii] for ii in range(len(p._zgrid))])
-            if potforactions or potfortorus:
+            if hasattr(p,'_potGrid_splinecoeffs'):
                 pot_args.extend([x for x in p._potGrid_splinecoeffs.flatten(order='C')])
-            if not potforactions:
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the potential itself; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpPot=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+            if hasattr(p,'_rforceGrid_splinecoeffs'):
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the Rforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpRforce=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+            if hasattr(p,'_zforceGrid_splinecoeffs'):
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
+            else: # pragma: no cover
+                warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the zforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpzforce=True",
+                      galpyWarning)
+                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
             pot_args.extend([p._amp,int(p._logR)])
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)
@@ -213,6 +226,16 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])
+        elif isinstance(p,potential.OblateStaeckelWrapperPotential):
+            pot_type.append(-3)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._delta,p._u0,p._v0,p._refpot])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
