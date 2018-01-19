@@ -710,7 +710,7 @@ def potential_physical_input(method):
     return wrapper
 def physical_conversion_actionAngle(quantity,pop=False):
     """Decorator to convert to physical coordinates for the actionAngle methods: 
-    quantity= call, actionsFreqs, or actionsFreqsAngles"""
+    quantity= call, actionsFreqs, or actionsFreqsAngles (or EccZmaxRperiRap for actionAngleStaeckel)"""
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
@@ -730,12 +730,12 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and not vo is None and not ro is None:
-                # Always need the action
-                fac= [ro*vo,ro*vo,ro*vo]
-                if _APY_UNITS:
-                    u= [units.kpc*units.km/units.s,
-                        units.kpc*units.km/units.s,
-                        units.kpc*units.km/units.s]
+                if 'call' in quantity or 'actions' in quantity:
+                    fac= [ro*vo,ro*vo,ro*vo]
+                    if _APY_UNITS:
+                        u= [units.kpc*units.km/units.s,
+                            units.kpc*units.km/units.s,
+                            units.kpc*units.km/units.s]
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
                     fac.extend([FreqsFac,FreqsFac,FreqsFac])
@@ -747,6 +747,13 @@ def physical_conversion_actionAngle(quantity,pop=False):
                     if _APY_UNITS:
                         Freqsu= units.Gyr**-1.
                         u.extend([units.rad,units.rad,units.rad])
+                if 'EccZmaxRperiRap' in quantity:
+                    fac= [1.,ro,ro,ro]
+                    if _APY_UNITS:
+                        u= [1.,
+                            units.kpc,
+                            units.kpc,
+                            units.kpc]
                 out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()

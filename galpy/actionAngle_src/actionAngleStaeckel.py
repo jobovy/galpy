@@ -21,7 +21,8 @@ from galpy.potential_src.Potential import _evaluatePotentials, \
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, physical_conversion_actionAngle, \
+    actionAngle_physical_input
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
 from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -47,6 +48,8 @@ class actionAngleStaeckel(actionAngle):
            useu0 - use u0 to calculate dV (NOT recommended)
 
            c= if True, always use C for calculations
+
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
@@ -80,6 +83,7 @@ class actionAngleStaeckel(actionAngle):
             self._c= False
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
+        self._order= kwargs.get('order',10)
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
             self._delta= self._delta.to(units.kpc).value/self._ro
         # Check the units
@@ -89,21 +93,30 @@ class actionAngleStaeckel(actionAngle):
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           _evaluate
+           __call__ (_evaluate)
         PURPOSE:
            evaluate the actions (jr,lz,jz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-            c= True/False; overrides the object's c= keyword to use C or not
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (object-wide default, int) number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals  
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
            (jr,lz,jz)
         HISTORY:
            2012-11-27 - Written - Bovy (IAS)
+           2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -132,14 +145,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, err= actionAngleStaeckel_c.actionAngleStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
             if err == 0:
                 return (jr,Lz,jz)
             else: #pragma: no cover
@@ -160,7 +172,12 @@ class actionAngleStaeckel(actionAngle):
                     elif len(args) == 6:
                         targs= (args[0][ii],args[1][ii],args[2][ii],
                                 args[3][ii],args[4][ii],args[5][ii])
-                    tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
+                    tkwargs= copy.copy(kwargs)
+                    try:
+                        tkwargs['delta']= delta[ii]
+                    except TypeError:
+                        tkwargs['delta']= delta
+                    tjr,tlz,tjz= self(*targs,**tkwargs)
                     ojr[ii]= tjr
                     ojz[ii]= tjz
                     olz[ii]= tlz
@@ -168,7 +185,7 @@ class actionAngleStaeckel(actionAngle):
             else:
                 #Set up the actionAngleStaeckelSingle object
                 aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=self._delta)
+                                                     delta=delta)
                 return (aASingle.JR(**copy.copy(kwargs)),
                         aASingle._R*aASingle._vT,
                         aASingle.Jz(**copy.copy(kwargs)))
@@ -176,20 +193,29 @@ class actionAngleStaeckel(actionAngle):
     def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqs
+           actionsFreqs (_actionsFreqs)
         PURPOSE:
            evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action and frequency integrals
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
+        delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -218,14 +244,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -244,21 +269,29 @@ class actionAngleStaeckel(actionAngle):
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           _actionsFreqsAngles
+           actionsFreqsAngles (_actionsFreqsAngles)
         PURPOSE:
-           evaluate the actions, frequencies, and angles 
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
+           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         INPUT:
            Either:
-              a) R,vR,vT,z,vz,phi (MUST HAVE PHI)
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
+           When not using C:
+              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
+              scipy.integrate.fixed_quad or .quad keywords
         OUTPUT:
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
+        delta= kwargs.pop('delta',self._delta)
+        order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -289,14 +322,13 @@ class actionAngleStaeckel(actionAngle):
                 else:
                     E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
-                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E,Lz,
-                                                                         self._pot,
-                                                                         self._delta)[0]
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
                 kwargs.pop('u0',None)
             else:
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
-                self._pot,self._delta,R,vR,vT,z,vz,phi,u0=u0)
+                self._pot,delta,R,vR,vT,z,vz,phi,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
             indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if nu.sum(indx) > 0:
@@ -311,6 +343,127 @@ class actionAngleStaeckel(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             raise NotImplementedError("actionsFreqs with c=False not implemented")
+
+    def _EccZmaxRperiRap(self,*args,**kwargs):
+        """
+        NAME:
+           EccZmaxRperiRap (_EccZmaxRperiRap)
+        PURPOSE:
+           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz[,phi]:
+                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
+           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
+        OUTPUT:
+           (e,zmax,rperi,rap)
+        HISTORY:
+           2017-12-12 - Written - Bovy (UofT)
+        """
+        delta= kwargs.get('delta',self._delta)
+        umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
+        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=delta)[0]
+        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=delta)
+        rap= nu.sqrt(rap_tmp**2.+zmax**2.)
+        e= (rap-rperi)/(rap+rperi)
+        return (e,zmax,rperi,rap)
+
+    def _uminumaxvmin(self,*args,**kwargs):
+        """
+        NAME:
+           _uminumaxvmin
+        PURPOSE:
+           evaluate u_min, u_max, and v_min
+        INPUT:
+           Either:
+              a) R,vR,vT,z,vz
+              b) Orbit instance: initial condition used if that's it, orbit(t)
+                 if there is a time given as well
+            c= True/False; overrides the object's c= keyword to use C or not
+        OUTPUT:
+           (umin,umax,vmin)
+        HISTORY:
+           2017-12-12 - Written - Bovy (UofT)
+        """
+        delta= kwargs.pop('delta',self._delta)
+        if ((self._c and not ('c' in kwargs and not kwargs['c']))\
+                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                and _check_c(self._pot):
+            if len(args) == 5: #R,vR.vT, z, vz
+                R,vR,vT, z, vz= args
+            elif len(args) == 6: #R,vR.vT, z, vz, phi
+                R,vR,vT, z, vz, phi= args
+            else:
+                self._parse_eval_args(*args)
+                R= self._eval_R
+                vR= self._eval_vR
+                vT= self._eval_vT
+                z= self._eval_z
+                vz= self._eval_vz
+            if isinstance(R,float):
+                R= nu.array([R])
+                vR= nu.array([vR])
+                vT= nu.array([vT])
+                z= nu.array([z])
+                vz= nu.array([vz])
+            Lz= R*vT
+            if self._useu0:
+                #First calculate u0
+                if 'u0' in kwargs:
+                    u0= nu.asarray(kwargs['u0'])
+                else:
+                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                                 +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
+                    u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
+                        E,Lz,self._pot,delta)[0]
+                kwargs.pop('u0',None)
+            else:
+                u0= None
+            umin, umax, vmin, err= \
+                actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(\
+                self._pot,delta,R,vR,vT,z,vz,u0=u0)
+            if err == 0:
+                return (umin,umax,vmin)
+            else: #pragma: no cover
+                raise RuntimeError("C-code for calculation actions failed; try with c=False")
+        else:
+            if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
+                warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
+            kwargs.pop('c',None)
+            if (len(args) == 5 or len(args) == 6) \
+                    and isinstance(args[0],nu.ndarray):
+                oumin= nu.zeros((len(args[0])))
+                oumax= nu.zeros((len(args[0])))
+                ovmin= nu.zeros((len(args[0])))
+                for ii in range(len(args[0])):
+                    if len(args) == 5:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii])
+                    elif len(args) == 6:
+                        targs= (args[0][ii],args[1][ii],args[2][ii],
+                                args[3][ii],args[4][ii],args[5][ii])
+                    tkwargs= copy.copy(kwargs)
+                    try:
+                        tkwargs['delta']= delta[ii]
+                    except TypeError:
+                        tkwargs['delta']= delta
+                    tumin,tumax,tvmin= self._uminumaxvmin(\
+                        *targs,**tkwargs)
+                    oumin[ii]= tumin
+                    oumax[ii]= tumax
+                    ovmin[ii]= tvmin
+                return (oumin,oumax,ovmin)
+            else:
+                #Set up the actionAngleStaeckelSingle object
+                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
+                                                     delta=delta)
+                umin, umax= aASingle.calcUminUmax()
+                vmin= aASingle.calcVmin()
+                return (umin,umax,vmin)
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -471,6 +624,7 @@ class actionAngleStaeckelSingle(actionAngle):
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
         if (umax-umin)/umax < 10.**-6: return nu.array([0.])
+        order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
@@ -481,7 +635,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                             self._u0,self._sinhu0**2.,
                                             self._vx,self._sinvx**2.,
                                             self._potu0v0,self._pot),
-                                      n=10,
+                                      n=order,
                                       **kwargs)[0]
         else:
             self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
@@ -513,6 +667,7 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JZ
         vmin= self.calcVmin()
         if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
+        order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
             self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
@@ -523,7 +678,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                             self._ux,self._coshux**2.,
                                             self._sinhux**2.,
                                             self._potupi2,self._pot),
-                                      n=10,
+                                      n=order,
                                       **kwargs)[0]
         else:
             # factor in next line bc integrand=/2delta^2
@@ -890,7 +1045,7 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def estimateDeltaStaeckel(pot,R,z):
+def estimateDeltaStaeckel(pot,R,z, no_median=False):
     """
     NAME:
        estimateDeltaStaeckel
@@ -899,6 +1054,8 @@ def estimateDeltaStaeckel(pot,R,z):
     INPUT:
        pot - Potential instance or list thereof
        R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
+       no_median - (False) if True, and input is array, return all calculated values of delta (useful for quickly 
+       estimating delta for many phase space points)
     OUTPUT:
        delta
     HISTORY:
@@ -915,7 +1072,8 @@ def estimateDeltaStaeckel(pot,R,z):
                                                              use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
-        delta2= nu.median(delta2[True^nu.isnan(delta2)])
+        if not no_median:
+        	delta2= nu.median(delta2[True^nu.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
                  +(3.*R*_evaluatezforces(pot,R,z)
