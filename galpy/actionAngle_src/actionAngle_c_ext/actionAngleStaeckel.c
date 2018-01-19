@@ -311,7 +311,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
