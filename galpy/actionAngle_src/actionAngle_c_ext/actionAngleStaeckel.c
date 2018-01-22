@@ -166,10 +166,6 @@ double evaluatePotentialsUV(double,double,double,int,struct potentialArg *);
 /*
   Actual functions, inlines first
 */
-inline void uv_to_Rz(double u, double v, double * R, double *z,double delta){
-  *R= delta * sinh(u) * sin(v);
-  *z= delta * cosh(u) * cos(v);
-}
 inline void Rz_to_uv_vec(int ndata,
 			 double *R,
 			 double *z,
@@ -1968,6 +1964,7 @@ double evaluatePotentialsUV(double u, double v, double delta,
 			    int nargs, 
 			    struct potentialArg * actionAngleArgs){
   double R,z;
-  uv_to_Rz(u,v,&R,&z,delta);
+  R= delta * sinh(u) * sin(v);
+  z= delta * cosh(u) * cos(v);
   return evaluatePotentials(R,z,nargs,actionAngleArgs);
 }

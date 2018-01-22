@@ -160,7 +160,6 @@ def test_energy_jacobi_conservation():
             tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
-        print(p)
         tp.normalize(1.)
         if hasattr(tp,'toPlanar'):
             ptp= tp.toPlanar()
