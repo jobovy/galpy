@@ -215,6 +215,46 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 /self._delta**2./prefac**3.
                 -2.*self._zforce(R,z,phi=phi,t=t)/prefac**2.*(-dprefacdu*numpy.sinh(u)*numpy.cos(v)+dprefacdv*numpy.cosh(u)*numpy.sin(v))/self._delta)
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed radial and vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial and vertical derivative
+        HISTORY:
+           2017-01-22 - Written - Bovy (UofT)
+        """
+        u,v= bovy_coords.Rz_to_uv(R,z,delta=self._delta)
+        prefac= _staeckel_prefactor(u,v)
+        dprefacdu, dprefacdv= _dstaeckel_prefactordudv(u,v)
+        d2prefacdu2, d2prefacdv2= _dstaeckel_prefactord2ud2v(u,v)
+        umvfac= (dprefacdu/numpy.tan(v)*R # xs (U-V) in zforce
+                 -dprefacdv*self._delta*numpy.sin(v)*numpy.cosh(u))/prefac
+        U= self._U(u)
+        dUdu= self._dUdu(u)
+        d2Udu2= self._d2Udu2(u)
+        V= self._V(v)
+        dVdv= self._dVdv(v)
+        d2Vdv2= self._d2Vdv2(v)
+        return (((d2Udu2+d2Vdv2)*numpy.cosh(u)*numpy.sin(v)*numpy.cos(v)*numpy.sinh(u)
+                 +dUdu*numpy.sin(v)*numpy.cos(v)
+                 +dVdv*numpy.sinh(u)*numpy.cosh(u)
+                 +((-dUdu*numpy.cosh(u)*numpy.sin(v)
+                     +dVdv*numpy.sinh(u)*numpy.cos(v))/self._delta*umvfac
+                  +(U-V)*((-d2prefacdu2+d2prefacdv2)*numpy.sin(v)*numpy.cosh(u)*numpy.sinh(u)*numpy.cos(v)
+                          -dprefacdu*numpy.sin(v)*numpy.cos(v)
+                          +dprefacdv*numpy.cosh(u)*numpy.sinh(u))/prefac
+                   +(U-V)*umvfac/prefac/self._delta*(dprefacdu*numpy.cosh(u)*numpy.sin(v)+dprefacdv*numpy.sinh(u)*numpy.cos(v))))
+                /self._delta**2./prefac**3.
+                +2.*self._zforce(R,z,phi=phi,t=t)/prefac**2.*(dprefacdu*numpy.cosh(u)*numpy.sin(v)+dprefacdv*numpy.sinh(u)*numpy.cos(v))/self._delta)
+
     def _U(self,u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
         Rz0= bovy_coords.uv_to_Rz(u,self._v0,delta=self._delta)        
