@@ -51,7 +51,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
-    testorbitHenonHeilesPotential
+    testorbitHenonHeilesPotential, \
+    KuzminKutuzovOblateStaeckelWrapperPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -121,6 +122,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('KuzminKutuzovOblateStaeckelWrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -158,6 +160,7 @@ def test_energy_jacobi_conservation():
             tclass= getattr(sys.modules[__name__],p)
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
+        print(p)
         tp.normalize(1.)
         if hasattr(tp,'toPlanar'):
             ptp= tp.toPlanar()

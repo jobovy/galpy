@@ -298,6 +298,8 @@ def test_2ndDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5') 
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('KuzminOblateStaeckelWrapperPotential')
+    pots.append('KuzminKutuzovOblateStaeckelWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -628,6 +630,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('KuzminOblateStaeckelWrapperPotential')
+    pots.append('KuzminKutuzovOblateStaeckelWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
