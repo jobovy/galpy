@@ -9,7 +9,8 @@
 ###############################################################################
 import numpy
 from galpy.potential_src.Potential import evaluatePotentials, \
-    evaluateRforces, evaluatezforces
+    evaluateRforces, evaluatezforces, evaluateR2derivs, evaluateRzderivs, \
+    evaluatez2derivs
 from galpy.potential_src.WrapperPotential import parentWrapperPotential
 from galpy.potential_src.Potential import _APY_LOADED
 from galpy.util import bovy_coords
@@ -144,6 +145,21 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             *(evaluateRforces(self._pot,Rz0[0],Rz0[1])*Rz0[0]/(numpy.tanh(u)+1e-12)
               +evaluatezforces(self._pot,Rz0[0],Rz0[1])*Rz0[1]*numpy.tanh(u))
 
+    def _d2Udu2(self,u):
+        Rz0= bovy_coords.uv_to_Rz(u,self._v0,delta=self._delta)
+        tRforce= evaluateRforces(self._pot,Rz0[0],Rz0[1])
+        tzforce= evaluatezforces(self._pot,Rz0[0],Rz0[1])
+        return 2.*numpy.cosh(2*u)*evaluatePotentials(self._pot,Rz0[0],Rz0[1])\
+            -4.*numpy.cosh(u)*numpy.sinh(u)\
+            *(tRforce*Rz0[0]/(numpy.tanh(u)+1e-12)
+              +tzforce*Rz0[1]*numpy.tanh(u))\
+              -numpy.cosh(u)**2.\
+              *(-evaluateR2derivs(self._pot,Rz0[0],Rz0[1])*Rz0[0]**2./(numpy.tanh(u)+1e-12)**2.
+                 -2.*evaluateRzderivs(self._pot,Rz0[0],Rz0[1])*Rz0[0]*Rz0[1]
+                 +tRforce*Rz0[0]
+                 -evaluatez2derivs(self._pot,Rz0[0],Rz0[1])*Rz0[1]**2.*numpy.tanh(u)**2.
+                 +tzforce*Rz0[1])
+
     def _V(self,v):
         """Approximated 
         V(v) = cosh^2(u0) Phi(u0,pi/2) - (sinh^2(u0)+sin^2(v)) Phi(u0,v)"""
@@ -159,6 +175,22 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             *(evaluateRforces(self._pot,R0z[0],R0z[1])*R0z[0]/numpy.tan(v)
               -evaluatezforces(self._pot,R0z[0],R0z[1])*R0z[1]*numpy.tan(v))
 
+    def _d2Vdv2(self,v):
+        R0z= bovy_coords.uv_to_Rz(self._u0,v,delta=self._delta)        
+        tRforce= evaluateRforces(self._pot,R0z[0],R0z[1])
+        tzforce= evaluatezforces(self._pot,R0z[0],R0z[1])
+        return -2.*numpy.cos(2.*v)\
+            *evaluatePotentials(self._pot,R0z[0],R0z[1])\
+            +2.*numpy.sin(2.*v)\
+            *(tRforce*R0z[0]/numpy.tan(v)
+              -tzforce*R0z[1]*numpy.tan(v))\
+              +_staeckel_prefactor(self._u0,v)\
+              *(-evaluateR2derivs(self._pot,R0z[0],R0z[1])*R0z[0]**2./numpy.tan(v)**2.
+                 +2.*evaluateRzderivs(self._pot,R0z[0],R0z[1])*R0z[0]*R0z[1]
+                 -tRforce*R0z[0]
+                 -evaluatez2derivs(self._pot,R0z[0],R0z[1])*R0z[1]**2.*numpy.tan(v)**2.
+                 -tzforce*R0z[1])
+    
 def _staeckel_prefactor(u,v):
     return numpy.sinh(u)**2.+numpy.sin(v)**2.
 def _dstaeckel_prefactordudv(u,v):
