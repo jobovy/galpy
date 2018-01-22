@@ -165,11 +165,10 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                  -dVdv*numpy.sin(v)*numpy.cos(v)
                  +((-dUdu*numpy.cosh(u)*numpy.sin(v)
                      +dVdv*numpy.sinh(u)*numpy.cos(v))/self._delta*umvfac
-                  +(U-V)*(-(d2prefacdu2*numpy.cosh(u)+dprefacdu*numpy.sinh(u))*
-                     numpy.sin(v)**2.*numpy.cosh(u)
-                     -dprefacdu*z/self._delta*numpy.sinh(u)*numpy.cos(v)
-                     -d2prefacdv2*numpy.tanh(u)*z*numpy.sinh(u)*numpy.cos(v)/self._delta
-                     -dprefacdv/numpy.cosh(u)*numpy.sin(v)*z/self._delta)/prefac
+                  +(U-V)*(-d2prefacdu2*numpy.cosh(u)**2.*numpy.sin(v)**2.
+                           -dprefacdu*numpy.sinh(u)*numpy.cosh(u)
+                           -d2prefacdv2*numpy.sinh(u)**2.*numpy.cos(v)**2.
+                           -dprefacdv*numpy.sin(v)*numpy.cos(v))/prefac
                   +(U-V)*umvfac/prefac/self._delta*(dprefacdu*numpy.cosh(u)*numpy.sin(v)+dprefacdv*numpy.sinh(u)*numpy.cos(v))))
                 /self._delta**2./prefac**3.
                 +2.*self._Rforce(R,z,phi=phi,t=t)/prefac**2.*(dprefacdu*numpy.cosh(u)*numpy.sin(v)+dprefacdv*numpy.sinh(u)*numpy.cos(v))/self._delta)
