@@ -50,7 +50,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         if _APY_LOADED and isinstance(delta,units.Quantity):
             delta= delta.to(units.kpc).value/self._ro
         self._delta= delta
-        if u0 is None:
+        if u0 is None: # pragma: no cover
             raise ValueError('u0= needs to be given to setup OblateStaeckelWrapperPotential')
         self._u0= u0
         self._v0= numpy.pi/2. # so we know when we're using this
