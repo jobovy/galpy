@@ -12,6 +12,7 @@ try:
 except ImportError:
     _APY_LOADED= False
 from galpy import actionAngle
+from galpy.potential import PotentialError
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
@@ -1196,7 +1197,7 @@ class OrbitTop(object):
         else:
             pass #Already set up
 
-    def _setupaA(self,pot=None,type='adiabatic',**kwargs):
+    def _setupaA(self,pot=None,type='staeckel',**kwargs):
         """
         NAME:
            _setupaA
@@ -1204,7 +1205,7 @@ class OrbitTop(object):
            set up an actionAngle module for this Orbit
         INPUT:
            pot - potential
-           type= ('adiabatic') type of actionAngle module to use
+           type= ('staeckel') type of actionAngle module to use
               1) 'adiabatic'
               2) 'staeckel'
               3) 'isochroneApprox'
@@ -1213,6 +1214,7 @@ class OrbitTop(object):
         HISTORY:
            2010-11-30 - Written - Bovy (NYU)
            2013-11-27 - Re-written in terms of new actionAngle modules - Bovy (IAS)
+           2017-12-25 - Changed default method to 'staeckel' and automatic delta estimation - Bovy (UofT)
         """
         if hasattr(self,'_aA'):
             if not self._resetaA(pot=pot,type=type): return None
@@ -1228,8 +1230,25 @@ class OrbitTop(object):
             self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
                                                        **kwargs)
         elif self._aAType.lower() == 'staeckel':
-            self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
-                                                      **kwargs)
+            try:
+                delta= \
+                    kwargs.pop('delta',
+                               actionAngle.estimateDeltaStaeckel(\
+                        self._aAPot,self.R(use_physical=False),
+                        self.z(use_physical=False)+(nu.fabs(self.z(use_physical=False)) < 1e-8) * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10)) # try to make sure this is not 0
+            except PotentialError as e:
+                if 'deriv' in str(e):
+                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly')
+                elif 'non-axi' in str(e):
+                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
+                else: #pragma: no cover
+                    raise
+            if delta < 1e-6:
+                self._setupaA(pot=pot,type='spherical')
+            else:
+                self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
+                                                          delta=delta,
+                                                          **kwargs)
         elif self._aAType.lower() == 'isochroneapprox':
             from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
             self._aA= actionAngleIsochroneApprox(pot=self._aAPot,

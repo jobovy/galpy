@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import os
+import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
@@ -49,6 +50,53 @@ def test_actionAngleIsochrone_basic_freqs():
     assert numpy.fabs((jos[4]-ip.omegac(1.))/ip.omegac(1.)) < 10.**-2., 'Close-to-circular orbit in the isochrone potential does not have Op=Omega at %g%%' % (100.*numpy.fabs((jos[4]-ip.omegac(1.))/ip.omegac(1.)))
     assert numpy.fabs((jos[5]-ip.verticalfreq(1.))/ip.verticalfreq(1.)) < 10.**-2., 'Close-to-circular orbit in the isochrone potential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-ip.verticalfreq(1.))/ip.verticalfreq(1.)))
     return None
+
+# Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
+# by comparing to a numerical orbit integration
+def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=1.2)
+    aAI= actionAngleIsochrone(ip=ip)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o)
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-5, 'Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    # Another one
+    o= Orbit([1.,0.1,1.1,0.2,-0.3,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),
+                                               o.z(),o.vz(),o.phi())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-3, 'Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    return None
+    
+# Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
+# by comparing to a numerical orbit integration for a Kepler potential
+def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
+    from galpy.potential import IsochronePotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleIsochrone
+    ip= IsochronePotential(normalize=1.,b=0)
+    aAI= actionAngleIsochrone(ip=ip)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAI.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),o.z(),o.vz())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,ip)
+    assert numpy.fabs(ecc-o.e()) < 1e-10, 'Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential'
+    # Don't do zmax, because zmax for Kepler is approximate
+    assert numpy.fabs(rperi-o.rperi()) < 1e-10, 'Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential'
+    assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
+    return None
+
 
 #Test the actions of an actionAngleIsochrone
 def test_actionAngleIsochrone_conserved_actions():
@@ -200,6 +248,34 @@ def test_actionAngleSpherical_basic_freqsAngles():
     assert numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)) < 10.**-1.9, 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%' % (100.*numpy.fabs((jos[5]-lp.verticalfreq(1.))/lp.verticalfreq(1.)))
     return None
 
+# Test that EccZmaxRperiRap for a spherical potential are correctly computed
+# by comparing to a numerical orbit integration
+def test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleSpherical
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    aAS= actionAngleSpherical(pot=lp)
+    o= Orbit([1.,0.1,1.1,0.2,0.03,0.])
+    ecc, zmax, rperi, rap= aAS.EccZmaxRperiRap(o)
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,lp)
+    assert numpy.fabs(ecc-o.e()) < 1e-9, 'Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-4, 'Analytically calculated zmax does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-8, 'Analytically calculated rperi does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rap-o.rap()) < 1e-8, 'Analytically calculated rap does not agree with numerically calculated one for a spherical potential'
+    # Another one
+    o= Orbit([1.,0.1,1.1,0.2,-0.3,0.])
+    ecc, zmax, rperi, rap= aAS.EccZmaxRperiRap(o.R(),o.vR(),o.vT(),
+                                               o.z(),o.vz())
+    ts= numpy.linspace(0.,100.,100001)
+    o.integrate(ts,lp)
+    assert numpy.fabs(ecc-o.e()) < 1e-9, 'Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(zmax-o.zmax()) < 1e-3, 'Analytically calculated zmax does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rperi-o.rperi()) < 1e-8, 'Analytically calculated rperi does not agree with numerically calculated one for a spherical potential'
+    assert numpy.fabs(rap-o.rap()) < 1e-8, 'Analytically calculated rap does not agree with numerically calculated one for a spherical potential'
+    return None
+
 #Test the actions of an actionAngleSpherical
 def test_actionAngleSpherical_conserved_actions():
     from galpy import potential
@@ -280,6 +356,19 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
                                         fixed_quad=True)
     return None
   
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleSpherical
+def test_actionAngleSpherical_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import NFWPotential
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    np= NFWPotential(normalize=1.,a=2.)
+    aAS= actionAngleSpherical(pot=np)
+    obs= Orbit([1.1,0.2, 1.3, 0.1,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,np,
+                                                -1.1,-0.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
+    return None
+
 #Test the actionAngleSpherical against an isochrone potential: actions
 def test_actionAngleSpherical_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -461,6 +550,69 @@ def test_actionAngleAdiabatic_zerolz_actions_c():
     assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
     return None
 
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MiyamotoNagaiPotential
+    mp= MiyamotoNagaiPotential(normalize=1.,a=1.5,b=0.3)
+    aAA= actionAngleAdiabatic(pot=mp,gamma=0.,c=False)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
+def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.,c=True)
+    #circular orbit
+    R,vR,vT,z,vz,phi= 1.,0.,1.,0.,0.,2.
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz,phi]))
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz,phi= 1.01,0.01,1.,0.01,0.01,2.
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz,phi)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
 #Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions():
     from galpy.potential import MWPotential
@@ -522,6 +674,56 @@ def test_actionAngleAdiabatic_conserved_actions_interppot_c():
     aAA= actionAngleAdiabatic(pot=ip,c=True)
     check_actionAngle_conserved_actions(aAA,obs,ip,
                                         -1.4,-8.,-1.7,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=False,gamma=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,0.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    aAA= actionAngleAdiabatic(pot=MWPotential,c=False,gamma=1.)
+    obs= Orbit([1.1,0.2, 1.3, 0.1,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -1.1,-0.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_singlepot_c():
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    mp= MiyamotoNagaiPotential(normalize=1.)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=mp,c=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,mp,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_EccZmaxRperiRa_interppot_c():
+    from galpy.potential import MWPotential, interpRZPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleAdiabatic(pot=ip,c=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,ip,
+                                                -1.7,-1.4,-2.,-2.,ntimes=101)
     return None
 
 #Test the actionAngleAdiabatic against an isochrone potential: actions
@@ -775,6 +977,37 @@ def test_actionAngleStaeckel_zerolz_actions_c():
     assert numpy.fabs(js[0]-js2[0]) < 10.**-6., 'Orbit with zero angular momentum does not have the correct Jr'
     return None
 
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_actions_order():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=False)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt= aAS(o,order=10000,fixed_quad=True)
+    jr1,jp1,jz1= aAS(o,order=5,fixed_quad=True)
+    jr2,jp2,jz2= aAS(o,order=50,fixed_quad=True)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
+def test_actionAngleStaeckel_actions_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt= aAS(o,order=10000)
+    jr1,jp1,jz1= aAS(o,order=5)
+    jr2,jp2,jz2= aAS(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel frequencies
 def test_actionAngleStaeckel_basic_freqs_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -868,6 +1101,25 @@ def test_actionAngleStaeckel_unboundr_freqs_c():
     assert js[5] > 1000., 'Unbound in R orbit in the MWPotential does not have large Oz'
     return None
 
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_freqs_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt,ort,opt,ozt= aAS.actionsFreqs(o,order=10000)
+    jr1,jp1,jz1,or1,op1,oz1= aAS.actionsFreqs(o,order=5)
+    jr2,jp2,jz2,or2,op2,oz2= aAS.actionsFreqs(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(or1-ort) > numpy.fabs(or2-ort), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(op1-opt) > numpy.fabs(op2-opt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(oz1-ozt) > numpy.fabs(oz2-ozt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
 #Basic sanity checking of the actionAngleStaeckel actions, unbound
 def test_actionAngleStaeckel_unboundr_angles_c():
     from galpy.actionAngle import actionAngleStaeckel
@@ -892,6 +1144,309 @@ def test_actionAngleStaeckel_circular_angles_c():
     js= aAS.actionsFreqsAngles(R,vR,vT,z,vz,phi)
     assert numpy.fabs(js[6]) < 10.**-8., 'Circular orbit does not have zero angles'
     assert numpy.fabs(js[8]) < 10.**-8., 'Circular orbit does not have zero angles'
+    return None
+
+# Check that precision increases with increasing Gauss-Legendre order
+def test_actionAngleStaeckel_angles_order_c():
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    kksp= KuzminKutuzovStaeckelPotential(normalize=1.,ac=4.,Delta=1.4)
+    o= Orbit([1.,0.5,1.1,0.2,-0.3,0.4])
+    aAS= actionAngleStaeckel(pot=kksp,delta=kksp._Delta,c=True)
+    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    jrt,jpt,jzt,ort,opt,ozt,art,apt,azt= aAS.actionsFreqsAngles(o,order=10000)
+    jr1,jp1,jz1,or1,op1,oz1,ar1,ap1,az1= aAS.actionsFreqsAngles(o,order=5)
+    jr2,jp2,jz2,or2,op2,oz2,ar2,ap2,az2= aAS.actionsFreqsAngles(o,order=50)
+    assert numpy.fabs(jr1-jrt) > numpy.fabs(jr2-jrt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(jz1-jzt) > numpy.fabs(jz2-jzt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(or1-ort) > numpy.fabs(or2-ort), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(op1-opt) > numpy.fabs(op2-opt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(oz1-ozt) > numpy.fabs(oz2-ozt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(ar1-art) > numpy.fabs(ar2-art), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(ap1-apt) > numpy.fabs(ap2-apt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    assert numpy.fabs(az1-azt) > numpy.fabs(az2-azt), 'Accuracy of actionAngleStaeckel does not increase with increasing order of integration'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
+def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
+    print("Should be here")
+    te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Test that using different delta for different phase-space points works
+def test_actionAngleStaeckel_indivdelta_actions():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=False)
+    jr0,jp0,jz0= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=False)
+    jr1,jp1,jz1= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+    
+# Test that no_median option for estimateDeltaStaeckel returns the same results as when
+# individual values are calculated separately
+def test_estimateDeltaStaeckel_no_median():
+	from galpy.potential import MWPotential2014
+	from galpy.orbit import Orbit
+	from galpy.actionAngle import estimateDeltaStaeckel
+	# Briefly integrate orbit to get multiple points
+	o= Orbit([1.,0.1,1.1,0.001,0.25,1.])
+	ts= numpy.linspace(0.,1.,101)
+	o.integrate(ts,MWPotential2014)
+	#generate no_median deltas
+	nomed = estimateDeltaStaeckel(MWPotential2014, o.R(ts[:10]), o.z(ts[:10]), no_median=True)
+	#and the individual ones
+	indiv = numpy.array([estimateDeltaStaeckel(MWPotential2014, o.R(ts[i]), o.z(ts[i])) for i in range(10)])
+	#check that values agree
+	assert (numpy.fabs(nomed-indiv) < 1e-10).all(), 'no_median option returns different values to individual Delta estimation'
+	return None
+
+def test_actionAngleStaeckel_indivdelta_actions_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi= aAS(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                     o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_freqs_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0,or0,op0,oz0= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1,or1,op1,oz1= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi,ori,opi,ozi= aAS.actionsFreqs(o.R(ts[:2]),o.vR(ts[:2]),
+                                              o.vT(ts[:2]),o.z(ts[:2]),
+                                              o.vz(ts[:2]),o.phi(ts[:2]),
+                                              delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or0[0]-ori[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or1[1]-ori[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op0[0]-opi[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op1[1]-opi[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz0[0]-ozi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz1[1]-ozi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_angles_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # actions with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    jr0,jp0,jz0,or0,op0,oz0,ar0,ap0,az0=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    jr1,jp1,jz1,or1,op1,oz1,ar1,ap1,az1=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]))
+    # actions with individual delta
+    jri,jpi,jzi,ori,opi,ozi,ari,api,azi=\
+        aAS.actionsFreqsAngles(o.R(ts[:2]),o.vR(ts[:2]),
+                               o.vT(ts[:2]),o.z(ts[:2]),
+                               o.vz(ts[:2]),o.phi(ts[:2]),
+                               delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(jr0[0]-jri[0]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jr1[1]-jri[1]) < 1e-10, 'Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz0[0]-jzi[0]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(jz1[1]-jzi[1]) < 1e-10, 'Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or0[0]-ori[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(or1[1]-ori[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op0[0]-opi[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(op1[1]-opi[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz0[0]-ozi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(oz1[1]-ozi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ar0[0]-ari[0]) < 1e-10, 'Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ar1[1]-ari[1]) < 1e-10, 'Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ap0[0]-api[0]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ap1[1]-api[1]) < 1e-10, 'Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(az0[0]-azi[0]) < 1e-10, 'Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(az1[1]-azi[1]) < 1e-10, 'Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=False)
+    e0,z0,rp0,ra0= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=False)
+    e1,z1,rp1,ra1= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    ei,zi,rpi,rai= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(e0[0]-ei[0]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(e1[1]-ei[1]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z0[0]-zi[0]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z1[1]-zi[1]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp0[0]-rpi[0]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp1[1]-rpi[1]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra0[0]-rai[0]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra1[1]-rai[1]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    return None
+
+def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    # Briefly integrate orbit to get multiple points
+    o= Orbit([1.,0.1,1.1,0.,0.25,1.])
+    ts= numpy.linspace(0.,1.,101)
+    o.integrate(ts,MWPotential2014)
+    deltas= [0.2,0.4]
+    # with one delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[0],c=True)
+    e0,z0,rp0,ra0= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with another delta
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=deltas[1],c=True)
+    e1,z1,rp1,ra1= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]))
+    # actions with individual delta
+    ei,zi,rpi,rai= aAS.EccZmaxRperiRap(o.R(ts[:2]),o.vR(ts[:2]),o.vT(ts[:2]),
+                                       o.z(ts[:2]),o.vz(ts[:2]),delta=deltas)
+    # Check that they agree as expected
+    assert numpy.fabs(e0[0]-ei[0]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(e1[1]-ei[1]) < 1e-10, 'Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z0[0]-zi[0]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(z1[1]-zi[1]) < 1e-10, 'Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp0[0]-rpi[0]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(rp1[1]-rpi[1]) < 1e-10, 'Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra0[0]-rai[0]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
+    assert numpy.fabs(ra1[1]-rai[1]) < 1e-10, 'Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default'
     return None
 
 #Test the actions of an actionAngleStaeckel
@@ -1076,6 +1631,61 @@ def test_actionAngleStaeckel_linear_angles_u0():
                                     ntimes=1001,u0=1.23) #need fine sampling for de-period
     return None
 
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,0.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
+    obs= Orbit([1.1,0.2, 1.3, 0.3,0.,2.])
+    check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,MWPotential,
+                                                -1.8,-1.4,-1.8,-1.8,ntimes=101,
+                                                inclphi=True)
+    return None
+
+#Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
+def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
+        FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
+        TriaxialHernquistPotential, TriaxialJaffePotential, \
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.orbit_src.FullOrbit import ext_loaded
+    ip= interpRZPotential(RZPot=MWPotential,
+                          rgrid=(numpy.log(0.01),numpy.log(20.),101),
+                          zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
+                          interpPot=True,interpRforce=True,interpzforce=True)
+    pots= [MWPotential,
+           DoubleExponentialDiskPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.),
+           FlattenedPowerPotential(normalize=1.,alpha=0.),
+           KuzminDiskPotential(normalize=1.,a=1./8.),
+           TriaxialHernquistPotential(normalize=1.,c=0.2,pa=1.1), # tests rot, but not well
+           TriaxialNFWPotential(normalize=1.,c=0.3,pa=1.1),
+           TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
+           SCFPotential(normalize=1.),
+           DiskSCFPotential(normalize=1.),
+           ip]
+    for pot in pots:
+        aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
+        obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+        check_actionAngle_conserved_EccZmaxRperiRap(aAS,obs,pot,
+                                                    -1.8,-1.3,-1.8,-1.8,
+                                                    ntimes=101)
+    return None
+
 #Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
@@ -1174,25 +1784,35 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     assert daz < 10.**-4., 'actionAngleStaeckel applied to isochrone potential fails for az at %g%%' % (daz*100.)
     return None
 
-#Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved, bc takes a lot of time)
+#Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved and ecc etc., bc takes a lot of time)
 def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False,nLz=20)
+    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=False,nLz=20,
+                                 interpecc=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     assert numpy.fabs(aAA.JR(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(aAA.Jz(R,vR,vT,z,vz,0.)) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
     js= aAA(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the MWPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-3., 'Close-to-circular orbit in the MWPotential does not have small Jz'
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
     #Check that actions are conserved along the orbit
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.])
     check_actionAngle_conserved_actions(aAA,obs,MWPotential,
                                         -1.2,-8.,-1.7,ntimes=101)
+    # and the eccentricity etc.
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101)
     return None
 
 #Basic sanity checking of the actionAngleStaeckel actions
@@ -1261,6 +1881,53 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
     #Lz and Jz are easy, because ip is a spherical potential
     assert dlz < 10.**-10., 'actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%' % (dlz*100.)
     assert djz < 10.**-1.2, 'actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%' % (djz*100.)
+    return None
+
+#Basic sanity checking of the actionAngleStaeckelGrid eccentricity etc.
+def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.potential import MWPotential, interpRZPotential
+    from galpy.orbit import Orbit
+    rzpot= interpRZPotential(RZPot=MWPotential,
+                             rgrid=(numpy.log(0.01),numpy.log(20.),201),
+                             logR=True,
+                             zgrid=(0.,1.,101),
+                             interpPot=True,use_c=True,enable_c=True,
+                             zsym=True)
+    aAA= actionAngleStaeckelGrid(pot=rzpot,delta=0.71,c=True,interpecc=True)
+    #circular orbit
+    R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-16., 'Circular orbit in the MWPotential does not have e=0'
+    assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
+    #Close-to-circular orbit
+    R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,0.99,0.0,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(R,vR,vT,z,vz)
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    #Another close-to-circular orbit
+    R,vR,vT,z,vz= 1.0,0.0,1.,0.01,0.0
+    te,tzmax,_,_= aAA.EccZmaxRperiRap(Orbit([R,vR,vT,z,vz]))
+    assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
+    assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
+    return None
+
+#Test the actions of an actionAngleStaeckel
+def test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.orbit import Orbit
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAA= actionAngleStaeckelGrid(pot=MWPotential,delta=0.71,c=True,
+                                 interpecc=True)
+    check_actionAngle_conserved_EccZmaxRperiRap(aAA,obs,MWPotential,
+                                                -2.,-2.,-2.,-2.,ntimes=101,
+                                                inclphi=True)
     return None
 
 #Test the actionAngleIsochroneApprox against an isochrone potential: actions
@@ -2317,6 +2984,54 @@ def test_orbit_interface_staeckel():
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
     return None
 
+# Further tests of the Orbit interface for actionAngleStaeckel
+def test_orbit_interface_staeckel_defaultdelta():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    est_delta= estimateDeltaStaeckel(MWPotential2014,obs.R(),obs.z())
+    # Just need to trigger delta estimation in orbit
+    jr_orb= obs.jr(pot=MWPotential2014,type='staeckel')
+    assert numpy.fabs(est_delta-obs._orb._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=est_delta)
+    acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
+    type= 'staeckel'
+    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type,delta=0.71),
+                        obs.jp(pot=MWPotential2014,type=type),
+                        obs.jz(pot=MWPotential2014,type=type),
+                        obs.Or(pot=MWPotential2014,type=type),
+                        obs.Op(pot=MWPotential2014,type=type),
+                        obs.Oz(pot=MWPotential2014,type=type),
+                        obs.wr(pot=MWPotential2014,type=type),
+                        obs.wp(pot=MWPotential2014,type=type),
+                        obs.wz(pot=MWPotential2014,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_staeckel_PotentialErrors():
+    # staeckel approx. w/ automatic delta should fail if delta cannot be found
+    from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
+    from galpy.potential import PotentialError
+    from galpy.orbit import Orbit
+    obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    # Currently doesn't have second derivs
+    tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
+    # Check that this potential indeed does not have second derivs
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        dummy= tp.R2deriv(1.,0.1)
+    # Now check that estimating delta fails
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        obs.jr(pot=tp,type='staeckel')
+    assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
+    # Generic non-axi
+    sp= SpiralArmsPotential()
+    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+        obs.jr(pot=sp,type='staeckel')
+    assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
+    return None
+
 # Test the Orbit interface for actionAngleAdiabatic
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
@@ -2607,3 +3322,24 @@ def check_actionAngle_linear_angles(aA,obs,pot,
     maxdev= numpy.amax(numpy.fabs(devs))
     assert maxdev < 10.**toldaz, 'Maximum deviation from linear trend in the vertical angles is %g' % maxdev
     return None
+
+#Test that the ecc, zmax, rperi, rap are conserved along an orbit
+def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
+                                                tolrperi,tolrap,
+                                                ntimes=1001,inclphi=False):
+    times= numpy.linspace(0.,100.,ntimes)
+    obs.integrate(times,pot,method='dopr54_c')
+    if inclphi:
+        es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
+            obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+            obs.vz(times),obs.phi(times))
+    else:
+        es,zmaxs,rperis,raps= aA.EccZmaxRperiRap(\
+            obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
+            obs.vz(times))
+    assert numpy.amax(numpy.fabs(es/numpy.mean(es)-1)) < 10.**tole, 'Eccentricity conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(es/numpy.mean(es)-1)))
+    assert numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)) < 10.**tolzmax, 'Zmax conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(zmaxs/numpy.mean(zmaxs)-1)))
+    assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
+    assert numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)) < 10.**tolrap, 'Rap conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)))
+    return None
+
