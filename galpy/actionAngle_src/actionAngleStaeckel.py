@@ -1045,7 +1045,7 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def estimateDeltaStaeckel(pot,R,z):
+def estimateDeltaStaeckel(pot,R,z, no_median=False):
     """
     NAME:
        estimateDeltaStaeckel
@@ -1054,6 +1054,8 @@ def estimateDeltaStaeckel(pot,R,z):
     INPUT:
        pot - Potential instance or list thereof
        R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
+       no_median - (False) if True, and input is array, return all calculated values of delta (useful for quickly 
+       estimating delta for many phase space points)
     OUTPUT:
        delta
     HISTORY:
@@ -1070,7 +1072,8 @@ def estimateDeltaStaeckel(pot,R,z):
                                                              use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
-        delta2= nu.median(delta2[True^nu.isnan(delta2)])
+        if not no_median:
+        	delta2= nu.median(delta2[True^nu.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
                  +(3.*R*_evaluatezforces(pot,R,z)
