@@ -247,6 +247,10 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 494 nearby stars analyzed as part of the AMBRE project to learn about their distribution within the Milky Way.
 #. *KELT-21b: A Hot Jupiter Transiting the Rapidly-Rotating Metal-Poor Late-A Primary of a Likely Hierarchical Triple System*, Marshall C. Johnson, Joseph E. Rodriguez, George Zhou, et al. (2017) *Astrophys. J.*, submitted (`arXiv/1712.03241 <http://arxiv.org/abs/1712.03241>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the Galactic orbit of KELT-21b, a hot jupiter around a low-metallicity A-type star.
+#. *GalDynPsr: A package to estimate dynamical contributions in the rate of change of the period of radio pulsars*, Dhruv Pathak & Manjari Bagchi (2017) (`arXiv/1712.06590 <http://arxiv.org/abs/1712.06590>`_):
+     Presents a python package to compute contributions to the GR spin-down of pulsars from the differential galactic acceleration between the Sun and the pulsar. The package uses ``MWPotential2014`` and ``galpy.potential`` functions to help compute this.
+#. *Local Stellar Kinematics from RAVE data – VIII. Effects of the Galactic Disc Perturbations on Stellar Orbits of Red Clump Stars*, O. Onal Tas, S. Bilir, &  O. Plevne (2017) *Astrophys. Sp. Sc.*, in press (`arXiv/1801.02170 <http://arxiv.org/abs/1801.02170>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` and the non-axisymmetric ``DehnenBarPotential`` and ``SteadyLogSpiralPotential`` to study the orbits of Milky-Way red-clump stars.
 
 
 Indices and tables
