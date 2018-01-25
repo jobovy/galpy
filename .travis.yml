@@ -2,7 +2,7 @@ sudo: false
 language: python
 python:
   - "2.7"
-  - "3.5"
+  - "3.6"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
@@ -18,6 +18,8 @@ env: #split tests
 matrix: # only run crucial tests for python 3.4
   include:
     - python: "3.4"
+      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
+    - python: "3.5"
       env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
 addons:
   apt:
