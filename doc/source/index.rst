@@ -89,15 +89,18 @@ If you use galpy in a publication, please cite the following paper
 * *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
 
 and link to ``http://github.com/jobovy/galpy``. Some of the code's
-functionality is introduced in separate papers (like
-``galpy.df.streamdf`` and ``galpy.df.streamgapdf``, see below), so
-please also cite those papers when using these functions. Please also
-send me a reference to the paper or send a pull request including your
-paper in the list of galpy papers on this page (this page is at
-doc/source/index.rst). Thanks!
+functionality is introduced in separate papers:
 
-When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `2014ApJ...795...95B <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_, which introduced this technique.
+* Fast Staeckel-approximation-based method for computing orbital parameters from :ref:`this section <fastchar>`: please cite Mackereth & Bovy (2018).
+* ``galpy.df.streamdf``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
+* ``galpy.df.streamgapdf``: please cite `Sanders, Bovy, & Erkal (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.457.3817S>`__.
+* ``galpy.actionAngle.actionAngleAdiabatic``: please cite `Bovy & Rix (2013) <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`__ and `Binney (2010) <http://adsabs.harvard.edu/abs/2010MNRAS.401.2318B>`__.
+* ``galpy.actionAngle.actionAngleStaeckel``:  please cite `Bovy & Rix (2013) <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`__ and `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`__.
+* ``galpy.actionAngle.actionAngleIsochroneApprox``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 
+Please also send me a reference to the paper or send a pull request
+including your paper in the list of galpy papers on this page (this
+page is at doc/source/index.rst). Thanks!
 
 Papers using galpy
 --------------------
