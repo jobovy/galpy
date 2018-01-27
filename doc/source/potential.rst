@@ -364,8 +364,8 @@ evaluations for functions that use ``C`` to speed up computations.
 
 .. _physunits_pot:
 
-**NEW in v1.2**: Initializing potentials with parameters with units
--------------------------------------------------------------------
+Initializing potentials with parameters with units
+--------------------------------------------------
 
 As already discussed in the section on :ref:`physical units
 <physunits>`, potentials in galpy can be specified with parameters
@@ -386,7 +386,7 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**NEW in v1.2/UPDATED in v1.3**: General density/potential pairs with basis-function expansions
+**UPDATED in v1.3**: General density/potential pairs with basis-function expansions
 ------------------------------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,

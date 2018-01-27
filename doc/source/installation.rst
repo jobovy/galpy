@@ -35,8 +35,8 @@ numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
 
 .. _install_tm:
 
-**NEW in v1.2**: Installing the TorusMapper code
--------------------------------------------------
+Installing the TorusMapper code
+--------------------------------
 
 Since v1.2, ``galpy`` contains a basic interface to the TorusMapper
 code of `Binney & McMillan (2016)
@@ -179,8 +179,8 @@ versions, but it still does not support ``OpenMP``.
 
 .. _configfile:
 
-**NEW in v1.2**: Configuration file
-------------------------------------
+Configuration file
+-------------------
 
 Since v1.2, ``galpy`` uses a configuration file to set a small number
 of configuration variables. This configuration file is parsed using
