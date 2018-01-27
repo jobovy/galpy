@@ -200,6 +200,8 @@ and the potential is
 
 Clearly, the potential is much less flattened than the density.
 
+.. _potwrappers:
+
 **NEW in v1.3**: Modifying potential instances using wrappers
 -------------------------------------------------------------
 
