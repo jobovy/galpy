@@ -360,46 +360,68 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._dJAzdLz= numpy.reshape(self._dJAzdLz,(ntz,ntr))
         #nSnFromjr/nrForSn = nSnFromjz/nzForSn a.e., but might as well get both
         self._nSnFromjr= numpy.fft.rfft2(self._jra-self._jr)/ntr/ntz
-        self._nSnFromjz= numpy.fft.rfft2(self._jza-self._jr)/ntr/ntz
+        self._nSnFromjz= numpy.fft.rfft2(self._jza-self._jz)/ntr/ntz
         # Account for the slightly offset grid, following should be real
         offset_fourier_factor=\
             numpy.exp(-1j*(self._nrForSn*self._thetar_offset
                            +self._nzForSn*self._thetaz_offset))
         self._nSnFromjr*= offset_fourier_factor
         self._nSnFromjz*= offset_fourier_factor
+        self._nSnFromjr= numpy.real(self._nSnFromjr)
+        self._nSnFromjz= numpy.real(self._nSnFromjz)
+        # Account for symmetry where it matters (should end up as cos)
+        self._nSnFromjz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
         # dSndJr: can obtain mostly from both dJARdJr and dJAzdJr, avg
-        dSndJrFromjr= numpy.fft.rfft2(self._dJArdJr-1.)/ntr/ntz\
-            *offset_fourier_factor/self._nrForSn
-        dSndJrFromjz= numpy.fft.rfft2(self._dJAzdJr)/ntr/ntz\
-            *offset_fourier_factor/self._nzForSn
-        self._dSndJrFromjr= dSndJrFromjr
-        self._dSndJrFromjz= dSndJrFromjz
+        self._nrdSndJr= numpy.fft.rfft2(self._dJArdJr-1.)/ntr/ntz\
+            *offset_fourier_factor
+        self._nzdSndJr= numpy.fft.rfft2(self._dJAzdJr)/ntr/ntz\
+            *offset_fourier_factor
+        dSndJrFromjr= self._nrdSndJr/self._nrForSn
+        dSndJrFromjz= self._nzdSndJr/self._nzForSn
         dSndJr= 0.5*(dSndJrFromjr+dSndJrFromjz)
         dSndJr[self._nrForSn == 0]= dSndJrFromjz[self._nrForSn == 0]
         dSndJr[self._nzForSn == 0]= dSndJrFromjr[self._nzForSn == 0]
-        self._dSndJr= dSndJr
+        dSndJr[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+        self._dSndJr= numpy.real(dSndJr)
+        self._nrdSndJr= numpy.real(self._nrdSndJr)
+        self._nzdSndJr= numpy.real(self._nzdSndJr)
+        # Account for symmetry where it matters (should end up as cos)
+        self._dSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+        self._nzdSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
         # dSndJz: can obtain mostly from both dJARdJz and dJAzdJz, avg
-        dSndJzFromjr= numpy.fft.rfft2(self._dJArdJz)/ntr/ntz\
-            *offset_fourier_factor/self._nrForSn
-        dSndJzFromjz= numpy.fft.rfft2(self._dJAzdJz-1.)/ntr/ntz\
-            *offset_fourier_factor/self._nzForSn
-        self._dSndJzFromjr= dSndJzFromjr
-        self._dSndJzFromjz= dSndJzFromjz
+        self._nrdSndJz= numpy.fft.rfft2(self._dJArdJz)/ntr/ntz\
+            *offset_fourier_factor
+        self._nzdSndJz= numpy.fft.rfft2(self._dJAzdJz-1.)/ntr/ntz\
+            *offset_fourier_factor
+        dSndJzFromjr= self._nrdSndJz/self._nrForSn
+        dSndJzFromjz= self._nzdSndJz/self._nzForSn
         dSndJz= 0.5*(dSndJzFromjr+dSndJzFromjz)
         dSndJz[self._nrForSn == 0]= dSndJzFromjz[self._nrForSn == 0]
         dSndJz[self._nzForSn == 0]= dSndJzFromjr[self._nzForSn == 0]
-        self._dSndJz= dSndJz
+        dSndJz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+        self._dSndJz= numpy.real(dSndJz)
+        self._nrdSndJz= numpy.real(self._nrdSndJz)
+        self._nzdSndJz= numpy.real(self._nzdSndJz)
+        # Account for symmetry where it matters (should end up as cos)
+        self._dSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+        self._nzdSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
         # dSndLz: can obtain mostly from both dJARdLz and dJAzdLz, avg
-        dSndLzFromjr= numpy.fft.rfft2(self._dJArdLz)/ntr/ntz\
-            *offset_fourier_factor/self._nrForSn
-        dSndLzFromjz= numpy.fft.rfft2(self._dJAzdLz)/ntr/ntz\
-            *offset_fourier_factor/self._nzForSn
-        self._dSndLzFromjr= dSndLzFromjr
-        self._dSndLzFromjz= dSndLzFromjz
+        self._nrdSndLz= numpy.fft.rfft2(self._dJArdLz)/ntr/ntz\
+            *offset_fourier_factor
+        self._nzdSndLz= numpy.fft.rfft2(self._dJAzdLz)/ntr/ntz\
+            *offset_fourier_factor
+        dSndLzFromjr= self._nrdSndLz/self._nrForSn
+        dSndLzFromjz= self._nzdSndLz/self._nzForSn
         dSndLz= 0.5*(dSndLzFromjr+dSndLzFromjz)
         dSndLz[self._nrForSn == 0]= dSndLzFromjz[self._nrForSn == 0]
         dSndLz[self._nzForSn == 0]= dSndLzFromjr[self._nzForSn == 0]
-        self._dSndLz= dSndLz
+        dSndLz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+        self._dSndLz= numpy.real(dSndLz)
+        self._nrdSndLz= numpy.real(self._nrdSndLz)
+        self._nzdSndLz= numpy.real(self._nzdSndLz)
+        # Account for symmetry where it matters (should end up as cos)
+        self._dSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+        self._nzdSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
         return None
 
     def _calc_dJAdJ(self,**kwargs):
@@ -422,7 +444,7 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
             +dLAdLz-numpy.sign(self._Lz)
         return None
 
-    def __call__(self,angler,anglephi,anglez,jphi=None):
+    def __call__(self,angler,anglephi,anglez,verbose=False):
         """
         NAME:
            __call__
@@ -430,29 +452,70 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
            convert angles --> (x,v) for this torus
         INPUT:
            angler, anglephi, anglez - angles on the torus
-           jphi= (object-wide default) z-component of the angular momentum
         OUTPUT:
            (R,vR,vT,z,vz,phi)
         HISTORY:
-           2017-11-21 - Written - Bovy (UofT)
+           2018-01-30 - Written - Bovy (UofT)
         """
-        # First we need to solve for anglera
-        anglera= optimize.newton(\
-            lambda ar: ar+2.*numpy.sum(self._dSndJr*numpy.sin(self._nforSn*ar))-angler,
-            0.,
-            lambda ar: 1.+2.*numpy.sum(self._nforSn*self._dSndJr
-                                       *numpy.cos(self._nforSn*ar)))
-        # Then compute the auxiliary action
-        jra= self._jr+2.*numpy.sum(self._nSn*numpy.cos(self._nforSn*anglera))
-        angleza= anglez+self._OmegazoverOmegar*(anglera-angler)\
-            -2.*numpy.sum(self._dSndLish*numpy.sin(self._nforSn*anglera))
-        if jphi is None: 
-            jphi= self._jphi
-            jz= self._jz
-        else:
-            jz= self._L-numpy.fabs(jphi)
-        anglephia= anglephi+numpy.sign(jphi)*(angleza-anglez)
-        return self._isoaainv(jra,jphi,jz,anglera,anglephia,angleza)
+        # First need to solve for anglera and angleza, start at anglea= angle
+        anglera= angler
+        angleza= anglez
+        tra, tza= self._anglerz_from_anglerza(anglera,angleza)
+        # Now iterate
+        maxiter= 100
+        tol= 1.48e-8
+        cntr= 0
+        unconv= numpy.ones(len(anglera),dtype='bool')
+        dtr= (tra[unconv]-angler[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+        dtz= (tza[unconv]-anglez[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+        unconv[unconv]= (dtr**2.+dtz**2.) > tol**2.
+        cntr= 0
+        while True:
+            jac= self._danglerz_from_anglerza(anglera[unconv],angleza[unconv])
+            detJ= jac[0]*jac[3]-jac[1]*jac[2]
+            dtr= tra[unconv]-angler[unconv]
+            dtz= tza[unconv]-anglez[unconv]
+            dara= (jac[3]*dtr-jac[1]*dtz)/detJ
+            daza= (-jac[2]*dtr+jac[0]*dtz)/detJ
+            anglera= anglera[unconv]-dara
+            angleza= angleza[unconv]-daza
+            tra, tza= self._anglerz_from_anglerza(anglera[unconv],
+                                                  angleza[unconv])
+            dtr= (tra-angler[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+            dtz= (tza-anglez[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+            unconv[unconv]= (dtr**2.+dtz**2.) > tol**2.
+            cntr+= 1
+            if numpy.sum(unconv) == 0:
+                if verbose:
+                    print("Took %i iterations" % cntr)
+                break
+            if cntr > maxiter:
+                break
+                raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
+        # Then compute the auxiliary actions and the remaining angle
+        if verbose:
+            print(anglera,angleza,self._anglerz_from_anglerza(anglera,angleza),
+                  dtr,dtz,numpy.sqrt((dtr**2.+dtz**2.)))
+        sine  = 2.*numpy.sin(self._nrForSn*anglera+self._nzForSn*angleza)
+        cosine= 2.*numpy.cos(self._nrForSn*anglera+self._nzForSn*angleza)
+        jra= self._jr+numpy.sum(self._nSnFromjr*cosine)
+        jza= self._jz+numpy.sum(self._nSnFromjz*cosine)
+        jpa= self._Lz
+        anglephia= anglephi-numpy.sum(self._dSndLz*sine)
+        return self._isoaainv(jra,jpa,jza,anglera,anglephia,angleza)
+
+    def _anglerz_from_anglerza(self,anglera,angleza):
+        sine= 2.*numpy.sin(self._nrForSn*anglera+self._nzForSn*angleza)
+        return (anglera+numpy.sum(self._dSndJr*sine),
+                angleza+numpy.sum(self._dSndJz*sine))
+
+    def _danglerz_from_anglerza(self,anglera,angleza):
+        # order: danglerdanglera,danglerdangleza,danglezdanglera,danglezdangleza)
+        cosine= 2.*numpy.cos(self._nrForSn*anglera+self._nzForSn*angleza)
+        return (1.+numpy.sum(self._nrdSndJr*cosine),
+                numpy.sum(self._nzdSndJr*cosine),
+                numpy.sum(self._nrdSndJz*cosine),
+                1.+numpy.sum(self._nzdSndJz*cosine))
 
     def _create_uvgrid(self,ntr,ntz,thetara,thetaza):
         # Find (u,v) for a regular grid in (thetara,thetaza)
