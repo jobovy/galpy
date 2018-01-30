@@ -352,20 +352,54 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._nzForSn= 2.*numpy.pi*numpy.tile(zfreq,(len(rfreq),1)).T
         self._jra= numpy.reshape(self._jra,(ntz,ntr))
         self._jza= numpy.reshape(self._jza,(ntz,ntr))
+        self._dJArdJr= numpy.reshape(self._dJArdJr,(ntz,ntr))
+        self._dJAzdJr= numpy.reshape(self._dJAzdJr,(ntz,ntr))
+        self._dJArdJz= numpy.reshape(self._dJArdJz,(ntz,ntr))
+        self._dJAzdJz= numpy.reshape(self._dJAzdJz,(ntz,ntr))
+        self._dJArdLz= numpy.reshape(self._dJArdLz,(ntz,ntr))
+        self._dJAzdLz= numpy.reshape(self._dJAzdLz,(ntz,ntr))
         #nSnFromjr/nrForSn = nSnFromjz/nzForSn a.e., but might as well get both
         self._nSnFromjr= numpy.fft.rfft2(self._jra-self._jr)/ntr/ntz
         self._nSnFromjz= numpy.fft.rfft2(self._jza-self._jr)/ntr/ntz
         # Account for the slightly offset grid, following should be real
-        self._nSnFromjr*=\
+        offset_fourier_factor=\
             numpy.exp(-1j*(self._nrForSn*self._thetar_offset
                            +self._nzForSn*self._thetaz_offset))
-        self._nSnFromjz*=\
-            numpy.exp(-1j*(self._nrForSn*self._thetar_offset
-                           +self._nzForSn*self._thetaz_offset))
-        #self._nSn= numpy.real(numpy.fft.rfft(self._jra-self._jr))[1:]/len(self._jra)
-        #self._dSndJr= (numpy.real(numpy.fft.rfft(self._Omegar/self._ora-1.))/self._nforSn)[1:]/len(self._ora)
-        #self._dSndLish= (numpy.real(numpy.fft.rfft(self._dEdL))/self._nforSn)[1:]/len(self._ora)
-        #self._nforSn= self._nforSn[1:]
+        self._nSnFromjr*= offset_fourier_factor
+        self._nSnFromjz*= offset_fourier_factor
+        # dSndJr: can obtain mostly from both dJARdJr and dJAzdJr, avg
+        dSndJrFromjr= numpy.fft.rfft2(self._dJArdJr-1.)/ntr/ntz\
+            *offset_fourier_factor/self._nrForSn
+        dSndJrFromjz= numpy.fft.rfft2(self._dJAzdJr)/ntr/ntz\
+            *offset_fourier_factor/self._nzForSn
+        self._dSndJrFromjr= dSndJrFromjr
+        self._dSndJrFromjz= dSndJrFromjz
+        dSndJr= 0.5*(dSndJrFromjr+dSndJrFromjz)
+        dSndJr[self._nrForSn == 0]= dSndJrFromjz[self._nrForSn == 0]
+        dSndJr[self._nzForSn == 0]= dSndJrFromjr[self._nzForSn == 0]
+        self._dSndJr= dSndJr
+        # dSndJz: can obtain mostly from both dJARdJz and dJAzdJz, avg
+        dSndJzFromjr= numpy.fft.rfft2(self._dJArdJz)/ntr/ntz\
+            *offset_fourier_factor/self._nrForSn
+        dSndJzFromjz= numpy.fft.rfft2(self._dJAzdJz-1.)/ntr/ntz\
+            *offset_fourier_factor/self._nzForSn
+        self._dSndJzFromjr= dSndJzFromjr
+        self._dSndJzFromjz= dSndJzFromjz
+        dSndJz= 0.5*(dSndJzFromjr+dSndJzFromjz)
+        dSndJz[self._nrForSn == 0]= dSndJzFromjz[self._nrForSn == 0]
+        dSndJz[self._nzForSn == 0]= dSndJzFromjr[self._nzForSn == 0]
+        self._dSndJz= dSndJz
+        # dSndLz: can obtain mostly from both dJARdLz and dJAzdLz, avg
+        dSndLzFromjr= numpy.fft.rfft2(self._dJArdLz)/ntr/ntz\
+            *offset_fourier_factor/self._nrForSn
+        dSndLzFromjz= numpy.fft.rfft2(self._dJAzdLz)/ntr/ntz\
+            *offset_fourier_factor/self._nzForSn
+        self._dSndLzFromjr= dSndLzFromjr
+        self._dSndLzFromjz= dSndLzFromjz
+        dSndLz= 0.5*(dSndLzFromjr+dSndLzFromjz)
+        dSndLz[self._nrForSn == 0]= dSndLzFromjz[self._nrForSn == 0]
+        dSndLz[self._nzForSn == 0]= dSndLzFromjr[self._nzForSn == 0]
+        self._dSndLz= dSndLz
         return None
 
     def _calc_dJAdJ(self,**kwargs):
