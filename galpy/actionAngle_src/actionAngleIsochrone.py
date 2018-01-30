@@ -502,6 +502,10 @@ class _actionAngleIsochroneHelper(object):
         sini= nu.sqrt(1.-Lz2/L2) 
         sini[Lz2/L2 > 1.]= 0.
         sinpsi= costheta/sini
+        pindx= (sinpsi > 1.)*nu.isfinite(sinpsi)
+        sinpsi[pindx]= 1.
+        pindx= (sinpsi < -1.)*nu.isfinite(sinpsi)
+        sinpsi[pindx]= -1.           
         psi= nu.arcsin(sinpsi)
         psi[vthetapos]= nu.pi-psi[vthetapos]
         psi[True^nu.isfinite(psi)]= 0.
@@ -578,6 +582,10 @@ class _actionAngleIsochroneHelper(object):
         sini= nu.sqrt(1.-Lz2/L2) 
         sini[Lz2/L2 > 1.]= 0.
         sinpsi= costheta/sini
+        pindx= (sinpsi > 1.)*nu.isfinite(sinpsi)
+        sinpsi[pindx]= 1.
+        pindx= (sinpsi < -1.)*nu.isfinite(sinpsi)
+        sinpsi[pindx]= -1.           
         psi= nu.arcsin(sinpsi)
         psi[vthetapos]= nu.pi-psi[vthetapos]
         psi[True^nu.isfinite(psi)]= 0.
