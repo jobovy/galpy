@@ -174,7 +174,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
 class actionAngleStaeckelInverseSingle(actionAngleInverse):
     """Invert the action-angle formalism for a Staeckel potential for a single torus"""
-    def __init__(self,E,Lz,I3,delta,
+    def __init__(self,E,Lz,I3,delta,u0=None,
                  jr=None,jphi=None,jz=None,
                  Omegar=None,Omegaphi=None,Omegaz=None,
                  dI3dJr=None,dI3dLz=None,dI3dJz=None,
@@ -199,6 +199,8 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
            I3 - third integral
            
            delta - delta defining the spheroidal coordinate system
+
+           u0= (None) if set, u0 to use to define the Staeckel approximation to the potential
 
            pot= Staeckel potential instance or list of such instances
 
@@ -232,11 +234,13 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
         self._I3= I3
         self._delta= delta
         # Store a staeckelized version of the potential
-        # BOVY: NEED TO SET OR DETERMINE u0
+        if u0 is None:
+            u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
+                numpy.atleast_1d(self._E),numpy.atleast_1d(self._Lz),
+                self._pot,self._delta)[0][0]
         self._staeckelwrappedpot=\
-            OblateStaeckelWrapperPotential(pot=self._pot,
-                                           delta=self._delta,
-                                           u0=1.)
+            OblateStaeckelWrapperPotential(pot=self._pot,delta=self._delta,
+                                           u0=u0)
         # Calculate jr if not given
         if jr is None or umin is None or umax is None or vmin is None \
                 or Omegar is None or Omegaphi is None or Omegaz is None \
