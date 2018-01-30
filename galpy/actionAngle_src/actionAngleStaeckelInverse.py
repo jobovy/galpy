@@ -8,6 +8,7 @@
 #
 ###############################################################################
 import copy
+import warnings
 import numpy
 from scipy import optimize
 from scipy.spatial import cKDTree
@@ -271,7 +272,6 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
             jphi= self._Lz
             umin, umax, vmin= aAS._uminumaxvmin(Rl,vR,self._Lz/Rl,0.,vz)
         # Store everything
-        print(jr,jphi,jz,Omegar,Omegaphi,Omegaz,umin,umax,vmin)
         self._jr= jr
         self._jphi= jphi
         self._jz= jz
@@ -376,52 +376,55 @@ class actionAngleStaeckelInverseSingle(actionAngleInverse):
             *offset_fourier_factor
         self._nzdSndJr= numpy.fft.rfft2(self._dJAzdJr)/ntr/ntz\
             *offset_fourier_factor
-        dSndJrFromjr= self._nrdSndJr/self._nrForSn
-        dSndJrFromjz= self._nzdSndJr/self._nzForSn
-        dSndJr= 0.5*(dSndJrFromjr+dSndJrFromjz)
-        dSndJr[self._nrForSn == 0]= dSndJrFromjz[self._nrForSn == 0]
-        dSndJr[self._nzForSn == 0]= dSndJrFromjr[self._nzForSn == 0]
-        dSndJr[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
-        self._dSndJr= numpy.real(dSndJr)
-        self._nrdSndJr= numpy.real(self._nrdSndJr)
-        self._nzdSndJr= numpy.real(self._nzdSndJr)
-        # Account for symmetry where it matters (should end up as cos)
-        self._dSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
-        self._nzdSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
-        # dSndJz: can obtain mostly from both dJARdJz and dJAzdJz, avg
-        self._nrdSndJz= numpy.fft.rfft2(self._dJArdJz)/ntr/ntz\
-            *offset_fourier_factor
-        self._nzdSndJz= numpy.fft.rfft2(self._dJAzdJz-1.)/ntr/ntz\
-            *offset_fourier_factor
-        dSndJzFromjr= self._nrdSndJz/self._nrForSn
-        dSndJzFromjz= self._nzdSndJz/self._nzForSn
-        dSndJz= 0.5*(dSndJzFromjr+dSndJzFromjz)
-        dSndJz[self._nrForSn == 0]= dSndJzFromjz[self._nrForSn == 0]
-        dSndJz[self._nzForSn == 0]= dSndJzFromjr[self._nzForSn == 0]
-        dSndJz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
-        self._dSndJz= numpy.real(dSndJz)
-        self._nrdSndJz= numpy.real(self._nrdSndJz)
-        self._nzdSndJz= numpy.real(self._nzdSndJz)
-        # Account for symmetry where it matters (should end up as cos)
-        self._dSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
-        self._nzdSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
-        # dSndLz: can obtain mostly from both dJARdLz and dJAzdLz, avg
-        self._nrdSndLz= numpy.fft.rfft2(self._dJArdLz)/ntr/ntz\
-            *offset_fourier_factor
-        self._nzdSndLz= numpy.fft.rfft2(self._dJAzdLz)/ntr/ntz\
-            *offset_fourier_factor
-        dSndLzFromjr= self._nrdSndLz/self._nrForSn
-        dSndLzFromjz= self._nzdSndLz/self._nzForSn
-        dSndLz= 0.5*(dSndLzFromjr+dSndLzFromjz)
-        dSndLz[self._nrForSn == 0]= dSndLzFromjz[self._nrForSn == 0]
-        dSndLz[self._nzForSn == 0]= dSndLzFromjr[self._nzForSn == 0]
-        dSndLz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
-        self._dSndLz= numpy.real(dSndLz)
-        self._nrdSndLz= numpy.real(self._nrdSndLz)
-        self._nzdSndLz= numpy.real(self._nzdSndLz)
-        # Account for symmetry where it matters (should end up as cos)
-        self._dSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
-        self._nzdSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",message="divide by zero")
+            warnings.filterwarnings("ignore",message="invalid value")
+            dSndJrFromjr= self._nrdSndJr/self._nrForSn
+            dSndJrFromjz= self._nzdSndJr/self._nzForSn
+            dSndJr= 0.5*(dSndJrFromjr+dSndJrFromjz)
+            dSndJr[self._nrForSn == 0]= dSndJrFromjz[self._nrForSn == 0]
+            dSndJr[self._nzForSn == 0]= dSndJrFromjr[self._nzForSn == 0]
+            dSndJr[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+            self._dSndJr= numpy.real(dSndJr)
+            self._nrdSndJr= numpy.real(self._nrdSndJr)
+            self._nzdSndJr= numpy.real(self._nzdSndJr)
+            # Account for symmetry where it matters (should end up as cos)
+            self._dSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+            self._nzdSndJr[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+            # dSndJz: can obtain mostly from both dJARdJz and dJAzdJz, avg
+            self._nrdSndJz= numpy.fft.rfft2(self._dJArdJz)/ntr/ntz\
+                *offset_fourier_factor
+            self._nzdSndJz= numpy.fft.rfft2(self._dJAzdJz-1.)/ntr/ntz\
+                *offset_fourier_factor
+            dSndJzFromjr= self._nrdSndJz/self._nrForSn
+            dSndJzFromjz= self._nzdSndJz/self._nzForSn
+            dSndJz= 0.5*(dSndJzFromjr+dSndJzFromjz)
+            dSndJz[self._nrForSn == 0]= dSndJzFromjz[self._nrForSn == 0]
+            dSndJz[self._nzForSn == 0]= dSndJzFromjr[self._nzForSn == 0]
+            dSndJz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+            self._dSndJz= numpy.real(dSndJz)
+            self._nrdSndJz= numpy.real(self._nrdSndJz)
+            self._nzdSndJz= numpy.real(self._nzdSndJz)
+            # Account for symmetry where it matters (should end up as cos)
+            self._dSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+            self._nzdSndJz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+            # dSndLz: can obtain mostly from both dJARdLz and dJAzdLz, avg
+            self._nrdSndLz= numpy.fft.rfft2(self._dJArdLz)/ntr/ntz\
+                *offset_fourier_factor
+            self._nzdSndLz= numpy.fft.rfft2(self._dJAzdLz)/ntr/ntz\
+                *offset_fourier_factor
+            dSndLzFromjr= self._nrdSndLz/self._nrForSn
+            dSndLzFromjz= self._nzdSndLz/self._nzForSn
+            dSndLz= 0.5*(dSndLzFromjr+dSndLzFromjz)
+            dSndLz[self._nrForSn == 0]= dSndLzFromjz[self._nrForSn == 0]
+            dSndLz[self._nzForSn == 0]= dSndLzFromjr[self._nzForSn == 0]
+            dSndLz[(self._nrForSn == 0)*(self._nzForSn == 0)]= 0.
+            self._dSndLz= numpy.real(dSndLz)
+            self._nrdSndLz= numpy.real(self._nrdSndLz)
+            self._nzdSndLz= numpy.real(self._nzdSndLz)
+            # Account for symmetry where it matters (should end up as cos)
+            self._dSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
+            self._nzdSndLz[(self._nrForSn == 0)*(self._nzForSn < 0)]= 0.
         return None
 
     def _calc_dJAdJ(self,**kwargs):
