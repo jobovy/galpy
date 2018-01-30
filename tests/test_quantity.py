@@ -2248,6 +2248,14 @@ def test_potential_paramunits():
                            pa=30./180.*numpy.pi)
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # OblateStaeckelWrapperPotential
+    kksp= potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun,
+                                                   Delta=10.*units.kpc,
+                                                   ro=ro,vo=vo)
+    pot= potential.OblateStaeckelWrapperPotential(pot=kksp,delta=10.*units.kpc,u0=1.)
+    pot_nounits= potential.OblateStaeckelWrapperPotential(pot=kksp,delta=10./ro,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "OblateStaeckelWrapperPotential w/ parameters w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():
