@@ -1553,6 +1553,42 @@ def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """
     return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
 
+    @potential_physical_input
+    @physical_conversion('position',pop=True)
+    def rtide(self,R,M=1.0):
+        """
+
+        NAME:
+
+           rtide
+
+        PURPOSE:
+
+           calculate the tidal radius for object of mass M at R in potential Pot given
+           the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
+
+        INPUT:
+
+           Pot - Potential instance or list of such instances
+
+           R - Galactocentric radius (can be Quantity)
+       
+           M - (default = 1.0) Mass of object of interest (can be Quantity)
+
+        OUTPUT:
+
+           tidal radius
+
+       HISTORY:
+
+           2018-02-02 - Written - Webb (UofT)
+
+        """
+    
+        nu=4.0-(self.omegac/self.epifreq)**2.0
+        return (M/(self.omegac*nu))**(1.0/3.0)
+
+
 def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """Raw, undecorated function for internal use"""
     nonAxi= _isNonAxi(Pot)
