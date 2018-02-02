@@ -1059,7 +1059,7 @@ class Potential(object):
         
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
-        """
+        """  
         return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,use_physical=False))
 
     @potential_physical_input
