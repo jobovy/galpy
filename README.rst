@@ -39,9 +39,11 @@ full list of contributors.
 If you find this code useful in your research, please let me
 know. **If you use galpy in a publication, please cite** `Bovy (2015)
 <http://adsabs.harvard.edu/abs/2015ApJS..216...29B>`__ **and link to
-http://github.com/jobovy/galpy**. Please also send me a reference to
-the paper or send a pull request including your paper in the list of
-galpy papers on `this page
+http://github.com/jobovy/galpy**. See `the acknowledgement documentation section
+<http://galpy.readthedocs.io/en/latest/index.html#acknowledging-galpy>`__
+for a more detailed guide to citing parts of the code. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on `this page
 <http://galpy.readthedocs.io/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 
