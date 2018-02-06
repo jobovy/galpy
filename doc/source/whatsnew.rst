@@ -10,11 +10,12 @@ v1.3
 
 * A fast and precise method for approximating an orbit's eccentricity,
   peri- and apocenter radii, and maximum height above the midplane
-  using the Staeckel approximation (see Mackereth & Bovy 2018). Can
-  determine these parameters to better than a few percent accuracy in
-  as little as 10 :math:`\mu\mathrm{s}` per object, more than 1,000
-  times faster than through direct orbit integration. See :ref:`this
-  section <fastchar>` of the documentation for more info.
+  using the Staeckel approximation (see `Mackereth & Bovy 2018
+  <https://www.overleaf.com/docs/fgxwxbkpwcjq/pdf>`__). Can determine
+  these parameters to better than a few percent accuracy in as little
+  as 10 :math:`\mu\mathrm{s}` per object, more than 1,000 times faster
+  than through direct orbit integration. See :ref:`this section
+  <fastchar>` of the documentation for more info.
 
 * A general method for modifying ``Potential`` classes through
   potential wrappers---simple classes that wrap existing potentials to modify
