@@ -2698,6 +2698,7 @@ def test_orbitfit_custom():
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
     from galpy.util import bovy_coords
+    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
     bovy_coords._APY_COORDS= False # too slow otherwise
     of.integrate(ts,pot)
     off= of.flip()
@@ -2731,7 +2732,7 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     out= []
     for ii in range(vxvv.shape[0]):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
-    bovy_coords._APY_COORDS= True
+    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
     return numpy.array(out)
 
 def test_MWPotential_warning():
