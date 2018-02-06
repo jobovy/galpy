@@ -51,7 +51,7 @@ before_install:
  - hash -r
  - conda config --set always_yes yes --set changeps1 no
  - conda update conda
- - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy<1.14" scipy matplotlib setuptools pip cython>=0.20 pytest
+ - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip cython>=0.20 pytest
  - source activate test-environment
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
