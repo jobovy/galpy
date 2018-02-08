@@ -18,14 +18,14 @@ galpy
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
 
+.. image:: https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg
+   :target: https://anaconda.org/conda-forge/galpy
+
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
 
 .. image:: http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg
    :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
-
-.. image:: https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg
-   :target: https://anaconda.org/conda-forge/galpy
 
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
    :target: http://www.astropy.org/
