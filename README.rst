@@ -25,7 +25,7 @@ galpy
    :target: http://dx.doi.org/10.1088/0067-0049/216/2/29
 
 .. image:: https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg
-   :target: https://conda.anaconda.org/conda-forge
+   :target: https://anaconda.org/conda-forge/galpy
 
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
    :target: http://www.astropy.org/
