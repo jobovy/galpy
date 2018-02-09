@@ -256,6 +256,10 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` and the non-axisymmetric ``DehnenBarPotential`` and ``SteadyLogSpiralPotential`` to study the orbits of Milky-Way red-clump stars.
 #. *The VMC survey XXVIII. Improved measurements of the proper motion of the Galactic globular cluster 47 Tucanae*, F. Niederhofer, M.-R. L. Cioni, S. Rubele, et al. (2018) *Astron. & Astrophys.*, in press (`arXiv/1801.07738 <http://arxiv.org/abs/1801.07738>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the cluster 47 Tuc from a newly measured proper motion, finding that the orbit has an eccentricity of about 0.2 and reaches up to 3.6 kpc above the Galactic midplane.
+#. *Characterising Open Clusters in the solar neighbourhood with the Tycho-Gaia Astrometric Solution*, T. Cantat-Gaudin, A. Vallenari, R. Sordo, F. Pensabene, A. Krone-Martins, A. Moitinho, C. Jordi, L. Casamiquela, L. Balaguer-Núnez, C. Soubiran, N. Brouillet (2018) *Astron. & Astrophys.*, submitted (`arXiv/1801.10042 <http://arxiv.org/abs/1801.10042>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbits of a sample of 128 open clusters with astrometry from the Tycho-*Gaia* Astrometric Solution.
+#. *Fast estimation of orbital parameters in Milky-Way-like potentials*, J. Ted Mackereth & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1802.02592 <http://arxiv.org/abs/1802.02592>`_):
+     Introduces the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods for the fast estimation of the orbital parameters (eccentricity, maximum vertical excursion, and peri/apocenter) in Milky-Way potentials. See :ref:`this section <fastchar>` of the documentation for more info.
 
 
 Indices and tables
