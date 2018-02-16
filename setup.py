@@ -83,15 +83,16 @@ else:
     del sys.argv[interppotential_ext_pos]
     interppotential_ext= True
 
-#code to check the GSL version
+#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+# (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config',
       '--version']
 try:
     if sys.version_info < (2,7): #subprocess.check_output does not exist
-        gsl_version= subprocess.Popen(cmd,
+        gsl_version= subprocess.Popen(cmd,shell=sys.platform.startswith('win'),
                                       stdout=subprocess.PIPE).communicate()[0]
     else:
-        gsl_version= subprocess.check_output(cmd)
+        gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
