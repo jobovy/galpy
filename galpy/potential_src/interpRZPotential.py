@@ -1,6 +1,6 @@
 import os
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
 import copy
 import ctypes
 import ctypes.util
