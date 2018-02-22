@@ -7,6 +7,9 @@
 #ifndef GSL_MAJOR_VERSION
 #define GSL_MAJOR_VERSION 1
 #endif
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 //SCF Disk potential
 //4 arguments: amp, Acos, Asin, a
 
@@ -439,18 +442,18 @@ void computeForce(double R,double Z, double phi,
     calculateXi(r, a, &xi);
 
 //Compute the gegenbauer polynomials and its derivative.
-    double C[N*L];
-    double dC[N*L];
+    double *C= (double *) malloc ( N*L * sizeof(double) );
+    double *dC= (double *) malloc ( N*L * sizeof(double) );
+    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
+    double *dphiTilde= (double *) malloc ( N*L * sizeof(double) );
 
-    compute_C(xi, N, L, &C[0]);
-    compute_dC(xi, N, L, &dC[0]);
+    compute_C(xi, N, L, C);
+    compute_dC(xi, N, L, dC);
 
 //Compute phiTilde and its derivative
-    double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
+    compute_phiTilde(r, a, N, L, C, phiTilde);
 
-    double dphiTilde[L*N];
-    compute_dphiTilde(r, a, N, L, &C[0], &dC[0], &dphiTilde[0]);
+    compute_dphiTilde(r, a, N, L, C, dC, dphiTilde);
 
 //Compute Associated Legendre Polynomials
     int M_eff = M;
@@ -464,13 +467,12 @@ void computeForce(double R,double Z, double phi,
     size = L*L - L*(L-1)/2;
     }
     
-    
-    double P[size];
-    double dP[size];
-    compute_P_dP(cos(theta), L, M_eff, &P[0], &dP[0]);
+    double *P= (double *) malloc ( size * sizeof(double) );
+    double *dP= (double *) malloc ( size * sizeof(double) );
+    compute_P_dP(cos(theta), L, M_eff, P, dP);
 
-    double (*PhiTilde_Pointer[3]) = {&dphiTilde[0],&phiTilde[0],&phiTilde[0]};
-    double (*P_Pointer[3]) = {&P[0], &dP[0], &P[0]};
+    double (*PhiTilde_Pointer[3]) = {dphiTilde,phiTilde,phiTilde};
+    double (*P_Pointer[3]) = {P, dP, P};
 
     double Constant[3] = {1., -sin(theta), 1.};
 
@@ -500,7 +502,13 @@ void computeForce(double R,double Z, double phi,
     * (cached_values + 1) = *(F + 1);
     * (cached_values + 2) = *(F + 2);
 
-
+    // Free memory
+    free(C);
+    free(dC);
+    free(phiTilde);
+    free(dphiTilde);
+    free(P);
+    free(dP);
 
 }
 
@@ -513,9 +521,9 @@ void computeDeriv(double R,double Z, double phi,
     //Get args
     double a = *args++;
     int isNonAxi = (int)*args++;
-    int N = *args++;
-    int L = *args++;
-    int M = *args++;
+    int N = (int) *args++;
+    int L = (int) *args++;
+    int M = (int) *args++;
     double* Acos = args;
 
     double * caching_i = (args + (isNonAxi + 1)*N*L*M);
@@ -547,23 +555,21 @@ void computeDeriv(double R,double Z, double phi,
     calculateXi(r, a, &xi);
 
 //Compute the gegenbauer polynomials and its derivative.
-    double C[N*L];
-    double dC[N*L];
-    double d2C[N*L];
+    double *C= (double *) malloc ( N*L * sizeof(double) );
+    double *dC= (double *) malloc ( N*L * sizeof(double) );
+    double *d2C= (double *) malloc ( N*L * sizeof(double) );
+    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
+    double *dphiTilde= (double *) malloc ( N*L * sizeof(double) );
+    double *d2phiTilde= (double *) malloc ( N*L * sizeof(double) );
 
-    compute_C(xi, N, L, &C[0]);
-    compute_dC(xi, N, L, &dC[0]);
-    compute_d2C(xi, N, L, &d2C[0]);
+    compute_C(xi, N, L, C);
+    compute_dC(xi, N, L, dC);
+    compute_d2C(xi, N, L, d2C);
 
 //Compute phiTilde and its derivative
-    double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
-
-    double dphiTilde[L*N];
-    compute_dphiTilde(r, a, N, L, &C[0], &dC[0], &dphiTilde[0]);
-
-    double d2phiTilde[L*N];
-    compute_d2phiTilde(r, a, N, L, &C[0], &dC[0], &d2C[0], &d2phiTilde[0]);
+    compute_phiTilde(r, a, N, L, C, phiTilde);
+    compute_dphiTilde(r, a, N, L, C, dC, dphiTilde);
+    compute_d2phiTilde(r, a, N, L, C, dC, d2C, d2phiTilde);
 
 
 //Compute Associated Legendre Polynomials
@@ -577,12 +583,12 @@ void computeDeriv(double R,double Z, double phi,
     } else{
     size = L*L - L*(L-1)/2;
     }
-    double P[size];
+    double *P= (double *) malloc ( size * sizeof(double) );
 
-    compute_P(cos(theta), L,M_eff, &P[0]);
+    compute_P(cos(theta), L,M_eff, P);
 
-    double (*PhiTilde_Pointer[3])= {&d2phiTilde[0],&phiTilde[0],&dphiTilde[0]};
-    double (*P_Pointer[3]) = {&P[0], &P[0], &P[0]};
+    double (*PhiTilde_Pointer[3])= {d2phiTilde,phiTilde,dphiTilde};
+    double (*P_Pointer[3]) = {P, P, P};
 
     double Constant[3] = {1., 1., 1.};
 
@@ -611,6 +617,14 @@ void computeDeriv(double R,double Z, double phi,
     * (cached_values + 1) = *(F + 1);
     * (cached_values + 2) = *(F + 2);
 
+    //Free memory
+    free(C);
+    free(dC);
+    free(d2C);
+    free(phiTilde);
+    free(dphiTilde);
+    free(d2phiTilde);
+    free(P);
 }
 
 //Compute the Potential
@@ -622,9 +636,9 @@ double SCFPotentialEval(double R,double Z, double phi,
     //Get args
     double a = *args++;
     int isNonAxi = (int)*args++;
-    int N = *args++;
-    int L = *args++;
-    int M = *args++;
+    int N = (int) *args++;
+    int L = (int) *args++;
+    int M = (int) *args++;
     double* Acos = args;
     double* Asin;
     if (isNonAxi==1) //LCOV_EXCL_START
@@ -639,13 +653,13 @@ double SCFPotentialEval(double R,double Z, double phi,
     calculateXi(r, a, &xi);
 
     //Compute the gegenbauer polynomials and its derivative.
-    double C[N*L];
+    double *C= (double *) malloc ( N*L * sizeof(double) );
+    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
 
-    compute_C(xi, N, L, &C[0]);
+    compute_C(xi, N, L, C);
 
     //Compute phiTilde and its derivative
-    double phiTilde[L*N];
-    compute_phiTilde(r, a, N, L, &C[0], &phiTilde[0]);
+    compute_phiTilde(r, a, N, L, C, phiTilde);
     //Compute Associated Legendre Polynomials
 
     int M_eff = M;
@@ -659,15 +673,14 @@ double SCFPotentialEval(double R,double Z, double phi,
     size = L*L - L*(L-1)/2;
     } //LCOV_EXCL_STOP
     
-    double P[size];
+    double *P= (double *) malloc ( size * sizeof(double) );
 
-
-    compute_P(cos(theta), L,M_eff, &P[0]);
+    compute_P(cos(theta), L,M_eff, P);
 
     double potential;
 
-    double (*PhiTilde_Pointer[1]) = {&phiTilde[0]};
-    double (*P_Pointer[1]) = {&P[0]};
+    double (*PhiTilde_Pointer[1]) = {phiTilde};
+    double (*P_Pointer[1]) = {P};
 
     double Constant[1] = {1.};
 
@@ -685,6 +698,11 @@ double SCFPotentialEval(double R,double Z, double phi,
     }
 
     return potential;
+
+    //Free memory
+    free(C);
+    free(phiTilde);
+    free(P);
 }
 
 //Compute the force in the R direction
