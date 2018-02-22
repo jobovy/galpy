@@ -13,11 +13,17 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
 
     .. math::
 
-        \\phi \\rightarrow \\phi + \\frac{V_p}{R} \\times \\left(t-t_0\\right) + \\mathrm{pa}
+        \\phi \\rightarrow \\phi + \\frac{V_p(R)}{R} \\times \\left(t-t_0\\right) + \\mathrm{pa}
 
-    with :math:`V_p` the fixed pattern physical rotation speed, :math:`t_0` a reference time---time at which the potential is unchanged by the wrapper---and :math:`\\mathrm{pa}` the position angle at :math:`t=0`.
+    with :math:`V_p(R)` the circular velocity curve, :math:`t_0` a reference time---time at which the potential is unchanged by the wrapper---and :math:`\\mathrm{pa}` the position angle at :math:`t=0`. The circular velocity is parameterized as
+
+    .. math::
+
+       V_p(R) = V_{p,0}\,\\left(\\frac{R}{R_0}\\right)^\\beta\,.
+
     """
-    def __init__(self,amp=1.,pot=None,vp=1.,to=0.,pa=0.,ro=None,vo=None):
+    def __init__(self,amp=1.,pot=None,vpo=1.,beta=0.,to=0.,pa=0.,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -33,7 +39,9 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
 
            pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
 
-           vp= (1.) the velocity pattern speed (can be a Quantity)
+           vpo= (1.) amplitude of the circular-velocity curve (can be a Quantity)
+
+           beta= (0.) power-law amplitude of the circular-velocity curve
 
            to= (0.) reference time at which the potential == pot
 
@@ -48,20 +56,22 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
            2018-02-21 - Started - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(vp,units.Quantity):
-            vp= vp.to(units.km/units.s).value/self._vo
+        if _APY_LOADED and isinstance(vpo,units.Quantity):
+            vpo= vpo.to(units.km/units.s).value/self._vo
         if _APY_LOADED and isinstance(to,units.Quantity):
             to= to.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
             pa= pa.to(units.rad).value
-        self._vp= vp
+        self._vpo= vpo
+        self._beta= beta
         self._pa= pa
         self._to= to
-        self.hasC= False
-        self.hasC_dxdv= False
+        self.hasC= True
+        self.hasC_dxdv= True
 
     def _wrap(self,attribute,*args,**kwargs):
         kwargs['phi']= kwargs.get('phi',0.)\
-            -self._vp/args[0]*(kwargs.get('t',0.)-self._to)-self._pa
+            -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
+            -self._pa
         return self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
