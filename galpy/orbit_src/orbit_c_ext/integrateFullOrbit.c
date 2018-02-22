@@ -1,6 +1,9 @@
 /*
   Wrappers around the C integration code for Full Orbits
 */
+#ifdef _WIN32
+#include <Python.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -11,6 +14,25 @@
 #include <galpy_potentials.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
+#endif
+#ifdef _WIN32
+// On Windows, *need* to define this function to allow the package to be imported
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_galpy_integrate_c(void) { // Python 3
+  return NULL;
+}
+#else
+PyMODINIT_FUNC initgalpy_integrate_c(void) {} // Python 2
+#endif
 #endif
 /*
   Function Declarations
@@ -208,7 +230,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &TriaxialJaffePotentialzforce;
       potentialArgs->phiforce= &TriaxialJaffePotentialphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
-      break;      
+      break;
     case 24: //SCFPotential, many arguments
       potentialArgs->Rforce= &SCFPotentialRforce;
       potentialArgs->zforce= &SCFPotentialzforce;
@@ -271,18 +293,18 @@ void parse_leapFuncArgs_Full(int npot,
   }
   potentialArgs-= npot;
 }
-void integrateFullOrbit(double *yo,
-			int nt, 
-			double *t,
-			int npot,
-			int * pot_type,
-			double * pot_args,
-			double dt,
-			double rtol,
-			double atol,
-			double *result,
-			int * err,
-			int odeint_type){
+EXPORT void integrateFullOrbit(double *yo,
+			       int nt, 
+			       double *t,
+			       int npot,
+			       int * pot_type,
+			       double * pot_args,
+			       double dt,
+			       double rtol,
+			       double atol,
+			       double *result,
+			       int * err,
+			       int odeint_type){
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
