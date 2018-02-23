@@ -75,3 +75,38 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
             -self._pa
         return self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+
+    # Derivatives that involve R need to be adjusted, bc they require also
+    # the R dependence of phi to be taken into account
+    def _Rforce(self,*args,**kwargs):
+        kwargs['phi']= kwargs.get('phi',0.)\
+            -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
+            -self._pa
+        return self._wrap_pot_func('_Rforce')(self._pot,*args,**kwargs)\
+            -self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)\
+            *(self._vpo*(self._beta-1.)*args[0]**(self._beta-2.)
+              *(kwargs.get('t',0.)-self._to))
+
+    def _R2deriv(self,*args,**kwargs):
+        kwargs['phi']= kwargs.get('phi',0.)\
+            -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
+            -self._pa
+        phiRderiv= -self._vpo*(self._beta-1.)*args[0]**(self._beta-2.)\
+            *(kwargs.get('t',0.)-self._to)
+        return self._wrap_pot_func('_R2deriv')(self._pot,*args,**kwargs)\
+            +2.*self._wrap_pot_func('_Rphideriv')(self._pot,*args,**kwargs)\
+            *phiRderiv\
+            +self._wrap_pot_func('_phi2deriv')(self._pot,*args,**kwargs)\
+            *phiRderiv**2.\
+            +self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)\
+            *(self._vpo*(self._beta-1.)*(self._beta-2.)
+              *args[0]**(self._beta-3.)*(kwargs.get('t',0.)-self._to))
+            
+    def _Rphideriv(self,*args,**kwargs):
+        kwargs['phi']= kwargs.get('phi',0.)\
+            -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
+            -self._pa
+        return self._wrap_pot_func('_Rphideriv')(self._pot,*args,**kwargs)\
+            -self._wrap_pot_func('_phi2deriv')(self._pot,*args,**kwargs)\
+            *self._vpo*(self._beta-1.)*args[0]**(self._beta-2.)\
+            *(kwargs.get('t',0.)-self._to)
