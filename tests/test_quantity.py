@@ -2261,6 +2261,17 @@ def test_potential_paramunits():
                            pa=30./180.*numpy.pi)
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "CorotatingRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # GaussianAmplitudeWrapperPotential
+    dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
+    pot= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                                to=-1.*units.Gyr,
+                                                sigma=10.*units.Gyr,
+                                                ro=ro,vo=vo)
+    pot_nounits= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                 to=-1./bovy_conversion.time_in_Gyr(vo,ro),
+                                 sigma=10./bovy_conversion.time_in_Gyr(vo,ro))
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "GaussianAmplitudeWrapperPotential w/ parameters w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_2d():

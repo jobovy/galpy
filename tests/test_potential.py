@@ -135,6 +135,7 @@ def test_forceAsDeriv_potential():
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -296,6 +297,7 @@ def test_2ndDeriv_potential():
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -513,6 +515,7 @@ def test_poisson_potential():
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -628,6 +631,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2730,7 +2734,8 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
         return None
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
-    SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential
+    SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
+    GaussianAmplitudeWrapperPotential
 from galpy.potential_src.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -2869,3 +2874,46 @@ class mockFlatTrulyCorotatingRotationSpiralArmsPotential(testMWPotential):
                                           CorotatingRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential(),vpo=1.3,beta=0.1,pa=-0.3,to=-3.)])
     def OmegaP(self):
         return 1.3
+#GaussianAmplitudeWrapperPotential
+class GaussianAmplitudeDehnenBarPotential(GaussianAmplitudeWrapperPotential):
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
+        return GaussianAmplitudeWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+                               to=0.,sigma=1.)
+# Basically constant
+class mockFlatGaussianAmplitudeBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     GaussianAmplitudeWrapperPotential(\
+                    amp=1.,pot=dpn,to=10,sigma=1000000.)])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
+#For Liouville
+class mockFlatTrulyGaussianAmplitudeBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     GaussianAmplitudeWrapperPotential(\
+                    amp=1.,pot=dpn,to=10,sigma=1.)])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
+# A GaussianAmplitudeWrappered version of LogarithmicHaloPotential for simple aAtest
+class mockGaussianAmplitudeSmoothedLogarithmicHaloPotential(GaussianAmplitudeWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        return GaussianAmplitudeWrapperPotential.__new__(cls,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            to=0.,sigma=100000000000000.)
