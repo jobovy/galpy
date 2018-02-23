@@ -52,8 +52,8 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._to= to
         self._sigma2= sigma**2.
-        self.hasC= False
-        self.hasC_dxdv= False
+        self.hasC= True
+        self.hasC_dxdv= True
 
     def _smooth(self,t):
         return numpy.exp(-0.5*(t-self._to)**2./self._sigma2)

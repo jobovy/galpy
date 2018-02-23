@@ -498,6 +498,25 @@ double CorotatingRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double CorotatingRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//GaussianAmplitudeWrapperPotential
+double GaussianAmplitudeWrapperPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialPlanarphiforce(double,double,double,
+						  struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

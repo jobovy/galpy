@@ -268,6 +268,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &CorotatingRotationWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 5;
       break;
+    case -5: //GaussianAmplitudeWrapperPotential
+      potentialArgs->planarRforce= &GaussianAmplitudeWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &GaussianAmplitudeWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &GaussianAmplitudeWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &GaussianAmplitudeWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &GaussianAmplitudeWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= (int) 3;
+      break;
     }
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;

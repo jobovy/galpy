@@ -194,6 +194,12 @@ void parse_actionAngleArgs(int npot,
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->nargs= (int) 3;
       break;
+    case -5: //GaussianAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &GaussianAmplitudeWrapperPotentialEval;
+      potentialArgs->Rforce= &GaussianAmplitudeWrapperPotentialRforce;
+      potentialArgs->zforce= &GaussianAmplitudeWrapperPotentialzforce;
+      potentialArgs->nargs= (int) 3;
+      break;
     }
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
