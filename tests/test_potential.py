@@ -134,6 +134,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -294,6 +295,7 @@ def test_2ndDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5') 
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -510,6 +512,7 @@ def test_poisson_potential():
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -624,6 +627,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2726,7 +2730,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
         return None
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
-    SolidBodyRotationWrapperPotential
+    SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential
 from galpy.potential_src.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -2838,3 +2842,30 @@ class testorbitHenonHeilesPotential(testplanarMWPotential):
     def OmegaP(self):
         # Non-axi, so need to set this to zero for Jacobi
         return 0.
+#CorotatingWrapperPotential
+class CorotatingRotationSpiralArmsPotential(CorotatingRotationWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
+        return CorotatingRotationWrapperPotential.__new__(cls,amp=1.,
+                                                          pot=spn.toPlanar(),
+                                                          vpo=1.1,beta=-0.2,
+                                                          pa=0.4,to=3.)
+class mockFlatCorotatingRotationSpiralArmsPotential(testMWPotential):
+    # With beta=1 this has a fixed pattern speed --> Jacobi conserved
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          CorotatingRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential(),vpo=1.3,beta=1.,pa=0.3,to=3.)])
+    def OmegaP(self):
+        return 1.3
+# beta =/= 1 --> Liouville should still hold!
+class mockFlatTrulyCorotatingRotationSpiralArmsPotential(testMWPotential):
+    # With beta=1 this has a fixed pattern speed --> Jacobi conserved
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                                          CorotatingRotationWrapperPotential(amp=1.,pot=potential.SpiralArmsPotential(),vpo=1.3,beta=0.1,pa=-0.3,to=-3.)])
+    def OmegaP(self):
+        return 1.3
