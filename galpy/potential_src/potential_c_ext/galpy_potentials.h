@@ -481,6 +481,23 @@ double HenonHeilesPotentialphi2deriv(double,double,double,
 				     struct potentialArg *);
 double HenonHeilesPotentialRphideriv(double,double,double,
 				     struct potentialArg *);
+//CorotatingRotationWrapperPotential
+double CorotatingRotationWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double CorotatingRotationWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double CorotatingRotationWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double CorotatingRotationWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double CorotatingRotationWrapperPotentialPlanarphiforce(double,double,double,
+						  struct potentialArg *);
+double CorotatingRotationWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double CorotatingRotationWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double CorotatingRotationWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif
