@@ -730,6 +730,10 @@ def test_evaluateAndDerivs_potential():
                 else:
                     assert (tevaldphi2-tphi2deriv)**2./tevaldphi2**2. < 10.**ttol, \
                         "Calculation of 2nd azimuthal derivative through _evaluate and phi2deriv inconsistent for the %s potential" % p
+        # Test that much higher derivatives are not implemented
+        try: tp(1.2,0.1,dR=4,dphi=10)
+        except NotImplementedError: pass
+        else: raise AssertionError('Higher-order derivative request in potential __call__ does not raise NotImplementedError for %s' % p)
         continue
         #mixed radial,vertical
         if isinstance(tp,potential.planarPotential): 
@@ -745,10 +749,6 @@ def test_evaluateAndDerivs_potential():
             else:
                 assert (tevaldrz-trzderiv)**2./tevaldrz**2. < 10.**ttol, \
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
-    #Finally test that much higher derivatives are not implemented
-    try: tp(1.2,0.1,dR=4,dphi=10)
-    except NotImplementedError: pass
-    else: raise AssertionError('Higher-order derivative request in potential __call__ does not raise NotImplementedError')
     return None
 
 # Test that the spherically radial force is correct
