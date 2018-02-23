@@ -349,5 +349,8 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
+   potentialgaussampwrapper.rst
    potentialsolidbodyrotationwrapper.rst
+
