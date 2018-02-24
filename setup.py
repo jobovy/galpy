@@ -1,11 +1,13 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
 import os, os.path
+import platform
 import subprocess
 import glob
 PY3= sys.version > '3'
+WIN32= platform.system() == 'Windows'
 
 long_description= ''
 previous_line= ''
@@ -95,6 +97,8 @@ try:
         gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
+    if WIN32: # BOVY: Hack for now!
+        gsl_version= ['2','3']
 else:
     if PY3:
         gsl_version= gsl_version.decode('utf-8')
@@ -113,6 +117,11 @@ orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
+
+# On Windows it's unnecessary and erroneous to include m
+if WIN32:
+    orbit_libraries.remove('m')
+    pot_libraries.remove('m')
 
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
@@ -150,8 +159,9 @@ actionAngleTorus_include_dirs= \
 
 if single_ext: #add the code and libraries for the other extensions
     #src
-    orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
-    orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+    if not WIN32: # Necessary bc windows build for these does not work now
+        orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
+        orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
     if os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
         # Add Torus code
         orbit_int_c_src.extend(actionAngleTorus_c_src)
@@ -173,7 +183,7 @@ if single_ext: #add the code and libraries for the other extensions
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
-
+    
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
@@ -207,7 +217,7 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          include_dirs=actionAngle_include_dirs,
                          extra_compile_args=extra_compile_args,
                          extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. \
+if not WIN32 and float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngle_c_incl= True
@@ -236,7 +246,7 @@ interppotential_c= Extension('galpy_interppotential_c',
                              include_dirs=interppotential_include_dirs,
                              extra_compile_args=extra_compile_args,
                              extra_link_args=extra_link_args)
-if float(gsl_version[0]) >= 1. \
+if not WIN32 and float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) \
         and not orbit_ext and not actionAngle_ext and not single_ext:
     interppotential_c_incl= True
