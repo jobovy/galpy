@@ -111,6 +111,11 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
     extra_compile_args.append("-Dinline=__inline")
 
+# To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
+if WIN32:
+    extra_compile_args.append("-DGSL_DLL")
+    extra_compile_args.append("-DWIN32")
+
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
@@ -162,9 +167,8 @@ actionAngleTorus_include_dirs= \
 
 if single_ext: #add the code and libraries for the other extensions
     #src
-    if not WIN32: # Necessary bc windows build for these does not work now
-        orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
-        orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+    orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
+    orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
     if os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
         # Add Torus code
         orbit_int_c_src.extend(actionAngleTorus_c_src)
@@ -220,7 +224,7 @@ actionAngle_c= Extension('galpy_actionAngle_c',
                          include_dirs=actionAngle_include_dirs,
                          extra_compile_args=extra_compile_args,
                          extra_link_args=extra_link_args)
-if not WIN32 and float(gsl_version[0]) >= 1. \
+if float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngle_c_incl= True
@@ -249,7 +253,7 @@ interppotential_c= Extension('galpy_interppotential_c',
                              include_dirs=interppotential_include_dirs,
                              extra_compile_args=extra_compile_args,
                              extra_link_args=extra_link_args)
-if not WIN32 and float(gsl_version[0]) >= 1. \
+if float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) \
         and not orbit_ext and not actionAngle_ext and not single_ext:
     interppotential_c_incl= True
