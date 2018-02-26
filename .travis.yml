@@ -27,6 +27,8 @@ addons:
      - libgsl0-dev
 #    - lcov # leave for when they approve its use
 before_install:
+ # skip travis build if [skip travis] in commit message
+ - if git show -s HEAD | grep -F -q "[skip travis]" ; then echo "skip travis" && exit 0 ; fi
  # Install lcov
  - wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
  - tar xf lcov_1.11.orig.tar.gz
