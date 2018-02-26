@@ -1,9 +1,11 @@
 build: off
 
 environment:
+  PYTHON_VERSION: 3.6
+  MINICONDA: C:\\Miniconda36-x64
+
   matrix:
-    - PYTHON_VERSION: 3.6
-      MINICONDA: C:\\Miniconda36-x64
+    - TEST_FILES= tests\test__potential.py
 
 platform:
     - x64
@@ -17,14 +19,16 @@ install:
   - conda info -a
   - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl"
   - activate test-environment
+  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
+  - pip install pytest-cov
 
   # Environment variables for GSL linking
   - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
   - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
   - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
-  - python setup.py build_ext --coverage --single_ext --inplace --no-openmp
+  - python setup.py build_ext --single_ext --inplace --no-openmp
   - python setup.py develop --single_ext
 
 test_script:
-  - pytest -v tests\test_potential.py
+  - pytest -v %TEST_FILES% --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
