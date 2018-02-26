@@ -4,7 +4,11 @@ import os
 import sys
 import pytest
 import numpy
-import pynbody
+try:
+    import pynbody
+    _PYNBODY_LOADED= True
+except ImportError:
+    _PYNBODY_LOADED= False
 from galpy import potential
 from galpy.util import bovy_coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -83,8 +87,9 @@ def test_forceAsDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
-    pots.append('mockSnapshotRZPotential')
-    pots.append('mockInterpSnapshotRZPotential')
+    if _PYNBODY_LOADED:
+        pots.append('mockSnapshotRZPotential')
+        pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialnegcp')
     pots.append('mockCosmphiDiskPotentialnegp')
     pots.append('mockDehnenBarPotentialT1')
