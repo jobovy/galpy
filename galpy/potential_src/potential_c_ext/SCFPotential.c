@@ -697,12 +697,13 @@ double SCFPotentialEval(double R,double Z, double phi,
         compute(a, N, L, M,r, theta, phi, Acos, 1, e, &potential);
     }
 
-    return potential;
-
     //Free memory
     free(C);
     free(phiTilde);
     free(P);
+
+    return potential;
+
 }
 
 //Compute the force in the R direction
