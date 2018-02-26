@@ -2,12 +2,10 @@ build: off
 
 environment:
   matrix:
-    - TARGET_ARCH: x64
-      CONDA_PY: 27
+    - PYTHON_VERSION: 2.7
       MINICONDA: C:\\Miniconda-x64
 
-    - TARGET_ARCH: x64
-      CONDA_PY: 36
+    - PYTHON_VERSION: 3.6
       MINICONDA: C:\\Miniconda36-x64
 
 platform:
@@ -20,7 +18,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - "conda create -q -n test-environment python=%CONDA_PY% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl"
+  - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl"
   - activate test-environment
 
   - python setup.py build_ext --coverage --single_ext --inplace
