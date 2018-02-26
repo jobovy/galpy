@@ -1,0 +1,30 @@
+build: off
+
+environment:
+  matrix:
+    - TARGET_ARCH: x64
+      CONDA_PY: 27
+      MINICONDA: C:\\Miniconda-x64
+
+    - TARGET_ARCH: x64
+      CONDA_PY: 36
+      MINICONDA: C:\\Miniconda36-x64
+
+platform:
+    - x64
+
+install:
+  - cmd: call %MINICONDA%\Scripts\activate.bat
+  - cmd: conda.exe update --yes --quiet conda
+  - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - "conda create -q -n test-environment python=%CONDA_PY% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl"
+  - activate test-environment
+
+  - python setup.py build_ext --coverage --single_ext --inplace
+  - python setup.py develop --single_ext
+
+test_script:
+  - pytest -v tests\test_potential.py
