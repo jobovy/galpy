@@ -97,8 +97,6 @@ try:
         gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
-    if WIN32: # BOVY: Hack for now!
-        gsl_version= ['2','3']
 else:
     if PY3:
         gsl_version= gsl_version.decode('utf-8')
