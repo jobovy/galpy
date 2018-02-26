@@ -21,6 +21,11 @@ install:
   - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl"
   - activate test-environment
 
+  # Environment variables for GSL linking
+  - set INCLUDE=CONDA_PREFIX\Library\include;%INCLUDE%
+  - set LIB=CONDA_PREFIX\Library\include;%LIB%
+  - set LIBPATH=CONDA_PREFIX\Library\include;%LIBPATH%
+
   - python setup.py build_ext --coverage --single_ext --inplace
   - python setup.py develop --single_ext
 
