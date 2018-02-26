@@ -20,6 +20,15 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
+#endif
 /*
   Structure Declarations
 */
@@ -38,10 +47,10 @@ struct JzAdiabaticArg{
 /*
   Function Declarations
 */
-void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
+EXPORT void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
 				       double *,int,int *,double *,double,
 				       double *,double *,double *,int *);
-void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
+EXPORT void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
 void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
