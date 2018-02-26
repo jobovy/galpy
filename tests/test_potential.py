@@ -1935,7 +1935,7 @@ def test_Ferrers_Rzderiv_issue319():
      rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
      rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
                                     0.5,dx=10.**-8.)
-     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-8., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
+     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-7., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
      return None
 
 def test_plotting():
