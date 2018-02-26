@@ -5,7 +5,7 @@ environment:
   MINICONDA: C:\\Miniconda36-x64
 
   matrix:
-    - TEST_FILES= tests\test__potential.py
+    - TEST_FILES: tests\test__potential.py
 
 platform:
     - x64
