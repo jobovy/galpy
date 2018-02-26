@@ -2,6 +2,7 @@ from setuptools import setup
 from distutils.core import Extension
 import sys
 import distutils.sysconfig as sysconfig
+import distutils.ccompiler
 import os, os.path
 import platform
 import subprocess
@@ -105,6 +106,10 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 
 #HACK for testing
 #gsl_version= ['0','0']
+
+# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
+if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
+    extra_compile_args.append("-Dinline=__inline")
 
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
