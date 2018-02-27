@@ -5,14 +5,14 @@ environment:
   MINICONDA: C:\\Miniconda36-x64
 
   matrix:
-    - TEST_FILES:'tests\ --ignore=tests\test_qdf.py --ignore=tests\test_pv2qdf.py --ignore=tests\test_diskdf.py --ignore=tests\test_orbit.py --ignore=tests\test_streamdf.py --ignore=tests\test_streamgapdf.py --ignore=tests\test_evolveddiskdf.py --ignore=tests\test_quantity.py --ignore=tests\test_nemo.py --ignore=tests\test_coords.py'
-      REQUIRES_ASTROPY:$False
+    - TEST_FILES: "tests\ --ignore=tests\test_qdf.py --ignore=tests\test_pv2qdf.py --ignore=tests\test_diskdf.py --ignore=tests\test_orbit.py --ignore=tests\test_streamdf.py --ignore=tests\test_streamgapdf.py --ignore=tests\test_evolveddiskdf.py --ignore=tests\test_quantity.py --ignore=tests\test_nemo.py --ignore=tests\test_coords.py"
+      REQUIRES_ASTROPY: $False
 
-    - TEST_FILES:'tests\test_orbit.py'
-      REQUIRES_ASTROPY:$True
+    - TEST_FILES: tests\test_orbit.py
+      REQUIRES_ASTROPY: $True
 
-    - TEST_FILES:'tests\test_quantity.py tests\test_coords.py'
-      REQUIRES_ASTROPY:$True
+    - TEST_FILES: tests\test_quantity.py tests\test_coords.py
+      REQUIRES_ASTROPY: $True
 
 platform:
     - x64
