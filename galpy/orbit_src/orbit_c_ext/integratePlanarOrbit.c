@@ -12,6 +12,15 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
+#endif
 /*
   Function Declarations
 */
@@ -280,18 +289,18 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
   }
   potentialArgs-= npot;
 }
-void integratePlanarOrbit(double *yo,
-			  int nt, 
-			  double *t,
-			  int npot,
-			  int * pot_type,
-			  double * pot_args,
-			  double dt,
-			  double rtol,
-			  double atol,
-			  double *result,
-			  int * err,
-			  int odeint_type){
+EXPORT void integratePlanarOrbit(double *yo,
+				 int nt, 
+				 double *t,
+				 int npot,
+				 int * pot_type,
+				 double * pot_args,
+				 double dt,
+				 double rtol,
+				 double atol,
+				 double *result,
+				 int * err,
+				 int odeint_type){
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
@@ -347,18 +356,18 @@ void integratePlanarOrbit(double *yo,
   //Done!
 }
 
-void integratePlanarOrbit_dxdv(double *yo,
-			       int nt, 
-			       double *t,
-			       int npot,
-			       int * pot_type,
-			       double * pot_args,
-			       double dt,
-			       double rtol,
-			       double atol,
-			       double *result,
-			       int * err,
-			       int odeint_type){
+EXPORT void integratePlanarOrbit_dxdv(double *yo,
+				      int nt, 
+				      double *t,
+				      int npot,
+				      int * pot_type,
+				      double * pot_args,
+				      double dt,
+				      double rtol,
+				      double atol,
+				      double *result,
+				      int * err,
+				      int odeint_type){
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );

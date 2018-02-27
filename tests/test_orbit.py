@@ -3,6 +3,8 @@ from __future__ import print_function, division
 import warnings
 import os, os.path
 import sys
+import platform
+WIN32= platform.system() == 'Windows'
 import time
 import signal
 import subprocess
@@ -3415,6 +3417,7 @@ def test_orbit_method_inputobs_quantity():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_full():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3446,6 +3449,7 @@ def test_orbit_c_sigint_full():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planar():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3477,6 +3481,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
+    if WIN32: return None
     integrators= ['dopr54_c','rk4_c','rk6_c']
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
