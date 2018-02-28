@@ -1,4 +1,10 @@
-v1.3 (2017-XX-XX)
+v1.4 (????)
+==================
+
+- Made the code fully compilable on Windows with MSVC and test Windows
+  builds automatically on appveyor (#333).
+
+v1.3 (2018-02-06)
 ==================
 
 - Added a fast and precise method for approximating an orbit's
@@ -61,6 +67,10 @@ v1.3 (2017-XX-XX)
 - Changed default method for computing actions, frequencies, and
   angles for Orbit instances to be the Staeckel approximation with an
   automatically-estimated delta parameter.
+  
+- Added an option to the estimateDeltaStaeckel function to facilitate the
+  return of an estimated delta parameter at every phase space point passed,
+  rather than returning a median of the estimate at each point.
 
 - Generalized actionAngleStaeckel to allow for different focal lengths
   delta for different phase-space points. Also allowed the order of

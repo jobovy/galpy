@@ -89,15 +89,18 @@ If you use galpy in a publication, please cite the following paper
 * *galpy: A Python Library for Galactic Dynamics*, Jo Bovy (2015), *Astrophys. J. Supp.*, **216**, 29 (`arXiv/1412.3451 <http://arxiv.org/abs/1412.3451>`_).
 
 and link to ``http://github.com/jobovy/galpy``. Some of the code's
-functionality is introduced in separate papers (like
-``galpy.df.streamdf`` and ``galpy.df.streamgapdf``, see below), so
-please also cite those papers when using these functions. Please also
-send me a reference to the paper or send a pull request including your
-paper in the list of galpy papers on this page (this page is at
-doc/source/index.rst). Thanks!
+functionality is introduced in separate papers:
 
-When using the ``galpy.actionAngle.actionAngleAdiabatic`` and ``galpy.actionAngle.actionAngleStaeckel`` modules, please cite `2013ApJ...779..115B <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`_ in addition to the papers describing the algorithm used. When using ``galpy.actionAngle.actionAngleIsochroneApprox``, please cite `2014ApJ...795...95B <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_, which introduced this technique.
+* ``galpy.actionAngle.EccZmaxRperiRap`` and ``galpy.orbit.Orbit`` methods with ``analytic=True``: Fast method for computing orbital parameters from :ref:`this section <fastchar>`: please cite `Mackereth & Bovy (2018) <https://arxiv.org/abs/1802.02592>`__.
+* ``galpy.actionAngle.actionAngleAdiabatic``: please cite `Binney (2010) <http://adsabs.harvard.edu/abs/2010MNRAS.401.2318B>`__.
+* ``galpy.actionAngle.actionAngleStaeckel``:  please cite `Bovy & Rix (2013) <http://adsabs.harvard.edu/abs/2013ApJ...779..115B>`__ and `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`__.
+* ``galpy.actionAngle.actionAngleIsochroneApprox``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
+* ``galpy.df.streamdf``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
+* ``galpy.df.streamgapdf``: please cite `Sanders, Bovy, & Erkal (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.457.3817S>`__.
 
+Please also send me a reference to the paper or send a pull request
+including your paper in the list of galpy papers on this page (this
+page is at doc/source/index.rst). Thanks!
 
 Papers using galpy
 --------------------
@@ -247,6 +250,18 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to characterize the orbits of 494 nearby stars analyzed as part of the AMBRE project to learn about their distribution within the Milky Way.
 #. *KELT-21b: A Hot Jupiter Transiting the Rapidly-Rotating Metal-Poor Late-A Primary of a Likely Hierarchical Triple System*, Marshall C. Johnson, Joseph E. Rodriguez, George Zhou, et al. (2017) *Astrophys. J.*, submitted (`arXiv/1712.03241 <http://arxiv.org/abs/1712.03241>`_):
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the Galactic orbit of KELT-21b, a hot jupiter around a low-metallicity A-type star.
+#. *GalDynPsr: A package to estimate dynamical contributions in the rate of change of the period of radio pulsars*, Dhruv Pathak & Manjari Bagchi (2017) (`arXiv/1712.06590 <http://arxiv.org/abs/1712.06590>`_):
+     Presents a python package to compute contributions to the GR spin-down of pulsars from the differential galactic acceleration between the Sun and the pulsar. The package uses ``MWPotential2014`` and ``galpy.potential`` functions to help compute this.
+#. *Local Stellar Kinematics from RAVE data – VIII. Effects of the Galactic Disc Perturbations on Stellar Orbits of Red Clump Stars*, O. Onal Tas, S. Bilir, &  O. Plevne (2018) *Astrophys. Sp. Sc.*, in press (`arXiv/1801.02170 <http://arxiv.org/abs/1801.02170>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` and the non-axisymmetric ``DehnenBarPotential`` and ``SteadyLogSpiralPotential`` to study the orbits of Milky-Way red-clump stars.
+#. *The VMC survey XXVIII. Improved measurements of the proper motion of the Galactic globular cluster 47 Tucanae*, F. Niederhofer, M.-R. L. Cioni, S. Rubele, et al. (2018) *Astron. & Astrophys.*, in press (`arXiv/1801.07738 <http://arxiv.org/abs/1801.07738>`_):
+     Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the cluster 47 Tuc from a newly measured proper motion, finding that the orbit has an eccentricity of about 0.2 and reaches up to 3.6 kpc above the Galactic midplane.
+#. *Characterising Open Clusters in the solar neighbourhood with the Tycho-Gaia Astrometric Solution*, T. Cantat-Gaudin, A. Vallenari, R. Sordo, F. Pensabene, A. Krone-Martins, A. Moitinho, C. Jordi, L. Casamiquela, L. Balaguer-Núnez, C. Soubiran, N. Brouillet (2018) *Astron. & Astrophys.*, submitted (`arXiv/1801.10042 <http://arxiv.org/abs/1801.10042>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbits of a sample of 128 open clusters with astrometry from the Tycho-*Gaia* Astrometric Solution.
+#. *Fast estimation of orbital parameters in Milky-Way-like potentials*, J. Ted Mackereth & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1802.02592 <http://arxiv.org/abs/1802.02592>`_):
+     Introduces the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods for the fast estimation of the orbital parameters (eccentricity, maximum vertical excursion, and peri/apocenter) in Milky-Way potentials. See :ref:`this section <fastchar>` of the documentation for more info.
+#. *HI Kinematics Along The Minor Axis of M82*, Paul Martini, Adam K. Leroy, Jeffrey G. Mangum, Alberto Bolatto, Katie M. Keating, Karin Sandstrom, & Fabian Walter (2018) *Astrophys. J.*, in press (`arXiv/1802.04359 <http://arxiv.org/abs/1802.04359>`_):
+     Use ``galpy.potential`` components to create a mass model for M82 that consists of a ``HernquistPotential`` bulge, ``MN3ExponentialDiskPotential`` disk, and ``NFWPotential`` dark-matter halo by matching photometric and rotation-curve data.
 
 
 Indices and tables

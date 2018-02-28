@@ -1,6 +1,4 @@
 import warnings
-from galpy.util import galpyWarning
-warnings.warn("A major change in versions > 1.1 is that all galpy.potential functions and methods take the potential as the first argument; previously methods such as evaluatePotentials, evaluateDensities, etc. would be called with (R,z,Pot), now they are called as (Pot,R,z) for greater consistency across the codebase",galpyWarning)
 from galpy.potential_src import Potential
 from galpy.potential_src import planarPotential
 from galpy.potential_src import linearPotential
