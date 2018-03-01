@@ -16,9 +16,19 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+#include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
 #endif
 /*
   Structure Declarations
@@ -38,10 +48,10 @@ struct JzAdiabaticArg{
 /*
   Function Declarations
 */
-void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
+EXPORT void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
 				       double *,int,int *,double *,double,
 				       double *,double *,double *,int *);
-void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
+EXPORT void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,double,
 				 double *,double *,int *);
 void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
@@ -105,7 +115,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
@@ -147,7 +157,7 @@ void actionAngleAdiabatic_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );

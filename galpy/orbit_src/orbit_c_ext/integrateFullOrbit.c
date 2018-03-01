@@ -1,6 +1,9 @@
 /*
   Wrappers around the C integration code for Full Orbits
 */
+#ifdef _WIN32
+#include <Python.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -11,6 +14,25 @@
 #include <galpy_potentials.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
+#endif
+#ifdef _WIN32
+// On Windows, *need* to define this function to allow the package to be imported
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_galpy_integrate_c(void) { // Python 3
+  return NULL;
+}
+#else
+PyMODINIT_FUNC initgalpy_integrate_c(void) {} // Python 2
+#endif
 #endif
 /*
   Function Declarations
@@ -35,6 +57,7 @@ void parse_leapFuncArgs_Full(int npot,
   for (ii=0; ii < npot; ii++){
     switch ( *(*pot_type)++ ) {
     case 0: //LogarithmicHaloPotential, 4 arguments
+      potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
       potentialArgs->phiforce= &LogarithmicHaloPotentialphiforce;
@@ -50,6 +73,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 6;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
+      potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -59,6 +83,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 3;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
+      potentialArgs->potentialEval= &PowerSphericalPotentialEval;
       potentialArgs->Rforce= &PowerSphericalPotentialRforce;
       potentialArgs->zforce= &PowerSphericalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -68,6 +93,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 8: //HernquistPotential, 2 arguments
+      potentialArgs->potentialEval= &HernquistPotentialEval;
       potentialArgs->Rforce= &HernquistPotentialRforce;
       potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -77,6 +103,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 9: //NFWPotential, 2 arguments
+      potentialArgs->potentialEval= &NFWPotentialEval;
       potentialArgs->Rforce= &NFWPotentialRforce;
       potentialArgs->zforce= &NFWPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -86,6 +113,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 10: //JaffePotential, 2 arguments
+      potentialArgs->potentialEval= &JaffePotentialEval;
       potentialArgs->Rforce= &JaffePotentialRforce;
       potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -95,6 +123,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
+      potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       potentialArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -102,6 +131,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) (8 + 2 * *(*pot_args+5) + 4 * ( *(*pot_args+4) + 1 ));
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
+      potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
       potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -119,6 +149,14 @@ void parse_leapFuncArgs_Full(int npot,
       for (kk=0; kk < nz; kk++)
 	*(zgrid+kk)= *(*pot_args)++;
       for (kk=0; kk < nR; kk++)
+	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+      *pot_args+= nR*nz;
+      potentialArgs->i2d= interp_2d_alloc(nR,nz);
+      interp_2d_init(potentialArgs->i2d,Rgrid,zgrid,potGrid_splinecoeffs,
+		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+      potentialArgs->accx= gsl_interp_accel_alloc ();
+      potentialArgs->accy= gsl_interp_accel_alloc ();
+      for (kk=0; kk < nR; kk++)
 	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz); 
       *pot_args+= nR*nz;
       potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
@@ -134,6 +172,7 @@ void parse_leapFuncArgs_Full(int npot,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
       potentialArgs->accxzforce= gsl_interp_accel_alloc ();
       potentialArgs->accyzforce= gsl_interp_accel_alloc ();
+      potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->Rforce= &interpRZPotentialRforce;
       potentialArgs->zforce= &interpRZPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -144,12 +183,14 @@ void parse_leapFuncArgs_Full(int npot,
       free(potGrid_splinecoeffs);
       break;
     case 14: //IsochronePotential, 2 arguments
+      potentialArgs->potentialEval= &IsochronePotentialEval;
       potentialArgs->Rforce= &IsochronePotentialRforce;
       potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
       break;
     case 15: //PowerSphericalwCutoffPotential, 3 arguments
+      potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
       potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
       potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -159,6 +200,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 3;
       break;
     case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
+      potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -166,6 +208,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 3;
       break;
     case 17: //PlummerPotential, 2 arguments
+      potentialArgs->potentialEval= &PlummerPotentialEval;
       potentialArgs->Rforce= &PlummerPotentialRforce;
       potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -173,6 +216,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 18: //PseudoIsothermalPotential, 2 arguments
+      potentialArgs->potentialEval= &PseudoIsothermalPotentialEval;
       potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -180,48 +224,56 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 2;
       break;
     case 19: //KuzminDiskPotential, 2 arguments
+      potentialArgs->potentialEval= &KuzminDiskPotentialEval;
       potentialArgs->Rforce= &KuzminDiskPotentialRforce;
       potentialArgs->zforce= &KuzminDiskPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
       break;
     case 20: //BurkertPotential, 2 arguments
+      potentialArgs->potentialEval= &BurkertPotentialEval;
       potentialArgs->Rforce= &BurkertPotentialRforce;
       potentialArgs->zforce= &BurkertPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
       break;
     case 21: //TriaxialHernquistPotential, lots of arguments
+      potentialArgs->potentialEval= &TriaxialHernquistPotentialEval;
       potentialArgs->Rforce= &TriaxialHernquistPotentialRforce;
       potentialArgs->zforce= &TriaxialHernquistPotentialzforce;
       potentialArgs->phiforce= &TriaxialHernquistPotentialphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
+      potentialArgs->potentialEval= &TriaxialNFWPotentialEval;
       potentialArgs->Rforce= &TriaxialNFWPotentialRforce;
       potentialArgs->zforce= &TriaxialNFWPotentialzforce;
       potentialArgs->phiforce= &TriaxialNFWPotentialphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
+      potentialArgs->potentialEval= &TriaxialJaffePotentialEval;
       potentialArgs->Rforce= &TriaxialJaffePotentialRforce;
       potentialArgs->zforce= &TriaxialJaffePotentialzforce;
       potentialArgs->phiforce= &TriaxialJaffePotentialphiforce;
       potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
-      break;      
+      break;
     case 24: //SCFPotential, many arguments
+      potentialArgs->potentialEval= &SCFPotentialEval;
       potentialArgs->Rforce= &SCFPotentialRforce;
       potentialArgs->zforce= &SCFPotentialzforce;
       potentialArgs->phiforce= &SCFPotentialphiforce;
       potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
       break;
     case 25: //SoftenedNeedleBarPotential, 13 arguments
+      potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
       potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
       potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
       potentialArgs->phiforce= &SoftenedNeedleBarPotentialphiforce;
       potentialArgs->nargs= (int) 13;
       break;      
     case 26: //DiskSCFPotential, nsigma+3 arguments
+      potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->Rforce= &DiskSCFPotentialRforce;
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
@@ -240,6 +292,7 @@ void parse_leapFuncArgs_Full(int npot,
       break;    
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
+      potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
@@ -283,18 +336,18 @@ void parse_leapFuncArgs_Full(int npot,
   }
   potentialArgs-= npot;
 }
-void integrateFullOrbit(double *yo,
-			int nt, 
-			double *t,
-			int npot,
-			int * pot_type,
-			double * pot_args,
-			double dt,
-			double rtol,
-			double atol,
-			double *result,
-			int * err,
-			int odeint_type){
+EXPORT void integrateFullOrbit(double *yo,
+			       int nt, 
+			       double *t,
+			       int npot,
+			       int * pot_type,
+			       double * pot_args,
+			       double dt,
+			       double rtol,
+			       double atol,
+			       double *result,
+			       int * err,
+			       int odeint_type){
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );

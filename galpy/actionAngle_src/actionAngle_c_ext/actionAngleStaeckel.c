@@ -1,6 +1,9 @@
 /*
   C code for Binney (2012)'s Staeckel approximation code
 */
+#ifdef _WIN32
+#include <Python.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -16,9 +19,29 @@
 #define CHUNKSIZE 10
 //Potentials
 #include <galpy_potentials.h>
+#include <integrateFullOrbit.h>
 #include <actionAngle.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+//Macros to export functions in DLL on different OS
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT __attribute__((visibility("default")))
+#else
+// Just do nothing?
+#define EXPORT
+#endif
+#ifdef _WIN32
+// On Windows, *need* to define this function to allow the package to be imported
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_galpy_actionAngle_c(void) { // Python 3
+  return NULL;
+}
+#else
+PyMODINIT_FUNC initgalpy_actionAngle_c(void) {} // Python 2
+#endif
 #endif
 /*
   Structure Declarations
@@ -86,22 +109,22 @@ struct u0EqArg{
 /*
   Function Declarations
 */
-void calcu0(int,double *,double *,int,int *,double *,int,double*,
-	    double *,int *);
-void actionAngleStaeckel_uminUmaxVmin(int,double *,double *,double *,double *,
+EXPORT void calcu0(int,double *,double *,int,int *,double *,int,double*,
+		   double *,int *);
+EXPORT void actionAngleStaeckel_uminUmaxVmin(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,
 				      int,double *,double *,
 				      double *,double *,int *);
-void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
+EXPORT void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,double *,int,int *,double *,int,
 				 double *,int,double *,double *,int *);
-void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double *,
+EXPORT void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double *,
 					    double *,double *,double *,
 					    int,int *,double *,
 					    int,double *,int,double *,double *,
 					    double *,double *,double *,
 					    double *,double *,double *,int *);
-void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
+EXPORT void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,
 				      int,double *,int,double *,double *,
 				      double *,double *,double *,int *);
@@ -227,7 +250,7 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -304,7 +327,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -410,7 +433,7 @@ void actionAngleStaeckel_actions(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -667,7 +690,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -814,7 +837,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_actionAngleArgs(npot,actionAngleArgs,&pot_type,&pot_args,false);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
