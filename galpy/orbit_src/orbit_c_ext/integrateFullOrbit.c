@@ -311,6 +311,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 5;
       break;
     case -5: //GaussianAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &GaussianAmplitudeWrapperPotentialEval;
       potentialArgs->Rforce= &GaussianAmplitudeWrapperPotentialRforce;
       potentialArgs->zforce= &GaussianAmplitudeWrapperPotentialzforce;
       potentialArgs->phiforce= &GaussianAmplitudeWrapperPotentialphiforce;
