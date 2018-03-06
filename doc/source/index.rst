@@ -262,6 +262,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Introduces the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods for the fast estimation of the orbital parameters (eccentricity, maximum vertical excursion, and peri/apocenter) in Milky-Way potentials. See :ref:`this section <fastchar>` of the documentation for more info.
 #. *HI Kinematics Along The Minor Axis of M82*, Paul Martini, Adam K. Leroy, Jeffrey G. Mangum, Alberto Bolatto, Katie M. Keating, Karin Sandstrom, & Fabian Walter (2018) *Astrophys. J.*, in press (`arXiv/1802.04359 <http://arxiv.org/abs/1802.04359>`_):
      Use ``galpy.potential`` components to create a mass model for M82 that consists of a ``HernquistPotential`` bulge, ``MN3ExponentialDiskPotential`` disk, and ``NFWPotential`` dark-matter halo by matching photometric and rotation-curve data.
+#. *Radial velocities of RR Lyrae stars in and around NGC 6441*, Andrea Kunder, Arthur Mills, Joseph Edgecomb, et al. (2018) *Astron. J.*, in press (`arXiv/1802.09562 <http://arxiv.org/abs/1802.09562>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate a possible tidal stream for the globular cluster NGC 6441.
 
 
 Indices and tables
