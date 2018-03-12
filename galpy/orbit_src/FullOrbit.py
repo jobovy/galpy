@@ -702,6 +702,7 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                ro=None,vo=None,obs=None,disp=False):
     """Fit an orbit to data in a given potential"""
     # Need to turn this off for speed
+    coords._APY_COORDS_ORIG= coords._APY_COORDS
     coords._APY_COORDS= False
     #Import here, because otherwise there is an infinite loop of imports
     from galpy.actionAngle import actionAngleIsochroneApprox, actionAngle
@@ -729,7 +730,7 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                                customsky,lb_to_customsky,pmllpmbb_to_customsky,
                                tmockAA,
                                ro,vo,obs)
-    coords._APY_COORDS= True
+    coords._APY_COORDS= coords._APY_COORDS_ORIG
     return (opt_vxvv,maxLogL)
 
 def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,

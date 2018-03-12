@@ -1,11 +1,14 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
+import distutils.ccompiler
 import os, os.path
+import platform
 import subprocess
 import glob
 PY3= sys.version > '3'
+WIN32= platform.system() == 'Windows'
 
 long_description= ''
 previous_line= ''
@@ -83,15 +86,16 @@ else:
     del sys.argv[interppotential_ext_pos]
     interppotential_ext= True
 
-#code to check the GSL version
+#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+# (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config',
       '--version']
 try:
     if sys.version_info < (2,7): #subprocess.check_output does not exist
-        gsl_version= subprocess.Popen(cmd,
+        gsl_version= subprocess.Popen(cmd,shell=sys.platform.startswith('win'),
                                       stdout=subprocess.PIPE).communicate()[0]
     else:
-        gsl_version= subprocess.check_output(cmd)
+        gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
@@ -103,6 +107,15 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 #HACK for testing
 #gsl_version= ['0','0']
 
+# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
+if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
+    extra_compile_args.append("-Dinline=__inline")
+
+# To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
+if WIN32:
+    extra_compile_args.append("-DGSL_DLL")
+    extra_compile_args.append("-DWIN32")
+
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
@@ -113,8 +126,14 @@ orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
 
+# On Windows it's unnecessary and erroneous to include m
+if WIN32:
+    orbit_libraries.remove('m')
+    pot_libraries.remove('m')
+
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
+                     'galpy/orbit_src/orbit_c_ext',
                      'galpy/potential_src/potential_c_ext']
 
 #actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
@@ -128,8 +147,6 @@ actionAngleTorus_c_src.extend(\
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
      'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
-actionAngleTorus_c_src.append(\
-    'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngleTorus_c_src.extend(\
@@ -162,6 +179,7 @@ if single_ext: #add the code and libraries for the other extensions
     #includes
     orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
                                'galpy/util/interp_2d',
+                               'galpy/orbit_src/orbit_c_ext',
                                'galpy/potential_src/potential_c_ext'])
     orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
                                'galpy/util/interp_2d',
@@ -172,7 +190,7 @@ if single_ext: #add the code and libraries for the other extensions
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
-
+    
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
@@ -191,8 +209,11 @@ else:
 actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
-
+actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
+actionAngle_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 actionAngle_include_dirs= ['galpy/actionAngle_src/actionAngle_c_ext',
+                           'galpy/orbit_src/orbit_c_ext',
+                           'galpy/util/',
                            'galpy/util/interp_2d',
                            'galpy/potential_src/potential_c_ext']
 
@@ -218,7 +239,6 @@ else:
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
 interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
-interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
 interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
@@ -264,7 +284,7 @@ else:
     actionAngleTorus_c_incl= False
     
 setup(name='galpy',
-      version='1.3.dev',
+      version='1.3.0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -290,6 +310,7 @@ setup(name='galpy',
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
@@ -320,7 +341,7 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print('\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m')
 print('\033[1m'+'Finished installing galpy'+'\033[0m')
-print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
+print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 50 minutes to run)')
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so (use EXT_SUFFIX for python3 compatibility)
 if PY3:

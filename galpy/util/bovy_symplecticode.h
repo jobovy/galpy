@@ -34,16 +34,24 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifndef _WIN32
 #include "signal.h"
+#endif
 #include <galpy_potentials.h>
 /*
   Global variables
 */
+#ifndef _WIN32
 extern volatile sig_atomic_t interrupted;
+#else
+extern int interrupted;
+#endif
 /*
   Function declarations
 */
+#ifndef _WIN32
 void handle_sigint(int);
+#endif
 void leapfrog(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,

@@ -6,6 +6,9 @@ galpy
 .. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
    :target: http://travis-ci.org/jobovy/galpy
 
+.. image:: https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/jobovy/galpy
+
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
@@ -17,6 +20,9 @@ galpy
 
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
+
+.. image:: https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg
+   :target: https://anaconda.org/conda-forge/galpy
 
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
@@ -39,9 +45,11 @@ full list of contributors.
 If you find this code useful in your research, please let me
 know. **If you use galpy in a publication, please cite** `Bovy (2015)
 <http://adsabs.harvard.edu/abs/2015ApJS..216...29B>`__ **and link to
-http://github.com/jobovy/galpy**. Please also send me a reference to
-the paper or send a pull request including your paper in the list of
-galpy papers on `this page
+http://github.com/jobovy/galpy**. See `the acknowledgement documentation section
+<http://galpy.readthedocs.io/en/latest/index.html#acknowledging-galpy>`__
+for a more detailed guide to citing parts of the code. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on `this page
 <http://galpy.readthedocs.io/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 

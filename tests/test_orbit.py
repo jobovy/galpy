@@ -3,6 +3,8 @@ from __future__ import print_function, division
 import warnings
 import os, os.path
 import sys
+import platform
+WIN32= platform.system() == 'Windows'
 import time
 import signal
 import subprocess
@@ -2698,6 +2700,7 @@ def test_orbitfit_custom():
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
     from galpy.util import bovy_coords
+    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
     bovy_coords._APY_COORDS= False # too slow otherwise
     of.integrate(ts,pot)
     off= of.flip()
@@ -2731,7 +2734,7 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     out= []
     for ii in range(vxvv.shape[0]):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
-    bovy_coords._APY_COORDS= True
+    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
     return numpy.array(out)
 
 def test_MWPotential_warning():
@@ -3414,6 +3417,7 @@ def test_orbit_method_inputobs_quantity():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_full():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3445,6 +3449,7 @@ def test_orbit_c_sigint_full():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planar():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3476,6 +3481,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
+    if WIN32: return None
     integrators= ['dopr54_c','rk4_c','rk6_c']
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
