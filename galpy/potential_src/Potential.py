@@ -2722,6 +2722,7 @@ def _check_c(Pot,dxdv=False):
        2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials
 
     """
+    Pot= flatten(Pot)
     from galpy.potential import planarPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
@@ -2756,7 +2757,7 @@ def _dim(Pot):
     """
     from galpy.potential import planarPotential, linearPotential
     if isinstance(Pot,list):
-        return nu.amin(nu.array([p.dim for p in Pot],dtype='int'))
+        return nu.amin(nu.array([_dim(p) for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
         return Pot.dim
 
@@ -2785,7 +2786,7 @@ def _isNonAxi(Pot):
     """
     isList= isinstance(Pot,list)
     if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
+        isAxis= [not _isNonAxi(p) for p in Pot]
         nonAxi= not nu.prod(nu.array(isAxis))
     else:
         nonAxi= Pot.isNonAxi
