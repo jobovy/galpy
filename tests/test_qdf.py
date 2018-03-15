@@ -20,8 +20,10 @@ def test_meanvR_adiabatic_gl():
 
 def test_meanvR_adiabatic_mc():
     numpy.random.seed(1)
+    # test nested list of potentials
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
-                           pot=MWPotential,aA=aAA,cutcounter=True)
+                           pot=[MWPotential[0],MWPotential[1:]],
+                           aA=aAA,cutcounter=True)
     #In the mid-plane
     assert numpy.fabs(qdf.meanvR(0.9,0.,mc=True)) < 0.01, "qdf's meanvr is not equal to zero for adiabatic approx."
     #higher up
