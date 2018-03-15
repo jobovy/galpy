@@ -16,6 +16,7 @@ from galpy.orbit_src.RZOrbit import RZOrbit
 from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
     planarOrbitTop
 from galpy.orbit_src.linearOrbit import linearOrbit
+from galpy.potential import flatten as flatten_potential
 _K=4.74047
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
@@ -403,6 +404,7 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
         # Parse t
@@ -466,6 +468,7 @@ class Orbit(object):
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
 
         """
+        pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
         # Parse t
@@ -684,6 +687,7 @@ class Orbit(object):
            2014-06-17 - Written - Bovy (IAS)
 
         """
+        pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
         return self._orb.fit(vxvv,vxvv_err=vxvv_err,pot=pot,
@@ -724,6 +728,7 @@ class Orbit(object):
            2010-09-15 - Written - Bovy (NYU)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.E(*args,**kwargs)
 
@@ -787,6 +792,7 @@ class Orbit(object):
            2013-11-30 - Written - Bovy (IAS)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.ER(*args,**kwargs)
 
@@ -819,6 +825,7 @@ class Orbit(object):
            2013-11-30 - Written - Bovy (IAS)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         _check_consistent_units(self,kwargs.get('pot',None))
         return self._orb.Ez(*args,**kwargs)
 
@@ -853,6 +860,7 @@ class Orbit(object):
            2011-04-18 - Written - Bovy (NYU)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         _check_consistent_units(self,kwargs.get('pot',None))
         out= self._orb.Jacobi(*args,**kwargs)
         if not isinstance(out,float) and len(out) == 1: return out[0]
@@ -897,6 +905,8 @@ class Orbit(object):
            2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
+
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         return self._orb.e(analytic=analytic,pot=pot,**kwargs)
 
@@ -943,6 +953,7 @@ class Orbit(object):
            2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         return self._orb.rap(analytic=analytic,pot=pot,**kwargs)
 
@@ -989,6 +1000,7 @@ class Orbit(object):
            2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
 
@@ -1035,6 +1047,7 @@ class Orbit(object):
            2017-12-25 - Added Staeckel approximation and made that the default - Bovy (UofT)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         return self._orb.zmax(analytic=analytic,pot=pot,**kwargs)
 
@@ -1112,6 +1125,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1163,6 +1177,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1214,6 +1229,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1259,6 +1275,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1306,6 +1323,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1353,6 +1371,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1406,6 +1425,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1459,6 +1479,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1505,6 +1526,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1556,6 +1578,7 @@ class Orbit(object):
            2013-11-27 - Re-written using new actionAngle modules - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1607,6 +1630,7 @@ class Orbit(object):
            2013-11-27 - Written - Bovy (IAS)
 
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1655,6 +1679,7 @@ class Orbit(object):
 
            2013-11-27 - Written - Bovy (IAS)
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -1703,6 +1728,7 @@ class Orbit(object):
 
            2013-11-27 - Written - Bovy (IAS)
         """
+        if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         self._orb._setupaA(pot=pot,**kwargs)
         if self._orb._aAType.lower() == 'isochroneapprox':
@@ -3050,6 +3076,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2014-06-16 - Changed to actually plot E rather than E/E0 - Bovy (IAS)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         return self._orb.plotE(*args,**kwargs)
 
     def plotEz(self,*args,**kwargs):
@@ -3087,6 +3114,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         return self._orb.plotEz(*args,**kwargs)
 
     def plotER(self,*args,**kwargs):
@@ -3124,6 +3152,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-07-10 - Written - Bovy (NYU)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         return self._orb.plotER(*args,**kwargs)
 
     def plotEzJz(self,*args,**kwargs):
@@ -3153,6 +3182,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2010-08-08 - Written - Bovy (NYU)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         return self._orb.plotEzJz(*args,**kwargs)
 
     def plotJacobi(self,*args,**kwargs):
@@ -3193,6 +3223,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-10-10 - Written - Bovy (IAS)
 
         """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         return self._orb.plotJacobi(*args,**kwargs)
 
     def plotR(self,*args,**kwargs):

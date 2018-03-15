@@ -13,6 +13,7 @@ from galpy.df_src.df import df, _APY_LOADED
 from galpy.util.bovy_conversion import physical_conversion
 import galpy.df_src.streamdf
 from galpy.df_src.streamdf import _determine_stream_track_single
+from galpy.potential import flatten as flatten_potential
 if _APY_LOADED:
     from astropy import units
 def impact_check_range(func):
@@ -1279,6 +1280,7 @@ def impulse_deltav_general(v,y,b,w,pot):
        2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
 
     """
+    pot= flatten_potential(pot)
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     nv= v.shape[0]
     # Build the rotation matrices and their inverse
@@ -1330,6 +1332,7 @@ def impulse_deltav_general_curvedstream(v,x,b,w,x0,v0,pot):
        2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
 
     """
+    pot= flatten_potential(pot)
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
     b0 = numpy.cross(w,v0)
@@ -1383,6 +1386,7 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
        2015-08-17 - SANDERS
 
     """
+    galpot= flatten_potential(galpot)
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
     nstar,ndim=numpy.shape(v)
@@ -1458,6 +1462,7 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
        2015-08-18 - SANDERS
 
     """
+    galpot= flatten_potential(galpot)
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
 
@@ -1651,6 +1656,7 @@ def impulse_deltav_plummerstream_curvedstream(v,x,t,b,w,x0,v0,GSigma,rs,
        2015-11-20 - Written based on Plummer sphere above - Bovy (UofT)
 
     """
+    galpot= flatten_potential(galpot)
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
     # Integrate an orbit to use to figure out where each (v,x) is at each time

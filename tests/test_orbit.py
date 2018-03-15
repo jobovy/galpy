@@ -53,7 +53,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
-    testorbitHenonHeilesPotential
+    testorbitHenonHeilesPotential, \
+    nestedListPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -123,6 +124,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -301,7 +303,7 @@ def test_energy_jacobi_conservation():
                 if isinstance(tp,testMWPotential) \
                         or isinstance(tp,testplanarMWPotential):
                     o.integrate(ttimes,
-                                [tmp.toPlanar() for tmp in tp._potlist],
+                                potential.toPlanarPotential(tp._potlist),
                                 method=integrator)
                 else:
                     o.integrate(ttimes,ptp,method=integrator)
@@ -347,7 +349,7 @@ def test_energy_jacobi_conservation():
             if isinstance(tp,testMWPotential) \
                     or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,
-                            [tmp.toPlanar() for tmp in tp._potlist],
+                            potential.toPlanarPotential(tp._potlist),
                             method=integrator)
             else:
                 o.integrate(ttimes,ptp,method=integrator)
@@ -516,6 +518,7 @@ def test_liouville_planar():
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -564,7 +567,7 @@ def test_liouville_planar():
             #Calculate the Jacobian d x / d x
             if hasattr(tp,'_potlist'):
                 if isinstance(tp,testMWPotential):
-                    plist= [tmp.toPlanar() for tmp in tp._potlist]
+                    plist= potential.toPlanarPotential(tp._potlist)
                 else:
                     plist= tp._potlist
                 o.integrate_dxdv([1.,0.,0.,0.],ttimes,plist,

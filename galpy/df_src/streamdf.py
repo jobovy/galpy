@@ -16,6 +16,7 @@ from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 from galpy.util.bovy_conversion import physical_conversion, _APY_UNITS
 from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
+from galpy.potential import flatten as flatten_potential
 import warnings
 from galpy.util import galpyWarning
 if _APY_LOADED:
@@ -162,7 +163,7 @@ class streamdf(df):
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
-        self._pot= pot
+        self._pot= flatten_potential(pot)
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")

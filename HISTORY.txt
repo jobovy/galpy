@@ -1,6 +1,11 @@
 v1.4 (????)
 ==================
 
+- Allow nested lists of Potential instances everywhere where lists of
+  Potential instances were previously allowed; allow easy adding of
+  components (e.g., a bar) to previously defined potentials (which may
+  be lists themselves): new_pot= [pot,bar_pot].
+
 - Made the code fully compilable on Windows with MSVC and test Windows
   builds automatically on appveyor (#333).
 
