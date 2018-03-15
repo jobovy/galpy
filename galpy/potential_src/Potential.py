@@ -2682,7 +2682,10 @@ def flatten(Pot):
         2018-03-14 - Written - Bovy (UofT)
     
     """
-    return list(_flatten_list(Pot))
+    if isinstance(Pot,list):
+        return list(_flatten_list(Pot))
+    else:
+        return Pot
 
 def _check_c(Pot,dxdv=False):
     """
