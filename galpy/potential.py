@@ -89,6 +89,7 @@ _isNonAxi= Potential._isNonAxi
 scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
 scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
 scf_compute_coeffs = SCFPotential.scf_compute_coeffs
+flatten= Potential.flatten
 #
 # Classes
 #

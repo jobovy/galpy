@@ -2652,6 +2652,38 @@ def turn_physical_on(Pot,ro=None,vo=None):
         Pot.turn_physical_on(ro=ro,vo=vo)
     return None
 
+def _flatten_list(L):
+    for item in L:
+        try:
+            for i in _flatten_list(item): yield i
+        except TypeError:
+            yield item
+
+def flatten(Pot):
+    """
+    NAME:
+       
+       flatten
+
+    PURPOSE:
+    
+       flatten a possibly nested list of Potential instances into a flat list
+    
+    INPUT:
+    
+       Pot - list (possibly nested) of Potential instances
+
+    OUTPUT:
+    
+       Flattened list of Potential instances 
+    
+    HISTORY:
+    
+        2018-03-14 - Written - Bovy (UofT)
+    
+    """
+    return list(_flatten_list(Pot))
+
 def _check_c(Pot,dxdv=False):
     """
 

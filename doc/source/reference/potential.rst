@@ -73,6 +73,7 @@ Use as ``method(...)``
    evaluaterforces <potentialsphrforces.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
+   flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
    nemo_accname <potentialnemoaccnames.rst>
@@ -256,6 +257,7 @@ Use as ``method(...)``
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
+   flatten <potentialflatten.rst>
    LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
@@ -317,6 +319,7 @@ Use as ``method(...)``
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
+   flatten <potentialflatten.rst>
    plotlinearPotentials <potential1dplots.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
