@@ -13,6 +13,7 @@ from galpy.util import galpyWarning
 import galpy.actionAngle_src.actionAngleTorus_c as actionAngleTorus_c
 from galpy.actionAngle_src.actionAngleTorus_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
+from galpy.potential_src.Potential import flatten as flatten_potential
 _autofit_errvals= {}
 _autofit_errvals[-1]= 'something wrong with input, usually bad starting values for the parameters'
 _autofit_errvals[-2]= 'Fit failed the goal by a factor <= 2'
@@ -49,7 +50,7 @@ class actionAngleTorus(object):
         """
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleTorus")
-        self._pot= kwargs['pot']
+        self._pot= flatten_potential(kwargs['pot'])
         if _isNonAxi(self._pot):
             raise RuntimeError("actionAngleTorus for non-axisymmetric potentials is not supported")
         if self._pot == MWPotential:
