@@ -211,17 +211,17 @@ of configuration variables. This configuration file is parsed using
 `ConfigParser
 <https://docs.python.org/2/library/configparser.html>`__/`configparser
 <https://docs.python.org/3/library/configparser.html>`__. It is
-currently used to set a default set of distance and velocity scales
-(``ro`` and ``vo`` throughout galpy) for conversion between physical
-and internal galpy units, to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), to specify whether output from functions or
-methods should be given as an `astropy Quantity
-<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
-with units as much as possible or not, and whether or not to use
-astropy's `coordinate transformations
-<http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these
-are typically somewhat slower than galpy's own coordinate
-transformations, but they are more accurate and more general). The
-current configuration file therefore looks like this::
+currently used:
+
+	  * to set a default set of distance and velocity scales (``ro`` and ``vo`` throughout galpy) for conversion between physical and internal galpy unit
+
+    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), 
+
+	  * to specify whether output from functions or methods should be given as an `astropy Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ with units as much as possible or not, and whether or not to use astropy's `coordinate transformations <http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these are typically somewhat slower than galpy's own coordinate transformations, but they are more accurate and more general)
+
+          * to set the level of verbosity of galpy's warning system (the default ``verbose=False`` turns off non-crucial warnings). 
+
+The current configuration file therefore looks like this::
 
 	  [normalization]
 	  ro = 8.
@@ -233,6 +233,9 @@ current configuration file therefore looks like this::
 	  [astropy]
 	  astropy-units = False
 	  astropy-coords = True
+
+	  [warnings]
+	  verbose = False
 
 where ``ro`` is the distance scale specified in kpc, ``vo`` the
 velocity scale in km/s, and the setting is to *not* return output as a

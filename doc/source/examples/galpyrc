@@ -9,3 +9,5 @@ seaborn-bovy-defaults = True
 astropy-units = False
 astropy-coords = True
 
+[warnings]
+verbose= False
