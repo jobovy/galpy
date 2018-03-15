@@ -8,7 +8,8 @@ import galpy.util.bovy_plot as plot
 from galpy.util import config
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr
-from galpy.potential_src.Potential import Potential, PotentialError, lindbladR
+from galpy.potential_src.Potential import Potential, PotentialError, \
+    lindbladR, flatten
 from galpy.potential_src.plotRotcurve import plotRotcurve
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -717,6 +718,7 @@ def RZToplanarPotential(RZPot):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    RZPot= flatten(RZPot)
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -897,6 +899,7 @@ def toPlanarPotential(Pot):
        2016-06-11 - Written - Bovy (UofT)
 
     """
+    Pot= flatten(Pot)
     if isinstance(Pot,list):
         out= []
         for pot in Pot:
@@ -1177,6 +1180,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
        2014-08-23 - Written - Bovy (IAS)
 
     """
+    axiPot= flatten(axiPot)
     from galpy.potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
         raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
@@ -1225,6 +1229,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    Pot= flatten(Pot)
     Rrange= kwargs.pop('Rrange',[0.01,5.])
     xrange= kwargs.pop('xrange',[-5.,5.])
     yrange= kwargs.pop('yrange',[-5.,5.])

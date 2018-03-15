@@ -5,7 +5,7 @@ import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
 from galpy.util import config
-from galpy.potential_src.Potential import PotentialError
+from galpy.potential_src.Potential import PotentialError, flatten
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
@@ -342,6 +342,7 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
        2010-07-13 - Written - Bovy (NYU)
 
     """
+    Pot= flatten(Pot)
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile "+savefilename+" ...")
         savefile= open(savefilename,'rb')
