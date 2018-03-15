@@ -6,6 +6,10 @@ v1.4 (????)
   components (e.g., a bar) to previously defined potentials (which may
   be lists themselves): new_pot= [pot,bar_pot].
 
+- Add warnings/verbose configuration parameter to set level of
+  verbosity of non-crucial warnings (like: "Using C implementation to
+  integrate orbits").
+
 - Made the code fully compilable on Windows with MSVC and test Windows
   builds automatically on appveyor (#333).
 
