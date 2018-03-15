@@ -17,9 +17,9 @@ With pip
 --------
 
 galpy can also be installed using pip. Some advanced features require
-the GNU Scientific Library (GSL; see below). If you want to use
-these, install the GSL first (or install it later and re-install
-using the upgrade command above). Then do::
+the GNU Scientific Library (GSL; :ref:`see below <gsl_install>`). If
+you want to use these, install the GSL first (or install it later and
+re-install using the upgrade command above). Then do::
 
       pip install galpy
 
@@ -58,6 +58,22 @@ If you want to use a feature that is currently only available in a branch, do::
 to, for example, install the ``dev`` branch.
 
 .. _install_tm:
+
+Installing from source on Windows
+---------------------------------
+
+Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
+
+	 set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+	 set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+	 set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+
+where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
+
+To then compile the code, do::
+
+   python setup.py install --no-openmp
+
 
 Installing the TorusMapper code
 --------------------------------
@@ -115,17 +131,23 @@ necessary if you want to use
 ``galpy.actionAngle.actionAngleTorus``. See :ref:`above <install_tm>`
 for instructions on how to install the TorusMapper code.
 
+.. _gsl_install:
+
 How do I install the GSL?
 ++++++++++++++++++++++++++
 
 Certain advanced features require the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`_), with action calculations
-requiring version 1.14 or higher. On a Mac, the easiest way to install
+requiring version 1.14 or higher. The easiest way to install this is using its Anaconda build::
+
+	  conda install -c conda-forge gsl
+
+If you do not want to go that route, on a Mac, the next easiest way to install
 the GSL is using `Homebrew <http://brew.sh/>`_ as::
 
 		brew install gsl --universal
 
-You should be able to check your version  using::
+You should be able to check your version using (on Mac/Linux)::
 
    gsl-config --version
 
