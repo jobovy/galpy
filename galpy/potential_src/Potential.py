@@ -1510,6 +1510,166 @@ class Potential(object):
         except AttributeError:
             raise AttributeError('NEMO acceleration parameters not supported for %s' % self.__class__.__name__)
 
+    @potential_physical_input
+    @physical_conversion('position',pop=True)
+    def rtide(self,R,z,M=None,M_units=None):
+        """
+            
+        NAME:
+            
+            rtide
+            
+        PURPOSE:
+            
+            Calculate the tidal radius for object of mass M assuming a circular orbit 
+            at R in potential Pot given the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
+        INPUT:
+            
+            Pot - Potential instance or list of such instances
+            
+            R - Galactocentric radius (can be Quantity)
+            
+            z - height (can be Quantity)
+            
+            M - (default = None) Mass of object (can be Quantity)
+            
+        OUTPUT:
+            
+            Tidal Radius
+        
+        HISTORY:
+            
+            2018-02-12 - Written - Webb (UofT)
+            
+        """
+        if self.isNonAxi:
+            #Make sure potential is axisymmetric
+            print("Error - cannot calculate rtide for non-axisymmetric potential")
+            return 0.0
+        elif M==None:
+            #If units not given, assume galpy! GM units?
+            print("Error - mass parameter has not been set")
+            return 0.0
+        else:
+            #Check mass units (default: GALPY units)
+            if M_units=='mass':
+                M/=bovy_conversion.mass_in_msol(self._vo,self._ro)
+            elif M_units=='GM':
+                M/=(bovy_conversion.mass_in_msol(self._vo,self._ro)*bovy_conversion._G)
+            # Parse M if it has units
+            elif _APY_LOADED and isinstance(M,units.Quantity):
+                # Try a bunch of possible units
+                unitFound= False
+                # mass
+                try:
+                    M= M.to(units.Msun).value\
+                        /bovy_conversion.mass_in_msol(self._vo,self._ro)
+                except units.UnitConversionError: pass
+                else:
+                    unitFound= True
+                    if not M_units == 'mass':
+                        raise units.UnitConversionError('M= parameter of %s should have units of %s, but has units of mass instead' % (type(self).__name__,M_units))
+                if not unitFound:
+                    # G x mass
+                    try:
+                        M= M.to(units.pc*units.km**2/units.s**2)\
+                            .value\
+                            /bovy_conversion.mass_in_msol(self._vo,self._ro)\
+                            /bovy_conversion._G
+                    except units.UnitConversionError: pass
+                    else:
+                        unitFound= True
+                        if not M_units == 'mass':
+                            raise units.UnitConversionError('M= parameter of %s should have units of %s, but has units of G x mass instead' % (type(self).__name__,M_units))
+                                    
+            #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
+            r=math.sqrt(R**2.0+z**2.0)
+            theta=nu.arctan2(R, z)
+            
+            Rderiv=-1.0*self.Rforce(R,z,use_physical=False)
+            zderiv=-1.0*self.zforce(R,z,use_physical=False)
+
+            omegac2=(Rderiv*(R/r)+zderiv*(z/r))/r
+            
+            #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
+            R2deriv= self.R2deriv(R,z,use_physical=False)
+            z2deriv=self.z2deriv(R,z,use_physical=False)
+            Rzderiv=self.Rzderiv(R,z,use_physical=False)
+            
+            r2deriv=(R2deriv*nu.sin(theta)+Rzderiv*nu.cos(theta))*nu.sin(theta)+(Rzderiv*nu.sin(theta)+z2deriv*nu.cos(theta))*nu.cos(theta)
+
+            #rt=(GM/(omegac2*nu))**(1/3)
+            kappa2=3.0*omegac2+r2deriv
+            nuu=4.0-kappa2/omegac2
+            return (M/(omegac2*nuu))**(1.0/3.0)
+
+    @potential_physical_input
+    @physical_conversion('forcederivative',pop=True)
+    def ttensor(self,R,z,phi):
+        """
+            
+        NAME:
+        
+            ttensor
+            
+        PURPOSE:
+        
+            Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
+            Assumes no phi force
+            
+        INPUT:
+        
+            Pot - Potential instance or list of such instances
+            
+            R - Galactocentric radius (can be Quantity)
+            
+            z - height (can be Quantity)
+            
+            
+        OUTPUT:
+        
+            Tidal Tensor
+        
+        HISTORY:
+        
+            2018-03-07 - Written - Webb (UofT)
+            
+        """
+        if self.isNonAxi:
+            #Make sure potential is axisymmetric
+            print("Error - cannot calculate tidal tensor for non-axisymmetric potential")
+            return 0.0
+        else:
+            #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r (d(Psi)/dr = d(Psi)/dR dR/dr + d(Psi)/dz dz/dr
+        
+            #Evaluate forces, angles and derivatives
+            Rderiv=-1.0*self.Rforce(R,z,phi=phi,use_physical=False)
+            zderiv=-1.0*self.zforce(R,z,use_physical=False)
+            R2deriv= self.R2deriv(R,z,phi=phi,use_physical=False)
+            z2deriv=self.z2deriv(R,z,use_physical=False)
+            Rzderiv=self.Rzderiv(R,z,use_physical=False)
+      
+            cosphi=nu.cos(phi)
+            sinphi=nu.sin(phi)
+            cos2phi=cosphi**2.0
+            sin2phi=sinphi**2.0
+
+            txx=R2deriv*cos2phi+Rderiv*sin2phi/R
+            txy=R2deriv*cosphi*sinphi-Rderiv*cosphi*sinphi/R
+            txz=Rzderiv*cosphi
+            
+            tyx=txy
+            tyy=R2deriv*sin2phi+Rderiv*cos2phi/R
+            tyz=Rzderiv*sinphi
+        
+            tzx=txz
+            tzy=tyz
+            tzz=z2deriv
+            
+            tij=nu.array([[-1.0*txx,-1.0*txy,-1.0*txz],[-1.0*tyx,-1.0*tyy,-1.0*tyz],[-1.0*tzx,-1.0*tzy,-1.0*tzz]])
+            
+            return tij
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -1552,42 +1712,6 @@ def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
 
     """
     return _evaluatePotentials(Pot,R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-
-    @potential_physical_input
-    @physical_conversion('position',pop=True)
-    def rtide(self,R,M=1.0):
-        """
-
-        NAME:
-
-           rtide
-
-        PURPOSE:
-
-           calculate the tidal radius for object of mass M at R in potential Pot given
-           the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
-
-        INPUT:
-
-           Pot - Potential instance or list of such instances
-
-           R - Galactocentric radius (can be Quantity)
-       
-           M - (default = 1.0) Mass of object of interest (can be Quantity)
-
-        OUTPUT:
-
-           tidal radius
-
-       HISTORY:
-
-           2018-02-02 - Written - Webb (UofT)
-
-        """
-    
-        nu=4.0-(self.omegac/self.epifreq)**2.0
-        return (M/(self.omegac*nu))**(1.0/3.0)
-
 
 def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     """Raw, undecorated function for internal use"""
@@ -2794,35 +2918,161 @@ def kms_to_kpcGyrDecorator(func):
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def rtide(Pot,R,M=1.0):
+def rtide(Pot,R,z,M=None,M_units=None):
     """
-
+        
     NAME:
-
-       rtide
-
+            
+    rtide
+            
     PURPOSE:
-
-       calculate the tidal radius for object of mass M at R in potential Pot given
-       the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
-
+            
+    Calculate the tidal radius for object of mass M assuming a circular orbit
+    at R in potential Pot given the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
     INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius (can be Quantity)
-       
-       M - (default = 1.0) Mass of object of interest (can be Quantity)
-
+            
+    Pot - Potential instance or list of such instances
+            
+    R - Galactocentric radius (can be Quantity)
+            
+    z - height (can be Quantity)
+            
+    M - (default = None) Mass of object (can be Quantity)
+            
     OUTPUT:
-
-       tidal radius
-
+            
+    Tidal Radius
+            
     HISTORY:
-
-       2018-02-02 - Written - Webb (UofT)
-
+            
+    2018-03-19 - Written - Webb (UofT)
+            
     """
-    
-    nu=4.0-(omegac(Pot,R,use_physical=False)/epifreq(Pot,R,use_physical=False))**2.0
-    return (M/(omegac(Pot,R,use_physical=False)*nu))**(1.0/3.0)
+    if Pot.isNonAxi:
+        #Make sure potential is axisymmetric
+        print("Error - cannot calculate rtide for non-axisymmetric potential")
+        return 0.0
+    elif M==None:
+        #If units not given, assume galpy! GM units?
+        print("Error - mass parameter has not been set")
+        return 0.0
+    else:
+        #Check mass units (default: GALPY units)
+        if M_units=='mass':
+            M/=bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)
+        elif M_units=='GM':
+            M/=(bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)*bovy_conversion._G)
+        # Parse M if it has units
+        elif _APY_LOADED and isinstance(M,units.Quantity):
+            # Try a bunch of possible units
+            unitFound= False
+            # mass
+            try:
+                M= M.to(units.Msun).value\
+                    /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)
+            except units.UnitConversionError: pass
+            else:
+                unitFound= True
+                if not M_units == 'mass':
+                    raise units.UnitConversionError('M= parameter of %s should have units of %s, but has units of mass instead' % (type(Pot).__name__,M_units))
+            if not unitFound:
+                # G x mass
+                try:
+                    M= M.to(units.pc*units.km**2/units.s**2)\
+                       .value\
+                        /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)\
+                        /bovy_conversion._G
+                except units.UnitConversionError: pass
+                else:
+                    unitFound= True
+                    if not M_units == 'mass':
+                        raise units.UnitConversionError('M= parameter of %s should have units of %s, but has units of G x mass instead' % (type(Pot).__name__,M_units))
+        
+        #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
+        r=math.sqrt(R**2.0+z**2.0)
+        theta=nu.arctan2(R, z)
+            
+        Rderiv=-1.0*Pot.Rforce(R,z,use_physical=False)
+        zderiv=-1.0*Pot.zforce(R,z,use_physical=False)
+            
+        omegac2=(Rderiv*(R/r)+zderiv*(z/r))/r
+            
+        #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
+        R2deriv= Pot.R2deriv(R,z,use_physical=False)
+        z2deriv=Pot.z2deriv(R,z,use_physical=False)
+        Rzderiv=Pot.Rzderiv(R,z,use_physical=False)
+            
+        r2deriv=(R2deriv*nu.sin(theta)+Rzderiv*nu.cos(theta))*nu.sin(theta)+(Rzderiv*nu.sin(theta)+z2deriv*nu.cos(theta))*nu.cos(theta)
+            
+        #rt=(GM/(omegac2*nu))**(1/3)
+        kappa2=3.0*omegac2+r2deriv
+        nuu=4.0-kappa2/omegac2
+        return (M/(omegac2*nuu))**(1.0/3.0)
+
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
+def ttensor(Pot,R,z,phi):
+    """
+            
+    NAME:
+        
+        ttensor
+            
+    PURPOSE:
+        
+        Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
+        Assumes no phi force
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+            
+        R - Galactocentric radius (can be Quantity)
+        
+        z - height (can be Quantity)
+        
+        phi - azimuth (can be Quantity)
+            
+    OUTPUT:
+        
+        Tidal Tensor
+        
+    HISTORY:
+        
+        2018-03-19 - Written - Webb (UofT)
+            
+    """
+    if Pot.isNonAxi:
+        #Make sure potential is axisymmetric
+        print("Error - cannot calculate tidal tensor for non-axisymmetric potential")
+        return 0.0
+    else:
+        #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r (d(Psi)/dr = d(Psi)/dR dR/dr + d(Psi)/dz dz/dr
+        
+        #Evaluate forces, angles and derivatives
+        Rderiv=-1.0*Pot.Rforce(R,z,phi=phi,use_physical=False)
+        zderiv=-1.0*Pot.zforce(R,z,use_physical=False)
+        R2deriv= Pot.R2deriv(R,z,phi=phi,use_physical=False)
+        z2deriv=Pot.z2deriv(R,z,use_physical=False)
+        Rzderiv=Pot.Rzderiv(R,z,use_physical=False)
+      
+        cosphi=nu.cos(phi)
+        sinphi=nu.sin(phi)
+        cos2phi=cosphi**2.0
+        sin2phi=sinphi**2.0
+
+        txx=R2deriv*cos2phi+Rderiv*sin2phi/R
+        txy=R2deriv*cosphi*sinphi-Rderiv*cosphi*sinphi/R
+        txz=Rzderiv*cosphi
+            
+        tyx=txy
+        tyy=R2deriv*sin2phi+Rderiv*cos2phi/R
+        tyz=Rzderiv*sinphi
+        
+        tzx=txz
+        tzy=tyz
+        tzz=z2deriv
+            
+        tij=nu.array([[-1.0*txx,-1.0*txy,-1.0*txz],[-1.0*tyx,-1.0*tyy,-1.0*tyz],[-1.0*tzx,-1.0*tzy,-1.0*tzz]])
+            
+        return tij

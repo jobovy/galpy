@@ -4,6 +4,7 @@ import os
 import sys
 import pytest
 import numpy
+from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
     _PYNBODY_LOADED= True
@@ -2129,6 +2130,26 @@ def test_plotting():
     finally:
         os.remove(tmp_savefilename)
     return None
+
+def test_rtide():
+    #Test that rtide is being calculated properly for a 1.0E5 Msun cluster
+    #in select potentials
+
+    lp=potential.LogarithmicHaloPotential()
+    assert abs(1.0-lp.rtide(1.,0.,1.0E5,'mass')/0.0082205653709) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+            
+    pmass=potential.PlummerPotential(b=0.0)
+    assert abs(1.0-pmass.rtide(1.,0.,1.0E5,'mass')/0.00718132531711) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+            
+    return None
+
+def test_ttensor():
+    #For a points mass galaxy assert that maximum eigenvalue is 3.
+    pmass=potential.PlummerPotential(b=0.0,vo=vo,ro=ro)
+    tij=pmass.ttensor(1.0/ro,0.0,0.0)
+    max_eigenvalue=tij[0][0]-tij[2][2]
+
+    assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
