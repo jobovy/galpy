@@ -755,10 +755,25 @@ def test_cov_pmradec_to_pmllbb():
                                                         os*ra,
                                                         os*dec,
                                                         degree=True,
-                                                        epoch=1950.)
+                                                        epoch=1950.,
+                                                        no_einsum=True)
     for ii in range(3):
         assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb[ii,:,:])-numpy.linalg.det(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
         assert numpy.fabs(numpy.trace(cov_pmllpmbb[ii,:,:])-numpy.trace(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
+    # check that the einsum implementation returns the same result as the np.dot loop
+    ra, dec= 132.25, -23.4
+    icov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
+    cov_pmrapmdec= numpy.empty((3,2,2))
+    for ii in range(3): cov_pmrapmdec[ii,:,:]= icov_pmrapmdec
+    os= numpy.ones(3)
+    cov_pmllpmbb_einsum = bovy_coords.cov_pmrapmdec_to_pmllpmbb(cov_pmrapmdec,
+                                                        os*ra,
+                                                        os*dec,
+                                                        degree=True,
+                                                        epoch=1950.,
+                                                        no_einsum=False)
+    for ii in range(3):
+        assert (numpy.fabs(cov_pmllpmbb_einsum[ii] - cov_pmllpmbb[ii]) < 10.**-10.).all(), 'cov_pmradec_to_pmllbb coversion using einsum did not work as expected'
     return None
 
 def test_cov_dvrpmllbb_to_vxyz():
