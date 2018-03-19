@@ -44,15 +44,15 @@
 #Copyright (c) 2010 - 2016, Jo Bovy
 #All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without 
+#Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are met:
 #
-#   Redistributions of source code must retain the above copyright notice, 
+#   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
-#   Redistributions in binary form must reproduce the above copyright notice, 
-#      this list of conditions and the following disclaimer in the 
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#   The name of the author may not be used to endorse or promote products 
+#   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
 #THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -133,7 +133,7 @@ def degreeDecorator(inDegrees,outDegrees):
                     out[:,indx]/= nu.pi/180.
             return out
         return wrapped
-    return wrapper            
+    return wrapper
 
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
@@ -428,8 +428,8 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
     #Whether to use degrees and scalar input is handled by decorators
     if XYZ: #undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./nu.pi 
-            b*= 180./nu.pi 
+            l*= 180./nu.pi
+            b*= 180./nu.pi
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -494,8 +494,8 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     #Whether to use degrees and scalar input is handled by decorators
     if XYZ: #undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./nu.pi 
-            b*= 180./nu.pi 
+            l*= 180./nu.pi
+            b*= 180./nu.pi
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -773,7 +773,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
     return sc.dot(P,sc.dot(cov_pmradec,P.T))
 
 def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
-                          plx=False,degree=False):
+                          plx=False,degree=False,no_einsum=False):
     """
     NAME:
 
@@ -826,16 +826,64 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
         return cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,
                                             l,b)
     else:
-        ndata= len(d)
-        out= sc.zeros((ndata,3,3))
-        for ii in range(ndata):
-            out[ii,:,:]= cov_dvrpmllbb_to_vxyz_single(d[ii],e_d[ii],e_vr[ii],
-                                                      pmll[ii],pmbb[ii],
-                                                      cov_pmllbb[ii,:,:],
-                                                      l[ii],b[ii])
-
+        if no_einsum:
+            ndata= len(d)
+            out= sc.zeros((ndata,3,3))
+            for ii in range(ndata):
+                out[ii,:,:]= cov_dvrpmllbb_to_vxyz_single(d[ii],e_d[ii],e_vr[ii],
+                                                          pmll[ii],pmbb[ii],
+                                                          cov_pmllbb[ii,:,:],
+                                                          l[ii],b[ii])
+        else:
+            out = cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b)
         return out
-    
+
+def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
+    """
+    NAME:
+       cov_dvrpmllbb_to_vxyz_array
+    PURPOSE:
+       propagate distance, radial velocity, and proper motion uncertainties to
+       Galactic coordinates for array inputs, using np.einsum
+    INPUT:
+       d - distance [kpc, as/mas for plx]
+       e_d - distance uncertainty [kpc, [as/mas] for plx]
+       e_vr  - low velocity uncertainty [km/s]
+       pmll - proper motion in l (*cos(b)) [ [as/mas]/yr ]
+       pmbb - proper motion in b [ [as/mas]/yr ]
+       cov_pmllbb - uncertainty covariance for proper motion
+       l - Galactic longitude [rad]
+       b - Galactic lattitude [rad]
+    OUTPUT:
+       cov(vx,vy,vz) [3,3]
+    HISTORY:
+       2010-04-12 - Written - Bovy (NYU)
+    """
+    ndata = len(d)
+    M = nu.zeros((ndata,2,3))
+    M[:,0,0] = pmll
+    M[:,1,0] = pmbb
+    M[:,0,1] = d
+    M[:,1,2] = d
+    M= _K*M
+    cov_dpmllbb= sc.zeros((ndata,3,3))
+    cov_dpmllbb[:,0,0]= e_d**2.
+    cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
+    cov_vlvb = nu.einsum('aij,ajk->aik', M, nu.einsum('aij,jka->aik', cov_dpmllbb, M.T))
+    cov_vrvlvb= sc.zeros((ndata,3,3))
+    cov_vrvlvb[:,0,0]= e_vr**2.
+    cov_vrvlvb[:,1:3,1:3]= cov_vlvb
+    R = nu.zeros((ndata,3,3))
+    R[:,0,0] = nu.cos(l)*nu.cos(b)
+    R[:,0,1] = nu.sin(l)*nu.cos(b)
+    R[:,0,2] =  nu.sin(b)
+    R[:,1,0] = -nu.sin(l)
+    R[:,1,1] = nu.cos(l)
+    R[:,2,0] = -nu.cos(l)*nu.sin(b)
+    R[:,2,1] = -nu.sin(l)*nu.sin(b)
+    R[:,2,2] =  nu.cos(b)
+    return nu.einsum('ija,ajk->aik', R.T, nu.einsum('aij,ajk->aik', cov_vrvlvb, R))
+
 def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
     """
     NAME:
@@ -890,7 +938,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
        Z - Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
     OUTPUT:
@@ -927,7 +975,7 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
        X, Y, Z - Galactocentric rectangular coordinates
 
        Xsun - cylindrical distance to the GC (can be array of same length as X)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as X)
 
     OUTPUT:
@@ -1014,7 +1062,7 @@ def cyl_to_rect(R,phi,Z):
 
     """
     return (R*sc.cos(phi),R*sc.sin(phi),Z)
-    
+
 def cyl_to_spher(R,Z, phi):
     """
     NAME:
@@ -1041,7 +1089,7 @@ def cyl_to_spher(R,Z, phi):
     theta = nu.arctan2(R, Z)
     r = (R**2 + Z**2)**.5
     return (r,theta, phi)
-    
+
 def spher_to_cyl(r, theta, phi):
     """
     NAME:
@@ -1090,7 +1138,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
        Z - Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
     OUTPUT:
@@ -1104,7 +1152,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
     """
     XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun))
     return nu.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
-    
+
 @scalarDecorator
 def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     """
@@ -1121,7 +1169,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
        R, phi, Z - Galactocentric cylindrical coordinates
 
        Xsun - cylindrical distance to the GC (can be array of same length as R)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as R)
 
     OUTPUT:
@@ -1137,7 +1185,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
     return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun)
-    
+
 @scalarDecorator
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
     """
@@ -1160,7 +1208,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        vsun - velocity of the sun in the GC frame ndarray[3]
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
     OUTPUT:
@@ -1210,7 +1258,7 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        vsun - velocity of the sun in the GC frame ndarray[3]
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
@@ -1250,7 +1298,7 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vXg; shape [3,N])
 
        Xsun - cylindrical distance to the GC (can be array of same length as vXg)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
     OUTPUT:
@@ -1310,7 +1358,7 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vRg; shape [3,N])
 
        Xsun - cylindrical distance to the GC (can be array of same length as vRg)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as vRg)
 
     OUTPUT:
@@ -1339,11 +1387,11 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
 
     INPUT:
 
-       vx - 
+       vx -
 
-       vy - 
+       vy -
 
-       vz - 
+       vz -
 
        X - X
 
@@ -1479,7 +1527,7 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        if 3: X,Y,Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
     OUTPUT:
@@ -1923,7 +1971,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     PURPOSE:
 
        calculate the prolate spheroidal coordinates (lambda,nu) from
-       galactocentric cylindrical coordinates (R,z)            
+       galactocentric cylindrical coordinates (R,z)
        by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
             R^2 = (l+a) * (n+a) / (a-g)
             z^2 = (l+g) * (n+g) / (g-a)
@@ -1933,7 +1981,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
 
         R     - Galactocentric cylindrical radius
         z     - vertical height
-        ac    - axis ratio of the coordinate surfaces 
+        ac    - axis ratio of the coordinate surfaces
                 (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
         Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
                 Delta=sqrt(g-a)
@@ -1951,7 +1999,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     a = g - Delta**2
     term  =  R**2 + z**2 - a - g
     discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-    l = 0.5 * (term + nu.sqrt(discr))  
+    l = 0.5 * (term + nu.sqrt(discr))
     n = 0.5 * (term - nu.sqrt(discr))
     if isinstance(z,float) and z == 0.:
         l = R**2 - a
@@ -2076,7 +2124,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
 
         l     - prolate spheroidal coordinate lambda
         n     - prolate spheroidal coordinate nu
-        ac    - axis ratio of the coordinate surfaces 
+        ac    - axis ratio of the coordinate surfaces
                 (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
         Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
                 Delta=sqrt(g-a)
@@ -2148,7 +2196,7 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
     b= nu.arcsin(galXYZ[2])
     l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
     out= nu.array([l,b])
-    return out.T   
+    return out.T
 
 @scalarDecorator
 @degreeDecorator([2,3],[])

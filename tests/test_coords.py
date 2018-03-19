@@ -164,7 +164,7 @@ def test_radec_to_lb_otherepochs():
     ra, dec= 180., 90.
     try:
         lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
-                                    degree=False,epoch=1975.)   
+                                    degree=False,epoch=1975.)
     except IOError:
         pass
     else:
@@ -178,7 +178,7 @@ def test_radec_to_lb_otherepochs_apy():
     ra, dec= 180., 90.
     try:
         lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
-                                    degree=False,epoch='J2015')   
+                                    degree=False,epoch='J2015')
     except IOError:
         raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
     else:
@@ -208,13 +208,13 @@ def test_lb_to_radec():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
     lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     _turn_on_apy()
     return None
 
@@ -239,13 +239,13 @@ def test_lb_to_radec_apy():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
     lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     return None
 
 # Test that radec_to_lb and lb_to_radec are each other's inverse, using astropy
@@ -269,13 +269,13 @@ def test_lb_to_radec_apy_icrs():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= bovy_coords.lb_to_radec(l,b,degree=True)
     lt,bt= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     return None
 
 # Test lb_to_XYZ
@@ -526,7 +526,7 @@ def test_vxvyvz_to_galcencyl():
     assert numpy.fabs(vgc[1]-6.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
     return None
-    
+
 def test_galcenrect_to_vxvyvz():
     vxg,vyg,vzg= -15.,-10.,35.
     vxyz= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
@@ -558,7 +558,7 @@ def test_galcencyl_to_vxvyvz():
     assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    return None   
+    return None
 
 def test_sphergal_to_rectgal():
     l,b,d= 90.,0.,1.
@@ -643,7 +643,7 @@ def test_rectgal_to_sphergal():
     assert numpy.all(numpy.fabs(dt-d) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(vrt-vr) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(pmllt-pmll) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'    
+    assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     return None
 
 def test_pmrapmdec_to_pmllpmbb():
@@ -660,7 +660,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmllpmbb= bovy_coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
                                                   os*ra,os*dec,
                                                   degree=True,epoch=1950.)
-    
+
     pmll= pmllpmbb[:,0]
     pmbb= pmllpmbb[:,1]
     assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmrapmdec_to_pmllpmbb conversion did not work as expected close to the NGP'
@@ -671,7 +671,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmllpmbb= bovy_coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
                                                   os*ra,os*dec,
                                                   degree=True,epoch=1950.)
-    
+
     pmll= pmllpmbb[:,0]
     pmbb= pmllpmbb[:,1]
     assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmrapmdec_to_pmllpmbb conversion did not work as expected for the NGP'
@@ -730,7 +730,7 @@ def test_cov_pmradec_to_pmllbb():
                                                        ra,dec,
                                                        degree=True,
                                                        epoch=1950.)
-    
+
     assert numpy.fabs(cov_pmllpmbb[0,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(cov_pmllpmbb[0,1]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(cov_pmllpmbb[1,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
@@ -807,13 +807,31 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   cov_pmllpmbb,
                                                   os*l,os*b,
                                                   degree=True,
-                                                  plx=False)
+                                                  plx=False,
+                                                  no_einsum= True)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
                           -d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
                           -d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    # Test einsum implementation
+    l,b,d= 90., 90., 2.
+    e_d, e_vr= 0.2, 2.
+    tcov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
+    cov_pmllpmbb= numpy.empty((3,2,2))
+    for ii in range(3): cov_pmllpmbb[ii,:,:]= tcov_pmllpmbb
+    pmll,pmbb= 20.,30.
+    os= numpy.ones(3)
+    cov_vxvyvz_einsum = bovy_coords.cov_dvrpmllbb_to_vxyz(os*d,os*e_d,os*e_vr,
+                                                  os*pmll,os*pmbb,
+                                                  cov_pmllpmbb,
+                                                  os*l,os*b,
+                                                  degree=True,
+                                                  plx=False,
+                                                  no_einsum= False)
+    for ii in range(3):
+        assert (numpy.fabs(cov_vxvyvz_einsum[ii] - cov_vxvyvz[ii]) < 10.**-10.).all(), 'cov_dvrpmllbb_to_vxyz coversion using einsum did not work as expected'
     return None
 
 def test_dl_to_rphi_2d():
