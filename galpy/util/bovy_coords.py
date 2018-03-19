@@ -713,7 +713,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
     return (numpy.array([[cosphi,sinphi],[-sinphi,cosphi]]).T\
                 *numpy.array([[pmll,pmll],[pmbb,pmbb]]).T).sum(-1)
 
-def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
+def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_einsum=False):
     """
     NAME:
 
@@ -745,17 +745,74 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
 
     """
     if len(cov_pmradec.shape) == 3:
-        out= numpy.zeros(cov_pmradec.shape)
-        ndata= out.shape[0]
-        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        for ii in range(ndata):
-            out[ii,:,:]= cov_pmradec_to_pmllbb_single(cov_pmradec[ii,:,:],
-                                                      ra[ii],dec[ii],lb[ii,1],
-                                                      degree,epoch)
-        return out
+        if no_einsum:
+            out= numpy.zeros(cov_pmradec.shape)
+            ndata= out.shape[0]
+            lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
+            for ii in range(ndata):
+                out[ii,:,:]= cov_pmradec_to_pmllbb_single(cov_pmradec[ii,:,:],
+                                                          ra[ii],dec[ii],lb[ii,1],
+                                                          degree,epoch)
+            return out
+        else:
+            lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
+            out = cov_pmradec_to_pmllbb_array(cov_pmradec,
+                                              ra, dec, lb[:,1],
+                                              degree, epoch)
+            return out
     else:
         l,b = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree,epoch)
+
+def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
+    """
+    NAME:
+       cov_pmradec_to_pmllbb_single
+    PURPOSE:
+       propagate the proper motions errors through the rotation from (ra,dec)
+       to (l,b) for array inputs using np.einsum
+    INPUT:
+       covar_pmradec - uncertainty covariance matrix of the proper motion
+                      in ra (multplied with cos(dec)) and dec [2,2] or [:,2,2]
+       ra - right ascension
+       dec - declination
+       degree - if True, ra and dec are given in degrees (default=False)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
+    OUTPUT:
+       cov_pmllbb
+    HISTORY:
+       2018-03-19 - Written - Mackereth (LJMU)
+    """
+    ndata = len(ra)
+    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
+    if degree:
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec*_DEGTORAD)
+        cosdec= nu.cos(dec*_DEGTORAD)
+        sinrarangp= nu.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= nu.cos(ra*_DEGTORAD-ra_ngp)
+    else:
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec)
+        cosdec= nu.cos(dec)
+        sinrarangp= nu.sin(ra-ra_ngp)
+        cosrarangp= nu.cos(ra-ra_ngp)
+    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    #sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
+    sinphi= sinrarangp*cosdec_ngp
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
+    cosphi/= norm
+    sinphi/= norm
+    P = nu.zeros([ndata,2,2])
+    P[:,0,0] = cosphi
+    P[:,0,1] = sinphi
+    P[:,1,0] = -sinphi
+    P[:,1,1] = cosphi
+    return nu.einsum('aij,ajk->aik', P, nu.einsum('aij,jka->aik', cov_pmradec, P.T))
 
 def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -858,7 +915,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     else:
         if no_einsum:
             ndata= len(d)
-            out= sc.zeros((ndata,3,3))
+            out= numpy.zeros((ndata,3,3))
             for ii in range(ndata):
                 out[ii,:,:]= cov_dvrpmllbb_to_vxyz_single(d[ii],e_d[ii],e_vr[ii],
                                                           pmll[ii],pmbb[ii],
@@ -887,7 +944,7 @@ def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
     OUTPUT:
        cov(vx,vy,vz) [3,3]
     HISTORY:
-       2010-04-12 - Written - Bovy (NYU)
+       2018-03-19 - Written - Mackereth (LJMU)
     """
     ndata = len(d)
     M = nu.zeros((ndata,2,3))
