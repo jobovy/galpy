@@ -27,7 +27,7 @@ class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
                  radec=False,vo=None,ro=None,zo=0.025,
-                 solarmotion='hogg'):
+                 solarmotion='schoenrich'):
         """
         NAME:
 
@@ -46,11 +46,13 @@ class Orbit(object):
 
               2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities
 
-              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
+              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,km/s]; can be Quantities
 
               4) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
 
-              5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
+              5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,km/s]; can be Quantities
+
+              6) Unspecified: assumed to be the Sun (equivalent to ``vxvv= [0,0,0,0,0,0]`` and ``radec=True``)
 
            4) and 5) also work when leaving out b and mu_b/W
 
@@ -84,6 +86,9 @@ class Orbit(object):
         """
         # If you change the way an Orbit object is setup, also change each of
         # the methods that return Orbits
+        if vxvv is None: # Assume one wants the Sun
+            vxvv= [0.,0.,0.,0.,0.,0.]
+            radec= True
         if _APY_LOADED and isinstance(ro,units.Quantity):
             ro= ro.to(units.kpc).value
         if _APY_LOADED and isinstance(zo,units.Quantity):

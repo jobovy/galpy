@@ -9,14 +9,14 @@ Orbit initialization
 Standard initialization
 ***********************
 
-Orbits can be initialized in various coordinate frames. The simplest
-initialization gives the initial conditions directly in the
-Galactocentric cylindrical coordinate frame (or in the rectangular
-coordinate frame in one dimension). ``Orbit()`` automatically figures
-out the dimensionality of the space from the initial conditions in
-this case. In three dimensions initial conditions are given either as
-``vxvv=[R,vR,vT,z,vz,phi]`` or one can choose not to specify the
-azimuth of the orbit and initialize with
+`Orbits <reference/orbitinit.html>`__ can be initialized in various
+coordinate frames. The simplest initialization gives the initial
+conditions directly in the Galactocentric cylindrical coordinate frame
+(or in the rectangular coordinate frame in one dimension). ``Orbit()``
+automatically figures out the dimensionality of the space from the
+initial conditions in this case. In three dimensions initial
+conditions are given either as ``vxvv=[R,vR,vT,z,vz,phi]`` or one can
+choose not to specify the azimuth of the orbit and initialize with
 ``vxvv=[R,vR,vT,z,vz]``. Since potentials in galpy are easily
 initialized to have a circular velocity of one at a radius equal to
 one, initial coordinates are best given as a fraction of the radius at
@@ -153,6 +153,9 @@ you can turn this behavior off by doing
 >>> o.turn_physical_off()
 
 All outputs will then be specified in galpy's natural coordinates.
+
+.. TIP::
+   Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
 
 Orbit integration
 ------------------
