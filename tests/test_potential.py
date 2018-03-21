@@ -2132,21 +2132,20 @@ def test_plotting():
     return None
 
 def test_rtide():
-    #Test that rtide is being calculated properly for a 1.0E5 Msun cluster
-    #in select potentials
+    #Test that rtide is being calculated properly in select potentials
 
     lp=potential.LogarithmicHaloPotential()
-    assert abs(1.0-lp.rtide(1.,0.,1.0E5,'mass')/0.0082205653709) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
             
     pmass=potential.PlummerPotential(b=0.0)
-    assert abs(1.0-pmass.rtide(1.,0.,1.0E5,'mass')/0.00718132531711) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+    assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
             
     return None
 
 def test_ttensor():
     #For a points mass galaxy assert that maximum eigenvalue is 3.
-    pmass=potential.PlummerPotential(b=0.0,vo=vo,ro=ro)
-    tij=pmass.ttensor(1.0/ro,0.0,0.0)
+    pmass=potential.PlummerPotential(b=0.0)
+    tij=pmass.ttensor(1.0,0.0,0.0)
     max_eigenvalue=tij[0][0]-tij[2][2]
 
     assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
