@@ -3773,6 +3773,15 @@ def test_wrapper_complicatedsequence_3d():
     assert numpy.fabs(o.vz()-oc.vz()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
     return None
 
+def test_orbit_sun_setup():
+    # Test that setting up an Orbit with no vxvv returns the Orbit of the Sun
+    from galpy.orbit import Orbit
+    o= Orbit()
+    assert numpy.fabs(o.dist()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero distance'
+    assert numpy.fabs(o.vll()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic longitude direction'
+    assert numpy.fabs(o.vbb()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic latitude direction'
+    assert numpy.fabs(o.vlos()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero line-of-sight velocity'
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential_src.verticalPotential import RZToverticalPotential
