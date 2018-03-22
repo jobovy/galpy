@@ -1784,6 +1784,8 @@ def test_nonaxierror_function():
         potential.evaluatez2derivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateRzderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluaterforces(tnp,1.,0.)
     return None
 
 
