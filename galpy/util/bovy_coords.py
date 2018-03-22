@@ -1005,6 +1005,66 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
                  [-numpy.cos(l)*numpy.sin(b),-numpy.sin(l)*numpy.sin(b), numpy.cos(b)]])
     return numpy.dot(R.T,numpy.dot(cov_vrvlvb,R))
 
+def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
+    """
+    NAME:
+       cov_vxyz_to_galcencyl
+    PURPOSE:
+       propagate uncertainties in vxyz to galactocentric cylindrical coordinates
+    INPUT:
+       cov_vxyz - uncertainty covariance in U,V,W
+       phi - angular position of star in galactocentric cylindrical coords
+    OUTPUT:
+       cov(vR,vT,vz) [3,3]
+    HISTORY:
+       2018-03-22 - Written - Mackereth (LJMU)
+    """
+    if len(nu.shape(cov_vxyz)) == 3:
+        cov_galcencyl = nu.empty(np.shape(cov_vxyz))
+        cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
+        cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi[i])
+        return cov_galcencyl
+    else:
+        cov_galcenrect = cov_vxyz_to_galcenrect_single(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
+        cov_galcencyl = cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi)
+        return cov_galcencyl
+
+def cov_vxyz_to_galcenrect_single(cov_vxyz,Xsun=1.,Zsun=0.):
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    R = nu.array([[costheta,0.,-sintheta],
+                  [0.,1.,0.],
+                  [sintheta,0.,costheta]])
+    return nu.dot(R.T,nu.dot(cov_vxyz,R))
+
+def cov_vxyz_to_galcenrect_array(cov_vxyz,Xsun=1.,Zsun=0.):
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    R = nu.array([[costheta,0.,-sintheta],
+                  [0.,1.,0.],
+                  [sintheta,0.,costheta]])
+    R = nu.ones([len(cov_vxyz),3,3])*R
+    return nu.einsum('ija,ajk->aik', R.T, nu.einsum('aij,ajk->aik', cov_vxyz, R))
+
+def cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi):
+    cosphi = nu.cos(phi)
+    sinphi = nu.sin(phi)
+    R = nu.array([[cosphi, sinphi, 0.],
+                 [-sinphi, cosphi, 0.],
+                 [0., 0., 1.]])
+    return nu.dot(R, nu.dot(cov_galcenrect, R.T))
+
+def cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi):
+    cosphi = nu.cos(phi)
+    sinphi = nu.sin(phi)
+    R = nu.zeros([len(cov_galcenrect),3,3])
+    R[:,0,0] = cosphi
+    R[:,0,1] = sinphi
+    R[:,1,0] = -sinphi
+    R[:,1,1] = cosphi
+    R[:,2,2] = 1.
+    return nu.einsum('aij,ajk->aik', R, nu.einsum('aij,jka->aik', cov_galcenrect, R.T))
+
 @scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
