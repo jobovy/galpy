@@ -1008,6 +1008,9 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=0.0625"
     assert (pp.rl(16.)-16.**(4./7.))**2. < 10.**-16., \
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=16."
+    #Check radius in MWPotential2014 at very small lz, to test small lz behavior
+    lz= 0.000001
+    assert numpy.fabs(potential.vcirc(potential.MWPotential2014,potential.rl(potential.MWPotential2014,lz))*potential.rl(potential.MWPotential2014,lz)-lz) < 1e-12, 'Radius of circular orbit at small Lz in MWPotential2014 does not work as expected'
     #Escape velocity of Kepler potential
     assert (kp.vesc(1.)**2.-2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=1"
