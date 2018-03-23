@@ -175,20 +175,23 @@ or::
 This is typically because the compiler cannot locate the GSL header
 files or the GSL library. You can tell the installation about where
 you've installed the GSL library by defining (for example, when the
-GSL was installed under ``/usr``)::
+GSL was installed under ``/usr``; the ``LD_LIBRARY_PATH`` part of this
+may or may not be necessary depending on your system)::
 
        export CFLAGS=-I/usr/include
        export LDFLAGS=-L/usr/lib
+       export LD_LIBRARY_PATH=-L/usr/lib
 
 or::
 
 	setenv CFLAGS -I/usr/include
 	setenv LDFLAGS -L/usr/lib
+	setenv LD_LIBRARY_PATH -L/usr/lib
 
 depending on your shell type (change the actual path to the include
 and lib directories that have the gsl directory). If you already have
-``CFLAGS`` and ``LDFLAGS`` defined you just have to add the
-``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
+``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
+to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
 
 I'm having issues with OpenMP
 +++++++++++++++++++++++++++++++
