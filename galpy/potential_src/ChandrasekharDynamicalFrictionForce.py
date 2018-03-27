@@ -12,9 +12,6 @@ if _APY_LOADED:
     from astropy import units
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 _INVSQRTPI= 1./numpy.sqrt(numpy.pi)
-_INVFOURPI= 1./numpy.pi/4.
-def isothermaldens(r):
-    return _INVFOURPI/r**2.
 def isothermalsigmar(r):
     return _INVSQRTTWO
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
