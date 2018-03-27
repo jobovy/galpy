@@ -3,6 +3,8 @@
 ###############################################################################
 import numpy
 from galpy.potential_src.Force import Force
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 class DissipativeForce(Force):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
@@ -22,8 +24,8 @@ class DissipativeForce(Force):
         self.hasC= False
         self.hasC_dxdv= False
 
-#    @potential_physical_input
-#    @physical_conversion('force',pop=True)
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
     def Rforce(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
@@ -66,8 +68,8 @@ class DissipativeForce(Force):
             from galpy.potential_src.Potential import PotentialError
             raise PotentialError("'_Rforce' function not implemented for this DissipativeForce")
         
-#    @potential_physical_input
-#    @physical_conversion('force',pop=True)
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
     def zforce(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
@@ -109,8 +111,8 @@ class DissipativeForce(Force):
             from galpy.potential_src.Potential import PotentialError
             raise PotentialError("'_zforce' function not implemented for this DissipativeForce")
 
-#    @potential_physical_input
-#    @physical_conversion('force',pop=True)
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
     def phiforce(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
