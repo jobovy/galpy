@@ -3530,6 +3530,25 @@ def test_orbitint_pythonfallback():
         assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
+def test_orbitint_dissipativefallback():
+    # Check if a warning is raised when one tries to integrate an orbit
+    # in a dissipative force law with a symplectic integrator
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    ts= numpy.linspace(0.,1.,101)
+    for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.])]:
+        with pytest.warns(None) as record:
+            orb.integrate(ts,[lp,cdf], method='leapfrog')
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator odeint instead)")
+        assert raisedWarning, "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
+    return None
+
 # Test that the functions that supposedly *always* return output in physical 
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():

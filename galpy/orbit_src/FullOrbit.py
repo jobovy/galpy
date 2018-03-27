@@ -11,6 +11,7 @@ else:
     from scipy.misc import logsumexp
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
+from galpy.potential_src.DissipativeForce import _isDissipative
 from galpy.util import galpyWarning, galpyWarningVerbose
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
@@ -572,6 +573,14 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             else:
                 method= 'odeint'
             warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+    # Now check that we aren't trying to integrate a dissipative force
+    # with a symplectic integrator
+    if _isDissipative(pot) and ('leapfrog' in method or 'symplec' in method):
+        if '_c' in method:
+            method= 'dopr54_c'
+        else:
+            method= 'odeint'
+        warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
