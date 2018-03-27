@@ -1927,6 +1927,62 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_ChandrasekharDynamicalFrictionForce_constLambda():
+    # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
+    # agrees with analytical solutions for circular orbits:
+    # assuming that a mass remains on a circular orbit in an isothermal halo 
+    # with velocity dispersion sigma and for constant Lambda:
+    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
+    # (e.g., B&T08, p. 648)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    const_lnLambda= 7.
+    r_init= 2.
+    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    # Compute
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,const_lnLambda=const_lnLambda,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    o= Orbit([r_init,0.,1.,0.,0.,0.])
+    ts= numpy.linspace(0.,dt,1001)
+    o.integrate(ts,[lp,cdfc],method='odeint')
+    r_pred= numpy.sqrt(o.r()**2.-0.604*const_lnLambda*GMs*numpy.sqrt(2.)*dt)
+    assert numpy.fabs(r_pred-o.r(ts[-1])) < 0.01, 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
+    return None
+
+def test_ChandrasekharDynamicalFrictionForce_varLambda():
+    # Test that dynamical friction with variable Lambda for small r ranges 
+    # gives ~ the same result as using a constant Lambda that is the mean of
+    # the variable lambda
+    # Also tests that giving an axisymmetric list of potentials for the 
+    # density works
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    r_init= 3.
+    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    # Compute evolution with variable ln Lambda
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
+    o= Orbit([r_init,0.,1.,0.,0.,0.])
+    ts= numpy.linspace(0.,dt,1001)
+    o.integrate(ts,[potential.MWPotential2014,cdf],method='odeint')
+    lnLs= numpy.array([cdf.lnLambda(r,v) for (r,v) in zip(o.r(ts),numpy.sqrt(o.vx(ts)**2.+o.vy(ts)**2.+o.vz(ts)**2.))])
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,const_lnLambda=numpy.mean(lnLs),
+        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
+    oc= o()
+    oc.integrate(ts,[potential.MWPotential2014,cdfc],method='odeint')
+    assert numpy.fabs(oc.r(ts[-1])-o.r(ts[-1])) < 0.05, 'ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda'
+    return None
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
