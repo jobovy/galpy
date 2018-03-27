@@ -1,5 +1,5 @@
 ###############################################################################
-#   DissipativeForce.py: top-level class for non-conservative forces#
+#   DissipativeForce.py: top-level class for non-conservative forces
 ###############################################################################
 import numpy
 from galpy.potential_src.Force import Force

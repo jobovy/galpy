@@ -6,8 +6,7 @@ import hashlib
 import numpy
 from scipy import special
 from galpy.potential_src.DissipativeForce import DissipativeForce
-from galpy.potential_src.Potential import _APY_LOADED, Potential, \
-    evaluateDensities
+from galpy.potential_src.Potential import _APY_LOADED, evaluateDensities
 from galpy.potential_src.Potential import flatten as flatten_pot
 if _APY_LOADED:
     from astropy import units
@@ -32,7 +31,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
        \\Lambda = \\frac{R/\\gamma}{\\mathrm{max}\\left(r_{\\mathrm{hm}},GM/|\\mathbf{v}|^2\\right)}\\,,
 
-    where :math:`\\gamma` is a constant. This :math:`\\gamma` should be the absolute value of the logarithmic slope of the density :math:`\\gamma = |\\mathrm{d} \\ln \\rho / \\mathrm{d} \\ln r|`, although for :math:`\\gamma<1` it is advisable to set :math:`\\gamma=1`.
+    where :math:`\\gamma` is a constant. This :math:`\\gamma` should be the absolute value of the logarithmic slope of the density :math:`\\gamma = |\\mathrm{d} \\ln \\rho / \\mathrm{d} \\ln r|`, although for :math:`\\gamma<1` it is advisable to set :math:`\\gamma=1`. Implementation here roughly follows `2016MNRAS.463..858P <http://adsabs.harvard.edu/abs/2016MNRAS.463..858P>`__ and earlier work.
 
     """
     def __init__(self,amp=1.,GMs=.1,gamma=1.,rhm=0.,
@@ -60,7 +59,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            dens - Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)]
 
-           sigmar - function that gives the velocity dispersion as a function of r
+           sigmar - function that gives the velocity dispersion as a function of r (has to be in natural units!)
 
            cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
 
