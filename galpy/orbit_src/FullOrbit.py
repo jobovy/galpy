@@ -660,12 +660,15 @@ def _FullEOM(y,t,pot):
     """
     l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t),
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t,
+                                         v=[y[1],y[0]*y[3],y[5]]),
             y[3],
-            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t)
+            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t,
+                                            v=[y[1],y[0]*y[3],y[5]])
                          -2.*y[0]*y[1]*y[3]),
             y[5],
-            _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t)]
+            _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
+                             v=[y[1],y[0]*y[3],y[5]])]
 
 def _rectForce(x,pot,t=0.):
     """

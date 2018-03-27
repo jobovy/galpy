@@ -23,18 +23,16 @@ import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import bovy_coords
-from galpy.util import config
 from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr
-from galpy.util import bovy_conversion
 from galpy.potential_src.plotRotcurve import plotRotcurve, vcirc
 from galpy.potential_src.plotEscapecurve import _INF, plotEscapecurve
-_APY_LOADED= True
-try:
+from galpy.potential_src.DissipativeForce import DissipativeForce, \
+    _isDissipative
+from galpy.potential_src.Force import Force, _APY_LOADED
+if _APY_LOADED:
     from astropy import units
-except ImportError:
-    _APY_LOADED= False
-class Potential(object):
+class Potential(Force):
     """Top-level class for a potential"""
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """
@@ -47,178 +45,12 @@ class Potential(object):
         OUTPUT:
         HISTORY:
         """
-        self._amp= amp
+        Force.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=amp_units)
         self.dim= 3
         self.isRZ= True
         self.isNonAxi= False
         self.hasC= False
         self.hasC_dxdv= False
-        # Parse ro and vo
-        if ro is None:
-            self._ro= config.__config__.getfloat('normalization','ro')
-            self._roSet= False
-        else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
-            self._roSet= True
-        if vo is None:
-            self._vo= config.__config__.getfloat('normalization','vo')
-            self._voSet= False
-        else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
-            self._voSet= True
-        # Parse amp if it has units
-        if _APY_LOADED and isinstance(self._amp,units.Quantity):
-            # Try a bunch of possible units
-            unitFound= False
-            # velocity^2
-            try:
-                self._amp= self._amp.to(units.km**2/units.s**2).value\
-                    /self._vo**2.
-            except units.UnitConversionError: pass
-            else:
-                unitFound= True
-                if not amp_units == 'velocity2':
-                    raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of velocity2 instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # mass
-                try:
-                    self._amp= self._amp.to(units.Msun).value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'mass':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of mass instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # G x mass
-                try:
-                    self._amp= self._amp.to(units.pc*units.km**2/units.s**2)\
-                        .value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                        /bovy_conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'mass':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x mass instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # density
-                try:
-                    self._amp= self._amp.to(units.Msun/units.pc**3).value\
-                        /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'density':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # G x density
-                try:
-                    self._amp= self._amp.to(units.km**2/units.s**2\
-                                                /units.pc**2).value\
-                        /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)\
-                        /bovy_conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'density':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # surface density
-                try:
-                    self._amp= self._amp.to(units.Msun/units.pc**2).value\
-                        /bovy_conversion.surfdens_in_msolpc2(self._vo,self._ro)
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'surfacedensity':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of surface density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # G x surface density
-                try:
-                    self._amp= self._amp.to(units.km**2/units.s**2\
-                                                /units.pc).value\
-                        /bovy_conversion.surfdens_in_msolpc2(self._vo,self._ro)\
-                        /bovy_conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'surfacedensity':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x surface density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
-            else:
-                # When amplitude is given with units, turn on physical output
-                self._roSet= True
-                self._voSet= True
-        return None
-
-    def turn_physical_off(self):
-        """
-        NAME:
-
-           turn_physical_off
-
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-        """
-        self._roSet= False
-        self._voSet= False
-        return None
-
-    def turn_physical_on(self,ro=None,vo=None):
-        """
-        NAME:
-
-           turn_physical_on
-
-        PURPOSE:
-
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-        """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
-        if not vo is None:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
         return None
 
     @potential_physical_input
@@ -1562,10 +1394,13 @@ def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
         return sum
     elif isinstance(Pot,Potential):
         return Pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+    elif isinstance(Pot,DissipativeForce):
+        pass
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
@@ -1613,18 +1448,21 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
-                           use_physical=False)
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                               use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
         return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                         use_physical=False)
+    elif isinstance(Pot,DissipativeForce):
+        pass
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluateRforces(Pot,R,z,phi=None,t=0.):
+def evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
@@ -1646,6 +1484,8 @@ def evaluateRforces(Pot,R,z,phi=None,t=0.):
 
        t - time (optional; can be Quantity)
 
+       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        F_R(R,z,phi,t)
@@ -1654,28 +1494,38 @@ def evaluateRforces(Pot,R,z,phi=None,t=0.):
 
        2010-04-16 - Written - Bovy (NYU)
 
-    """
-    return _evaluateRforces(Pot,R,z,phi=phi,t=t)
+       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
-def _evaluateRforces(Pot,R,z,phi=None,t=0.):
+    """
+    return _evaluateRforces(Pot,R,z,phi=phi,t=t,v=v)
+
+def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    dissipative= _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
+            if isinstance(pot,DissipativeForce):
+                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
+            else:
+                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
         return Pot._Rforce_nodecorator(R,z,phi=phi,t=t)
+    elif isinstance(Pot,DissipativeForce):
+        return Pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
-        raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatephiforces(Pot,R,z,phi=None,t=0.):
+def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
@@ -1696,6 +1546,8 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.):
 
        t - time (optional; can be Quantity)
 
+       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        F_phi(R,z,phi,t)
@@ -1704,28 +1556,38 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.):
 
        2010-04-16 - Written - Bovy (NYU)
 
-    """
-    return _evaluatephiforces(Pot,R,z,phi=phi,t=t)
+       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
-def _evaluatephiforces(Pot,R,z,phi=None,t=0.):
+    """
+    return _evaluatephiforces(Pot,R,z,phi=phi,t=t,v=v)
+
+def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    dissipative= _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+            if isinstance(pot,DissipativeForce):
+                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+            else:
+                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
         return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+    elif isinstance(Pot,DissipativeForce):
+        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
-        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluatezforces(Pot,R,z,phi=None,t=0.):
+def evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
@@ -1747,6 +1609,8 @@ def evaluatezforces(Pot,R,z,phi=None,t=0.):
 
        t - time (optional; can be Quantity)
 
+       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        F_z(R,z,phi,t)
@@ -1755,24 +1619,34 @@ def evaluatezforces(Pot,R,z,phi=None,t=0.):
 
        2010-04-16 - Written - Bovy (NYU)
 
-    """
-    return _evaluatezforces(Pot,R,z,phi=phi,t=t)
+       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
-def _evaluatezforces(Pot,R,z,phi=None,t=0.):
+    """
+    return _evaluatezforces(Pot,R,z,phi=phi,t=t,v=v)
+
+def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    dissipative= _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
+            if isinstance(pot,DissipativeForce):
+                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
+            else:
+                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
         return sum
     elif isinstance(Pot,Potential):
         return Pot._zforce_nodecorator(R,z,phi=phi,t=t)
+    elif isinstance(Pot,DissipativeForce):
+        return Pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
-        raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
@@ -2758,7 +2632,8 @@ def _dim(Pot):
     from galpy.potential import planarPotential, linearPotential
     if isinstance(Pot,list):
         return nu.amin(nu.array([_dim(p) for p in Pot],dtype='int'))
-    elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
+    elif isinstance(Pot,(Potential,planarPotential,linearPotential,
+                         DissipativeForce)):
         return Pot.dim
 
 def _isNonAxi(Pot):
