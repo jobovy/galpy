@@ -169,6 +169,14 @@ General Poisson solvers for disks and halos
    potentialdiskscf.rst
    potentialscf.rst
 
+Dissipative forces
+*******************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialchandrasekhardynfric.rst
+
 .. _potential-mw:
 
 In addition to these classes, a simple Milky-Way-like potential fit to
