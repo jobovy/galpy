@@ -1951,13 +1951,23 @@ def test_Ferrers_Rzderiv_issue319():
 
 def test_rtide():
     #Test that rtide is being calculated properly in select potentials
-
     lp=potential.LogarithmicHaloPotential()
     assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
-            
     pmass=potential.PlummerPotential(b=0.0)
     assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
-            
+    # Also test function interface
+    assert abs(1.0-potential.rtide(lp,1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    pmass=potential.PlummerPotential(b=0.0)
+    assert abs(1.0-potential.rtide(pmass,1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+    return None
+
+def test_rtide_noMError():
+    # Test the running rtide without M= input raises error
+    lp=potential.LogarithmicHaloPotential()
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= lp.rtide(1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.rtide(lp,1.,0.)
     return None
 
 def test_ttensor():
