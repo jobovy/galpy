@@ -30,6 +30,7 @@ Use as ``Potential-instance.method(...)``
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    R2deriv <potentialr2deriv.rst>
+   r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
@@ -70,6 +71,7 @@ Use as ``method(...)``
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
    evaluateR2derivs <potentialr2derivs.rst>
+   evaluater2derivs <potentialsphr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>

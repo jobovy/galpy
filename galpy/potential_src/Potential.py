@@ -422,8 +422,7 @@ class Potential(object):
 
         """
        
-        r= nu.sqrt(R**2.+z**2.)
-        
+        r= nu.sqrt(R**2.+z**2.)       
         return (self.R2deriv(R,z,phi=phi,t=t,use_physical=False)*R/r\
             +self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*z/r)*R/r\
             +(self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*R/r\
@@ -2139,6 +2138,53 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
+def evaluater2derivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluater2derivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2phi/dr2(R,z,phi,t)
+
+    HISTORY:
+
+       2018-03-28 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluater2derivs' is neither a Potential-instance or a list of such instances")
+
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                    phi=None,xy=False,t=0.,effective=False,Lz=None,
                    ncontours=21,savefilename=None,aspect=None,
@@ -3033,10 +3079,10 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
         
     #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
     r= nu.sqrt(R**2.0+z**2.0)
-    omegac2=-Pot.rforce(R,z,phi=phi,t=t,use_physical=False)/r
+    omegac2=-evaluaterforces(Pot,R,z,phi=phi,t=t,use_physical=False)/r
 
     #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
-    kappa2=3.0*omegac2+Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+    kappa2=3.0*omegac2+evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
 
     #rt=(GM/(omegac2*nu))**(1/3)
     nuu=4.0-kappa2/omegac2
