@@ -70,6 +70,8 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephi2derivs <potentialphi2derivs.rst>
+   evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>
    evaluater2derivs <potentialsphr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>

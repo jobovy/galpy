@@ -2140,6 +2140,100 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
+def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluatephi2derivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2Phi/d2phi(R,z,phi,t)
+
+    HISTORY:
+
+       2018-03-28 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
+def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluateRphiderivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2Phi/d2R(R,z,phi,t)
+
+    HISTORY:
+
+       2012-07-25 - Written - Bovy (IAS)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            sum+= pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
 def evaluater2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -3126,13 +3220,13 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     if _isNonAxi(Pot):
         raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
     #Evaluate forces, angles and derivatives
-    Rderiv= -Pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
-    phideriv= -Pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
-    R2deriv= Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
-    z2deriv= Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
-    phi2deriv= Pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
-    Rzderiv= Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
-    Rphideriv=Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+    Rderiv= -evaluateRforces(Pot,R,z,phi=phi,t=t,use_physical=False)
+    phideriv= -evaluatephiforces(Pot,R,z,phi=phi,t=t,use_physical=False)
+    R2deriv= evaluateR2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
+    z2deriv= evaluatez2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
+    phi2deriv= evaluatephi2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
+    Rzderiv= evaluateRzderivs(Pot,R,z,phi=phi,t=t,use_physical=False)
+    Rphideriv= evaluateRphiderivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     #Temporarily set zphideriv to zero until zphideriv is added to Class
     zphideriv=0.0
     cosphi=nu.cos(phi)
