@@ -1961,13 +1961,25 @@ def test_rtide():
     return None
 
 def test_ttensor():
-    #For a points mass galaxy assert that maximum eigenvalue is 3.
-    pmass=potential.PlummerPotential(b=0.0)
+    pmass= potential.KeplerPotential(normalize=1.)
     tij=pmass.ttensor(1.0,0.0,0.0)
+    #For a points mass galaxy assert that maximum eigenvalue is 3.
     max_eigenvalue=tij[0][0]-tij[2][2]
-
     assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
-
+    # Full tidal tensor here should be diag(2,-1,-1)
+    assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test eigenvalues
+    tij=pmass.ttensor(1.0,0.0,0.0,eigenval=True)
+    assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test function interface
+    tij= potential.ttensor(pmass,1.0,0.0,0.0)
+    # Full tidal tensor here should be diag(2,-1,-1)
+    assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test eigenvalues
+    tij= potential.ttensor(pmass,1.0,0.0,0.0,eigenval=True)
+    assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    return None
+    
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
