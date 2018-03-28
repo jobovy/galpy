@@ -1927,6 +1927,21 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_dissipative_ignoreInPotentialDensity2ndDerivs():
+    # Test that dissipative forces are ignored when they are included in lists
+    # given to evaluatePotentials, evaluateDensities, and evaluate2ndDerivs
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z= 2.,0.4
+    assert numpy.fabs(potential.evaluatePotentials([lp,cdfc],R,z,phi=1.)-potential.evaluatePotentials([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatePotentials'
+    assert numpy.fabs(potential.evaluateDensities([lp,cdfc],R,z,phi=1.)-potential.evaluateDensities([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateDensities'
+    assert numpy.fabs(potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateR2derivs'
+    assert numpy.fabs(potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatez2derivs'
+    assert numpy.fabs(potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRzderivs'
+    return None
+
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
     # agrees with analytical solutions for circular orbits:

@@ -1362,7 +1362,7 @@ def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
 
     INPUT:
 
-       Pot - potential or list of potentials
+       Pot - potential or list of potentials (dissipative forces are ignored)
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
@@ -1418,7 +1418,7 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
 
     INPUT:
 
-       Pot - potential or list of potentials
+       Pot - potential or list of potentials (dissipative forces are ignored)
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
@@ -1709,7 +1709,7 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
 
     INPUT:
 
-       Pot - a potential or list of potentials
+       Pot - a potential or list of potentials (dissipative forces are ignored)
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
@@ -1735,7 +1735,8 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
         return Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1756,7 +1757,7 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
 
     INPUT:
 
-       Pot - a potential or list of potentials
+       Pot - a potential or list of potentials (dissipative forces are ignored)
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
@@ -1782,7 +1783,8 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
         return Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1803,7 +1805,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
 
     INPUT:
 
-       Pot - a potential or list of potentials
+       Pot - a potential or list of potentials (dissipative forces are ignored)
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
@@ -1829,7 +1831,8 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
         return Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
