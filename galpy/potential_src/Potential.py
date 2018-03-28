@@ -1625,7 +1625,6 @@ class Potential(object):
         PURPOSE:
         
             Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-            Assumes no phi force
             
         INPUT:
         
@@ -1648,7 +1647,8 @@ class Potential(object):
             2018-03-21 - Written - Webb (UofT)
 
         """
-        
+        if self.isNonAxi:
+            raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
         #Evaluate forces, angles and derivatives
         Rderiv= -self.Rforce(R,z,phi=phi,t=t,use_physical=False)       
         phideriv= -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
@@ -3054,7 +3054,6 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     PURPOSE:
         
         Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-        Assumes no phi force
             
     INPUT:
         
@@ -3077,8 +3076,9 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     HISTORY:
         
         2018-03-21 - Written - Webb (UofT)
-     """
-        
+    """
+    if _isNonAxi(Pot):
+        raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
     #Evaluate forces, angles and derivatives
     Rderiv= -Pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
     phideriv= -Pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
