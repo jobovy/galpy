@@ -6,7 +6,12 @@ import tempfile
 import pickle
 import numpy
 import scipy.linalg as linalg
+from galpy.util.config import __config__
+_SHOW_WARNINGS= __config__.getboolean('warnings','verbose')
 class galpyWarning(Warning):
+    pass
+# galpy warnings only shown if verbose = True in the configuration
+class galpyWarningVerbose(galpyWarning):
     pass
 def _warning(
     message,
@@ -16,7 +21,8 @@ def _warning(
     file=None,
     line=None):
     if issubclass(category,galpyWarning):
-        print("galpyWarning: "+str(message))
+        if not issubclass(category,galpyWarningVerbose) or _SHOW_WARNINGS:
+            print("galpyWarning: "+str(message))
     else:
         print(warnings.formatwarning(message,category,filename,lineno))
 warnings.showwarning = _warning

@@ -45,16 +45,18 @@ void handle_sigint(int signum)
 #else
 int interrupted= 0;
 #endif
-inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
+static inline void leapfrog_leapq(int dim, double *q,double *p,double dt,
+				  double *qn){
   int ii;
   for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
 }
-inline void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
+static inline void leapfrog_leapp(int dim, double *p,double dt,double *a,
+				  double *pn){
   int ii;
   for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
 }
 
-inline void save_qp(int dim, double *qo, double *po, double *result){
+static inline void save_qp(int dim, double *qo, double *po, double *result){
   int ii;
   for (ii=0; ii < dim; ii++) *result++= *qo++;
   for (ii=0; ii < dim; ii++) *result++= *po++;

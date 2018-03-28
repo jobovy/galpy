@@ -7,6 +7,7 @@ from galpy import potential
 from galpy import actionAngle
 from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
+from galpy.potential import flatten as flatten_potential
 from galpy.orbit import Orbit
 from galpy.df_src.df import df, _APY_LOADED
 from galpy.util import galpyWarning
@@ -103,7 +104,7 @@ class quasiisothermaldf(df):
         self._lnsz= math.log(self._sz)
         if pot is None:
             raise IOError("pot= must be set")
-        self._pot= pot
+        self._pot= flatten_potential(pot)
         if aA is None:
             raise IOError("aA= must be set")
         self._aA= aA

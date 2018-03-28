@@ -224,8 +224,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      These authors build an interactive tool to decompose observed rotation curves into bulge, disk (Miyamoto-Nagai or exponential), and NFW halo components on top of ``galpy.potential`` routines.
 #. *The AMBRE Project: formation and evolution of the Milky Way disc*, V. Grisoni, E. Spitoni, F. Matteucci, A. Recio-Blanco, P. de Laverny, M. Hayden, S. Mikolaitis, & C. C. Worley (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1706.02614 <http://arxiv.org/abs/1706.02614>`_):
      Uses ``galpy`` to compute orbital parameters for stars in the AMBRE sample of high-resolution spectra and uses these orbital parameters to aid in the comparison between the data and chemical-evolution models.
+#. *Low-mass X-ray binaries from black-hole retaining globular clusters*, Matthew Giesler, Drew Clausen, & Christian D. Ott (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1708.05915 <http://arxiv.org/abs/1708.05915>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to compute the orbits of MW globular clusters and simulated ejected BH low-mass X-ray binaries from these globular clusters to determine where they end up today.
 #. *ESO452-SC11: The lowest mass globular cluster with a potential chemical inhomogeneity*, Jeffrey D. Simpson, Gayandhi De Silva, Sarah L. Martell, Colin A. Navin, & Daniel B. Zucker (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1708.06875 <http://arxiv.org/abs/1708.06875>`_):
      Uses ``galpy.orbit`` in ``MWPotential2014`` to compute the orbit of the MW bulge globular cluster ESO452-SC11.
+#. *The Hercules stream as seen by APOGEE-2 South*, Jason A. S. Hunt, Jo Bovy, Angeles Pérez-Villegas, et al. (2017) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1709.02807 <http://arxiv.org/abs/1709.02807>`_):
+     Uses ``galpy.df.evolveddiskdf`` to compute the effect of a fast-rotating Milky-Way bar model on the velocity distribution in the disk of the Milky Way near the Sun to compare to the observed line-of-sight velocity distribution in APOGEE-2 South.
 #. *Detailed chemical abundance analysis of the thick disk star cluster Gaia 1*, Andreas Koch, Terese T. Hansen, & Andrea Kunder (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.04022 <http://arxiv.org/abs/1709.04022>`_):
      Employs ``galpy.orbit`` integration to compute the orbits of four red-giant members of the *Gaia 1* Milky Way star cluster, finding that the orbits of these stars are similar to those of the oldest stars in the Milky Way's disk.
 #. *Proper motions in the VVV Survey: Results for more than 15 million stars across NGC 6544*, R. Contreras Ramos, M. Zoccali, F. Rojas, A. Rojas-Arriagada, M. Gárate, P. Huijse, F. Gran, M. Soto, A.A.R. Valcarce, P. A. Estévez, & D. Minniti (2017) *Astron. & Astrophys.*, in press (`arXiv/1709.07919 <http://arxiv.org/abs/1709.07919>`_):
@@ -264,6 +268,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Use ``galpy.potential`` components to create a mass model for M82 that consists of a ``HernquistPotential`` bulge, ``MN3ExponentialDiskPotential`` disk, and ``NFWPotential`` dark-matter halo by matching photometric and rotation-curve data.
 #. *Radial velocities of RR Lyrae stars in and around NGC 6441*, Andrea Kunder, Arthur Mills, Joseph Edgecomb, et al. (2018) *Astron. J.*, in press (`arXiv/1802.09562 <http://arxiv.org/abs/1802.09562>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate a possible tidal stream for the globular cluster NGC 6441.
+#. *The 4:1 Outer Lindblad Resonance of a long slow bar as a potential explanation for the Hercules stream*, Jason A. S. Hunt & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1803.02358 <http://arxiv.org/abs/1803.02358>`_):
+     Uses ``galpy.potential`` modeling tools (``CosmphiDiskPotential`` and wrappers to grow it [``DehnenSmoothWrapperPotential``] and make it rotate [``SolidBodyRotationWrapperPotential``]) and disk models in ``galpy.df`` to study the effect of the Milky Way bar's hexadecapole (m=4) moment on the velocity distribution of stars in the disk of the Milky Way, finding that it can have a big effect near the 4:1 outer Lindblad resonance, which may be close to the Sun.
 
 
 Indices and tables

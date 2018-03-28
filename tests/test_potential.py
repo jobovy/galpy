@@ -140,6 +140,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -300,6 +301,7 @@ def test_2ndDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialTm5') 
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -516,6 +518,7 @@ def test_poisson_potential():
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -540,6 +543,7 @@ def test_poisson_potential():
     tol['rotatingSpiralArmsPotential']= -3
     tol['specialSpiralArmsPotential']= -4
     tol['SolidBodyRotationSpiralArmsPotential']= -2.9 #these are more difficult
+    tol['nestedListPotential']= -3 #these are more difficult
     #tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
@@ -630,6 +634,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
     pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1004,6 +1009,9 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=0.0625"
     assert (pp.rl(16.)-16.**(4./7.))**2. < 10.**-16., \
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=16."
+    #Check radius in MWPotential2014 at very small lz, to test small lz behavior
+    lz= 0.000001
+    assert numpy.fabs(potential.vcirc(potential.MWPotential2014,potential.rl(potential.MWPotential2014,lz))*potential.rl(potential.MWPotential2014,lz)-lz) < 1e-12, 'Radius of circular orbit at small Lz in MWPotential2014 does not work as expected'
     #Escape velocity of Kepler potential
     assert (kp.vesc(1.)**2.-2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=1"
@@ -1777,6 +1785,8 @@ def test_nonaxierror_function():
         potential.evaluatez2derivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateRzderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluaterforces(tnp,1.,0.)
     return None
 
 
@@ -2519,7 +2529,7 @@ class mockSCFDensityPotential(potential.SCFPotential):
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    evaluateDensities
+    evaluateDensities, _isNonAxi
 from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
@@ -2528,7 +2538,7 @@ class testMWPotential(Potential):
     def __init__(self,potlist=MWPotential):
         self._potlist= potlist
         Potential.__init__(self,amp=1.)
-        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
+        self.isNonAxi= _isNonAxi(self._potlist)
         return None
     def _evaluate(self,R,z,phi=0,t=0,dR=0,dphi=0):
         return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,
@@ -2566,7 +2576,7 @@ class testplanarMWPotential(planarPotential):
         self._potlist= [p.toPlanar() for p in potlist if isinstance(p,Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p,planarPotential)])
         planarPotential.__init__(self,amp=1.)
-        self.isNonAxi= True^numpy.prod([True^p.isNonAxi for p in self._potlist])
+        self.isNonAxi= _isNonAxi(self._potlist)
         return None
     def _evaluate(self,R,phi=0,t=0,dR=0,dphi=0):
         return evaluateplanarPotentials(self._potlist,R,phi=phi,t=t)
@@ -2863,3 +2873,9 @@ class testorbitHenonHeilesPotential(testplanarMWPotential):
     def OmegaP(self):
         # Non-axi, so need to set this to zero for Jacobi
         return 0.
+class nestedListPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,
+                                 potlist=[potential.MWPotential2014,potential.SpiralArmsPotential()])
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()

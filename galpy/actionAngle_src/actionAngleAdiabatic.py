@@ -16,6 +16,7 @@ import math as m
 import numpy as nu
 from galpy.util import galpyWarning
 from galpy.potential import planarPotential, MWPotential
+from galpy.potential_src.Potential import flatten as flatten_potential
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
 from galpy.actionAngle_src.actionAngle import actionAngle
 import galpy.actionAngle_src.actionAngleAdiabatic_c as actionAngleAdiabatic_c
@@ -56,7 +57,7 @@ class actionAngleAdiabatic(actionAngle):
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleAxi")
-        self._pot= kwargs['pot']
+        self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)

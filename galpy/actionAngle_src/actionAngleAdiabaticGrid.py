@@ -18,6 +18,7 @@ from galpy.actionAngle_src.actionAngleAdiabatic import actionAngleAdiabatic
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
+from galpy.potential_src.Potential import flatten as flatten_potential
 from galpy.util import multi
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):
@@ -67,7 +68,7 @@ class actionAngleAdiabaticGrid(actionAngle):
             raise IOError("Must specify pot= for actionAngleAxi")
         self._c= kwargs.pop('c',False)
         self._gamma= gamma
-        self._pot= pot
+        self._pot= flatten_potential(pot)
         self._zmax= zmax
         self._Rmax= Rmax
         self._Rmin= 0.01

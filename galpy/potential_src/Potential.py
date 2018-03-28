@@ -2205,6 +2205,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            2010-07-09 - Written - Bovy (NYU)
 
         """
+        Pot= flatten(Pot)
         if _APY_LOADED:
             if hasattr(Pot,'_ro'):
                 tro= Pot._ro
@@ -2322,6 +2323,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
            2013-07-05 - Written - Bovy (IAS)
 
         """
+        Pot= flatten(Pot)
         if _APY_LOADED:
             if hasattr(Pot,'_ro'):
                 tro= Pot._ro
@@ -2520,6 +2522,7 @@ def vterm(Pot,l,deg=True):
         2013-05-31 - Written - Bovy (IAS)
         
     """
+    Pot= flatten(Pot)
     if _APY_LOADED and isinstance(l,units.Quantity):
         l= l.to(units.rad).value
         deg= False
@@ -2561,6 +2564,7 @@ def rl(Pot,lz):
        ~0.75 ms for a MWPotential
 
     """
+    Pot= flatten(Pot)
     if _APY_LOADED and isinstance(lz,units.Quantity):
         if hasattr(Pot,'_ro'):
             lz= lz.to(units.km/units.s*units.kpc).value/Pot._vo/Pot._ro
@@ -2629,6 +2633,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
        2011-10-09 - Written - Bovy (IAS)
 
     """
+    Pot= flatten(Pot)
     if _APY_LOADED and isinstance(OmegaP,units.Quantity):
         if hasattr(Pot,'_ro'):
             OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(Pot._vo,Pot._ro)
@@ -2726,6 +2731,7 @@ def nemo_accname(Pot):
        2014-12-18 - Written - Bovy (IAS)
     
     """
+    Pot= flatten(Pot)
     if isinstance(Pot,list):
         out= ''
         for ii,pot in enumerate(Pot):
@@ -2764,6 +2770,7 @@ def nemo_accpars(Pot,vo,ro):
        2014-12-18 - Written - Bovy (IAS)
     
     """
+    Pot= flatten(Pot)
     if isinstance(Pot,list):
         out= ''
         for ii,pot in enumerate(Pot):
@@ -2800,7 +2807,7 @@ def turn_physical_off(Pot):
     """
     if isinstance(Pot,list):
         for pot in Pot:
-            pot.turn_physical_off()
+            turn_physical_off(pot)
     else:
         Pot.turn_physical_off()
     return None
@@ -2832,10 +2839,45 @@ def turn_physical_on(Pot,ro=None,vo=None):
     """
     if isinstance(Pot,list):
         for pot in Pot:
-            pot.turn_physical_on(ro=ro,vo=vo)
+            turn_physical_on(pot,ro=ro,vo=vo)
     else:
         Pot.turn_physical_on(ro=ro,vo=vo)
     return None
+
+def _flatten_list(L):
+    for item in L:
+        try:
+            for i in _flatten_list(item): yield i
+        except TypeError:
+            yield item
+
+def flatten(Pot):
+    """
+    NAME:
+       
+       flatten
+
+    PURPOSE:
+    
+       flatten a possibly nested list of Potential instances into a flat list
+    
+    INPUT:
+    
+       Pot - list (possibly nested) of Potential instances
+
+    OUTPUT:
+    
+       Flattened list of Potential instances 
+    
+    HISTORY:
+    
+        2018-03-14 - Written - Bovy (UofT)
+    
+    """
+    if isinstance(Pot,list):
+        return list(_flatten_list(Pot))
+    else:
+        return Pot
 
 def _check_c(Pot,dxdv=False):
     """
@@ -2865,6 +2907,7 @@ def _check_c(Pot,dxdv=False):
        2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials
 
     """
+    Pot= flatten(Pot)
     from galpy.potential import planarPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
@@ -2899,7 +2942,7 @@ def _dim(Pot):
     """
     from galpy.potential import planarPotential, linearPotential
     if isinstance(Pot,list):
-        return nu.amin(nu.array([p.dim for p in Pot],dtype='int'))
+        return nu.amin(nu.array([_dim(p) for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential)):
         return Pot.dim
 
@@ -2928,7 +2971,7 @@ def _isNonAxi(Pot):
     """
     isList= isinstance(Pot,list)
     if isList:
-        isAxis= [not p.isNonAxi for p in Pot]
+        isAxis= [not _isNonAxi(p) for p in Pot]
         nonAxi= not nu.prod(nu.array(isAxis))
     else:
         nonAxi= Pot.isNonAxi
