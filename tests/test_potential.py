@@ -1980,6 +1980,15 @@ def test_ttensor():
     assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     return None
     
+def test_ttensor_nonaxi():
+    # Test that computing the tidal tensor for a non-axi potential raises error
+    lp= potential.LogarithmicHaloPotential(normalize=1.,b=0.8,q=0.7)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= lp.ttensor(1.,0.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.ttensor(lp,1.,0.,0.)
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
