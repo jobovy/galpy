@@ -1956,9 +1956,9 @@ def test_rtide():
     pmass=potential.PlummerPotential(b=0.0)
     assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
     # Also test function interface
-    assert abs(1.0-potential.rtide(lp,1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    assert abs(1.0-potential.rtide([lp],1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
     pmass=potential.PlummerPotential(b=0.0)
-    assert abs(1.0-potential.rtide(pmass,1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+    assert abs(1.0-potential.rtide([pmass],1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
     return None
 
 def test_rtide_noMError():
@@ -1967,7 +1967,7 @@ def test_rtide_noMError():
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= lp.rtide(1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy= potential.rtide(lp,1.,0.)
+        dummy= potential.rtide([lp],1.,0.)
     return None
 
 def test_ttensor():
@@ -1982,11 +1982,11 @@ def test_ttensor():
     tij=pmass.ttensor(1.0,0.0,0.0,eigenval=True)
     assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     # Also test function interface
-    tij= potential.ttensor(pmass,1.0,0.0,0.0)
+    tij= potential.ttensor([pmass],1.0,0.0,0.0)
     # Full tidal tensor here should be diag(2,-1,-1)
     assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     # Also test eigenvalues
-    tij= potential.ttensor(pmass,1.0,0.0,0.0,eigenval=True)
+    tij= potential.ttensor([pmass],1.0,0.0,0.0,eigenval=True)
     assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     return None
     
