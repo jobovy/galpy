@@ -396,7 +396,7 @@ class Potential(object):
         """
         NAME:
 
-           rderiv
+           r2deriv
 
         PURPOSE:
 
@@ -1583,14 +1583,9 @@ class Potential(object):
             2018-03-21 - Written - Webb (UofT)
             
         """
-        #DO WE NEED THIS? PHI IS WORKED INTO RFORCE AND R2DERIV?
-        if self.isNonAxi:
-            #Make sure potential is axisymmetric
-            raise PotentialError("Cannot calculate rtide for non-axisymmetric potential")
-            return 0.0
-        elif M==None:
+        if M==None:
             #Make sure an object mass is given
-            print("RTIDE Error - mass parameter has not been set")
+            raise PotentialError("RTIDE Error - mass parameter has not been set")
             return 0.0
 
         # Parse M if it has units
@@ -1655,33 +1650,42 @@ class Potential(object):
             2018-03-21 - Written - Webb (UofT)
 
         """
-        if self.isNonAxi:
-            #Make sure potential is axisymmetric
-            raise PotentialError("Cannot calculate ttensor for non-axisymmetric potential")
-            return 0.0
         
         #Evaluate forces, angles and derivatives
         Rderiv=-1.0*self.Rforce(R,z,phi=phi,t=t,use_physical=False)
         zderiv=-1.0*self.zforce(R,z,phi=phi,t=t,use_physical=False)
+        phideriv=-1.0*self.phiforce(R,z,phi=phi,t=t,use_physical=False)
         R2deriv= self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         z2deriv=self.z2deriv(R,z,phi=phi,t=t,use_physical=False)
+        phi2deriv=self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
         Rzderiv=self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+        Rphideriv=self.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+        #Temporarily set zphideriv to zero until zphideriv is added to Class
+        zphideriv=0.0
       
         cosphi=nu.cos(phi)
         sinphi=nu.sin(phi)
         cos2phi=cosphi**2.0
         sin2phi=sinphi**2.0
+        R2=R**2.0
+        R3=R**3.0
 
-        txx=R2deriv*cos2phi+Rderiv*sin2phi/R
-        txy=R2deriv*cosphi*sinphi-Rderiv*cosphi*sinphi/R
-        txz=Rzderiv*cosphi
-            
-        tyx=txy
-        tyy=R2deriv*sin2phi+Rderiv*cos2phi/R
-        tyz=Rzderiv*sinphi
+        txx=R2deriv*cos2phi-Rphideriv*2.*cosphi*sinphi/R+Rderiv*sin2phi/R+phi2deriv*sin2phi/R2+phideriv*2.*cosphi*sinphi/R2
+
+        tyx=R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R-Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2+phideriv*(sin2phi-cos2phi)/R2
         
-        tzx=txz
-        tzy=tyz
+        tzx=Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R+phideriv*2.*sinphi*z/R3
+        
+        tyy=R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R+phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
+        
+        txy=tyx
+        
+        tzy=Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R-phideriv*2.*cosphi*z/R3
+
+        txz=Rzderiv*cosphi-zphideriv*sinphi/R
+        
+        tyz=Rzderiv*sinphi+zphideriv*cosphi/R
+        
         tzz=z2deriv
             
         tij=nu.array([[-1.0*txx,-1.0*txy,-1.0*txz],[-1.0*tyx,-1.0*tyy,-1.0*tyz],[-1.0*tzx,-1.0*tzy,-1.0*tzz]])
@@ -2939,9 +2943,9 @@ def kms_to_kpcGyrDecorator(func):
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def rtide(Pot,R,z,phi=0.,t=0.,M=None):
+def rtide(pot,R,z,phi=0.,t=0.,M=None):
     """
-        
+            
     NAME:
         
         rtide
@@ -2952,16 +2956,14 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
         at R in potential Pot given the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
     INPUT:
         
-        Pot - Potential instance or list of such instances
-            
         R - Galactocentric radius (can be Quantity)
             
         z - height (can be Quantity)
-        
-        phi - azimuth (optional; can be Quantity)
-        
-        t - time (optional; can be Quantity)
             
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+        
         M - (default = None) Mass of object (can be Quantity)
             
     OUTPUT:
@@ -2973,37 +2975,33 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
         2018-03-21 - Written - Webb (UofT)
             
     """
-    if Pot.isNonAxi:
-        #Make sure potential is axisymmetric
-        raise PotentialError("Cannot calculate rtide for non-axisymmetric potential")
-        return 0.0
-    elif M==None:
+    if M==None:
         #Make sure an object mass is given
-        print("RTIDE Error - mass parameter has not been set")
+        raise PotentialError("RTIDE Error - mass parameter has not been set")
         return 0.0
 
     # Parse M if it has units
     if _APY_LOADED and isinstance(M,units.Quantity):
         try:
             M= M.to(units.Msun).value\
-                /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)
+                /bovy_conversion.mass_in_msol(pot._vo,pot._ro)
         except units.UnitConversionError: pass
         else:
             try:
                 M= M.to(units.pc*units.km**2/units.s**2)\
                     .value\
-                    /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)\
+                    /bovy_conversion.mass_in_msol(pot._vo,pot._ro)\
                     /bovy_conversion._G
             except units.UnitConversionError: pass
             else:
-                raise units.UnitConversionError('M= parameter of rtide should have units of mass')
+                raise units.UnitConversionError('M parameter of rtide should have units of mass')
         
     #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
     r=math.sqrt(R**2.0+z**2.0)
-    omegac2=-1.0*Pot.rforce(R,z,phi=phi,t=t,use_physical=False)/r
-        
+    omegac2=-1.0*pot.rforce(R,z,phi=phi,t=t,use_physical=False)/r
+
     #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
-    kappa2=3.0*omegac2+Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+    kappa2=3.0*omegac2+pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
 
     #rt=(GM/(omegac2*nu))**(1/3)
     nuu=4.0-kappa2/omegac2
@@ -3011,7 +3009,7 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
-def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
+def ttensor(pot,R,z,phi=0.,t=0.,eigenval=False):
     """
             
     NAME:
@@ -3025,18 +3023,16 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
             
     INPUT:
         
-        Pot - Potential instance or list of such instances
-            
         R - Galactocentric radius (can be Quantity)
             
         z - height (can be Quantity)
-        
+            
         phi - azimuth (optional; can be Quantity)
-        
+            
         t - time (optional; can be Quantity)
-        
+            
         eigenval - return eigenvalues if true (optional; boolean)
-
+            
     OUTPUT:
         
         Tidal Tensor
@@ -3044,40 +3040,48 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     HISTORY:
         
         2018-03-21 - Written - Webb (UofT)
-
-    """
-    if Pot.isNonAxi:
-        #Make sure potential is axisymmetric
-        raise PotentialError("Cannot calculate ttensor for non-axisymmetric potential")
-        return 0.0
+     """
         
     #Evaluate forces, angles and derivatives
-    Rderiv=-1.0*Pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
-    zderiv=-1.0*Pot.zforce(R,z,phi=phi,t=t,use_physical=False)
-    R2deriv= Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
-    z2deriv=Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
-    Rzderiv=Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+    Rderiv=-1.0*pot.Rforce(R,z,phi=phi,t=t,use_physical=False)
+    zderiv=-1.0*pot.zforce(R,z,phi=phi,t=t,use_physical=False)
+    phideriv=-1.0*pot.phiforce(R,z,phi=phi,t=t,use_physical=False)
+    R2deriv= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
+    z2deriv=pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
+    phi2deriv=pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
+    Rzderiv=pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+    Rphideriv=pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+    #Temporarily set zphideriv to zero until zphideriv is added to Class
+    zphideriv=0.0
       
     cosphi=nu.cos(phi)
     sinphi=nu.sin(phi)
     cos2phi=cosphi**2.0
     sin2phi=sinphi**2.0
+    R2=R**2.0
+    R3=R**3.0
 
-    txx=R2deriv*cos2phi+Rderiv*sin2phi/R
-    txy=R2deriv*cosphi*sinphi-Rderiv*cosphi*sinphi/R
-    txz=Rzderiv*cosphi
+    txx=R2deriv*cos2phi-Rphideriv*2.*cosphi*sinphi/R+Rderiv*sin2phi/R+phi2deriv*sin2phi/R2+phideriv*2.*cosphi*sinphi/R2
+
+    tyx=R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R-Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2+phideriv*(sin2phi-cos2phi)/R2
         
-    tyx=txy
-    tyy=R2deriv*sin2phi+Rderiv*cos2phi/R
-    tyz=Rzderiv*sinphi
+    tzx=Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R+phideriv*2.*sinphi*z/R3
         
-    tzx=txz
-    tzy=tyz
+    tyy=R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R+phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
+        
+    txy=tyx
+        
+    tzy=Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R-phideriv*2.*cosphi*z/R3
+
+    txz=Rzderiv*cosphi-zphideriv*sinphi/R
+       
+    tyz=Rzderiv*sinphi+zphideriv*cosphi/R
+        
     tzz=z2deriv
         
     tij=nu.array([[-1.0*txx,-1.0*txy,-1.0*txz],[-1.0*tyx,-1.0*tyy,-1.0*tyz],[-1.0*tzx,-1.0*tzy,-1.0*tzz]])
-        
+       
     if eigenval:
-        return nu.linalg.eigvals(tij)
+       return nu.linalg.eigvals(tij)
     else:
-        return tij
+       return tij
