@@ -1949,6 +1949,25 @@ def test_Ferrers_Rzderiv_issue319():
      assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-7., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
      return None
 
+def test_rtide():
+    #Test that rtide is being calculated properly in select potentials
+
+    lp=potential.LogarithmicHaloPotential()
+    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+            
+    pmass=potential.PlummerPotential(b=0.0)
+    assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+            
+    return None
+
+def test_ttensor():
+    #For a points mass galaxy assert that maximum eigenvalue is 3.
+    pmass=potential.PlummerPotential(b=0.0)
+    tij=pmass.ttensor(1.0,0.0,0.0)
+    max_eigenvalue=tij[0][0]-tij[2][2]
+
+    assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -2140,25 +2159,6 @@ def test_plotting():
     finally:
         os.remove(tmp_savefilename)
     return None
-
-def test_rtide():
-    #Test that rtide is being calculated properly in select potentials
-
-    lp=potential.LogarithmicHaloPotential()
-    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
-            
-    pmass=potential.PlummerPotential(b=0.0)
-    assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
-            
-    return None
-
-def test_ttensor():
-    #For a points mass galaxy assert that maximum eigenvalue is 3.
-    pmass=potential.PlummerPotential(b=0.0)
-    tij=pmass.ttensor(1.0,0.0,0.0)
-    max_eigenvalue=tij[0][0]-tij[2][2]
-
-    assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
 
 #Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
