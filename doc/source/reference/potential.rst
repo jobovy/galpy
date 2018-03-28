@@ -29,6 +29,7 @@ Use as ``Potential-instance.method(...)``
    plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
    r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
