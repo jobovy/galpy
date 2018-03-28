@@ -34,8 +34,10 @@ Use as ``Potential-instance.method(...)``
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
+   rtide <potentialrtide.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   ttensor <potentialttensor.rst>
    turn_physical_off <potentialturnphysicaloff.rst>
    turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
@@ -84,6 +86,8 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   rtide <potentialrtides.rst>
+   ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
