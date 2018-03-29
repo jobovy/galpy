@@ -772,6 +772,23 @@ def test_rforce():
     assert numpy.fabs(potential.evaluateRforces(pp,R,z)*r/R-potential.evaluaterforces(pp,R,z)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials'
     return None
     
+# Test that the spherically second radial derivative is correct
+def test_r2deriv():
+    # Spherical potentials: Rforce = rforce x R / r; zforce = rforce x z /r
+    # and R2deriv = r2deriv x (R/r)^2 - rforce x z^2/r^3
+    # and z2deriv = z2deriv x (z/r)^2 - rforce x R^2/R^3
+    # and Rzderiv = r2deriv x Rz/r^2 + rforce x Rz/r^3
+    pp= potential.PlummerPotential(amp=2.,b=2.)
+    R,z= 1.3, 0.4
+    r= numpy.sqrt(R*R+z*z)
+    assert numpy.fabs(pp.R2deriv(R,z)-pp.r2deriv(R,z)*(R/r)**2.+pp.rforce(R,z)*z**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(pp.z2deriv(R,z)-pp.r2deriv(R,z)*(z/r)**2.+pp.rforce(R,z)*R**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(pp.Rzderiv(R,z)-pp.r2deriv(R,z)*R*z/r**2.-pp.rforce(R,z)*R*z/r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluateR2derivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*(R/r)**2.+potential.evaluaterforces([pp],R,z)*z**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluatez2derivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*(z/r)**2.+potential.evaluaterforces([pp],R,z)*R**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluateRzderivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*R*z/r**2.-potential.evaluaterforces([pp],R,z)*R*z/r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    return None
+    
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
@@ -1786,9 +1803,14 @@ def test_nonaxierror_function():
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateRzderivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatephi2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateRphiderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluaterforces(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluater2derivs(tnp,1.,0.)
     return None
-
 
 def test_SoftenedNeedleBarPotential_density():
     # Some simple tests of the density of the SoftenedNeedleBarPotential
