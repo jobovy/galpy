@@ -70,17 +70,17 @@ double evaluateVerticalPotentials(double, double,int, struct potentialArg *);
 /*
   Actual functions, inlines first
 */
-inline void calcEREzL(int ndata,
-		      double *R,
-		      double *vR,
-		      double *vT,
-		      double *z,
-		      double *vz,
-		      double *ER,
-		      double *Ez,
-		      double *Lz,
-		      int nargs,
-		      struct potentialArg * actionAngleArgs){
+static inline void calcEREzL(int ndata,
+			     double *R,
+			     double *vR,
+			     double *vT,
+			     double *z,
+			     double *vz,
+			     double *ER,
+			     double *Ez,
+			     double *Lz,
+			     int nargs,
+			     struct potentialArg * actionAngleArgs){
   int ii;
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)

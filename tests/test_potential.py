@@ -4,6 +4,7 @@ import os
 import sys
 import pytest
 import numpy
+from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
     _PYNBODY_LOADED= True
@@ -373,7 +374,7 @@ def test_2ndDeriv_potential():
                         tphi2deriv= tp.phi2deriv(Rs[ii],phi=phis[jj])
                     else:
                         mphiforcederivphi= (tp.phiforce(Rs[ii],0.05,phi=phis[jj])-tp.phiforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                        tphi2deriv= tp.phi2deriv(Rs[ii],0.05,phi=phis[jj])
+                        tphi2deriv= potential.evaluatephi2derivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tphi2deriv**2. < 10.**ttol:
                             assert(mphiforcederivphi**2. < 10.**ttol)
@@ -397,7 +398,7 @@ def test_2ndDeriv_potential():
                         tRphideriv= tp.Rphideriv(Rs[ii],phi=phis[jj])
                     else:
                         mRforcederivphi= (tp.Rforce(Rs[ii],0.05,phi=phis[jj])-tp.Rforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                        tRphideriv= tp.Rphideriv(Rs[ii],0.05,phi=phis[jj])
+                        tRphideriv= potential.evaluateRphiderivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tRphideriv**2. < 10.**ttol:
                             assert(mRforcederivphi**2. < 10.**ttol)
@@ -785,6 +786,23 @@ def test_rforce_dissipative():
     assert numpy.fabs(potential.evaluateRforces(cdfc,R,z,phi=phi,v=v)*r/R-potential.evaluaterforces(cdfc,R,z,phi=phi,v=v)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials for dissipative forces'
     return None
 
+# Test that the spherically second radial derivative is correct
+def test_r2deriv():
+    # Spherical potentials: Rforce = rforce x R / r; zforce = rforce x z /r
+    # and R2deriv = r2deriv x (R/r)^2 - rforce x z^2/r^3
+    # and z2deriv = z2deriv x (z/r)^2 - rforce x R^2/R^3
+    # and Rzderiv = r2deriv x Rz/r^2 + rforce x Rz/r^3
+    pp= potential.PlummerPotential(amp=2.,b=2.)
+    R,z= 1.3, 0.4
+    r= numpy.sqrt(R*R+z*z)
+    assert numpy.fabs(pp.R2deriv(R,z)-pp.r2deriv(R,z)*(R/r)**2.+pp.rforce(R,z)*z**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(pp.z2deriv(R,z)-pp.r2deriv(R,z)*(z/r)**2.+pp.rforce(R,z)*R**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(pp.Rzderiv(R,z)-pp.r2deriv(R,z)*R*z/r**2.-pp.rforce(R,z)*R*z/r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluateR2derivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*(R/r)**2.+potential.evaluaterforces([pp],R,z)*z**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluatez2derivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*(z/r)**2.+potential.evaluaterforces([pp],R,z)*R**2./r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    assert numpy.fabs(potential.evaluateRzderivs([pp],R,z)-potential.evaluater2derivs([pp],R,z)*R*z/r**2.-potential.evaluaterforces([pp],R,z)*R*z/r**3.) < 10.**-10., 'r2deriv does not behave as expected for spherical potentials'
+    return None
+    
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
@@ -1022,6 +1040,9 @@ def test_dvcircdR_omegac_epifreq_rl_vesc():
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=0.0625"
     assert (pp.rl(16.)-16.**(4./7.))**2. < 10.**-16., \
         "PowerSphericalPotential's radius of a circular orbit is wrong at Lz=16."
+    #Check radius in MWPotential2014 at very small lz, to test small lz behavior
+    lz= 0.000001
+    assert numpy.fabs(potential.vcirc(potential.MWPotential2014,potential.rl(potential.MWPotential2014,lz))*potential.rl(potential.MWPotential2014,lz)-lz) < 1e-12, 'Radius of circular orbit at small Lz in MWPotential2014 does not work as expected'
     #Escape velocity of Kepler potential
     assert (kp.vesc(1.)**2.-2.)**2. < 10.**-16., \
         "KeplerPotential's escape velocity is wrong at R=1"
@@ -1795,8 +1816,15 @@ def test_nonaxierror_function():
         potential.evaluatez2derivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateRzderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatephi2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateRphiderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluaterforces(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluater2derivs(tnp,1.,0.)
     return None
-
 
 def test_SoftenedNeedleBarPotential_density():
     # Some simple tests of the density of the SoftenedNeedleBarPotential
@@ -2045,6 +2073,66 @@ def test_Ferrers_Rzderiv_issue319():
                                     0.5,dx=10.**-8.)
      assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-7., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
      return None
+
+def test_rtide():
+    #Test that rtide is being calculated properly in select potentials
+    lp=potential.LogarithmicHaloPotential()
+    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    pmass=potential.PlummerPotential(b=0.0)
+    assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+    # Also test function interface
+    assert abs(1.0-potential.rtide([lp],1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    pmass=potential.PlummerPotential(b=0.0)
+    assert abs(1.0-potential.rtide([pmass],1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
+    return None
+
+def test_rtide_noMError():
+    # Test the running rtide without M= input raises error
+    lp=potential.LogarithmicHaloPotential()
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= lp.rtide(1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.rtide([lp],1.,0.)
+    return None
+
+def test_ttensor():
+    pmass= potential.KeplerPotential(normalize=1.)
+    tij=pmass.ttensor(1.0,0.0,0.0)
+    # Full tidal tensor here should be diag(2,-1,-1)
+    assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test eigenvalues
+    tij=pmass.ttensor(1.0,0.0,0.0,eigenval=True)
+    assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test function interface
+    tij= potential.ttensor([pmass],1.0,0.0,0.0)
+    # Full tidal tensor here should be diag(2,-1,-1)
+    assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also test eigenvalues
+    tij= potential.ttensor([pmass],1.0,0.0,0.0,eigenval=True)
+    assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    return None
+    
+def test_ttensor_trace():
+    # Test that the trace of the tidal tensor == 4piG density for a bunch of
+    # potentials
+    pots= [potential.KeplerPotential(normalize=1.),
+           potential.LogarithmicHaloPotential(normalize=3.,q=0.8),
+           potential.MiyamotoNagaiPotential(normalize=0.5,a=3.,b=0.5)]
+    R,z,phi= 1.3,-0.2,2.
+    for pot in pots:
+        assert numpy.fabs(numpy.trace(pot.ttensor(R,z,phi=phi))-4.*numpy.pi*pot.dens(R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+    # Also test a list
+    assert numpy.fabs(numpy.trace(potential.ttensor(potential.MWPotential2014,R,z,phi=phi))-4.*numpy.pi*potential.evaluateDensities(potential.MWPotential2014,R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+    return None
+
+def test_ttensor_nonaxi():
+    # Test that computing the tidal tensor for a non-axi potential raises error
+    lp= potential.LogarithmicHaloPotential(normalize=1.,b=0.8,q=0.7)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= lp.ttensor(1.,0.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.ttensor(lp,1.,0.,0.)
+    return None
 
 def test_plotting():
     import tempfile

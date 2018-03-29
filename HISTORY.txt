@@ -6,6 +6,22 @@ v1.4 (????)
   components (e.g., a bar) to previously defined potentials (which may
   be lists themselves): new_pot= [pot,bar_pot].
 
+- Defined Orbit initialization without any arguments (or, more
+  generally, without specifying the vxvv initial phase-space input) to
+  return an Orbit instances representing the Sun. Can therefore setup
+  an Orbit representing the Sun's as o= Orbit().
+
+- Added rtide and ttensor methods/functions for Potentials: tidal
+  radius and tidal tensor.
+
+- Switched default solarmotion parameter for Orbit initialization to
+  be schoenrich (for the Schoenrich, Binney, & Dehnen 2010 solar
+  motion wrt the LSR).
+
+- Added Potential method r2deriv and function evaluater2derivs to
+  evaluate the second derivative wrt the spherical radius. Also added
+  convenience functions evaluatephi2derivs and evaluateRphiderivs.
+
 - Add warnings/verbose configuration parameter to set level of
   verbosity of non-crucial warnings (like: "Using C implementation to
   integrate orbits").

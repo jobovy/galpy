@@ -41,7 +41,7 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2016, Jo Bovy
+#Copyright (c) 2010 - 2018, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -91,7 +91,7 @@ if _APY_COORDS:
     # This conversion fails bc of einsum bug
     try:
         c= c.transform_to(apycoords.Galactic)
-    except TypeError:
+    except TypeError: # pragma: no cover
         _APY_COORDS= False
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""

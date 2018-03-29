@@ -20,6 +20,7 @@ Anna Juranova (FerrersPotential)
 Semyeong Oh (FerrersPotential)
 Jack Hong (SpiralArmsPotential)
 Ted Mackereth (addition to estimateDeltaStaeckel function, and fast orbit characterisation docs)
+Jeremy Webb (rtide and ttensor Potentials methods/functions)
 
 General help:
 ==============

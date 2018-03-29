@@ -669,7 +669,7 @@ def potential_physical_input(method):
             ro= Pot[0]._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
             ro= ro.to(units.kpc).value
-        if 't' in kwargs:
+        if 't' in kwargs or 'M' in kwargs:
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(Pot,'_vo'):
                 vo= Pot._vo
@@ -699,6 +699,15 @@ def potential_physical_input(method):
         if 'v' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['v'],units.Quantity):
             kwargs['v']= kwargs['v'].to(units.km/units.s).value/vo
+        # Mass kwarg for rtide
+        if 'M' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['M'],units.Quantity):
+            try:
+                kwargs['M']= kwargs['M'].to(units.Msun).value\
+                    /mass_in_msol(vo,ro)
+            except units.UnitConversionError:
+                kwargs['M']= kwargs['M'].to(units.pc*units.km**2/units.s**2)\
+                    .value/mass_in_msol(vo,ro)/_G
         # kwargs that come up in quasiisothermaldf    
         if 'z' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['z'],units.Quantity):
