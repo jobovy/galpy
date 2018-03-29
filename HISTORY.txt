@@ -19,7 +19,8 @@ v1.4 (????)
   motion wrt the LSR).
 
 - Added Potential method r2deriv and function evaluater2derivs to
-  evaluate the second derivative wrt the spherical radius.
+  evaluate the second derivative wrt the spherical radius. Also added
+  convenience functions evaluatephi2derivs and evaluateRphiderivs.
 
 - Add warnings/verbose configuration parameter to set level of
   verbosity of non-crucial warnings (like: "Using C implementation to
