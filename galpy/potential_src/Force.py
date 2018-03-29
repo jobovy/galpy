@@ -3,8 +3,11 @@
 #             not (DissipativeForce)
 #
 ###############################################################################
+import numpy
 from galpy.util import config
 from galpy.util import bovy_conversion
+from galpy.util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 _APY_LOADED= True
 try:
     from astropy import units
@@ -206,3 +209,41 @@ class Force(object):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
         return None
+
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
+    def rforce(self,*args,**kwargs):
+        """
+        NAME:
+
+           rforce
+
+        PURPOSE:
+
+           evaluate spherical radial force F_r  (R,z)
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius (can be Quantity)
+
+           z - vertical height (can be Quantity)
+
+           phi - azimuth (optional; can be Quantity)
+
+           t - time (optional; can be Quantity)
+
+           v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
+        OUTPUT:
+
+           F_r (R,z,phi,t)
+
+        HISTORY:
+
+           2016-06-20 - Written - Bovy (UofT)
+
+        """
+        R,z= args
+        r= numpy.sqrt(R**2.+z**2.)
+        kwargs['use_physical']= False
+        return self.Rforce(*args,**kwargs)*R/r+self.zforce(*args,**kwargs)*z/r

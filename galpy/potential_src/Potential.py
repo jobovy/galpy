@@ -188,41 +188,6 @@ class Potential(Force):
             raise PotentialError("'_zforce' function not implemented for this potential")
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
-    def rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-
-           rforce
-
-        PURPOSE:
-
-           evaluate spherical radial force F_r  (R,z)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_r (R,z,phi,t)
-
-        HISTORY:
-
-           2016-06-20 - Written - Bovy (UofT)
-
-        """
-        r= nu.sqrt(R**2.+z**2.)
-        return self.Rforce(R,z,phi=phi,t=t,use_physical=False)*R/r\
-            +self.zforce(R,z,phi=phi,t=t,use_physical=False)*z/r
-        
-    @potential_physical_input
     @physical_conversion('density',pop=True)
     def dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         """
@@ -1650,7 +1615,7 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
-def evaluaterforces(Pot,R,z,phi=None,t=0.):
+def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
@@ -1672,6 +1637,8 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.):
 
        t - time (optional; can be Quantity)
 
+       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        F_r(R,z,phi,t)
@@ -1685,13 +1652,21 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.):
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    dissipative= _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
         sum= 0.
         for pot in Pot:
-            sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+            if isinstance(pot,DissipativeForce):
+                sum+= pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
+            else:
+                sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
         return sum
     elif isinstance(Pot,Potential):
         return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+    elif isinstance(Pot,DissipativeForce):
+        return Pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances")
 
