@@ -374,7 +374,7 @@ def test_2ndDeriv_potential():
                         tphi2deriv= tp.phi2deriv(Rs[ii],phi=phis[jj])
                     else:
                         mphiforcederivphi= (tp.phiforce(Rs[ii],0.05,phi=phis[jj])-tp.phiforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                        tphi2deriv= tp.phi2deriv(Rs[ii],0.05,phi=phis[jj])
+                        tphi2deriv= potential.evaluatephi2derivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tphi2deriv**2. < 10.**ttol:
                             assert(mphiforcederivphi**2. < 10.**ttol)
@@ -398,7 +398,7 @@ def test_2ndDeriv_potential():
                         tRphideriv= tp.Rphideriv(Rs[ii],phi=phis[jj])
                     else:
                         mRforcederivphi= (tp.Rforce(Rs[ii],0.05,phi=phis[jj])-tp.Rforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                        tRphideriv= tp.Rphideriv(Rs[ii],0.05,phi=phis[jj])
+                        tRphideriv= potential.evaluateRphiderivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tRphideriv**2. < 10.**ttol:
                             assert(mRforcederivphi**2. < 10.**ttol)
