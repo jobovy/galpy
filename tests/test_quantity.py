@@ -1500,8 +1500,8 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.rl(pot[0],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vterm(pot,45.*units.deg,use_physical=False)-potential.vterm(potu,45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rtide(pot,1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
-    # Test non-list for M as well, bc units done in rtide special
-    assert numpy.fabs(potential.rtide(pot[0],1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    # Test non-list for M as well, bc units done in rtide special, and do GM
+    assert numpy.fabs(potential.rtide(pot[0],1.1*ro,0.1*ro,M=constants.G*10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,use_physical=False)-potential.ttensor(potu,1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potential.ttensor(potu,1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     return None
