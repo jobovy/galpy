@@ -771,6 +771,20 @@ def test_rforce():
     assert numpy.fabs(potential.evaluateRforces(pp,R,z)*r/R-potential.evaluaterforces(pp,R,z)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials'
     return None
     
+def test_rforce_dissipative():
+    # Use dynamical friction along a radial orbit at z=0 --> spherical
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z,phi= 1.3, 0., 1.1
+    v= [0.1,0.,0.]
+    r= numpy.sqrt(R*R+z*z)
+    assert numpy.fabs(cdfc.Rforce(R,z,phi=phi,v=v)*r/R-cdfc.rforce(R,z,phi=phi,v=v)) < 10.**-10., 'rforce does not behave as expected for spherical potentials for dissipative forces'
+    assert numpy.fabs(potential.evaluateRforces([pp,cdfc],R,z,phi=phi,v=v)*r/R-potential.evaluaterforces([pp,cdfc],R,z,phi=phi,v=v)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials for dissipative forces'
+    assert numpy.fabs(potential.evaluateRforces(cdfc,R,z,phi=phi,v=v)*r/R-potential.evaluaterforces(cdfc,R,z,phi=phi,v=v)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials for dissipative forces'
+    return None
+
 # Check that the masses are calculated correctly for spherical potentials
 def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
@@ -1940,6 +1954,24 @@ def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     assert numpy.fabs(potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateR2derivs'
     assert numpy.fabs(potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatez2derivs'
     assert numpy.fabs(potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRzderivs'
+    return None
+
+def test_dissipative_noVelocityError():
+    # Test that calling evaluateXforces for a dissipative potential
+    # without including velocity produces an error
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z,phi= 2.,0.4,1.1
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluateRforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluatephiforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluatezforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluaterforces([lp,cdfc],R,z,phi=phi)
     return None
 
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
