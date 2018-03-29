@@ -58,7 +58,9 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatCorotatingRotationSpiralArmsPotential, \
     mockFlatTrulyCorotatingRotationSpiralArmsPotential, \
     mockFlatGaussianAmplitudeBarPotential, \
-    mockFlatTrulyGaussianAmplitudeBarPotential
+    mockFlatTrulyGaussianAmplitudeBarPotential, \
+    testorbitHenonHeilesPotential, \
+    nestedListPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -130,6 +132,7 @@ def test_energy_jacobi_conservation():
     pots.append('testorbitHenonHeilesPotential')   
     pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatGaussianAmplitudeBarPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -312,7 +315,7 @@ def test_energy_jacobi_conservation():
                 if isinstance(tp,testMWPotential) \
                         or isinstance(tp,testplanarMWPotential):
                     o.integrate(ttimes,
-                                [tmp.toPlanar() for tmp in tp._potlist],
+                                potential.toPlanarPotential(tp._potlist),
                                 method=integrator)
                 else:
                     o.integrate(ttimes,ptp,method=integrator)
@@ -358,7 +361,7 @@ def test_energy_jacobi_conservation():
             if isinstance(tp,testMWPotential) \
                     or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,
-                            [tmp.toPlanar() for tmp in tp._potlist],
+                            potential.toPlanarPotential(tp._potlist),
                             method=integrator)
             else:
                 o.integrate(ttimes,ptp,method=integrator)
@@ -535,6 +538,7 @@ def test_liouville_planar():
     pots.append('testorbitHenonHeilesPotential')   
     pots.append('mockFlatTrulyCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -592,7 +596,7 @@ def test_liouville_planar():
             #Calculate the Jacobian d x / d x
             if hasattr(tp,'_potlist'):
                 if isinstance(tp,testMWPotential):
-                    plist= [tmp.toPlanar() for tmp in tp._potlist]
+                    plist= potential.toPlanarPotential(tp._potlist)
                 else:
                     plist= tp._potlist
                 o.integrate_dxdv([1.,0.,0.,0.],ttimes,plist,
@@ -1877,7 +1881,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
     #Radec w/ default and obs=Orbit
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.])
+    obs= Orbit([1.,-11.1/220.,232.24/220,0.025/8.,7.25/220.,0.])
     assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
     assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
@@ -3797,6 +3801,15 @@ def test_wrapper_complicatedsequence_3d():
     assert numpy.fabs(o.vy()-oc.vy()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
     assert numpy.fabs(o.vz()-oc.vz()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
     return None
+
+def test_orbit_sun_setup():
+    # Test that setting up an Orbit with no vxvv returns the Orbit of the Sun
+    from galpy.orbit import Orbit
+    o= Orbit()
+    assert numpy.fabs(o.dist()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero distance'
+    assert numpy.fabs(o.vll()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic longitude direction'
+    assert numpy.fabs(o.vbb()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic latitude direction'
+    assert numpy.fabs(o.vlos()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero line-of-sight velocity'
 
 def test_linear_plotting():
     from galpy.orbit import Orbit

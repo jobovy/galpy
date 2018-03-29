@@ -11,7 +11,7 @@ else:
     from scipy.misc import logsumexp
 from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
-from galpy.util import galpyWarning
+from galpy.util import galpyWarning, galpyWarningVerbose
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 import galpy.util.bovy_coords as coords
@@ -600,7 +600,7 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
         warnings.warn("Using C implementation to integrate orbits",
-                      galpyWarning)
+                      galpyWarningVerbose)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
                              vxvv[0]*nu.sin(vxvv[5]),

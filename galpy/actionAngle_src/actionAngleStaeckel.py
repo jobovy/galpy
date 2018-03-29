@@ -18,6 +18,7 @@ from galpy.potential import evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, epifreq, omegac, verticalfreq, MWPotential
 from galpy.potential_src.Potential import _evaluatePotentials, \
     _evaluateRforces, _evaluatezforces
+from galpy.potential_src.Potential import flatten as flatten_potential
 from galpy.util import bovy_coords #for prolate confocal transforms
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
@@ -68,7 +69,7 @@ class actionAngleStaeckel(actionAngle):
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleStaeckel")
-        self._pot= kwargs['pot']
+        self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)

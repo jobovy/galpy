@@ -29,13 +29,17 @@ Use as ``Potential-instance.method(...)``
    plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
+   r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
+   rtide <potentialrtide.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   ttensor <potentialttensor.rst>
    turn_physical_off <potentialturnphysicaloff.rst>
    turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
@@ -67,12 +71,16 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephi2derivs <potentialphi2derivs.rst>
+   evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>
+   evaluater2derivs <potentialsphr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
+   flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
    nemo_accname <potentialnemoaccnames.rst>
@@ -83,6 +91,8 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   rtide <potentialrtides.rst>
+   ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
@@ -256,6 +266,7 @@ Use as ``method(...)``
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
+   flatten <potentialflatten.rst>
    LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
@@ -317,6 +328,7 @@ Use as ``method(...)``
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
+   flatten <potentialflatten.rst>
    plotlinearPotentials <potential1dplots.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>

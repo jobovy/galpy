@@ -480,7 +480,7 @@ def test_actionAngleAdiabatic_basic_actions_gamma0():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=0.)
+    aAA= actionAngleAdiabatic(pot=[MWPotential[0],MWPotential[1:]],gamma=0.)
     #circular orbit
     R,vR,vT,phi= 1.,0.,1.,2. 
     js= aAA(Orbit([R,vR,vT,phi]))
@@ -508,7 +508,8 @@ def test_actionAngleAdiabatic_basic_actions_c():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    # test nested list of potentials
+    aAA= actionAngleAdiabatic(pot=[MWPotential[0],MWPotential[1:]],c=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAA(R,vR,vT,z,vz)
@@ -872,7 +873,9 @@ def test_actionAngleStaeckel_basic_actions_u0():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False,useu0=True)
+    # test nested list of potentials
+    aAS= actionAngleStaeckel(pot=[MWPotential[0],MWPotential[1:]],
+                             delta=0.71,c=False,useu0=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
@@ -890,7 +893,9 @@ def test_actionAngleStaeckel_basic_actions_u0_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    # test nested list of potentials
+    aAS= actionAngleStaeckel(pot=[MWPotential[0],MWPotential[1:]],
+                             delta=0.71,c=True,useu0=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)

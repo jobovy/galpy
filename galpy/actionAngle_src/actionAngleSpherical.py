@@ -15,6 +15,7 @@ import numpy as nu
 from scipy import integrate
 from galpy.potential import epifreq, omegac
 from galpy.potential_src.Potential import _evaluatePotentials
+from galpy.potential_src.Potential import flatten as flatten_potential
 from galpy.actionAngle_src.actionAngle import *
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
@@ -50,7 +51,7 @@ class actionAngleSpherical(actionAngle):
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSpherical")
-        self._pot= kwargs['pot']
+        self._pot= flatten_potential(kwargs['pot'])
         #Also store a 'planar' (2D) version of the potential
         if isinstance(self._pot,list):
             self._2dpot= [p.toPlanar() for p in self._pot]

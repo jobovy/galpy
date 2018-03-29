@@ -9,7 +9,7 @@ from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
     RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
     _evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential, _check_c
-from galpy.util import galpyWarning
+from galpy.util import galpyWarning, galpyWarningVerbose
 #try:
 from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
     integratePlanarOrbit_dxdv_c, _ext_loaded
@@ -606,7 +606,7 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
     elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
-        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
+        warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
@@ -696,7 +696,7 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
         raise TypeError('Symplectic integration for phase-space volume is not possible')
     elif method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
             or method.lower() == 'dopr54_c':
-        warnings.warn("Using C implementation to integrate orbits",galpyWarning)
+        warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
