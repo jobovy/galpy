@@ -1585,29 +1585,11 @@ class Potential(object):
         if M is None:
             #Make sure an object mass is given
             raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-        # Parse M if it has units
-        if _APY_LOADED and isinstance(M,units.Quantity):
-            try:
-                M= M.to(units.Msun).value\
-                    /bovy_conversion.mass_in_msol(self._vo,self._ro)
-            except units.UnitConversionError: pass
-            else:
-                try:
-                    M= M.to(units.pc*units.km**2/units.s**2)\
-                        .value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                        /bovy_conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    raise units.UnitConversionError('M parameter of rtide should have units of mass')
-                                    
         #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
         r= nu.sqrt(R**2.0+z**2.0)
         omegac2= -self.rforce(R,z,phi=phi,t=t,use_physical=False)/r
-            
         #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
         kappa2= 3.0*omegac2+self.r2deriv(R,z,phi=phi,t=t,use_physical=False)
-
         #rt=(GM/(omegac2*nu))**(1/3)
         nuu=4.0-kappa2/omegac2
         return (M/(omegac2*nuu))**(1.0/3.0)
@@ -3152,32 +3134,15 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
         2018-03-21 - Written - Webb (UofT)
             
     """
+    Pot= flatten(Pot)
     if M is None:
         #Make sure an object mass is given
         raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-    # Parse M if it has units
-    if _APY_LOADED and isinstance(M,units.Quantity):
-        try:
-            M= M.to(units.Msun).value\
-                /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)
-        except units.UnitConversionError: pass
-        else:
-            try:
-                M= M.to(units.pc*units.km**2/units.s**2)\
-                    .value\
-                    /bovy_conversion.mass_in_msol(Pot._vo,Pot._ro)\
-                    /bovy_conversion._G
-            except units.UnitConversionError: pass
-            else:
-                raise units.UnitConversionError('M parameter of rtide should have units of mass')
-        
     #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
     r= nu.sqrt(R**2.0+z**2.0)
     omegac2=-evaluaterforces(Pot,R,z,phi=phi,t=t,use_physical=False)/r
-
     #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
     kappa2=3.0*omegac2+evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
-
     #rt=(GM/(omegac2*nu))**(1/3)
     nuu=4.0-kappa2/omegac2
     return (M/(omegac2*nuu))**(1.0/3.0)
@@ -3217,6 +3182,7 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
         
         2018-03-21 - Written - Webb (UofT)
     """
+    Pot= flatten(Pot)
     if _isNonAxi(Pot):
         raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
     #Evaluate forces, angles and derivatives
