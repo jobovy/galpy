@@ -1995,9 +1995,6 @@ def test_rtide_noMError():
 def test_ttensor():
     pmass= potential.KeplerPotential(normalize=1.)
     tij=pmass.ttensor(1.0,0.0,0.0)
-    #For a points mass galaxy assert that maximum eigenvalue is 3.
-    max_eigenvalue=tij[0][0]-tij[2][2]
-    assert abs(1.0-max_eigenvalue/3.0) < 10.**-12., "Calculation of tidal tensor in point-mass potential fails"
     # Full tidal tensor here should be diag(2,-1,-1)
     assert numpy.all(numpy.fabs(tij-numpy.diag([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     # Also test eigenvalues
