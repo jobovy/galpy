@@ -270,6 +270,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate a possible tidal stream for the globular cluster NGC 6441.
 #. *The 4:1 Outer Lindblad Resonance of a long slow bar as a potential explanation for the Hercules stream*, Jason A. S. Hunt & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1803.02358 <http://arxiv.org/abs/1803.02358>`_):
      Uses ``galpy.potential`` modeling tools (``CosmphiDiskPotential`` and wrappers to grow it [``DehnenSmoothWrapperPotential``] and make it rotate [``SolidBodyRotationWrapperPotential``]) and disk models in ``galpy.df`` to study the effect of the Milky Way bar's hexadecapole (m=4) moment on the velocity distribution of stars in the disk of the Milky Way, finding that it can have a big effect near the 4:1 outer Lindblad resonance, which may be close to the Sun.
+#. *KELT-22Ab: A Massive Hot Jupiter Transiting a Near Solar Twin*, Jonathan Labadie-Bartz, Joseph E. Rodriguez, Keivan G. Stassun, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1803.07559 <http://arxiv.org/abs/1803.07559>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to explore the orbit of KELT-22A, the G2V host star of a transiting hot-jupiter exoplanet, in the Milky Way.
+#. *Dissecting stellar chemical abundance space with t-SNE*, Friedrich Anders, Cristina Chiappini, Basílio X. Santiago, Gal Matijevič, Anna B. Queiroz, Matthias Steinmetz (2018) *Astron. & Astrophys.*, submitted (`arXiv/1803.09341 <http://arxiv.org/abs/1803.09341>`_):
+     Uses the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods introduced in `Mackereth & Bovy (2018) <https://arxiv.org/abs/1802.02592>`__ to compute the eccentricity and maximum vertical excursion of a sample of solar-neighborhood stars with detailed chemical abundances, ages, and Galactic kinematics.
+#. *Chemo-kinematics of the Milky Way from the SDSS-III MARVELS Survey*, Nolan Grieves, Jian Ge, Neil Thomas, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1803.11538 <http://arxiv.org/abs/1803.11538>`_):
+     Employs ``galpy.orbit`` integration in a Milky-Way like potential (Miyamoto-Nagai disk, Hernquist bulge, and NFW dark-matter halo) to determine the eccentricity, maximum vertical excursion, and median Galactocentric radius of a sample of a few thousand solar neighborhood stars with spectra from the SDSS MARVELS survey.
 
 
 Indices and tables
