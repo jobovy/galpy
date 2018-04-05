@@ -87,7 +87,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._dens_pot= dens
         self._dens=\
             lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
-                                                      R,z,phi=phi,t=t)
+                                                      R,z,phi=phi,t=t,
+                                                      use_physical=False)
         self._sigmar= sigmar
         if const_lnLambda:
             self._lnLambda= const_lnLambda
