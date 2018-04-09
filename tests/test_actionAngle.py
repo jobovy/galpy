@@ -8,6 +8,56 @@ _TRAVIS= bool(os.getenv('TRAVIS'))
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
+#Test the actions of an actionAngleHarmonic
+def test_actionAngleHarmonic_conserved_actions():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    js= aAH(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)))/numpy.mean(js)
+    assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
+    return None
+
+#Test that the angles of an actionAngleHarmonic increase linearly
+def test_actionAngleHarmonic_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import dePeriod
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    acfs_init= aAH.actionsFreqsAngles(obs.x(),obs.vx()) #to check the init. angles
+    acfs= aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    angle= dePeriod(numpy.reshape(acfs[2],(1,len(times)))).flatten()
+    # Do linear fit to the angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,angle,1)
+    assert numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]) < 10.**-5., \
+        'Angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]))
+    assert numpy.fabs(linfit[0]-acfs_init[1]) < 10.**-5., \
+        'Frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[1])/acfs_init[1]))
+    devs= (angle-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**-6., 'Maximum deviation from linear trend in the angles is %g' % maxdev
+    # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
+    assert numpy.all(numpy.fabs(aAH.actionsFreqs(obs.x(times),obs.vx(times))[1]-aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))[1])) < 1e-100, 'Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles'
+    return None
+
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
     from galpy.actionAngle import actionAngleIsochrone
