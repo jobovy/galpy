@@ -3371,6 +3371,80 @@ def test_MWPotential_warning_torus():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+# Test that actionAngleHarmonicInverse is the inverse of actionAngleHarmonic
+def test_actionAngleHarmonicInverse_wrtHarmonic():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic, \
+        actionAngleHarmonicInverse
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    # Check a few orbits
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    times= numpy.linspace(0.,30.,1001)
+    obs.integrate(times,ipz)
+    j,_,a= aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    xi, vxi= aAHI(numpy.median(j),a)
+    assert numpy.amax(numpy.fabs(obs.x(times)-xi)) < 10.**-6., 'actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vx(times)-vxi)) < 10.**-6., 'actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit'
+    return None
+
+def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic, \
+        actionAngleHarmonicInverse
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    tol= -10.
+    j= 0.1
+    Om= aAHI.Freqs(j)
+    # Compute frequency with actionAngleHarmonic
+    _,Omi= aAH.actionsFreqs(*aAHI(j,0.))
+    assert numpy.fabs((Om-Omi)/Om) < 10.**tol, \
+        'Radial frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic'
+    return None
+
+#Test that orbit from actionAngleHarmonicInverse is the same as an integrated orbit
+def test_actionAngleHarmonicInverse_orbit():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonicInverse
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    j= 0.01
+    # First calculate frequencies and the initial x,v
+    xvom= aAHI.xvFreqs(j,numpy.array([0.1]))
+    om= xvom[2:]
+    # Angles along an orbit
+    ts= numpy.linspace(0.,20.,1001)
+    angle= 0.1+ts*om[0]
+    # Calculate the orbit using actionAngleHarmonicInverse
+    xv= aAHI(j,angle)
+    # Calculate the orbit using orbit integration
+    orb= Orbit([xvom[0][0],xvom[1][0]])
+    orb.integrate(ts,ipz)
+    # Compare
+    tol= -6.
+    assert numpy.all(numpy.fabs(orb.x(ts)-xv[0]) < 10.**tol), \
+        'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x'
+    assert numpy.all(numpy.fabs(orb.vx(ts)-xv[1]) < 10.**tol), \
+        'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v'
+    return None
+
 # Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
 def test_actionAngleIsochroneInverse_wrtIsochrone():
     from galpy.actionAngle import actionAngleIsochrone, \
