@@ -2687,8 +2687,19 @@ def test_interpRZPotential_vo():
 def test_actionAngle_method_returntype():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonic
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=8.,vo=220.)
+    assert isinstance(aA(-0.2,0.1),units.Quantity), 'actionAngleHarmonic method __call__ does not return Quantity when it should'
+    for ii in range(2):
+        assert isinstance(aA.actionsFreqs(-0.2,0.1)[ii],units.Quantity), 'actionAngleHarmonic method actionsFreqs does not return Quantity when it should'
+    for ii in range(3):
+        assert isinstance(aA.actionsFreqsAngles(-0.2,0.1)[ii],units.Quantity), 'actionAngleHarmonic method actionsFreqsAngles does not return Quantity when it should'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=8.,vo=220.)
     for ii in range(3):
@@ -2747,8 +2758,38 @@ def test_actionAngle_method_returntype():
 def test_actionAngle_method_returnunit():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonic
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=8.,vo=220.)
+    try:
+        aA(-0.2,0.1).to(units.kpc*units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function __call__ does not return Quantity with the right units')
+    try:
+        aA.actionsFreqs(-0.2,0.1)[0].to(units.kpc*units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    try:
+        aA.actionsFreqs(-0.2,0.1)[1].to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function actionsFreqs does not return Quantity with the right units')
+    try:
+        aA.actionsFreqsAngles(-0.2,0.1)[0].to(units.kpc*units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    try:
+        aA.actionsFreqsAngles(-0.2,0.1)[1].to(1/units.Gyr)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
+    try:
+        aA.actionsFreqsAngles(-0.2,0.1)[2].to(units.rad)
+    except units.UnitConversionError:
+        raise AssertionError('actionAngle function actionsFreqsAngles does not return Quantity with the right units')
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=8.,vo=220.)
     for ii in range(3):
@@ -2948,10 +2989,23 @@ def test_actionAngle_method_returnunit():
 def test_actionAngle_method_value():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
     from galpy.util import bovy_conversion
     ro,vo= 9.,230.
+    # actionAngleHarmonic
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=ro,vo=vo)
+    aAnu= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    assert numpy.fabs(aA(-0.2,0.1).to(units.kpc*units.km/units.s).value-aAnu(-0.2,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value'
+    assert numpy.fabs(aA.actionsFreqs(-0.2,0.1)[0].to(units.kpc*units.km/units.s).value-aAnu.actionsFreqs(-0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    assert numpy.fabs(aA.actionsFreqs(-0.2,0.1)[1].to(1/units.Gyr).value-aAnu.actionsFreqs(-0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2,0.1)[0].to(units.kpc*units.km/units.s).value-aAnu.actionsFreqsAngles(-0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2,0.1)[1].to(1/units.Gyr).value-aAnu.actionsFreqsAngles(-0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2,0.1)[2].to(units.rad).value-aAnu.actionsFreqsAngles(-0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=ro,vo=vo)
     aAnu= actionAngleIsochrone(b=0.8)
@@ -3055,8 +3109,14 @@ def test_actionAngle_method_value():
 def test_actionAngle_setup_roAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonoc
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=7.*units.kpc)
+    assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=7.*units.kpc)
     assert numpy.fabs(aA._ro-7.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
@@ -3081,8 +3141,14 @@ def test_actionAngle_setup_roAsQuantity():
 def test_actionAngle_setup_roAsQuantity_oddunits():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonoc
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=7.*units.lyr)
+    assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=7.*units.lyr)
     assert numpy.fabs(aA._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
@@ -3107,8 +3173,14 @@ def test_actionAngle_setup_roAsQuantity_oddunits():
 def test_actionAngle_setup_voAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonoc
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            vo=230.*units.km/units.s)
+    assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,vo=230.*units.km/units.s)
     assert numpy.fabs(aA._vo-230.) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
@@ -3133,8 +3205,14 @@ def test_actionAngle_setup_voAsQuantity():
 def test_actionAngle_setup_voAsQuantity_oddunits():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
+    # actionAngleHarmonic
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            vo=230.*units.pc/units.Myr)
+    assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,vo=230.*units.pc/units.Myr)
     assert numpy.fabs(aA._vo-230.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'ro in actionAngle setup as Quantity does not work as expected'
@@ -3192,6 +3270,15 @@ def test_actionAngle_method_turnphysicaloff():
     assert isinstance(aA(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
     assert isinstance(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
     assert isinstance(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[0][0],float), 'actionAngle method does not return float when turn_physical_off has been called'
+    return None
+
+def test_actionAngleHarmonic_setup_omega_units():
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.util import bovy_conversion
+    ro, vo= 9., 230.
+    aA= actionAngleHarmonic(omega=0.1/units.Gyr,ro=ro,vo=vo)
+    aAu= actionAngleHarmonic(omega=0.1/bovy_conversion.freq_in_Gyr(vo,ro))
+    assert numpy.fabs(aA._omega-aAu._omega) < 10.**-10., 'omega with units in actionAngleHarmonic setup does not work as expected'
     return None
 
 def test_actionAngleStaeckel_setup_delta_units():
@@ -3256,9 +3343,21 @@ def test_actionAngleIsochroneApprix_setup_tintJ_units():
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, MWPotential
+        actionAngleIsochroneInverse, actionAngleHarmonic
+    from galpy.potential import PlummerPotential, MWPotential, \
+        IsochronePotential
     ro,vo= 9.,230.
+    # actionAngleHarmonic
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                            ro=ro,vo=vo)
+    aAnu= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    assert numpy.fabs(aA(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)-aAnu(-0.2,0.1)) < 10.**-8., 'actionAngle method __call__ does not return the correct value when input is Quantity'
+    assert numpy.fabs(aA.actionsFreqs(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)[0]-aAnu.actionsFreqs(-0.2,0.1)[0]) < 10.**-8., 'actionAngle method actionsFreqs does not return the correct value when input is Quantity'
+    assert numpy.fabs(aA.actionsFreqs(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)[1]-aAnu.actionsFreqs(-0.2,0.1)[1]) < 10.**-8., 'actionAngle method actionsFreqs does not return the correct value when input is Quantity'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)[0]-aAnu.actionsFreqsAngles(-0.2,0.1)[0]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)[1]-aAnu.actionsFreqsAngles(-0.2,0.1)[1]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
+    assert numpy.fabs(aA.actionsFreqsAngles(-0.2*ro*units.kpc,0.1*vo*units.km/units.s,use_physical=False)[2]-aAnu.actionsFreqsAngles(-0.2,0.1)[2]) < 10.**-8., 'actionAngle method actionsFreqsAngles does not return the correct value when input is Quantity'
     # actionAngleIsochrone
     aA= actionAngleIsochrone(b=0.8,ro=ro,vo=vo)
     aAnu= actionAngleIsochrone(b=0.8)
