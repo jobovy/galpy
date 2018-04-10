@@ -58,6 +58,28 @@ def test_actionAngleHarmonic_linear_angles():
     assert numpy.all(numpy.fabs(aAH.actionsFreqs(obs.x(times),obs.vx(times))[1]-aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))[1])) < 1e-100, 'Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles'
     return None
 
+# Test physical output for actionAngleHarmonic
+def test_physical_harmonic():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                             ro=ro,vo=vo)
+    aAHnu= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    # __call__
+    assert numpy.fabs(aAH(-0.1,0.1)-aAHnu(-0.1,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value for actionAngleHarmonic'
+    # actionsFreqs
+    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[0]-aAHnu.actionsFreqs(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[1]-aAHnu.actionsFreqs(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
+    # actionsFreqsAngles
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[0]-aAHnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[1]-aAHnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[21]-aAHnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    return None
+
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
     from galpy.actionAngle import actionAngleIsochrone
