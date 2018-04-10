@@ -757,13 +757,19 @@ def physical_conversion_actionAngle(quantity,pop=False):
                 out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(units.Quantity(out[ii]*fac[ii],
-                                                       unit=u[ii]),)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                           unit=u[ii]),)
+                    except TypeError: # happens if out = scalar
+                        newOut= units.Quantity(out*fac[0],unit=u[0])
                 else:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(out[ii]*fac[ii],)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(out[ii]*fac[ii],)
+                    except TypeError: # happens if out = scalar
+                        newOut= out*fac[0]
                 return newOut
             else:
                 return method(*args,**kwargs)
