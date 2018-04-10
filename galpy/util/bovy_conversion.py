@@ -730,23 +730,41 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and not vo is None and not ro is None:
+                out= method(*args,**kwargs)
                 if 'call' in quantity or 'actions' in quantity:
-                    fac= [ro*vo,ro*vo,ro*vo]
-                    if _APY_UNITS:
-                        u= [units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s]
+                    if 'actions' in quantity and len(out) < 4: # 1D system
+                        fac= [ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s]
+                    else:
+                        fac= [ro*vo,ro*vo,ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s]
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
-                    fac.extend([FreqsFac,FreqsFac,FreqsFac])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([Freqsu,Freqsu,Freqsu])
+                    if len(out) < 4: # 1D system
+                        fac.append(FreqsFac)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(Freqsu)
+                    else:
+                        fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([Freqsu,Freqsu,Freqsu])
                 if 'Angles' in quantity:
-                    fac.extend([1.,1.,1.])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([units.rad,units.rad,units.rad])
+                    if len(out) < 4: # 1D system
+                        fac.append(1.)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(units.rad)
+                    else:
+                        fac.extend([1.,1.,1.])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([units.rad,units.rad,units.rad])
                 if 'EccZmaxRperiRap' in quantity:
                     fac= [1.,ro,ro,ro]
                     if _APY_UNITS:
@@ -754,7 +772,6 @@ def physical_conversion_actionAngle(quantity,pop=False):
                             units.kpc,
                             units.kpc,
                             units.kpc]
-                out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()
                     try:
