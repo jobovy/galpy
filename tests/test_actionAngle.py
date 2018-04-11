@@ -77,7 +77,7 @@ def test_physical_harmonic():
     # actionsFreqsAngles
     assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[0]-aAHnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
     assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[1]-aAHnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
-    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[21]-aAHnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[2]-aAHnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
     return None
 
 #Basic sanity checking of the actionAngleIsochrone actions
