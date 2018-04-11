@@ -3467,6 +3467,27 @@ def test_actionAngleHarmonicInverse_orbit():
         'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v'
     return None
 
+# Test physical output for actionAngleHarmonicInverse
+def test_physical_actionAngleHarmonicInverse():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonicInverse
+    from galpy.util import bovy_conversion
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ro,vo= 7., 230.
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),ro=ro,vo=vo)
+    aAHInu= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    correct_fac= [ro,vo]
+    for ii in range(2):
+        assert numpy.fabs(aAHI(0.1,-0.2)[ii]-aAHInu(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
+    correct_fac= [ro,vo,bovy_conversion.freq_in_Gyr(vo,ro)]
+    for ii in range(3):
+        assert numpy.fabs(aAHI.xvFreqs(0.1,-0.2)[ii]-aAHInu.xvFreqs(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
+    assert numpy.fabs(aAHI.Freqs(0.1)-aAHInu.Freqs(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    return None
+
 # Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
 def test_actionAngleIsochroneInverse_wrtIsochrone():
     from galpy.actionAngle import actionAngleIsochrone, \
