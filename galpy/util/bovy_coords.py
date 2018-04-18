@@ -72,6 +72,7 @@ from functools import wraps
 import math as m
 import numpy as nu
 import scipy as sc
+from galpy.util import _rotate_to_arbitrary_vector
 from galpy.util.config import __config__
 _APY_COORDS= __config__.getboolean('astropy','astropy-coords')
 _APY_LOADED= True
@@ -186,6 +187,8 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
                    nu.cos(dec)*nu.sin(ra),
                    nu.sin(dec)])
     galXYZ= nu.dot(T,XYZ)
+    galXYZ[2][galXYZ[2] > 1.]= 1.
+    galXYZ[2][galXYZ[2] < -1.]= -1.
     b= nu.arcsin(galXYZ[2])
     l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
     l[l<0.]+= 2.*nu.pi
@@ -904,6 +907,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
     """
+    X,Y,Z= nu.dot(galcen_extra_rot,nu.array([X,Y,Z]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[costheta,0.,-sintheta],
@@ -2273,3 +2277,42 @@ def _parse_epoch_frame_apy(epoch):
     elif not epoch is None and 'B' in epoch: frame= 'fk4'
     else: frame= 'icrs'
     return (epoch,frame)
+
+# Matrix to rotate to the astropy Galactocentric frame: astropy's 
+# Galactocentric frame is slightly off from the one that we get by simply 
+# taking Galactic coordinates and transforming them: transformation from
+# Bovy (2011) maps NGP --> (0,0,1), astropy to (v. small, v. small, 1-v. small)
+# so we rotate Bovy (2011) such that we agree; for that we compute what NGP 
+# goes to using astropy's transformations
+theta,dec_ngp,ra_ngp= get_epoch_angles(None) # None = ICRS, basis for astropy
+dec_gc,ra_gc= -28.936175/180.*nu.pi,266.4051/180.*nu.pi # from apy def.
+eta= 58.5986320306/180.*nu.pi # astropy 'roll' angle
+gc_vec= nu.array(\
+    [nu.cos(theta)*(-nu.sin(dec_ngp)*nu.cos(dec_gc)*nu.cos(ra_gc-ra_ngp)
+                     +nu.cos(dec_ngp)*nu.sin(dec_gc))
+     +nu.sin(theta)*nu.cos(dec_gc)*nu.sin(ra_gc-ra_ngp),
+     nu.sin(theta)*(-nu.sin(dec_ngp)*nu.cos(dec_gc)*nu.cos(ra_gc-ra_ngp)
+                     +nu.cos(dec_ngp)*nu.sin(dec_gc))
+    -nu.cos(theta)*nu.cos(dec_gc)*nu.sin(ra_gc-ra_ngp),
+     nu.cos(dec_ngp)*nu.cos(dec_gc)*nu.cos(ra_gc-ra_ngp)
+     +nu.sin(dec_ngp)*nu.sin(dec_gc)])
+galcen_extra_rot1= _rotate_to_arbitrary_vector(nu.atleast_2d(gc_vec),
+                                               nu.array([1.,0.,0.]),
+                                               inv=False,_dontcutsmall=True)[0]
+ngp_vec= nu.dot(galcen_extra_rot1,nu.array(\
+    [-nu.cos(dec_gc)*nu.cos(dec_ngp)*nu.cos(ra_ngp-ra_gc)
+      -nu.sin(dec_gc)*nu.sin(dec_ngp),
+      nu.cos(eta)*nu.cos(dec_ngp)*nu.sin(ra_ngp-ra_gc)
+      +nu.sin(eta)*(-nu.sin(dec_gc)*nu.cos(dec_ngp)*nu.cos(ra_ngp-ra_gc)
+                     +nu.cos(dec_gc)*nu.sin(dec_ngp)),
+      -nu.sin(eta)*nu.cos(dec_ngp)*nu.sin(ra_ngp-ra_gc)
+      +nu.cos(eta)*(-nu.sin(dec_gc)*nu.cos(dec_ngp)*nu.cos(ra_ngp-ra_gc)
+                     +nu.cos(dec_gc)*nu.sin(dec_ngp))]))
+galcen_extra_rot2= _rotate_to_arbitrary_vector(nu.atleast_2d(ngp_vec),
+                                               nu.array([0.,0.,1.]),
+                                               inv=True,_dontcutsmall=True)[0]
+# Leave x axis alone, because in place by rot1
+galcen_extra_rot2[0,0]= 1.
+galcen_extra_rot2[0,1:]= 0.
+galcen_extra_rot2[1:,0]= 0.
+galcen_extra_rot= nu.dot(galcen_extra_rot2,galcen_extra_rot1)

@@ -44,7 +44,7 @@ def test_radec_to_lb_ngp_apy():
 def test_radec_to_lb_ngp_j2000():
     _turn_off_apy()
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
     assert numpy.fabs(lb[1]-90.) < 10.**-8., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -56,7 +56,7 @@ def test_radec_to_lb_ngp_j2000():
 
 def test_radec_to_lb_ngp_j2000_apy():
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -69,7 +69,7 @@ def test_radec_to_lb_ngp_j2000_apyangles():
     # Same test, but using transformation angles derived from astropy
     _turn_off_apy(keep_loaded=True)
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -83,7 +83,7 @@ def test_radec_to_lb_ngp_j2000_apyangles_icrs():
     # Test, but using transformation angles derived from astropy, for ICRS
     _turn_off_apy(keep_loaded=True)
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=None)
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -137,16 +137,16 @@ def test_radec_to_lb_ncp_j2000():
     _turn_off_apy()
     ra, dec= 180., 90.
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
-    assert numpy.fabs(lb[0]-122.932) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     # Also test this for degree=False
     lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=2000.)
-    assert numpy.fabs(lb[0]-122.932/180.*numpy.pi) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026/180.*numpy.pi) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     # Also test the latter for vector inputs
     os= numpy.ones(2)
     lb= bovy_coords.radec_to_lb(os*ra/180.*numpy.pi,os*dec/180.*numpy.pi,
                                 degree=False,epoch=2000.)
-    assert numpy.all(numpy.fabs(lb[:,0]-122.932/180.*numpy.pi) < 10.**-8.), 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.all(numpy.fabs(lb[:,0]-122.9319185680026/180.*numpy.pi) < 10.**-8.), 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     _turn_on_apy()
     return None
 
@@ -154,7 +154,7 @@ def test_radec_to_lb_ncp_j2000_apyangles():
     _turn_off_apy(keep_loaded=True)
     ra, dec= 180., 90.
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
-    assert numpy.fabs(lb[0]-122.932) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     _turn_on_apy()
     return None
 
@@ -430,15 +430,15 @@ def test_vxvyvz_to_vrpmllpmbb():
 def test_XYZ_to_galcenrect():
     X,Y,Z= 1.,3.,-2.
     gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(gcXYZ[0]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[0]) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
     #Another test
     X,Y,Z= -1.,3.,-2.
     gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(gcXYZ[0]-2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[0]-2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
     return None
 
 def test_XYZ_to_galcenrect_negXsun():
@@ -449,6 +449,82 @@ def test_XYZ_to_galcenrect_negXsun():
     assert numpy.fabs(gcXYZ[0]+gcXYZn[0]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
     assert numpy.fabs(gcXYZ[1]-gcXYZn[1]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
     assert numpy.fabs(gcXYZ[2]-gcXYZn[2]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
+
+def test_lbd_to_galcenrect_galpyvsastropy():
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(gcXYZ[0]+c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=-8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    # galpy is now right-handed, astropy right-handed
+    assert numpy.fabs(gcXYZ[0]-c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
+    return None
+
+def test_lbd_to_galcencyl_galpyvsastropy():
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[1]-numpy.pi+c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=-8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is now right-handed, astropy right-handed
+    assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[1]-c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
+    return None
 
 def test_galcenrect_to_XYZ_negXsun():
     gcX, gcY, gcZ= -1.,4.,2.
@@ -488,15 +564,15 @@ def test_galcenrect_to_XYZ():
 def test_XYZ_to_galcencyl():
     X,Y,Z= 5.,4.,-2.
     gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-4.8, 'XYZ_to_galcencyl conversion did not work as expected'
     #Another X
     X,Y,Z= 11.,4.,-2.
     gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-4.6, 'XYZ_to_galcencyl conversion did not work as expected'
     return None
 
 def test_galcencyl_to_XYZ():
