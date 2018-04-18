@@ -2221,7 +2221,7 @@ def get_epoch_angles(epoch=2000.0):
        get the angles relevant for the transformation from ra, dec to l,b for the given epoch
     INPUT:
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4 [but for B1950 FK4 with no E abberation terms is assumed... really, there's no reason to use B1950 in 2018 when using galpy...))
 
     OUTPUT:
 
@@ -2233,11 +2233,14 @@ def get_epoch_angles(epoch=2000.0):
 
        2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
 
+       2018-04-18 - Edited J2000 angles to be fully consistent with astropy - BOvy (UofT)
+
     """
     if epoch == 2000.0:
-        theta= 122.932/180.*sc.pi
-        dec_ngp= 27.12825/180.*sc.pi
-        ra_ngp= 192.85948/180.*sc.pi
+        # Following astropy's definition here
+        theta= 122.9319185680026/180.*sc.pi
+        dec_ngp= 27.12825118085622/180.*sc.pi
+        ra_ngp= 192.8594812065348/180.*sc.pi
     elif epoch == 1950.0:
         theta= 123./180.*sc.pi
         dec_ngp= 27.4/180.*sc.pi

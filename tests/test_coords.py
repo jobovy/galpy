@@ -278,6 +278,40 @@ def test_lb_to_radec_apy_icrs():
     assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
     return None
 
+def test_radec_to_lb_galpyvsastropy():
+    # Test that galpy's radec_to_lb agrees with astropy's
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 33., -20.
+    # using galpy
+    lg,bg= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.0)
+    # using astropy
+    c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk5',equinox='J2000')
+    c= c.transform_to('galactic')
+    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    _turn_on_apy()
+    return None
+
+def test_radec_to_lb__1950_galpyvsastropy():
+    # Test that galpy's radec_to_lb agrees with astropy's
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 33., -20.
+    # using galpy
+    lg,bg= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=1950.0)
+    # using astropy
+    c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk4noeterms',equinox='B1950')
+    c= c.transform_to('galactic')
+    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    _turn_on_apy()
+    return None
+
 # Test lb_to_XYZ
 def test_lbd_to_XYZ():
     l,b,d= 90., 30.,1.
