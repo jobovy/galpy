@@ -83,7 +83,12 @@ except ImportError:
     _APY_LOADED= False
 _APY_COORDS*= _APY_LOADED
 _DEGTORAD= m.pi/180.
-_K=4.74047
+if _APY_LOADED:
+    _K= (1.*units.mas/units.yr).to(units.km/units.s/units.kpc,
+                                   equivalencies=units.dimensionless_angles())\
+                                   .value
+else:
+    _K=4.74047
 # numpy 1.14 einsum bug causes astropy conversions to fail in py2.7 -> turn off
 if _APY_COORDS:
     ra, dec= nu.array([192.25*_DEGTORAD]), nu.array([27.4*_DEGTORAD])
@@ -1178,6 +1183,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
     """
+    vx,vy,vz= nu.dot(galcen_extra_rot,nu.array([vx,vy,vz]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[costheta,0.,-sintheta],
