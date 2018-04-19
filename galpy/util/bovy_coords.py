@@ -961,14 +961,17 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
                                     [zero,one,zero],
                                     [-nu.sign(Xsun)*sintheta,zero,
                                       nu.sign(Xsun)*costheta]]),2)
-        return ((Carr*nu.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
+        out= ((Carr*nu.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
                  +nu.array([dgc,zero,zero]).T)
+        return nu.dot(galcen_extra_rot.T,out.T).T
     else:
-        return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                                [0.,1.,0.],
-                                [-nu.sign(Xsun)*sintheta,0.,
-                                  nu.sign(Xsun)*costheta]]),
-                      nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
+        out= nu.dot(nu.array([[-costheta,0.,-sintheta],
+                              [0.,1.,0.],
+                              [-nu.sign(Xsun)*sintheta,0.,
+                                nu.sign(Xsun)*costheta]]),
+                    nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
+        return nu.dot(galcen_extra_rot.T,out.T).T
+        
 
 def rect_to_cyl(X,Y,Z):
     """
