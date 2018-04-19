@@ -911,6 +911,8 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
+
     """
     X,Y,Z= nu.dot(galcen_extra_rot,nu.array([X,Y,Z]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
@@ -950,6 +952,8 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
        2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
+
+       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
@@ -1183,6 +1187,8 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
+       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
+
     """
     vx,vy,vz= nu.dot(galcen_extra_rot,nu.array([vx,vy,vz]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
@@ -1275,6 +1281,8 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
 
        2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (UofT)
+
+       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
