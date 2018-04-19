@@ -1,3 +1,9 @@
+MERGE
+=====
+
+- Tweaked coordinate-transformations to Galactocentric coordinates to
+  be consistent with astropy's.
+
 v1.3 (2017-XX-XX)
 ==================
 
