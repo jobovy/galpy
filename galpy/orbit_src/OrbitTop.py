@@ -890,12 +890,12 @@ class OrbitTop(object):
         return coordinates.SkyCoord(radec[:,0]*units.degree,
                                     radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,
-                                    frame='fk5',equinox='J2000')
+                                    frame='icrs')
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
         lbd= self._lbd(*args,**kwargs)
-        return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True)
+        return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
 
     def _pmrapmdec(self,*args,**kwargs):
         """Calculate pmra and pmdec"""
@@ -903,7 +903,8 @@ class OrbitTop(object):
         return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
                                             lbdvrpmllpmbb[:,5],
                                             lbdvrpmllpmbb[:,0],
-                                            lbdvrpmllpmbb[:,1],degree=True)
+                                            lbdvrpmllpmbb[:,1],degree=True,
+                                            epoch=None)
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
