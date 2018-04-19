@@ -2312,8 +2312,8 @@ def get_epoch_angles(epoch=2000.0):
             c= c.transform_to(apycoords.FK5(equinox=epoch))
         elif not epoch is None and 'B' in epoch:
             c= c.transform_to(apycoords.FK4(equinox=epoch))
-        else:
-            c= c.transform_to(apycoords.ICRS)
+        else: # pragma: no cover
+            raise ValueError('epoch input not understood; should be None for ICRS, JXXXX, or BXXXX')
         dec_ngp= c.dec.to(units.rad).value
         ra_ngp= c.ra.to(units.rad).value
     else:
