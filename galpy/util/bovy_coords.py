@@ -2266,6 +2266,10 @@ def get_epoch_angles(epoch=2000.0):
         theta= 123./180.*sc.pi
         dec_ngp= 27.4/180.*sc.pi
         ra_ngp= 192.25/180.*sc.pi
+    elif epoch == None: # obtained below
+        theta= theta_icrs
+        dec_ngp= dec_ngp_icrs
+        ra_ngp= ra_ngp_icrs
     elif _APY_LOADED:
         # Use astropy to get the angles
         epoch, frame= _parse_epoch_frame_apy(epoch)
@@ -2283,13 +2287,24 @@ def get_epoch_angles(epoch=2000.0):
             c= c.transform_to(apycoords.ICRS)
         dec_ngp= c.dec.to(units.rad).value
         ra_ngp= c.ra.to(units.rad).value
-    elif epoch == None:
-        theta= 2.1455668515225916
-        dec_ngp= 0.4734773249532947
-        ra_ngp= 3.366032882941063
     else:
         raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
+
+# Get ICRS angles once when astropy is installed
+if _APY_LOADED:
+    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,'icrs')
+    c= c.transform_to(apycoords.Galactic)
+    theta_icrs= c.l.to(units.rad).value
+    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
+                          frame='galactic')
+    c= c.transform_to(apycoords.ICRS)
+    dec_ngp_icrs= c.dec.to(units.rad).value
+    ra_ngp_icrs= c.ra.to(units.rad).value
+else:
+    theta_icrs= 2.1455668515225916
+    dec_ngp_icrs= 0.4734773249532947
+    ra_ngp_icrs= 3.366032882941063
 
 def _parse_epoch_frame_apy(epoch):
     if epoch == 2000.0 or epoch == '2000': epoch= 'J2000'
