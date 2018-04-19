@@ -12,9 +12,9 @@ from galpy.orbit_src.integrateFullOrbit import _parse_pot
 _lib= None
 outerr= None
 PY3= sys.version > '3'
-if PY3: #pragma: no cover
+if PY3:
     _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else:
+else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
     try:

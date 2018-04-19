@@ -1,8 +1,8 @@
 sudo: false
 language: python
 python:
-  - "2.7"
   - "3.6"
+  - "2.7"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
@@ -15,10 +15,8 @@ env: #split tests
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
-matrix: # only run crucial tests for python 3.4
+matrix: # only run crucial tests for python 3.5
   include:
-    - python: "3.4"
-      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
     - python: "3.5"
       env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
 addons:
@@ -86,10 +84,10 @@ script:
  - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
- - lcov --capture --base-directory . --directory build/temp.linux-x86_64-2.7/galpy/ --no-external --output-file coverage_full.info
+ - lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info
  - lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info
  # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload
  - coveralls-lcov -v -n coverage.info > coverage.c.json
  - coveralls-merge coverage.c.json
