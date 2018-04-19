@@ -890,7 +890,7 @@ class OrbitTop(object):
         _check_roSet(self,kwargs,'SkyCoord')
         radec= self._radec(*args,**kwargs)
         tdist= self.dist(quantity=False,*args,**kwargs)
-        if not _APY3:
+        if not _APY3: # pragma: no cover
             return coordinates.SkyCoord(radec[:,0]*units.degree,
                                         radec[:,1]*units.degree,
                                         distance=tdist*units.kpc,
