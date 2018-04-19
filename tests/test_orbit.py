@@ -1877,6 +1877,116 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
+def test_orbit_setup_SkyCoord():
+    from galpy.orbit import Orbit
+    import astropy.coordinates as apycoords
+    import astropy.units as u
+    ra= 120.*u.deg
+    dec= 60.*u.deg
+    distance= 2.*u.kpc
+    pmra= 0.5*u.mas/u.yr
+    pmdec= 0.4*u.mas/u.yr
+    vlos= 30.*u.km/u.s
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs')
+    #w/ default
+    o= Orbit(c)
+    # galpy's sky is not exactly aligned with astropy's sky, so celestials are slightly off
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ hogg
+    o= Orbit(c,solarmotion='hogg')
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ dehnen and diff ro,vo
+    o= Orbit(c,solarmotion='dehnen',vo=240.,ro=7.5,zo=0.01)
+    obs= [7.5,0.,0.01,-10.,245.25,7.17]
+    assert numpy.fabs(o.ra(obs=obs,ro=7.5)-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs,ro=7.5)-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs,ro=7.5)-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=240.)-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=240.)-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Also test that the coordinate-transformation parameters are properly read
+    assert numpy.fabs(o._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._zo-1.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    assert numpy.all(numpy.fabs(o._orb._solarmotion-numpy.array([[11.1,-5.,3.25]])) < 1e-12), 'Orbit SkyCoord setup does not properly store solarmotion'
+    # If we only specify galcen_distance, but not z_sun, zo --> 0
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o._orb._zo-0.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    # If we specify both z_sun and zo, they need to be consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,zo=0.025)
+    # If ro and galcen_distance are both specified, warn if they are not consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.warns(None) as record:
+        o= Orbit(c,ro=10.)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
+    assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    # If we specify both v_sun and solarmotion, they need to be consistent
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    # This should be fine
+    o= Orbit(c,solarmotion=[11.1,-5.,3.25])
+    # This shouldn't be
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,solarmotion=[11.,-4.,2.25])
+    # Should get error if we give a SkyCoord without velocities
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(TypeError) as excinfo:
+        o= Orbit(c)
+    return None
+
 # Check that toPlanar works
 def test_toPlanar():
     from galpy.orbit import Orbit
