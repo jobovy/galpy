@@ -879,7 +879,7 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
     return sc.dot(R.T,sc.dot(cov_vrvlvb,R))
 
 @scalarDecorator
-def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
+def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
     NAME:
 
@@ -901,6 +901,8 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
        
        Zsun - Sun's height above the midplane
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        (Xg, Yg, Zg)
@@ -914,7 +916,8 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    X,Y,Z= nu.dot(galcen_extra_rot,nu.array([X,Y,Z]))
+    if _extra_rot:
+        X,Y,Z= nu.dot(galcen_extra_rot,nu.array([X,Y,Z]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[costheta,0.,-sintheta],
@@ -923,7 +926,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.):
                   nu.array([-X+dgc,Y,nu.sign(Xsun)*Z])).T
 
 @scalarDecorator
-def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
+def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
     NAME:
 
@@ -940,6 +943,8 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
        Xsun - cylindrical distance to the GC (can be array of same length as X)
        
        Zsun - Sun's height above the midplane (can be array of same length as X)
+
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
 
     OUTPUT:
 
@@ -973,7 +978,10 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
                               [-nu.sign(Xsun)*sintheta,0.,
                                 nu.sign(Xsun)*costheta]]),
                     nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
-    return nu.dot(galcen_extra_rot.T,out.T).T    
+    if _extra_rot:
+        return nu.dot(galcen_extra_rot.T,out.T).T    
+    else:
+        return out
 
 def rect_to_cyl(X,Y,Z):
     """
@@ -1083,9 +1091,8 @@ def spher_to_cyl(r, theta, phi):
     z = r*nu.cos(theta)
     return (R,z, phi)
 
-
 @scalarDecorator
-def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
+def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
     NAME:
 
@@ -1107,6 +1114,8 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
        
        Zsun - Sun's height above the midplane
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        R,phi,z
@@ -1116,11 +1125,12 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.):
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun))
+    XYZ= nu.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun,
+                                         _extra_rot=_extra_rot))
     return nu.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
     
 @scalarDecorator
-def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
+def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
     NAME:
 
@@ -1138,6 +1148,8 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
        
        Zsun - Sun's height above the midplane (can be array of same length as R)
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        X,Y,Z
@@ -1150,10 +1162,12 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.):
 
     """
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
-    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun)
+    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun,
+                             _extra_rot=_extra_rot)
     
 @scalarDecorator
-def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
+def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
+                         _extra_rot=True):
     """
     NAME:
 
@@ -1177,6 +1191,8 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        
        Zsun - Sun's height above the midplane
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        [:,3]= vXg, vYg, vZg
@@ -1190,7 +1206,8 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    vx,vy,vz= nu.dot(galcen_extra_rot,nu.array([vx,vy,vz]))
+    if _extra_rot:
+        vx,vy,vz= nu.dot(galcen_extra_rot,nu.array([vx,vy,vz]))
     dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     return nu.dot(nu.array([[costheta,0.,-sintheta],
@@ -1200,7 +1217,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
 @scalarDecorator
 def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
-                        galcen=False):
+                        galcen=False,_extra_rot=True):
     """
     NAME:
 
@@ -1232,6 +1249,8 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
 
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        vRg, vTg, vZg
@@ -1241,12 +1260,14 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
+    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
+                               _extra_rot=_extra_rot)
     return nu.array(\
         rect_to_cyl_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,cyl=galcen)).T
 
 @scalarDecorator
-def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
+def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
+                         _extra_rot=True):
     """
     NAME:
 
@@ -1269,6 +1290,8 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        Xsun - cylindrical distance to the GC (can be array of same length as vXg)
        
        Zsun - Sun's height above the midplane (can be array of same length as vXg)
+
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
 
     OUTPUT:
 
@@ -1304,11 +1327,14 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
                               [-nu.sign(Xsun)*sintheta,0.,
                                 nu.sign(Xsun)*costheta]]),
                     nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
-    return nu.dot(galcen_extra_rot.T,out.T).T
-
+    if _extra_rot:
+        return nu.dot(galcen_extra_rot.T,out.T).T
+    else:
+        return out
 
 @scalarDecorator
-def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
+def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
+                        _extra_rot=True):
     """
     NAME:
 
@@ -1334,6 +1360,8 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
        
        Zsun - Sun's height above the midplane (can be array of same length as vRg)
 
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
     OUTPUT:
 
        vx,vy,vz
@@ -1346,7 +1374,8 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
 
     """
     vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
-    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun,Xsun=Xsun,Zsun=Zsun)
+    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
+                                _extra_rot=_extra_rot)
 
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
