@@ -77,8 +77,8 @@ install:
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 # Following tests that we can start from an incomplete configuration file
- - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc; fi
- - if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc; fi
+ - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
+ - if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
 script:
 # only wait longer for orbit integrations
  - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
