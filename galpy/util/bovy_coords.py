@@ -963,15 +963,13 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.):
                                       nu.sign(Xsun)*costheta]]),2)
         out= ((Carr*nu.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
                  +nu.array([dgc,zero,zero]).T)
-        return nu.dot(galcen_extra_rot.T,out.T).T
     else:
         out= nu.dot(nu.array([[-costheta,0.,-sintheta],
                               [0.,1.,0.],
                               [-nu.sign(Xsun)*sintheta,0.,
                                 nu.sign(Xsun)*costheta]]),
                     nu.array([X,Y,Z])).T+nu.array([dgc,0.,0.])
-        return nu.dot(galcen_extra_rot.T,out.T).T
-        
+    return nu.dot(galcen_extra_rot.T,out.T).T    
 
 def rect_to_cyl(X,Y,Z):
     """
@@ -1288,16 +1286,18 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):
                                     [zero,one,zero],
                                     [-nu.sign(Xsun)*sintheta,zero,
                                       nu.sign(Xsun)*costheta]]),2)
-        return ((Carr
-                 *nu.array([[vXg-vsun[0],vXg-vsun[0],vXg-vsun[0]],
-                            [vYg-vsun[1],vYg-vsun[1],vYg-vsun[1]],
-                            [vZg-vsun[2],vZg-vsun[2],vZg-vsun[2]]]).T).sum(-1))
+        out= ((Carr
+               *nu.array([[vXg-vsun[0],vXg-vsun[0],vXg-vsun[0]],
+                          [vYg-vsun[1],vYg-vsun[1],vYg-vsun[1]],
+                          [vZg-vsun[2],vZg-vsun[2],vZg-vsun[2]]]).T).sum(-1))
     else:
-        return nu.dot(nu.array([[-costheta,0.,-sintheta],
-                                [0.,1.,0.],
-                                [-nu.sign(Xsun)*sintheta,0.,
-                                  nu.sign(Xsun)*costheta]]),
-                      nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+        out= nu.dot(nu.array([[-costheta,0.,-sintheta],
+                              [0.,1.,0.],
+                              [-nu.sign(Xsun)*sintheta,0.,
+                                nu.sign(Xsun)*costheta]]),
+                    nu.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+    return nu.dot(galcen_extra_rot.T,out.T).T
+
 
 @scalarDecorator
 def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.):

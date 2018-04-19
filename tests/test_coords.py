@@ -790,16 +790,16 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
 def test_galcenrect_to_vxvyvz():
     vxg,vyg,vzg= -15.,-10.,35.
     vxyz= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
     #Also for arrays
     os= numpy.ones(2)
     vxyz= bovy_coords.galcenrect_to_vxvyvz(os*vxg,os*vyg,os*vzg,
                                            vsun=[-5.,10.,5.])
-    assert numpy.all(numpy.fabs(vxyz[:,0]-10.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxyz[:,1]+20.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxyz[:,2]-30.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,0]-10.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,1]+20.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,2]-30.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
     return None
 
 def test_galcenrect_to_vxvyvz_negXsun():
@@ -808,17 +808,59 @@ def test_galcenrect_to_vxvyvz_negXsun():
                                            Xsun=1.1,Zsun=0.2)
     vxyzn= bovy_coords.galcenrect_to_vxvyvz(-vxg,vyg,vzg,vsun=[5.,10.,5.],
                                              Xsun=-1.1,Zsun=0.2)
-    assert numpy.all(numpy.fabs(numpy.array(vxyz)-numpy.array(vxyzn)) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(numpy.array(vxyz)-numpy.array(vxyzn)) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    return None
+
+def test_galcenrect_to_vxvyvz_asInverse():
+    # Test that galcenrect_to_vxvyvz is the inverse of vxvyvz_to_galcenrect
+    vx,vy,vz= -15.,-10.,35.
+    vxg,vyg,vzg= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=[-5.,10.,5.])
+    vxt,vyt,vzt= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vx-vxt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.fabs(vy-vyt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.fabs(vz-vzt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    #Also for arrays
+    os= numpy.ones(2)
+    vxyzg= bovy_coords.vxvyvz_to_galcenrect(vx*os,vy*os,vz*os,
+                                            vsun=[-5.,10.,5.])
+    vxyzt= bovy_coords.galcenrect_to_vxvyvz(vxyzg[:,0],vxyzg[:,1],vxyzg[:,2],
+                                            vsun=[-5.,10.,5.])
+    assert numpy.all(numpy.fabs(vxyzt[:,0]-vx*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.all(numpy.fabs(vxyzt[:,1]-vy*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.all(numpy.fabs(vxyzt[:,2]-vz*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
     return None
 
 def test_galcencyl_to_vxvyvz():
     vr,vp,vz= -17.,6.,35.
     phi= numpy.arctan(4./3.)
     vxyz= bovy_coords.galcencyl_to_vxvyvz(vr,vp,vz,phi,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
     return None   
+
+def test_galcencyl_to_vxvyvz_asInverse():
+    # Test that galcencyl_to_vxvyvz is the inverse of vxvyvz_to_galcencyl
+    vx,vy,vz= -15.,-10.,35.
+    phi= numpy.arctan(4./3.)
+    vrg,vtg,vzg= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,0.,phi,0.,
+                                                 vsun=[-5.,10.,5.],galcen=True)
+    vxt,vyt,vzt= bovy_coords.galcencyl_to_vxvyvz(vrg,vtg,vzg,phi,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vx-vxt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.fabs(vy-vyt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.fabs(vz-vzt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    #Also for arrays
+    os= numpy.ones(2)
+    vx,vy,vz= -15.,-10.,35.
+    phi= numpy.arctan(4./3.)
+    vrtzg= bovy_coords.vxvyvz_to_galcencyl(vx*os,vy*os,vz*os,0.,phi*os,0.,
+                                           vsun=[-5.,10.,5.],galcen=True)
+    vxyzt= bovy_coords.galcencyl_to_vxvyvz(vrtzg[:,0],vrtzg[:,1],vrtzg[:,2],
+                                           phi*os,vsun=[-5.,10.,5.])
+    assert numpy.all(numpy.fabs(vxyzt[:,0]-vx*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.all(numpy.fabs(vxyzt[:,1]-vy*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.all(numpy.fabs(vxyzt[:,2]-vz*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    return None
 
 def test_sphergal_to_rectgal():
     l,b,d= 90.,0.,1.
