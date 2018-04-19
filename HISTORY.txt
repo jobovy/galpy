@@ -1,6 +1,10 @@
 MERGE
 =====
 
+- If astropy version > 3, Orbit.SkyCoord returns a SkyCoord object
+  that includes the velocity information and the Galactocentric frame
+  used by the Orbit instance.
+
 - Tweaked coordinate-transformations to Galactocentric coordinates to
   be consistent with astropy's.
 

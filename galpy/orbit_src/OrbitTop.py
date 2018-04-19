@@ -11,6 +11,9 @@ try:
     from astropy import units, coordinates
 except ImportError:
     _APY_LOADED= False
+if _APY_LOADED:
+    import astropy
+    _APY3= astropy.__version__ > '3'
 from galpy import actionAngle
 from galpy.potential import PotentialError
 import galpy.util.bovy_plot as plot
@@ -887,10 +890,31 @@ class OrbitTop(object):
         _check_roSet(self,kwargs,'SkyCoord')
         radec= self._radec(*args,**kwargs)
         tdist= self.dist(quantity=False,*args,**kwargs)
+        if not _APY3:
+            return coordinates.SkyCoord(radec[:,0]*units.degree,
+                                        radec[:,1]*units.degree,
+                                        distance=tdist*units.kpc,
+                                        frame='icrs')
+        pmrapmdec= self._pmrapmdec(*args,**kwargs)
+        vlos= self._lbdvrpmllpmbb(*args,**kwargs)[:,3]
+        # Also return the Galactocentric frame used
+        v_sun= coordinates.CartesianDifferential(\
+            nu.array([-self._solarmotion[0],
+                       self._solarmotion[1]+self._vo,
+                       self._solarmotion[2]])*units.km/units.s)
         return coordinates.SkyCoord(radec[:,0]*units.degree,
                                     radec[:,1]*units.degree,
                                     distance=tdist*units.kpc,
-                                    frame='icrs')
+                                    pm_ra_cosdec=pmrapmdec[:,0]\
+                                        *units.mas/units.yr,
+                                    pm_dec=pmrapmdec[:,1]*units.mas/units.yr,
+                                    radial_velocity=vlos*units.km/units.s,
+                                    frame='icrs',
+                                    galcen_distance=\
+                                        nu.sqrt(self._ro**2.+self._zo**2.)\
+                                        *units.kpc,
+                                    z_sun=self._zo*units.kpc,
+                                    galcen_v_sun=v_sun)
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""

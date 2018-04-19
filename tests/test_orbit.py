@@ -3004,6 +3004,7 @@ def test_call_issue256():
 # Test whether the output from the SkyCoord function is correct
 def test_SkyCoord():
     from galpy.orbit import Orbit
+    from astropy import units
     # In ra, dec
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
     assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
@@ -3020,6 +3021,12 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
     assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
+    # Check that the GC frame parameters are correctly propagated
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,ro=10.,zo=1.,
+             solarmotion=[-10.,34.,12.])
+    assert numpy.fabs(o.SkyCoord().galcen_distance.to(units.kpc).value-numpy.sqrt(10.**2.+1.**2.)) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.fabs(o.SkyCoord().z_sun.to(units.kpc).value-1.) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.all(numpy.fabs(o.SkyCoord().galcen_v_sun.d_xyz.to(units.km/units.s).value-numpy.array([10.,220.+34.,12.])) < 10.**-13.), 'Orbit SkyCoord GC frame attributes are incorrect'
     return None
 
 def test_orbit_obs_list_issue322():
