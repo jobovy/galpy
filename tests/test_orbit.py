@@ -8,6 +8,8 @@ import signal
 import subprocess
 import pytest
 import numpy
+import astropy
+_APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
@@ -1883,6 +1885,8 @@ def test_orbit_setup():
     return None
 
 def test_orbit_setup_SkyCoord():
+    # Only run this for astropy>3
+    if not _APY3: return None
     from galpy.orbit import Orbit
     import astropy.coordinates as apycoords
     import astropy.units as u

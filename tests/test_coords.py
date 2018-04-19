@@ -2,6 +2,8 @@ from __future__ import print_function, division
 import numpy
 from galpy.util import bovy_coords
 import pytest
+import astropy
+_APY3= astropy.__version__ > '3'
 
 def test_radec_to_lb_ngp():
     _turn_off_apy()
@@ -661,6 +663,8 @@ def test_vxvyvz_to_galcenrect_negXsun():
     return None
 
 def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
+    # Only run this for astropy>3
+    if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
@@ -729,6 +733,8 @@ def test_vxvyvz_to_galcencyl():
     return None
     
 def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
+    # Only run this for astropy>3
+    if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
