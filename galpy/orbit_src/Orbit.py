@@ -48,7 +48,7 @@ class Orbit(object):
 
               1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
 
-              2) astropy (>v3.0) SkyCoord that includes velocities 
+              2) astropy (>v3.0) SkyCoord that includes velocities (Note that this turns *on* physical output even if ro and vo are not given)
 
               3) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities; ICRS frame
 
@@ -62,11 +62,11 @@ class Orbit(object):
 
         OPTIONAL INPUTS:
 
-           radec= if True, input is 2) (or 3) above
+           radec= if True, input is 2) (or 3) above (Note that this turns *on* physical output even if ro and vo are not given)
 
            uvw= if True, velocities are UVW
 
-           lb= if True, input is 4) or 5) above
+           lb= if True, input is 4) or 5) above (Note that this turns *on* physical output even if ro and vo are not given)
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
