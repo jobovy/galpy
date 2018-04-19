@@ -2283,6 +2283,10 @@ def get_epoch_angles(epoch=2000.0):
             c= c.transform_to(apycoords.ICRS)
         dec_ngp= c.dec.to(units.rad).value
         ra_ngp= c.ra.to(units.rad).value
+    elif epoch == None:
+        theta= 2.1455668515225916
+        dec_ngp= 0.4734773249532947
+        ra_ngp= 3.366032882941063
     else:
         raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
