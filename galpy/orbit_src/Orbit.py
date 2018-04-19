@@ -176,10 +176,13 @@ class Orbit(object):
                 else:
                     ra, dec= vxvv[0], vxvv[1]
                 l,b= coords.radec_to_lb(ra,dec,degree=True,epoch=None)
+                _extra_rot= True
             elif len(vxvv) == 4:
                 l, b= vxvv[0], 0.
+                _extra_rot= False
             else:
                 l,b= vxvv[0],vxvv[1]
+                _extra_rot= True
             if _APY_LOADED and isinstance(l,units.Quantity):
                 l= l.to(units.deg).value
             if _APY_LOADED and isinstance(b,units.Quantity):
@@ -234,12 +237,14 @@ class Orbit(object):
             vy/= vo
             vz/= vo
             vsun= nu.array([0.,1.,0.,])+vsolar/vo
-            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
+            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro,
+                                               _extra_rot=_extra_rot)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,
                                                   Xsun=1.,Zsun=zo/ro,
-                                                  galcen=True)
+                                                  galcen=True,
+                                                  _extra_rot=_extra_rot)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
         # Parse vxvv if it consists of Quantities

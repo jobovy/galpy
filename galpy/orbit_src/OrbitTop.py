@@ -951,20 +951,20 @@ class OrbitTop(object):
                 X,Y,Z = coords.galcencyl_to_XYZ(\
                     thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),0.,
                     Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
-                    Zsun=obs[2]/ro).T
+                    Zsun=obs[2]/ro,_extra_rot=False).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(\
                         thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
                         nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(\
                         thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
                         nu.zeros_like(thiso[0]),
                         Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
+                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):
@@ -1011,7 +1011,7 @@ class OrbitTop(object):
                 X,Y,Z = coords.galcencyl_to_XYZ(\
                     thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),
                     nu.zeros_like(thiso[0]),
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
                     thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
                     thiso[3,:]-nu.arctan2(obs[1],obs[0]),
@@ -1019,27 +1019,27 @@ class OrbitTop(object):
                         [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
                          -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
                          obs[5]])/vo,
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+                    Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
             else: #Orbit instance
                 obs.turn_physical_off()
                 if obs.dim() == 2:
                     X,Y,Z = coords.galcencyl_to_XYZ(\
                         thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
                         nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
                         thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
                         thiso[3,:]-obs.phi(*args,**kwargs),
                         vsun=nu.array([\
                                 obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
                                 0.]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
                 else:
                     X,Y,Z = coords.galcencyl_to_XYZ(\
                         thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
                         nu.zeros_like(thiso[0]),
                         Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
+                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
                     vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
                         thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
                         thiso[3,:]-obs.phi(*args,**kwargs),
@@ -1048,7 +1048,7 @@ class OrbitTop(object):
                                 obs.vT(*args,**kwargs),
                                 obs.vz(*args,**kwargs)]),
                         Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
+                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
                 obs.turn_physical_on()
         else: #FullOrbit
             if isinstance(obs,(nu.ndarray,list)):

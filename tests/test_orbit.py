@@ -1703,8 +1703,7 @@ def test_orbit_setup_planar():
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
     obs= [8.,0.]
     assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
-    # 04/2018: new definition of Galactocentric no longer has the plane at b=0 even for zo=0
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-4., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.,0.,-10.,230.]
     assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
@@ -1714,8 +1713,7 @@ def test_orbit_setup_planar():
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.],
              ro=7.5)
     assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
-    # 04/2018: new definition of Galactocentric no longer has the plane at b=0 even for zo=0
-    assert numpy.fabs(o.bb()-0.) < 10.**-4., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.bb()-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.5,0.,-10.,245.]
     assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
@@ -1725,8 +1723,7 @@ def test_orbit_setup_planar():
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
     obs= Orbit([1.,-10.1/220.,224./220,0.],solarmotion='hogg')
     assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
-    # 04/2018: new definition of Galactocentric no longer has the plane at b=0 even for zo=0
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-4., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
     assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
@@ -1735,8 +1732,7 @@ def test_orbit_setup_planar():
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
     obs= Orbit([1.,-10.1/220.,224./220,0.,0.,0.],solarmotion='hogg')
     assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
-    # 04/2018: new definition of Galactocentric no longer has the plane at b=0 even for zo=0
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-4., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
     assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
