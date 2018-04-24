@@ -188,17 +188,18 @@ double evaluatePotentialsUV(double,double,double,int,struct potentialArg *);
 /*
   Actual functions, inlines first
 */
-inline void uv_to_Rz(double u, double v, double * R, double *z,double delta){
+static inline void uv_to_Rz(double u, double v, double * R, double *z,
+			    double delta){
   *R= delta * sinh(u) * sin(v);
   *z= delta * cosh(u) * cos(v);
 }
-inline void Rz_to_uv_vec(int ndata,
-			 double *R,
-			 double *z,
-			 double *u,
-			 double *v,
-			 int ndelta,
-			 double * delta){
+static inline void Rz_to_uv_vec(int ndata,
+				double *R,
+				double *z,
+				double *u,
+				double *v,
+				int ndelta,
+				double * delta){
   int ii;
   double d12, d22, coshu, cosv,tdelta;
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -214,16 +215,16 @@ inline void Rz_to_uv_vec(int ndata,
   u-= ndata;
   v-= ndata;
 }
-inline void calcEL(int ndata,
-		   double *R,
-		   double *vR,
-		   double *vT,
-		   double *z,
-		   double *vz,
-		   double *E,
-		   double *Lz,
-		   int nargs,
-		   struct potentialArg * actionAngleArgs){
+static inline void calcEL(int ndata,
+			  double *R,
+			  double *vR,
+			  double *vT,
+			  double *z,
+			  double *vz,
+			  double *E,
+			  double *Lz,
+			  int nargs,
+			  struct potentialArg * actionAngleArgs){
   int ii;
   for (ii=0; ii < ndata; ii++){
     *(E+ii)= evaluatePotentials(*(R+ii),*(z+ii),

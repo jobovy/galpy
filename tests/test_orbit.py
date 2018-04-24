@@ -10,6 +10,8 @@ import signal
 import subprocess
 import pytest
 import numpy
+import astropy
+_APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
@@ -1705,41 +1707,41 @@ def test_orbit_setup_planar():
     #lb, plane w/ default
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
     obs= [8.,0.]
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.,0.,-10.,230.]
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #also check that the ro,vo,solarmotion values are stored and used properly (issue #158 solution)
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.],
              ro=7.5)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.5,0.,-10.,245.]
-    assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.pmbb()-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmbb()-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit in the plane
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.,0.,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.,0.,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
 def test_orbit_setup():
@@ -1821,14 +1823,14 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default
     o= Orbit([120.,60.,2.,0.5,0.4,30.],lb=True)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vll()-4.74047) < 10.**-13., 'Orbit pmll setup does not agree with o.vll()'
-    assert numpy.fabs(o.pmbb()-0.4) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-13., 'Orbit pmbb setup does not agree with o.vbb()'
-    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-60.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vll()-4.74047) < 10.**-10., 'Orbit pmll setup does not agree with o.vll()'
+    assert numpy.fabs(o.pmbb()-0.4) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-10., 'Orbit pmbb setup does not agree with o.vbb()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default at the Sun
     o= Orbit([120.,60.,0.,10.,20.,30.],uvw=True,lb=True,zo=0.)
     assert numpy.fabs(o.dist()-0.) < 10.**-2., 'Orbit dist setup does not agree with o.dist()' #because of tweak in the code to deal with at the Sun
@@ -1836,50 +1838,163 @@ def test_orbit_setup():
     assert (o.vlos()**2.-10.**2.-20.**2.-30.**2.) < 10.**-10., 'Velocity wrt the Sun when looking at Orbit at the Sun does not agree'
     #lb w/ default and UVW
     o= Orbit([120.,60.,2.,-10.,20.,-25.],lb=True,uvw=True)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
-    assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
-    assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-60.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.U()+10.) < 10.**-10., 'Orbit U setup does not agree with o.U()'
+    assert numpy.fabs(o.V()-20.) < 10.**-10., 'Orbit V setup does not agree with o.V()'
+    assert numpy.fabs(o.W()+25.) < 10.**-10., 'Orbit W setup does not agree with o.W()'
     #lb w/ default and UVW, test wrt helioXYZ
     o= Orbit([180.,0.,2.,-10.,20.,-25.],lb=True,uvw=True)
-    assert numpy.fabs(o.helioX()+2.) < 10.**-13., 'Orbit helioX setup does not agree with o.helioX()'
-    assert numpy.fabs(o.helioY()-0.) < 10.**-13., 'Orbit helioY setup does not agree with o.helioY()'
-    assert numpy.fabs(o.helioZ()-0.) < 10.**-13., 'Orbit helioZ setup does not agree with o.helioZ()'
-    assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
-    assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
-    assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
-    #Radec w/ default and obs=Orbit
-    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.])
-    assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
-    assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
-    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-13., 'Orbit pmra setup does not agree with o.vra()'
-    assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
-    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-13., 'Orbit pmdec setup does not agree with o.vdec()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.helioX()+2.) < 10.**-10., 'Orbit helioX setup does not agree with o.helioX()'
+    assert numpy.fabs(o.helioY()-0.) < 10.**-10., 'Orbit helioY setup does not agree with o.helioY()'
+    assert numpy.fabs(o.helioZ()-0.) < 10.**-10., 'Orbit helioZ setup does not agree with o.helioZ()'
+    assert numpy.fabs(o.U()+10.) < 10.**-10., 'Orbit U setup does not agree with o.U()'
+    assert numpy.fabs(o.V()-20.) < 10.**-10., 'Orbit V setup does not agree with o.V()'
+    assert numpy.fabs(o.W()+25.) < 10.**-10., 'Orbit W setup does not agree with o.W()'
+    #Radec w/ hogg and obs=Orbit
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='hogg')
+    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.],
+               solarmotion='hogg')
+    assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-10., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-10., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-10., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-10., 'Orbit pmra setup does not agree with o.vra()'
+    assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-10., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-10., 'Orbit pmdec setup does not agree with o.vdec()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb, plane w/ default
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
     obs= [8.,0.]
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.,0.,-10.,230.]
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
+    return None
+
+def test_orbit_setup_SkyCoord():
+    # Only run this for astropy>3
+    if not _APY3: return None
+    from galpy.orbit import Orbit
+    import astropy.coordinates as apycoords
+    import astropy.units as u
+    ra= 120.*u.deg
+    dec= 60.*u.deg
+    distance= 2.*u.kpc
+    pmra= 0.5*u.mas/u.yr
+    pmdec= 0.4*u.mas/u.yr
+    vlos= 30.*u.km/u.s
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs')
+    #w/ default
+    o= Orbit(c)
+    # galpy's sky is not exactly aligned with astropy's sky, so celestials are slightly off
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ hogg
+    o= Orbit(c,solarmotion='hogg')
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ dehnen and diff ro,vo
+    o= Orbit(c,solarmotion='dehnen',vo=240.,ro=7.5,zo=0.01)
+    obs= [7.5,0.,0.01,-10.,245.25,7.17]
+    assert numpy.fabs(o.ra(obs=obs,ro=7.5)-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs,ro=7.5)-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs,ro=7.5)-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=240.)-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=240.)-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Also test that the coordinate-transformation parameters are properly read
+    assert numpy.fabs(o._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._zo-1.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    assert numpy.all(numpy.fabs(o._orb._solarmotion-numpy.array([[11.1,-5.,3.25]])) < 1e-12), 'Orbit SkyCoord setup does not properly store solarmotion'
+    # If we only specify galcen_distance, but not z_sun, zo --> 0
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o._orb._zo-0.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    # If we specify both z_sun and zo, they need to be consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,zo=0.025)
+    # If ro and galcen_distance are both specified, warn if they are not consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.warns(None) as record:
+        o= Orbit(c,ro=10.)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
+    assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    # If we specify both v_sun and solarmotion, they need to be consistent
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    # This should be fine
+    o= Orbit(c,solarmotion=[11.1,-5.,3.25])
+    # This shouldn't be
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,solarmotion=[11.,-4.,2.25])
+    # Should get error if we give a SkyCoord without velocities
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(TypeError) as excinfo:
+        o= Orbit(c)
     return None
 
 # Check that toPlanar works
@@ -2899,6 +3014,7 @@ def test_call_issue256():
 # Test whether the output from the SkyCoord function is correct
 def test_SkyCoord():
     from galpy.orbit import Orbit
+    from astropy import units
     # In ra, dec
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
     assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
@@ -2915,6 +3031,13 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
     assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
+    # Check that the GC frame parameters are correctly propagated
+    if not _APY3: return None # not done in python 2
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,ro=10.,zo=1.,
+             solarmotion=[-10.,34.,12.])
+    assert numpy.fabs(o.SkyCoord().galcen_distance.to(units.kpc).value-numpy.sqrt(10.**2.+1.**2.)) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.fabs(o.SkyCoord().z_sun.to(units.kpc).value-1.) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.all(numpy.fabs(o.SkyCoord().galcen_v_sun.d_xyz.to(units.km/units.s).value-numpy.array([10.,220.+34.,12.])) < 10.**-13.), 'Orbit SkyCoord GC frame attributes are incorrect'
     return None
 
 def test_orbit_obs_list_issue322():
@@ -2923,29 +3046,29 @@ def test_orbit_obs_list_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obs_Orbit_issue322():
@@ -2954,29 +3077,29 @@ def test_orbit_obs_Orbit_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obs_Orbits_issue322():
@@ -3025,29 +3148,29 @@ def test_orbit_obsvel_list_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-5.7, 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-5.5, 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
 
     return None
 
@@ -3058,34 +3181,34 @@ def test_orbit_obsvel_Orbit_issue322():
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     obs= Orbit([1.,0.,0.7,0.,0.,0.],ro=1.,vo=1.)
-    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,3.*numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
     obs= Orbit([1.,0.,0.7,0.,0.,0.],ro=1.,vo=1.)
-    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,3.*numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obsvel_Orbits_issue322():
@@ -3537,42 +3660,45 @@ def test_intrinsic_physical_output():
     from galpy.util import bovy_coords
     o= Orbit([0.9,0.,1.,0.,0.2,0.],ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
+    # 04/2018: not quite anylonger w/ astropy def. of plane, but close
     l_true= 0.
     b_true= 0.
-    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True)
-    assert numpy.fabs(o.ra()-ra_true) < 10.**-8., 'Orbit.ra does not return correct ra in degree'
-    assert numpy.fabs(o.dec()-dec_true) < 10.**-8., 'Orbit.dec does not return correct dec in degree'
-    assert numpy.fabs(o.ll()-l_true) < 10.**-8., 'Orbit.ll does not return correct l in degree'
-    assert numpy.fabs(o.bb()-b_true) < 10.**-8., 'Orbit.bb does not return correct b in degree'
+    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True,
+                                               epoch=None)
+    assert numpy.fabs(o.ra()-ra_true) < 10.**-3.8, 'Orbit.ra does not return correct ra in degree'
+    assert numpy.fabs(o.dec()-dec_true) < 10.**-3.8, 'Orbit.dec does not return correct dec in degree'
+    assert numpy.fabs(o.ll()-l_true) < 10.**-4., 'Orbit.ll does not return correct l in degree'
+    assert numpy.fabs(o.bb()-b_true) < 10.**-4., 'Orbit.bb does not return correct b in degree'
     assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
     pmll_true= -30./0.8/4.74047
     pmbb_true= 4./0.8/4.74047
     pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
                                                              pmbb_true,
                                                              l_true,b_true,
-                                                             degree=True)
-    assert numpy.fabs(o.pmra()-pmra_true) < 10.**-8., 'Orbit.pmra does not return correct pmra in mas/yr'
-    assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-8., 'Orbit.pmdec does not return correct pmdec in mas/yr'
-    assert numpy.fabs(o.pmll()-pmll_true) < 10.**-8., 'Orbit.pmll does not return correct pmll in mas/yr'
-    assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-8., 'Orbit.pmbb does not return correct pmbb in mas/yr'
-    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-8., 'Orbit.vra does not return correct vra in km/s'
-    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-8., 'Orbit.vdec does not return correct vdec in km/s'
-    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.vll does not return correct vll in km/s'
-    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.vbb does not return correct vbb in km/s'
+                                                             degree=True,
+                                                             epoch=None)
+    assert numpy.fabs(o.pmra()-pmra_true) < 10.**-5., 'Orbit.pmra does not return correct pmra in mas/yr'
+    assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-5., 'Orbit.pmdec does not return correct pmdec in mas/yr'
+    assert numpy.fabs(o.pmll()-pmll_true) < 10.**-5., 'Orbit.pmll does not return correct pmll in mas/yr'
+    assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-4.7, 'Orbit.pmbb does not return correct pmbb in mas/yr'
+    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-4.8, 'Orbit.vra does not return correct vra in km/s'
+    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-4.6, 'Orbit.vdec does not return correct vdec in km/s'
+    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-5., 'Orbit.vll does not return correct vll in km/s'
+    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.vbb does not return correct vbb in km/s'
     assert numpy.fabs(o.vlos()+20.) < 10.**-8., 'Orbit.vlos does not return correct vlos in km/s'
-    assert numpy.fabs(o.U()+20.) < 10.**-8., 'Orbit.U does not return correct U in km/s'
-    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.V does not return correct V in km/s'
-    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.W does not return correct W in km/s'
+    assert numpy.fabs(o.U()+20.) < 10.**-4., 'Orbit.U does not return correct U in km/s'
+    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-4.8, 'Orbit.V does not return correct V in km/s'
+    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.W does not return correct W in km/s'
     assert numpy.fabs(o.helioX()-0.8) < 10.**-8., 'Orbit.helioX does not return correct helioX in kpc'
     # For non-trivial helioY and helioZ tests
     o= Orbit([1./numpy.sqrt(2.),0.,1.,0.,0.2,numpy.pi/4.],
              ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
-    assert numpy.fabs(o.helioY()-4.) < 10.**-8., 'Orbit.helioY does not return correct helioY in kpc'
+    assert numpy.fabs(o.helioY()-4.) < 10.**-5., 'Orbit.helioY does not return correct helioY in kpc'
     o= Orbit([0.9,0.,1.,0.3,0.2,numpy.pi/4.],
              ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
-    assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-8., 'Orbit.helioZ does not return correct helioZ in kpc'
+    assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-4.8, 'Orbit.helioZ does not return correct helioZ in kpc'
     return None
 
 def test_doublewrapper_2d():
@@ -3772,6 +3898,15 @@ def test_wrapper_complicatedsequence_3d():
     assert numpy.fabs(o.vy()-oc.vy()) < 10.**-4.,  'Final orbit velocity between C and Python integration of a doubly-wrapped orbit is too large'
     assert numpy.fabs(o.vz()-oc.vz()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
     return None
+
+def test_orbit_sun_setup():
+    # Test that setting up an Orbit with no vxvv returns the Orbit of the Sun
+    from galpy.orbit import Orbit
+    o= Orbit()
+    assert numpy.fabs(o.dist()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero distance'
+    assert numpy.fabs(o.vll()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic longitude direction'
+    assert numpy.fabs(o.vbb()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic latitude direction'
+    assert numpy.fabs(o.vlos()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero line-of-sight velocity'
 
 def test_linear_plotting():
     from galpy.orbit import Orbit

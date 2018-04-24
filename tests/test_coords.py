@@ -2,6 +2,8 @@ from __future__ import print_function, division
 import numpy
 from galpy.util import bovy_coords
 import pytest
+import astropy
+_APY3= astropy.__version__ > '3'
 
 def test_radec_to_lb_ngp():
     _turn_off_apy()
@@ -44,7 +46,7 @@ def test_radec_to_lb_ngp_apy():
 def test_radec_to_lb_ngp_j2000():
     _turn_off_apy()
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
     assert numpy.fabs(lb[1]-90.) < 10.**-8., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -56,7 +58,7 @@ def test_radec_to_lb_ngp_j2000():
 
 def test_radec_to_lb_ngp_j2000_apy():
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -69,7 +71,7 @@ def test_radec_to_lb_ngp_j2000_apyangles():
     # Same test, but using transformation angles derived from astropy
     _turn_off_apy(keep_loaded=True)
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -83,7 +85,7 @@ def test_radec_to_lb_ngp_j2000_apyangles_icrs():
     # Test, but using transformation angles derived from astropy, for ICRS
     _turn_off_apy(keep_loaded=True)
     # Test that the NGP is at b=90
-    ra, dec= 192.85948, 27.12825
+    ra, dec= 192.8594812065348, 27.12825118085622
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=None)
     assert numpy.fabs(lb[1]-90.) < 10.**-4., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
@@ -137,16 +139,16 @@ def test_radec_to_lb_ncp_j2000():
     _turn_off_apy()
     ra, dec= 180., 90.
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.)
-    assert numpy.fabs(lb[0]-122.932) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     # Also test this for degree=False
     lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=2000.)
-    assert numpy.fabs(lb[0]-122.932/180.*numpy.pi) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026/180.*numpy.pi) < 10.**-8., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     # Also test the latter for vector inputs
     os= numpy.ones(2)
     lb= bovy_coords.radec_to_lb(os*ra/180.*numpy.pi,os*dec/180.*numpy.pi,
                                 degree=False,epoch=2000.)
-    assert numpy.all(numpy.fabs(lb[:,0]-122.932/180.*numpy.pi) < 10.**-8.), 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.all(numpy.fabs(lb[:,0]-122.9319185680026/180.*numpy.pi) < 10.**-8.), 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     _turn_on_apy()
     return None
 
@@ -154,7 +156,7 @@ def test_radec_to_lb_ncp_j2000_apyangles():
     _turn_off_apy(keep_loaded=True)
     ra, dec= 180., 90.
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch='J2000')
-    assert numpy.fabs(lb[0]-122.932) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 122.932'
+    assert numpy.fabs(lb[0]-122.9319185680026) < 10.**-4., 'Galactic longitude of the NCP given in ra,dec is not 122.9319185680026'
     _turn_on_apy()
     return None
 
@@ -278,6 +280,40 @@ def test_lb_to_radec_apy_icrs():
     assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     return None
 
+def test_radec_to_lb_galpyvsastropy():
+    # Test that galpy's radec_to_lb agrees with astropy's
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 33., -20.
+    # using galpy
+    lg,bg= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=2000.0)
+    # using astropy
+    c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk5',equinox='J2000')
+    c= c.transform_to('galactic')
+    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    _turn_on_apy()
+    return None
+
+def test_radec_to_lb__1950_galpyvsastropy():
+    # Test that galpy's radec_to_lb agrees with astropy's
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+    _turn_off_apy(keep_loaded=True)
+    ra, dec= 33., -20.
+    # using galpy
+    lg,bg= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=1950.0)
+    # using astropy
+    c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk4noeterms',equinox='B1950')
+    c= c.transform_to('galactic')
+    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    _turn_on_apy()
+    return None
+
 # Test lb_to_XYZ
 def test_lbd_to_XYZ():
     l,b,d= 90., 30.,1.
@@ -325,7 +361,7 @@ def test_XYZ_to_lbd():
 
 def test_vrpmllpmbb_to_vxvyvz():
     l,b,d= 90., 0.,1.
-    vr,pmll,pmbb= 10.,20./4.74047,-10./4.74047
+    vr,pmll,pmbb= 10.,20./4.740470463496208,-10./4.740470463496208
     vxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,
                                              degree=True,XYZ=False)
     assert numpy.fabs(vxvyvz[0]+20.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
@@ -357,7 +393,7 @@ def test_vrpmllpmbb_to_vxvyvz():
     return None
 
 def test_vxvyvz_to_vrpmllpmbb():
-    vx,vy,vz= -20.*4.74047,10.,-10.*4.74047
+    vx,vy,vz= -20.*4.740470463496208,10.,-10.*4.740470463496208
     X,Y,Z= 0.,1.,0.
     vrpmllpmbb= bovy_coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,
                                                  XYZ=True)
@@ -396,15 +432,15 @@ def test_vxvyvz_to_vrpmllpmbb():
 def test_XYZ_to_galcenrect():
     X,Y,Z= 1.,3.,-2.
     gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(gcXYZ[0]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[0]) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
     #Another test
     X,Y,Z= -1.,3.,-2.
     gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(gcXYZ[0]-2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[0]-2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[1]-3.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(gcXYZ[2]+2.) < 10.**-5., 'XYZ_to_galcenrect conversion did not work as expected'
     return None
 
 def test_XYZ_to_galcenrect_negXsun():
@@ -416,6 +452,82 @@ def test_XYZ_to_galcenrect_negXsun():
     assert numpy.fabs(gcXYZ[1]-gcXYZn[1]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
     assert numpy.fabs(gcXYZ[2]-gcXYZn[2]) < 10.**-10., 'XYZ_to_galcenrect conversion did not work as expected for negative Xsun'
 
+def test_lbd_to_galcenrect_galpyvsastropy():
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(gcXYZ[0]+c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=-8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    # galpy is now right-handed, astropy right-handed
+    assert numpy.fabs(gcXYZ[0]-c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
+    return None
+
+def test_lbd_to_galcencyl_galpyvsastropy():
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[1]-numpy.pi+c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=-8.,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,frame='galactic')
+    gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
+                             z_sun=Zsun*u.kpc)
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is now right-handed, astropy right-handed
+    assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[1]-c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
+    return None
+
 def test_galcenrect_to_XYZ_negXsun():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= numpy.array(bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.2))
@@ -426,79 +538,117 @@ def test_galcenrect_to_XYZ_negXsun():
 def test_galcenrect_to_XYZ():
     gcX, gcY, gcZ= -1.,4.,2.
     XYZ= bovy_coords.galcenrect_to_XYZ(gcX,gcY,gcZ,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(XYZ[0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1]-4.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[2]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
     # Also for arrays
     s= numpy.arange(2)+1
     XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.,Zsun=0.)
-    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
     # Check 2nd one
-    assert numpy.fabs(XYZ[1,0]-3.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,0]-3.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-4.7, 'galcenrect_to_XYZ conversion did not work as expected'
     # Also for arrays with Xsun/Zsun also arrays
     s= numpy.arange(2)+1
     XYZ= bovy_coords.galcenrect_to_XYZ(gcX*s,gcY*s,gcZ*s,Xsun=1.*s,Zsun=0.*s)
-    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,0]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
     # Check 2nd one
-    assert numpy.fabs(XYZ[1,0]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-10., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,0]-4.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-8.) < 10.**-5., 'galcenrect_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.) < 10.**-4.7, 'galcenrect_to_XYZ conversion did not work as expected'
+    return None
+
+def test_galcenrect_to_XYZ_asInverse():
+    # Test that galcenrect_to_XYZ is the inverse of XYZ_to_galcenrect
+    X,Y,Z= 1.,3.,-2.
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.1)
+    Xt,Yt,Zt= bovy_coords.galcenrect_to_XYZ(gcXYZ[0],gcXYZ[1],gcXYZ[2],Xsun=1.,Zsun=0.1)
+    assert numpy.fabs(X-Xt) < 1e-14, 'galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect'
+    assert numpy.fabs(Y-Yt) < 1e-14, 'galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect'
+    assert numpy.fabs(Z-Zt) < 1e-14, 'galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect'
     return None
 
 def test_XYZ_to_galcencyl():
     X,Y,Z= 5.,4.,-2.
     gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.arctan(4./3.)) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-4.8, 'XYZ_to_galcencyl conversion did not work as expected'
     #Another X
     X,Y,Z= 11.,4.,-2.
     gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
-    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-10., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[0]-5.) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[1]-numpy.pi+numpy.arctan(4./3.)) < 10.**-5., 'XYZ_to_galcencyl conversion did not work as expected'
+    assert numpy.fabs(gcRpZ[2]+2.) < 10.**-4.6, 'XYZ_to_galcencyl conversion did not work as expected'
     return None
 
 def test_galcencyl_to_XYZ():
     gcR, gcp, gcZ= 5.,numpy.arctan(4./3.),2.
     XYZ= bovy_coords.galcencyl_to_XYZ(gcR,gcp,gcZ,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(XYZ[0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0]-5.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1]-4.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[2]-2.) < 10.**-4.7, 'galcencyl_to_XYZ conversion did not work as expected'
     # Also for arrays
     s= numpy.arange(2)+1
     XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.,Zsun=0.)
-    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-4.7, 'galcencyl_to_XYZ conversion did not work as expected'
     # Also test the second one
-    assert numpy.fabs(XYZ[1,0]-10.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,0]-10.8) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-4.7, 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-4.5, 'galcencyl_to_XYZ conversion did not work as expected'
     # Also for arrays where Xsun/Zsun are also arrays
     s= numpy.arange(2)+1
     XYZ= bovy_coords.galcencyl_to_XYZ(gcR*s,gcp*s,gcZ*s,Xsun=8.*s,Zsun=0.*s)
-    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,0]-5.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,1]-4.) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[0,2]-2.) < 10.**-4.7, 'galcencyl_to_XYZ conversion did not work as expected'
     # Also test the second one
-    assert numpy.fabs(XYZ[1,0]-18.8) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
-    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-10., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,0]-18.8) < 10.**-5., 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,1]-9.6) < 10.**-4.5, 'galcencyl_to_XYZ conversion did not work as expected'
+    assert numpy.fabs(XYZ[1,2]-4.0) < 10.**-4., 'galcencyl_to_XYZ conversion did not work as expected'
+    return None
+
+def test_galcencyl_to_XYZ_asInverse():
+    # Test that galcencyl_to_XYZ is the inverse of XYZ_to_galcencyl
+    X,Y,Z= 1.,3.,-2.
+    gcRpZ= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.1)
+    Xt,Yt,Zt= bovy_coords.galcencyl_to_XYZ(gcRpZ[0],gcRpZ[1],gcRpZ[2],Xsun=1.,Zsun=0.1)
+    assert numpy.fabs(X-Xt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(Y-Yt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(Z-Zt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    # Also for arrays where Xsun/Zsun are also arrays
+    s= numpy.arange(2)+1
+    gcRpZ1= bovy_coords.XYZ_to_galcencyl(X*s[0],Y*s[0],Z*s[0],Xsun=1.*s[0],
+                                         Zsun=0.1*s[0])
+    gcRpZ2= bovy_coords.XYZ_to_galcencyl(X*s[1],Y*s[1],Z*s[1],Xsun=1.*s[1],
+                                         Zsun=0.1*s[1])
+    XYZt= bovy_coords.galcencyl_to_XYZ(numpy.hstack((gcRpZ1[0],gcRpZ2[0])),
+                                       numpy.hstack((gcRpZ1[1],gcRpZ2[1])),
+                                       numpy.hstack((gcRpZ1[2],gcRpZ2[2])),
+                                       Xsun=1.*s,Zsun=0.1*s)
+    # first one
+    assert numpy.fabs(XYZt[0,0]-Xt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(XYZt[0,1]-Yt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(XYZt[0,2]-Zt) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    # second one
+    assert numpy.fabs(XYZt[1,0]-Xt*s[1]) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(XYZt[1,1]-Yt*s[1]) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
+    assert numpy.fabs(XYZt[1,2]-Zt*s[1]) < 1e-14, 'galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl'
     return None
 
 def test_vxvyvz_to_galcenrect():
     vx,vy,vz= 10.,-20.,30
     vgc= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vgc[0]+15.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[1]+10.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[0]+15.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[1]+10.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[2]-35.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
     return None
 
 def test_vxvyvz_to_galcenrect_negXsun():
@@ -507,39 +657,155 @@ def test_vxvyvz_to_galcenrect_negXsun():
                                           Xsun=1.1,Zsun=0.2)
     vgcn= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=[5.,10.,5.],
                                            Xsun=-1.1,Zsun=0.2)
-    assert numpy.fabs(vgc[0]+vgcn[0]) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
-    assert numpy.fabs(vgc[1]-vgcn[1]) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
-    assert numpy.fabs(vgc[2]-vgcn[2]) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
+    assert numpy.fabs(vgc[0]+vgcn[0]) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
+    assert numpy.fabs(vgc[1]-vgcn[1]) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
+    assert numpy.fabs(vgc[2]-vgcn[2]) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun'
+    return None
+
+def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
+    # Only run this for astropy>3
+    if not _APY3: return None
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric, \
+        CartesianDifferential
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    vr,pmll,pmbb= -112., -13.,5.
+    Zsun= 0.025
+    Rsun= 8.
+    vsun= [-10.,230.,7.]
+    # Using galpy
+    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,degree=True)
+    vXYZg= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Rsun,
+                                            Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,
+                radial_velocity=vr*u.km/u.s,pm_l_cosb=pmll*u.mas/u.yr,
+                pm_b=pmbb*u.mas/u.yr,frame='galactic')
+    gc_frame= Galactocentric(\
+        galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
+        galcen_v_sun=CartesianDifferential(numpy.array([-vsun[0],vsun[1],vsun[2]])*u.km/u.s))
+    c= c.transform_to(gc_frame)
+    c.representation= 'cartesian'
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(vXYZg[0]+c.v_x.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vXYZg[1]-c.v_y.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vXYZg[2]-c.v_z.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    Rsun= -8.
+    vsun= numpy.array([-10.,230.,7.])
+    # Using galpy
+    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,degree=True)
+    vXYZg= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Rsun,
+                                            Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,
+                radial_velocity=vr*u.km/u.s,pm_l_cosb=pmll*u.mas/u.yr,
+                pm_b=pmbb*u.mas/u.yr,frame='galactic')
+    gc_frame= Galactocentric(\
+        galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
+        galcen_v_sun=CartesianDifferential(numpy.array([vsun[0],vsun[1],vsun[2]])*u.km/u.s))
+    c= c.transform_to(gc_frame)
+    c.representation= 'cartesian'
+    # galpy is now right-handed, astropy right-handed
+    assert numpy.fabs(vXYZg[0]-c.v_x.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vXYZg[1]-c.v_y.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vXYZg[2]-c.v_z.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
     return None
 
 def test_vxvyvz_to_galcencyl():
     X,Y,Z= 3.,4.,2.
     vx,vy,vz= 10.,-20.,30
     vgc= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vgc[0]+17.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[1]-6.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[0]+17.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[1]-6.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[2]-35.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
     #with galcen=True
     vgc= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,5.,numpy.arctan(4./3.),Z,
                                          vsun=[-5.,10.,5.],galcen=True)
-    assert numpy.fabs(vgc[0]+17.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[1]-6.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
-    assert numpy.fabs(vgc[2]-35.) < 10.**-10., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[0]+17.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[1]-6.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    assert numpy.fabs(vgc[2]-35.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
+    return None
+
+def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
+    # Only run this for astropy>3
+    if not _APY3: return None
+    # Test that galpy's transformations agree with astropy's
+    from astropy.coordinates import SkyCoord, Galactocentric, \
+        CartesianDifferential
+    import astropy.units as u
+    _turn_off_apy()
+    l,b,d= 32., -12., 3.
+    vr,pmll,pmbb= -112., -13.,5.
+    Zsun= 0.025
+    Rsun= 8.
+    vsun= [-10.,230.,7.]
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=Rsun,Zsun=Zsun)
+    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,degree=True)
+    vRTZg= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,gcXYZ[0],gcXYZ[1],gcXYZ[2],
+                                           vsun=vsun,Xsun=Rsun,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,
+                radial_velocity=vr*u.km/u.s,pm_l_cosb=pmll*u.mas/u.yr,
+                pm_b=pmbb*u.mas/u.yr,frame='galactic')
+    gc_frame= Galactocentric(\
+        galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
+        galcen_v_sun=CartesianDifferential(numpy.array([-vsun[0],vsun[1],vsun[2]])*u.km/u.s))
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(vRTZg[0]-c.d_rho.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vRTZg[1]+(c.d_phi*c.rho).to(u.km/u.s,
+        equivalencies=u.dimensionless_angles()).value) < 10.**-8., "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vRTZg[2]-c.d_z.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    # Also with negative Xsun
+    l,b,d= 32., -12., 3.
+    Zsun= 0.025
+    Rsun= -8.
+    vsun= numpy.array([-10.,230.,7.])
+    # Using galpy
+    X,Y,Z= bovy_coords.lbd_to_XYZ(l,b,d,degree=True)
+    gcXYZ= bovy_coords.XYZ_to_galcenrect(X,Y,Z,Xsun=Rsun,Zsun=Zsun)
+    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,degree=True)
+    vRTZg= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,gcXYZ[0],gcXYZ[1],gcXYZ[2],
+                                           vsun=vsun,Xsun=Rsun,Zsun=Zsun)
+    # Using astropy
+    c= SkyCoord(l=l*u.deg,b=b*u.deg,distance=d*u.kpc,
+                radial_velocity=vr*u.km/u.s,pm_l_cosb=pmll*u.mas/u.yr,
+                pm_b=pmbb*u.mas/u.yr,frame='galactic')
+    gc_frame= Galactocentric(\
+        galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
+        galcen_v_sun=CartesianDifferential(numpy.array([vsun[0],vsun[1],vsun[2]])*u.km/u.s))
+    c= c.transform_to(gc_frame)
+    c.representation= 'cylindrical'
+    # galpy is left-handed, astropy right-handed
+    assert numpy.fabs(vRTZg[0]-c.d_rho.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vRTZg[1]-(c.d_phi*c.rho).to(u.km/u.s,
+        equivalencies=u.dimensionless_angles()).value) < 10.**-8., "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(vRTZg[2]-c.d_z.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    _turn_on_apy()
     return None
 
 def test_galcenrect_to_vxvyvz():
     vxg,vyg,vzg= -15.,-10.,35.
     vxyz= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
     #Also for arrays
     os= numpy.ones(2)
     vxyz= bovy_coords.galcenrect_to_vxvyvz(os*vxg,os*vyg,os*vzg,
                                            vsun=[-5.,10.,5.])
-    assert numpy.all(numpy.fabs(vxyz[:,0]-10.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxyz[:,1]+20.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxyz[:,2]-30.) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,0]-10.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,1]+20.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxyz[:,2]-30.) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
     return None
 
 def test_galcenrect_to_vxvyvz_negXsun():
@@ -548,21 +814,63 @@ def test_galcenrect_to_vxvyvz_negXsun():
                                            Xsun=1.1,Zsun=0.2)
     vxyzn= bovy_coords.galcenrect_to_vxvyvz(-vxg,vyg,vzg,vsun=[5.,10.,5.],
                                              Xsun=-1.1,Zsun=0.2)
-    assert numpy.all(numpy.fabs(numpy.array(vxyz)-numpy.array(vxyzn)) < 10.**-10.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(numpy.array(vxyz)-numpy.array(vxyzn)) < 10.**-4.), 'galcenrect_to_vxvyvz conversion did not work as expected'
+    return None
+
+def test_galcenrect_to_vxvyvz_asInverse():
+    # Test that galcenrect_to_vxvyvz is the inverse of vxvyvz_to_galcenrect
+    vx,vy,vz= -15.,-10.,35.
+    vxg,vyg,vzg= bovy_coords.vxvyvz_to_galcenrect(vx,vy,vz,vsun=[-5.,10.,5.])
+    vxt,vyt,vzt= bovy_coords.galcenrect_to_vxvyvz(vxg,vyg,vzg,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vx-vxt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.fabs(vy-vyt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.fabs(vz-vzt) < 10.**-14., 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    #Also for arrays
+    os= numpy.ones(2)
+    vxyzg= bovy_coords.vxvyvz_to_galcenrect(vx*os,vy*os,vz*os,
+                                            vsun=[-5.,10.,5.])
+    vxyzt= bovy_coords.galcenrect_to_vxvyvz(vxyzg[:,0],vxyzg[:,1],vxyzg[:,2],
+                                            vsun=[-5.,10.,5.])
+    assert numpy.all(numpy.fabs(vxyzt[:,0]-vx*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.all(numpy.fabs(vxyzt[:,1]-vy*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
+    assert numpy.all(numpy.fabs(vxyzt[:,2]-vz*os) < 10.**-10.), 'galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect'
     return None
 
 def test_galcencyl_to_vxvyvz():
     vr,vp,vz= -17.,6.,35.
     phi= numpy.arctan(4./3.)
     vxyz= bovy_coords.galcencyl_to_vxvyvz(vr,vp,vz,phi,vsun=[-5.,10.,5.])
-    assert numpy.fabs(vxyz[0]-10.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[1]+20.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxyz[2]-30.) < 10.**-10., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[0]-10.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[1]+20.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxyz[2]-30.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
+    return None
+
+def test_galcencyl_to_vxvyvz_asInverse():
+    # Test that galcencyl_to_vxvyvz is the inverse of vxvyvz_to_galcencyl
+    vx,vy,vz= -15.,-10.,35.
+    phi= numpy.arctan(4./3.)
+    vrg,vtg,vzg= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,0.,phi,0.,
+                                                 vsun=[-5.,10.,5.],galcen=True)
+    vxt,vyt,vzt= bovy_coords.galcencyl_to_vxvyvz(vrg,vtg,vzg,phi,vsun=[-5.,10.,5.])
+    assert numpy.fabs(vx-vxt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.fabs(vy-vyt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.fabs(vz-vzt) < 10.**-14., 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    #Also for arrays
+    os= numpy.ones(2)
+    vx,vy,vz= -15.,-10.,35.
+    phi= numpy.arctan(4./3.)
+    vrtzg= bovy_coords.vxvyvz_to_galcencyl(vx*os,vy*os,vz*os,0.,phi*os,0.,
+                                           vsun=[-5.,10.,5.],galcen=True)
+    vxyzt= bovy_coords.galcencyl_to_vxvyvz(vrtzg[:,0],vrtzg[:,1],vrtzg[:,2],
+                                           phi*os,vsun=[-5.,10.,5.])
+    assert numpy.all(numpy.fabs(vxyzt[:,0]-vx*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.all(numpy.fabs(vxyzt[:,1]-vy*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
+    assert numpy.all(numpy.fabs(vxyzt[:,2]-vz*os) < 10.**-10.), 'galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl'
     return None
 
 def test_sphergal_to_rectgal():
     l,b,d= 90.,0.,1.
-    vr,pmll,pmbb= 10.,-20./4.74047,30./4.74047
+    vr,pmll,pmbb= 10.,-20./4.740470463496208,30./4.740470463496208
     X,Y,Z,vx,vy,vz= bovy_coords.sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,
                                                     degree=True)
     assert numpy.fabs(X-0.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
@@ -788,10 +1096,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   degree=True,
                                                   plx=False)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
-                      -d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one
     l,b,d= 180., 0., 1./2.
     e_d, e_vr= 0.05, 2.
@@ -806,9 +1114,9 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   plx=True)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
-                      -1./d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -1./d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one, w/ arrays
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -826,9 +1134,9 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   no_einsum= True)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.74047*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.74047*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     # Test einsum implementation
     l,b,d= 90., 90., 2.
@@ -1113,24 +1421,24 @@ def test_lbd_to_XYZ_jac():
     assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[2,2]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.all(numpy.fabs(jac[:3,3:]) < 10.**-10.), 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,2]-pmll*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,2]-pmll*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,3]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,4]-d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,4]-d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,5]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,0]-pmll*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,2]-0.5*4.74047*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,0]-pmll*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,2]-0.5*4.740470463496208*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,3]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,5]-4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,5]-4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,1]+0.5*d*4.74047*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.74047*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,1]+0.5*d*4.740470463496208*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.740470463496208*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,3]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.74047) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     return None
 
 def test_cyl_to_spher():

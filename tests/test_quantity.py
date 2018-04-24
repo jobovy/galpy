@@ -872,6 +872,9 @@ def test_potential_method_returntype():
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     assert isinstance(pot.rl(1.3),units.Quantity), 'Potential method rl does not return Quantity when it should'
     assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
+    assert isinstance(pot.rtide(1.,0.,M=1.),units.Quantity), 'Potential method rtide does not return Quantity when it should'
+    assert isinstance(pot.ttensor(1.,0.),units.Quantity), 'Potential method ttensor does not return Quantity when it should'
+    assert isinstance(pot.ttensor(1.,0.,eigenval=True),units.Quantity), 'Potential method ttensor does not return Quantity when it should'
     return None
 
 def test_planarPotential_method_returntype():
@@ -988,7 +991,19 @@ def test_potential_method_returnunit():
     try:
         pot.vterm(45.).to(units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Potential method vter does not return Quantity with the right units')
+        raise AssertionError('Potential method vterm does not return Quantity with the right units')
+    try:
+        pot.rtide(1.,0.,M=1.).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method rtide does not return Quantity with the right units')
+    try:
+        pot.ttensor(1.,0.).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method ttensor does not return Quantity with the right units')
+    try:
+        pot.ttensor(1.,0.,eigenval=True).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method ttensor does not return Quantity with the right units')
     return None
 
 def test_planarPotential_method_returnunit():
@@ -1081,6 +1096,9 @@ def test_potential_method_value():
     assert numpy.fabs(pot.vesc(1.1).to(units.km/units.s).value-potu.vesc(1.1)*vo) < 10.**-8., 'Potential method vesc does not return the correct value as Quantity'
     assert numpy.fabs(pot.rl(1.1).to(units.kpc).value-potu.rl(1.1)*ro) < 10.**-8., 'Potential method rl does not return the correct value as Quantity'
     assert numpy.fabs(pot.vterm(45.).to(units.km/units.s).value-potu.vterm(45.)*vo) < 10.**-8., 'Potential method vterm does not return the correct value as Quantity'
+    assert numpy.fabs(pot.rtide(1.,0.,M=1.).to(units.kpc).value-potu.rtide(1.,0.,M=1.)*ro) < 10.**-8., 'Potential method rtide does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.,0.).to(units.km**2/units.s**2./units.kpc**2).value-potu.ttensor(1.,0.)*vo**2./ro**2.) < 10.**-8.), 'Potential method ttensor does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.,0.,eigenval=True).to(units.km**2/units.s**2./units.kpc**2).value-potu.ttensor(1.,0.,eigenval=True)*vo**2./ro**2.) < 10.**-8.), 'Potential method ttensor does not return the correct value as Quantity'
     return None
 
 def test_planarPotential_method_value():
@@ -1135,6 +1153,9 @@ def test_potential_function_returntype():
     assert isinstance(potential.vesc(pot,1.3),units.Quantity), 'Potential function vesc does not return Quantity when it should'
     assert isinstance(potential.rl(pot,1.3),units.Quantity), 'Potential function rl does not return Quantity when it should'
     assert isinstance(potential.vterm(pot,45.),units.Quantity), 'Potential function vterm does not return Quantity when it should'
+    assert isinstance(potential.rtide(pot,1.,0.,M=1.),units.Quantity), 'Potential function rtide does not return Quantity when it should'
+    assert isinstance(potential.ttensor(pot,1.,0.),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
+    assert isinstance(potential.ttensor(pot,1.,0.,eigenval=True),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
     return None
 
 def test_planarPotential_function_returntype():
@@ -1240,7 +1261,19 @@ def test_potential_function_returnunit():
     try:
         potential.vterm(pot,45.).to(units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Potential function vter does not return Quantity with the right units')
+        raise AssertionError('Potential function vterm does not return Quantity with the right units')
+    try:
+        potential.rtide(pot,1.,0.,M=1.).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function rtide does not return Quantity with the right units')
+    try:
+        potential.ttensor(pot,1.,0.).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function ttensor does not return Quantity with the right units')
+    try:
+        potential.ttensor(pot,1.,0.,eigenval=True).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function ttensor does not return Quantity with the right units')
     return None
 
 def test_planarPotential_function_returnunit():
@@ -1327,6 +1360,9 @@ def test_potential_function_value():
     assert numpy.fabs(potential.vesc(pot,1.1).to(units.km/units.s).value-potential.vesc(potu,1.1)*vo) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
     assert numpy.fabs(potential.rl(pot,1.1).to(units.kpc).value-potential.rl(potu,1.1)*ro) < 10.**-8., 'Potential function rl does not return the correct value as Quantity'
     assert numpy.fabs(potential.vterm(pot,45.).to(units.km/units.s).value-potential.vterm(potu,45.)*vo) < 10.**-8., 'Potential function vterm does not return the correct value as Quantity'
+    assert numpy.fabs(potential.rtide(pot,1.,0.,M=1.).to(units.kpc).value-potential.rtide(potu,1.,0.,M=1.)*ro) < 10.**-8., 'Potential function rtide does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.,eigenval=True).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.,eigenval=True)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
     return None
 
 def test_planarPotential_function_value():
@@ -1388,6 +1424,9 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.lindbladR(0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potu.lindbladR(0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.rl(1.1*vo*ro*units.km/units.s,use_physical=False)-potu.rl(1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vterm(45.*units.deg,use_physical=False)-potu.vterm(45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.rtide(1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potu.rtide(1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.1*ro,0.1*ro,use_physical=False)-potu.ttensor(1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potu.ttensor(1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_method_inputAsQuantity():
@@ -1460,6 +1499,11 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.rl(pot,1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rl(pot[0],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vterm(pot,45.*units.deg,use_physical=False)-potential.vterm(potu,45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.rtide(pot,1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    # Test non-list for M as well, bc units done in rtide special, and do GM
+    assert numpy.fabs(potential.rtide(pot[0],1.1*ro,0.1*ro,M=constants.G*10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,use_physical=False)-potential.ttensor(potu,1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potential.ttensor(potu,1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_function_inputAsQuantity():

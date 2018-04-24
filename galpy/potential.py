@@ -51,6 +51,9 @@ evaluaterforces= Potential.evaluaterforces
 evaluateR2derivs= Potential.evaluateR2derivs
 evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
+evaluatephi2derivs= Potential.evaluatephi2derivs
+evaluateRphiderivs= Potential.evaluateRphiderivs
+evaluater2derivs= Potential.evaluater2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 toPlanarPotential= planarPotential.toPlanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
@@ -89,6 +92,8 @@ _isNonAxi= Potential._isNonAxi
 scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
 scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
 scf_compute_coeffs = SCFPotential.scf_compute_coeffs
+rtide= Potential.rtide
+ttensor= Potential.ttensor
 flatten= Potential.flatten
 #
 # Classes
