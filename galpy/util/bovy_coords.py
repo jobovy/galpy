@@ -998,7 +998,7 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
        2018-03-22 - Written - Mackereth (LJMU)
     """
     if len(nu.shape(cov_vxyz)) == 3:
-        cov_galcencyl = nu.empty(np.shape(cov_vxyz))
+        cov_galcencyl = nu.empty(nu.shape(cov_vxyz))
         cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
         cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi[i])
         return cov_galcencyl
