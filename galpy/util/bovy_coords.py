@@ -1000,7 +1000,7 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
     if len(nu.shape(cov_vxyz)) == 3:
         cov_galcencyl = nu.empty(nu.shape(cov_vxyz))
         cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
-        cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi[i])
+        cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi)
         return cov_galcencyl
     else:
         cov_galcenrect = cov_vxyz_to_galcenrect_single(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
