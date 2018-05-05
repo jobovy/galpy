@@ -285,7 +285,31 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Connecting the Milky Way potential profile to the orbital timescales and spatial structure of the Sagittarius Stream*, Mark A. Fardal, Roeland P. van der Marel, David R. Law, Sangmo Tony Sohn, Branimir Sesar, Nina Hernitschek, & Hans-Walter Rix (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.04995 <http://arxiv.org/abs/1804.04995>`_):
      Employs the ``galpy.potential`` module to build models for the Milky Way's gravitational potential and uses ``galpy.orbit`` to integrate the orbits of members of the Sgr stream in a particle-spray model of the Sgr stream, to investigate how the Sgr stream is sensitive to the Milky Way's potential.
 
+     At this point, a flood of papers using ``galpy`` appeared, which we will not attempt to summarize:
 
+#. *Evidence for accreted component in the Galactic discs*, Q. F. Xing. & G. Zhao (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`2018MNRAS.476.5388X <http://adsabs.harvard.edu/abs/2018MNRAS.476.5388X>`_)
+
+#. *The GALAH survey: An abundance, age, and kinematic inventory of the solar neighbourhood made with TGAS*, S. Buder, K. Lind, M. K. Ness, et al. (2018) *Astron. & Astrophys.*, submitted (`arXiv/1804.05869 <http://arxiv.org/abs/1804.05869>`_)
+
+#. *The GALAH survey: Co-orbiting stars and chemical tagging*, Jeffrey D. Simpson, Sarah L. Martell, Gary Da Costa, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.05894 <http://arxiv.org/abs/1804.05894>`_)
+
+#. *Correlations between age, kinematics, and chemistry as seen by the RAVE survey*, Jennifer Wojno, Georges Kordopatis, Matthias Steinmetz, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1804.06379 <http://arxiv.org/abs/1804.06379>`_)
+
+#. *On the kinematics of a runaway Be star population*, Douglas Boubert & N. Wyn Evans (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1804.05849 <http://arxiv.org/abs/1804.05849>`_)
+
+#. *Unbiased TGAS×LAMOST distances and the role of binarity*, Johanna Coronado, Hans-Walter Rix, & Wilma H. Trick (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.07760 <http://arxiv.org/abs/1804.07760>`_)
+
+#. *The Origin of the 300 km/s Stream Near Segue 1*, Sal Wanying Fu, Joshua D. Simon, Matthew Shetrone, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1804.08622 <http://arxiv.org/abs/1804.08622>`_)
+
+#. *Anatomy of the hyper-runaway star LP 40-365 with Gaia*, R. Raddi, M. A. Hollands, B. T. Gaensicke, D. M. Townsley, J. J. Hermes, N. P. Gentile Fusillo, & D. Koester (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.09677 <http://arxiv.org/abs/1804.09677>`_)
+
+#. *Revisiting hypervelocity stars after Gaia DR2*, Douglas Boubert, James Guillochon, Keith Hawkins, Idan Ginsburg, & N. Wyn Evans (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.10179 <http://arxiv.org/abs/1804.10179>`_)
+
+#. *Gaia Proper Motions and Orbits of the Ultra-Faint Milky Way Satellites*, Joshua D. Simon (2018) *Astrophys. J.*, submitted (`arXiv/1804.10230 <http://arxiv.org/abs/1804.10230>`_)
+
+#. *Three Hypervelocity White Dwarfs in Gaia DR2: Evidence for Dynamically Driven Double-Degenerate Double-Detonation Type Ia Supernovae*, Ken J. Shen, Douglas Boubert, Boris T. Gänsicke, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1804.11163 <http://arxiv.org/abs/1804.11163>`_)
+
+#. *Gaia DR2 Proper Motions of Dwarf Galaxies within 420 kpc: Orbits, Milky Way Mass, Tidal Influences, Planar Alignments, and Group Infall*, T. K. Fritz, G. Battaglia, M. S. Pawlowski, N. Kallivayalil, R. van der Marel, T. S. Sohn, C. Brook, & G. Besla (2018) *Astron. & Astrophys.*, submitted (`arXiv/1805.00908 <http://arxiv.org/abs/1805.00908>`_)
 
 Indices and tables
 ==================
