@@ -16,7 +16,7 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.actionAngle_src.actionAngle import actionAngle
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
 from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import _evaluateplanarPotentials
 from galpy.potential_src.Potential import epifreq
