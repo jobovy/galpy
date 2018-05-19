@@ -12,11 +12,12 @@
 import copy
 import math as m
 import numpy as nu
-from scipy import integrate
-from galpy.potential import epifreq, omegac
+from scipy import integrate, optimize
+from galpy.potential import vcirc, epifreq, omegac
 from galpy.potential_src.Potential import _evaluatePotentials
-from galpy.actionAngle_src.actionAngle import actionAngle
-from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
+from galpy.potential_src.planarPotential import _evaluateplanarPotentials
+from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
+_EPS= 10.**-15.
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
@@ -36,6 +37,8 @@ class actionAngleSpherical(actionAngle):
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
+
+           gamma= (default=0.) replace Lz by Lz+gamma Jz in effective potential when using this class as part of actionAngleAdiabatic
 
         OUTPUT:
 
@@ -64,6 +67,8 @@ class actionAngleSpherical(actionAngle):
             self._c= True #pragma: no cover
         else:
             self._c= False
+        # gamma for when we use this as part of the adiabatic approx.
+        self._gamma= kwargs.get('gamma',0.)
         # Check the units
         self._check_consistent_units()
         return None
@@ -119,17 +124,13 @@ class actionAngleSpherical(actionAngle):
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             #Jr requires some more work
-            #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
-            axivT= L/axiR
-            axivR= (R*vR+z*vz)/axiR
+            r= nu.sqrt(R**2.+z**2.)
+            vr= (R*vR+z*vz)/r
+            vt= L/r
             Jr= []
-            for ii in range(len(axiR)):
-                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
-                                      pot=self._2dpot)
-                (rperi,rap)= axiaA.calcRapRperi()
-                EL= axiaA.calcEL()
-                E, L= EL
+            for ii in range(len(r)):
+                E,L= self._calc_EL(r[ii],vr[ii],vt[ii])
+                rperi,rap= self._calc_rperi_rap(r[ii],vr[ii],vt[ii],E,L)
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
             return (nu.array(Jr),Jphi,Jz)
 
@@ -183,24 +184,20 @@ class actionAngleSpherical(actionAngle):
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             #Jr requires some more work
-            #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
-            axivT= L/axiR
-            axivR= (R*vR+z*vz)/axiR
+            r= nu.sqrt(R**2.+z**2.)
+            vr= (R*vR+z*vz)/r
+            vt= L/r
             Jr= []
             Or= []
             Op= []
-            for ii in range(len(axiR)):
-                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
-                                      pot=self._2dpot)
-                (rperi,rap)= axiaA.calcRapRperi()
-                EL= axiaA.calcEL()
-                E, L= EL
+            for ii in range(len(r)):
+                E,L= self._calc_EL(r[ii],vr[ii],vt[ii])
+                rperi,rap= self._calc_rperi_rap(r[ii],vr[ii],vt[ii],E,L)
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
-                    Op.append(omegac(self._pot,axiR[ii],use_physical=False))
+                    Or.append(epifreq(self._pot,r[ii],use_physical=False))
+                    Op.append(omegac(self._pot,r[ii],use_physical=False))
                     continue
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
@@ -263,40 +260,36 @@ class actionAngleSpherical(actionAngle):
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
             #Jr requires some more work
-            #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
-            axivT= L/axiR #these are really spherical coords, called axi bc they go in actionAngleAxi
-            axivR= (R*vR+z*vz)/axiR
-            axivz= (z*vR-R*vz)/axiR
+            r= nu.sqrt(R**2.+z**2.)
+            vr= (R*vR+z*vz)/r
+            vt= L/r
+            vtheta= (z*vR-R*vz)/r
             Jr= []
             Or= []
             Op= []
             ar= []
             az= []
             #Calculate the longitude of the ascending node
-            asc= self._calc_long_asc(z,R,axivz,phi,Lz,L)
-            for ii in range(len(axiR)):
-                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
-                                      pot=self._2dpot)
-                (rperi,rap)= axiaA.calcRapRperi()
-                EL= axiaA.calcEL()
-                E, L= EL
+            asc= self._calc_long_asc(z,R,vtheta,phi,Lz,L)
+            for ii in range(len(r)):
+                E,L= self._calc_EL(r[ii],vr[ii],vt[ii])
+                rperi,rap= self._calc_rperi_rap(r[ii],vr[ii],vt[ii],E,L)
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
                 Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
                 if Jr[-1] < 10.**-9.: #Circular orbit
-                    Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
-                    Op.append(omegac(self._pot,axiR[ii],use_physical=False))
+                    Or.append(epifreq(self._pot,r[ii],use_physical=False))
+                    Op.append(omegac(self._pot,r[ii],use_physical=False))
                 else:
                     Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                     Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 #Angles
-                ar.append(self._calc_angler(Or[-1],axiR[ii],Rmean,rperi,rap,
-                                            E,L,axivR[ii],fixed_quad,**kwargs))
+                ar.append(self._calc_angler(Or[-1],r[ii],Rmean,rperi,rap,
+                                            E,L,vr[ii],fixed_quad,**kwargs))
                 az.append(self._calc_anglez(Or[-1],Op[-1],ar[-1],
-                                            z[ii],axiR[ii],
+                                            z[ii],r[ii],
                                             Rmean,rperi,rap,E,L,Lz[ii],
-                                            axivR[ii],axivz[ii],phi[ii],
+                                            vr[ii],vtheta[ii],phi[ii],
                                             fixed_quad,**kwargs))
             Op= nu.array(Op)
             Oz= copy.copy(Op)
@@ -354,21 +347,78 @@ class actionAngleSpherical(actionAngle):
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             L= nu.sqrt(L2)
-            #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
-            axivT= L/axiR
-            axivR= (R*vR+z*vz)/axiR
+            r= nu.sqrt(R**2.+z**2.)
+            vr= (R*vR+z*vz)/r
+            vt= L/r
             rperi, rap= [], []
-            for ii in range(len(axiR)):
-                axiaA= actionAngleAxi(axiR[ii],axivR[ii],axivT[ii],
-                                      pot=self._2dpot)
-                trperi,trap= axiaA.calcRapRperi()
+            for ii in range(len(r)):
+                E,L= self._calc_EL(r[ii],vr[ii],vt[ii])
+                trperi,trap= self._calc_rperi_rap(r[ii],vr[ii],vt[ii],E,L)
                 rperi.append(trperi)
                 rap.append(trap)
             rperi= nu.array(rperi)
             rap= nu.array(rap)
             return ((rap-rperi)/(rap+rperi),rap*nu.sqrt(1.-Lz**2./L2),
                     rperi,rap)
+        
+    def _calc_EL(self,r,vr,vt,Jz=None):
+        E,L= _evaluateplanarPotentials(self._2dpot,r)+vr**2./2.+vt**2./2.,r*vt
+        if self._gamma != 0.:
+            #Adjust E
+            E-= vt**2./2.
+            L= nu.fabs(L)+self._gamma*Jz
+            E+= L**2./2./r**2.
+        return (E,L)
+
+    def _calc_rperi_rap(self,r,vr,vt,E,L):
+        if vr == 0. \
+            and m.fabs(vt-vcirc(self._2dpot,r,use_physical=False)) < _EPS:
+            #We are on a circular orbit
+            rperi= r
+            rap = r
+        elif vr == 0. and vt > vcirc(self._2dpot,r,use_physical=False):
+            #We are exactly at pericenter
+            rperi= r
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(r+10.**-8.,E,L,self._2dpot)
+                startsign/= m.fabs(startsign)
+            else: startsign= 1.
+            rend= _rapRperiAxiFindStart(r,E,L,self._2dpot,rap=True,
+                                        startsign=startsign)
+            rap= optimize.brentq(_rapRperiAxiEq,rperi+0.00001,rend,
+                                 args=(E,L,self._2dpot))
+        elif vr == 0. and vt < vcirc(self._2dpot,r,use_physical=False):
+            #We are exactly at apocenter
+            rap= r
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(r-10.**-8.,E,L,self._2dpot)
+                startsign/= m.fabs(startsign)
+            else: startsign= 1.
+            rstart= _rapRperiAxiFindStart(r,E,L,self._2dpot,startsign=startsign)
+            if rstart == 0.: rperi= 0.
+            else:
+                rperi= optimize.brentq(_rapRperiAxiEq,rstart,rap-0.000001,
+                                       args=(E,L,self._2dpot))
+        else:
+            if self._gamma != 0.:
+                startsign= _rapRperiAxiEq(r,E,L,self._2dpot)
+                startsign/= m.fabs(startsign)
+            else:
+                startsign= 1.
+            rstart= _rapRperiAxiFindStart(r,E,L,self._2dpot,startsign=startsign)
+            if rstart == 0.: rperi= 0.
+            else: 
+                try:
+                    rperi= optimize.brentq(_rapRperiAxiEq,rstart,r,
+                                           (E,L,self._2dpot),
+                                           maxiter=200)
+                except RuntimeError: #pragma: no cover
+                    raise UnboundError("Orbit seems to be unbound")
+            rend= _rapRperiAxiFindStart(r,E,L,self._2dpot,rap=True,
+                                        startsign=startsign)
+            rap= optimize.brentq(_rapRperiAxiEq,r,rend,
+                                 (E,L,self._2dpot))
+        return (rperi,rap)
 
     def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
         if fixed_quad:
@@ -439,7 +489,7 @@ class actionAngleSpherical(actionAngle):
         I*= 2*L
         return I*Or/2./nu.pi
 
-    def _calc_long_asc(self,z,R,axivz,phi,Lz,L):
+    def _calc_long_asc(self,z,R,vtheta,phi,Lz,L):
         i= nu.arccos(Lz/L)
         sinu= z/R/nu.tan(i)
         pindx= (sinu > 1.)*nu.isfinite(sinu)
@@ -447,7 +497,7 @@ class actionAngleSpherical(actionAngle):
         pindx= (sinu < -1.)*nu.isfinite(sinu)
         sinu[pindx]= -1.           
         u= nu.arcsin(sinu)
-        vzindx= axivz > 0.
+        vzindx= vtheta > 0.
         u[vzindx]= nu.pi-u[vzindx]
         # For non-inclined orbits, we set Omega=0 by convention
         u[True^nu.isfinite(u)]= phi[True^nu.isfinite(u)]        
@@ -487,7 +537,7 @@ class actionAngleSpherical(actionAngle):
                 wr= m.pi-wr
         return wr
         
-    def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,phi,
+    def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,vtheta,phi,
                      fixed_quad,**kwargs):
         #First calculate psi
         i= nu.arccos(Lz/L)
@@ -498,7 +548,7 @@ class actionAngleSpherical(actionAngle):
             elif sinpsi < -1.:
                 sinpsi= -1.
             psi= nu.arcsin(sinpsi)
-            if axivz > 0.: psi= nu.pi-psi
+            if vtheta > 0.: psi= nu.pi-psi
         else:
             psi= phi
         psi= psi % (2.*nu.pi)
@@ -541,7 +591,7 @@ class actionAngleSpherical(actionAngle):
 
 def _JrSphericalIntegrand(r,E,L,pot):
     """The J_r integrand"""
-    return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
+    return nu.sqrt(2.*(E-_evaluateplanarPotentials(pot,r))-L**2./r**2.)
 
 def _TrSphericalIntegrandSmall(t,E,L,pot,rperi):
     r= rperi+t**2.#part of the transformation
@@ -558,3 +608,41 @@ def _ISphericalIntegrandSmall(t,E,L,pot,rperi):
 def _ISphericalIntegrandLarge(t,E,L,pot,rap):
     r= rap-t**2.#part of the transformation
     return 2.*t/_JrSphericalIntegrand(r,E,L,pot)/r**2.
+
+def _rapRperiAxiEq(R,E,L,pot):
+    """The vr=0 equation that needs to be solved to find apo- and pericenter"""
+    return E-_evaluateplanarPotentials(pot,R)-L**2./2./R**2.
+
+def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
+    """
+    NAME:
+       _rapRperiAxiFindStart
+    PURPOSE:
+       Find adequate start or end points to solve for rap and rperi
+    INPUT:
+       R - Galactocentric radius
+       E - energy
+       L - angular momentum
+       pot - potential
+       rap - if True, find the rap end-point
+       startsign= set to -1 if the function is not positive (due to gamma in the modified adiabatic approximation)
+    OUTPUT:
+       rstart or rend
+    HISTORY:
+       2010-12-01 - Written - Bovy (NYU)
+    """
+    if rap:
+        rtry= 2.*R
+    else:
+        rtry= R/2.
+    while startsign*_rapRperiAxiEq(rtry,E,L,pot) > 0. \
+            and rtry > 0.000000001:
+        if rap:
+            if rtry > 100.: #pragma: no cover
+                raise UnboundError("Orbit seems to be unbound")
+            rtry*= 2.
+        else:
+            rtry/= 2.
+    if rtry < 0.000000001: return 0.
+    return rtry
+
