@@ -15,7 +15,7 @@ import numpy as nu
 from scipy import integrate
 from galpy.potential import epifreq, omegac
 from galpy.potential_src.Potential import _evaluatePotentials
-from galpy.actionAngle_src.actionAngle import *
+from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""

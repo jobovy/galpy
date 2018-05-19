@@ -4,214 +4,252 @@
 #      class: actionAngleVertical
 #
 #      methods:
-#              Jz
-#              anglez
-#              Tz
-#              calczmax
-#              calcEz
+#             __call__: returns (j)
+#             actionsFreqs: returns (j,omega)
+#             actionsFreqsAngles: returns (j,omega,a)
+#             Jz
+#             anglez
+#             Tz
+#             calczmax
+#             calcEz
 ###############################################################################
-import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.actionAngle_src.actionAngle import *
-from galpy.potential_src.linearPotential import linearPotential, \
-    evaluatelinearPotentials
+from galpy.actionAngle_src.actionAngle import actionAngle
+from galpy.potential_src.linearPotential import evaluatelinearPotentials
 class actionAngleVertical(actionAngle):
-    """Action-angle formalism for vertical integral using the adiabatic approximation"""
+    """Action-angle formalism for one-dimensional potentials (or of the vertical potential in a galactic disk in the adiabatic approximation, hence the name)"""
     def __init__(self,*args,**kwargs):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize an actionAngleVertical object
+
         INPUT:
+
+           pot= potential or list of potentials (planarPotentials)
+           
+           ro= distance from vantage point to GC (kpc; can be Quantity)
+
+           vo= circular velocity at ro (km/s; can be Quantity)
+
+        OUTPUT:
+        
+           instance
+
+        HISTORY:
+
+           2012-06-01 - Written - Bovy (IAS)
+           2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
+
            Either:
               a) z,vz
               b) Orbit instance: initial condition used if that's it, orbit(t)
                  if there is a time given as well
-              pot= potential or list of potentials (planarPotentials)
-        OUTPUT:
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
+        """
+        actionAngle.__init__(self,
+                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
+        if not 'pot' in kwargs: #pragma: no cover
+            raise IOError("Must specify pot= for actionAngleVertical")
+        if not 'pot' in kwargs: #pragma: no cover
+            raise IOError("Must specify pot= for actionAngleVertical")
+        self._pot= kwargs['pot']
+        return None
         """
         self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
         self._z= self._eval_z
         self._vz= self._eval_vz
-        if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVertical")
         self._verticalpot= kwargs['pot']
         return None
-    
-    def Jz(self,**kwargs):
         """
-        NAME:
-           Jz
-        PURPOSE:
-           Calculate the vertical action
-        INPUT:
-           +scipy.integrate.quad keywords
-        OUTPUT:
-           J_z(z,vz)/ro/vc + estimate of the error
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
-        """
-        if hasattr(self,'_Jz'):
-            return self._Jz
-        zmax= self.calczmax()
-        if zmax == -9999.99: return nu.array([9999.99,nu.nan])
-        Ez= calcEz(self._z,self._vz,self._verticalpot)
-        self._Jz= 2.*integrate.quad(_JzIntegrand,0.,zmax,
-                                    args=(Ez,self._verticalpot),
-                                    **kwargs)[0]/nu.pi
-        return self._Jz
 
-    def Tz(self,**kwargs): #pragma: no cover
+    def _evaluate(self,*args,**kwargs):
         """
         NAME:
-           Tz
+           __call__ (_evaluate)
         PURPOSE:
-           Calculate the vertical period
+           evaluate the action
         INPUT:
-           +scipy.integrate.quad keywords
+           Either:
+              a) x,vx:
+                 1) floats: phase-space value for single object (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
         OUTPUT:
-           T_z(z,vz)*vc/ro + estimate of the error
+           action
         HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
+           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
-        if hasattr(self,'_Tz'):
-            return self._Tz
-        zmax= self.calczmax()
-        Ez= calcEz(self._z,self._vz,self._verticalpot)
-        self._Tz= 4.*integrate.quad(_TzIntegrand,0.,zmax,
-                                    args=(Ez,self._verticalpot),
-                                    **kwargs)[0]
-        return self._Tz
+        if len(args) == 2: # x,vx
+            x,vx= args
+            if isinstance(x,float):
+                x= nu.array([x])
+                vx= nu.array([vx])
+            J= nu.empty(len(x))
+            for ii in range(len(x)):
+                E= vx[ii]**2./2.\
+                    +evaluatelinearPotentials(self._pot,x[ii],
+                                              use_physical=False)
+                xmax= self.calcxmax(x[ii],vx[ii],E)
+                if xmax == -9999.99:
+                    J[ii]= 9999.99
+                else:
+                    J[ii]= 2.*integrate.quad(\
+                        lambda xi: nu.sqrt(2.*(E\
+                              -evaluatelinearPotentials(self._pot,xi,
+                                                        use_physical=False))),
+                        0.,xmax)[0]/nu.pi
+            return J
+        else: # pragma: no cover
+            raise ValueError('actionAngleVertical __call__ input not understood')
 
-    def anglez(self,**kwargs): #pragma: no cover
+    def _actionsFreqs(self,*args,**kwargs):
         """
         NAME:
-           anglez
+           actionsFreqs (_actionsFreqs)
         PURPOSE:
-           Calculate the vertical angle
+           evaluate the action and frequency
         INPUT:
-           +scipy.integrate.quad keywords
+           Either:
+              a) x,vx:
+                 1) floats: phase-space value for single object (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
         OUTPUT:
-           angle_z(z,vz)*vc/ro + estimate of the error
+           action,frequency
         HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
+           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
-        if hasattr(self,'_anglez'):
-            return self._anglez
-        zmax= self.calczmax()
-        Ez= calcEz(self._z,self._vz,self._verticalpot)
-        Tz= self.Tz(**kwargs)
-        self._anglez= 2.*nu.pi*(nu.array(integrate.quad(_TzIntegrand,0.,nu.fabs(self._z),
-                                                        args=(Ez,self._verticalpot),
-                                                        **kwargs)))/Tz[0]
-        if self._z >= 0. and self._vz >= 0.:
-            pass
-        elif self._z >= 0. and self._vz < 0.:
-            self._anglez[0]= nu.pi-self._anglez[0]
-        elif self._z < 0. and self._vz <= 0.:
-            self._anglez[0]= nu.pi+self._anglez[0]
-        else:
-            self._anglez[0]= 2.*nu.pi-self._anglez[0]
-        return self._anglez
+        if len(args) == 2: # x,vx
+            x,vx= args
+            if isinstance(x,float):
+                x= nu.array([x])
+                vx= nu.array([vx])
+            J= nu.empty(len(x))
+            Omega= nu.empty(len(x))
+            for ii in range(len(x)):
+                E= vx[ii]**2./2.\
+                    +evaluatelinearPotentials(self._pot,x[ii],
+                                              use_physical=False)
+                xmax= self.calcxmax(x[ii],vx[ii],E)
+                if xmax == -9999.99:
+                    J[ii]= 9999.99
+                    Omega[ii]= 9999.99
+                else:
+                    J[ii]= 2.*integrate.quad(\
+                        lambda xi: nu.sqrt(2.*(E\
+                                       -evaluatelinearPotentials(self._pot,xi,
+                                                         use_physical=False))),
+                        0.,xmax,)[0]/nu.pi
+                    # Transformed x = xmax-t^2 for singularity
+                    Omega[ii]= nu.pi/2./integrate.quad(\
+                        lambda t: 2.*t/nu.sqrt(2.*(E\
+                                       -evaluatelinearPotentials(self._pot,
+                                                                 xmax-t**2.,
+                                                         use_physical=False))),
+                        0,nu.sqrt(xmax))[0]
+            return (J,Omega)
+        else: # pragma: no cover
+            raise ValueError('actionAngleVertical __call__ input not understood')
 
-    def calczmax(self):
+    def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
-           calczmax
+           actionsFreqsAngles (_actionsFreqsAngles)
+        PURPOSE:
+           evaluate the action, frequency, and angle
+        INPUT:
+           Either:
+              a) x,vx:
+                 1) floats: phase-space value for single object (each can be a Quantity)
+                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+        OUTPUT:
+           action,frequency,angle
+        HISTORY:
+           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
+        """
+        if len(args) == 2: # x,vx
+            x,vx= args
+            if isinstance(x,float):
+                x= nu.array([x])
+                vx= nu.array([vx])
+            J= nu.empty(len(x))
+            Omega= nu.empty(len(x))
+            angle= nu.empty(len(x))
+            for ii in range(len(x)):
+                E= vx[ii]**2./2.\
+                    +evaluatelinearPotentials(self._pot,x[ii],
+                                              use_physical=False)
+                xmax= self.calcxmax(x[ii],vx[ii],E)
+                if xmax == -9999.99:
+                    J[ii]= 9999.99
+                    Omega[ii]= 9999.99
+                    angle[ii]= 9999.99
+                else:
+                    J[ii]= 2.*integrate.quad(\
+                        lambda xi: nu.sqrt(2.*(E\
+                                       -evaluatelinearPotentials(self._pot,xi,
+                                                         use_physical=False))),
+                        0.,xmax)[0]/nu.pi
+                    Omega[ii]= nu.pi/2./integrate.quad(\
+                        lambda t: 2.*t/nu.sqrt(2.*(E\
+                                       -evaluatelinearPotentials(self._pot,
+                                                                 xmax-t**2.,
+                                                         use_physical=False))),
+                        0,nu.sqrt(xmax))[0]
+                    angle[ii]= integrate.quad(\
+                        lambda xi: 1./nu.sqrt(2.*(E\
+                                       -evaluatelinearPotentials(self._pot,xi,
+                                                         use_physical=False))),
+                                        0,nu.fabs(x[ii]))[0]
+            angle*= Omega
+            angle[(x >= 0.)*(vx < 0.)]= nu.pi-angle[(x >= 0.)*(vx < 0.)]
+            angle[(x < 0.)*(vx <= 0.)]= nu.pi+angle[(x < 0.)*(vx <= 0.)]
+            angle[(x < 0.)*(vx > 0.)]= 2.*nu.pi-angle[(x < 0.)*(vx > 0.)]
+            return (J,Omega,angle % (2.*nu.pi))
+        else: # pragma: no cover
+            raise ValueError('actionAngleVertical __call__ input not understood')
+
+    def calcxmax(self,x,vx,E=None):
+        """
+        NAME:
+           calcxmax
         PURPOSE:
            calculate the maximum height
         INPUT:
+           x - position
+           vx - velocity
         OUTPUT:
            zmax
         HISTORY:
            2012-06-01 - Written - Bovy (IAS)
+           2018-05-19 - Re-written for new framework - Bovy (UofT)
         """
-        if hasattr(self,'_zmax'): #pragma: no cover
-            return self._zmax
-        Ez= calcEz(self._z,self._vz,self._verticalpot)
-        if self._vz == 0.: #We are exactly at the maximum height
-            zmax= nu.fabs(self._z)
+        if E is None:
+            E= E= vx**2./2.\
+                +evaluatelinearPotentials(self._pot,x,use_physical=False)
+        if vx == 0.: #We are exactly at the maximum height
+            xmax= nu.fabs(x)
         else:
-            zstart= self._z
+            xstart= x
             try:
-                zend= _zmaxFindStart(self._z,Ez,self._verticalpot)
+                if x == 0.: xend= 0.00001
+                else: xend= 2.*nu.fabs(x)
+                while (E-evaluatelinearPotentials(self._pot,xend,
+                                                  use_physical=False)) > 0.:
+                    xend*= 2.
+                    if xend > 100.: #pragma: no cover
+                        raise OverflowError
             except OverflowError: #pragma: no cover
-                zmax= -9999.99
+                xmax= -9999.99
             else:
-                zmax= optimize.brentq(_zmaxEq,zstart,zend,
-                                      (Ez,self._verticalpot))
-        self._zmax= zmax
-        return self._zmax
-
-def _zmaxEq(z,Ez,pot):
-    """The vz=0 equation that needs to be solved to find zmax"""
-    return Ez-potentialVertical(z,pot)
-
-def calcEz(z,vz,pot):
-    """
-    NAME:
-       calcEz
-    PURPOSE:
-       calculate the vertical energy
-    INPUT:
-       z - height (/ro)
-       vz - vertical part of the velocity (/vc)
-       pot - potential
-    OUTPUT:
-       Ez
-    HISTORY:
-       2012-06-01 - Written - Bovy (IAS)
-    """                           
-    return potentialVertical(z,pot)+vz**2./2.
-
-def potentialVertical(z,pot):
-    """
-    NAME:
-       potentialVertical
-    PURPOSE:
-       return the potential
-    INPUT:
-       z - height (/ro)
-       pot - potential
-    OUTPUT:
-       Phi_z(z)
-    HISTORY:
-       2012-06-01 - Written - Bovy (IAS)
-    """
-    return evaluatelinearPotentials(pot,z,use_physical=False)
-
-def _JzIntegrand(z,Ez,pot):
-    """The J_z integrand"""
-    return nu.sqrt(2.*(Ez-potentialVertical(z,pot)))
-
-def _TzIntegrand(z,Ez,pot): #pragma: no cover
-    """The T_z integrand"""
-    return 1./_JzIntegrand(z,Ez,pot)
-
-def _zmaxFindStart(z,Ez,pot):
-    """
-    NAME:
-       _zmaxFindStart
-    PURPOSE:
-       Find adequate end point to solve for zmax
-    INPUT:
-       z - height
-       Ez - vertical energy
-       pot - potential
-    OUTPUT:
-       zend
-    HISTORY:
-       2012-06-01 - Written - Bovy (IAS)
-    """
-    if z == 0.: ztry= 0.00001
-    else: ztry= 2.*nu.fabs(z)
-    while (Ez-potentialVertical(ztry,pot)) > 0.:
-        ztry*= 2.
-        if ztry > 100.: #pragma: no cover
-            raise OverflowError
-    return ztry
-
+                xmax= optimize.brentq(\
+                    lambda xm: E-evaluatelinearPotentials(self._pot,xm,
+                                                          use_physical=False),
+                    xstart,xend,xtol=1e-14)
+                while (E-evaluatelinearPotentials(self._pot,xmax,
+                                                          use_physical=False)) < 0:
+                    xmax-= 1e-14
+        return xmax
