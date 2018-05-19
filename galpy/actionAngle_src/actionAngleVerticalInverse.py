@@ -43,20 +43,21 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if pot is None: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleVerticalInverse")
         self._pot= pot
+        self._aAV= actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
         nE= len(Es)
         js= numpy.empty(nE)
         Omegas= numpy.empty(nE)
         xmaxs= numpy.empty(nE)
         for ii,E in enumerate(Es):
-            # actionAngleVertical currently assumes that R,vR,vT are given
-            # so give dummy values for now
-            aAV= actionAngleVertical(0.,0.,0.,\
-                0.,numpy.sqrt(2.*(E-evaluatelinearPotentials(self._pot,0.))),
-                pot=self._pot)
-            js[ii]= aAV.Jz()
-            Omegas[ii]= 2.*numpy.pi/aAV.Tz()       
-            xmaxs[ii]= aAV.calczmax()
+            tJ,tO= self._aAV.actionsFreqs(0.,\
+                     numpy.sqrt(2.*(E-evaluatelinearPotentials(self._pot,0.))))
+            js[ii]= tJ
+            Omegas[ii]= tO
+            xmaxs[ii]=\
+               self._aAV.calcxmax(0.,numpy.sqrt(2.*(\
+                             E-evaluatelinearPotentials(self._pot,0.))),
+                           E=E)
         self._Es= numpy.array(Es)
         self._js= js
         self._Omegas= Omegas
