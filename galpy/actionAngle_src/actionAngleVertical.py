@@ -7,11 +7,7 @@
 #             __call__: returns (j)
 #             actionsFreqs: returns (j,omega)
 #             actionsFreqsAngles: returns (j,omega,a)
-#             Jz
-#             anglez
-#             Tz
-#             calczmax
-#             calcEz
+#             calcxmax
 ###############################################################################
 import numpy as nu
 from scipy import optimize, integrate
