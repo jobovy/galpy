@@ -16,13 +16,13 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.actionAngle_src.actionAngle import *
+from galpy.actionAngle_src.actionAngle import actionAngle
 from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.potential_src.planarPotential import _evaluateplanarPotentials
 from galpy.potential_src.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
-class actionAngleAxi(actionAngleVertical):
+class actionAngleAxi(actionAngle):
     """Action-angle formalism for axisymmetric potentials"""
     def __init__(self,*args,**kwargs):
         """
@@ -51,8 +51,11 @@ class actionAngleAxi(actionAngleVertical):
         self._pot= kwargs['pot']
         if 'verticalPot' in kwargs:
             kwargs.pop('pot')
-            actionAngleVertical.__init__(self,*args,pot=kwargs['verticalPot'],
-                                         **kwargs)
+            self._aAV= actionAngleVertical(pot=kwargs['verticalPot'])
+            # Define these functions for backwards compatibility
+            self.Jz= lambda **kwargs: self._aAV(self._eval_z,self._eval_vz)
+            self.anglez= lambda **kwargs: self._aAV.actionsFreqsAngles(self._eval_z,self._eval_vz)[2]
+            self.calczmax= lambda **kwargs: self._aAV.calcxmax(self._eval_z,self._eval_vz,)
             self._gamma= kwargs.get('gamma',1.)
         else:
             self._gamma= 0.
