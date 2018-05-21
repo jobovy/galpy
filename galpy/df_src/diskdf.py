@@ -26,7 +26,6 @@ import numpy as nu
 import scipy as sc
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
-from scipy import linalg
 from scipy import stats
 from scipy import optimize
 from galpy.df_src.surfaceSigmaProfile import *
@@ -36,7 +35,7 @@ from galpy.util import save_pickles
 from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from galpy.potential import PowerSphericalPotential
-from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
+from galpy.actionAngle import actionAngleAdiabatic
 from galpy.df_src.df import df, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -104,9 +103,9 @@ class diskdf(df):
                                      beta=beta,**kwargs)
         else:
             self._correct= False
+        self._psp= PowerSphericalPotential(normalize=1.,alpha=2.-2.*self._beta).toPlanar()
         #Setup aA objects for frequency and rap,rperi calculation
-        self._aA= actionAngleAdiabatic(pot=PowerSphericalPotential(normalize=1.,
-                                                                   alpha=2.-2.*self._beta),gamma=0.)
+        self._aA= actionAngleAdiabatic(pot=self._psp,gamma=0.)
         return None
     
     @physical_conversion('phasespacedensity2d',pop=True)
@@ -1482,13 +1481,10 @@ class diskdf(df):
             xE= sc.exp(E-.5)
         else: #non-flat rotation curve                                      
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-        rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
-        #Replace the above w/
-        aA= actionAngleAxi(xE,0.,L/xE,
-                           pot=PowerSphericalPotential(normalize=1.,
-                                                       alpha=2.-2.*self._beta).toPlanar())
-        TR= aA.TR()
-        return (2.*math.pi/TR,rap,rperi)
+        _,_,rperi,rap= self._aA.EccZmaxRperiRap(\
+            xE,nu.sqrt(2.*(E-self._psp(xE))-L**2./xE**2.),L/xE,0.,0.)
+        return (self._aA._aAS.actionsFreqs(xE,0.,L/xE,0.,0.)[3][0],
+                rap[0],rperi[0])
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
@@ -1786,8 +1782,6 @@ class dehnendf(diskdf):
                     and _APY_LOADED and isinstance(rrange[0],units.Quantity):
                 rrange[0]= rrange[0].to(units.kpc).value/self._ro
                 rrange[1]= rrange[1].to(units.kpc).value/self._ro
-            if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
             for ii in range(int(n)):
                 try:
@@ -2076,8 +2070,6 @@ class shudf(diskdf):
                     and _APY_LOADED and isinstance(rrange[0],units.Quantity):
                 rrange[0]= rrange[0].to(units.kpc).value/self._ro
                 rrange[1]= rrange[1].to(units.kpc).value/self._ro
-            if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
             for ii in range(n):
                 try:

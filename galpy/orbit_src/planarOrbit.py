@@ -69,8 +69,7 @@ class planarOrbitTop(OrbitTop):
         """
         if analytic:
             self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return (rap-rperi)/(rap+rperi)
+            return self._aA.EccZmaxRperiRap(self)[0]
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
         if not hasattr(self,'rs'):
@@ -140,8 +139,7 @@ class planarOrbitTop(OrbitTop):
         """
         if analytic:
             self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return rap
+            return self._aA.EccZmaxRperiRap(self)[3]
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -165,8 +163,7 @@ class planarOrbitTop(OrbitTop):
         """
         if analytic:
             self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
-            return rperi
+            return self._aA.EccZmaxRperiRap(self)[2]
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first")
         if not hasattr(self,'rs'):
@@ -469,7 +466,7 @@ class planarOrbit(planarOrbitTop):
         """
         if analytic:
             self._setupaA(pot=pot,type='adiabatic')
-            (rperi,rap)= self._aA.calcRapRperi(self)
+            _,_,rperi,rap= self._aA.EccZmaxRperiRap(self)
             return (rap-rperi)/(rap+rperi)
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")

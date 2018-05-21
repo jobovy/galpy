@@ -1,5 +1,4 @@
 from galpy.actionAngle_src import actionAngle
-from galpy.actionAngle_src import actionAngleAxi
 from galpy.actionAngle_src import actionAngleAdiabatic
 from galpy.actionAngle_src import actionAngleAdiabaticGrid
 from galpy.actionAngle_src import actionAngleStaeckel
@@ -27,7 +26,6 @@ dePeriod= actionAngleIsochroneApprox.dePeriod
 # Classes
 #
 actionAngle= actionAngle.actionAngle
-actionAngleAxi= actionAngleAxi.actionAngleAxi
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle

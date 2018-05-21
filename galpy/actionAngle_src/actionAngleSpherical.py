@@ -13,7 +13,7 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate, optimize
-from galpy.potential import vcirc, epifreq, omegac
+from galpy.potential import vcirc, epifreq, omegac, _dim
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.potential_src.planarPotential import _evaluateplanarPotentials
 from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
@@ -38,7 +38,7 @@ class actionAngleSpherical(actionAngle):
 
            vo= circular velocity at ro (km/s; can be Quantity)
 
-           gamma= (default=0.) replace Lz by Lz+gamma Jz in effective potential when using this class as part of actionAngleAdiabatic
+           _gamma= (default=0.) replace Lz by Lz+gamma Jz in effective potential when using this class as part of actionAngleAdiabatic
 
         OUTPUT:
 
@@ -56,10 +56,13 @@ class actionAngleSpherical(actionAngle):
         self._pot= kwargs['pot']
         #Also store a 'planar' (2D) version of the potential, only potential
         # used in this class
-        if isinstance(self._pot,list):
-            self._2dpot= [p.toPlanar() for p in self._pot]
+        if _dim(self._pot) == 2:
+            self._2dpot= self._pot
         else:
-            self._2dpot= self._pot.toPlanar()
+            if isinstance(self._pot,list):
+                self._2dpot= [p.toPlanar() for p in self._pot]
+            else:
+                self._2dpot= self._pot.toPlanar()
         #The following for if we ever implement this code in C
         self._c= False
         ext_loaded= False
@@ -69,7 +72,7 @@ class actionAngleSpherical(actionAngle):
         else:
             self._c= False
         # gamma for when we use this as part of the adiabatic approx.
-        self._gamma= kwargs.get('gamma',0.)
+        self._gamma= kwargs.get('_gamma',0.)
         # Check the units
         self._check_consistent_units()
         return None
@@ -94,6 +97,7 @@ class actionAngleSpherical(actionAngle):
            2013-12-28 - Written - Bovy (IAS)
         """
         fixed_quad= kwargs.pop('fixed_quad',False)
+        extra_Jz= kwargs.pop('_Jz',None)
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
         elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -124,6 +128,9 @@ class actionAngleSpherical(actionAngle):
                 +vR**2./2.+vT**2./2.+vz**2./2.
             L= nu.sqrt(L2)
             vt= L/r
+            if self._gamma != 0. and not extra_Jz is None:
+                L+= self._gamma*extra_Jz
+                E+= L**2./2./r**2.-vt**2./2.
             #Actions
             Jphi= Lz
             Jz= L-nu.fabs(Lz)
@@ -333,6 +340,7 @@ class actionAngleSpherical(actionAngle):
         HISTORY:
            2017-12-22 - Written - Bovy (UofT)
         """
+        extra_Jz= kwargs.pop('_Jz',None)
         if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
         elif len(args) == 6: #R,vR.vT, z, vz, phi
@@ -363,6 +371,9 @@ class actionAngleSpherical(actionAngle):
             E= _evaluateplanarPotentials(self._2dpot,r)\
                 +vR**2./2.+vT**2./2.+vz**2./2.
             vt= L/r
+            if self._gamma != 0. and not extra_Jz is None:
+                L+= self._gamma*extra_Jz
+                E+= L**2./2./r**2.-vt**2./2.
             rperi, rap= [], []
             for ii in range(len(r)):
                 trperi,trap= self._calc_rperi_rap(r[ii],vr[ii],vt[ii],
