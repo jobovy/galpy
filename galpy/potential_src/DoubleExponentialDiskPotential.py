@@ -5,9 +5,7 @@
 #                                      rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z
 ###############################################################################
 import numpy as nu
-import warnings
-from scipy import special, integrate
-from galpy.util import galpyWarning
+from scipy import special
 from galpy.potential_src.PowerSphericalPotential import KeplerPotential
 from galpy.potential_src.Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -127,10 +125,10 @@ class DoubleExponentialDiskPotential(Potential):
            >>> assert( r+1.89595350484)**2.< 10.**-6.
         """
         if True:
-            if isinstance(R,float):
+            if isinstance(R,float) or isinstance(z,float):
                 floatIn= True
-                R= nu.array([R])
-                z= nu.array([z])
+                R= nu.atleast_1d(R)
+                z= nu.atleast_1d(z)
             else:
                 floatIn= False
             out= nu.empty(len(R))
