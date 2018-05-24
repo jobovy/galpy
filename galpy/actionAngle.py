@@ -8,6 +8,7 @@ from galpy.actionAngle_src import actionAngleIsochroneApprox
 from galpy.actionAngle_src import actionAngleSpherical
 from galpy.actionAngle_src import actionAngleTorus
 from galpy.actionAngle_src import actionAngleVertical
+from galpy.actionAngle_src import actionAngleVerticalInverse
 #
 # Exceptions
 #
@@ -34,3 +35,4 @@ actionAngleIsochroneApprox=\
 actionAngleSpherical= actionAngleSpherical.actionAngleSpherical
 actionAngleTorus= actionAngleTorus.actionAngleTorus
 actionAngleVertical= actionAngleVertical.actionAngleVertical
+actionAngleVerticalInverse= actionAngleVerticalInverse.actionAngleVerticalInverse
