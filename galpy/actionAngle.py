@@ -11,6 +11,7 @@ from galpy.actionAngle_src import actionAngleIsochroneInverse
 from galpy.actionAngle_src import actionAngleHarmonic
 from galpy.actionAngle_src import actionAngleHarmonicInverse
 from galpy.actionAngle_src import actionAngleVertical
+from galpy.actionAngle_src import actionAngleVerticalInverse
 #
 # Exceptions
 #
@@ -40,3 +41,4 @@ actionAngleIsochroneInverse= actionAngleIsochroneInverse.actionAngleIsochroneInv
 actionAngleHarmonic= actionAngleHarmonic.actionAngleHarmonic
 actionAngleHarmonicInverse= actionAngleHarmonicInverse.actionAngleHarmonicInverse
 actionAngleVertical= actionAngleVertical.actionAngleVertical
+actionAngleVerticalInverse= actionAngleVerticalInverse.actionAngleVerticalInverse

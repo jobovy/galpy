@@ -11,7 +11,9 @@ import copy
 import numpy
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
-from galpy.actionAngle import actionAngleHarmonic, actionAngleHarmonicInverse
+from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
+from galpy.actionAngle_src.actionAngleHarmonicInverse import \
+    actionAngleHarmonicInverse
 from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
@@ -78,8 +80,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._js= numpy.mean(self._ja,axis=1)
         # Compute Fourier expansions
         self._nforSn= numpy.arange(self._ja.shape[1]//2+1)
-        self._nSn= numpy.real(numpy.fft.rfft(self._ja-numpy.atleast_2d(self._js).T,axis=1))[:,1:]/self._ja.shape[1]
-        self._dSndJ= (numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))/numpy.atleast_2d(self._nforSn))[:,1:]/self._ja.shape[1]
+        self._nSn= numpy.real(numpy.fft.rfft(self._ja
+                                             -numpy.atleast_2d(self._js).T,
+                                             axis=1))[:,1:]/self._ja.shape[1]
+        self._dSndJ= (numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))\
+                          /numpy.atleast_2d(self._nforSn))[:,1:]\
+                          /self._ja.shape[1]
         self._nforSn= self._nforSn[1:]
         return None
 
@@ -118,10 +124,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             self._pot,omegagrid[unconv])
             dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
             dx= -dta/dtadx
-            dx[numpy.fabs(dx) > maxdx[unconv]]= (numpy.sign(dx)*maxdx[unconv])[numpy.fabs(dx) > maxdx[unconv]]
+            dx[numpy.fabs(dx) > maxdx[unconv]]=\
+                (numpy.sign(dx)*maxdx[unconv])[numpy.fabs(dx) > maxdx[unconv]]
             xgrid[unconv]+= dx
-            xgrid[unconv*(xgrid > xmaxgrid)]= xmaxgrid[unconv*(xgrid > xmaxgrid)]
-            xgrid[unconv*(xgrid < -xmaxgrid)]= xmaxgrid[unconv*(xgrid < -xmaxgrid)]
+            xgrid[unconv*(xgrid > xmaxgrid)]=\
+                xmaxgrid[unconv*(xgrid > xmaxgrid)]
+            xgrid[unconv*(xgrid < -xmaxgrid)]=\
+                xmaxgrid[unconv*(xgrid < -xmaxgrid)]
             unconv[unconv]= numpy.fabs(dta) > tol
             newta= _anglea(xgrid[unconv],Egrid[unconv],
                            self._pot,omegagrid[unconv])
@@ -131,11 +140,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 print("Took %i iterations" % cntr)
                 break
             if cntr > maxiter:
-                print("WARNING: DIDN'T CONVERGE IN {} iterations".format(maxiter))
+                print("WARNING: DIDN'T CONVERGE IN {} iterations"\
+                          .format(maxiter))
                 break
                 raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
-        xgrid[:,self._nta//2+1:3*self._nta//4+1]= xgrid[:,3*self._nta//4:][:,::-1]
+        xgrid[:,self._nta//2+1:3*self._nta//4+1]=\
+            xgrid[:,3*self._nta//4:][:,::-1]
         ta[:,self._nta//4+1:3*self._nta//4]= \
             _anglea(xgrid[:,self._nta//4+1:3*self._nta//4],
                     Egrid[:,self._nta//4+1:3*self._nta//4],
@@ -144,7 +155,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     vsign=-1.)
         self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
         self._mta= mta
-        # Store these, they are useful (obv. arbitrary to return xgrid and not just store it...)
+        # Store these, they are useful (obv. arbitrary to return xgrid 
+        # and not just store it...)
         self._Egrid= Egrid
         self._omegagrid= omegagrid
         self._xmaxgrid= xmaxgrid
@@ -242,7 +254,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 print("Took %i iterations" % cntr)
                 break
             if cntr > maxiter:
-                print("WARNING: DIDN'T CONVERGE IN {} iterations".format(maxiter))
+                print("WARNING: DIDN'T CONVERGE IN {} iterations"\
+                          .format(maxiter))
                 break
                 raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
         # Then compute the auxiliary action
