@@ -9,6 +9,7 @@
 ###############################################################################
 import copy
 import numpy
+from scipy import ndimage
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
 from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
@@ -18,7 +19,7 @@ from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
-    def __init__(self,Es=[0.1,0.3],pot=None,nta=128):
+    def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False):
         """
         NAME:
 
@@ -31,6 +32,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         INPUT:
 
            pot= a linearPotential or list thereof
+
+           Es= energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+
+           nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
+
+           setup_interp= (False)
 
         OUTPUT:
 
@@ -47,10 +54,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pot= pot
         self._aAV= actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
-        nE= len(Es)
-        js= numpy.empty(nE)
-        Omegas= numpy.empty(nE)
-        xmaxs= numpy.empty(nE)
+        self._nE= len(Es)
+        js= numpy.empty(self._nE)
+        Omegas= numpy.empty(self._nE)
+        xmaxs= numpy.empty(self._nE)
         for ii,E in enumerate(Es):
             tJ,tO= self._aAV.actionsFreqs(0.,\
                      numpy.sqrt(2.*(E-evaluatelinearPotentials(self._pot,0.))))
@@ -60,7 +67,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                self._aAV.calcxmax(0.,numpy.sqrt(2.*(\
                              E-evaluatelinearPotentials(self._pot,0.))),
                            E=E)
-        self._Es= numpy.array(Es)
+        self._Es= numpy.sort(numpy.array(Es))
         self._js= js
         self._Omegas= Omegas
         self._xmaxs= xmaxs
@@ -87,6 +94,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                           /numpy.atleast_2d(self._nforSn))[:,1:]\
                           /self._ja.shape[1]
         self._nforSn= self._nforSn[1:]
+        self._nSn[self._Es < 1e-10]= 0.
+        self._dSndJ[self._Es < 1e-10]= 0.
+        # Setup interpolation if requested
+        if setup_interp:
+            self._interp= True
+            self._setup_interp()
+        else:
+            self._interp= False
         return None
 
     def _create_xgrid(self):
@@ -161,6 +176,49 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._omegagrid= omegagrid
         self._xmaxgrid= xmaxgrid
         return xgrid
+
+    ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
+    def _setup_interp(self):
+        self._Emin= self._Es[0]
+        self._Emax= self._Es[-1]
+        self._nnSn= self._nSn.shape[1] # won't be confusing...
+        self._nSnFiltered= ndimage.spline_filter(self._nSn,order=3)
+        self._dSndJFiltered= ndimage.spline_filter(self._dSndJ,order=3)
+    
+    def _coords_for_map_coords(self,E):
+        coords= numpy.empty((2,self._nnSn*len(E)))
+        coords[0]= numpy.tile((E-self._Emin)/(self._Emax-self._Emin)\
+                                  *(self._nE-1.),
+                              (self._nnSn,1)).T.flatten()
+        coords[1]= numpy.tile(self._nforSn-1,(len(E),1)).flatten()
+        return coords
+
+    def nSn(self,E):
+        if not self._interp:
+            raise RuntimeError("To evaluate nSn, interpolation must be activated at instantiation using setup_interp=True")
+        evalE= numpy.atleast_1d(E)
+        indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
+        coords= self._coords_for_map_coords(evalE[indxc])
+        out= numpy.empty((len(evalE),self._nnSn))
+        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+                self._nSnFiltered,coords,order=3,prefilter=False),
+                                  (numpy.sum(indxc),self._nnSn))
+        out[True^indxc]= numpy.nan
+        return out
+
+    def dSndJ(self,E):
+        if not self._interp:
+            raise RuntimeError("To evaluate dnSndJ, interpolation must be activated at instantiation using setup_interp=True")
+        evalE= numpy.atleast_1d(E)
+        indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
+        coords= self._coords_for_map_coords(evalE[indxc])
+        out= numpy.empty((len(evalE),coords.shape[1]//len(evalE)))
+        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+                self._dSndJFiltered,coords,order=3,prefilter=False),
+                                  (len(evalE),coords.shape[1]//len(evalE)))
+        out[True^indxc]= numpy.nan
+        return out
+
 
     def _evaluate(self,j,angle,**kwargs):
         """
