@@ -313,6 +313,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The Lives of Stars: Insights From the TGAS-RAVE-LAMOST Dataset*, John J. Vickers & Martin C. Smith (2018) *Astrophys. J.*, in press (`arXiv/1805.02332 <http://arxiv.org/abs/1805.02332>`_)
 
+#. *High precision pulsar timing and spin frequency second derivatives*, X. J. Liu, C. G. Bassa, & B. W. Stappers (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1805.02892 <http://arxiv.org/abs/1805.02892>`_)
+#. *The Galactic Disc in Action Space as seen by Gaia DR2*, Wilma H. Trick, Johanna Coronado, Hans-Walter Rix (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1805.03653 <http://arxiv.org/abs/1805.03653>`_):
+     Uses ``galpy.actionAngle.actionAngleStaeckel`` to compute the actions in ``galpy.potential.MWPotential2014`` of stars in the extended solar neighborhood in *Gaia* DR2.
+#. *Tidal ribbons*, Walter Dehnen & Hasanuddin (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1805.08481 <http://arxiv.org/abs/1805.08481>`_):
+     Employs ``galpy.actionAngle.actionAngleStaeckel`` to compute the actions and frequencies of a disrupted satellite on an orbit close to the Galactic disk, to investigate the difference between the debris from such an orbit and from an orbit well within the halo.
+
 Indices and tables
 ==================
 
