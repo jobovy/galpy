@@ -9,7 +9,7 @@
 ###############################################################################
 import copy
 import numpy
-from scipy import ndimage
+from scipy import interpolate,ndimage
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
 from galpy.util import bovy_plot
@@ -96,6 +96,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
                           /numpy.atleast_2d(self._nforSn))[:,1:]\
                           /self._ja.shape[1]
         self._nforSn= self._nforSn[1:]
+        self._js[self._Es < 1e-10]= 0.
+        # Should use sqrt(2nd deriv. pot), but currently not implemented for 1D
+        if self._nE > 1:
+            self._OmegaHO[self._Es < 1e-10]= self._OmegaHO[1]
+            self._Omegas[self._Es < 1e-10]= self._Omegas[1]
         self._nSn[self._Es < 1e-10]= 0.
         self._dSndJ[self._Es < 1e-10]= 0.
         # Setup interpolation if requested
@@ -186,7 +191,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nnSn= self._nSn.shape[1] # won't be confusing...
         self._nSnFiltered= ndimage.spline_filter(self._nSn,order=3)
         self._dSndJFiltered= ndimage.spline_filter(self._dSndJ,order=3)
-    
+        self.J= interpolate.InterpolatedUnivariateSpline(self._Es,self._js,k=3)
+        self.E= interpolate.InterpolatedUnivariateSpline(self._js,self._Es,k=3)
+        self.OmegaHO= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                               self._OmegaHO,
+                                                               k=3)
+        self.Omega= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                             self._Omegas,
+                                                             k=3)
+        return None
+
     def _coords_for_map_coords(self,E):
         coords= numpy.empty((2,self._nnSn*len(E)))
         coords[0]= numpy.tile((E-self._Emin)/(self._Emax-self._Emin)\
@@ -224,6 +238,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
     def check_interp(self,E,symm=True):
         truthaAV= actionAngleVerticalInverse(pot=self._pot,Es=[E],
                                              nta=self._nta,setup_interp=False)
+        # Check whether S_n is matched
         pyplot.subplot(2,3,1)
         bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                             numpy.fabs(self.nSn(E)[0,symm::symm+1]),
@@ -243,6 +258,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             gcf=True,
                             xlabel=r'$n$',
                             ylabel=r'$S_{n,\mathrm{interp}}/S_{n,\mathrm{direct}}-1$')
+        # Check whether d S_n / d J is matched
         pyplot.subplot(2,3,2)
         bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                             numpy.fabs(self.dSndJ(E)[0,symm::symm+1]),
@@ -263,6 +279,32 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             gcf=True,
                             xlabel=r'$n$',
                             ylabel=r'$(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{interp}}/(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{direct}}-1$')
+        # Check energy along the torus
+        pyplot.subplot(2,3,3)
+        ta= numpy.linspace(0.,2.*numpy.pi,1001)
+        x,v= truthaAV(truthaAV._js,ta)
+        Edirect= v**2./2.+evaluatelinearPotentials(self._pot,x)
+        x,v= self(self.J(E),ta)
+        Einterp= v**2./2.+evaluatelinearPotentials(self._pot,x)
+        ymin, ymax= numpy.amin([Edirect,Einterp]),numpy.amax([Edirect,Einterp])
+        
+        bovy_plot.bovy_plot(ta,Einterp,
+                            xrange=[0.,2.*numpy.pi],
+                            yrange=[ymin-(ymax-ymin)*2.,ymax+(ymax-ymin)*2.],
+                            gcf=True,
+                            label=r'$\mathrm{Interpolation}$',
+                            xlabel=r'$\theta$',
+                            ylabel=r'$E$')
+        bovy_plot.bovy_plot(ta,Edirect,overplot=True,
+                            label=r'$\mathrm{Direct}$')
+        pyplot.legend(fontsize=17.)
+        pyplot.subplot(2,3,6)
+        bovy_plot.bovy_plot(ta,Einterp/Edirect-1.,
+                            xrange=[0.,2.*numpy.pi],
+                            gcf=True,
+                            label=r'$\mathrm{Interpolation}$',
+                            xlabel=r'$\theta$',
+                            ylabel=r'$E_{\mathrm{interp}}/E_{\mathrm{direct}}-1$')
         pyplot.tight_layout()
         return None
 
@@ -319,9 +361,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         """
         # Find torus
-        indx= numpy.argmin(numpy.fabs(j-self._js))
-        if numpy.fabs(j-self._js[indx]) > 1e-10:
-            raise ValueError('Given action/energy not found')
+        if not self._interp:
+            indx= numpy.argmin(numpy.fabs(j-self._js))
+            if numpy.fabs(j-self._js[indx]) > 1e-10:
+                raise ValueError('Given action/energy not found, to use interpolation, initialize with setup_interp=True')
+            tnSn= self._nSn[indx]
+            tdSndJ= self._dSndJ[indx]
+            tOmegaHO= self._OmegaHO[indx]
+            tOmega= self._Omegas[indx]
+        else:
+            tE= self.E(j)
+            tnSn= self.nSn(tE)[0]
+            tdSndJ= self.dSndJ(tE)[0]
+            tOmegaHO= self.OmegaHO(tE)
+            tOmega= self.Omega(tE)
         # First we need to solve for anglea
         angle= numpy.atleast_1d(angle)
         anglea= copy.copy(angle)
@@ -331,7 +384,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         cntr= 0
         unconv= numpy.ones(len(angle),dtype='bool')
         ta= anglea\
-            +2.*numpy.sum(self._dSndJ[indx]
+            +2.*numpy.sum(tdSndJ
                   *numpy.sin(self._nforSn*numpy.atleast_2d(anglea).T),axis=1)
         dta= (ta-angle+numpy.pi) % (2.*numpy.pi)-numpy.pi
         unconv[unconv]= numpy.fabs(dta) > tol
@@ -339,7 +392,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         maxda= 2.*numpy.pi/101
         while True:
             danglea= 1.+2.*numpy.sum(\
-                self._nforSn*self._dSndJ[indx]
+                self._nforSn*tdSndJ
                 *numpy.cos(self._nforSn*numpy.atleast_2d(anglea[unconv]).T),
                 axis=1)
             dta= (ta[unconv]-angle[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
@@ -349,7 +402,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             anglea[unconv]+= da
             unconv[unconv]= numpy.fabs(dta) > tol
             newta= anglea[unconv]\
-                +2.*numpy.sum(self._dSndJ[indx]
+                +2.*numpy.sum(tdSndJ
                    *numpy.sin(self._nforSn*numpy.atleast_2d(anglea[unconv]).T),
                               axis=1)
             ta[unconv]= newta
@@ -363,11 +416,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 break
                 raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
         # Then compute the auxiliary action
-        ja= j+2.*numpy.sum(self._nSn[indx]
+        ja= j+2.*numpy.sum(tnSn
                            *numpy.cos(self._nforSn*numpy.atleast_2d(anglea).T),
                            axis=1)
-        hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO[indx])
-        return (*hoaainv(ja,anglea),self._Omegas[indx])
+        hoaainv= actionAngleHarmonicInverse(omega=tOmegaHO)
+        return (*hoaainv(ja,anglea),tOmega)
         
     def _Freqs(self,j,**kwargs):
         """
@@ -393,10 +446,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         """
         # Find torus
-        indx= numpy.argmin(numpy.fabs(j-self._js))
-        if numpy.fabs(j-self._js[indx]) > 1e-10:
-            raise ValueError('Given action/energy not found')
-        return self._Omegas[indx]
+        if not self._interp:
+            indx= numpy.argmin(numpy.fabs(j-self._js))
+            if numpy.fabs(j-self._js[indx]) > 1e-10:
+                raise ValueError('Given action/energy not found, to use interpolation, initialize with setup_interp=True')
+            tOmega= self._Omegas[indx]
+        else:
+            tE= self.E(j)
+            tOmega= self.Omega(tE)
+        return tOmega
 
 def _anglea(x,E,pot,omega,vsign=1.):
     """
