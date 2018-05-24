@@ -12,6 +12,8 @@ import numpy
 from scipy import ndimage
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
+from galpy.util import bovy_plot
+from matplotlib import pyplot
 from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
 from galpy.actionAngle_src.actionAngleHarmonicInverse import \
     actionAngleHarmonicInverse
@@ -219,6 +221,50 @@ class actionAngleVerticalInverse(actionAngleInverse):
         out[True^indxc]= numpy.nan
         return out
 
+    def check_interp(self,E,symm=True):
+        truthaAV= actionAngleVerticalInverse(pot=self._pot,Es=[E],
+                                             nta=self._nta,setup_interp=False)
+        pyplot.subplot(2,3,1)
+        bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                            numpy.fabs(self.nSn(E)[0,symm::symm+1]),
+                            gcf=True,semilogy=True,
+                            xrange=[0.,self._nforSn[-1]],
+                            label=r'$\mathrm{Interpolation}$',
+                            xlabel=r'$n$',ylabel=r'$|S_n|$')
+        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
+                            truthaAV._nSn[0,symm::symm+1],overplot=True,
+                            label=r'$\mathrm{Direct}$')
+        pyplot.legend(fontsize=17.)
+        pyplot.subplot(2,3,4)
+        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
+                            ((self.nSn(E)[0]-truthaAV._nSn[0])\
+                                 /truthaAV._nSn[0])[symm::symm+1],
+                            xrange=[0.,self._nforSn[-1]],
+                            gcf=True,
+                            xlabel=r'$n$',
+                            ylabel=r'$S_{n,\mathrm{interp}}/S_{n,\mathrm{direct}}-1$')
+        pyplot.subplot(2,3,2)
+        bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                            numpy.fabs(self.dSndJ(E)[0,symm::symm+1]),
+                            xrange=[0.,self._nforSn[-1]],
+                            gcf=True,semilogy=True,
+                            label=r'$\mathrm{Interpolation}$',
+                            xlabel=r'$n$',
+                            ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
+        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
+                            truthaAV._dSndJ[0,symm::symm+1],overplot=True,
+                            label=r'$\mathrm{Direct}$')
+        pyplot.legend(fontsize=17.)
+        pyplot.subplot(2,3,5)
+        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
+                            ((self.dSndJ(E)[0]-truthaAV._dSndJ[0])\
+                                 /truthaAV._dSndJ[0])[symm::symm+1],
+                            xrange=[0.,self._nforSn[-1]],
+                            gcf=True,
+                            xlabel=r'$n$',
+                            ylabel=r'$(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{interp}}/(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{direct}}-1$')
+        pyplot.tight_layout()
+        return None
 
     def _evaluate(self,j,angle,**kwargs):
         """
