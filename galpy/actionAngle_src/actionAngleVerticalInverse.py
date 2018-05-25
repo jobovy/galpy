@@ -93,8 +93,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSn= numpy.real(numpy.fft.rfft(self._ja
                                              -numpy.atleast_2d(self._js).T,
                                              axis=1))[:,1:]/self._ja.shape[1]
-        self._dSndJ= (numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))\
-                          /numpy.atleast_2d(self._nforSn))[:,1:]\
+        self._dSndJ= (numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))[:,1:]\
+                          /numpy.atleast_2d(self._nforSn)[:,1:])\
                           /self._ja.shape[1]
         self._nforSn= self._nforSn[1:]
         self._js[self._Es < 1e-10]= 0.
