@@ -14,7 +14,8 @@ from scipy import interpolate,ndimage
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
 from galpy.util import bovy_plot, galpyWarning
-from matplotlib import pyplot
+from matplotlib import pyplot, gridspec
+from matplotlib.ticker import NullFormatter
 from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
 from galpy.actionAngle_src.actionAngleHarmonicInverse import \
     actionAngleHarmonicInverse
@@ -183,6 +184,74 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._omegagrid= omegagrid
         self._xmaxgrid= xmaxgrid
         return xgrid
+
+    def check_convergence(self,E,symm=True):
+        # First find the torus for this energy
+        indx= numpy.argmin(numpy.fabs(E-self._Es))
+        if numpy.fabs(E-self._Es[indx]) > 1e-10:
+            raise ValueError('Given energy not found; please specify an energy used in the initialization of the instance')
+        gs= gridspec.GridSpec(2,3,height_ratios=[4,1])
+        # mapping of thetaa --> x
+        pyplot.subplot(gs[0])
+        bovy_plot.bovy_plot(self._thetaa,self._xgrid[indx],
+                            color='k',
+                            ylabel=r'$x(\theta^A)$',
+                            gcf=True)
+        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        pyplot.subplot(gs[3])
+        negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
+        thetaa_out= numpy.empty_like(self._thetaa)
+        thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
+                                       E,self._pot,
+                                       self._OmegaHO[indx],vsign=1.)
+        thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
+                                  E,self._pot,
+                                  self._OmegaHO[indx],vsign=-1.)
+        bovy_plot.bovy_plot(self._thetaa,
+                            ((thetaa_out-self._thetaa+numpy.pi) \
+                                 % (2.*numpy.pi))-numpy.pi,
+                            color='k',
+                            gcf=True,
+                            xlabel=r'$\theta^A$',
+                            ylabel=r'$\theta^A[x(\theta^A)]-\theta^A$')
+        # Recovery of the nSn from J^A(theta^A) behavior
+        pyplot.subplot(gs[1])
+        bovy_plot.bovy_plot(self._thetaa,self._ja[indx],
+                            color='k',
+                            ylabel=r'$J^A(\theta^A),J$',gcf=True)
+        pyplot.axhline(self._js[indx],color='k',ls='--')
+        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        pyplot.subplot(gs[4])
+        bovy_plot.bovy_plot(self._thetaa,
+                            numpy.array([self._js[indx]
+                                         +2.*numpy.sum(self._nSn[indx]\
+                                                   *numpy.cos(self._nforSn*x)) 
+                                         for x in self._thetaa])\
+                                -self._ja[indx],
+                            color='k',
+                            xlabel=r'$\theta^A$',
+                            ylabel=r'$\delta J^A$',gcf=True)
+        # Recovery of the dSndJ from dJ^A/dJ(theta^A) behavior
+        pyplot.subplot(gs[2])
+        bovy_plot.bovy_plot(self._thetaa,self._djadj[indx],
+                            color='k',
+                            ylabel=r'$\mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
+                            gcf=True)
+        pyplot.axhline(1.,color='k',ls='--')
+        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        pyplot.subplot(gs[5])
+        bovy_plot.bovy_plot(self._thetaa,
+                            numpy.array([1.+2.*numpy.sum(self._nforSn\
+                                                   *self._dSndJ[indx]\
+                                                   *numpy.cos(self._nforSn*x)) 
+                                         for x in self._thetaa])\
+                                -self._djadj[indx],
+                            color='k',
+                            xlabel=r'$\theta^A$',
+                            ylabel=r'$\delta \mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
+                            gcf=True)
+        pyplot.tight_layout()
+        return None
 
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
     def _setup_interp(self):
