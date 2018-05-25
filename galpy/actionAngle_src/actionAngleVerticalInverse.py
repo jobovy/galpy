@@ -61,6 +61,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         js= numpy.empty(self._nE)
         Omegas= numpy.empty(self._nE)
         xmaxs= numpy.empty(self._nE)
+        self._Es= numpy.sort(numpy.array(Es))
         for ii,E in enumerate(Es):
             tJ,tO= self._aAV.actionsFreqs(0.,\
                      numpy.sqrt(2.*(E-evaluatelinearPotentials(self._pot,0.))))
@@ -70,7 +71,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
                self._aAV.calcxmax(0.,numpy.sqrt(2.*(\
                              E-evaluatelinearPotentials(self._pot,0.))),
                            E=E)
-        self._Es= numpy.sort(numpy.array(Es))
         self._js= js
         self._Omegas= Omegas
         self._xmaxs= xmaxs
