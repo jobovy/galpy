@@ -9,10 +9,11 @@
 ###############################################################################
 import copy
 import numpy
+import warnings
 from scipy import interpolate,ndimage
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
-from galpy.util import bovy_plot
+from galpy.util import bovy_plot, galpyWarning
 from matplotlib import pyplot
 from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
 from galpy.actionAngle_src.actionAngleHarmonicInverse import \
@@ -159,13 +160,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
-                print("Took %i iterations" % cntr)
                 break
             if cntr > maxiter:
-                print("WARNING: DIDN'T CONVERGE IN {} iterations"\
-                          .format(maxiter))
+                warnings.warn(\
+                    "Torus mapping did not converge in {} iterations"\
+                        .format(maxiter),galpyWarning)
                 break
-                raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
         xgrid[:,self._nta//2+1:3*self._nta//4+1]=\
             xgrid[:,3*self._nta//4:][:,::-1]
@@ -408,13 +408,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
-                print("Took %i iterations" % cntr)
                 break
             if cntr > maxiter:
-                print("WARNING: DIDN'T CONVERGE IN {} iterations"\
-                          .format(maxiter))
+                warnings.warn(\
+                    "Angle mapping did not converge in {} iterations"\
+                        .format(maxiter),galpyWarning)
                 break
-                raise RuntimeError("Convergence of grid-finding not achieved in %i iterations" % maxiter)
         # Then compute the auxiliary action
         ja= j+2.*numpy.sum(tnSn
                            *numpy.cos(self._nforSn*numpy.atleast_2d(anglea).T),
