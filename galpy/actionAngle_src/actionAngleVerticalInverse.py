@@ -23,7 +23,8 @@ from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
-    def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False):
+    def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,
+                 maxiter=100,angle_tol=1e-12):
         """
         NAME:
 
@@ -41,7 +42,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
            nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
 
-           setup_interp= (False)
+           setup_interp= (False) if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
+
+           maxiter= (100) maximum number of iterations of root-finding algorithms
+
+           angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
 
         OUTPUT:
 
@@ -83,6 +88,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Now map all tori
         self._nta= nta
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
+        self._maxiter= maxiter
+        self._angle_tol= angle_tol
         self._xgrid= self._create_xgrid()
         self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid)
         self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid)
@@ -137,14 +144,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ta= _anglea(xgrid,Egrid,self._pot,omegagrid)
         mta= numpy.tile(self._thetaa,(len(self._Es),1))
         # Now iterate
-        maxiter= 100
-        tol= 1.e-12
         cntr= 0
         unconv= numpy.ones(xgrid.shape,dtype='bool')
         # We'll fill in the -v part using the +v, also remove the endpoints
         unconv[:,self._nta//4:3*self._nta//4+1]= False
         dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
-        unconv[unconv]= numpy.fabs(dta) > tol
+        unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
         maxdx= numpy.tile(self._xmaxs/float(self._nta),(self._nta,1)).T
         while True:
@@ -159,18 +164,52 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 xmaxgrid[unconv*(xgrid > xmaxgrid)]
             xgrid[unconv*(xgrid < -xmaxgrid)]=\
                 xmaxgrid[unconv*(xgrid < -xmaxgrid)]
-            unconv[unconv]= numpy.fabs(dta) > tol
+            unconv[unconv]= numpy.fabs(dta) > self._angle_tol
             newta= _anglea(xgrid[unconv],Egrid[unconv],
                            self._pot,omegagrid[unconv])
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
                 break
-            if cntr > maxiter:
+            if cntr > self._maxiter:
                 warnings.warn(\
-                    "Torus mapping did not converge in {} iterations"\
-                        .format(maxiter),galpyWarning)
+                    "Torus mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
+                        .format(self._maxiter),galpyWarning)
                 break
+        if cntr > self._maxiter:
+            # Reset cntr
+            cntr= 0
+            # Start from nearest guess from below
+            new_xgrid= numpy.linspace(-1.,1.,2*self._nta)
+            da= ((xta+2.*numpy.pi) % (2.*numpy.pi))\
+                -numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)
+            da[da >= 0.]= -numpy.amax(numpy.fabs(da))-0.1
+            cindx= numpy.argmax(da,axis=2)
+            tryx_min= (new_xgrid[cindx].T
+                         *numpy.atleast_2d(self._xmaxs).T)[unconv]
+            dx= 2./(2.*self._nta-1)*xmaxgrid # delta of initial x grid above
+            while True:
+                dx*= 0.5
+                xgrid[unconv]= tryx_min+dx[unconv]
+                newta= (_anglea(xgrid[unconv],Egrid[unconv],
+                                self._pot,omegagrid[unconv])+2.*numpy.pi) \
+                                % (2.*numpy.pi)
+                dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+                tryx_min[newta < mta[unconv]]=\
+                    xgrid[unconv][newta < mta[unconv]]
+                unconv[unconv]= numpy.fabs(dta) > self._angle_tol
+                tryx_min= tryx_min[numpy.fabs(dta) > self._angle_tol]
+                cntr+= 1
+                if numpy.sum(unconv) == 0:
+                    break
+                if cntr > self._maxiter:
+                    warnings.warn(\
+                        "Torus mapping with bisection did not converge in {} iterations"\
+                            .format(self._maxiter)
+                        +" for energies:"+""\
+                        .join(' {:g}'.format(k) for k in set(Egrid[unconv])),
+                    galpyWarning)
+                    break
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
         xgrid[:,self._nta//2+1:3*self._nta//4+1]=\
             xgrid[:,3*self._nta//4:][:,::-1]
@@ -464,15 +503,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         angle= numpy.atleast_1d(angle)
         anglea= copy.copy(angle)
         # Now iterate Newton's method
-        maxiter= 100
-        tol= 1.e-12
         cntr= 0
         unconv= numpy.ones(len(angle),dtype='bool')
         ta= anglea\
             +2.*numpy.sum(tdSndJ
                   *numpy.sin(self._nforSn*numpy.atleast_2d(anglea).T),axis=1)
         dta= (ta-angle+numpy.pi) % (2.*numpy.pi)-numpy.pi
-        unconv[unconv]= numpy.fabs(dta) > tol
+        unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
         maxda= 2.*numpy.pi/101
         while True:
@@ -485,7 +522,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             da[numpy.fabs(da) > maxda]= \
                 (numpy.sign(da)*maxda)[numpy.fabs(da) > maxda]
             anglea[unconv]+= da
-            unconv[unconv]= numpy.fabs(dta) > tol
+            unconv[unconv]= numpy.fabs(dta) > self._angle_tol
             newta= anglea[unconv]\
                 +2.*numpy.sum(tdSndJ
                    *numpy.sin(self._nforSn*numpy.atleast_2d(anglea[unconv]).T),
@@ -494,10 +531,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             cntr+= 1
             if numpy.sum(unconv) == 0:
                 break
-            if cntr > maxiter:
+            if cntr > self._maxiter:
                 warnings.warn(\
                     "Angle mapping did not converge in {} iterations"\
-                        .format(maxiter),galpyWarning)
+                        .format(self._maxiter),galpyWarning)
                 break
         # Then compute the auxiliary action
         ja= j+2.*numpy.sum(tnSn
