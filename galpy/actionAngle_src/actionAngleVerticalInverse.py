@@ -94,9 +94,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSn= numpy.real(numpy.fft.rfft(self._ja
                                              -numpy.atleast_2d(self._js).T,
                                              axis=1))[:,1:]/self._ja.shape[1]
-        self._dSndJ= (numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))[:,1:]\
-                          /numpy.atleast_2d(self._nforSn)[:,1:])\
+        self._dSndJ= numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))[:,1:]\
                           /self._ja.shape[1]
+        # Interpolation of small, noisy coeffs doesn't work, so set to zero
+        if setup_interp:
+            self._nSn[numpy.fabs(self._nSn) < 1e-16]= 0.
+            self._dSndJ[numpy.fabs(self._dSndJ) < 1e-15]= 0.
+        self._dSndJ/= numpy.atleast_2d(self._nforSn)[:,1:]
         self._nforSn= self._nforSn[1:]
         self._js[self._Es < 1e-10]= 0.
         # Should use sqrt(2nd deriv. pot), but currently not implemented for 1D
@@ -227,10 +231,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                          +2.*numpy.sum(self._nSn[indx]\
                                                    *numpy.cos(self._nforSn*x)) 
                                          for x in self._thetaa])\
-                                -self._ja[indx],
+                                /self._ja[indx]-1.,
                             color='k',
                             xlabel=r'$\theta^A$',
-                            ylabel=r'$\delta J^A$',gcf=True)
+                            ylabel=r'$\delta J^A/J^A$',gcf=True)
         # Recovery of the dSndJ from dJ^A/dJ(theta^A) behavior
         pyplot.subplot(gs[2])
         bovy_plot.bovy_plot(self._thetaa,self._djadj[indx],
@@ -309,28 +313,37 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                              nta=self._nta,setup_interp=False)
         # Check whether S_n is matched
         pyplot.subplot(2,3,1)
+        y= numpy.fabs(self.nSn(E)[0,symm::symm+1])
+        ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
+        ymax= numpy.amax(y[numpy.isfinite(y)])
         bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                            numpy.fabs(self.nSn(E)[0,symm::symm+1]),
+                            y,yrange=[ymin,ymax],
                             gcf=True,semilogy=True,
                             xrange=[0.,self._nforSn[-1]],
                             label=r'$\mathrm{Interpolation}$',
-                            xlabel=r'$n$',ylabel=r'$|S_n|$')
+                            xlabel=r'$n$',ylabel=r'$|nS_n|$')
         bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
                             truthaAV._nSn[0,symm::symm+1],overplot=True,
                             label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.)
         pyplot.subplot(2,3,4)
+        y= ((self.nSn(E)[0]-truthaAV._nSn[0])\
+                                 /truthaAV._nSn[0])[symm::symm+1]
+        ymin= numpy.amin(y[numpy.isfinite(y)])
+        ymax= numpy.amax(y[numpy.isfinite(y)])
         bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            ((self.nSn(E)[0]-truthaAV._nSn[0])\
-                                 /truthaAV._nSn[0])[symm::symm+1],
+                            y,yrange=[ymin,ymax],
                             xrange=[0.,self._nforSn[-1]],
                             gcf=True,
                             xlabel=r'$n$',
                             ylabel=r'$S_{n,\mathrm{interp}}/S_{n,\mathrm{direct}}-1$')
         # Check whether d S_n / d J is matched
         pyplot.subplot(2,3,2)
+        y= numpy.fabs(self.dSndJ(E)[0,symm::symm+1])
+        ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-18])
+        ymax= numpy.amax(y[numpy.isfinite(y)])
         bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                            numpy.fabs(self.dSndJ(E)[0,symm::symm+1]),
+                            y,yrange=[ymin,ymax],
                             xrange=[0.,self._nforSn[-1]],
                             gcf=True,semilogy=True,
                             label=r'$\mathrm{Interpolation}$',
@@ -341,9 +354,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.)
         pyplot.subplot(2,3,5)
+        y= ((self.dSndJ(E)[0]-truthaAV._dSndJ[0])\
+                                 /truthaAV._dSndJ[0])[symm::symm+1]
+        ymin= numpy.amin(y[numpy.isfinite(y)])
+        ymax= numpy.amax(y[numpy.isfinite(y)])
         bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            ((self.dSndJ(E)[0]-truthaAV._dSndJ[0])\
-                                 /truthaAV._dSndJ[0])[symm::symm+1],
+                            y,yrange=[ymin,ymax],
                             xrange=[0.,self._nforSn[-1]],
                             gcf=True,
                             xlabel=r'$n$',
