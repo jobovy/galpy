@@ -24,7 +24,7 @@ from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
     def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,
-                 maxiter=100,angle_tol=1e-12):
+                 maxiter=100,angle_tol=1e-12,bisect=False):
         """
         NAME:
 
@@ -48,6 +48,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
            angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
 
+           bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
+           
         OUTPUT:
 
            instance
@@ -90,6 +92,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
         self._maxiter= maxiter
         self._angle_tol= angle_tol
+        self._bisect= bisect
         self._xgrid= self._create_xgrid()
         self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid)
         self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid)
@@ -133,8 +136,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         xs= xgrid*numpy.atleast_2d(self._xmaxs).T
         xta= _anglea(xs,numpy.tile(self._Es,(xs.shape[1],1)).T,
                      self._pot,numpy.tile(self._hoaa._omega,(xs.shape[1],1)).T)
+        xta[numpy.isnan(xta)]= 0. # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
-        cindx= numpy.argmin(numpy.fabs(\
+        cindx= numpy.nanargmin(numpy.fabs(\
                 (xta-numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)
                  +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
         xgrid= xgrid[cindx].T*numpy.atleast_2d(self._xmaxs).T
@@ -152,7 +156,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
         maxdx= numpy.tile(self._xmaxs/float(self._nta),(self._nta,1)).T
-        while True:
+        while not self._bisect:
             dtadx= _danglea(xgrid[unconv],Egrid[unconv],
                             self._pot,omegagrid[unconv])
             dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
@@ -176,15 +180,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     "Torus mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
                         .format(self._maxiter),galpyWarning)
                 break
-        if cntr > self._maxiter:
+        if self._bisect or cntr > self._maxiter:
             # Reset cntr
             cntr= 0
             # Start from nearest guess from below
             new_xgrid= numpy.linspace(-1.,1.,2*self._nta)
-            da= ((xta+2.*numpy.pi) % (2.*numpy.pi))\
-                -numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)
-            da[da >= 0.]= -numpy.amax(numpy.fabs(da))-0.1
-            cindx= numpy.argmax(da,axis=2)
+            da=(xta-numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)+numpy.pi)\
+                % (2.*numpy.pi) - numpy.pi
+            da[da >= 0.]= -numpy.nanmax(numpy.fabs(da))-0.1
+            cindx= numpy.nanargmax(da,axis=2)
             tryx_min= (new_xgrid[cindx].T
                          *numpy.atleast_2d(self._xmaxs).T)[unconv]
             dx= 2./(2.*self._nta-1)*xmaxgrid # delta of initial x grid above
@@ -207,7 +211,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                         "Torus mapping with bisection did not converge in {} iterations"\
                             .format(self._maxiter)
                         +" for energies:"+""\
-                        .join(' {:g}'.format(k) for k in set(Egrid[unconv])),
+                  .join(' {:g}'.format(k) for k in sorted(set(Egrid[unconv]))),
                     galpyWarning)
                     break
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
@@ -230,7 +234,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def check_convergence(self,E,symm=True):
         # First find the torus for this energy
-        indx= numpy.argmin(numpy.fabs(E-self._Es))
+        indx= numpy.nanargmin(numpy.fabs(E-self._Es))
         if numpy.fabs(E-self._Es[indx]) > 1e-10:
             raise ValueError('Given energy not found; please specify an energy used in the initialization of the instance')
         gs= gridspec.GridSpec(2,3,height_ratios=[4,1])
@@ -486,7 +490,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx= numpy.argmin(numpy.fabs(j-self._js))
+            indx= numpy.nanargmin(numpy.fabs(j-self._js))
             if numpy.fabs(j-self._js[indx]) > 1e-10:
                 raise ValueError('Given action/energy not found, to use interpolation, initialize with setup_interp=True')
             tnSn= self._nSn[indx]
@@ -512,7 +516,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
         maxda= 2.*numpy.pi/101
-        while True:
+        while not self._bisect:
             danglea= 1.+2.*numpy.sum(\
                 self._nforSn*tdSndJ
                 *numpy.cos(self._nforSn*numpy.atleast_2d(anglea[unconv]).T),
@@ -533,7 +537,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 break
             if cntr > self._maxiter:
                 warnings.warn(\
-                    "Angle mapping did not converge in {} iterations"\
+                    "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
                         .format(self._maxiter),galpyWarning)
                 break
         # Then compute the auxiliary action
@@ -568,7 +572,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # Find torus
         if not self._interp:
-            indx= numpy.argmin(numpy.fabs(j-self._js))
+            indx= numpy.nanargmin(numpy.fabs(j-self._js))
             if numpy.fabs(j-self._js[indx]) > 1e-10:
                 raise ValueError('Given action/energy not found, to use interpolation, initialize with setup_interp=True')
             tOmega= self._Omegas[indx]
