@@ -540,6 +540,35 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
                         .format(self._maxiter),galpyWarning)
                 break
+        # Fallback onto simple bisection in case of non-convergence
+        if self._bisect or cntr > self._maxiter:
+            # Reset cntr
+            cntr= 0
+            trya_min= numpy.zeros(numpy.sum(unconv))
+            da= 2.*numpy.pi
+            while True:
+                da*= 0.5
+                anglea[unconv]= trya_min+da
+                newta= (anglea[unconv]\
+                    +2.*numpy.sum(tdSndJ
+                   *numpy.sin(self._nforSn*numpy.atleast_2d(anglea[unconv]).T),
+                              axis=1)+2.*numpy.pi) % (2.*numpy.pi)
+                dta= (newta-angle[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+                trya_min[newta < angle[unconv]]=\
+                    anglea[unconv][newta < angle[unconv]]
+                unconv[unconv]= numpy.fabs(dta) > self._angle_tol
+                trya_min= trya_min[numpy.fabs(dta) > self._angle_tol]
+                cntr+= 1
+                if numpy.sum(unconv) == 0:
+                    break
+                if cntr > self._maxiter:
+                    warnings.warn(\
+                        "Angle mapping with bisection did not converge in {} iterations"\
+                            .format(self._maxiter)
+                        +" for angles:"+""\
+                  .join(' {:g}'.format(k) for k in sorted(set(angle[unconv]))),
+                    galpyWarning)
+                    break
         # Then compute the auxiliary action
         ja= j+2.*numpy.sum(tnSn
                            *numpy.cos(self._nforSn*numpy.atleast_2d(anglea).T),
