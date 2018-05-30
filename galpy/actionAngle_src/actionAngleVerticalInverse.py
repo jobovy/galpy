@@ -232,7 +232,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._xmaxgrid= xmaxgrid
         return xgrid
 
-    def check_convergence(self,E,symm=True):
+    def plot_convergence(self,E,symm=True):
         # First find the torus for this energy
         indx= numpy.nanargmin(numpy.fabs(E-self._Es))
         if numpy.fabs(E-self._Es[indx]) > 1e-10:
@@ -351,7 +351,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         out[True^indxc]= numpy.nan
         return out
 
-    def check_interp(self,E,symm=True):
+    def plot_interp(self,E,symm=True):
         truthaAV= actionAngleVerticalInverse(pot=self._pot,Es=[E],
                                              nta=self._nta,setup_interp=False)
         # Check whether S_n is matched
