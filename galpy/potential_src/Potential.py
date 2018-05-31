@@ -1559,8 +1559,14 @@ class Potential(object):
             
         PURPOSE:
             
-            Calculate the tidal radius for object of mass M assuming a circular orbit 
-            at R in potential Pot given the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
+            Calculate the tidal radius for object of mass M assuming a circular orbit as
+
+            .. math::
+
+               r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
+
+            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+
         INPUT:
         
             R - Galactocentric radius (can be Quantity)
@@ -1585,14 +1591,10 @@ class Potential(object):
         if M is None:
             #Make sure an object mass is given
             raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-        #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
-        r= nu.sqrt(R**2.0+z**2.0)
+        r= nu.sqrt(R**2.+z**2.)
         omegac2= -self.rforce(R,z,phi=phi,t=t,use_physical=False)/r
-        #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
-        kappa2= 3.0*omegac2+self.r2deriv(R,z,phi=phi,t=t,use_physical=False)
-        #rt=(GM/(omegac2*nu))**(1/3)
-        nuu=4.0-kappa2/omegac2
-        return (M/(omegac2*nuu))**(1.0/3.0)
+        d2phidr2= self.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return (M/(omegac2-d2phidr2))**(1./3.)
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -3109,8 +3111,14 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
             
     PURPOSE:
         
-        Calculate the tidal radius for object of mass M assuming a circular orbit
-        at R in potential Pot given the formalism of Bertin, G., & Varri, A. L. 2008, ApJ, 689, 1005
+        Calculate the tidal radius for object of mass M assuming a circular orbit as
+
+        .. math::
+
+           r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
+
+        where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+
     INPUT:
         
         Pot - Potential instance or list of such instances
@@ -3138,14 +3146,10 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
     if M is None:
         #Make sure an object mass is given
         raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-    #To calculate omegac in spherical coordinates we need the first derivative of the potential with respect to r
-    r= nu.sqrt(R**2.0+z**2.0)
+    r= nu.sqrt(R**2.+z**2.)
     omegac2=-evaluaterforces(Pot,R,z,phi=phi,t=t,use_physical=False)/r
-    #To calculate the epicyclic frequency kappa we need the second derivative of the potential with respect to r
-    kappa2=3.0*omegac2+evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
-    #rt=(GM/(omegac2*nu))**(1/3)
-    nuu=4.0-kappa2/omegac2
-    return (M/(omegac2*nuu))**(1.0/3.0)
+    d2phidr2= evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
+    return (M/(omegac2-d2phidr2))**(1./3.)
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)

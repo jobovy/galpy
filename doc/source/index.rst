@@ -270,7 +270,54 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate a possible tidal stream for the globular cluster NGC 6441.
 #. *The 4:1 Outer Lindblad Resonance of a long slow bar as a potential explanation for the Hercules stream*, Jason A. S. Hunt & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1803.02358 <http://arxiv.org/abs/1803.02358>`_):
      Uses ``galpy.potential`` modeling tools (``CosmphiDiskPotential`` and wrappers to grow it [``DehnenSmoothWrapperPotential``] and make it rotate [``SolidBodyRotationWrapperPotential``]) and disk models in ``galpy.df`` to study the effect of the Milky Way bar's hexadecapole (m=4) moment on the velocity distribution of stars in the disk of the Milky Way, finding that it can have a big effect near the 4:1 outer Lindblad resonance, which may be close to the Sun.
+#. *KELT-22Ab: A Massive Hot Jupiter Transiting a Near Solar Twin*, Jonathan Labadie-Bartz, Joseph E. Rodriguez, Keivan G. Stassun, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1803.07559 <http://arxiv.org/abs/1803.07559>`_):
+     Employs ``galpy.orbit`` integration in ``MWPotential2014`` to explore the orbit of KELT-22A, the G2V host star of a transiting hot-jupiter exoplanet, in the Milky Way.
+#. *Dissecting stellar chemical abundance space with t-SNE*, Friedrich Anders, Cristina Chiappini, Basílio X. Santiago, Gal Matijevič, Anna B. Queiroz, Matthias Steinmetz (2018) *Astron. & Astrophys.*, submitted (`arXiv/1803.09341 <http://arxiv.org/abs/1803.09341>`_):
+     Uses the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods introduced in `Mackereth & Bovy (2018) <https://arxiv.org/abs/1802.02592>`__ to compute the eccentricity and maximum vertical excursion of a sample of solar-neighborhood stars with detailed chemical abundances, ages, and Galactic kinematics.
+#. *Chemo-kinematics of the Milky Way from the SDSS-III MARVELS Survey*, Nolan Grieves, Jian Ge, Neil Thomas, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1803.11538 <http://arxiv.org/abs/1803.11538>`_):
+     Employs ``galpy.orbit`` integration in a Milky-Way like potential (Miyamoto-Nagai disk, Hernquist bulge, and NFW dark-matter halo) to determine the eccentricity, maximum vertical excursion, and median Galactocentric radius of a sample of a few thousand solar neighborhood stars with spectra from the SDSS MARVELS survey.
+#. *The demographics of neutron star - white dwarf mergers: rates, delay-time distributions and progenitors*, S. Toonen, H.B. Perets, A.P. Igoshev, E. Michaely, & Y. Zenati (2018) *Astron. & Astrophys.*, submitted (`arXiv/1804.01538 <http://arxiv.org/abs/1804.01538>`_):
+     Uses ``galpy.potential`` methods to build mass models for elliptical, dwarf elliptical, plus normal and bulgeless disk galaxies and ``galpy.orbit`` integration to integrate the orbits of neutron-star--white-dwarf binaries kicked by the supernova explosion that created the neutron star, to investigate the spatial distribution of such binaries at the time of their mergers.
+#. *Absolute HST Proper Motion (HSTPROMO) Catalog of Distant Milky Way Globular Clusters: Three-dimensional Systemic Velocities and the Milky Way Mass*, Sangmo Tony Sohn, Laura L. Watkins, Mark A. Fardal, Roeland P. van der Marel, Alis J. Deason, Gurtina Besla, & Andrea Bellini (2018) *Astrophys. J.*, submitted (`arXiv/1804.01994 <http://arxiv.org/abs/1804.01994>`_):
+     Employs ``galpy.orbit`` integration in a custom Milky-Way-like potential (a scaled version of ``MWPotential2014``) to study the orbits of 20 globular clusters in the Milky Way halo for which the authors measured new proper motions.
+#. *Probing the nature of dark matter particles with stellar streams*, Nilanjan Banik, Gianfranco Bertone, Jo Bovy, & Nassim Bozorgnia (2018) *J. Cosmol. Astropart. Phys.*, submitted (`arXiv/1804.04384 <http://arxiv.org/abs/1804.04384>`_):
+     Uses ``galpy.df.streamdf`` and the `galpy extension <https://gist.github.com/jobovy/1be0be25b525e5f50ea3>`_ ``galpy.df.streampepperdf`` to compute the effect of impacts from dark-matter subhalos on stellar streams when dark matter is warm, when there are many fewer such subhalos, and compares this to the standard CDM case.
+#. *Connecting the Milky Way potential profile to the orbital timescales and spatial structure of the Sagittarius Stream*, Mark A. Fardal, Roeland P. van der Marel, David R. Law, Sangmo Tony Sohn, Branimir Sesar, Nina Hernitschek, & Hans-Walter Rix (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.04995 <http://arxiv.org/abs/1804.04995>`_):
+     Employs the ``galpy.potential`` module to build models for the Milky Way's gravitational potential and uses ``galpy.orbit`` to integrate the orbits of members of the Sgr stream in a particle-spray model of the Sgr stream, to investigate how the Sgr stream is sensitive to the Milky Way's potential.
 
+     At this point, a flood of papers using ``galpy`` appeared, which we will not attempt to summarize:
+
+#. *Evidence for accreted component in the Galactic discs*, Q. F. Xing. & G. Zhao (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`2018MNRAS.476.5388X <http://adsabs.harvard.edu/abs/2018MNRAS.476.5388X>`_)
+
+#. *The GALAH survey: An abundance, age, and kinematic inventory of the solar neighbourhood made with TGAS*, S. Buder, K. Lind, M. K. Ness, et al. (2018) *Astron. & Astrophys.*, submitted (`arXiv/1804.05869 <http://arxiv.org/abs/1804.05869>`_)
+
+#. *The GALAH survey: Co-orbiting stars and chemical tagging*, Jeffrey D. Simpson, Sarah L. Martell, Gary Da Costa, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.05894 <http://arxiv.org/abs/1804.05894>`_)
+
+#. *Correlations between age, kinematics, and chemistry as seen by the RAVE survey*, Jennifer Wojno, Georges Kordopatis, Matthias Steinmetz, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1804.06379 <http://arxiv.org/abs/1804.06379>`_)
+
+#. *On the kinematics of a runaway Be star population*, Douglas Boubert & N. Wyn Evans (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1804.05849 <http://arxiv.org/abs/1804.05849>`_)
+
+#. *Unbiased TGAS×LAMOST distances and the role of binarity*, Johanna Coronado, Hans-Walter Rix, & Wilma H. Trick (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.07760 <http://arxiv.org/abs/1804.07760>`_)
+
+#. *The Origin of the 300 km/s Stream Near Segue 1*, Sal Wanying Fu, Joshua D. Simon, Matthew Shetrone, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1804.08622 <http://arxiv.org/abs/1804.08622>`_)
+
+#. *Anatomy of the hyper-runaway star LP 40-365 with Gaia*, R. Raddi, M. A. Hollands, B. T. Gaensicke, D. M. Townsley, J. J. Hermes, N. P. Gentile Fusillo, & D. Koester (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.09677 <http://arxiv.org/abs/1804.09677>`_)
+
+#. *Revisiting hypervelocity stars after Gaia DR2*, Douglas Boubert, James Guillochon, Keith Hawkins, Idan Ginsburg, & N. Wyn Evans (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.10179 <http://arxiv.org/abs/1804.10179>`_)
+
+#. *Gaia Proper Motions and Orbits of the Ultra-Faint Milky Way Satellites*, Joshua D. Simon (2018) *Astrophys. J.*, submitted (`arXiv/1804.10230 <http://arxiv.org/abs/1804.10230>`_)
+
+#. *Three Hypervelocity White Dwarfs in Gaia DR2: Evidence for Dynamically Driven Double-Degenerate Double-Detonation Type Ia Supernovae*, Ken J. Shen, Douglas Boubert, Boris T. Gänsicke, et al. (2018) *Astrophys. J.*, submitted (`arXiv/1804.11163 <http://arxiv.org/abs/1804.11163>`_)
+
+#. *Gaia DR2 Proper Motions of Dwarf Galaxies within 420 kpc: Orbits, Milky Way Mass, Tidal Influences, Planar Alignments, and Group Infall*, T. K. Fritz, G. Battaglia, M. S. Pawlowski, N. Kallivayalil, R. van der Marel, T. S. Sohn, C. Brook, & G. Besla (2018) *Astron. & Astrophys.*, submitted (`arXiv/1805.00908 <http://arxiv.org/abs/1805.00908>`_)
+
+#. *The Lives of Stars: Insights From the TGAS-RAVE-LAMOST Dataset*, John J. Vickers & Martin C. Smith (2018) *Astrophys. J.*, in press (`arXiv/1805.02332 <http://arxiv.org/abs/1805.02332>`_)
+
+#. *High precision pulsar timing and spin frequency second derivatives*, X. J. Liu, C. G. Bassa, & B. W. Stappers (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1805.02892 <http://arxiv.org/abs/1805.02892>`_)
+#. *The Galactic Disc in Action Space as seen by Gaia DR2*, Wilma H. Trick, Johanna Coronado, Hans-Walter Rix (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1805.03653 <http://arxiv.org/abs/1805.03653>`_):
+     Uses ``galpy.actionAngle.actionAngleStaeckel`` to compute the actions in ``galpy.potential.MWPotential2014`` of stars in the extended solar neighborhood in *Gaia* DR2.
+#. *Tidal ribbons*, Walter Dehnen & Hasanuddin (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1805.08481 <http://arxiv.org/abs/1805.08481>`_):
+     Employs ``galpy.actionAngle.actionAngleStaeckel`` to compute the actions and frequencies of a disrupted satellite on an orbit close to the Galactic disk, to investigate the difference between the debris from such an orbit and from an orbit well within the halo.
 
 Indices and tables
 ==================

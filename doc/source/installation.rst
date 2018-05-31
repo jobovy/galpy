@@ -64,15 +64,23 @@ Installing from source on Windows
 
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
 
-	 set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-	 set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-	 set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
 where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
 
-To then compile the code, do::
+To compile with OpenMP on Windows, you have to install Intel OpenMP via::
 
-   python setup.py install --no-openmp
+    conda install -c anaconda intel-openmp
+
+and then to compile the code::
+
+   python setup.py install
+
+If you encounter any issue related to OpenMP during compilation, you can do::
+
+    python setup.py install --no-openmp
 
 
 Installing the TorusMapper code

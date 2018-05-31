@@ -5,6 +5,11 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
+if _APY_LOADED:
+    import astropy
+    _APY3= astropy.__version__ > '3'
+    from astropy.coordinates import SkyCoord, Galactocentric, \
+        CartesianDifferential
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
@@ -26,8 +31,8 @@ else:
 class Orbit(object):
     """General orbit class representing an orbit"""
     def __init__(self,vxvv=None,uvw=False,lb=False,
-                 radec=False,vo=None,ro=None,zo=0.025,
-                 solarmotion='schoenrich'):
+                 radec=False,vo=None,ro=None,zo=None,
+                 solarmotion=None):
         """
         NAME:
 
@@ -44,31 +49,33 @@ class Orbit(object):
 
               1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
 
-              2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities
+              2) astropy (>v3.0) SkyCoord that includes velocities (Note that this turns *on* physical output even if ro and vo are not given)
 
-              3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,km/s]; can be Quantities
+              3) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities; ICRS frame
 
-              4) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
+              4) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities; ICRS frame
 
-              5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,km/s]; can be Quantities
+              5) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
 
-              6) Unspecified: assumed to be the Sun (equivalent to ``vxvv= [0,0,0,0,0,0]`` and ``radec=True``)
+              6) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
 
-           4) and 5) also work when leaving out b and mu_b/W
+              7) Unspecified: assumed to be the Sun (equivalent to ``vxvv= [0,0,0,0,0,0]`` and ``radec=True``)
+
+           5) and 6) also work when leaving out b and mu_b/W
 
         OPTIONAL INPUTS:
 
-           radec= if True, input is 2) (or 3) above
+           radec= if True, input is 2) (or 3) above (Note that this turns *on* physical output even if ro and vo are not given)
 
            uvw= if True, velocities are UVW
 
-           lb= if True, input is 4) or 5) above
+           lb= if True, input is 4) or 5) above (Note that this turns *on* physical output even if ro and vo are not given)
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
 
-           zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity)
+           zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
 
            solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in 
            [-U,V,W]; can be Quantity
@@ -95,11 +102,41 @@ class Orbit(object):
             zo= zo.to(units.kpc).value
         if _APY_LOADED and isinstance(vo,units.Quantity):
             vo= vo.to(units.km/units.s).value
-        if radec or lb:
+        # if vxvv is SkyCoord, preferentially use its ro and zo
+        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+            if not _APY3: # pragma: no cover
+                raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
+            if zo is None and not vxvv.z_sun is None:
+                zo= vxvv.z_sun.to(units.kpc).value
+            elif not vxvv.z_sun is None:
+                if nu.fabs(zo-vxvv.z_sun.to(units.kpc).value) > 1e-8:
+                    raise ValueError("Orbit initialization's zo different from SkyCoord's z_sun; these should be the same for consistency")
+            elif zo is None and not vxvv.galcen_distance is None:
+                zo= 0.
+            if ro is None and not vxvv.galcen_distance is None:
+                ro= nu.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
+                            -zo**2.)
+            elif not vxvv.galcen_distance is None and \
+                    nu.fabs(ro**2.-vxvv.galcen_distance.to(units.kpc).value**2.-zo**2.) > 1e-14:
+                warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
+        # If at this point ro/vo not set, use default from config
+        if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
             if ro is None:
                 ro= config.__config__.getfloat('normalization','ro')
             if vo is None:
                 vo= config.__config__.getfloat('normalization','vo')
+        # If at this point zo not set, use default
+        if zo is None: zo= 0.025
+        # if vxvv is SkyCoord, preferentially use its solarmotion
+        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+                and not vxvv.galcen_v_sun is None:
+            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
+            sc_solarmotion[0]= -sc_solarmotion[0] # right->left
+            sc_solarmotion[1]-= vo
+            if solarmotion is None:
+                solarmotion= sc_solarmotion
+        # If at this point solarmotion not set, use default
+        if solarmotion is None: solarmotion= 'schoenrich'
         if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
             vsolar= nu.array([-10.1,4.0,6.7])
         elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
@@ -111,18 +148,47 @@ class Orbit(object):
             vsolar= solarmotion.to(units.km/units.s).value
         else:
             vsolar= nu.array(solarmotion)
-        if radec or lb:
+        # If both vxvv SkyCoord with vsun and solarmotion set, check the same
+        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+                and not vxvv.galcen_v_sun is None:
+            if nu.any(nu.fabs(sc_solarmotion-vsolar) > 1e-8):
+                raise ValueError("Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)")
+        # Now parse vxvv
+        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+            galcen_v_sun= CartesianDifferential(\
+                nu.array([-vsolar[0],vsolar[1]+vo,vsolar[2]])*units.km/units.s)
+            gc_frame= Galactocentric(\
+                galcen_distance=nu.sqrt(ro**2.+zo**2.)*units.kpc,
+                z_sun=zo*units.kpc,galcen_v_sun=galcen_v_sun)
+            vxvvg= vxvv.transform_to(gc_frame)
+            vxvvg.representation= 'cylindrical'
+            R= vxvvg.rho.to(units.kpc).value/ro
+            phi= nu.pi-vxvvg.phi.to(units.rad).value
+            z= vxvvg.z.to(units.kpc).value/ro
+            try:
+                vR= vxvvg.d_rho.to(units.km/units.s).value/vo
+            except TypeError:
+                raise TypeError("SkyCoord given to Orbit initialization does not have velocity data, which is required to setup an Orbit")
+            vT= -(vxvvg.d_phi*vxvvg.rho)\
+                .to(units.km/units.s,
+                    equivalencies=units.dimensionless_angles()).value/vo
+            vz= vxvvg.d_z.to(units.km/units.s).value/vo
+            vxvv= [R,vR,vT,z,vz,phi]
+        elif radec or lb:
             if radec:
                 if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
                     ra, dec= vxvv[0].to(units.deg).value, \
                         vxvv[1].to(units.deg).value
                 else:
                     ra, dec= vxvv[0], vxvv[1]
-                l,b= coords.radec_to_lb(ra,dec,degree=True)
+                l,b= coords.radec_to_lb(ra,dec,degree=True,epoch=None)
+                _extra_rot= True
             elif len(vxvv) == 4:
                 l, b= vxvv[0], 0.
+                _extra_rot= False
             else:
                 l,b= vxvv[0],vxvv[1]
+                _extra_rot= True
             if _APY_LOADED and isinstance(l,units.Quantity):
                 l= l.to(units.deg).value
             if _APY_LOADED and isinstance(b,units.Quantity):
@@ -150,7 +216,8 @@ class Orbit(object):
                     else:
                         pmra, pmdec= vxvv[3], vxvv[4]
                     pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
-                                                             degree=True)
+                                                             degree=True,
+                                                             epoch=None)
                     d, vlos= vxvv[2], vxvv[5]
                 elif len(vxvv) == 4:
                     pmll, pmbb= vxvv[2], 0.
@@ -176,12 +243,14 @@ class Orbit(object):
             vy/= vo
             vz/= vo
             vsun= nu.array([0.,1.,0.,])+vsolar/vo
-            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
+            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro,
+                                               _extra_rot=_extra_rot)
             vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
                                                   R,phi,z,
                                                   vsun=vsun,
                                                   Xsun=1.,Zsun=zo/ro,
-                                                  galcen=True)
+                                                  galcen=True,
+                                                  _extra_rot=_extra_rot)
             if lb and len(vxvv) == 4: vxvv= [R,vR,vT,phi]
             else: vxvv= [R,vR,vT,z,vz,phi]
         # Parse vxvv if it consists of Quantities

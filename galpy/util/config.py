@@ -1,7 +1,7 @@
 import os, os.path
 try:
     import configparser
-except:
+except: # pragma: no cover
     from six.moves import configparser
 _APY_LOADED= True
 try:

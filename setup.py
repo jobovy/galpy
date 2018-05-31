@@ -29,16 +29,21 @@ with open('README.rst') as dfile:
 # --actionAngle_ext: just compile the actionAngle extension (for use w/ --coverage)
 # --interppotential_ext: just compile the interppotential extension (for use w/ --coverage)
 
-pot_libraries= ['m','gsl','gslcblas','gomp']
+pot_libraries = ['m','gsl','gslcblas','gomp']
+
+if WIN32:  # windows does not need 'gomp' whether compiled with OpenMP or not
+    pot_libraries.remove('gomp')
+
 #Option to forego OpenMP
 try:
     openmp_pos = sys.argv.index('--no-openmp')
 except ValueError:
-    extra_compile_args=["-fopenmp"]
+    extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args= ["-DNO_OMP"]
-    pot_libraries.remove('gomp')
+    if not WIN32:  # Because windows guarantee do not have 'gomp' in the list
+        pot_libraries.remove('gomp')
 
 #Option to track coverage
 try:
