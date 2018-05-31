@@ -381,6 +381,35 @@ class actionAngleVerticalInverse(actionAngleInverse):
             outer.tight_layout(pyplot.gcf())
         return None        
 
+    def plot_orbit(self,E):
+        ta= numpy.linspace(0.,2.*numpy.pi,1001)
+        if not self._interp:
+            # First find the torus for this energy
+            indx= numpy.nanargmin(numpy.fabs(E-self._Es))
+            if numpy.fabs(E-self._Es[indx]) > 1e-10:
+                raise ValueError('Given energy not found; please specify an energy used in the initialization of the instance')
+            tJ= self._js[indx]
+        else:
+            tJ= self.J(E)
+        x,v= self(tJ,ta)
+        # First plot orbit in x,v
+        pyplot.subplot(1,2,1)
+        bovy_plot.bovy_plot(x,v,xlabel=r'$x$',ylabel=r'$v$',gcf=True,
+                            xrange=[1.1*numpy.amin(x),1.1*numpy.amax(x)],
+                            yrange=[1.1*numpy.amin(v),1.1*numpy.amax(v)])
+        # Then plot energy
+        pyplot.subplot(1,2,2)
+        Eorbit= (v**2./2.+evaluatelinearPotentials(self._pot,x))/E-1.
+        ymin, ymax= numpy.amin(Eorbit),numpy.amax(Eorbit)
+        bovy_plot.bovy_plot(ta,Eorbit,
+                            xrange=[0.,2.*numpy.pi],
+                            yrange=[ymin-(ymax-ymin)*3.,ymax+(ymax-ymin)*3.],
+                            gcf=True,
+                            xlabel=r'$\theta$',
+                            ylabel=r'$E/E_{\mathrm{true}}-1$')
+        pyplot.tight_layout()
+        return None
+
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
     def _setup_interp(self):
         self._Emin= self._Es[0]
