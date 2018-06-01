@@ -199,9 +199,11 @@ done by
 
 >>> from galpy.potential import KeplerPotential
 >>> from galpy.util import bovy_conversion
->>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
+>>> MWPotential2014wBH= [MWPotential2014,KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))]
 
-for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}` (this
+works because a list of Potential instances can contain a nested list
+of Potential instances in versions>=1.4).
 
 As explained in :ref:`this section <nemopot>`, *without* this black
 hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
