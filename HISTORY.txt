@@ -1,6 +1,16 @@
 v1.4 (??????)
 ==============
 
+- Added CorotatingRotationWrapperPotential to galpy.potential: a
+  wrapper to make a pattern wind up over time such that it is always
+  corotating (for use in simulating corotating spiral structure like
+  that of Grand, Kawata, Baba, et al.)
+
+- Added GaussianAmplitudeWrapperPotential to galpy.potential: a
+  wrapper to modulate the amplitude of any Potential instance with a
+  Gaussian (growing from zero to the full amplitude and dying off
+  again).
+
 - Allow nested lists of Potential instances everywhere where lists of
   Potential instances were previously allowed; allow easy adding of
   components (e.g., a bar) to previously defined potentials (which may
