@@ -13,6 +13,7 @@ import numpy
 import astropy
 _APY3= astropy.__version__ > '3'
 from galpy import potential
+from galpy.potential_src.Potential import  _check_c
 from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -55,6 +56,11 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
+    testorbitHenonHeilesPotential, \
+    mockFlatCorotatingRotationSpiralArmsPotential, \
+    mockFlatTrulyCorotatingRotationSpiralArmsPotential, \
+    mockFlatGaussianAmplitudeBarPotential, \
+    mockFlatTrulyGaussianAmplitudeBarPotential, \
     testorbitHenonHeilesPotential, \
     nestedListPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -126,6 +132,8 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
+    pots.append('mockFlatGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -162,6 +170,7 @@ def test_energy_jacobi_conservation():
             tclass= getattr(potential,p)
         except AttributeError:
             tclass= getattr(sys.modules[__name__],p)
+        #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
@@ -196,7 +205,10 @@ def test_energy_jacobi_conservation():
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
-                    or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
+                    or 'DehnenSmoothBar' in p  \
+                    or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p  \
                     or p == 'mockMovingObjectLongIntPotential' \
                     or 'Cosmphi' in p or 'triaxialLog' in p \
                     or 'Henon' in p:
@@ -361,7 +373,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p :
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -411,7 +425,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
                 #Jacobi
-                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
+                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                        or 'CorotatingRotation' in p \
+                        or 'GaussianAmplitudeBar' in p:
                     tJacobis= o.Jacobi(ttimes,pot=tp)
                 else:
                     tJacobis= o.Jacobi(ttimes)
@@ -430,7 +446,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -520,6 +538,8 @@ def test_liouville_planar():
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('mockFlatTrulyCorotatingRotationSpiralArmsPotential')
+    pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -544,14 +564,15 @@ def test_liouville_planar():
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
+    tol['NFWPotential']= -6. #more difficult for rk4_c, only one that does this
     tol['TriaxialNFWPotential']= -4. #more difficult
     tol['triaxialLogarithmicHaloPotential']= -7. #more difficult
     tol['FerrersPotential']= -2.
+    tol['mockFlatCosmphiDiskwBreakPotential']= -7. # more difficult
+    tol['mockFlatTrulyCorotatingRotationSpiralArmsPotential']= -5. # more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in list(tol.keys()): ttol= tol[p]
-        else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
         except AttributeError:
@@ -559,10 +580,18 @@ def test_liouville_planar():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
+        #if not p == 'NFWPotential' and not p == 'mockFlatTrulyGaussianAmplitudeBarPotential': continue
         if hasattr(tp,'toPlanar'):
             ptp= tp.toPlanar()
         for integrator in integrators:
-            if integrator == 'odeint' or not tp.hasC \
+            if p in list(tol.keys()): ttol= tol[p]
+            else: ttol= tol['default']
+            if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                thasC= _check_c(tp._potlist)
+            else:
+                thasC= _check_c(tp)
+            if (integrator == 'odeint' or not thasC) \
                 and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
             o= setup_orbit_liouville(ptp,axi=False,henon='Henon' in p)
@@ -602,7 +631,7 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-#            print(p, integrator, numpy.fabs(tjac-1.))
+            #print(p, integrator, numpy.fabs(tjac-1.),ttol)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
             if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests

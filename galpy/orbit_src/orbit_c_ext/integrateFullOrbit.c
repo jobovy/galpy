@@ -304,6 +304,19 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &SolidBodyRotationWrapperPotentialphiforce;
       potentialArgs->nargs= (int) 3;
       break;
+    case -4: //CorotatingRotationWrapperPotential
+      potentialArgs->Rforce= &CorotatingRotationWrapperPotentialRforce;
+      potentialArgs->zforce= &CorotatingRotationWrapperPotentialzforce;
+      potentialArgs->phiforce= &CorotatingRotationWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 5;
+      break;
+    case -5: //GaussianAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &GaussianAmplitudeWrapperPotentialEval;
+      potentialArgs->Rforce= &GaussianAmplitudeWrapperPotentialRforce;
+      potentialArgs->zforce= &GaussianAmplitudeWrapperPotentialzforce;
+      potentialArgs->phiforce= &GaussianAmplitudeWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      break;
     }
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
