@@ -19,12 +19,16 @@ from matplotlib.ticker import NullFormatter
 from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
 from galpy.actionAngle_src.actionAngleHarmonicInverse import \
     actionAngleHarmonicInverse
+from galpy.actionAngle_src.actionAngleRazorThinSlab import \
+    actionAngleRazorThinSlab
+from galpy.actionAngle_src.actionAngleRazorThinSlabInverse import \
+    actionAngleRazorThinSlabInverse
 from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
     def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,
-                 maxiter=100,angle_tol=1e-12,bisect=False):
+                 maxiter=100,angle_tol=1e-12,bisect=False,slab=False):
         """
         NAME:
 
@@ -82,11 +86,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._js= js
         self._Omegas= Omegas
         self._xmaxs= xmaxs
-        # Set harmonic-oscillator frequencies == frequencies
-        self._OmegaHO= Omegas
-        # The following work properly for arrays of omega
-        self._hoaa= actionAngleHarmonic(omega=self._OmegaHO)
-        self._hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO)
+        self._slab= slab
+        if not self._slab:
+            # Set harmonic-oscillator frequencies == frequencies
+            self._OmegaHO= Omegas
+            # The following work properly for arrays of omega
+            self._hoaa= actionAngleHarmonic(omega=self._OmegaHO)
+            self._hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO)
+        else:
+            # Set slab surface density  == 2 Frequencies sqrt(2E)/pi
+            self._SigmaSlab= 2.*Omegas*numpy.sqrt(2.*self._Es)/numpy.pi
+            # The following work properly for arrays of Sigma
+            self._slabaa= actionAngleRazorThinSlab(Sigma=self._SigmaSlab)
+            self._slabaainv= actionAngleRazorThinSlabInverse(\
+                Sigma=self._SigmaSlab)
         # Now map all tori
         self._nta= nta
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
@@ -94,8 +107,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._angle_tol= angle_tol
         self._bisect= bisect
         self._xgrid= self._create_xgrid()
-        self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid)
-        self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid)
+        if not self._slab:
+            self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid)
+            self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,
+                                self._omegagrid)
+        else:
+            self._ja= _ja_slab(self._xgrid,self._Egrid,
+                               self._pot,self._Sigmagrid)
+            self._djadj= _djadj_slab(self._xgrid,self._Egrid,self._pot,
+                                     self._Sigmagrid)
         # Store mean(ja) as probably a better approx. of j
         self._js_orig= copy.copy(self._js)
         self._js= numpy.mean(self._ja,axis=1)
@@ -114,8 +134,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nforSn= self._nforSn[1:]
         self._js[self._Es < 1e-10]= 0.
         # Should use sqrt(2nd deriv. pot), but currently not implemented for 1D
-        if self._nE > 1:
+        if self._nE > 1 and not self._slab:
             self._OmegaHO[self._Es < 1e-10]= self._OmegaHO[1]
+            self._Omegas[self._Es < 1e-10]= self._Omegas[1]
+        elif self._nE > 1:
+            self._SigmaSlab[self._Es < 1e-10]= self._SigmaSlab[1]
             self._Omegas[self._Es < 1e-10]= self._Omegas[1]
         self._nSn[self._Es < 1e-10]= 0.
         self._dSndJ[self._Es < 1e-10]= 0.
@@ -134,8 +157,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # grid in x (at +v)
         xgrid= numpy.linspace(-1.,1.,2*self._nta)
         xs= xgrid*numpy.atleast_2d(self._xmaxs).T
-        xta= _anglea(xs,numpy.tile(self._Es,(xs.shape[1],1)).T,
+        if not self._slab:
+            xta= _anglea(xs,numpy.tile(self._Es,(xs.shape[1],1)).T,
                      self._pot,numpy.tile(self._hoaa._omega,(xs.shape[1],1)).T)
+        else:
+            xta= _anglea_slab(xs,numpy.tile(self._Es,(xs.shape[1],1)).T,
+                   self._pot,numpy.tile(self._slabaa._Sigma,(xs.shape[1],1)).T)
         xta[numpy.isnan(xta)]= 0. # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
         cindx= numpy.nanargmin(numpy.fabs(\
@@ -143,9 +170,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                  +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
         xgrid= xgrid[cindx].T*numpy.atleast_2d(self._xmaxs).T
         Egrid= numpy.tile(self._Es,(self._nta,1)).T
-        omegagrid= numpy.tile(self._hoaa._omega,(self._nta,1)).T
         xmaxgrid= numpy.tile(self._xmaxs,(self._nta,1)).T
-        ta= _anglea(xgrid,Egrid,self._pot,omegagrid)
+        if not self._slab:
+            omegagrid= numpy.tile(self._hoaa._omega,(self._nta,1)).T
+            ta= _anglea(xgrid,Egrid,self._pot,omegagrid)
+        else:
+            Sigmagrid= numpy.tile(self._slabaa._Sigma,(self._nta,1)).T
+            ta= _anglea_slab(xgrid,Egrid,self._pot,Sigmagrid)
         mta= numpy.tile(self._thetaa,(len(self._Es),1))
         # Now iterate
         cntr= 0
@@ -157,8 +188,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Don't allow too big steps
         maxdx= numpy.tile(self._xmaxs/float(self._nta),(self._nta,1)).T
         while not self._bisect:
-            dtadx= _danglea(xgrid[unconv],Egrid[unconv],
-                            self._pot,omegagrid[unconv])
+            if not self._slab:
+                dtadx= _danglea(xgrid[unconv],Egrid[unconv],
+                                self._pot,omegagrid[unconv])
+            else:
+                dtadx= _danglea_slab(xgrid[unconv],Egrid[unconv],
+                                self._pot,Sigmagrid[unconv])
             dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
             dx= -dta/dtadx
             dx[numpy.fabs(dx) > maxdx[unconv]]=\
@@ -169,8 +204,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
             xgrid[unconv*(xgrid < -xmaxgrid)]=\
                 xmaxgrid[unconv*(xgrid < -xmaxgrid)]
             unconv[unconv]= numpy.fabs(dta) > self._angle_tol
-            newta= _anglea(xgrid[unconv],Egrid[unconv],
-                           self._pot,omegagrid[unconv])
+            if not self._slab:
+                newta= _anglea(xgrid[unconv],Egrid[unconv],
+                               self._pot,omegagrid[unconv])
+            else:
+                newta= _anglea_slab(xgrid[unconv],Egrid[unconv],
+                               self._pot,Sigmagrid[unconv])
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
@@ -195,9 +234,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
             while True:
                 dx*= 0.5
                 xgrid[unconv]= tryx_min+dx[unconv]
-                newta= (_anglea(xgrid[unconv],Egrid[unconv],
-                                self._pot,omegagrid[unconv])+2.*numpy.pi) \
-                                % (2.*numpy.pi)
+                if not self._slab:
+                    newta= (_anglea(xgrid[unconv],Egrid[unconv],
+                                    self._pot,omegagrid[unconv])+2.*numpy.pi) \
+                                    % (2.*numpy.pi)
+                else:
+                    newta= (_anglea_slab(xgrid[unconv],Egrid[unconv],
+                                    self._pot,Sigmagrid[unconv])+2.*numpy.pi) \
+                                    % (2.*numpy.pi)
                 dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
                 tryx_min[newta < mta[unconv]]=\
                     xgrid[unconv][newta < mta[unconv]]
@@ -217,18 +261,29 @@ class actionAngleVerticalInverse(actionAngleInverse):
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
         xgrid[:,self._nta//2+1:3*self._nta//4+1]=\
             xgrid[:,3*self._nta//4:][:,::-1]
-        ta[:,self._nta//4+1:3*self._nta//4]= \
-            _anglea(xgrid[:,self._nta//4+1:3*self._nta//4],
-                    Egrid[:,self._nta//4+1:3*self._nta//4],
-                    self._pot,
-                    omegagrid[:,self._nta//4+1:3*self._nta//4],
-                    vsign=-1.)
+        if not self._slab:
+            ta[:,self._nta//4+1:3*self._nta//4]= \
+                _anglea(xgrid[:,self._nta//4+1:3*self._nta//4],
+                        Egrid[:,self._nta//4+1:3*self._nta//4],
+                        self._pot,
+                        omegagrid[:,self._nta//4+1:3*self._nta//4],
+                        vsign=-1.)
+        else:
+            ta[:,self._nta//4+1:3*self._nta//4]= \
+                _anglea_slab(xgrid[:,self._nta//4+1:3*self._nta//4],
+                             Egrid[:,self._nta//4+1:3*self._nta//4],
+                             self._pot,
+                             Sigmagrid[:,self._nta//4+1:3*self._nta//4],
+                             vsign=-1.)
         self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
         self._mta= mta
         # Store these, they are useful (obv. arbitrary to return xgrid 
         # and not just store it...)
         self._Egrid= Egrid
-        self._omegagrid= omegagrid
+        if not self._slab:
+            self._omegagrid= omegagrid
+        else:
+            self._Sigmagrid= Sigmagrid
         self._xmaxgrid= xmaxgrid
         return xgrid
 
@@ -248,12 +303,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pyplot.subplot(gs[3])
         negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
         thetaa_out= numpy.empty_like(self._thetaa)
-        thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
-                                       E,self._pot,
-                                       self._OmegaHO[indx],vsign=1.)
-        thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
-                                  E,self._pot,
-                                  self._OmegaHO[indx],vsign=-1.)
+        if not self._slab:
+            thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
+                                           E,self._pot,
+                                           self._OmegaHO[indx],vsign=1.)
+            thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
+                                      E,self._pot,
+                                      self._OmegaHO[indx],vsign=-1.)
+        else:
+            thetaa_out[True^negv]= _anglea_slab(self._xgrid[indx][True^negv],
+                                                E,self._pot,
+                                           self._SigmaSlab[indx],vsign=1.)
+            thetaa_out[negv]= _anglea_slab(self._xgrid[indx][negv],
+                                           E,self._pot,
+                                           self._SigmaSlab[indx],vsign=-1.)
         bovy_plot.bovy_plot(self._thetaa,
                             ((thetaa_out-self._thetaa+numpy.pi) \
                                  % (2.*numpy.pi))-numpy.pi,
@@ -800,4 +863,89 @@ def _djadj(x,E,pot,omega,vsign=1.):
        2018-04-14 - Written - Bovy (UofT)
     """
     return 1.+(evaluatelinearForces(pot,x)+omega**2.*x)*x/(2.*(E-evaluatelinearPotentials(pot,x))-x*evaluatelinearForces(pot,x))
+
+def _anglea_slab(x,E,pot,Sigma,vsign=1.):
+    """
+    NAME:
+       _anglea_slab
+    PURPOSE:
+       Compute the auxiliary angle for the razor-thin slab for a grid in x and E
+    INPUT:
+       x - position
+       E - Energy
+       pot - the potential
+       Sigma - slab surface density
+    OUTPUT:
+       auxiliary angles
+    HISTORY:
+       2018-06-03 - Written - Bovy (UofT)
+    """
+    # Compute v
+    v2= 2.*(E-evaluatelinearPotentials(pot,x))
+    v2[v2 < 0.]= 0.
+    return numpy.pi/2.*(1.-numpy.sign(x)*vsign\
+                            *numpy.sqrt(v2/(2*Sigma*numpy.fabs(x)+v2)))\
+                            +(x<0.)*numpy.pi
+
+def _danglea_slab(x,E,pot,Sigma,vsign=1.):
+    """
+    NAME:
+       _danglea_slab
+    PURPOSE:
+       Compute the derivative of the auxiliary angle for the razor-thin slab for a grid in x and E at constant E
+    INPUT:
+       x - position
+       E - Energy
+       pot - the potential
+       Sigma - slab surface density
+    OUTPUT:
+       d auxiliary angles / d x (2D array)
+    HISTORY:
+       2018-06-03 - Written - Bovy (UofT)
+    """
+    # Compute v
+    twov2= (E-evaluatelinearPotentials(pot,x))
+    twov2[twov2 < 1e-10]= (E[twov2<1e-10]
+                        -evaluatelinearPotentials(pot,x[twov2<1e-10]*(1.-1e-10)))
+    return vsign*numpy.pi/4.*Sigma*(twov2-x*evaluatelinearForces(pot,x))/\
+        numpy.sqrt(twov2)/(twov2+Sigma*numpy.fabs(x))**1.5
+
+def _ja_slab(x,E,pot,Sigma,vsign=1.):
+    """
+    NAME:
+       _ja_slab
+    PURPOSE:
+       Compute the auxiliary action for the razor-thin slab for a grid in x and E
+    INPUT:
+       x - position
+       E - Energy
+       pot - the potential
+       Sigma - slab surface density
+    OUTPUT:
+       auxiliary actions
+    HISTORY:
+       2018-06-03 - Written - Bovy (UofT)
+    """
+    return 2/3./numpy.pi*(2*Sigma*numpy.fabs(x)+\
+                              2.*(E-evaluatelinearPotentials(pot,x)))**(3./2)\
+                              /Sigma
+
+def _djadj_slab(x,E,pot,Sigma,vsign=1.):
+    """
+    NAME:
+       _djaj_slab
+    PURPOSE:
+       Compute the derivative of the auxiliary action for the razor-thin slab wrt the action for a grid in x and E
+    INPUT:
+       x - position
+       E - Energy
+       pot - the potential
+       Sigma - slab surface density
+    OUTPUT:
+       d(auxiliary actions)/d(action)
+    HISTORY:
+       2018-06-03 - Written - Bovy (UofT)
+    """
+    return 1.+(evaluatelinearForces(pot,x)+numpy.sign(x)*Sigma)\
+        *x/(E-evaluatelinearPotentials(pot,x)-x*evaluatelinearForces(pot,x))
 
