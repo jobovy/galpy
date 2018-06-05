@@ -7,6 +7,7 @@ env: #split tests
   global:
     - REQUIRES_PYNBODY=false
     - REQUIRES_ASTROPY=false
+    - PYTHON_COVREPORTS_VERSION=3.6 # Version for which reports are uploaded
   matrix:
     - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
@@ -35,16 +36,16 @@ before_install:
  - export PATH=$HOME/usr/bin:$PATH
  - make -C lcov-1.11/ install PREFIX=$HOME
 # Install GSLv2
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then wget ftp://ftp.gnu.org/gnu/gsl/gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then tar xf gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then cd gsl-2.4; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then ./configure --prefix=$HOME/usr; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then make; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then make install; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then cd -; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then export CFLAGS=-I$HOME/usr/include; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then export LDFLAGS=-L$HOME/usr/lib; fi
- - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then export LD_LIBRARY_PATH=$HOME/usr/lib; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then wget ftp://ftp.gnu.org/gnu/gsl/gsl-2.4.tar.gz; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then tar xf gsl-2.4.tar.gz; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd gsl-2.4; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then ./configure --prefix=$HOME/usr; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make install; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd -; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export CFLAGS=-I$HOME/usr/include; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LDFLAGS=-L$HOME/usr/lib; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LD_LIBRARY_PATH=$HOME/usr/lib; fi
  #Setup conda for faster installs
  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
@@ -63,10 +64,10 @@ before_install:
 install:
  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
  - pip install pytest-cov
- - pip install coveralls-merge
- - gem install coveralls-lcov
- - easy_install --upgrade requests
- - easy_install --upgrade coveralls
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then pip install coveralls-merge; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then gem install coveralls-lcov; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade requests; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
@@ -84,13 +85,13 @@ script:
  - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
- - lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info
- - lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
  # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload
- - coveralls-lcov -v -n coverage.info > coverage.c.json
- - coveralls-merge coverage.c.json
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then coveralls-lcov -v -n coverage.info > coverage.c.json; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then coveralls-merge coverage.c.json; fi
 notifications:
   email:
     recipients:
