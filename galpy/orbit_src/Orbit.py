@@ -3779,8 +3779,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         """
         return self._orb.animate(*args,**kwargs)
 
-    def from_name(self, name):
-        pass
+    def from_name(self, name, *kwargs):
+        if not _APY_LOADED:
+            raise ImportError('astropy needs to be installed to use Orbit.from_name')
+        if not _ASTROQUERY_LOADED:
+            raise ImportError('astroquery needs to be installed to use Orbit.from_name')
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
