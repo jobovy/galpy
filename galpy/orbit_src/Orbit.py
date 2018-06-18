@@ -5,6 +5,11 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
+_ASTROQUERY_LOADED= True
+try:
+    import astroquery
+except ImportError:
+    _ASTROQUERY_LOADED= False
 if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
@@ -3773,6 +3778,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         return self._orb.animate(*args,**kwargs)
+
+    def from_name(self, name):
+        pass
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
