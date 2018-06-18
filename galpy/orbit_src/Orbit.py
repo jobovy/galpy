@@ -3779,7 +3779,41 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         """
         return self._orb.animate(*args,**kwargs)
 
-    def from_name(self, name, *kwargs):
+    def from_name(self, name, gaiadr2=False, searchr=None, vo=None, ro=None,
+                  zo=None, solarmotion=None):
+        """
+        NAME:
+
+            from_name
+
+        PURPOSE:
+
+            given the name of a star, retrieve coordinate information from an
+            online catalogue for that star and return a corresponding orbit
+
+        INPUT:
+
+            name - the name of the star
+
+            gaiadr2= if True, will attempt to find the star in the Gaia DR2
+            catalogue; otherwise will query SIMBAD (default=False)
+
+            searchr= angular radius used to cone search the Gaia archive for the
+            desired star (arcsec; can be Quantity; default = 1 arcsec)
+
+            ro= distance from vantage point to GC (kpc; can be Quantity)
+
+            vo= circular velocity at ro (km/s; can be Quantity)
+
+            zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+            solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in
+            [-U,V,W]; can be Quantity
+
+        OUTPUT:
+
+            orbit containing the phase space coordinates of the named star
+        """
         if not _APY_LOADED:
             raise ImportError('astropy needs to be installed to use Orbit.from_name')
         if not _ASTROQUERY_LOADED:
