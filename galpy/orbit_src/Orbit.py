@@ -3885,7 +3885,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if gaiadr2:
             ra, dec, plx, pmra, pmdec, rv = gaia_vals
         elif nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
-            raise Exception('failed to find all coordinates')
+            raise Exception('failed to retrieve necessary coordinates')
         else:
             ra, dec, plx, pmra, pmdec, rv = simbad_vals
 
