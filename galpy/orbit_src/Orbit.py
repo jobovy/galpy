@@ -14,7 +14,7 @@ if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
     from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential
+        CartesianDifferential, Angle
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
@@ -3816,7 +3816,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         HISTORY:
 
-            XXXXXXXXXXXXXXXXXXX
+            2018-06-19 - Written - Mathew Bub (UofT)
 
         """
         if not _APY_LOADED:
@@ -3830,7 +3830,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         try:
             simbad_table= custom_simbad.query_object(name)
-            simbad_vals= [simbad_table['RA'][0].to(units.deg),
+            simbad_vals= [Angle(simbad_table['RA'][0], units.hourangle).value,
                           simbad_table['DEC'][0],
                           simbad_table['PLX_VALUE'][0],
                           simbad_table['PMRA'][0],
