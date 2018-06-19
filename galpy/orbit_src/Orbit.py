@@ -3779,7 +3779,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         """
         return self._orb.animate(*args,**kwargs)
 
-    def from_name(self, name, gaiadr2=False, searchr=None, vo=None, ro=None,
+    @classmethod
+    def from_name(cls, name, gaiadr2=False, searchr=None, vo=None, ro=None,
                   zo=None, solarmotion=None):
         """
         NAME:
@@ -3827,11 +3828,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         from astroquery.simbad import Simbad
         custom_simbad= Simbad()
         custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
-
         try:
             simbad_table= custom_simbad.query_object(name)
             simbad_vals= [Angle(simbad_table['RA'][0], units.hourangle).value,
-                          simbad_table['DEC'][0],
+                          Angle(simbad_table['DEC'][0], units.deg).value,
                           simbad_table['PLX_VALUE'][0],
                           simbad_table['PMRA'][0],
                           simbad_table['PMDEC'][0],
