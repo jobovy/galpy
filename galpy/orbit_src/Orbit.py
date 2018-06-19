@@ -3830,15 +3830,14 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
         try:
             simbad_table= custom_simbad.query_object(name)
-            simbad_vals= [Angle(simbad_table['RA'][0], units.hourangle).value,
+            simbad_vals= [Angle(simbad_table['RA'][0], units.hourangle).to(units.deg).value,
                           Angle(simbad_table['DEC'][0], units.deg).value,
                           simbad_table['PLX_VALUE'][0],
                           simbad_table['PMRA'][0],
                           simbad_table['PMDEC'][0],
                           simbad_table['RV_VALUE'][0]]
-        except ConnectionError as e:
-            e.message= 'failed to query SIMBAD'
-            raise
+        except (IOError, OSError):
+            raise ConnectionError('failed to query SIMBAD')
         except IndexError:
             raise Exception('failed to find {} in SIMBAD'.format(name))
 
@@ -3854,17 +3853,18 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
             epoch_prop_vals = [val if not nu.ma.is_masked(val) else 0. for val in simbad_vals]
             query= """
-                   SELECT source_id,ra,dec,pmra,pmdec,parallax,radial_velocity
+                   SELECT ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
                    WHERE 1=CONTAINS(
                    POINT('ICRS',ra,dec),
                    CIRCLE('ICRS', 
-                   COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,ref_epoch)),
-                   COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,ref_epoch)),{6}))
+                   COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
+                   COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
+                   {6}))
                    """.format(*epoch_prop_vals, searchr)
 
             try:
-                job= Gaia.launch_job_asynch(query)
+                job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
                 gaia_vals= [gaia_table['ra'][0],
                             gaia_table['dec'][0],
@@ -3872,8 +3872,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                             gaia_table['pmra'][0],
                             gaia_table['pmdec'][0],
                             gaia_table['radial_velocity'][0]]
-                if nu.any(nu.ma.is_masked(gaia_vals)):
-                    warnings.warn('failed to find some coordinates in Gaia; falling back on SIMBAD', Warning)
+                if nu.any([nu.ma.is_masked(val) for val in gaia_vals]):
+                    warnings.warn('some coordinates are missing from Gaia; falling back on SIMBAD', Warning)
                     gaiadr2= False
             except(IOError, OSError):
                 warnings.warn('failed to query Gaia; falling back on SIMBAD', Warning)
@@ -3884,8 +3884,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         if gaiadr2:
             ra, dec, plx, pmra, pmdec, rv = gaia_vals
-        elif nu.any(nu.ma.is_masked(simbad_vals)):
-            raise Exception('failed to find some coordinates in SIMBAD')
+        elif nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
+            raise Exception('failed to find all coordinates')
         else:
             ra, dec, plx, pmra, pmdec, rv = simbad_vals
 
