@@ -3797,7 +3797,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             name - the name of the star
 
             gaiadr2= if True, will attempt to find the star in the Gaia DR2
-            catalogue; otherwise will query SIMBAD (default=False)
+            catalogue by cross-matching with SIMBAD; otherwise will directly
+            use the coordinates from SIMBAD (default=False)
 
             searchr= angular radius used to cone search the Gaia archive for the
             desired star (arcsec; can be Quantity; default = 1 arcsec)
@@ -3885,7 +3886,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if gaiadr2:
             ra, dec, plx, pmra, pmdec, rv = gaia_vals
         elif nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
-            raise Exception('failed to retrieve necessary coordinates')
+            raise Exception('failed to find all necessary coordinates')
         else:
             ra, dec, plx, pmra, pmdec, rv = simbad_vals
 
