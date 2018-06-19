@@ -3813,11 +3813,84 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         OUTPUT:
 
             orbit containing the phase space coordinates of the named star
+
+        HISTORY:
+
+            XXXXXXXXXXXXXXXXXXX
+
         """
         if not _APY_LOADED:
             raise ImportError('astropy needs to be installed to use Orbit.from_name')
         if not _ASTROQUERY_LOADED:
             raise ImportError('astroquery needs to be installed to use Orbit.from_name')
+
+        from astroquery.simbad import Simbad
+        custom_simbad= Simbad()
+        custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
+
+        try:
+            simbad_table= custom_simbad.query_object(name)
+            simbad_vals= [simbad_table['RA'][0].to(units.deg),
+                          simbad_table['DEC'][0],
+                          simbad_table['PLX_VALUE'][0],
+                          simbad_table['PMRA'][0],
+                          simbad_table['PMDEC'][0],
+                          simbad_table['RV_VALUE'][0]]
+        except ConnectionError as e:
+            e.message= 'failed to query SIMBAD'
+            raise
+        except IndexError:
+            raise Exception('failed to find {} in SIMBAD'.format(name))
+
+        if gaiadr2:
+            from astroquery.gaia import Gaia
+
+            if searchr is None:
+                searchr= 1
+            if isinstance(searchr, units.Quantity):
+                searchr= searchr.to(units.deg).value
+            else:
+                searchr= (searchr*units.arcsec).to(units.deg).value
+
+            epoch_prop_vals = [val if not nu.ma.is_masked(val) else 0. for val in simbad_vals]
+            query= """
+                   SELECT source_id,ra,dec,pmra,pmdec,parallax,radial_velocity
+                   FROM gaiadr2.gaia_source
+                   WHERE 1=CONTAINS(
+                   POINT('ICRS',ra,dec),
+                   CIRCLE('ICRS', 
+                   COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,ref_epoch)),
+                   COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,ref_epoch)),{6}))
+                   """.format(*epoch_prop_vals, searchr)
+
+            try:
+                job= Gaia.launch_job_asynch(query)
+                gaia_table= job.get_results()
+                gaia_vals= [gaia_table['ra'][0],
+                            gaia_table['dec'][0],
+                            gaia_table['parallax'][0],
+                            gaia_table['pmra'][0],
+                            gaia_table['pmdec'][0],
+                            gaia_table['radial_velocity'][0]]
+                if nu.any(nu.ma.is_masked(gaia_vals)):
+                    warnings.warn('failed to find some coordinates in Gaia; falling back on SIMBAD', Warning)
+                    gaiadr2= False
+            except(IOError, OSError):
+                warnings.warn('failed to query Gaia; falling back on SIMBAD', Warning)
+                gaiadr2= False
+            except IndexError:
+                warnings.warn('failed to find {} in Gaia; falling back on SIMBAD'.format(name), Warning)
+                gaiadr2= False
+
+        if gaiadr2:
+            ra, dec, plx, pmra, pmdec, rv = gaia_vals
+        elif nu.any(nu.ma.is_masked(simbad_vals)):
+            raise Exception('failed to find some coordinates in SIMBAD')
+        else:
+            ra, dec, plx, pmra, pmdec, rv = simbad_vals
+
+        return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,rv], radec=True, ro=ro, vo=vo,
+                   zo=zo, solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
