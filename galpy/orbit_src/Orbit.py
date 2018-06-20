@@ -5,16 +5,16 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
-_ASTROQUERY_LOADED= True
-try:
-    import astroquery
-except ImportError:
-    _ASTROQUERY_LOADED= False
 if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential, Angle
+_ASTROQUERY_LOADED= True
+try:
+    from astroquery.simbad import Simbad
+except ImportError:
+    _ASTROQUERY_LOADED= False
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
@@ -3807,7 +3807,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
             vo= circular velocity at ro (km/s; can be Quantity)
 
-            zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+            zo= offset toward the NGP of the Sun wrt the plane (kpc; can be
+            Quantity; default = 25 pc)
 
             solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in
             [-U,V,W]; can be Quantity
@@ -3822,26 +3823,34 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         if not _APY_LOADED:
-            raise ImportError('astropy needs to be installed to use Orbit.from_name')
+            raise ImportError(('astropy needs to be installed to use '
+                               'Orbit.from_name'))
         if not _ASTROQUERY_LOADED:
-            raise ImportError('astroquery needs to be installed to use Orbit.from_name')
+            raise ImportError(('astroquery needs to be installed to use '
+                               'Orbit.from_name'))
 
-        from astroquery.simbad import Simbad
+        # query SIMBAD for the named star
         custom_simbad= Simbad()
         custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
         try:
             simbad_table= custom_simbad.query_object(name)
-            simbad_vals= [Angle(simbad_table['RA'][0], units.hourangle).to(units.deg).value,
-                          Angle(simbad_table['DEC'][0], units.deg).value,
-                          simbad_table['PLX_VALUE'][0],
-                          simbad_table['PMRA'][0],
-                          simbad_table['PMDEC'][0],
-                          simbad_table['RV_VALUE'][0]]
         except (IOError, OSError):
             raise ConnectionError('failed to query SIMBAD')
-        except IndexError:
-            raise Exception('failed to find {} in SIMBAD'.format(name))
+        if not simbad_table:
+            raise ValueError('failed to find {} in SIMBAD'.format(name))
 
+        # convert ra, dec to degrees
+        simbad_ra= Angle(simbad_table['RA'][0], units.hourangle).to(units.deg)
+        simbad_dec= Angle(simbad_table['DEC'][0], units.deg)
+
+        simbad_vals= [simbad_ra.value,
+                      simbad_dec.value,
+                      simbad_table['PLX_VALUE'][0],
+                      simbad_table['PMRA'][0],
+                      simbad_table['PMDEC'][0],
+                      simbad_table['RV_VALUE'][0]]
+
+        # try to cross-match the SIMBAD coordinates with Gaia DR2
         if gaiadr2:
             from astroquery.gaia import Gaia
 
@@ -3852,7 +3861,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             else:
                 searchr= (searchr*units.arcsec).to(units.deg).value
 
-            epoch_prop_vals = [val if not nu.ma.is_masked(val) else 0. for val in simbad_vals]
+            # parameters for epoch correction
+            epoch_prop_vals= [val if not nu.ma.is_masked(val) else 0. for val
+                              in simbad_vals]
+
             query= """
                    SELECT ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
@@ -3867,31 +3879,37 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             try:
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
+
                 gaia_vals= [gaia_table['ra'][0],
                             gaia_table['dec'][0],
                             gaia_table['parallax'][0],
                             gaia_table['pmra'][0],
                             gaia_table['pmdec'][0],
                             gaia_table['radial_velocity'][0]]
+
+                # check for missing values
                 if nu.any([nu.ma.is_masked(val) for val in gaia_vals]):
-                    warnings.warn('some coordinates are missing from Gaia; falling back on SIMBAD', Warning)
+                    warnings.warn(('some coordinates are missing from Gaia; '
+                                   'falling back on SIMBAD'), Warning)
                     gaiadr2= False
             except(IOError, OSError):
-                warnings.warn('failed to query Gaia; falling back on SIMBAD', Warning)
+                warnings.warn('failed to query Gaia; falling back on SIMBAD',
+                              Warning)
                 gaiadr2= False
             except IndexError:
-                warnings.warn('failed to find {} in Gaia; falling back on SIMBAD'.format(name), Warning)
+                warnings.warn(('failed to find {} in Gaia; falling back on '
+                               'SIMBAD').format(name), Warning)
                 gaiadr2= False
 
         if gaiadr2:
-            ra, dec, plx, pmra, pmdec, rv = gaia_vals
+            ra, dec, plx, pmra, pmdec, vlos= gaia_vals
         elif nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
-            raise Exception('failed to find all necessary coordinates')
+            raise ValueError('failed to find all necessary coordinates')
         else:
-            ra, dec, plx, pmra, pmdec, rv = simbad_vals
+            ra, dec, plx, pmra, pmdec, vlos= simbad_vals
 
-        return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,rv], radec=True, ro=ro, vo=vo,
-                   zo=zo, solarmotion=solarmotion)
+        return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,vlos], radec=True, ro=ro,
+                   vo=vo, zo=zo, solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
