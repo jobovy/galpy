@@ -3865,6 +3865,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             epoch_prop_vals= [val if not nu.ma.is_masked(val) else 0. for val
                               in simbad_vals]
 
+            # ADQL query to the Gaia archive with epoch correction
             query= """
                    SELECT ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
