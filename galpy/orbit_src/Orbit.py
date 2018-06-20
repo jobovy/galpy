@@ -3863,7 +3863,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
             # parameters for epoch correction
             epoch_prop_vals= [val if not nu.ma.is_masked(val) else 0. for val
-                              in simbad_vals]
+                              in simbad_vals] + [searchr]
 
             # ADQL query to the Gaia archive with epoch correction
             query= """
@@ -3875,7 +3875,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                    COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
                    COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
                    {6}))
-                   """.format(*epoch_prop_vals, searchr)
+                   """.format(*epoch_prop_vals)
 
             try:
                 job= Gaia.launch_job(query)
@@ -3893,7 +3893,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                     warnings.warn(('some coordinates are missing from Gaia; '
                                    'falling back on SIMBAD'), Warning)
                     gaiadr2= False
-            except(IOError, OSError):
+            except (IOError, OSError):
                 warnings.warn('failed to query Gaia; falling back on SIMBAD',
                               Warning)
                 gaiadr2= False
