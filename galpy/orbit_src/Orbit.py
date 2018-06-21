@@ -3819,7 +3819,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         HISTORY:
 
-            2018-06-19 - Written - Mathew Bub (UofT)
+            2018-06-21 - Written - Mathew Bub (UofT)
 
         """
         if not _APY_LOADED:
@@ -3838,13 +3838,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             raise ConnectionError('failed to query SIMBAD')
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
-
-        # convert ra, dec to degrees
-        simbad_ra= Angle(simbad_table['RA'][0], units.hourangle).to(units.deg)
-        simbad_dec= Angle(simbad_table['DEC'][0], units.deg)
-
-        simbad_vals= [simbad_ra.value,
-                      simbad_dec.value,
+        simbad_vals= [Angle(simbad_table['RA'][0]+'h').to(units.deg).value,
+                      Angle(simbad_table['DEC'][0]+'d').value,
                       simbad_table['PLX_VALUE'][0],
                       simbad_table['PMRA'][0],
                       simbad_table['PMDEC'][0],
@@ -3853,7 +3848,6 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         # try to cross-match the SIMBAD coordinates with Gaia DR2
         if gaiadr2:
             from astroquery.gaia import Gaia
-
             if searchr is None:
                 searchr= 1
             if isinstance(searchr, units.Quantity):
@@ -3861,11 +3855,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             else:
                 searchr= (searchr*units.arcsec).to(units.deg).value
 
-            # parameters for epoch correction
-            epoch_prop_vals= [val if not nu.ma.is_masked(val) else 0. for val
-                              in simbad_vals] + [searchr]
-
             # ADQL query to the Gaia archive with epoch correction
+            query_vals= [val if not nu.ma.is_masked(val) else 0. for val in
+                         simbad_vals] + [searchr]
             query= """
                    SELECT ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
@@ -3875,39 +3867,33 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                    COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
                    COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
                    {6}))
-                   """.format(*epoch_prop_vals)
-
+                   """.format(*query_vals)
             try:
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
-
-                gaia_vals= [gaia_table['ra'][0],
-                            gaia_table['dec'][0],
-                            gaia_table['parallax'][0],
-                            gaia_table['pmra'][0],
-                            gaia_table['pmdec'][0],
-                            gaia_table['radial_velocity'][0]]
-
-                # check for missing values
-                if nu.any([nu.ma.is_masked(val) for val in gaia_vals]):
-                    warnings.warn(('some coordinates are missing from Gaia; '
-                                   'falling back on SIMBAD'), Warning)
-                    gaiadr2= False
             except (IOError, OSError):
                 warnings.warn('failed to query Gaia; falling back on SIMBAD',
-                              Warning)
+                              galpyWarning)
                 gaiadr2= False
-            except IndexError:
-                warnings.warn(('failed to find {} in Gaia; falling back on '
-                               'SIMBAD').format(name), Warning)
-                gaiadr2= False
+            else:
+                # check that the star and all necessary coordinates were found
+                if not gaia_table:
+                    warnings.warn(('failed to find {} in Gaia; falling back on '
+                                   'SIMBAD').format(name), galpyWarning)
+                    gaiadr2= False
+                elif nu.any([nu.ma.is_masked(val) for val in gaia_table[0]]):
+                    warnings.warn(('some coordinates are missing from Gaia; '
+                                   'falling back on SIMBAD'), galpyWarning)
+                    gaiadr2= False
+                else:
+                    ra, dec, plx, pmra, pmdec, vlos= gaia_table[0]
 
-        if gaiadr2:
-            ra, dec, plx, pmra, pmdec, vlos= gaia_vals
-        elif nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
-            raise ValueError('failed to find all necessary coordinates')
-        else:
-            ra, dec, plx, pmra, pmdec, vlos= simbad_vals
+        # if not using Gaia, try to generate the orbit using SIMBAD coordinates
+        if not gaiadr2:
+            if nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
+                raise ValueError('failed to find all necessary coordinates')
+            else:
+                ra, dec, plx, pmra, pmdec, vlos= simbad_vals
 
         return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,vlos], radec=True, ro=ro,
                    vo=vo, zo=zo, solarmotion=solarmotion)
