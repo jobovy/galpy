@@ -3859,7 +3859,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             query_vals= [val if not nu.ma.is_masked(val) else 0. for val in
                          simbad_vals] + [searchr]
             query= """
-                   SELECT TOP 1 ra, dec, parallax, pmra, pmdec, radial_velocity
+                   SELECT TOP 2 ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
                    WHERE 1=CONTAINS(
                    POINT('ICRS',ra,dec),
@@ -3891,6 +3891,12 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                     gaiadr2= False
                 else:
                     ra, dec, plx, pmra, pmdec, vlos= gaia_table[0]
+
+                # check that the Gaia archive found only one matching star
+                if len(gaia_table) > 1:
+                    warnings.warn(('Gaia query returned more than one result, '
+                                   'so the found star may be incorrect; try '
+                                   'reducing searchr'), galpyWarning)
 
         # if not using Gaia, try to generate the orbit using SIMBAD coordinates
         if not gaiadr2:
