@@ -3859,7 +3859,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             query_vals= [val if not nu.ma.is_masked(val) else 0. for val in
                          simbad_vals] + [searchr]
             query= """
-                   SELECT ra, dec, parallax, pmra, pmdec, radial_velocity
+                   SELECT TOP 1 ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
                    WHERE 1=CONTAINS(
                    POINT('ICRS',ra,dec),
@@ -3874,6 +3874,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             except (IOError, OSError):
                 warnings.warn('failed to query Gaia; falling back on SIMBAD',
                               galpyWarning)
+                gaiadr2= False
+            except ValueError:
+                warnings.warn(('Gaia query timed out (searchr may be too '
+                               'large); falling back on SIMBAD'), galpyWarning)
                 gaiadr2= False
             else:
                 # check that the star and all necessary coordinates were found
