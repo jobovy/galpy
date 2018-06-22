@@ -3834,8 +3834,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
         try:
             simbad_table= custom_simbad.query_object(name)
-        except (IOError, OSError):
-            raise ConnectionError('failed to query SIMBAD')
+        except OSError:
+            raise ConnectionError('failed to connect to SIMBAD')
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
         simbad_vals= [Angle(simbad_table['RA'][0]+'h').to(units.deg).value,
@@ -3871,9 +3871,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             try:
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
-            except (IOError, OSError):
-                warnings.warn(('failed to query Gaia; the Gaia archive may be '
-                               'down; falling back on SIMBAD'), galpyWarning)
+            except OSError:
+                warnings.warn(('failed to connect to the Gaia archive; falling '
+                               'back on SIMBAD'), galpyWarning)
                 gaiadr2= False
             except ValueError:
                 warnings.warn(('Gaia query timed out when searching for {}; '
