@@ -9,7 +9,7 @@ if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
     from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential, Angle
+        CartesianDifferential
 _ASTROQUERY_LOADED= True
 try:
     from astroquery.simbad import Simbad
@@ -3831,19 +3831,15 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         # query SIMBAD for the named star
         custom_simbad= Simbad()
-        custom_simbad.add_votable_fields('plx', 'pmra', 'pmdec', 'rv_value')
+        custom_simbad.remove_votable_fields('main_id', 'coordinates')
+        custom_simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra',
+                                         'pmdec', 'rv_value')
         try:
             simbad_table= custom_simbad.query_object(name)
         except OSError:
             raise ConnectionError('failed to connect to SIMBAD')
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
-        simbad_vals= [Angle(simbad_table['RA'][0]+'h').to(units.deg).value,
-                      Angle(simbad_table['DEC'][0]+'d').value,
-                      simbad_table['PLX_VALUE'][0],
-                      simbad_table['PMRA'][0],
-                      simbad_table['PMDEC'][0],
-                      simbad_table['RV_VALUE'][0]]
 
         # try to cross-match the SIMBAD coordinates with Gaia DR2
         if gaiadr2:
@@ -3857,7 +3853,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
             # ADQL query to the Gaia archive with epoch correction
             query_vals= [val if not nu.ma.is_masked(val) else 0. for val in
-                         simbad_vals] + [searchr]
+                         simbad_table[0]] + [searchr]
             query= """
                    SELECT TOP 2 ra, dec, parallax, pmra, pmdec, radial_velocity
                    FROM gaiadr2.gaia_source
@@ -3903,11 +3899,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         # if not using Gaia, try to generate the orbit using SIMBAD coordinates
         if not gaiadr2:
-            if nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
+            if nu.any([nu.ma.is_masked(val) for val in simbad_table[0]]):
                 raise ValueError(('failed to find all necessary coordinates '
                                   'for {}').format(name))
             else:
-                ra, dec, plx, pmra, pmdec, vlos= simbad_vals
+                ra, dec, plx, pmra, pmdec, vlos= simbad_table[0]
 
         return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,vlos], radec=True, ro=ro,
                    vo=vo, zo=zo, solarmotion=solarmotion)
