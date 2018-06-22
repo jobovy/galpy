@@ -3872,12 +3872,13 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
             except (IOError, OSError):
-                warnings.warn('failed to query Gaia; falling back on SIMBAD',
-                              galpyWarning)
+                warnings.warn(('failed to query Gaia; the Gaia archive may be '
+                               'down; falling back on SIMBAD'), galpyWarning)
                 gaiadr2= False
             except ValueError:
-                warnings.warn(('Gaia query timed out (searchr may be too '
-                               'large); falling back on SIMBAD'), galpyWarning)
+                warnings.warn(('Gaia query timed out when searching for {}; '
+                               'searchr may be too large; falling back on '
+                               'SIMBAD').format(name), galpyWarning)
                 gaiadr2= False
             else:
                 # check that the star and all necessary coordinates were found
@@ -3886,22 +3887,25 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                    'SIMBAD').format(name), galpyWarning)
                     gaiadr2= False
                 elif nu.any([nu.ma.is_masked(val) for val in gaia_table[0]]):
-                    warnings.warn(('some coordinates are missing from Gaia; '
-                                   'falling back on SIMBAD'), galpyWarning)
+                    warnings.warn(('some coordinates for {} are missing from '
+                                   'Gaia; falling back on SIMBAD').format(name),
+                                  galpyWarning)
                     gaiadr2= False
                 else:
                     ra, dec, plx, pmra, pmdec, vlos= gaia_table[0]
 
                 # check that the Gaia archive found only one matching star
                 if len(gaia_table) > 1:
-                    warnings.warn(('Gaia query returned more than one result, '
-                                   'so the found star may be incorrect; try '
-                                   'reducing searchr'), galpyWarning)
+                    warnings.warn(('Gaia query returned more than one result '
+                                   'when searching for {} and may have found '
+                                   'the wrong star; try reducing searchr'
+                                   ).format(name), galpyWarning)
 
         # if not using Gaia, try to generate the orbit using SIMBAD coordinates
         if not gaiadr2:
             if nu.any([nu.ma.is_masked(val) for val in simbad_vals]):
-                raise ValueError('failed to find all necessary coordinates')
+                raise ValueError(('failed to find all necessary coordinates '
+                                  'for {}').format(name))
             else:
                 ra, dec, plx, pmra, pmdec, vlos= simbad_vals
 
