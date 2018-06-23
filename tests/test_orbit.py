@@ -4280,6 +4280,120 @@ def test_full_plotting():
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
     return None
 
+def test_from_name():
+    from galpy.orbit import Orbit
+
+    # test Vega from SIMBAD
+    o = Orbit.from_name('Vega')
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega does not match SIMBAD value"
+
+    # test Lacaille 8760 from SIMBAD
+    o = Orbit.from_name('Lacaille 8760')
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 does not match SIMBAD value"
+
+    # test GJ 440 from SIMBAD
+    try:
+        Orbit.from_name('GJ 440')
+    except ValueError as e:
+        assert str(e) == "failed to find all necessary coordinates for GJ 440", \
+            "expected error message 'failed to find all necessary coordinates for GJ 440', but got '{}' instead".format(str(e))
+    else:
+        raise AssertionError("Orbit.from_name('GJ 440') did not raise ValueError")
+
+    # test Vega from Gaia
+    o = Orbit.from_name('Vega', gaiadr2=True)
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega did not default to SIMBAD when searching Gaia"
+
+    # test Lacaille 8760 from Gaia
+    o = Orbit.from_name('Lacaille 8760', gaiadr2=True)
+    assert numpy.isclose(o.ra(), 319.29559940781115), \
+        "RA of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.dec(), -38.87229724957863), \
+        "DEC of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.dist(), 1/251.82949243686906), \
+        "Parallax of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.pmra(), -3258.5531275249455), \
+        "PMRA of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.pmdec(), -1145.3957291901002), \
+        "PMDec of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.vlos(), 20.561701480854417), \
+        "radial velocity of Lacaille 8760 does not match Gaia value"
+
+    # test GJ 440 from Gaia
+    try:
+        Orbit.from_name('GJ 440', gaiadr2=True)
+    except ValueError as e:
+        assert str(e) == "failed to find all necessary coordinates for GJ 440", \
+            "expected error message 'failed to find all necessary coordinates for GJ 440', but got '{}' instead".format(str(e))
+    else:
+        raise AssertionError("Orbit.from_name('GJ 440', gaiadr2=True) did not raise ValueError")
+
+    # test with a fake object
+    try:
+        Orbit.from_name('abc123')
+    except ValueError as e:
+        assert str(e) == "failed to find abc123 in SIMBAD", \
+            "expected error message 'failed to find abc123 in SIMBAD', but got '{}' instead".format(str(e))
+    else:
+        raise AssertionError("Orbit.from_name('abc123') did not raise ValueError")
+
+    # test with a fake object
+    try:
+        Orbit.from_name('abc123', gaiadr2=True)
+    except ValueError as e:
+        assert str(e) == "failed to find abc123 in SIMBAD", \
+            "expected error message 'failed to find abc123 in SIMBAD', but got '{}' instead".format(str(e))
+    else:
+        raise AssertionError("Orbit.from_name('abc123', gaiadr2=True) did not raise ValueError")
+
+    # test small searchr
+    o = Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6)
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
