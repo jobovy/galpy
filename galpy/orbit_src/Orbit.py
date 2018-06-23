@@ -3831,9 +3831,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         # query SIMBAD for the named star
         custom_simbad= Simbad()
-        custom_simbad.remove_votable_fields('main_id', 'coordinates')
         custom_simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra',
                                          'pmdec', 'rv_value')
+        custom_simbad.remove_votable_fields('main_id', 'coordinates')
         try:
             simbad_table= custom_simbad.query_object(name)
         except OSError:
