@@ -3789,19 +3789,19 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         PURPOSE:
 
-            given the name of a star, retrieve coordinate information from an
-            online catalogue for that star and return a corresponding orbit
+            given the name of an object, retrieve coordinate information from an
+            online catalogue for that object and return a corresponding orbit
 
         INPUT:
 
-            name - the name of the star
+            name - the name of the object
 
-            gaiadr2= if True, will attempt to find the star in the Gaia DR2
+            gaiadr2= if True, will attempt to find the object in the Gaia DR2
             catalogue by cross-matching with SIMBAD; otherwise will directly
             use the coordinates from SIMBAD (default=False)
 
             searchr= angular radius used to cone search the Gaia archive for the
-            desired star (arcsec; can be Quantity; default = 1 arcsec)
+            desired object (arcsec; can be Quantity; default = 1 arcsec)
 
             ro= distance from vantage point to GC (kpc; can be Quantity)
 
@@ -3815,7 +3815,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         OUTPUT:
 
-            orbit containing the phase space coordinates of the named star
+            orbit containing the phase space coordinates of the named object
 
         HISTORY:
 
@@ -3829,7 +3829,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             raise ImportError(('astroquery needs to be installed to use '
                                'Orbit.from_name'))
 
-        # query SIMBAD for the named star
+        # query SIMBAD for the named object
         custom_simbad= Simbad()
         custom_simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra',
                                          'pmdec', 'rv_value')
@@ -3877,7 +3877,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                'SIMBAD').format(name), galpyWarning)
                 gaiadr2= False
             else:
-                # check that the star and all necessary coordinates were found
+                # check that the object and all necessary coordinates were found
                 if not gaia_table:
                     warnings.warn(('failed to find {} in Gaia; falling back on '
                                    'SIMBAD').format(name), galpyWarning)
@@ -3890,11 +3890,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                 else:
                     ra, dec, plx, pmra, pmdec, vlos= gaia_table[0]
 
-                # check that the Gaia archive found only one matching star
+                # check that the Gaia archive found only one matching object
                 if len(gaia_table) > 1:
                     warnings.warn(('Gaia query returned more than one result '
                                    'when searching for {} and may have found '
-                                   'the wrong star; try reducing searchr'
+                                   'the wrong object; try reducing searchr'
                                    ).format(name), galpyWarning)
 
         # if not using Gaia, try to generate the orbit using SIMBAD coordinates
