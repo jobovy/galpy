@@ -566,12 +566,15 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if not _check_c(pot):
+        if not ext_loaded or not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
                 method= 'odeint'
-            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
