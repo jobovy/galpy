@@ -310,7 +310,7 @@ we are using a spherical potential):
 .. WARNING::
    Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
 
-In a `jupyter notebook <http://jupyter.org>`__ you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
+In a `jupyter notebook <http://jupyter.org>`__ or in `jupyterlab <http://jupyterlab.readthedocs.io/en/stable/>`__ (jupyterlab versions >= 0.33) you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
 
 >>> op.animate()
 
@@ -331,6 +331,7 @@ which gives
 .. raw:: html
    :file: orbitanim2proj.html
 
+If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
    
 Orbit characterization
 ------------------------
