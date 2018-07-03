@@ -319,6 +319,24 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Tidal ribbons*, Walter Dehnen & Hasanuddin (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1805.08481 <http://arxiv.org/abs/1805.08481>`_):
      Employs ``galpy.actionAngle.actionAngleStaeckel`` to compute the actions and frequencies of a disrupted satellite on an orbit close to the Galactic disk, to investigate the difference between the debris from such an orbit and from an orbit well within the halo.
 
+#. *Apocenter Pile-Up: Origin of the Stellar Halo Density Break*, Alis J. Deason, Vasily Belokurov, Sergey E. Koposov, & Lachlan Lancaster (2018) *Astrophys. J. Lett.*, submitted (`arXiv/1805.10288 <http://arxiv.org/abs/1805.10288>`_)
+
+#. *Bootes III is a disrupting dwarf galaxy associated with the Styx stellar stream*, Jeffrey L. Carlin & David J. Sand (2018) *Astrophys. J.*, submitted (`arXiv/1805.11624 <http://arxiv.org/abs/1805.11624>`_)
+
+#. *Proper motions of Milky Way Ultra-Faint satellites with Gaia DR2 × DES DR1*, Andrew B. Pace & Ting S. Li (2018) *Astrophys. J.*, submitted (`arXiv/1806.02345 <http://arxiv.org/abs/1806.02345>`_)
+
+#. *Transient spiral structure and the disc velocity substructure in Gaia DR2*, Jason A. S. Hunt, Jack Hong, Jo Bovy, Daisuke Kawata, Robert J. J. Grand (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1806.02832 <http://arxiv.org/abs/1806.02832>`_):
+   	      Builds a simple model of co-rotating, transient spiral structure using the newly implemented ``SpiralArmsPotential`` and the ``CorotatingRotationWrapperPotential`` (and using ``DehnenSmoothWrapperPotential`` to make it transient). Then uses ``galpy.df.evolveddiskdf`` to compute the effect of such spiral structure on the kinematics in the extended solar neighborhood, finding qualitative agreement with the kinematics observed in *Gaia* DR2.
+
+#. *Galactic Archeology with the AEGIS Survey: The Evolution of Carbon and Iron in the Galactic Halo*, Jinmi Yoon, Timothy C. Beers, Sarah Dietz, Young Sun Lee, Vinicius M. Placco, Gary Da Costa, Stefan Keller, Christopher I. Owen, & Mahavir Sharma (2018) *Astrophys. J.*, in press (`arXiv/1806.04738 <http://arxiv.org/abs/1806.04738>`_)
+
+#. *The Formation and Evolution of Galactic Disks with APOGEE and the Gaia Survey*, Chengdong Li, Gang Zhao, Meng Zhai, & Yunpeng Jia (2018) *Astrophys. J.*, in press (`2018ApJ...860...53L <http://adsabs.harvard.edu/abs/2018ApJ...860...53L>`_)
+
+#. *Spectroscopy of Dwarf Stars Around the North Celestial Pole*, Sarunas Mikolaitis, Grazina Tautvaisiene, Arnas Drazdauskas, & Renata Minkeviciute (2018) *Publ. Astron. Soc. Pacific*, in press (`2018PASP..130g4202M <http://adsabs.harvard.edu/abs/2018PASP..130g4202M>`_)
+
+#. *The Study of Galactic Disk Kinematics with SCUSS and SDSS Data*, Xiyan Peng, Zhenyu Wu, Zhaoxiang Qi, Cuihua Du, Jun Ma, Xu Zhou, Yunpeng Jia, & Songhu Wang (2018) *Publ. Astron. Soc. Pacific*, in press (`2018PASP..130g4102P <http://adsabs.harvard.edu/abs/2018PASP..130g4102P>`_)
+
+
 Indices and tables
 ==================
 
