@@ -86,20 +86,22 @@ Initialization from observed coordinates
 
 For orbit integration and characterization of observed stars or
 clusters, initial conditions can also be specified directly as
-observed quantities when ``radec=True`` is set. In this case a full
-three-dimensional orbit is initialized as ``o=
-Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)`` where RA
-and Dec are expressed in degrees, the distance is expressed in kpc,
-proper motions are expressed in mas/yr (pmra = pmra' * cos[Dec] ), and
-``Vlos`` is the heliocentric line-of-sight velocity given in
-km/s. The observed epoch is currently assumed to be J2000.00. These
-observed coordinates are translated to the Galactocentric cylindrical
-coordinate frame by assuming a Solar motion that can be specified as
-either ``solarmotion=hogg`` (default; `2005ApJ...629..268H
+observed quantities when ``radec=True`` is set (see further down in
+this section on how to use an ``astropy`` `SkyCoord
+<http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord>`__
+instead). In this case a full three-dimensional orbit is initialized
+as ``o= Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)``
+where RA and Dec are expressed in degrees, the distance is expressed
+in kpc, proper motions are expressed in mas/yr (pmra = pmra' *
+cos[Dec] ), and ``Vlos`` is the heliocentric line-of-sight velocity
+given in km/s. The observed epoch is currently assumed to be
+J2000.00. These observed coordinates are translated to the
+Galactocentric cylindrical coordinate frame by assuming a Solar motion
+that can be specified as either ``solarmotion=hogg`` (`2005ApJ...629..268H
 <http://adsabs.harvard.edu/abs/2005ApJ...629..268H>`_),
 ``solarmotion=dehnen`` (`1998MNRAS.298..387D
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
-``solarmotion=schoenrich`` (`2010MNRAS.403.1829S
+``solarmotion=schoenrich`` (default; `2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
 velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
@@ -142,13 +144,49 @@ Galactic coordinates if ``UVW=True`` is set. The input is then
 ``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
 in km/s. U is, as usual, defined as -vR (minus vR).
 
+Finally, orbits can also be initialized using an
+``astropy.coordinates.SkyCoord`` object. For example, the (ra,dec)
+example from above can also be initialized as:
 
-When orbits are initialized using ``radec=True`` or ``lb=True``,
-physical scales ``ro=`` and ``vo=`` are automatically specified
-(because they have defaults of ``ro=8`` and ``vo=220``). Therefore,
-all output quantities will be specified in physical units (see
-above). If you do want to get outputs in galpy's natural coordinates,
-you can turn this behavior off by doing
+>>> from astropy.coordinates import SkyCoord
+>>> import astropy.units as u
+>>> c= SkyCoord(ra=20.*u.deg,dec=30.*u.deg,distance=2.*u.kpc,
+	        pm_ra_cosdec=-10.*u.mas/u.yr,pm_dec=20.*u.mas/u.yr,
+                radial_velocity=50.*u.km/u.s)
+>>> o= Orbit(c)
+
+In this case, you can still specify the properties of the
+transformation to Galactocentric coordinates using the standard
+``ro``, ``vo``, ``zo``, and ``solarmotion`` keywords, or you can use
+the ``SkyCoord`` `Galactocentric frame specification
+<http://docs.astropy.org/en/stable/api/astropy.coordinates.Galactocentric.html#astropy.coordinates.Galactocentric>`__
+and these are propagated to the ``Orbit`` instance. For example,
+
+>>> from astropy.coordinates import CartesianDifferential
+>>> c= SkyCoord(ra=20.*u.deg,dec=30.*u.deg,distance=2.*u.kpc,
+	        pm_ra_cosdec=-10.*u.mas/u.yr,pm_dec=20.*u.mas/u.yr,
+                radial_velocity=50.*u.km/u.s,
+                galcen_distance=8.*u.kpc,z_sun=15.*u.pc,
+                galcen_v_sun=CartesianDifferential([10.0,235.,7.]*u.km/u.s))
+>>> o= Orbit(c)
+
+A subtlety here is that the ``galcen_distance`` and ``ro`` keywords
+are not interchangeable, because the former is the distance between
+the Sun and the Galactic center and ``ro`` is the projection of this
+distance onto the Galactic midplane. Another subtlety is that the
+``astropy`` Galactocentric frame is a right-handed frame, while galpy
+normally uses a left-handed frame, so the sign of the x component of
+``galcen_v_sun`` is the opposite of what it would be in
+``solarmotion``. Because the Galactocentric frame in ``astropy`` does
+not specify the circular velocity, but only the Sun's velocity, you
+still need to specify ``vo`` to use a non-default circular velocity.
+
+When orbits are initialized using ``radec=True``, ``lb=True``, or
+using a ``SkyCoord`` physical scales ``ro=`` and ``vo=`` are
+automatically specified (because they have defaults of ``ro=8`` and
+``vo=220``). Therefore, all output quantities will be specified in
+physical units (see above). If you do want to get outputs in galpy's
+natural coordinates, you can turn this behavior off by doing
 
 >>> o.turn_physical_off()
 
@@ -272,7 +310,7 @@ we are using a spherical potential):
 .. WARNING::
    Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
 
-In a `jupyter notebook <http://jupyter.org>`__ you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
+In a `jupyter notebook <http://jupyter.org>`__ or in `jupyterlab <http://jupyterlab.readthedocs.io/en/stable/>`__ (jupyterlab versions >= 0.33) you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
 
 >>> op.animate()
 
@@ -293,6 +331,7 @@ which gives
 .. raw:: html
    :file: orbitanim2proj.html
 
+If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
    
 Orbit characterization
 ------------------------

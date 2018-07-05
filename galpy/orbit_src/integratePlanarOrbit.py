@@ -12,9 +12,9 @@ from galpy.util import galpyWarning
 _lib= None
 outerr= None
 PY3= sys.version > '3'
-if PY3: #pragma: no cover
+if PY3:
     _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else:
+else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
     try:
@@ -276,6 +276,28 @@ def _parse_pot(pot):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])
+        elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+          and isinstance(p._Pot,potential.CorotatingRotationWrapperPotential)) \
+          or isinstance(p,potential.CorotatingRotationWrapperPotential):
+            if not isinstance(p,potential.CorotatingRotationWrapperPotential):
+                p= p._Pot
+            pot_type.append(-4)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._vpo,p._beta,p._pa,p._to])
+        elif ((isinstance(p,potential_src.planarPotential.planarPotentialFromFullPotential) or isinstance(p,potential_src.planarPotential.planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.GaussianAmplitudeWrapperPotential)) \
+              or isinstance(p,potential.GaussianAmplitudeWrapperPotential):
+            if not isinstance(p,potential.GaussianAmplitudeWrapperPotential):
+                p= p._Pot
+            pot_type.append(-5)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._to,p._sigma2])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

@@ -1,5 +1,15 @@
-v1.4 (????)
-==================
+v1.4 (??????)
+==============
+
+- Added CorotatingRotationWrapperPotential to galpy.potential: a
+  wrapper to make a pattern wind up over time such that it is always
+  corotating (for use in simulating corotating spiral structure like
+  that of Grand, Kawata, Baba, et al.)
+
+- Added GaussianAmplitudeWrapperPotential to galpy.potential: a
+  wrapper to modulate the amplitude of any Potential instance with a
+  Gaussian (growing from zero to the full amplitude and dying off
+  again).
 
 - Allow nested lists of Potential instances everywhere where lists of
   Potential instances were previously allowed; allow easy adding of
@@ -10,6 +20,11 @@ v1.4 (????)
   generally, without specifying the vxvv initial phase-space input) to
   return an Orbit instances representing the Sun. Can therefore setup
   an Orbit representing the Sun's as o= Orbit().
+
+- Allow Orbit instances to be initialized using a SkyCoord with
+  position and velocity data, with optional Galactocentric frame 
+  specification as part of the SkyCoord that is correctly propagated 
+  to the Orbit instance. Requires astropy>3
 
 - Added rtide and ttensor methods/functions for Potentials: tidal
   radius and tidal tensor.
@@ -25,6 +40,13 @@ v1.4 (????)
 - Add warnings/verbose configuration parameter to set level of
   verbosity of non-crucial warnings (like: "Using C implementation to
   integrate orbits").
+
+- If astropy version > 3, Orbit.SkyCoord returns a SkyCoord object
+  that includes the velocity information and the Galactocentric frame
+  used by the Orbit instance.
+
+- Tweaked coordinate-transformations to Galactocentric coordinates to
+  be consistent with astropy's.
 
 - Made the code fully compilable on Windows with MSVC and test Windows
   builds automatically on appveyor (#333).

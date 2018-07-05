@@ -13,9 +13,9 @@ from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
 _lib= None
 outerr= None
 PY3= sys.version > '3'
-if PY3: #pragma: no cover
+if PY3:
     _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else:
+else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
     try:
@@ -226,6 +226,25 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._omega,p._pa])
+        elif isinstance(p,potential.CorotatingRotationWrapperPotential):
+            pot_type.append(-4)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._vpo,p._beta,p._pa,p._to])
+        elif isinstance(p,potential.GaussianAmplitudeWrapperPotential):
+            pot_type.append(-5)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp,p._to,p._sigma2])
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

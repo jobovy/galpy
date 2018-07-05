@@ -497,12 +497,15 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if not _check_c(pot):
+        if not ext_loaded or not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
                 method= 'odeint'
-            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
@@ -510,16 +513,17 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
         tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+    elif ext_loaded and \
+            (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
         tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-    elif method.lower() == 'odeint':
+    elif method.lower() == 'odeint' or not ext_loaded:
         l= vxvv[0]*vxvv[2]
         l2= l**2.
         init= [vxvv[0],vxvv[1]]
@@ -576,12 +580,15 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if not _check_c(pot):
+        if not ext_loaded or not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
                 method= 'odeint'
-            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
@@ -603,9 +610,10 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
         out[:,2]= vT
         out[:,3]= phi
         msg= 0
-    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+    elif ext_loaded and \
+            (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
         warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
@@ -626,7 +634,7 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
-    elif method.lower() == 'odeint':
+    elif method.lower() == 'odeint' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[3],vphi]
         intOut= integrate.odeint(_EOM,init,t,args=(pot,),
@@ -671,9 +679,13 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
     #First check that the potential has C
     if '_c' in method:
         allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
-        if not allHasC and not 'leapfrog' in method and not 'symplec' in method:
+        if not ext_loaded or \
+        (not allHasC and not 'leapfrog' in method and not 'symplec' in method):
             method= 'odeint'
-            warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Using odeint because C extension not loaded",galpyWarning)
+            else:
+                warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
     #go to the rectangular frame
     this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                          vxvv[0]*nu.sin(vxvv[3]),
@@ -694,13 +706,14 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
         this_dxdv= dxdv
     if 'leapfrog' in method.lower() or 'symplec' in method.lower():
         raise TypeError('Symplectic integration for phase-space volume is not possible')
-    elif method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
-            or method.lower() == 'dopr54_c':
+    elif ext_loaded and \
+            (method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
+            or method.lower() == 'dopr54_c'):
         warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
-    elif method.lower() == 'odeint':
+    elif method.lower() == 'odeint' or not ext_loaded:
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
         #integrate

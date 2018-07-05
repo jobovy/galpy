@@ -36,9 +36,10 @@ such instances. Similarly, we can evaluate a Potential instance
 
 Most member functions of Potential instances have corresponding
 functions in the galpy.potential module that allow them to be
-evaluated for lists of multiple Potential
-instances. ``galpy.potential.MWPotential2014`` is such a list of three
-Potential instances
+evaluated for lists of multiple Potential instances (and in versions
+>=1.4 even for nested lists of Potential
+instances). ``galpy.potential.MWPotential2014`` is such a list of
+three Potential instances
 
 >>> from galpy.potential import MWPotential2014
 >>> print(MWPotential2014)

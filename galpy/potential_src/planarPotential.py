@@ -157,6 +157,8 @@ class planarPotential(object):
             return self.phi2deriv(R,phi=phi,t=t,use_physical=False)
         elif dR == 1 and dphi == 1:
             return self.Rphideriv(R,phi=phi,t=t,use_physical=False)
+        elif dR != 0 or dphi != 0:
+            raise NotImplementedError('Higher-order derivatives not implemented for this potential')
 
     @potential_physical_input
     @physical_conversion('force',pop=True)

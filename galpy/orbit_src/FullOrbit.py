@@ -391,7 +391,7 @@ class FullOrbit(OrbitTop):
            pot= Potential to fit the orbit in
 
            Keywords related to the input data:
-               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates; Note that for speed reasons, galpy's internal transformation between (l,b) and (ra,dec) is used, rather than astropy's
+               radec= if True, input vxvv and vxvv_err are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all ICRS; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates; Note that for speed reasons, galpy's internal transformation between (l,b) and (ra,dec) is used, rather than astropy's
                lb= if True, input vxvv and vxvv_err are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
@@ -567,11 +567,15 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if not _check_c(pot):
+        if not ext_loaded or not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
                 method= 'odeint'
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
             warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     # Now check that we aren't trying to integrate a dissipative force
     # with a symplectic integrator
@@ -784,12 +788,14 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
         elif radec:
             #Further transform to ra,dec,pmra,pmdec
             radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
-                                      lbdvrpmllpmbb[:,1],degree=True)
+                                      lbdvrpmllpmbb[:,1],degree=True,
+                                      epoch=None)
             pmrapmdec= coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
                                                     lbdvrpmllpmbb[:,5],
                                                     lbdvrpmllpmbb[:,0],
                                                     lbdvrpmllpmbb[:,1],
-                                                    degree=True)
+                                                    degree=True,
+                                                    epoch=None)
             orb_vxvv= nu.array([radec[:,0],radec[:,1],
                                 lbdvrpmllpmbb[:,2],
                                 pmrapmdec[:,0],pmrapmdec[:,1],

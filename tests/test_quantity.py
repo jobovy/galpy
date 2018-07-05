@@ -2311,10 +2311,11 @@ def test_potential_paramunits():
     # DehnenSmoothWrapperPotential
     dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
     pot= potential.DehnenSmoothWrapperPotential(pot=dpn,
-                                                tform=1.*units.Gyr,
-                                                tsteady=3.*units.Gyr)
+                                                tform=-1.*units.Gyr,
+                                                tsteady=3.*units.Gyr,
+                                                ro=ro,vo=vo)
     pot_nounits= potential.DehnenSmoothWrapperPotential(pot=dpn,
-                                                        tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                        tform=-1./bovy_conversion.time_in_Gyr(vo,ro),
                                                         tsteady=3./bovy_conversion.time_in_Gyr(vo,ro))
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
@@ -2322,13 +2323,36 @@ def test_potential_paramunits():
     spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
     pot= potential.SolidBodyRotationWrapperPotential(pot=spn,\
                            omega=20.*units.km/units.s/units.kpc,
-                           pa=30.*units.deg)
+                           pa=30.*units.deg,ro=ro,vo=vo)
     pot_nounits= potential.SolidBodyRotationWrapperPotential(pot=spn,\
                            omega=20./bovy_conversion.freq_in_kmskpc(vo,ro),
                            pa=30./180.*numpy.pi)
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
-    # 
+    # CorotatingRotationWrapperPotential
+    spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
+    pot= potential.CorotatingRotationWrapperPotential(pot=spn,\
+                           vpo=200.*units.km/units.s,
+                           to=1.*units.Gyr,
+                           pa=30.*units.deg,ro=ro,vo=vo)
+    pot_nounits= potential.CorotatingRotationWrapperPotential(pot=spn,\
+                           vpo=200./vo,
+                           to=1./bovy_conversion.time_in_Gyr(vo,ro),
+                           pa=30./180.*numpy.pi)
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "CorotatingRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # GaussianAmplitudeWrapperPotential
+    dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
+    pot= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                                to=-1.*units.Gyr,
+                                                sigma=10.*units.Gyr,
+                                                ro=ro,vo=vo)
+    pot_nounits= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                 to=-1./bovy_conversion.time_in_Gyr(vo,ro),
+                                 sigma=10./bovy_conversion.time_in_Gyr(vo,ro))
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "GaussianAmplitudeWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # ChandrasekharDynamicalFrictionForce
     pot= potential.ChandrasekharDynamicalFrictionForce(GMs=10.**9.*units.Msun,
                                                        rhm=1.2*units.kpc)
     pot_nounits= potential.ChandrasekharDynamicalFrictionForce(\

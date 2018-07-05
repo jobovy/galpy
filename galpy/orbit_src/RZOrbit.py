@@ -8,6 +8,7 @@ from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.orbit_src.FullOrbit import _integrateFullOrbit
+from galpy.orbit_src.integrateFullOrbit import _ext_loaded as ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.orbit_src.OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
@@ -470,12 +471,15 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
     """
     #First check that the potential has C
     if '_c' in method:
-        if not _check_c(pot):
+        if not ext_loaded or not _check_c(pot):
             if ('leapfrog' in method or 'symplec' in method):
                 method= 'leapfrog'
             else:
                 method= 'odeint'
-            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
