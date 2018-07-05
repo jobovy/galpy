@@ -576,7 +576,6 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-            warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     # Now check that we aren't trying to integrate a dissipative force
     # with a symplectic integrator
     if _isDissipative(pot) and ('leapfrog' in method or 'symplec' in method):
