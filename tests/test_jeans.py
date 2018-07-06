@@ -31,3 +31,17 @@ def test_sigmar_wlog_constbeta_diffdens_powerlaw():
     gamma, beta= 0.,-0.5
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmar(lp,r,beta=beta,dens=lambda r: r**-gamma) for r in rs])-1./numpy.sqrt(gamma-2.*beta)) < 1e-10), 'Radial sigma computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential, beta=-0.5, and power-law density r^0'
     return None
+
+def test_sigmar_wlog_constbeta_asbetafunc():
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    rs= numpy.linspace(0.001,5.,101)
+    # beta = 0 --> sigma = vc/sqrt(2)
+    assert numpy.all(numpy.fabs(numpy.array([jeans.sigmar(lp,r,beta=lambda x: 0.) for r in rs])-1./numpy.sqrt(2.)) < 1e-10), 'Radial sigma computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
+    # general beta --> sigma = vc/sqrt(2-2beta)
+    beta= lambda x: 0.5
+    assert numpy.all(numpy.fabs(numpy.array([jeans.sigmar(lp,r,beta=beta) for r in rs])-1./numpy.sqrt(2.-2.*beta(0))) < 1e-10), 'Radial sigma computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0.5'
+    beta= lambda x: -0.5
+    assert numpy.all(numpy.fabs(numpy.array([jeans.sigmar(lp,r,beta=beta) for r in rs])-1./numpy.sqrt(2.-2.*beta(0))) < 1e-10), 'Radial sigma computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=-0.5'
+    return None
+
