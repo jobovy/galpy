@@ -12,8 +12,6 @@ if _APY_LOADED:
     from astropy import units
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 _INVSQRTPI= 1./numpy.sqrt(numpy.pi)
-def isothermalsigmar(r):
-    return _INVSQRTTWO
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     """Class that implements the Chandrasekhar dynamical friction force
 
@@ -32,7 +30,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     """
     def __init__(self,amp=1.,GMs=.1,gamma=1.,rhm=0.,
-                 dens=None,sigmar=isothermalsigmar,
+                 dens=None,sigmar=None,
                  const_lnLambda=False,
                  ro=None,vo=None):
         """
@@ -56,7 +54,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            dens - Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)]
 
-           sigmar - function that gives the velocity dispersion as a function of r (has to be in natural units!)
+           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy
 
            cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
 
@@ -83,12 +81,18 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             from galpy.potential_src.LogarithmicHaloPotential import \
                 LogarithmicHaloPotential
             dens= LogarithmicHaloPotential(normalize=1.,q=1.)
+            if sigmar is None: # we know this solution!
+                sigmar= lambda x: _INVSQRTTWO
         dens= flatten_pot(dens)
         self._dens_pot= dens
         self._dens=\
             lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
                                                       R,z,phi=phi,t=t,
                                                       use_physical=False)
+        if sigmar is None:
+            from galpy.df import jeans
+            sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
+                                           use_physical=False)
         self._sigmar= sigmar
         if const_lnLambda:
             self._lnLambda= const_lnLambda
