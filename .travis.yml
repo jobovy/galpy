@@ -9,10 +9,10 @@ env: #split tests
     - REQUIRES_ASTROPY=false
     - PYTHON_COVREPORTS_VERSION=3.6 # Version for which reports are uploaded
   matrix:
-    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py' REQUIRES_PYNBODY=true
+    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
     - TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
-    - TEST_FILES='tests/test_evolveddiskdf.py'
+    - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py'
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
