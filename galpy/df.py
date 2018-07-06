@@ -4,6 +4,7 @@ from galpy.df_src import evolveddiskdf
 from galpy.df_src import quasiisothermaldf
 from galpy.df_src import streamdf
 from galpy.df_src import streamgapdf
+from galpy.df_src import jeans
 #
 # Functions
 #
