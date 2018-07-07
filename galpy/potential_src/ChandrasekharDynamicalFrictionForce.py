@@ -4,7 +4,7 @@
 ###############################################################################
 import hashlib
 import numpy
-from scipy import special
+from scipy import special, interpolate
 from galpy.potential_src.DissipativeForce import DissipativeForce
 from galpy.potential_src.Potential import _APY_LOADED, evaluateDensities
 from galpy.potential_src.Potential import flatten as flatten_pot
@@ -31,7 +31,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     """
     def __init__(self,amp=1.,GMs=.1,gamma=1.,rhm=0.,
                  dens=None,sigmar=None,
-                 const_lnLambda=False,
+                 const_lnLambda=False,minr=0.0001,maxr=25.,nr=501,
                  ro=None,vo=None):
         """
         NAME:
@@ -58,6 +58,16 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
 
+           minr= (0.0001) minimum r at which to apply dynamical friction: at r < minr, friction is set to zero (can be a Quantity)
+
+           Interpolation:
+
+              maxr= (25) maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider (can be a Quantity)
+
+              nr= (501) number of radii to use in the interpolation of sigmar
+
+              You can check that sigmar is interpolated correctly by comparing the methods sigmar [the interpolated version] and sigmar_orig [the original or directly computed version]
+
         OUTPUT:
 
            (none)
@@ -73,9 +83,15 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                                   amp_units='mass')
         if _APY_LOADED and isinstance(rhm,units.Quantity):
             rhm= rhm.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(minr,units.Quantity):
+            minr= minr.to(units.kpc).value/self._ro
+        if _APY_LOADED and isinstance(maxr,units.Quantity):
+            maxr= maxr.to(units.kpc).value/self._ro
         self._gamma= gamma
         self._ms= self._amp/amp # from handling in __init__ above, should be ms in galpy units
         self._rhm= rhm
+        self._minr= minr
+        self._maxr= maxr
         # Parse density
         if dens is None:
             from galpy.potential_src.LogarithmicHaloPotential import \
@@ -93,7 +109,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             from galpy.df import jeans
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
-        self._sigmar= sigmar
+        sigmar_rs= numpy.linspace(self._minr,self._maxr,nr)
+        self.sigmar_orig= sigmar
+        self.sigmar= interpolate.InterpolatedUnivariateSpline(\
+            sigmar_rs,numpy.array([sigmar(x) for x in sigmar_rs]),k=3)
         if const_lnLambda:
             self._lnLambda= const_lnLambda
         else:
@@ -117,14 +136,21 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return lnLambda
 
     def _calc_force(self,R,phi,z,v,t):
-        vs= numpy.sqrt(v[0]**2.+v[1]**2.+v[2]**2.)
         r= numpy.sqrt(R**2.+z**2.)
-        X= vs*_INVSQRTTWO/self._sigmar(r)
-        Xfactor= special.erf(X)-2.*X*_INVSQRTPI*numpy.exp(-X**2.)
-        lnLambda= self.lnLambda(r,vs)
-        self._cached_force=\
-            -self._dens(R,z,phi=phi,t=t)/vs**3.\
-            *Xfactor*lnLambda
+        if r < self._minr:
+            self._cached_force= 0.
+        else:
+            vs= numpy.sqrt(v[0]**2.+v[1]**2.+v[2]**2.)
+            if r > self._maxr:
+                sr= self.sigmar_orig(r)
+            else:
+                sr= self.sigmar(r)
+            X= vs*_INVSQRTTWO/sr
+            Xfactor= special.erf(X)-2.*X*_INVSQRTPI*numpy.exp(-X**2.)
+            lnLambda= self.lnLambda(r,vs)
+            self._cached_force=\
+                -self._dens(R,z,phi=phi,t=t)/vs**3.\
+                *Xfactor*lnLambda
 
     def _Rforce(self,R,z,phi=0.,t=0.,v=None):
         """
