@@ -2,10 +2,11 @@
 import numpy
 from scipy import integrate
 from galpy.potential_src.Potential import evaluateDensities, \
-    evaluateRforces
+    evaluaterforces
 from galpy.potential_src.Potential import flatten as flatten_pot
 from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input
+_INVSQRTTWO= 1./numpy.sqrt(2.)
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
 def sigmar(Pot,r,dens=None,beta=0.):
@@ -20,7 +21,7 @@ def sigmar(Pot,r,dens=None,beta=0.):
 
     INPUT:
 
-       Pot - potential or list of potentials (evaluated at R=r,z=0, sphericity not checked)
+       Pot - potential or list of potentials (evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked)
 
        r - Galactocentric radius (can be Quantity)
 
@@ -39,14 +40,17 @@ def sigmar(Pot,r,dens=None,beta=0.):
     """
     Pot= flatten_pot(Pot)
     if dens is None:
-        dens= lambda r: evaluateDensities(Pot,r,0.,use_physical=False)
+        dens= lambda r: evaluateDensities(Pot,r*_INVSQRTTWO,r*_INVSQRTTWO,
+                                          use_physical=False)
     if callable(beta):
         intFactor= lambda x: numpy.exp(2.*integrate.quad(lambda y: beta(y)/y,
                                        1.,x)[0])
     else: # assume to be number
         intFactor= lambda x: x**(2.*beta)
     return numpy.sqrt(integrate.quad(lambda x: -intFactor(x)*dens(x)
-                                     *evaluateRforces(Pot,x,0.,
+                                     *evaluaterforces(Pot,
+                                                      x*_INVSQRTTWO,
+                                                      x*_INVSQRTTWO,
                                                       use_physical=False),
                                      r,numpy.inf)[0]/
                       dens(r)/intFactor(r))
