@@ -3836,7 +3836,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         custom_simbad.remove_votable_fields('main_id', 'coordinates')
         try:
             simbad_table= custom_simbad.query_object(name)
-        except OSError:
+        except OSError: # pragma: no cover
             raise ConnectionError('failed to connect to SIMBAD')
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
@@ -3867,11 +3867,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             try:
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
-            except OSError:
+            except OSError: # pragma: no cover
                 warnings.warn(('failed to connect to the Gaia archive; falling '
                                'back on SIMBAD'), galpyWarning)
                 gaiadr2= False
-            except ValueError:
+            except ValueError: # pragma: no cover
                 warnings.warn(('Gaia query timed out when searching for {}; '
                                'searchr may be too large; falling back on '
                                'SIMBAD').format(name), galpyWarning)
