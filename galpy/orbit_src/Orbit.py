@@ -3789,29 +3789,25 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         PURPOSE:
 
-            given the name of an object, retrieve coordinate information from an
-            online catalogue for that object and return a corresponding orbit
+            given the name of an object, retrieve coordinate information from an online catalogue for that object and return a corresponding orbit
 
         INPUT:
 
             name - the name of the object
 
-            gaiadr2= if True, will attempt to find the object in the Gaia DR2
-            catalogue by cross-matching with SIMBAD; otherwise will directly
-            use the coordinates from SIMBAD (default=False)
+            gaiadr2= if True, will attempt to find the object in the Gaia DR2 catalogue by cross-matching with SIMBAD; otherwise will directly use the coordinates from SIMBAD (default=False)
 
-            searchr= angular radius used to cone search the Gaia archive for the
-            desired object (arcsec; can be Quantity; default = 1 arcsec)
+            searchr= angular radius used to cone search the Gaia archive for the desired object (arcsec; can be Quantity; default = 1 arcsec)
 
-            ro= distance from vantage point to GC (kpc; can be Quantity)
+            +standard Orbit initialization keywords:
 
-            vo= circular velocity at ro (km/s; can be Quantity)
+                ro= distance from vantage point to GC (kpc; can be Quantity)
 
-            zo= offset toward the NGP of the Sun wrt the plane (kpc; can be
-            Quantity; default = 25 pc)
+                vo= circular velocity at ro (km/s; can be Quantity)
 
-            solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in
-            [-U,V,W]; can be Quantity
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
 
         OUTPUT:
 
@@ -3819,7 +3815,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         HISTORY:
 
-            2018-06-21 - Written - Mathew Bub (UofT)
+            2018-07-07 - Written - Mathew Bub (UofT)
 
         """
         if not _APY_LOADED:
