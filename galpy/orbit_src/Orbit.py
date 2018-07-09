@@ -3867,7 +3867,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             except ValueError: # pragma: no cover
                 warnings.warn(('Gaia query timed out when searching for {}; '
                                'searchr may be too large, or there may be a '
-                               'problem with the Gaia servers; falling back on '
+                               'problem with the Gaia archive; falling back on '
                                'SIMBAD').format(name), galpyWarning)
                 gaiadr2= False
             else:
