@@ -3833,9 +3833,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             simbad_table= simbad.query_object(name)
         except OSError: # pragma: no cover
             raise ConnectionError('failed to connect to SIMBAD')
-        simbad_table= simbad_table.as_array().view((nu.float64,6))
-        if len(simbad_table) == 0:
+        if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
+        simbad_table= simbad_table.as_array().view((nu.float64,6))
         # try to cross-match the SIMBAD coordinates with Gaia DR2
         if gaiadr2:
             from astroquery.gaia import Gaia
