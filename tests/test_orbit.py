@@ -4314,12 +4314,11 @@ def test_from_name():
         "radial velocity of Lacaille 8760 does not match SIMBAD value"
 
     # test GJ 440 from SIMBAD
-    msg = "Orbit.from_name('GJ 440') did not raise ValueError"
-    err_msg = "failed to find all necessary coordinates for GJ 440"
-    with pytest.raises(ValueError, message=msg) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('GJ 440')
-    assert str(excinfo.value) == err_msg, \
-        "expected message '{}' but got '{}' instead".format(err_msg, str(excinfo.value))
+    msg = "failed to find all necessary coordinates for GJ 440"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
     # test Vega from Gaia
     o = Orbit.from_name('Vega', gaiadr2=True)
@@ -4352,28 +4351,25 @@ def test_from_name():
         "radial velocity of Lacaille 8760 does not match Gaia value"
 
     # test GJ 440 from Gaia
-    msg = "Orbit.from_name('GJ 440', gaiadr2=True) did not raise ValueError"
-    err_msg = "failed to find all necessary coordinates for GJ 440"
-    with pytest.raises(ValueError, message=msg) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('GJ 440', gaiadr2=True)
-    assert str(excinfo.value) == err_msg, \
-        "expected message '{}' but got '{}' instead".format(err_msg, str(excinfo.value))
+    msg = "failed to find all necessary coordinates for GJ 440"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
     # test with a fake object
-    msg = "Orbit.from_name('abc123') did not raise ValueError"
-    err_msg = "failed to find abc123 in SIMBAD"
-    with pytest.raises(ValueError, message=msg) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('abc123')
-    assert str(excinfo.value) == err_msg, \
-        "expected message '{}' but got '{}' instead".format(err_msg, str(excinfo.value))
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
     # test with a fake object and gaia
-    msg = "Orbit.from_name('abc123', gaiadr2=True) did not raise ValueError"
-    err_msg = "failed to find abc123 in SIMBAD"
-    with pytest.raises(ValueError, message=msg) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('abc123', gaiadr2=True)
-    assert str(excinfo.value) == err_msg, \
-        "expected message '{}' but got '{}' instead".format(err_msg, str(excinfo.value))
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
     # test small searchr
     o = Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6)
