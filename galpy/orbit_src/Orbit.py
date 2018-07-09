@@ -3903,9 +3903,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if nu.any(orbit_params.mask):
             raise ValueError(('failed to find all necessary coordinates for {}'
                               ).format(name))
-        ra, dec, plx, pmra, pmdec, vlos = orbit_params
-        return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,vlos], radec=True, ro=ro,
-                   vo=vo, zo=zo, solarmotion=solarmotion)
+        # parallax to distance
+        orbit_params[2]= 1/orbit_params[2]
+        return cls(vxvv=orbit_params, radec=True, ro=ro, vo=vo, zo=zo,
+                   solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
