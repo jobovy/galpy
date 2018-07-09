@@ -3831,9 +3831,9 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         simbad.remove_votable_fields('main_id', 'coordinates')
         try:
             simbad_table= simbad.query_object(name)
-            simbad_table= simbad_table.as_array().view((nu.float64,6))
         except OSError: # pragma: no cover
             raise ConnectionError('failed to connect to SIMBAD')
+        simbad_table= simbad_table.as_array().view((nu.float64,6))
         if len(simbad_table) == 0:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
         # try to cross-match the SIMBAD coordinates with Gaia DR2
@@ -3860,7 +3860,6 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             try:
                 job= Gaia.launch_job(query)
                 gaia_table= job.get_results()
-                gaia_table= gaia_table.as_array().view((nu.float64,6))
             except OSError: # pragma: no cover
                 warnings.warn(('failed to connect to the Gaia archive; falling '
                                'back on SIMBAD'), galpyWarning)
@@ -3872,6 +3871,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                'SIMBAD').format(name), galpyWarning)
                 gaiadr2= False
             else:
+                gaia_table= gaia_table.as_array().view((nu.float64,6))
                 # check that the object and all necessary coordinates were found
                 if len(gaia_table) == 0:
                     warnings.warn(('failed to find {} in Gaia; falling back on '
