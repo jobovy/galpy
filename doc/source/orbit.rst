@@ -195,6 +195,32 @@ All outputs will then be specified in galpy's natural coordinates.
 .. TIP::
    Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
 
+Initialization from an object's name
+****************************************
+
+A convenience method, ``Orbit.from_name``, is also available to initialize
+orbits from the name of an object. For example:
+
+>>> o= Orbit.from_name('Lacaille 8760', ro=8., vo=220.)
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [319.31362023999276, -38.86736390000036, 0.003970940656277758, -3258.5529999996584, -1145.3959999996205, 20.560000000006063]
+
+By default, this method attempts to resolve the name of the object in
+SIMBAD, and then use the observed coordinates found there to generate
+an ``Orbit`` instance. Optionally, the method can attempt to generate
+the orbit using data from the second Gaia data relase, by cross-matching
+the entry in SIMBAD with the Gaia archive. For example:
+
+>>> o= Orbit.from_name('Lacaille 8760', gaiadr2=True, ro=8., vo=220.)
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [319.29559940778796, -38.872297249579816, 0.003970940775536891, -3258.5531275238395, -1145.395729188883, 20.561701480874195]
+
+Because the Gaia catalogue is searched by cross-matching with SIMBAD,
+it is possible for ``from_name`` to find the incorrect object, or no
+object at all. This can be fixed by adjusting the ``searchr`` parameter
+of ``from_name``, which determines the radius in the sky over which
+the Gaia archive is queried.
+
 Orbit integration
 ------------------
 
