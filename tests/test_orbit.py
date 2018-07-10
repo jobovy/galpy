@@ -4282,6 +4282,7 @@ def test_full_plotting():
 
 def test_from_name():
     from galpy.orbit import Orbit
+    from astropy import units
 
     # test Vega from SIMBAD
     o = Orbit.from_name('Vega')
@@ -4410,7 +4411,7 @@ def test_from_name():
     # test large searchr
     with pytest.warns(galpyWarning) as record:
         warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
-        Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=50)
+        Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1*units.arcmin)
     assert len(record) == 2, \
         "Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=50) threw {} warnings, but should have thrown 2".format(len(record))
     msgs = ("Gaia query returned more than one result when searching for Lacaille 8760 and may have found the wrong object; try reducing searchr",
