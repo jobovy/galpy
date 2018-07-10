@@ -27,6 +27,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
+  - conda config --append channels astropy 
   - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage
