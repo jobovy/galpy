@@ -3824,6 +3824,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if not _ASTROQUERY_LOADED:
             raise ImportError(('astroquery needs to be installed to use '
                                'Orbit.from_name'))
+
         # query SIMBAD for the named object
         simbad= Simbad()
         simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra', 'pmdec',
@@ -3836,6 +3837,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
         simbad_table= simbad_table.as_array().view((nu.float64,6))
+
         # try to cross-match the SIMBAD coordinates with Gaia DR2
         if gaiadr2:
             from astroquery.gaia import Gaia
@@ -3888,6 +3890,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                    'when searching for {} and may have found '
                                    'the wrong object; try reducing searchr'
                                    ).format(name), galpyWarning)
+
         # check if we still want to use the Gaia coordinates
         if not gaiadr2:
             orbit_params= simbad_table[0]
@@ -3899,10 +3902,12 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                 warnings.warn(('line-of-sight velocity for {} is missing from '
                                'Gaia; trying the SIMBAD value instead'
                                ).format(name), galpyWarning)
+
         # check that we have all the required coordinates
         if nu.any(orbit_params.mask):
             raise ValueError(('failed to find all necessary coordinates for {}'
                               ).format(name))
+
         # parallax to distance
         orbit_params[2]= 1/orbit_params[2]
         return cls(vxvv=orbit_params, radec=True, ro=ro, vo=vo, zo=zo,
