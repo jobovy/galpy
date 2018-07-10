@@ -20,7 +20,7 @@ env: #split tests
 matrix: # only run crucial tests for python 3.5
   include:
     - python: "3.5"
-      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true
+      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
   apt:
     packages:
