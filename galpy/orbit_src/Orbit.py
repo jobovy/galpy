@@ -3908,7 +3908,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             raise ValueError(('failed to find all necessary coordinates for {}'
                               ).format(name))
 
-        # parallax to distance
+        # convert parallax to distance and generate the orbit
         orbit_params[2]= 1/orbit_params[2]
         return cls(vxvv=orbit_params, radec=True, ro=ro, vo=vo, zo=zo,
                    solarmotion=solarmotion)
