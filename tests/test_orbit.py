@@ -4323,7 +4323,7 @@ def test_from_name():
 
     # test Vega from Gaia
     with pytest.warns(galpyWarning) as record:
-        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        warnings.filterwarnings('ignore', 'unclosed', module='socket')
         o = Orbit.from_name('Vega', gaiadr2=True)
     assert len(record) == 1, \
         "Orbit.from_name('Vega', gaiadr2=True) threw {} warnings, but should have thrown 1".format(len(record))
@@ -4361,7 +4361,7 @@ def test_from_name():
     # test GJ 440 from Gaia
     with pytest.raises(ValueError) as excinfo:
         with pytest.warns(galpyWarning) as record:
-            warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+            warnings.filterwarnings('ignore', 'unclosed', module='socket')
             Orbit.from_name('GJ 440', gaiadr2=True)
     assert len(record) == 1, \
         "Orbit.from_name('GJ 440', gaiadr2=True) threw {} warnings, but should have thrown 1".format(len(record))
@@ -4388,7 +4388,7 @@ def test_from_name():
 
     # test small searchr
     with pytest.warns(galpyWarning) as record:
-        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        warnings.filterwarnings('ignore', 'unclosed', module='socket')
         o = Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6)
     assert len(record) == 1, \
         "Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6) threw {} warnings, but should have thrown 1".format(len(record))
@@ -4410,7 +4410,7 @@ def test_from_name():
 
     # test large searchr
     with pytest.warns(galpyWarning) as record:
-        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        warnings.filterwarnings('ignore', 'unclosed', module='socket')
         Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1*units.arcmin)
     assert len(record) == 2, \
         "Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=50) threw {} warnings, but should have thrown 2".format(len(record))
@@ -4424,7 +4424,7 @@ def test_from_name():
     # test with missing coordinates in Gaia
     with pytest.raises(ValueError) as excinfo:
         with pytest.warns(galpyWarning) as record:
-            warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+            warnings.filterwarnings('ignore', 'unclosed', module='socket')
             Orbit.from_name('GJ 440', gaiadr2=True, searchr=20)
     assert len(record) == 2, \
         "Orbit.from_name('GJ 440', gaiadr2=True, searchr=20) threw {} warnings, but should have thrown 2".format(len(record))
