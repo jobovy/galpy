@@ -3818,10 +3818,10 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             2018-07-09 - Written - Mathew Bub (UofT)
 
         """
-        if not _APY_LOADED:
+        if not _APY_LOADED: # pragma: no cover
             raise ImportError(('astropy needs to be installed to use '
                                'Orbit.from_name'))
-        if not _ASTROQUERY_LOADED:
+        if not _ASTROQUERY_LOADED: # pragma: no cover
             raise ImportError(('astroquery needs to be installed to use '
                                'Orbit.from_name'))
 
