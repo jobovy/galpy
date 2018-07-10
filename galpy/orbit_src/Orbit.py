@@ -10,6 +10,11 @@ if _APY_LOADED:
     _APY3= astropy.__version__ > '3'
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
+_ASTROQUERY_LOADED= True
+try:
+    from astroquery.simbad import Simbad
+except ImportError:
+    _ASTROQUERY_LOADED= False
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
@@ -3773,6 +3778,135 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         return self._orb.animate(*args,**kwargs)
+
+    @classmethod
+    def from_name(cls, name, gaiadr2=False, searchr=None, vo=None, ro=None,
+                  zo=None, solarmotion=None):
+        """
+        NAME:
+
+            from_name
+
+        PURPOSE:
+
+            given the name of an object, retrieve coordinate information from an online catalogue for that object and return a corresponding orbit
+
+        INPUT:
+
+            name - the name of the object
+
+            gaiadr2= if True, will attempt to find the object in the Gaia DR2 catalogue by cross-matching with SIMBAD; otherwise will directly use the coordinates from SIMBAD (default=False)
+
+            searchr= angular radius used to cone search the Gaia archive for the desired object (arcsec; can be Quantity; default = 1 arcsec)
+
+            +standard Orbit initialization keywords:
+
+                ro= distance from vantage point to GC (kpc; can be Quantity)
+
+                vo= circular velocity at ro (km/s; can be Quantity)
+
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+
+        OUTPUT:
+
+            orbit containing the phase space coordinates of the named object
+
+        HISTORY:
+
+            2018-07-09 - Written - Mathew Bub (UofT)
+
+        """
+        if not _APY_LOADED:
+            raise ImportError(('astropy needs to be installed to use '
+                               'Orbit.from_name'))
+        if not _ASTROQUERY_LOADED:
+            raise ImportError(('astroquery needs to be installed to use '
+                               'Orbit.from_name'))
+        # query SIMBAD for the named object
+        simbad= Simbad()
+        simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra', 'pmdec',
+                                  'rv_value')
+        simbad.remove_votable_fields('main_id', 'coordinates')
+        try:
+            simbad_table= simbad.query_object(name)
+        except OSError: # pragma: no cover
+            raise ConnectionError('failed to connect to SIMBAD')
+        if not simbad_table:
+            raise ValueError('failed to find {} in SIMBAD'.format(name))
+        simbad_table= simbad_table.as_array().view((nu.float64,6))
+        # try to cross-match the SIMBAD coordinates with Gaia DR2
+        if gaiadr2:
+            from astroquery.gaia import Gaia
+            if searchr is None:
+                searchr= 1
+            if isinstance(searchr, units.Quantity):
+                searchr= searchr.to(units.deg).value
+            else:
+                searchr= (searchr*units.arcsec).to(units.deg).value
+            # ADQL query to the Gaia archive with epoch correction
+            query_vals= nu.append(simbad_table[0].filled(0.), searchr)
+            query= """
+                   SELECT TOP 2 ra, dec, parallax, pmra, pmdec, radial_velocity
+                   FROM gaiadr2.gaia_source
+                   WHERE 1=CONTAINS(
+                   POINT('ICRS',ra,dec),
+                   CIRCLE('ICRS', 
+                   COORD1(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
+                   COORD2(EPOCH_PROP_POS({0},{1},{2},{3},{4},{5},2000,2015.5)),
+                   {6}))
+                   """.format(*query_vals)
+            try:
+                job= Gaia.launch_job(query)
+                gaia_table= job.get_results()
+            except OSError: # pragma: no cover
+                warnings.warn(('failed to connect to the Gaia archive; falling '
+                               'back on SIMBAD'), galpyWarning)
+                gaiadr2= False
+            except ValueError: # pragma: no cover
+                warnings.warn(('Gaia query timed out when searching for {}; '
+                               'searchr may be too large, or there may be a '
+                               'problem with the Gaia archive; falling back on '
+                               'SIMBAD').format(name), galpyWarning)
+                gaiadr2= False
+            else:
+                gaia_table= gaia_table.as_array().view((nu.float64,6))
+                # check that the object and all necessary coordinates were found
+                if len(gaia_table) == 0:
+                    warnings.warn(('failed to find {} in Gaia; falling back on '
+                                   'SIMBAD').format(name), galpyWarning)
+                    gaiadr2= False
+                elif nu.any(gaia_table.mask[0,:-1]):
+                    warnings.warn(('some coordinates for {} are missing from '
+                                   'Gaia; falling back on SIMBAD').format(name),
+                                  galpyWarning)
+                    gaiadr2= False
+                # check that the Gaia archive found only one matching object
+                if len(gaia_table) > 1:
+                    warnings.warn(('Gaia query returned more than one result '
+                                   'when searching for {} and may have found '
+                                   'the wrong object; try reducing searchr'
+                                   ).format(name), galpyWarning)
+        # check if we still want to use the Gaia coordinates
+        if not gaiadr2:
+            orbit_params= simbad_table[0]
+        else:
+            orbit_params= gaia_table[0]
+            # try to use the SIMBAD radial velocity if unavailable in Gaia
+            if orbit_params.mask[-1]:
+                orbit_params[-1]= simbad_table[0,-1]
+                warnings.warn(('line-of-sight velocity for {} is missing from '
+                               'Gaia; trying the SIMBAD value instead'
+                               ).format(name), galpyWarning)
+        # check that we have all the required coordinates
+        if nu.any(orbit_params.mask):
+            raise ValueError(('failed to find all necessary coordinates for {}'
+                              ).format(name))
+        # parallax to distance
+        orbit_params[2]= 1/orbit_params[2]
+        return cls(vxvv=orbit_params, radec=True, ro=ro, vo=vo, zo=zo,
+                   solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""

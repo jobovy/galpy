@@ -4280,6 +4280,163 @@ def test_full_plotting():
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
     return None
 
+def test_from_name():
+    from galpy.orbit import Orbit
+
+    # test Vega from SIMBAD
+    o = Orbit.from_name('Vega')
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega does not match SIMBAD value"
+
+    # test Lacaille 8760 from SIMBAD
+    o = Orbit.from_name('Lacaille 8760')
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 does not match SIMBAD value"
+
+    # test GJ 440 from SIMBAD
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('GJ 440')
+    msg = "failed to find all necessary coordinates for GJ 440"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test Vega from Gaia
+    with pytest.warns(galpyWarning) as record:
+        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        o = Orbit.from_name('Vega', gaiadr2=True)
+    assert len(record) == 1, \
+        "Orbit.from_name('Vega', gaiadr2=True) threw {} warnings, but should have thrown 1".format(len(record))
+    msg = "failed to find Vega in Gaia; falling back on SIMBAD"
+    assert str(record[0].message) == msg, \
+        "expected warning message '{}' but got '{}' instead".format(msg, str(record[0].message))
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega did not default to SIMBAD when searching Gaia"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega did not default to SIMBAD when searching Gaia"
+
+    # test Lacaille 8760 from Gaia
+    o = Orbit.from_name('Lacaille 8760', gaiadr2=True)
+    assert numpy.isclose(o.ra(), 319.29559940781115), \
+        "RA of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.dec(), -38.87229724957863), \
+        "DEC of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.dist(), 1/251.82949243686906), \
+        "Parallax of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.pmra(), -3258.5531275249455), \
+        "PMRA of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.pmdec(), -1145.3957291901002), \
+        "PMDec of Lacaille 8760 does not match Gaia value"
+    assert numpy.isclose(o.vlos(), 20.561701480854417), \
+        "radial velocity of Lacaille 8760 does not match Gaia value"
+
+    # test GJ 440 from Gaia
+    with pytest.raises(ValueError) as excinfo:
+        with pytest.warns(galpyWarning) as record:
+            warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+            Orbit.from_name('GJ 440', gaiadr2=True)
+    assert len(record) == 1, \
+        "Orbit.from_name('GJ 440', gaiadr2=True) threw {} warnings, but should have thrown 1".format(len(record))
+    msg = "line-of-sight velocity for GJ 440 is missing from Gaia; trying the SIMBAD value instead"
+    assert str(record[0].message) == msg, \
+        "expected warning message '{}' but got '{}' instead".format(msg, str(record[0].message))
+    msg = "failed to find all necessary coordinates for GJ 440"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test with a fake object
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('abc123')
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test with a fake object and gaia
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('abc123', gaiadr2=True)
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test small searchr
+    with pytest.warns(galpyWarning) as record:
+        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        o = Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6)
+    assert len(record) == 1, \
+        "Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=1e-6) threw {} warnings, but should have thrown 1".format(len(record))
+    msg = "failed to find Lacaille 8760 in Gaia; falling back on SIMBAD"
+    assert str(record[0].message) == msg, \
+        "expected warning message '{}' but got '{}' instead".format(msg, str(record[0].message))
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 did not default to SIMBAD with small Gaia search radius"
+
+    # test large searchr
+    with pytest.warns(galpyWarning) as record:
+        warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+        Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=50)
+    assert len(record) == 2, \
+        "Orbit.from_name('Lacaille 8760', gaiadr2=True, searchr=50) threw {} warnings, but should have thrown 2".format(len(record))
+    msgs = ("Gaia query returned more than one result when searching for Lacaille 8760 and may have found the wrong object; try reducing searchr",
+            "line-of-sight velocity for Lacaille 8760 is missing from Gaia; trying the SIMBAD value instead")
+    thrown_warnings = [str(warning.message) for warning in record]
+    for msg in msgs:
+        assert msg in thrown_warnings, \
+            "expected to find warning message '{}', but did not".format(msg)
+
+    # test with missing coordinates in Gaia
+    with pytest.raises(ValueError) as excinfo:
+        with pytest.warns(galpyWarning) as record:
+            warnings.filterwarnings('ignore', 'unclosed', ResourceWarning, 'socket')
+            Orbit.from_name('GJ 440', gaiadr2=True, searchr=20)
+    assert len(record) == 2, \
+        "Orbit.from_name('GJ 440', gaiadr2=True, searchr=20) threw {} warnings, but should have thrown 2".format(len(record))
+    msgs = ("Gaia query returned more than one result when searching for GJ 440 and may have found the wrong object; try reducing searchr",
+            "some coordinates for GJ 440 are missing from Gaia; falling back on SIMBAD")
+    thrown_warnings = [str(warning.message) for warning in record]
+    for msg in msgs:
+        assert msg in thrown_warnings, \
+            "expected to find warning message '{}', but did not".format(msg)
+    msg = "failed to find all necessary coordinates for GJ 440"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
