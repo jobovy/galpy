@@ -3822,8 +3822,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         # query SIMBAD for the named object
         simbad= Simbad()
-        simbad.add_votable_fields('ra(d)', 'dec(d)', 'plx', 'pmra', 'pmdec',
-                                  'rv_value')
+        simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
+                                  'rv_value', 'plx', 'distance')
         simbad.remove_votable_fields('main_id', 'coordinates')
         try:
             simbad_table= simbad.query_object(name)
@@ -3833,15 +3833,26 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             raise ValueError('failed to find {} in SIMBAD'.format(name))
 
         # check that all necessary coordinates have been found
-        missing= simbad_table.mask.as_array()[0]
-        missing= missing.view((bool, len(missing.dtype.names)))
-        if nu.any(missing):
+        missing= simbad_table.mask[0]
+        if any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE']):
             raise ValueError(('failed to find some coordinates for {} in SIMBAD'
                               ).format(name))
+        ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
+                                                 'PMDEC', 'RV_VALUE'][0]
 
-        ra, dec, plx, pmra, pmdec, vlos= simbad_table[0]
-        return cls(vxvv=[ra,dec,1/plx,pmra,pmdec,vlos], radec=True, ro=ro,
-                   vo=vo, zo=zo, solarmotion=solarmotion)
+        # try to find a distance value
+        if not missing['PLX_VALUE']:
+            dist= 1/simbad_table['PLX_VALUE'][0]
+        elif not missing['Distance_distance']:
+            dist_str= str(simbad_table['Distance_distance'][0]) + \
+                      simbad_table['Distance_unit'][0]
+            dist= units.Quantity(dist_str).to(units.kpc).value
+        else:
+            raise ValueError(('failed to find a distance value for {} in SIMBAD'
+                              ).format(name))
+
+        return cls(vxvv=[ra,dec,dist,pmra,pmdec,vlos], radec=True, ro=ro, vo=vo,
+                   zo=zo, solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
