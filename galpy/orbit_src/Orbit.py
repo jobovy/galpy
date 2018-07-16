@@ -3810,7 +3810,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         HISTORY:
 
-            2018-07-09 - Written - Mathew Bub (UofT)
+            2018-07-15 - Written - Mathew Bub (UofT)
 
         """
         if not _APY_LOADED: # pragma: no cover
