@@ -3814,17 +3814,19 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         if not _APY_LOADED: # pragma: no cover
-            raise ImportError(('astropy needs to be installed to use '
-                               'Orbit.from_name'))
+            raise ImportError('astropy needs to be installed to use '
+                              'Orbit.from_name')
         if not _ASTROQUERY_LOADED: # pragma: no cover
-            raise ImportError(('astroquery needs to be installed to use '
-                               'Orbit.from_name'))
+            raise ImportError('astroquery needs to be installed to use '
+                              'Orbit.from_name')
 
-        # query SIMBAD for the named object
+        # setup a SIMBAD query with the appropriate fields
         simbad= Simbad()
         simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
                                   'rv_value', 'plx', 'distance')
         simbad.remove_votable_fields('main_id', 'coordinates')
+
+        # query SIMBAD for the named object
         try:
             simbad_table= simbad.query_object(name)
         except OSError: # pragma: no cover
@@ -3832,11 +3834,11 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
 
-        # check that all necessary coordinates have been found
+        # check that the necessary coordinates have been found
         missing= simbad_table.mask[0]
         if any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE']):
-            raise ValueError(('failed to find some coordinates for {} in SIMBAD'
-                              ).format(name))
+            raise ValueError('failed to find some coordinates for {} in '
+                             'SIMBAD'.format(name))
         ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
                                                  'PMDEC', 'RV_VALUE'][0]
 
@@ -3848,8 +3850,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                       simbad_table['Distance_unit'][0]
             dist= units.Quantity(dist_str).to(units.kpc).value
         else:
-            raise ValueError(('failed to find a distance value for {} in SIMBAD'
-                              ).format(name))
+            raise ValueError('failed to find a distance value for {} in '
+                             'SIMBAD'.format(name))
 
         return cls(vxvv=[ra,dec,dist,pmra,pmdec,vlos], radec=True, ro=ro, vo=vo,
                    zo=zo, solarmotion=solarmotion)
