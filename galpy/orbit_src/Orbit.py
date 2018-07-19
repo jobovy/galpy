@@ -619,6 +619,8 @@ class Orbit(object):
                     self._orb.orbit[:,2]= -self._orb.orbit[:,2]
                 if len(self._orb.vxvv) > 4:
                     self._orb.orbit[:,4]= -self._orb.orbit[:,4]
+                if hasattr(self._orb,"_orbInterp"):
+                    delattr(self._orb,"_orbInterp")
             return None
         orbSetupKwargs= {'ro':None,
                          'vo':None,
