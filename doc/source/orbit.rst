@@ -192,9 +192,6 @@ natural coordinates, you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
-.. TIP::
-   Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
-
 Initialization from an object's name
 ****************************************
 
@@ -220,6 +217,12 @@ it is possible for ``from_name`` to find the incorrect object, or no
 object at all. This can be fixed by adjusting the ``searchr`` parameter
 of ``from_name``, which determines the radius in the sky over which
 the Gaia archive is queried.
+
+.. TIP::
+   Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
+
+.. WARNING::
+   Orbits initialized using ``Orbit.from_name`` have physical output *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
 
 Orbit integration
 ------------------
