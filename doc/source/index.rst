@@ -48,9 +48,9 @@ Quick-start guide
 
    potential.rst
 
-   basic_df.rst
-
    orbit.rst
+
+   basic_df.rst
 
    actionAngle.rst
 

@@ -21,6 +21,7 @@ Semyeong Oh (FerrersPotential)
 Jack Hong (SpiralArmsPotential)
 Ted Mackereth (addition to estimateDeltaStaeckel function, and fast orbit characterisation docs)
 Jeremy Webb (rtide and ttensor Potentials methods/functions)
+Mathew Bub (from_name class method of Orbit)
 
 General help:
 ==============
