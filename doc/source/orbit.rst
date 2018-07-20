@@ -3,8 +3,8 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-Orbit initialization
---------------------
+**UPDATED in v1.4**: Orbit initialization
+-----------------------------------------
 
 Standard initialization
 ***********************
@@ -212,6 +212,7 @@ but this also works for some globular clusters, e.g., to obtain `Omega Cen <http
 >>> plot([o.R()],[o.z()],'ro')
 
 .. image:: images/mwp14-orbit-integration-omegacen.png
+	:scale: 40 %
 
 We see that Omega Cen is currently close to its maximum distance from both the Galactic center and from the Galactic midplane.
 
