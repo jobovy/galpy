@@ -3837,16 +3837,16 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
             raise ValueError('failed to find {} in SIMBAD'.format(name))
 
         # check that the necessary coordinates have been found
-        missing= simbad_table.mask[0]
-        if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE']) or
-                all(missing['PLX_VALUE', 'Distance_distance'])):
+        missing= simbad_table.mask
+        if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
+                all(missing['PLX_VALUE', 'Distance_distance'][0])):
             raise ValueError('failed to find some coordinates for {} in '
                              'SIMBAD'.format(name))
         ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
                                                  'PMDEC', 'RV_VALUE'][0]
 
         # get a distance value
-        if not missing['PLX_VALUE']:
+        if not missing['PLX_VALUE'][0]:
             dist= 1/simbad_table['PLX_VALUE'][0]
         else:
             dist_str= str(simbad_table['Distance_distance'][0]) + \
