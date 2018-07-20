@@ -1,10 +1,10 @@
-from galpy.df_src import diskdf
-from galpy.df_src import surfaceSigmaProfile
-from galpy.df_src import evolveddiskdf
-from galpy.df_src import quasiisothermaldf
-from galpy.df_src import streamdf
-from galpy.df_src import streamgapdf
-from galpy.df_src import jeans
+from . import diskdf
+from . import surfaceSigmaProfile
+from . import evolveddiskdf
+from . import quasiisothermaldf
+from . import streamdf
+from . import streamgapdf
+from . import jeans
 #
 # Functions
 #

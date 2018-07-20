@@ -41,7 +41,7 @@ coverage_html_report
 
 # galpy #
 #########
-galpy/df_src/data/dfcorrection*.sav
+galpy/df/data/dfcorrection*.sav
 
 
 # Build directories #

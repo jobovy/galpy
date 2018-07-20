@@ -9,10 +9,10 @@ from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
 from galpy.util import _rotate_to_arbitrary_vector
 from galpy.orbit import Orbit
 from galpy.potential import evaluateRforces, MovingObjectPotential
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 from galpy.util.bovy_conversion import physical_conversion
-import galpy.df_src.streamdf
-from galpy.df_src.streamdf import _determine_stream_track_single
+from . import streamdf
+from .streamdf import _determine_stream_track_single
 from galpy.potential import flatten as flatten_potential
 if _APY_LOADED:
     from astropy import units
@@ -30,7 +30,7 @@ def impact_check_range(func):
         else:
             return func(*args,**kwargs)
     return impact_wrapper
-class streamgapdf(galpy.df_src.streamdf.streamdf):
+class streamgapdf(streamdf.streamdf):
     """The DF of a gap in a tidal stream"""
     def __init__(self,*args,**kwargs):
         """
@@ -129,9 +129,9 @@ class streamgapdf(galpy.df_src.streamdf.streamdf):
         # For setup later
         nTrackChunks= kwargs.pop('nTrackChunks',None)
         interpTrack= kwargs.pop('interpTrack',
-                                galpy.df_src.streamdf._INTERPDURINGSETUP)
+                                streamdf._INTERPDURINGSETUP)
         useInterp= kwargs.pop('useInterp',
-                              galpy.df_src.streamdf._USEINTERP)
+                              streamdf._USEINTERP)
         # Analytical Plummer or general potential?
         self._general_kick= GM is None or rs is None
         if self._general_kick and subhalopot is None:

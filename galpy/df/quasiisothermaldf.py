@@ -9,7 +9,7 @@ from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.potential import flatten as flatten_potential
 from galpy.orbit import Orbit
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, actionAngle_physical_input, _APY_UNITS

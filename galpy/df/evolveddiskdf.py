@@ -20,7 +20,7 @@ from scipy import integrate
 from galpy.util import galpyWarning
 from galpy.orbit import Orbit
 from galpy.potential import calcRotcurve
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 from galpy.potential_src.Potential import _check_c
 from galpy.util.bovy_quadpack import dblquad
 from galpy.util import bovy_plot

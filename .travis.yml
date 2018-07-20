@@ -60,7 +60,7 @@ before_install:
  - sh -e /etc/init.d/xvfb start $For plotting tests
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
- - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
+ - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
 # command to install dependencies
 install:
  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports

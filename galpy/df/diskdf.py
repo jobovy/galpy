@@ -29,7 +29,7 @@ import scipy.interpolate as interpolate
 from scipy import linalg
 from scipy import stats
 from scipy import optimize
-from galpy.df_src.surfaceSigmaProfile import *
+from .surfaceSigmaProfile import *
 from galpy.orbit import Orbit
 from galpy.util.bovy_ars import bovy_ars
 from galpy.util import save_pickles
@@ -37,7 +37,7 @@ from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from galpy.potential import PowerSphericalPotential
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 #scipy version

@@ -11,7 +11,7 @@ if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
 else:
     from scipy.misc import logsumexp
 from galpy.orbit import Orbit
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 from galpy.util.bovy_conversion import physical_conversion, _APY_UNITS
