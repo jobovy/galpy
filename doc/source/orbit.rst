@@ -196,17 +196,36 @@ Initialization from an object's name
 ****************************************
 
 A convenience method, ``Orbit.from_name``, is also available to initialize
-orbits from the name of an object. For example:
+orbits from the name of an object. For example, for the star `Lacaille 8760 <https://en.wikipedia.org/wiki/Lacaille_8760>`__:
 
 >>> o= Orbit.from_name('Lacaille 8760', ro=8., vo=220.)
 >>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
 # [319.31362023999276, -38.86736390000036, 0.003970940656277758, -3258.5529999996584, -1145.3959999996205, 20.560000000006063]
 
-This method attempts to resolve the name of the object in SIMBAD,
-and then use the observed coordinates found there to generate an
-``Orbit`` instance. In order to query SIMBAD, ``Orbit.from_name``
-requires the `astroquery <https://astroquery.readthedocs.io/>`_
-package to be installed.
+but this also works for some globular clusters, e.g., to obtain `Omega Cen <https://en.wikipedia.org/wiki/Omega_Centauri>`__'s orbit and current location in the Milky Way do:
+
+>>> o= Orbit.from_name('Omega Cen')
+>>> from galpy.potential import MWPotential2014
+>>> ts= numpy.linspace(0.,100.,2001)
+>>> o.integrate(ts,MWPotential2014)
+>>> o.plot()
+>>> plot([o.R()],[o.z()],'ro')
+
+.. image:: images/mwp14-orbit-integration-omegacen.png
+
+We see that Omega Cen is currently close to its maximum distance from both the Galactic center and from the Galactic midplane.
+
+Similarly, you can do:
+
+>>> o= Orbit.from_name('LMC')
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [80.894200000000055, -69.756099999999847, 49.999999999999993, 1.909999999999999, 0.2290000000000037, 262.19999999999993]
+
+The ``Orbit.from_name`` method attempts to resolve the name of the
+object in SIMBAD, and then use the observed coordinates found there to
+generate an ``Orbit`` instance. In order to query SIMBAD,
+``Orbit.from_name`` requires the `astroquery
+<https://astroquery.readthedocs.io/>`_ package to be installed.
 
 .. TIP::
    Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
