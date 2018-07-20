@@ -3832,7 +3832,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         try:
             simbad_table= simbad.query_object(name)
         except OSError: # pragma: no cover
-            raise ConnectionError('failed to connect to SIMBAD')
+            raise OSError('failed to connect to SIMBAD')
         if not simbad_table:
             raise ValueError('failed to find {} in SIMBAD'.format(name))
 
