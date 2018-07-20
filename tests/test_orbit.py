@@ -2360,6 +2360,71 @@ def test_flip_inplace_integrated():
             assert numpy.abs(o.vz()+of.vz()) < 10.**-10., 'o.flip() did not work as expected'
     return None
 
+# Test reversing an orbit inplace after orbit integration, and after having 
+# once evaluated the orbit before flipping inplace (#345)
+# only difference wrt previous test is a line that evaluates of before 
+# flipping
+def test_flip_inplace_integrated_evaluated():
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    plp= lp.toPlanar()
+    llp= lp.toVertical(1.)
+    ts= numpy.linspace(0.,1.,11)
+    for ii in range(5):
+        #Scales (not really necessary for this test)
+        ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
+        if ii == 0: #axi, full
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=True)
+        elif ii == 1: #track azimuth, full
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=False)
+        elif ii == 2: #axi, planar
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=True)
+        elif ii == 3: #track azimuth, full
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=False)
+        elif ii == 4: #linear orbit
+            o= setup_orbit_flip(llp,ro,vo,zo,solarmotion,axi=False)
+        of= o()
+        if ii < 2 or ii == 3:
+            o.integrate(ts,lp)
+            of.integrate(ts,lp)
+        elif ii == 2:
+            o.integrate(ts,plp)
+            of.integrate(ts,plp)
+        else:
+            o.integrate(ts,llp)
+            of.integrate(ts,llp)
+        # Evaluate, make sure it is at an interpolated time!
+        dum= of.R(0.52)
+        # Now flip
+        of.flip(inplace=True)
+        # Just check one time, allows code duplication!
+        o= o(0.52)
+        of= of(0.52)
+        #First check that the scales have been propagated properly
+        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        if ii == 4:
+            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        else:
+            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        if ii == 4:
+            assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
+        else:
+            assert numpy.abs(o.R()-of.R()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vR()+of.vR()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vT()+of.vT()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii % 2 == 1:
+            assert numpy.abs(o.phi()-of.phi()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii < 2:
+            assert numpy.abs(o.z()-of.z()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vz()+of.vz()) < 10.**-10., 'o.flip() did not work as expected'
+    return None
+
 # test getOrbit
 def test_getOrbit():
     from galpy.orbit import Orbit
