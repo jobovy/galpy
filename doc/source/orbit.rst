@@ -192,8 +192,27 @@ natural coordinates, you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
+Initialization from an object's name
+****************************************
+
+A convenience method, ``Orbit.from_name``, is also available to initialize
+orbits from the name of an object. For example:
+
+>>> o= Orbit.from_name('Lacaille 8760', ro=8., vo=220.)
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [319.31362023999276, -38.86736390000036, 0.003970940656277758, -3258.5529999996584, -1145.3959999996205, 20.560000000006063]
+
+This method attempts to resolve the name of the object in SIMBAD,
+and then use the observed coordinates found there to generate an
+``Orbit`` instance. In order to query SIMBAD, ``Orbit.from_name``
+requires the `astroquery <https://astroquery.readthedocs.io/>`_
+package to be installed.
+
 .. TIP::
    Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
+
+.. WARNING::
+   Orbits initialized using ``Orbit.from_name`` have physical output *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
 
 Orbit integration
 ------------------

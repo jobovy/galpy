@@ -10,7 +10,7 @@ environment:
       COMPILE_NOOPENMP: 
 
     - TEST_FILES: tests\test_orbit.py
-      ADDL_CONDA_PKGS: astropy
+      ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: "--no-openmp"
 
     - TEST_FILES: tests\test_quantity.py tests\test_coords.py
@@ -27,6 +27,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
+  - conda config --append channels astropy 
   - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage

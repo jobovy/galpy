@@ -4345,6 +4345,78 @@ def test_full_plotting():
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
     return None
 
+def test_from_name_values():
+    from galpy.orbit import Orbit
+
+    # test Vega
+    o = Orbit.from_name('Vega')
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega does not match SIMBAD value"
+
+    # test Lacaille 8760
+    o = Orbit.from_name('Lacaille 8760')
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 does not match SIMBAD value"
+
+    # test LMC
+    o = Orbit.from_name('LMC')
+    assert numpy.isclose(o.ra(), 80.89416666666666), \
+        "RA of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -69.75611111111111), \
+        "DEC of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 50.0), \
+        "Parallax of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 1.91), \
+        "PMRA of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 0.229), \
+        "PMDec of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 262.2), \
+        "radial velocity of LMC does not match SIMBAD value"
+
+def test_from_name_errors():
+    from galpy.orbit import Orbit
+
+    # test GJ 440
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('GJ 440')
+    msg = "failed to find some coordinates for GJ 440 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test with a fake object
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('abc123')
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test GRB 090423
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('GRB 090423')
+    msg = "failed to find some coordinates for GRB 090423 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable

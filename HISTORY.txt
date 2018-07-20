@@ -51,6 +51,9 @@ v1.4 (??????)
 - Made the code fully compilable on Windows with MSVC and test Windows
   builds automatically on appveyor (#333).
 
+- Add from_name class method of Orbit, which allows Orbit instances to
+  be initialized using the coordinates of a named object found in SIMBAD.
+
 v1.3 (2018-02-06)
 ==================
 

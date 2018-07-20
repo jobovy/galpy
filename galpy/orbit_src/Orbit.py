@@ -10,6 +10,11 @@ if _APY_LOADED:
     _APY3= astropy.__version__ > '3'
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
+_ASTROQUERY_LOADED= True
+try:
+    from astroquery.simbad import Simbad
+except ImportError:
+    _ASTROQUERY_LOADED= False
 import galpy.util.bovy_coords as coords
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning
@@ -3775,6 +3780,81 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         """
         return self._orb.animate(*args,**kwargs)
+
+    @classmethod
+    def from_name(cls, name, vo=None, ro=None, zo=None, solarmotion=None):
+        """
+        NAME:
+
+            from_name
+
+        PURPOSE:
+
+            given the name of an object, retrieve coordinate information for that object from SIMBAD and return a corresponding orbit
+
+        INPUT:
+
+            name - the name of the object
+
+            +standard Orbit initialization keywords:
+
+                ro= distance from vantage point to GC (kpc; can be Quantity)
+
+                vo= circular velocity at ro (km/s; can be Quantity)
+
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+
+        OUTPUT:
+
+            orbit containing the phase space coordinates of the named object
+
+        HISTORY:
+
+            2018-07-15 - Written - Mathew Bub (UofT)
+
+        """
+        if not _APY_LOADED: # pragma: no cover
+            raise ImportError('astropy needs to be installed to use '
+                              'Orbit.from_name')
+        if not _ASTROQUERY_LOADED: # pragma: no cover
+            raise ImportError('astroquery needs to be installed to use '
+                              'Orbit.from_name')
+
+        # setup a SIMBAD query with the appropriate fields
+        simbad= Simbad()
+        simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
+                                  'rv_value', 'plx', 'distance')
+        simbad.remove_votable_fields('main_id', 'coordinates')
+
+        # query SIMBAD for the named object
+        try:
+            simbad_table= simbad.query_object(name)
+        except OSError: # pragma: no cover
+            raise OSError('failed to connect to SIMBAD')
+        if not simbad_table:
+            raise ValueError('failed to find {} in SIMBAD'.format(name))
+
+        # check that the necessary coordinates have been found
+        missing= simbad_table.mask
+        if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
+                all(missing['PLX_VALUE', 'Distance_distance'][0])):
+            raise ValueError('failed to find some coordinates for {} in '
+                             'SIMBAD'.format(name))
+        ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
+                                                 'PMDEC', 'RV_VALUE'][0]
+
+        # get a distance value
+        if not missing['PLX_VALUE'][0]:
+            dist= 1/simbad_table['PLX_VALUE'][0]
+        else:
+            dist_str= str(simbad_table['Distance_distance'][0]) + \
+                      simbad_table['Distance_unit'][0]
+            dist= units.Quantity(dist_str).to(units.kpc).value
+
+        return cls(vxvv=[ra,dec,dist,pmra,pmdec,vlos], radec=True, ro=ro, vo=vo,
+                   zo=zo, solarmotion=solarmotion)
 
 def _check_integrate_dt(t,dt):
     """Check that the stepszie in t is an integer x dt"""
