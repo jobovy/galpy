@@ -21,8 +21,8 @@ import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc, _isNonAxi
 from galpy.potential_src.Potential import flatten as flatten_potential
-from galpy.actionAngle_src.actionAngleIsochrone import actionAngleIsochrone
-from galpy.actionAngle_src.actionAngle import actionAngle
+from .actionAngleIsochrone import actionAngleIsochrone
+from .actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential
 from galpy.util import bovy_plot, galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \

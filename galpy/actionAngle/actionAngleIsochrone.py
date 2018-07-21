@@ -14,7 +14,7 @@
 import copy
 import warnings
 import numpy as nu
-from galpy.actionAngle_src.actionAngle import actionAngle
+from .actionAngle import actionAngle
 from galpy.potential import IsochronePotential
 from galpy.util import galpyWarning
 _APY_LOADED= True

@@ -71,8 +71,8 @@ install:
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git checkout galpy; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY; then conda install astropy; fi
@@ -88,7 +88,7 @@ script:
 after_success:
  # Generate lcov output 
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
  # Codecov
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload

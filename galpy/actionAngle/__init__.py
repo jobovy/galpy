@@ -1,13 +1,13 @@
-from galpy.actionAngle_src import actionAngle
-from galpy.actionAngle_src import actionAngleAxi
-from galpy.actionAngle_src import actionAngleAdiabatic
-from galpy.actionAngle_src import actionAngleAdiabaticGrid
-from galpy.actionAngle_src import actionAngleStaeckel
-from galpy.actionAngle_src import actionAngleStaeckelGrid
-from galpy.actionAngle_src import actionAngleIsochrone
-from galpy.actionAngle_src import actionAngleIsochroneApprox
-from galpy.actionAngle_src import actionAngleSpherical
-from galpy.actionAngle_src import actionAngleTorus
+from . import actionAngle
+from . import actionAngleAxi
+from . import actionAngleAdiabatic
+from . import actionAngleAdiabaticGrid
+from . import actionAngleStaeckel
+from . import actionAngleStaeckelGrid
+from . import actionAngleIsochrone
+from . import actionAngleIsochroneApprox
+from . import actionAngleSpherical
+from . import actionAngleTorus
 
 #
 # Exceptions

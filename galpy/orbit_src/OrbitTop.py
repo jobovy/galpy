@@ -1275,7 +1275,7 @@ class OrbitTop(object):
                                                           delta=delta,
                                                           **kwargs)
         elif self._aAType.lower() == 'isochroneapprox':
-            from galpy.actionAngle_src.actionAngleIsochroneApprox import actionAngleIsochroneApprox
+            from galpy.actionAngle import actionAngleIsochroneApprox
             self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
                                                  **kwargs)
         elif self._aAType.lower() == 'spherical':

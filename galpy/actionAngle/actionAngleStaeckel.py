@@ -24,9 +24,9 @@ from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, physical_conversion_actionAngle, \
     actionAngle_physical_input
-from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
-import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
-from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from .actionAngle import actionAngle, UnboundError
+from . import actionAngleStaeckel_c
+from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 _APY_LOADED= True
 try:

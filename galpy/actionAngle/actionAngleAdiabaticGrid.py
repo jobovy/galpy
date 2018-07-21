@@ -14,8 +14,8 @@ from __future__ import print_function
 import math
 import numpy
 from scipy import interpolate
-from galpy.actionAngle_src.actionAngleAdiabatic import actionAngleAdiabatic
-from galpy.actionAngle_src.actionAngle import actionAngle, UnboundError
+from .actionAngleAdiabatic import actionAngleAdiabatic
+from .actionAngle import actionAngle, UnboundError
 import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.potential_src.Potential import flatten as flatten_potential

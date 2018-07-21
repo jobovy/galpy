@@ -13,7 +13,7 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.actionAngle_src.actionAngle import *
+from .actionAngle import *
 from galpy.potential_src.linearPotential import linearPotential, \
     evaluatelinearPotentials
 class actionAngleVertical(actionAngle):

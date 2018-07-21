@@ -12,10 +12,10 @@
 ###############################################################################
 import numpy
 from scipy import interpolate, optimize, ndimage
-import galpy.actionAngle_src.actionAngleStaeckel as actionAngleStaeckel
-from galpy.actionAngle_src.actionAngle import actionAngle
-import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
-from galpy.actionAngle_src.actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from . import actionAngleStaeckel
+from .actionAngle import actionAngle
+from . import actionAngleStaeckel_c
+from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
 from galpy.potential_src.Potential import _evaluatePotentials
 from galpy.potential_src.Potential import flatten as flatten_potential

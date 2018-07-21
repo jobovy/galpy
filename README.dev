@@ -24,7 +24,7 @@ set up your new potential (in the 'parse_leapFuncArgs_Full' function)
 6) Edit the code in orbit_src/integrateFullOrbit.py to set up your
 new potential
 
-7) Edit the code in actionAngle_src/actionAngle_c_ext/actionAngle.c to
+7) Edit the code in actionAngle/actionAngle_c_ext/actionAngle.c to
 parse the new potential
 
 8) Finally, add 'self.hasC= True' to the initialization of the

@@ -15,7 +15,7 @@ from .df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
 from galpy.util.bovy_conversion import physical_conversion, _APY_UNITS
-from galpy.actionAngle_src.actionAngleIsochroneApprox import dePeriod
+from galpy.actionAngle.actionAngleIsochroneApprox import dePeriod
 from galpy.potential import flatten as flatten_potential
 import warnings
 from galpy.util import galpyWarning

@@ -933,7 +933,7 @@ set up your new potential (in the **parse_leapFuncArgs_Full** function).
 new potential (in the **_parse_pot** function).
 
 8. (for using the actionAngleStaeckel methods in C) Edit the code in
-``actionAngle_src/actionAngle_c_ext/actionAngle.c`` to parse the new
+``actionAngle/actionAngle_c_ext/actionAngle.c`` to parse the new
 potential (in the **parse_actionAngleArgs** function).
 
 9. Finally, add ``self.hasC= True`` to the initialization of the

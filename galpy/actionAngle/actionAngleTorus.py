@@ -10,8 +10,8 @@ import warnings
 import numpy
 from galpy.potential import MWPotential, _isNonAxi
 from galpy.util import galpyWarning
-import galpy.actionAngle_src.actionAngleTorus_c as actionAngleTorus_c
-from galpy.actionAngle_src.actionAngleTorus_c import _ext_loaded as ext_loaded
+from . import actionAngleTorus_c
+from .actionAngleTorus_c import _ext_loaded as ext_loaded
 from galpy.potential_src.Potential import _check_c
 from galpy.potential_src.Potential import flatten as flatten_potential
 _autofit_errvals= {}
