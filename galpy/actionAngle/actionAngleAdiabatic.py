@@ -16,12 +16,12 @@ import math as m
 import numpy as nu
 from galpy.util import galpyWarning
 from galpy.potential import planarPotential, MWPotential
-from galpy.potential_src.Potential import flatten as flatten_potential
+from galpy.potential.Potential import flatten as flatten_potential
 from .actionAngleAxi import actionAngleAxi
 from .actionAngle import actionAngle
 from . import actionAngleAdiabatic_c
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
-from galpy.potential_src.Potential import _check_c
+from galpy.potential.Potential import _check_c
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):

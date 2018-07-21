@@ -123,7 +123,7 @@ if WIN32:
 
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
-orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+orbit_int_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit/orbit_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
@@ -139,7 +139,7 @@ if WIN32:
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
                      'galpy/orbit/orbit_c_ext',
-                     'galpy/potential_src/potential_c_ext']
+                     'galpy/potential/potential_c_ext']
 
 #actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
 actionAngleTorus_c_src= \
@@ -153,7 +153,7 @@ actionAngleTorus_c_src.extend(\
      'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
      'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+    glob.glob('galpy/potential/potential_c_ext/*.c'))
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/orbit/orbit_c_ext/integrateFullOrbit.c'))
 actionAngleTorus_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
@@ -167,12 +167,12 @@ actionAngleTorus_include_dirs= \
      'galpy/util/interp_2d',
      'galpy/util',
      'galpy/orbit/orbit_c_ext',
-     'galpy/potential_src/potential_c_ext']
+     'galpy/potential/potential_c_ext']
 
 if single_ext: #add the code and libraries for the other extensions
     #src
     orbit_int_c_src.extend(glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c'))
-    orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+    orbit_int_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
     if os.path.exists('galpy/actionAngle/actionAngleTorus_c_ext/torus/src'):
         # Add Torus code
         orbit_int_c_src.extend(actionAngleTorus_c_src)
@@ -185,13 +185,13 @@ if single_ext: #add the code and libraries for the other extensions
     orbit_include_dirs.extend(['galpy/actionAngle/actionAngle_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/orbit/orbit_c_ext',
-                               'galpy/potential_src/potential_c_ext'])
-    orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
+                               'galpy/potential/potential_c_ext'])
+    orbit_include_dirs.extend(['galpy/potential/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
                                'galpy/actionAngle/actionAngle_c_ext',
                                'galpy/orbit/orbit_c_ext',
-                               'galpy/potential_src/interppotential_c_ext'])
+                               'galpy/potential/interppotential_c_ext'])
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
@@ -212,7 +212,7 @@ else:
 
 #actionAngle C extension
 actionAngle_c_src= glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c')
-actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+actionAngle_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
 actionAngle_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
@@ -220,7 +220,7 @@ actionAngle_include_dirs= ['galpy/actionAngle/actionAngle_c_ext',
                            'galpy/orbit/orbit_c_ext',
                            'galpy/util/',
                            'galpy/util/interp_2d',
-                           'galpy/potential_src/potential_c_ext']
+                           'galpy/potential/potential_c_ext']
 
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
@@ -241,18 +241,18 @@ else:
     actionAngle_c_incl= False
     
 #interppotential C extension
-interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
-interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
+interppotential_c_src= glob.glob('galpy/potential/potential_c_ext/*.c')
+interppotential_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
 interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
 interppotential_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
-interppotential_include_dirs= ['galpy/potential_src/potential_c_ext',
+interppotential_include_dirs= ['galpy/potential/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
                                'galpy/actionAngle/actionAngle_c_ext',
                                'galpy/orbit/orbit_c_ext',
-                               'galpy/potential_src/interppotential_c_ext']
+                               'galpy/potential/interppotential_c_ext']
 
 interppotential_c= Extension('galpy_interppotential_c',
                              sources=interppotential_c_src,
@@ -297,7 +297,7 @@ setup(name='galpy',
       long_description=long_description,
       url='http://github.com/jobovy/galpy',
       package_dir = {'galpy/': ''},
-      packages=['galpy','galpy/orbit','galpy/potential_src',
+      packages=['galpy','galpy/orbit','galpy/potential',
                 'galpy/df','galpy/util','galpy/snapshot_src',
                 'galpy/actionAngle'],
       package_data={'galpy/df':['data/*.sav'],

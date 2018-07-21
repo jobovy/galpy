@@ -18,8 +18,8 @@ import numpy as nu
 from scipy import optimize, integrate
 from .actionAngle import *
 from .actionAngleVertical import actionAngleVertical
-from galpy.potential_src.planarPotential import _evaluateplanarPotentials
-from galpy.potential_src.Potential import epifreq
+from galpy.potential.planarPotential import _evaluateplanarPotentials
+from galpy.potential.Potential import epifreq
 from galpy.potential import vcirc
 _EPS= 10.**-15.
 class actionAngleAxi(actionAngleVertical):

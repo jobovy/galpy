@@ -43,7 +43,7 @@ three Potential instances
 
 >>> from galpy.potential import MWPotential2014
 >>> print(MWPotential2014)
-# [<galpy.potential_src.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential_src.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential_src.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
+# [<galpy.potential.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
 
 and we can evaluate the potential by using the ``evaluatePotentials``
 function
@@ -904,7 +904,7 @@ also see :ref:`the next section <addwrappot>`):
   for which the (planar) second derivatives are implemented in C;
   ``self.isNonAxi=True`` for non-axisymmetric potentials.
 
-2. To add a C implementation of the potential, implement it in a .c file under ``potential_src/potential_c_ext``. Look at ``potential_src/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential_src/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
+2. To add a C implementation of the potential, implement it in a .c file under ``potential/potential_c_ext``. Look at ``potential/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
 
  For orbit integration, the functions such as:
 
@@ -914,10 +914,10 @@ also see :ref:`the next section <addwrappot>`):
  are most important. For some of the action-angle calculations
 
  * double LogarithmicHaloPotentialEval(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
- is most important (i.e., for those algorithms that evaluate the potential). The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential_src/potential_c_ext/galpy_potentials.h``.
+ is most important (i.e., for those algorithms that evaluate the potential). The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential/potential_c_ext/galpy_potentials.h``.
 
 3. Add the potential's function declarations to
-``potential_src/potential_c_ext/galpy_potentials.h``
+``potential/potential_c_ext/galpy_potentials.h``
 
 4. (4. and 5. for planar orbit integration) Edit the code under
 ``orbit/orbit_c_ext/integratePlanarOrbit.c`` to set up your new
@@ -988,7 +988,7 @@ the complicated expression for z is to correctly deal with both 3D and
 2D potentials (of course, if your wrapper depends on z, it probably
 doesn't make much sense to apply it to a 2D planarPotential; you could
 check the dimensionality of ``self._pot`` in your wrapper's
-``__init__`` function with ``from galpy.potential_src.Potential._dim``
+``__init__`` function with ``from galpy.potential.Potential._dim``
 and raise an error if it is not 3 in this case). Wrapping a 2D
 potential automatically results in a wrapper that is a subclass of
 ``planarPotential`` rather than ``Potential``; this is done by the

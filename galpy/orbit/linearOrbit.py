@@ -1,7 +1,7 @@
 import numpy as nu
 from scipy import integrate
 from .OrbitTop import OrbitTop
-from galpy.potential_src.linearPotential import _evaluatelinearForces,\
+from galpy.potential.linearPotential import _evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode

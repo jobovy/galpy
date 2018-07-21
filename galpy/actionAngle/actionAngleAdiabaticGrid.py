@@ -17,8 +17,8 @@ from scipy import interpolate
 from .actionAngleAdiabatic import actionAngleAdiabatic
 from .actionAngle import actionAngle, UnboundError
 import galpy.potential
-from galpy.potential_src.Potential import _evaluatePotentials
-from galpy.potential_src.Potential import flatten as flatten_potential
+from galpy.potential.Potential import _evaluatePotentials
+from galpy.potential.Potential import flatten as flatten_potential
 from galpy.util import multi
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):

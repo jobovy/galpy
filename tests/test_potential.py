@@ -1951,7 +1951,7 @@ def test_DiskSCFPotential_againstDoubleExp_dens():
 def test_WrapperPotential_dims():
     # Test that WrapperPotentials get assigned to Potential/planarPotential 
     # correctly, based on input pot=
-    from galpy.potential_src.WrapperPotential import parentWrapperPotential, \
+    from galpy.potential.WrapperPotential import parentWrapperPotential, \
         WrapperPotential, planarWrapperPotential
     dp= potential.DehnenBarPotential()
     # 3D pot should be Potential, Wrapper, parentWrapper, not planarX
@@ -2914,7 +2914,7 @@ class mockMovingObjectPotential(testMWPotential):
         raise AttributeError
     def OmegaP(self):
         return 1./self._rc
-from galpy.potential_src.ForceSoftening import PlummerSoftening
+from galpy.potential.ForceSoftening import PlummerSoftening
 class mockMovingObjectExplSoftPotential(testMWPotential):
     def __init__(self,rc=0.75,maxt=1.,nt=50):
         from galpy.orbit import Orbit
@@ -2940,7 +2940,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
     GaussianAmplitudeWrapperPotential
-from galpy.potential_src.WrapperPotential import parentWrapperPotential
+from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
     # for t > -99

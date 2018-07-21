@@ -5,10 +5,10 @@ from scipy import integrate
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from .OrbitTop import OrbitTop
-from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
+from galpy.potential.planarPotential import _evaluateplanarRforces,\
     RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
     _evaluateplanarPotentials
-from galpy.potential_src.Potential import Potential, _check_c
+from galpy.potential.Potential import Potential, _check_c
 from galpy.util import galpyWarning, galpyWarningVerbose
 #try:
 from .integratePlanarOrbit import integratePlanarOrbit_c,\

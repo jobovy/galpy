@@ -14,7 +14,7 @@ import math as m
 import numpy as nu
 from scipy import optimize, integrate
 from .actionAngle import *
-from galpy.potential_src.linearPotential import linearPotential, \
+from galpy.potential.linearPotential import linearPotential, \
     evaluatelinearPotentials
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for vertical integral using the adiabatic approximation"""

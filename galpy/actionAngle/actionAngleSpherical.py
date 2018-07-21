@@ -14,8 +14,8 @@ import math as m
 import numpy as nu
 from scipy import integrate
 from galpy.potential import epifreq, omegac
-from galpy.potential_src.Potential import _evaluatePotentials
-from galpy.potential_src.Potential import flatten as flatten_potential
+from galpy.potential.Potential import _evaluatePotentials
+from galpy.potential.Potential import flatten as flatten_potential
 from .actionAngle import *
 from .actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):

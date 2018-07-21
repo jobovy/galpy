@@ -20,7 +20,7 @@ import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
 from galpy.potential import dvcircdR, vcirc, _isNonAxi
-from galpy.potential_src.Potential import flatten as flatten_potential
+from galpy.potential.Potential import flatten as flatten_potential
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
 from galpy.potential import IsochronePotential, MWPotential

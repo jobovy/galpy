@@ -1,6 +1,6 @@
 import numpy as nu
 from galpy.orbit import Orbit
-from galpy.potential_src.planarPotential import RZToplanarPotential
+from galpy.potential.planarPotential import RZToplanarPotential
 import galpy.util.bovy_plot as plot
 from directnbody import direct_nbody
 class Snapshot(object):

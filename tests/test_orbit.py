@@ -13,7 +13,7 @@ import numpy
 import astropy
 _APY3= astropy.__version__ > '3'
 from galpy import potential
-from galpy.potential_src.Potential import  _check_c
+from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -4023,7 +4023,7 @@ def test_orbit_sun_setup():
 
 def test_linear_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.verticalPotential import RZToverticalPotential
+    from galpy.potential.verticalPotential import RZToverticalPotential
     o= Orbit([1.,1.])
     times= numpy.linspace(0.,7.,251)
     from galpy.potential import LogarithmicHaloPotential
@@ -4049,7 +4049,7 @@ def test_linear_plotting():
 # Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.planarPotential import RZToplanarPotential
+    from galpy.potential.planarPotential import RZToplanarPotential
     o= Orbit([1.,0.1,1.1,2.])
     oa= Orbit([1.,0.1,1.1])
     times= numpy.linspace(0.,7.,251)

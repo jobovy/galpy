@@ -9,9 +9,9 @@ if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
 else:
     from scipy.misc import logsumexp
-from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
+from galpy.potential.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
-from galpy.potential_src.DissipativeForce import _isDissipative
+from galpy.potential.DissipativeForce import _isDissipative
 from galpy.util import galpyWarning, galpyWarningVerbose
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode

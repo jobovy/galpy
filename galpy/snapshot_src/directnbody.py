@@ -3,11 +3,11 @@ from __future__ import print_function
 import numpy as nu
 from numpy import linalg
 import galpy.util.bovy_symplecticode as symplecticode
-from galpy.potential_src.Potential import evaluateRforces, evaluatezforces,\
+from galpy.potential.Potential import evaluateRforces, evaluatezforces,\
     evaluatephiforces
-from galpy.potential_src.planarPotential import evaluateplanarRforces,\
+from galpy.potential.planarPotential import evaluateplanarRforces,\
     evaluateplanarphiforces
-from galpy.potential_src.linearPotential import evaluatelinearForces
+from galpy.potential.linearPotential import evaluatelinearForces
 def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
                  softening_length=None,
                  atol=None,rtol=None):

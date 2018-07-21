@@ -2,7 +2,7 @@ import warnings
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
+from galpy.potential.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, evaluateDensities, _check_c
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot

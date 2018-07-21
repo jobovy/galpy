@@ -5,12 +5,12 @@ Adding a potential to the C integrator
 --------------------------------------
 
 1) Implement the potential in a .c file under
-potential_src/potential_c_ext. Look at
-potential_src/potential_c_ext/LogarithmicHaloPotential.c for the right
+potential/potential_c_ext. Look at
+potential/potential_c_ext/LogarithmicHaloPotential.c for the right
 format
 
 2) Add your new potential to
-potential_src/potential_c_ext/galpy_potentials.h
+potential/potential_c_ext/galpy_potentials.h
 
 3) Edit the code under orbit/orbit_c_ext/integratePlanarOrbit.c to
 set up your new potential (in the 'parse_leapFuncArgs' function)

@@ -17,8 +17,8 @@ from .actionAngle import actionAngle
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 import galpy.potential
-from galpy.potential_src.Potential import _evaluatePotentials
-from galpy.potential_src.Potential import flatten as flatten_potential
+from galpy.potential.Potential import _evaluatePotentials
+from galpy.potential.Potential import flatten as flatten_potential
 from galpy.util import multi, bovy_coords
 from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
     actionAngle_physical_input
