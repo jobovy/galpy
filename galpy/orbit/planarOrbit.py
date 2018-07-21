@@ -4,14 +4,14 @@ import numpy as nu
 from scipy import integrate
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.orbit_src.OrbitTop import OrbitTop
+from .OrbitTop import OrbitTop
 from galpy.potential_src.planarPotential import _evaluateplanarRforces,\
     RZToplanarPotential, toPlanarPotential, _evaluateplanarphiforces,\
     _evaluateplanarPotentials
 from galpy.potential_src.Potential import Potential, _check_c
 from galpy.util import galpyWarning, galpyWarningVerbose
 #try:
-from galpy.orbit_src.integratePlanarOrbit import integratePlanarOrbit_c,\
+from .integratePlanarOrbit import integratePlanarOrbit_c,\
     integratePlanarOrbit_dxdv_c, _ext_loaded
 ext_loaded= _ext_loaded
 class planarOrbitTop(OrbitTop):

@@ -920,16 +920,16 @@ also see :ref:`the next section <addwrappot>`):
 ``potential_src/potential_c_ext/galpy_potentials.h``
 
 4. (4. and 5. for planar orbit integration) Edit the code under
-``orbit_src/orbit_c_ext/integratePlanarOrbit.c`` to set up your new
+``orbit/orbit_c_ext/integratePlanarOrbit.c`` to set up your new
 potential (in the **parse_leapFuncArgs** function).
 
-5. Edit the code in ``orbit_src/integratePlanarOrbit.py`` to set up your
+5. Edit the code in ``orbit/integratePlanarOrbit.py`` to set up your
 new potential (in the **_parse_pot** function).
 
-6. Edit the code under ``orbit_src/orbit_c_ext/integrateFullOrbit.c`` to
+6. Edit the code under ``orbit/orbit_c_ext/integrateFullOrbit.c`` to
 set up your new potential (in the **parse_leapFuncArgs_Full** function).
 
-7. Edit the code in ``orbit_src/integrateFullOrbit.py`` to set up your
+7. Edit the code in ``orbit/integrateFullOrbit.py`` to set up your
 new potential (in the **_parse_pot** function).
 
 8. (for using the actionAngleStaeckel methods in C) Edit the code in

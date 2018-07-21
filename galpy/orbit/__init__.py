@@ -1,4 +1,4 @@
-from galpy.orbit_src import Orbit
+from . import Orbit
 
 #
 # Functions

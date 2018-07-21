@@ -38,7 +38,7 @@ else:
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
-    from galpy.orbit_src.integrateFullOrbit import _parse_scf_pot
+    from .integrateFullOrbit import _parse_scf_pot
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]

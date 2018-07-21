@@ -17,10 +17,10 @@ import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
 import galpy.util.bovy_coords as coords
 #try:
-from galpy.orbit_src.integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
+from .integrateFullOrbit import integrateFullOrbit_c, _ext_loaded
 ext_loaded= _ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.orbit_src.OrbitTop import OrbitTop
+from .OrbitTop import OrbitTop
 _ORBFITNORMRADEC= 360.
 _ORBFITNORMDIST= 10.
 _ORBFITNORMPMRADEC= 4.

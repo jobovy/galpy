@@ -7,10 +7,10 @@ from galpy.potential_src.Potential import _evaluateRforces, _evaluatezforces,\
 from galpy.util import galpyWarning
 import galpy.util.bovy_plot as plot
 import galpy.util.bovy_symplecticode as symplecticode
-from galpy.orbit_src.FullOrbit import _integrateFullOrbit
-from galpy.orbit_src.integrateFullOrbit import _ext_loaded as ext_loaded
+from .FullOrbit import _integrateFullOrbit
+from .integrateFullOrbit import _ext_loaded as ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
-from galpy.orbit_src.OrbitTop import OrbitTop
+from .OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
     in the (R,z) plane"""

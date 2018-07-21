@@ -1,6 +1,6 @@
 import numpy as nu
 from scipy import integrate
-from galpy.orbit_src.OrbitTop import OrbitTop
+from .OrbitTop import OrbitTop
 from galpy.potential_src.linearPotential import _evaluatelinearForces,\
     evaluatelinearPotentials
 import galpy.util.bovy_plot as plot

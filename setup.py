@@ -124,7 +124,7 @@ if WIN32:
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
-orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
+orbit_int_c_src.extend(glob.glob('galpy/orbit/orbit_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 orbit_libraries=['m']
@@ -138,7 +138,7 @@ if WIN32:
 
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
-                     'galpy/orbit_src/orbit_c_ext',
+                     'galpy/orbit/orbit_c_ext',
                      'galpy/potential_src/potential_c_ext']
 
 #actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
@@ -155,7 +155,7 @@ actionAngleTorus_c_src.extend(\
 actionAngleTorus_c_src.extend(\
     glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c'))
+    glob.glob('galpy/orbit/orbit_c_ext/integrateFullOrbit.c'))
 actionAngleTorus_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 actionAngleTorus_c_src.extend(glob.glob('galpy/util/*.c'))
 
@@ -166,7 +166,7 @@ actionAngleTorus_include_dirs= \
      'galpy/actionAngle/actionAngle_c_ext',
      'galpy/util/interp_2d',
      'galpy/util',
-     'galpy/orbit_src/orbit_c_ext',
+     'galpy/orbit/orbit_c_ext',
      'galpy/potential_src/potential_c_ext']
 
 if single_ext: #add the code and libraries for the other extensions
@@ -184,13 +184,13 @@ if single_ext: #add the code and libraries for the other extensions
     #includes
     orbit_include_dirs.extend(['galpy/actionAngle/actionAngle_c_ext',
                                'galpy/util/interp_2d',
-                               'galpy/orbit_src/orbit_c_ext',
+                               'galpy/orbit/orbit_c_ext',
                                'galpy/potential_src/potential_c_ext'])
     orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
                                'galpy/actionAngle/actionAngle_c_ext',
-                               'galpy/orbit_src/orbit_c_ext',
+                               'galpy/orbit/orbit_c_ext',
                                'galpy/potential_src/interppotential_c_ext'])
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
@@ -215,9 +215,9 @@ actionAngle_c_src= glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
-actionAngle_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
+actionAngle_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 actionAngle_include_dirs= ['galpy/actionAngle/actionAngle_c_ext',
-                           'galpy/orbit_src/orbit_c_ext',
+                           'galpy/orbit/orbit_c_ext',
                            'galpy/util/',
                            'galpy/util/interp_2d',
                            'galpy/potential_src/potential_c_ext']
@@ -244,14 +244,14 @@ else:
 interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
 interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
-interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
+interppotential_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_include_dirs= ['galpy/potential_src/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
                                'galpy/actionAngle/actionAngle_c_ext',
-                               'galpy/orbit_src/orbit_c_ext',
+                               'galpy/orbit/orbit_c_ext',
                                'galpy/potential_src/interppotential_c_ext']
 
 interppotential_c= Extension('galpy_interppotential_c',
@@ -297,7 +297,7 @@ setup(name='galpy',
       long_description=long_description,
       url='http://github.com/jobovy/galpy',
       package_dir = {'galpy/': ''},
-      packages=['galpy','galpy/orbit_src','galpy/potential_src',
+      packages=['galpy','galpy/orbit','galpy/potential_src',
                 'galpy/df','galpy/util','galpy/snapshot_src',
                 'galpy/actionAngle'],
       package_data={'galpy/df':['data/*.sav'],

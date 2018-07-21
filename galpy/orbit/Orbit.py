@@ -21,11 +21,11 @@ from galpy.util import galpyWarning
 from galpy.util import bovy_conversion
 from galpy.util import config
 _APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
-from galpy.orbit_src.FullOrbit import FullOrbit
-from galpy.orbit_src.RZOrbit import RZOrbit
-from galpy.orbit_src.planarOrbit import planarOrbit, planarROrbit, \
+from .FullOrbit import FullOrbit
+from .RZOrbit import RZOrbit
+from .planarOrbit import planarOrbit, planarROrbit, \
     planarOrbitTop
-from galpy.orbit_src.linearOrbit import linearOrbit
+from .linearOrbit import linearOrbit
 from galpy.potential import flatten as flatten_potential
 _K=4.74047
 if _APY_LOADED:
@@ -2592,7 +2592,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
-        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        from .OrbitTop import _check_roSet, _check_voSet
         _check_roSet(self,kwargs,'vra')
         _check_voSet(self,kwargs,'vra')
         dist= self._orb.dist(*args,**kwargs)
@@ -2640,7 +2640,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
-        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        from .OrbitTop import _check_roSet, _check_voSet
         _check_roSet(self,kwargs,'vdec')
         _check_voSet(self,kwargs,'vdec')
         dist= self._orb.dist(*args,**kwargs)
@@ -2688,7 +2688,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-03-27 - Written - Bovy (NYU)
 
         """
-        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        from .OrbitTop import _check_roSet, _check_voSet
         _check_roSet(self,kwargs,'vll')
         _check_voSet(self,kwargs,'vll')
         dist= self._orb.dist(*args,**kwargs)
@@ -2736,7 +2736,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
            2011-02-24 - Written - Bovy (NYU)
 
         """
-        from galpy.orbit_src.OrbitTop import _check_roSet, _check_voSet
+        from .OrbitTop import _check_roSet, _check_voSet
         _check_roSet(self,kwargs,'vbb')
         _check_voSet(self,kwargs,'vbb')
         dist= self._orb.dist(*args,**kwargs)

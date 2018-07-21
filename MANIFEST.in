@@ -3,7 +3,7 @@ include gsl-config.bat
 include galpy/df/data/*.sav
 include galpy/actionAngle/actionAngle_c_ext/*.h
 include galpy/actionAngle/actionAngleTorus_c_ext/*.h
-include galpy/orbit_src/orbit_c_ext/*.h
+include galpy/orbit/orbit_c_ext/*.h
 include galpy/potential_src/potential_c_ext/*.h
 include galpy/util/*.h
 include galpy/util/interp_2d/*.h

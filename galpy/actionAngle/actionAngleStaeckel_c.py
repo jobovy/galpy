@@ -7,7 +7,7 @@ import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 from galpy.util import galpyWarning
-from galpy.orbit_src.integrateFullOrbit import _parse_pot
+from galpy.orbit.integrateFullOrbit import _parse_pot
 from galpy.util import bovy_coords
 #Find and load the library
 _lib= None

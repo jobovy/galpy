@@ -8,7 +8,7 @@ from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
 from galpy.util import galpyWarning
-from galpy.orbit_src.integratePlanarOrbit import _parse_integrator, _parse_tol
+from .integratePlanarOrbit import _parse_integrator, _parse_tol
 #Find and load the library
 _lib= None
 outerr= None

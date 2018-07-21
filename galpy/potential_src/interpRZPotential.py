@@ -519,7 +519,7 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
        2013-01-24 - Written - Bovy (IAS)
        2013-01-29 - Added forces - Bovy (IAS)
     """
-    from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from galpy.orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot)
 
@@ -613,7 +613,7 @@ def eval_potential_c(pot,R,z):
     HISTORY:
        2013-01-24 - Written - Bovy (IAS)
     """
-    from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from galpy.orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
@@ -672,7 +672,7 @@ def eval_force_c(pot,R,z,zforce=False):
     HISTORY:
        2013-01-29 - Written - Bovy (IAS)
     """
-    from galpy.orbit_src.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from galpy.orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
     npot, pot_type, pot_args= _parse_pot(pot)
 

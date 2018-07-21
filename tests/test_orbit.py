@@ -1534,7 +1534,7 @@ numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],ru
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
 def test_add_linear_planar_orbit():
-    from galpy.orbit_src import FullOrbit, RZOrbit
+    from galpy.orbit import FullOrbit, RZOrbit
     kg= potential.KGPotential()
     ol= setup_orbit_energy(kg)
     #w/ azimuth
@@ -1716,7 +1716,7 @@ def test_orbit_setup_linear():
 
 def test_orbit_setup_planar():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.planarOrbit import planarROrbit
+    from galpy.orbit.planarOrbit import planarROrbit
     o= Orbit([1.,0.1,1.1])
     assert o.dim() == 2, 'planarROrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
@@ -1775,7 +1775,7 @@ def test_orbit_setup_planar():
 
 def test_orbit_setup():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import FullOrbit
+    from galpy.orbit.FullOrbit import FullOrbit
     o= Orbit([1.,0.1,1.1,0.2,0.3])
     assert o.dim() == 3, 'RZOrbitOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
