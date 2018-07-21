@@ -7,7 +7,6 @@ import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 from galpy.util import galpyWarning
-from galpy.orbit.integrateFullOrbit import _parse_pot
 #Find and load the library
 _lib= None
 outerr= None
@@ -54,6 +53,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
        2012-12-10 - Written - Bovy (IAS)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays
@@ -134,6 +134,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
        2017-12-21 - Written - Bovy (UofT)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays

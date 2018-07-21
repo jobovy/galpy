@@ -7,7 +7,6 @@ import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 from galpy.util import galpyWarningVerbose
-from galpy.orbit.integrateFullOrbit import _parse_pot
 #Find and load the library
 _lib= None
 outerr= None
@@ -59,6 +58,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
        2015-08-05/07 - Written - Bovy (UofT)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result arrays
@@ -158,6 +158,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
        2015-08-05/07 - Written - Bovy (UofT)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result
@@ -221,6 +222,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
        2016-07-15 - Written - Bovy (UofT)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result
@@ -295,6 +297,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
        2016-07-19 - Written - Bovy (UofT)
     """
     #Parse the potential
+    from galpy.orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result
