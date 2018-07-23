@@ -720,6 +720,9 @@ def RZToplanarPotential(RZPot):
 
     """
     RZPot= flatten(RZPot)
+    from .Potential import _isNonAxi
+    if _isNonAxi(RZPot):
+        raise PotentialError("Input to 'RZToplanarPotential' contains non-axisymmetric potentials")
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -906,10 +909,12 @@ def toPlanarPotential(Pot):
         for pot in Pot:
             if isinstance(pot,planarPotential):
                 out.append(pot)
-            elif pot.isNonAxi:
+            elif isinstance(pot,Potential) and pot.isNonAxi:
                 out.append(planarPotentialFromFullPotential(pot))
-            else:
+            elif isinstance(pot,Potential):
                 out.append(planarPotentialFromRZPotential(pot))
+            else:
+                raise PotentialError("Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential) and Pot.isNonAxi:
         return planarPotentialFromFullPotential(Pot)
