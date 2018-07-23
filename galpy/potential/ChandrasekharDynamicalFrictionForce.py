@@ -5,6 +5,7 @@
 import hashlib
 import numpy
 from scipy import special, interpolate
+from galpy.util import bovy_conversion
 from .DissipativeForce import DissipativeForce
 from .Potential import _APY_LOADED, evaluateDensities
 from .Potential import flatten as flatten_pot
@@ -20,7 +21,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
        \\mathbf{F}(\\mathbf{x},\\mathbf{v}) = -2\\pi\\,[G\\,M]\\,[G\\,\\rho(\\mathbf{x})]\\,\\ln[1+\\Lambda^2] \\,\\left[\\mathrm{erf}(X)-\\frac{2X}{\\sqrt{\\pi}}\\exp\\left(-X^2\\right)\\right]\\,\\frac{\\mathbf{v}}{|\\mathbf{v}|^3}\\,
 
-    on a mass (e.g., a satellite galaxy or a black hole) :math:`M` at position :math:`\\mathbf{x}` moving at velocity :math:`\\mathbf{v}` through a background density :math:`\\rho`. The factor :math:`\\Lambda` that goes into the Coulomb logarithm is taken to be
+    on a mass (e.g., a satellite galaxy or a black hole) :math:`M` at position :math:`\\mathbf{x}` moving at velocity :math:`\\mathbf{v}` through a background density :math:`\\rho`. The quantity :math:`X` is the usual :math:`X=|\\mathbf{v}|/[\\sqrt{2}\\sigma_r(r)`. The factor :math:`\\Lambda` that goes into the Coulomb logarithm is taken to be
 
     .. math::
 
@@ -46,9 +47,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            amp - amplitude to be applied to the potential (default: 1)
 
-           GMs - satellite mass; can be a Quantity with units of mass or Gxmass
+           GMs - satellite mass; can be a Quantity with units of mass or Gxmass; can be adjusted after initialization by setting obj.GMs= where obj is your ChandrasekharDynamicalFrictionForce instance
 
-           rhm - half-mass radius of the satellite (set to zero for a black hole; can be a Quantity)
+           rhm - half-mass radius of the satellite (set to zero for a black hole; can be a Quantity); can be adjusted after initialization by setting obj.rhm= where obj is your ChandrasekharDynamicalFrictionForce instance
 
            gamma - Free-parameter in :math:`\\Lambda`
 
@@ -77,6 +78,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
            2011-12-26 - Started - Bovy (NYU)
 
            2018-03-18 - Re-started: updated to r dependent Lambda form and integrated into galpy framework - Bovy (UofT)
+
+           2018-07-23 - Calculate sigmar from the Jeans equation and interpolate it; allow GMs and rhm to be set on the fly - Bovy (UofT)
 
         """
         DissipativeForce.__init__(self,amp=amp*GMs,ro=ro,vo=vo,
@@ -120,8 +123,49 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._force_hash= None
         return None
 
+    def GMs(self,gms):
+        if _APY_LOADED and isinstance(gms,units.Quantity):
+            try:
+                gms= gms.to(units.Msun).value\
+                    /bovy_conversion.mass_in_msol(self._vo,self._ro)
+            except units.UnitConversionError:
+                # Try G x mass
+                try:
+                    gms= gms.to(units.pc*units.km**2/units.s**2)\
+                        .value\
+                        /bovy_conversion.mass_in_msol(self._vo,self._ro)\
+                        /bovy_conversion._G
+                except units.UnitConversionError:
+                    raise units.UnitConversionError('GMs for %s should have units of mass or G x mass' % (type(self).__name__))
+        self._amp*= gms/self._ms
+        self._ms= gms
+        # Reset the hash
+        self._force_hash= None
+        return None
+    GMs= property(None,GMs)
+
+    def rhm(self,new_rhm):
+        if _APY_LOADED and isinstance(new_rhm,units.Quantity):
+            new_rhm= new_rhm.to(units.kpc).value/self._ro
+        self._rhm= new_rhm
+        # Reset the hash
+        self._force_hash= None
+        return None
+    rhm= property(None,rhm)        
+    
     def lnLambda(self,r,v):
         """
+        NAME:
+           lnLambda
+        PURPOSE:
+           evaluate the Coulomb logarithm :math:`\\ln \\Lambda`
+        INPUT:
+           r - spherical radius (natural units)
+           v - current velocity in cylindrical coordinates (natural units)
+        OUTPUT:
+           Coulomb logarithm
+        HISTORY:
+           2018-03-18 - Started - Bovy (UofT)
         """
         if self._lnLambda:
             lnLambda= self._lnLambda
