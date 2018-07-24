@@ -41,6 +41,7 @@ from galpy.potential_src import SpiralArmsPotential
 from galpy.potential_src import HenonHeilesPotential
 from galpy.potential_src import DehnenSmoothWrapperPotential
 from galpy.potential_src import SolidBodyRotationWrapperPotential
+from galpy.potential_src import IsothermalDiskPotential
 #
 # Functions
 #
@@ -138,6 +139,7 @@ SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotentia
 DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
+IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
