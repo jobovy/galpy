@@ -1,5 +1,4 @@
 from galpy.actionAngle_src import actionAngle
-from galpy.actionAngle_src import actionAngleAxi
 from galpy.actionAngle_src import actionAngleAdiabatic
 from galpy.actionAngle_src import actionAngleAdiabaticGrid
 from galpy.actionAngle_src import actionAngleStaeckel
@@ -11,6 +10,8 @@ from galpy.actionAngle_src import actionAngleTorus
 from galpy.actionAngle_src import actionAngleIsochroneInverse
 from galpy.actionAngle_src import actionAngleHarmonic
 from galpy.actionAngle_src import actionAngleHarmonicInverse
+from galpy.actionAngle_src import actionAngleVertical
+from galpy.actionAngle_src import actionAngleVerticalInverse
 #
 # Exceptions
 #
@@ -26,7 +27,6 @@ dePeriod= actionAngleIsochroneApprox.dePeriod
 # Classes
 #
 actionAngle= actionAngle.actionAngle
-actionAngleAxi= actionAngleAxi.actionAngleAxi
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle
@@ -40,3 +40,5 @@ actionAngleTorus= actionAngleTorus.actionAngleTorus
 actionAngleIsochroneInverse= actionAngleIsochroneInverse.actionAngleIsochroneInverse
 actionAngleHarmonic= actionAngleHarmonic.actionAngleHarmonic
 actionAngleHarmonicInverse= actionAngleHarmonicInverse.actionAngleHarmonicInverse
+actionAngleVertical= actionAngleVertical.actionAngleVertical
+actionAngleVerticalInverse= actionAngleVerticalInverse.actionAngleVerticalInverse

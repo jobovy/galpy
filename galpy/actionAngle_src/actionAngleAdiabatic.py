@@ -3,24 +3,22 @@
 #
 #      class: actionAngleAdiabatic
 #
-#             wrapper around actionAngleAxi (adiabatic approximation) to do
-#             this for any (x,v)
-#
 #      methods:
 #             __call__: returns (jr,lz,jz)
+#            _EccZmaxRperiRap: return (e,zmax,rperi,rap)
 #
 ###############################################################################
 import copy
 import warnings
-import math as m
 import numpy as nu
 from galpy.util import galpyWarning
-from galpy.potential import planarPotential, MWPotential
-from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
+from galpy.potential import MWPotential
+from galpy.actionAngle_src.actionAngleSpherical import actionAngleSpherical
+from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
 from galpy.actionAngle_src.actionAngle import actionAngle
 import galpy.actionAngle_src.actionAngleAdiabatic_c as actionAngleAdiabatic_c
 from galpy.actionAngle_src.actionAngleAdiabatic_c import _ext_loaded as ext_loaded
-from galpy.potential_src.Potential import _check_c
+from galpy.potential_src.Potential import _check_c, _dim
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
@@ -35,7 +33,7 @@ class actionAngleAdiabatic(actionAngle):
 
         INPUT:
 
-           pot= potential or list of potentials (planarPotentials)
+           pot= potential or list of potentials
 
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
 
@@ -55,7 +53,7 @@ class actionAngleAdiabatic(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleAxi")
+            raise IOError("Must specify pot= for actionAngleAdiabatic")
         self._pot= kwargs['pot']
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -67,6 +65,17 @@ class actionAngleAdiabatic(actionAngle):
         else:
             self._c= False
         self._gamma= kwargs.get('gamma',1.)
+        # Setup actionAngleSpherical object for calculations in Python 
+        # (if they become necessary)
+        if _dim(self._pot) == 3:
+            if isinstance(self._pot,list):
+                thispot= [p.toPlanar() for p in self._pot]
+            else:
+                thispot= self._pot.toPlanar()
+        else:
+            thispot= self._pot
+            self._gamma= 0.
+        self._aAS= actionAngleSpherical(pot=thispot,_gamma=self._gamma)
         # Check the units
         self._check_consistent_units()
         return None
@@ -140,27 +149,30 @@ class actionAngleAdiabatic(actionAngle):
                     olz[ii]= tlz
                 return (ojr,olz,ojz)
             else:
-                #Set up the actionAngleAxi object
                 self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
-                else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
-                aAAxi= actionAngleAxi(*args,pot=thispot,
-                                       verticalPot=thisverticalpot,
-                                       gamma=self._gamma)
                 if kwargs.get('_justjr',False):
                     kwargs.pop('_justjr')
-                    return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
-                elif kwargs.get('_justjz',False):
+                    return (self._aAS(self._eval_R,self._eval_vR,self._eval_vT,
+                                      0.,0.,_Jz=0.)[0],
+                            nu.nan,nu.nan)
+                #Set up the actionAngleVertical object
+                if _dim(self._pot) == 3:
+                    if isinstance(self._pot,list):
+                        thisverticalpot= [p.toVertical(self._eval_R) 
+                                          for p in self._pot]
+                    else:
+                        thisverticalpot= self._pot.toVertical(self._eval_R)
+                    aAV= actionAngleVertical(pot=thisverticalpot)
+                    Jz= aAV(self._eval_z,self._eval_vz)
+                else: #2D in-plane
+                    Jz= 0.
+                if kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
-                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                    return (nu.nan,nu.nan,Jz)
                 else:
-                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+                    axiJ= self._aAS(self._eval_R,self._eval_vR,self._eval_vT,
+                                    0.,0.,_Jz=Jz)
+                    return (axiJ[0],axiJ[1],Jz)
 
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
@@ -233,80 +245,22 @@ class actionAngleAdiabatic(actionAngle):
                     orap[ii]= trap
                 return (oecc,ozmax,orperi,orap)
             else:
-                #Set up the actionAngleAxi object
                 self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
+                if _dim(self._pot) == 3:
+                    if isinstance(self._pot,list):
+                        thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
+                    else:
+                        thisverticalpot= self._pot.toVertical(self._eval_R)
+                    aAV= actionAngleVertical(pot=thisverticalpot)
+                    zmax= aAV.calcxmax(self._eval_z,self._eval_vz,**kwargs)
+                    if self._gamma != 0.:
+                        Jz= aAV(self._eval_z,self._eval_vz)
+                    else:
+                        Jz= 0.
                 else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
-                aAAxi= actionAngleAxi(*args,pot=thispot,
-                                       verticalPot=thisverticalpot,
-                                       gamma=self._gamma)
-                rperi,Rap= aAAxi.calcRapRperi(**kwargs)
-                zmax= aAAxi.calczmax(**kwargs)
+                    zmax= 0.
+                    Jz= 0.
+                _,_,rperi,Rap= self._aAS.EccZmaxRperiRap(\
+                    self._eval_R,self._eval_vR,self._eval_vT,0.,0.,_Jz=Jz)
                 rap= nu.sqrt(Rap**2.+zmax**2.)
                 return ((rap-rperi)/(rap+rperi),zmax,rperi,rap)
-
-    def calcRapRperi(self,*args,**kwargs):
-        """
-        NAME:
-           calcRapRperi
-        PURPOSE:
-           calculate the apocenter and pericenter radii
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-        OUTPUT:
-           (rperi,rap)
-        HISTORY:
-           2013-11-27 - Written - Bovy (IAS)
-        """
-        #Set up the actionAngleAxi object
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot if not isinstance(p,planarPotential)]
-            thispot.extend([p for p in self._pot if isinstance(p,planarPotential)])
-        elif not isinstance(self._pot,planarPotential):
-            thispot= self._pot.toPlanar()
-        else:
-            thispot= self._pot
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               gamma=self._gamma)
-        return aAAxi.calcRapRperi(**kwargs)
-
-    def calczmax(self,*args,**kwargs): #pragma: no cover
-        """
-        NAME:
-           calczmax
-        PURPOSE:
-           calculate the maximum height
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-        OUTPUT:
-           zmax
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
-        """
-        warnings.warn("actionAngleAdiabatic.calczmax function will soon be deprecated; please contact galpy's maintainer if you require this function")
-        #Set up the actionAngleAxi object
-        self._parse_eval_args(*args)
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
-            thispot= self._pot.toPlanar()
-        if isinstance(self._pot,list):
-            thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-        else:
-            thisverticalpot= self._pot.toVertical(self._eval_R)
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               verticalPot=thisverticalpot,
-                               gamma=self._gamma)
-        return aAAxi.calczmax(**kwargs)
