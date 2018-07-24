@@ -1004,9 +1004,9 @@ def test_toPlanarPotential():
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp= potential.RZToplanarPotential([pp,cdfc])
+        plp= potential.toPlanarPotential([pp,cdfc])
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp= potential.RZToplanarPotential(cdfc)
+        plp= potential.toPlanarPotential(cdfc)
     return None
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
