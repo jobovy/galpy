@@ -2369,6 +2369,14 @@ def test_potential_paramunits():
     pot_nounits.GMs= 10.**8./bovy_conversion.mass_in_msol(vo,ro)
     # units should still work
     assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # and now for GMs
+    pot.GMs= 10.**8.*units.Msun*constants.G
+    pot_nounits.GMs= 10.**8./bovy_conversion.mass_in_msol(vo,ro)
+    # units should still work
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # Quick test that other units don't work
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        pot.GMs= 10.**8.*units.Msun/units.pc**2
     # and force should be /10 of previous (because linear in mass
     assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-old_force/10.) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
     # Now do rhm
