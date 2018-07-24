@@ -1,3 +1,5 @@
+.. _dynamfric_potential:
+
 Chandrasekhar dynamical friction
 ================================
 

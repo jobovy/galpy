@@ -802,6 +802,34 @@ to use a flattened logarithmic potential, one has to flip ``y`` and
 
 .. _addpot:
 
+**NEW in v1.4**: : Dissipative forces
+-------------------------------------
+
+While almost all of the forces that you can use in ``galpy`` derive
+from a potential (that is, the force is the gradient of a scalar
+function, the potential, meaning that the forces are *conservative*),
+``galpy`` also supports dissipative forces. Dissipative forces all
+inherit from the ``DissipativeForce`` class and they are required to
+take the velocity ``v=[vR,vT,vZ]`` in cylindrical coordinates as an
+argument to the force in addition to the standard
+``(R,z,phi=0,t=0)``. The set of functions ``evaluateXforces`` (with
+``X=R,z,r,phi,etc.``) will evaluate the force due to ``Potential``
+instances, ``DissipativeForce`` instances, or lists of combinations of
+these two.
+
+Currently, the only dissipative force implemented in ``galpy`` is
+:ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>`, an
+implementation of the classic Chandrasekhar dynamical-friction
+formula, with recent tweaks to better represent the results from
+*N*-body simulations.
+
+Note that there is currently no support for implementing dissipative
+forces in C. Thus, only Python-based integration methods are available
+for any dissipative forces.
+
+.. WARNING::
+   Dissipative forces can currently only be used for 3D orbits in ``galpy``. The code should throw an error when they are used for 2D orbits.
+
 Adding potentials to the galpy framework
 -----------------------------------------
 
@@ -1066,3 +1094,37 @@ wrappers). Again, following the example of
 implementation of the glue for any new wrappers.  Wrapper potentials
 should be given negative potential types in the glue to distinguish
 them from regular potentials.
+
+**NEW in v1.4**: Adding dissipative forces to the galpy framework
+------------------------------------------------------------------
+
+Dissipative forces are implemented in much the same way as forces that
+derive from potentials. Rather than inheriting from
+``galpy.potential.Potential``, dissipative forces inherit from
+``galpy.potential.DissipativeForce``. The procedure for implementing a
+new class of dissipative force is therefore very similar to that for
+:ref:`implementing a new potential <addpypot>`. The main differences
+are that (a) you only need to implement the forces and (b) the forces
+are required to take an extra keyword argument ``v=`` that gives the
+velocity in cylindrical coordinates (because dissipative forces will
+in general depend on the current velocity). Thus, the steps are:
+
+1. Implement the new dissipative force in a class that inherits from ``galpy.potential.DissipativeForce``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class  and before performing any other setup, the   ``galpy.potential.DissipativeForce.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='mass'`` when the units of the amplitude are mass) 
+
+  The new dissipative-force class should implement the following
+  functions:
+
+  * ``_Rforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
+    radial force in cylindrical coordinates
+
+  * ``_phiforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
+    azimuthal force in cylindrical coordinates
+
+  * ``_zforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
+    vertical force in cylindrical coordinates
+
+  The code for ``galpy.potential.ChandrasekharDynamicalFrictionForce``
+  gives a good template to follow.
+
+2. That's it, as for now there is no support for implementing a C
+version of dissipative forces.
