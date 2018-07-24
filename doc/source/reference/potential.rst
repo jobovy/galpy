@@ -211,11 +211,28 @@ done by
 
 for a black hole with a mass of :math:`4\times10^6\,M_{\odot}` (this
 works because a list of Potential instances can contain a nested list
-of Potential instances in versions>=1.4).
+of Potential instances in versions>=1.4). If you want to take into
+account dynamical friction for, say, an object of mass
+:math:`5\times 10^{10}\,M_\odot` and a half-mass radius of 5 kpc, do
+
+>>> from galpy.potential import ChandrasekharDynamicalFrictionForce
+>>> from astropy import units
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,
+					     rhm=5.*units.kpc,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= [MWPotential2014,cdf]
+
+where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
+
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
+					     rhm=5./8.,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= [MWPotential2014,cdf]
 
 As explained in :ref:`this section <nemopot>`, *without* this black
-hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
-using ``accname=PowSphwCut+MiyamotoNagai+NFW`` and
+hole or dynamical friction, ``MWPotential2014`` can be used with
+Dehnen's gyrfalcON code using ``accname=PowSphwCut+MiyamotoNagai+NFW``
+and
 ``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
 
 An older version ``galpy.potential.MWPotential`` of a similar
