@@ -13,8 +13,7 @@ exclude_lines =
     if __name__ == .__main__.:
 
 omit = 
-    galpy/snapshot_src*
-    galpy/snapshot.py
+    galpy/snapshot/*
     galpy/util/bovy_plot.py
     galpy/util/bovy_ars.py
     galpy/util/multi.py

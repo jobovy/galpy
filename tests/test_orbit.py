@@ -13,7 +13,7 @@ import numpy
 import astropy
 _APY3= astropy.__version__ > '3'
 from galpy import potential
-from galpy.potential_src.Potential import  _check_c
+from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -1534,7 +1534,7 @@ numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],ru
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
 def test_add_linear_planar_orbit():
-    from galpy.orbit_src import FullOrbit, RZOrbit
+    from galpy.orbit import FullOrbit, RZOrbit
     kg= potential.KGPotential()
     ol= setup_orbit_energy(kg)
     #w/ azimuth
@@ -1716,7 +1716,7 @@ def test_orbit_setup_linear():
 
 def test_orbit_setup_planar():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.planarOrbit import planarROrbit
+    from galpy.orbit.planarOrbit import planarROrbit
     o= Orbit([1.,0.1,1.1])
     assert o.dim() == 2, 'planarROrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
@@ -1775,7 +1775,7 @@ def test_orbit_setup_planar():
 
 def test_orbit_setup():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import FullOrbit
+    from galpy.orbit.FullOrbit import FullOrbit
     o= Orbit([1.,0.1,1.1,0.2,0.3])
     assert o.dim() == 3, 'RZOrbitOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
@@ -3747,6 +3747,25 @@ def test_orbitint_pythonfallback():
         assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
+def test_orbitint_dissipativefallback():
+    # Check if a warning is raised when one tries to integrate an orbit
+    # in a dissipative force law with a symplectic integrator
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    ts= numpy.linspace(0.,1.,101)
+    for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.])]:
+        with pytest.warns(None) as record:
+            orb.integrate(ts,[lp,cdf], method='leapfrog')
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator odeint instead)")
+        assert raisedWarning, "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
+    return None
+
 # Test that the functions that supposedly *always* return output in physical 
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():
@@ -4004,7 +4023,7 @@ def test_orbit_sun_setup():
 
 def test_linear_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.verticalPotential import RZToverticalPotential
+    from galpy.potential.verticalPotential import RZToverticalPotential
     o= Orbit([1.,1.])
     times= numpy.linspace(0.,7.,251)
     from galpy.potential import LogarithmicHaloPotential
@@ -4030,7 +4049,7 @@ def test_linear_plotting():
 # Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.planarPotential import RZToplanarPotential
+    from galpy.potential.planarPotential import RZToplanarPotential
     o= Orbit([1.,0.1,1.1,2.])
     oa= Orbit([1.,0.1,1.1])
     times= numpy.linspace(0.,7.,251)

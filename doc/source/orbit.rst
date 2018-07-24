@@ -192,6 +192,8 @@ natural coordinates, you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
+.. _orbfromname:
+
 Initialization from an object's name
 ****************************************
 
@@ -735,3 +737,138 @@ the estimations in one batch using the ``actionAngle`` interface, which takes co
 >>> par = aAS.EccZmaxRperiRap(Rphiz[:,0], vRvTvz[:,0], vRvTvz[:,1], Rphiz[:,2], vRvTvz[:,2], Rphiz[:,1], delta=deltas)
 
 The above code calculates the parameters in roughly 100ms on a single core.
+
+**NEW in v1.4** Example: The orbit of the Large Magellanic Cloud in the presence of dynamical friction
+--------------------------------------------------------------------------------------------------------
+
+As a further example of what you can do with galpy, we investigate the
+Large Magellanic Cloud's (LMC) past and future orbit. Because the LMC
+is a massive satellite of the Milky Way, its orbit is affected by
+dynamical friction, a frictional force of gravitational origin that
+occurs when a massive object travels through a sea of low-mass objects
+(halo stars and dark matter in this case). First we import all the
+necessary packages:
+
+>>> from astropy import units
+>>> from galpy.potential import MWPotential2014, ChandrasekharDynamicalFrictionForce
+>>> from galpy.orbit import Orbit
+
+(also do ``%pylab inline`` if running this in a jupyter notebook or
+turn on the ``pylab`` option in ipython for plotting). We can load the
+current phase-space coordinates for the LMC using the
+``Orbit.from_name`` function described :ref:`above <orbfromname>`:
+
+>>> o= Orbit.from_name('LMC')
+
+We will use ``MWPotential2014`` as our Milky-Way potential
+model. Because the LMC is in fact unbound in ``MWPotential2014``, we
+increase the halo mass by 50% to make it bound (this corresponds to a
+Milky-Way halo mass of :math:`\approx 1.2\,\times 10^{12}\,M_\odot`, a
+not unreasonable value). We can hack this together as
+
+>>> MWPotential2014[2]._amp*= 1.5
+
+(Note that this is *not* a generally recommended route for changing
+the mass of an object, since it relies on editing a private
+attribute). Let us now integrate the orbit backwards in time for 10
+Gyr and plot it:
+
+>>> ts= numpy.linspace(0.,-10.,1001)*units.Gyr
+>>> o.integrate(ts,MWPotential2014)
+>>> o.plot(d1='t',d2='r')
+
+.. image:: images/lmc-mwp14.png
+        :scale: 50 %
+
+We see that the LMC is indeed bound, with an apocenter just over 250
+kpc. Now let's add dynamical friction for the LMC, assuming that its
+mass if :math:`5\times 10^{10}\,M_\odot`. We setup the
+dynamical-friction object:
+
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,rhm=5.*units.kpc,
+					     dens=MWPotential2014)
+
+Dynamical friction depends on the velocity distribution of the halo,
+which is assumed to be an isotropic Gaussian distribution with a
+radially-dependent velocity dispersion. If the velocity dispersion is
+not given (like in the example above), it is computed from the
+spherical Jeans equation. We have set the half-mass radius to 5 kpc
+for definiteness. We now make a copy of the orbit instance above and
+integrate it in the potential that includes dynamical friction:
+
+>>> odf= o()
+>>> odf.integrate(ts,[MWPotential2014,cdf])
+
+(Note that specifying the forces as the list ``[MWPotential2014,cdf]``
+works even though ``MWPotential2014`` is itself a list of potentials,
+because we can use nested lists of potentials or forces wherever a
+list is allowed in ``galpy``). Overlaying the orbits, we can see the
+difference in the evolution:
+
+>>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
+>>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
+>>> ylim(0.,400.)
+>>> legend()
+
+.. image:: images/lmc-mwp14-plusdynfric-51010msun.png
+        :scale: 50 %
+
+We see that dynamical friction removes energy from the LMC's orbit,
+such that its past apocenter is now around 400 kpc rather than 250
+kpc! The period of the orbit is therefore also much longer. Clearly,
+dynamical friction has a big impact on the orbit of the LMC.
+
+Recent observations have suggested that the LMC may be even more
+massive than what we have assumed so far, with masses over
+:math:`10^{11}\,M_\odot` seeming in good agreement with various
+observations. Let's see how a mass of :math:`10^{11}\,M_\odot` changes
+the past orbit of the LMC. We can change the mass of the LMC used in
+the dynamical-friction calculation as
+
+>>> cdf.GMs= 10.**11.*units.Msun
+
+This way of changing the mass is preferred over re-initializing the
+``ChandrasekharDynamicalFrictionForce`` object, because it avoids
+having to solve the Jeans equation again to obtain the velocity
+dispersion. Then we integrate the orbit and overplot it on the
+previous results:
+
+>>> odf2= o()
+>>> odf2.integrate(ts,[MWPotential2014,cdf])
+
+and
+
+>>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
+>>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
+>>> odf2.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=1\times10^{11}\,M_\odot$')
+>>> ylim(0.,740.)
+>>> legend()
+
+which gives
+
+.. image:: images/lmc-mwp14-plusdynfric-1011msun.png
+        :scale: 50 %
+
+Now the apocenter increases to about 600 kpc and the LMC doesn't
+perform a full orbit over the last 10 Gyr.
+
+Finally, let's see what will happen in the future if the LMC is as
+massive as :math:`10^{11}\,M_\odot`. We simply flip the sign of the
+integration times to get the future trajectory:
+
+>>> odf2.integrate(-ts[-ts < 9*units.Gyr],[MWPotential2014,cdf])
+>>> odf2.plot(d1='t',d2='r')
+
+.. image:: images/lmc-mwp14-plusdynfric-1011msun-future.png
+   :scale: 50 %
+
+Because of the large effect of dynamical friction, the LMC will merge
+with the Milky-Way in about 4 Gyr after a few more pericenter
+passages. Note that we have not taken any mass-loss into
+account. Because mass-loss would lead to a smaller dynamical-friction
+force, this would somewhat increase the merging timescale, but
+dynamical friction will inevitably lead to the merger of the LMC with
+the Milky Way.
+
+.. WARNING::
+   When using dynamical friction, if the radius gets very small, the integration sometimes becomes very erroneous, which can lead to a big, unphysical kick (even though we turn off friction at very small radii); this is the reason why we have limited the future integration to 9 Gyr in the example above. When using dynamical friction, inspect the full orbit to make sure to catch whether a merger has happened. 

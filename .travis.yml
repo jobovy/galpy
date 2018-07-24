@@ -10,10 +10,10 @@ env: #split tests
     - REQUIRES_ASTROQUERY=false
     - PYTHON_COVREPORTS_VERSION=3.6 # Version for which reports are uploaded
   matrix:
-    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py' REQUIRES_PYNBODY=true
+    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
     - TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
-    - TEST_FILES='tests/test_evolveddiskdf.py'
+    - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py'
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
@@ -60,7 +60,7 @@ before_install:
  - sh -e /etc/init.d/xvfb start $For plotting tests
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
- - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
+ - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
 # command to install dependencies
 install:
  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
@@ -71,8 +71,8 @@ install:
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git checkout galpy; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY; then conda install astropy; fi
@@ -88,7 +88,7 @@ script:
 after_success:
  # Generate lcov output 
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
  # Codecov
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
  # coveralls: combine, generate json, and upload

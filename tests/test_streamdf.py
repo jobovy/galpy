@@ -1132,7 +1132,7 @@ def test_bovy14_oppositetrailing_setup():
     return None
 
 def test_calcaAJac():
-    from galpy.df_src.streamdf import calcaAJac
+    from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -1158,7 +1158,7 @@ def test_calcaAJac():
     return None
 
 def test_calcaAJacLB():
-    from galpy.df_src.streamdf import calcaAJac
+    from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)

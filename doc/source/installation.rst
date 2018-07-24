@@ -100,8 +100,8 @@ To install the TorusMapper code, *before* running the installation of
 galpy, navigate to the top-level galpy directory (which contains the
 ``setup.py`` file) and do::
 
-	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
-	     cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+	     cd galpy/actionAngle/actionAngleTorus_c_ext/torus
 	     git checkout galpy
 	     cd -
 

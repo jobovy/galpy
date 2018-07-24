@@ -780,6 +780,20 @@ def test_rforce():
     assert numpy.fabs(potential.evaluateRforces(pp,R,z)*r/R-potential.evaluaterforces(pp,R,z)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials'
     return None
     
+def test_rforce_dissipative():
+    # Use dynamical friction along a radial orbit at z=0 --> spherical
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z,phi= 1.3, 0., 1.1
+    v= [0.1,0.,0.]
+    r= numpy.sqrt(R*R+z*z)
+    assert numpy.fabs(cdfc.Rforce(R,z,phi=phi,v=v)*r/R-cdfc.rforce(R,z,phi=phi,v=v)) < 10.**-10., 'rforce does not behave as expected for spherical potentials for dissipative forces'
+    assert numpy.fabs(potential.evaluateRforces([pp,cdfc],R,z,phi=phi,v=v)*r/R-potential.evaluaterforces([pp,cdfc],R,z,phi=phi,v=v)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials for dissipative forces'
+    assert numpy.fabs(potential.evaluateRforces(cdfc,R,z,phi=phi,v=v)*r/R-potential.evaluaterforces(cdfc,R,z,phi=phi,v=v)) < 10.**-10., 'evaluaterforces does not behave as expected for spherical potentials for dissipative forces'
+    return None
+
 # Test that the spherically second radial derivative is correct
 def test_r2deriv():
     # Spherical potentials: Rforce = rforce x R / r; zforce = rforce x z /r
@@ -941,12 +955,30 @@ def test_RZToplanarPotential():
     #Check that a planarPotential through RZToplanarPotential is still planar
     pplp= potential.RZToplanarPotential(lp)
     assert isinstance(pplp,potential.planarPotential), 'Running a planarPotential through RZToplanarPotential does not produce a planarPotential'
-    try:
+    # Check that giving an object that is not a list or Potential instance produces an error
+    with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.RZToplanarPotential('something else')
-    except potential.PotentialError:
-        pass
-    else:
-        raise AssertionError('Using RZToplanarPotential with a string rather than an RZPotential or a planarPotential did not raise PotentialError')
+    # Check that given a list of objects that are not a Potential instances gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential([3,4,45])
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential([lp,3,4,45])
+    # Check that using a non-axisymmetric potential gives an error
+    lpna= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential(lpna)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential([lpna])
+    # Check that giving potential.ChandrasekharDynamicalFrictionForce
+    # gives an error
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential([pp,cdfc])
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToplanarPotential(cdfc)
     return None
 
 def test_toPlanarPotential():
@@ -965,6 +997,16 @@ def test_toPlanarPotential():
         pass
     else:
         raise AssertionError('Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError')
+    # Check that giving potential.ChandrasekharDynamicalFrictionForce
+    # gives an error
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toPlanarPotential([pp,cdfc])
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toPlanarPotential(cdfc)
     return None
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
@@ -1937,7 +1979,7 @@ def test_DiskSCFPotential_againstDoubleExp_dens():
 def test_WrapperPotential_dims():
     # Test that WrapperPotentials get assigned to Potential/planarPotential 
     # correctly, based on input pot=
-    from galpy.potential_src.WrapperPotential import parentWrapperPotential, \
+    from galpy.potential.WrapperPotential import parentWrapperPotential, \
         WrapperPotential, planarWrapperPotential
     dp= potential.DehnenBarPotential()
     # 3D pot should be Potential, Wrapper, parentWrapper, not planarX
@@ -1961,6 +2003,127 @@ def test_Wrapper_potinputerror():
     # (list of) planar/Potentials raises an error
     with pytest.raises(ValueError) as excinfo:
         potential.DehnenSmoothWrapperPotential(pot=1)
+    return None
+
+def test_dissipative_ignoreInPotentialDensity2ndDerivs():
+    # Test that dissipative forces are ignored when they are included in lists
+    # given to evaluatePotentials, evaluateDensities, and evaluate2ndDerivs
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z= 2.,0.4
+    assert numpy.fabs(potential.evaluatePotentials([lp,cdfc],R,z,phi=1.)-potential.evaluatePotentials([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatePotentials'
+    assert numpy.fabs(potential.evaluateDensities([lp,cdfc],R,z,phi=1.)-potential.evaluateDensities([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateDensities'
+    assert numpy.fabs(potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluateR2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateR2derivs'
+    assert numpy.fabs(potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluatez2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatez2derivs'
+    assert numpy.fabs(potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRzderivs'
+    assert numpy.fabs(potential.evaluatephi2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluatephi2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatephi2derivs'
+    assert numpy.fabs(potential.evaluateRphiderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRphiderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRphiderivs'
+    assert numpy.fabs(potential.evaluater2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluater2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluater2derivs'
+    return None
+
+def test_dissipative_noVelocityError():
+    # Test that calling evaluateXforces for a dissipative potential
+    # without including velocity produces an error
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    R,z,phi= 2.,0.4,1.1
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluateRforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluatephiforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluatezforces([lp,cdfc],R,z,phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy= potential.evaluaterforces([lp,cdfc],R,z,phi=phi)
+    return None
+
+def test_ChandrasekharDynamicalFrictionForce_constLambda():
+    # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
+    # agrees with analytical solutions for circular orbits:
+    # assuming that a mass remains on a circular orbit in an isothermal halo 
+    # with velocity dispersion sigma and for constant Lambda:
+    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
+    # (e.g., B&T08, p. 648)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    const_lnLambda= 7.
+    r_init= 2.
+    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    # Compute
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,const_lnLambda=const_lnLambda,
+        dens=lp) # don't provide sigmar, so it gets computed using galpy.df.jeans
+    o= Orbit([r_init,0.,1.,0.,0.,0.])
+    ts= numpy.linspace(0.,dt,1001)
+    o.integrate(ts,[lp,cdfc],method='odeint')
+    r_pred= numpy.sqrt(o.r()**2.-0.604*const_lnLambda*GMs*numpy.sqrt(2.)*dt)
+    assert numpy.fabs(r_pred-o.r(ts[-1])) < 0.01, 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
+    return None
+
+def test_ChandrasekharDynamicalFrictionForce_varLambda():
+    # Test that dynamical friction with variable Lambda for small r ranges 
+    # gives ~ the same result as using a constant Lambda that is the mean of
+    # the variable lambda
+    # Also tests that giving an axisymmetric list of potentials for the 
+    # density works
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    r_init= 3.
+    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    # Compute evolution with variable ln Lambda
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
+    o= Orbit([r_init,0.,1.,0.,0.,0.])
+    ts= numpy.linspace(0.,dt,1001)
+    o.integrate(ts,[potential.MWPotential2014,cdf],method='odeint')
+    lnLs= numpy.array([cdf.lnLambda(r,v) for (r,v) in zip(o.r(ts),numpy.sqrt(o.vx(ts)**2.+o.vy(ts)**2.+o.vz(ts)**2.))])
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,const_lnLambda=numpy.mean(lnLs),
+        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
+    oc= o()
+    oc.integrate(ts,[potential.MWPotential2014,cdfc],method='odeint')
+    assert numpy.fabs(oc.r(ts[-1])-o.r(ts[-1])) < 0.05, 'ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda'
+    return None
+
+def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
+    # Test that dynamical friction returns the expected force when evaluating
+    # outside of the [minr,maxr] range over which sigmar is interpolated:
+    # 0 at r < minr
+    # using sigmar(r) for r > maxr
+    from galpy.util import bovy_conversion
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    # Compute evolution with variable ln Lambda
+    sigmar= lambda r: 1./r
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,sigmar=sigmar,
+        minr=0.5,maxr=2.)
+    # cdf 2 for checking r > maxr of cdf
+    cdf2= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,sigmar=sigmar,
+        minr=0.5,maxr=4.)
+    v= [0.1,0.,0.]
+    # r < minr
+    assert numpy.fabs(cdf.Rforce(0.1,0.,v=v)) < 1e-16, 'potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero'
+    assert numpy.fabs(cdf.zforce(0.1,0.,v=v)) < 1e-16, 'potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero'
+    # r > maxr
+    assert numpy.fabs(cdf.Rforce(3.,0.,v=v)-cdf2.Rforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
+    assert numpy.fabs(cdf.zforce(3.,0.,v=v)-cdf2.zforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
     return None
 
 def test_vtermnegl_issue314():
@@ -2808,7 +2971,7 @@ class mockMovingObjectPotential(testMWPotential):
         raise AttributeError
     def OmegaP(self):
         return 1./self._rc
-from galpy.potential_src.ForceSoftening import PlummerSoftening
+from galpy.potential.ForceSoftening import PlummerSoftening
 class mockMovingObjectExplSoftPotential(testMWPotential):
     def __init__(self,rc=0.75,maxt=1.,nt=50):
         from galpy.orbit import Orbit
@@ -2834,7 +2997,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
     GaussianAmplitudeWrapperPotential
-from galpy.potential_src.WrapperPotential import parentWrapperPotential
+from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
     # for t > -99
