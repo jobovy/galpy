@@ -362,3 +362,136 @@ class actionAngleIsochrone(actionAngle):
                 rap= smax*nu.sqrt(1.-2./smax)*self.b
             return ((rap-rperi)/(rap+rperi),rap*nu.sqrt(1.-Lz**2./L2),
                     rperi,rap)
+
+class _actionAngleIsochroneHelper(object):
+    """Simplified version of the actionAngleIsochrone transformations, for use in actionAngleSphericalInverse"""
+    def __init__(self,*args,**kwargs):
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           initialize an _actionAngleIsochroneHelper object
+
+        INPUT:
+
+           ip= instance of a IsochronePotential
+
+        OUTPUT:
+        
+           instance
+
+        HISTORY:
+
+           2017-11-30 - Written - Bovy (UofT)
+
+        """
+        if not 'ip' in kwargs: #pragma: no cover
+            raise IOError("Must specify ip= for _actionAngleIsochroneHelper")
+        else:
+            ip= kwargs['ip']
+            if not isinstance(ip,IsochronePotential): #pragma: no cover
+                raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+            # Check the units
+            self.b= ip.b
+            self.amp= ip._amp
+        self._ip= ip
+        return None
+    
+    def angler(self,r,vr2,L,reuse=False,vrneg=False):
+        """
+        NAME:
+           angler
+        PURPOSE:
+           calculate the radial angle
+        INPUT:
+           r - radius
+           vr2 - radial velocity squared
+           L - angular momentum
+           vrneg= (False) True if vr is negative
+           reuse= (False) if True, re-use all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
+        OUTPUT:
+           radial angle
+        HISTORY:
+           2017-11-30 - Written - Bovy (UofT)
+        """
+        if reuse: 
+            return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*nu.pi)
+        E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
+        if E > 0.: return -1.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L*L/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
+        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+        eta= nu.arccos(coseta)
+        if vrneg: eta= 2.*nu.pi-eta
+        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        return angler
+
+    def danglerdr_constant_L(self,r,vr2,L,dEdr,vrneg=False):
+        """Function used in actionAngleSphericalInverse when finding r at which angler has a particular value on the isochrone torus"""
+        E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
+        L2= L**2.
+        self._c= -self.amp/2./E-self.b
+        L2overampc= L2/self.amp/self._c
+        e2= 1.-L2overampc*(1.+self.b/self._c)
+        self._e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/self._e*(1.-r/self._c)
+        else:
+            s= 1.+nu.sqrt(1.+r**2./self.b**2.)
+            coseta= 1/self._e*(1.-self.b/self._c*(s-2.))
+        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
+        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+        self._eta= nu.arccos(coseta)
+        if vrneg: self._eta= 2.*nu.pi-self._eta
+        self._sineta= nu.sin(self._eta)
+        L2overampc*= (1.+2.*self.b/self._c)/(2.*self._e) # from now on need L2/(2GM c e)
+        dcdr= self.amp/2./E**2.*dEdr
+        dsdrtimesb= r/nu.sqrt(r**2.+self.b**2.)
+        detadr= (dsdrtimesb+(coseta*(self._e+L2overampc)-1.)*dcdr)/(self._e*self._c*self._sineta)
+        return detadr*(1.-self._e*self._c*coseta/(self._c+self.b))\
+            -self._sineta/(self._c+self.b)*(self._e*self.b/(self._c+self.b)+L2overampc)*dcdr
+
+    def Jr(self,E,L):
+        return self.amp/nu.sqrt(-2.*E)\
+            -0.5*(L+nu.sqrt((L*L+4.*self.amp*self.b)))
+        
+    def Or(self,E):
+        return (-2.*E)**1.5/self.amp
+        
+    def drdEL_constant_angler(self,r,vr2,E,L,dEdr,vrneg=False):
+        """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
+        L2= L**2.
+        c= -self.amp/2./E-self.b
+        e2= 1.-L2/self.amp/c*(1.+self.b/c)
+        e= nu.sqrt(e2)
+        if self.b == 0.:
+            coseta= 1/e*(1.-r/c)
+        else:
+            s= 1.+nu.sqrt(1.+r**2./self.b**2.)
+            coseta= 1/e*(1.-self.b/c*(s-2.))
+        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
+        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+        eta= nu.arccos(coseta)
+        if vrneg: eta= 2.*nu.pi-eta
+        sineta= nu.sin(eta)
+        bcmecce= (self.b+c-e*c*coseta)
+        c2e2ob= c**2.*sineta**2./self.b
+        dcdLfac= (1.-e*coseta)/self.b+e2*c2e2ob/bcmecce*(1./c-1./(self.b+c))
+        dcdLoverdrdL= self.amp/2./E**2.*dEdr
+        dedLfac= -c*coseta/e/self.b+c2e2ob/bcmecce
+        numfordrdE= dcdLfac*self.amp/2./E**2.+dedLfac*L2/4./c**2./E**2*(1.+2.*self.b/c)
+        return (numfordrdE/(r/self.b**2./(s-1.)-numfordrdE*dEdr),
+                -dedLfac*L/self.amp/c*(1.+self.b/c)\
+                    /(r/self.b**2./(s-1.)-dcdLfac*dcdLoverdrdL
+                      -dedLfac*L2/2./self.amp/c**2.*(1.+2.*self.b/c)*dcdLoverdrdL))
+        
