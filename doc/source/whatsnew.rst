@@ -1,9 +1,58 @@
-**NEW in v1.2**: What's new?
-=============================
+What's new?
+===========
 
 This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
+
+v1.3
++++++
+
+* A fast and precise method for approximating an orbit's eccentricity,
+  peri- and apocenter radii, and maximum height above the midplane
+  using the Staeckel approximation (see `Mackereth & Bovy 2018
+  <https://www.overleaf.com/docs/fgxwxbkpwcjq/pdf>`__). Can determine
+  these parameters to better than a few percent accuracy in as little
+  as 10 :math:`\mu\mathrm{s}` per object, more than 1,000 times faster
+  than through direct orbit integration. See :ref:`this section
+  <fastchar>` of the documentation for more info.
+
+* A general method for modifying ``Potential`` classes through
+  potential wrappers---simple classes that wrap existing potentials to modify
+  their behavior. See :ref:`this section <potwrappers>` of the
+  documentation for examples and :ref:`this section <addwrappot>` for
+  information on how to easily define new wrappers. Example wrappers
+  include `SolidBodyRotationWrapperPotential
+  <reference/potentialsolidbodyrotationwrapper.html>`__ to allow *any*
+  potential to rotate as a solid body and
+  `DehnenSmoothWrapperPotential
+  <reference/potentialsolidbodyrotationwrapper.html>`__ to smoothly
+  grow *any* potential. See :ref:`this section of the galpy.potential
+  API page <potwrapperapi>` for an up-to-date list of wrappers.
+
+* New or improved potentials:
+
+  * `DiskSCFPotential <reference/potentialdiskscf.html>`__: a general Poisson solver well suited for galactic disks
+  * Bar potentials `SoftenedNeedleBarPotential <reference/potentialsoftenedneedle.html>`__ and `FerrersPotential <reference/potentialferrers.html>`__ (latter only in Python for now)
+  * 3D spiral arms model `SpiralArmsPotential <reference/potentialspiralarms.html>`__
+  * Henon & Heiles (1964) potential `HenonHeilesPotential <reference/potentialhenonheiles.html>`__
+  * Triaxial version of `LogarithmicHaloPotential <reference/potentialloghalo.html>`__
+  * 3D version of `DehnenBarPotential <reference/potentialdehnenbar.html>`__
+  * Generalized version of `CosmphiDiskPotential <reference/potentialcosmphidisk.html>`__
+
+* New or improved ``galpy.orbit.Orbit`` methods:
+
+  * Method to display an animation of an integrated orbit in jupyter notebooks: `Orbit.animate <reference/orbitanimate.html>`__. See :ref:`this section <orbanim>` of the documentation.
+  * Improved default method for fast calculation of eccentricity, zmax, rperi, rap, actions, frequencies, and angles by switching to the Staeckel approximation with automatically-estimated approximation parameters.
+  * Improved plotting functions: plotting of spherical radius and of arbitrary user-supplied functions of time in Orbit.plot, Orbit.plot3d, and Orbit.animate.
+
+* ``actionAngleStaeckel`` upgrades:
+
+  * ``actionAngleStaeckel`` methods now allow for different focal lengths delta for different phase-space points and for the order of the Gauss-Legendre integration to be specified (default: 10, which is good enough when using actionAngleStaeckel to compute approximate actions etc. for an axisymmetric potential). 
+  * Added an option to the estimateDeltaStaeckel function to facilitate the return of an estimated delta parameter at every phase space point passed, rather than returning a median of the estimate at each point. 
+
+* `galpy.df.schwarzschilddf <reference/dfschwarzschild.html>`__:the simple Schwarzschild distribution function for a razor-thin disk (useful for teaching).
+
 
 v1.2
 +++++

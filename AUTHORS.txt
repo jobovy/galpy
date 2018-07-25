@@ -25,6 +25,8 @@ General help:
 ==============
 
 Greg Stinson (advice on SnapshotRZPotential tests)
+Matt Craig (added conda build)
+Brigitta Sipocz (help with conda build)
 
 Bug reports:
 ============
@@ -42,3 +44,6 @@ Eduardo Balbinot
 Semyeong Oh
 Jorrit Hagen
 Ruth Angus
+Anthony Brown
+Larry Widrow
+Jean-François Robitaille

@@ -1,7 +1,25 @@
 Installation
 ==============
 
-galpy can be installed using pip as::
+With conda
+----------
+
+The easiest way to install the latest released version of galpy is using conda::
+
+    conda install galpy -c conda-forge
+
+or::
+
+	conda config --add channels conda-forge
+	conda install galpy
+
+With pip
+--------
+
+galpy can also be installed using pip. Some advanced features require
+the GNU Scientific Library (GSL; see below). If you want to use
+these, install the GSL first (or install it later and re-install
+using the upgrade command above). Then do::
 
       pip install galpy
 
@@ -9,7 +27,8 @@ or to upgrade without upgrading the dependencies::
 
       pip install -U --no-deps galpy
 
-Some advanced features require the GNU Scientific Library (GSL; see below). If you want to use these, install the GSL first (or install it later and re-install using the upgrade command above).
+Latest version
+--------------
 
 The latest updates in galpy can be installed using::
     
@@ -27,16 +46,21 @@ or::
 
 	python setup.py install --prefix=~/local
 
-for a local installation. A basic installation works with just the
-numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
+for a local installation.
 
-		       nosetests -v -w nose/
+Installing from a branch
+------------------------
 
+If you want to use a feature that is currently only available in a branch, do::
+
+   pip install -U --no-deps git+git://github.com/jobovy/galpy.git@dev#egg=galpy
+
+to, for example, install the ``dev`` branch.
 
 .. _install_tm:
 
-**NEW in v1.2**: Installing the TorusMapper code
--------------------------------------------------
+Installing the TorusMapper code
+--------------------------------
 
 Since v1.2, ``galpy`` contains a basic interface to the TorusMapper
 code of `Binney & McMillan (2016)
@@ -179,8 +203,8 @@ versions, but it still does not support ``OpenMP``.
 
 .. _configfile:
 
-**NEW in v1.2**: Configuration file
-------------------------------------
+Configuration file
+-------------------
 
 Since v1.2, ``galpy`` uses a configuration file to set a small number
 of configuration variables. This configuration file is parsed using

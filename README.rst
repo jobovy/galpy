@@ -39,9 +39,11 @@ full list of contributors.
 If you find this code useful in your research, please let me
 know. **If you use galpy in a publication, please cite** `Bovy (2015)
 <http://adsabs.harvard.edu/abs/2015ApJS..216...29B>`__ **and link to
-http://github.com/jobovy/galpy**. Please also send me a reference to
-the paper or send a pull request including your paper in the list of
-galpy papers on `this page
+http://github.com/jobovy/galpy**. See `the acknowledgement documentation section
+<http://galpy.readthedocs.io/en/latest/index.html#acknowledging-galpy>`__
+for a more detailed guide to citing parts of the code. Please also
+send me a reference to the paper or send a pull request including your
+paper in the list of galpy papers on `this page
 <http://galpy.readthedocs.io/en/latest/>`__ (this page is at
 doc/source/index.rst). Thanks!
 
@@ -55,9 +57,10 @@ PYTHON VERSIONS AND DEPENDENCIES
 ---------------------------------
 
 ``galpy`` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.4 and 3.5. It may also work on earlier Python
-3.* versions, but this has not been tested. Travis CI builds regularly
-check support for Python 2.7 and 3.5.
+Python 2.7 and Python 3.4, 3.5, and 3.6. It may also work on earlier
+Python 3.* versions, but this has not been tested. Travis CI builds
+regularly check support for Python 2.7 and 3.6 (and of 3.4/3.5 using a
+limited set of tests).
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
 <http://www.scipy.org/>`__, and `Matplotlib

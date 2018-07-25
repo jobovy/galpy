@@ -112,6 +112,12 @@ v1.3 (2017-XX-XX)
 
 - evolveddiskdf.vertexdev return unit switched from deg to rad.
 
+- In quasiisothermaldf.py, the following prefactors were added
+  to the following functions: [nsigma^2/2] --> pvT(), 
+  [nsigma/2] --> pvRvT(), [nsigma/2] --> pvTvz(), 
+  [vTmax/2] --> pvRvz(). This change was required to correctly 
+  account for the Gauss-Legendre integration limits.
+
 v1.2 (2016-09-06)
 ==================
 

@@ -3,8 +3,8 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-**UPDATED in v1.2**: Orbit initialization
--------------------------------------------
+Orbit initialization
+--------------------
 
 Standard initialization
 ***********************
@@ -154,8 +154,8 @@ you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
-**UPDATED in v1.2**: Orbit integration
-----------------------------------------
+Orbit integration
+------------------
 
 After an orbit is initialized, we can integrate it for a set of times
 ``ts``, given as a numpy array. For example, in a simple logarithmic
@@ -277,6 +277,9 @@ This will create the following animation
 
 .. raw:: html
    :file: orbitanim.html
+
+.. TIP::
+   There is currently no option to save the animation within ``galpy``, but you could use screen capture software (for example, QuickTime's `Screen Recording <https://support.apple.com/kb/ph5882?locale=en_CA>`__ feature) to record your screen while the animation is running and save it as a video.
 
 ``animate`` has options to specify the width and height of the resulting animation, and it can also animate up to three projections of an orbit at the same time. For example, we can look at the orbit in both (x,y) and (R,z) at the same time with
 
