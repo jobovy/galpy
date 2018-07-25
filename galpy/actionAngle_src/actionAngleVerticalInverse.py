@@ -684,7 +684,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                            *numpy.cos(self._nforSn*numpy.atleast_2d(anglea).T),
                            axis=1)
         hoaainv= actionAngleHarmonicInverse(omega=tOmegaHO)
-        return (*hoaainv(ja,anglea),tOmega)
+        return tuple(hoaainv(ja,anglea)+(tOmega,))
         
     def _Freqs(self,j,**kwargs):
         """
