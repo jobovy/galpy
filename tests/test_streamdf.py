@@ -1132,7 +1132,7 @@ def test_bovy14_oppositetrailing_setup():
     return None
 
 def test_calcaAJac():
-    from galpy.df_src.streamdf import calcaAJac
+    from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -1158,7 +1158,7 @@ def test_calcaAJac():
     return None
 
 def test_calcaAJacLB():
-    from galpy.df_src.streamdf import calcaAJac
+    from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -1261,8 +1261,9 @@ def test_fardalpot_trackaa():
     from galpy.potential import IsochronePotential, FlattenedPowerPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import bovy_conversion #for unit conversions
+    # test nested list of potentials
     pot= [IsochronePotential(b=0.8,normalize=0.8),
-          FlattenedPowerPotential(alpha=-0.7,q=0.6,normalize=0.2)]
+          [FlattenedPowerPotential(alpha=-0.7,q=0.6,normalize=0.2)]]
     aAI= actionAngleIsochroneApprox(pot=pot,b=0.9)
     obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
     sigv= 1.3 #km/s

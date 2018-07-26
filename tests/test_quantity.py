@@ -872,6 +872,18 @@ def test_potential_method_returntype():
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     assert isinstance(pot.rl(1.3),units.Quantity), 'Potential method rl does not return Quantity when it should'
     assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
+    assert isinstance(pot.rtide(1.,0.,M=1.),units.Quantity), 'Potential method rtide does not return Quantity when it should'
+    assert isinstance(pot.ttensor(1.,0.),units.Quantity), 'Potential method ttensor does not return Quantity when it should'
+    assert isinstance(pot.ttensor(1.,0.,eigenval=True),units.Quantity), 'Potential method ttensor does not return Quantity when it should'
+    return None
+
+def test_dissipativeforce_method_returntype():
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+    pot= ChandrasekharDynamicalFrictionForce(\
+        GMs=0.1,rhm=1.2/8.,ro=8.,vo=220.)
+    assert isinstance(pot.phiforce(1.1,0.1,phi=2.,v=[0.1,1.2,0.3]),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
+    assert isinstance(pot.Rforce(1.1,0.1,phi=2.,v=[0.1,1.2,0.3]),units.Quantity), 'Potential method Rforce does not return Quantity when it should'
+    assert isinstance(pot.zforce(1.1,0.1,phi=2.,v=[0.1,1.2,0.3]),units.Quantity), 'Potential method zforce does not return Quantity when it should'
     return None
 
 def test_planarPotential_method_returntype():
@@ -988,7 +1000,19 @@ def test_potential_method_returnunit():
     try:
         pot.vterm(45.).to(units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Potential method vter does not return Quantity with the right units')
+        raise AssertionError('Potential method vterm does not return Quantity with the right units')
+    try:
+        pot.rtide(1.,0.,M=1.).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method rtide does not return Quantity with the right units')
+    try:
+        pot.ttensor(1.,0.).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method ttensor does not return Quantity with the right units')
+    try:
+        pot.ttensor(1.,0.,eigenval=True).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method ttensor does not return Quantity with the right units')
     return None
 
 def test_planarPotential_method_returnunit():
@@ -1081,6 +1105,9 @@ def test_potential_method_value():
     assert numpy.fabs(pot.vesc(1.1).to(units.km/units.s).value-potu.vesc(1.1)*vo) < 10.**-8., 'Potential method vesc does not return the correct value as Quantity'
     assert numpy.fabs(pot.rl(1.1).to(units.kpc).value-potu.rl(1.1)*ro) < 10.**-8., 'Potential method rl does not return the correct value as Quantity'
     assert numpy.fabs(pot.vterm(45.).to(units.km/units.s).value-potu.vterm(45.)*vo) < 10.**-8., 'Potential method vterm does not return the correct value as Quantity'
+    assert numpy.fabs(pot.rtide(1.,0.,M=1.).to(units.kpc).value-potu.rtide(1.,0.,M=1.)*ro) < 10.**-8., 'Potential method rtide does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.,0.).to(units.km**2/units.s**2./units.kpc**2).value-potu.ttensor(1.,0.)*vo**2./ro**2.) < 10.**-8.), 'Potential method ttensor does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.,0.,eigenval=True).to(units.km**2/units.s**2./units.kpc**2).value-potu.ttensor(1.,0.,eigenval=True)*vo**2./ro**2.) < 10.**-8.), 'Potential method ttensor does not return the correct value as Quantity'
     return None
 
 def test_planarPotential_method_value():
@@ -1135,6 +1162,9 @@ def test_potential_function_returntype():
     assert isinstance(potential.vesc(pot,1.3),units.Quantity), 'Potential function vesc does not return Quantity when it should'
     assert isinstance(potential.rl(pot,1.3),units.Quantity), 'Potential function rl does not return Quantity when it should'
     assert isinstance(potential.vterm(pot,45.),units.Quantity), 'Potential function vterm does not return Quantity when it should'
+    assert isinstance(potential.rtide(pot,1.,0.,M=1.),units.Quantity), 'Potential function rtide does not return Quantity when it should'
+    assert isinstance(potential.ttensor(pot,1.,0.),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
+    assert isinstance(potential.ttensor(pot,1.,0.,eigenval=True),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
     return None
 
 def test_planarPotential_function_returntype():
@@ -1240,7 +1270,19 @@ def test_potential_function_returnunit():
     try:
         potential.vterm(pot,45.).to(units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Potential function vter does not return Quantity with the right units')
+        raise AssertionError('Potential function vterm does not return Quantity with the right units')
+    try:
+        potential.rtide(pot,1.,0.,M=1.).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function rtide does not return Quantity with the right units')
+    try:
+        potential.ttensor(pot,1.,0.).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function ttensor does not return Quantity with the right units')
+    try:
+        potential.ttensor(pot,1.,0.,eigenval=True).to(1/units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function ttensor does not return Quantity with the right units')
     return None
 
 def test_planarPotential_function_returnunit():
@@ -1327,6 +1369,9 @@ def test_potential_function_value():
     assert numpy.fabs(potential.vesc(pot,1.1).to(units.km/units.s).value-potential.vesc(potu,1.1)*vo) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
     assert numpy.fabs(potential.rl(pot,1.1).to(units.kpc).value-potential.rl(potu,1.1)*ro) < 10.**-8., 'Potential function rl does not return the correct value as Quantity'
     assert numpy.fabs(potential.vterm(pot,45.).to(units.km/units.s).value-potential.vterm(potu,45.)*vo) < 10.**-8., 'Potential function vterm does not return the correct value as Quantity'
+    assert numpy.fabs(potential.rtide(pot,1.,0.,M=1.).to(units.kpc).value-potential.rtide(potu,1.,0.,M=1.)*ro) < 10.**-8., 'Potential function rtide does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.,eigenval=True).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.,eigenval=True)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
     return None
 
 def test_planarPotential_function_value():
@@ -1388,6 +1433,9 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.lindbladR(0.9*bovy_conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potu.lindbladR(0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.rl(1.1*vo*ro*units.km/units.s,use_physical=False)-potu.rl(1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vterm(45.*units.deg,use_physical=False)-potu.vterm(45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.rtide(1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potu.rtide(1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.1*ro,0.1*ro,use_physical=False)-potu.ttensor(1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(pot.ttensor(1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potu.ttensor(1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_method_inputAsQuantity():
@@ -1432,6 +1480,19 @@ def test_linearPotential_method_inputAsQuantity():
     assert numpy.fabs(pot.force(1.1*ro,use_physical=False)-potu.force(1.1)) < 10.**-4., 'Potential method force does not return the correct value as Quantity'
     return None
 
+def test_dissipativeforce_method_inputAsQuantity():
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+    from galpy.util import bovy_conversion
+    ro, vo= 8.*units.kpc, 220.
+    pot= ChandrasekharDynamicalFrictionForce(\
+        GMs=0.1,rhm=1.2/8.,ro=ro,vo=vo)
+    potu= ChandrasekharDynamicalFrictionForce(\
+        GMs=0.1,rhm=1.2/8.)
+    assert numpy.fabs(pot.Rforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potu.Rforce(1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential method Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.zforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potu.zforce(1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential method zforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.phiforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potu.phiforce(1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential method phiforce does not return the correct value when input is Quantity'
+    return None
+
 def test_potential_function_inputAsQuantity():
     from galpy.potential import PlummerPotential
     from galpy.util import bovy_conversion
@@ -1460,6 +1521,25 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.rl(pot,1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rl(pot[0],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vterm(pot,45.*units.deg,use_physical=False)-potential.vterm(potu,45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.rtide(pot,1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    # Test non-list for M as well, bc units done in rtide special, and do GM
+    assert numpy.fabs(potential.rtide(pot[0],1.1*ro,0.1*ro,M=constants.G*10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,use_physical=False)-potential.ttensor(potu,1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potential.ttensor(potu,1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    return None
+
+def test_dissipativeforce_function_inputAsQuantity():
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+    from galpy.util import bovy_conversion
+    from galpy import potential
+    ro, vo= 8.*units.kpc, 220.
+    pot= ChandrasekharDynamicalFrictionForce(\
+        GMs=0.1,rhm=1.2/8.,ro=ro,vo=vo)
+    potu= ChandrasekharDynamicalFrictionForce(\
+        GMs=0.1,rhm=1.2/8.)
+    assert numpy.fabs(potential.evaluatezforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potential.evaluatezforces(potu,1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential function zforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.evaluateRforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potential.evaluateRforces(potu,1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential function Rforce does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.evaluatephiforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,ro=8.*units.kpc,vo=220.*units.km/units.s,v=numpy.array([10.,200.,-20.])*units.km/units.s,use_physical=False)-potential.evaluatephiforces(potu,1.1,0.1,phi=10./180.*numpy.pi,v=numpy.array([10.,200.,-20.])/vo)) < 10.**-4., 'Potential function phiforce does not return the correct value when input is Quantity'
     return None
 
 def test_planarPotential_function_inputAsQuantity():
@@ -2231,10 +2311,11 @@ def test_potential_paramunits():
     # DehnenSmoothWrapperPotential
     dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
     pot= potential.DehnenSmoothWrapperPotential(pot=dpn,
-                                                tform=1.*units.Gyr,
-                                                tsteady=3.*units.Gyr)
+                                                tform=-1.*units.Gyr,
+                                                tsteady=3.*units.Gyr,
+                                                ro=ro,vo=vo)
     pot_nounits= potential.DehnenSmoothWrapperPotential(pot=dpn,
-                                                        tform=1./bovy_conversion.time_in_Gyr(vo,ro),
+                                                        tform=-1./bovy_conversion.time_in_Gyr(vo,ro),
                                                         tsteady=3./bovy_conversion.time_in_Gyr(vo,ro))
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
@@ -2242,12 +2323,73 @@ def test_potential_paramunits():
     spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
     pot= potential.SolidBodyRotationWrapperPotential(pot=spn,\
                            omega=20.*units.km/units.s/units.kpc,
-                           pa=30.*units.deg)
+                           pa=30.*units.deg,ro=ro,vo=vo)
     pot_nounits= potential.SolidBodyRotationWrapperPotential(pot=spn,\
                            omega=20./bovy_conversion.freq_in_kmskpc(vo,ro),
                            pa=30./180.*numpy.pi)
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # CorotatingRotationWrapperPotential
+    spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
+    pot= potential.CorotatingRotationWrapperPotential(pot=spn,\
+                           vpo=200.*units.km/units.s,
+                           to=1.*units.Gyr,
+                           pa=30.*units.deg,ro=ro,vo=vo)
+    pot_nounits= potential.CorotatingRotationWrapperPotential(pot=spn,\
+                           vpo=200./vo,
+                           to=1./bovy_conversion.time_in_Gyr(vo,ro),
+                           pa=30./180.*numpy.pi)
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "CorotatingRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # GaussianAmplitudeWrapperPotential
+    dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
+    pot= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                                to=-1.*units.Gyr,
+                                                sigma=10.*units.Gyr,
+                                                ro=ro,vo=vo)
+    pot_nounits= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
+                                 to=-1./bovy_conversion.time_in_Gyr(vo,ro),
+                                 sigma=10./bovy_conversion.time_in_Gyr(vo,ro))
+    # Check potential
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "GaussianAmplitudeWrapperPotential w/ parameters w/ units does not behave as expected"   
+    # ChandrasekharDynamicalFrictionForce
+    pot= potential.ChandrasekharDynamicalFrictionForce(GMs=10.**9.*units.Msun,
+                                                       rhm=1.2*units.kpc,
+                                                       minr=1.*units.pc,
+                                                       maxr=100.*units.kpc,
+                                                       ro=ro,vo=vo)
+    pot_nounits= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=10.**9./bovy_conversion.mass_in_msol(vo,ro),rhm=1.2/ro,
+        minr=1./ro/1000.,maxr=100./ro)
+    # Check potential
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # Also check that this works after changing GMs and rhm on the fly (specific to ChandrasekharDynamicalFrictionForce
+    old_force= pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)
+    pot.GMs= 10.**8.*units.Msun
+    pot_nounits.GMs= 10.**8./bovy_conversion.mass_in_msol(vo,ro)
+    # units should still work
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # and now for GMs
+    pot.GMs= 10.**8.*units.Msun*constants.G
+    pot_nounits.GMs= 10.**8./bovy_conversion.mass_in_msol(vo,ro)
+    # units should still work
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # Quick test that other units don't work
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        pot.GMs= 10.**8.*units.Msun/units.pc**2
+    # and force should be /10 of previous (because linear in mass
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-old_force/10.) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # Now do rhm
+    pot.rhm= 12*units.kpc
+    pot_nounits.rhm= 12/ro
+    assert numpy.fabs(pot.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # Compare changed rhm to one that has rhm directly set to this value
+    # to make sure that the change is okay
+    pot_nounits_direct= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=10.**8./bovy_conversion.mass_in_msol(vo,ro),rhm=12/ro,
+        minr=1./ro/1000.,maxr=100./ro)
+    assert numpy.fabs(pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits_direct.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
 def test_potential_paramunits_2d():
@@ -5266,6 +5408,41 @@ def test_streamgapdf_sample():
     assert numpy.fabs(lbdt[4].to(units.mas/units.yr).value-lbdtnou[4]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     assert numpy.fabs(lbdt[5].to(units.mas/units.yr).value-lbdtnou[5]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     assert numpy.fabs(lbdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
+    return None
+
+def test_jeans_sigmar_returntype():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    ro, vo= 8.5, 240.
+    assert isinstance(jeans.sigmar(lp,2.,ro=ro,vo=vo),units.Quantity), 'jeans.sigmar does not return Quantity when it should'
+    return None
+
+def test_jeans_sigmar_returnunit():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    ro, vo= 8.5, 240.
+    try:
+        jeans.sigmar(lp,2.,ro=ro,vo=vo).to(units.km/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('jeans.sigmar does not return Quantity with the right units')
+    return None
+
+def test_jeans_sigmar_value():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    ro, vo= 8.5, 240.
+    assert numpy.fabs(jeans.sigmar(lp,2.,ro=ro,vo=vo).to(units.km/units.s).value-jeans.sigmar(lp,2.)*vo) < 10.**-8., 'jeans.sigmar does not return correct Quantity'
+    return None
+
+def test_jeans_sigmar_inputAsQuantity():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=1.)
+    ro, vo= 8.5, 240.
+    assert numpy.fabs(jeans.sigmar(lp,2.*ro*units.kpc,ro=ro,vo=vo).to(units.km/units.s).value-jeans.sigmar(lp,2.)*vo) < 10.**-8., 'jeans.sigmar does not return correct Quantity'
     return None
 
 def test_orbitmethodswunits_quantity_issue326():
