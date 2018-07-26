@@ -292,6 +292,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->nargs= (int) 3;
       break;
     case -3: //OblateStaeckelWrapperPotential
+      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
       potentialArgs->planarphiforce= &ZeroPlanarForce;
       potentialArgs->nargs= (int) 5;
