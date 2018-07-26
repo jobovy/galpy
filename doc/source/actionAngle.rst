@@ -743,8 +743,8 @@ calculate actions for triaxial potentials by specifying that
 
 .. _aatorus:
 
-**NEW in v1.2** Action-angle coordinates using the TorusMapper code
----------------------------------------------------------------------
+Action-angle coordinates using the TorusMapper code
+----------------------------------------------------
 
 All of the methods described so far allow one to compute the actions,
 angles, and frequencies for a given phase-space location. ``galpy``

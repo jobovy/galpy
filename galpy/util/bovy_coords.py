@@ -83,6 +83,16 @@ except ImportError:
 _APY_COORDS*= _APY_LOADED
 _DEGTORAD= m.pi/180.
 _K=4.74047
+# numpy 1.14 einsum bug causes astropy conversions to fail in py2.7 -> turn off
+if _APY_COORDS:
+    ra, dec= nu.array([192.25*_DEGTORAD]), nu.array([27.4*_DEGTORAD])
+    c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
+                          equinox='B1950',frame='fk4')
+    # This conversion fails bc of einsum bug
+    try:
+        c= c.transform_to(apycoords.Galactic)
+    except TypeError:
+        _APY_COORDS= False
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""
     @wraps(func)

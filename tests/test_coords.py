@@ -1263,11 +1263,14 @@ def test_pmrapmdec_to_custom_againstlb():
     _turn_on_apy()
     return None
 
+# 02/06/2018 (JB): Edited for cases where astropy coords are always turned off
+# [case at hand: einsum bug in numpy 1.14 / python2.7 astropy]
 def _turn_off_apy(keep_loaded=False):
+    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
     bovy_coords._APY_COORDS= False
     if not keep_loaded:
         bovy_coords._APY_LOADED= False
 
 def _turn_on_apy():
-    bovy_coords._APY_COORDS= True
+    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
     bovy_coords._APY_LOADED= True
