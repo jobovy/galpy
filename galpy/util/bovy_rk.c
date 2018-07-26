@@ -32,9 +32,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "signal.h"
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
+#ifndef _WIN32
+#include "signal.h"
+#endif
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
 #define _MAX_STEPREDUCE 10000.
@@ -92,10 +94,12 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
@@ -117,8 +121,10 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -190,10 +196,12 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
@@ -217,8 +225,10 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
     for (kk=0; kk < dim; kk++) *(yn+kk)= *(yn1+kk);
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   //Free allocated memory
   free(yn);
   free(yn1);
@@ -510,10 +520,12 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   //set up a1
   func(to,yn,a1,nargs,potentialArgs);
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
@@ -528,8 +540,10 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
     result+= dim;
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   // Free allocated memory
   free(a);
   free(a1);

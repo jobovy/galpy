@@ -1,11 +1,14 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
+import distutils.ccompiler
 import os, os.path
+import platform
 import subprocess
 import glob
 PY3= sys.version > '3'
+WIN32= platform.system() == 'Windows'
 
 long_description= ''
 previous_line= ''
@@ -83,15 +86,16 @@ else:
     del sys.argv[interppotential_ext_pos]
     interppotential_ext= True
 
-#code to check the GSL version
+#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+# (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config',
       '--version']
 try:
     if sys.version_info < (2,7): #subprocess.check_output does not exist
-        gsl_version= subprocess.Popen(cmd,
+        gsl_version= subprocess.Popen(cmd,shell=sys.platform.startswith('win'),
                                       stdout=subprocess.PIPE).communicate()[0]
     else:
-        gsl_version= subprocess.check_output(cmd)
+        gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
@@ -103,6 +107,15 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 #HACK for testing
 #gsl_version= ['0','0']
 
+# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
+if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
+    extra_compile_args.append("-Dinline=__inline")
+
+# To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
+if WIN32:
+    extra_compile_args.append("-DGSL_DLL")
+    extra_compile_args.append("-DWIN32")
+
 #Orbit integration C extension
 orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
@@ -112,6 +125,11 @@ orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
+
+# On Windows it's unnecessary and erroneous to include m
+if WIN32:
+    orbit_libraries.remove('m')
+    pot_libraries.remove('m')
 
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
@@ -172,7 +190,7 @@ if single_ext: #add the code and libraries for the other extensions
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
-
+    
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,

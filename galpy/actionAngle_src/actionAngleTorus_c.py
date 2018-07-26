@@ -1,6 +1,6 @@
 import os
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
 import warnings
 import ctypes
 import ctypes.util
