@@ -3,8 +3,8 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-**UPDATED in v1.2**: Orbit initialization
--------------------------------------------
+Orbit initialization
+--------------------
 
 Standard initialization
 ***********************
@@ -154,8 +154,8 @@ you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
-**UPDATED in v1.2**: Orbit integration
-----------------------------------------
+Orbit integration
+------------------
 
 After an orbit is initialized, we can integrate it for a set of times
 ``ts``, given as a numpy array. For example, in a simple logarithmic
