@@ -6,6 +6,9 @@ galpy
 .. image:: https://travis-ci.org/jobovy/galpy.svg?branch=master
    :target: http://travis-ci.org/jobovy/galpy
 
+.. image:: https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/jobovy/galpy
+
 .. image:: https://img.shields.io/coveralls/jobovy/galpy.svg
   :target: https://coveralls.io/r/jobovy/galpy?branch=master
 
@@ -17,6 +20,9 @@ galpy
 
 .. image:: http://img.shields.io/pypi/v/galpy.svg
    :target: https://pypi.python.org/pypi/galpy/ 
+
+.. image:: https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg
+   :target: https://anaconda.org/conda-forge/galpy
 
 .. image:: http://img.shields.io/badge/license-New%20BSD-brightgreen.svg
    :target: https://github.com/jobovy/galpy/blob/master/LICENSE
