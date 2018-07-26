@@ -4,7 +4,11 @@ import os
 import sys
 import pytest
 import numpy
-import pynbody
+try:
+    import pynbody
+    _PYNBODY_LOADED= True
+except ImportError:
+    _PYNBODY_LOADED= False
 from galpy import potential
 from galpy.util import bovy_coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -83,8 +87,9 @@ def test_forceAsDeriv_potential():
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('mockInterpRZPotential')
-    pots.append('mockSnapshotRZPotential')
-    pots.append('mockInterpSnapshotRZPotential')
+    if _PYNBODY_LOADED:
+        pots.append('mockSnapshotRZPotential')
+        pots.append('mockInterpSnapshotRZPotential')
     pots.append('mockCosmphiDiskPotentialnegcp')
     pots.append('mockCosmphiDiskPotentialnegp')
     pots.append('mockDehnenBarPotentialT1')
@@ -1950,7 +1955,7 @@ def test_Ferrers_Rzderiv_issue319():
      rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
      rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
                                     0.5,dx=10.**-8.)
-     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-8., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
+     assert numpy.fabs(rzderiv-rzderiv_finitediff) < 10.**-7., 'Rzderiv for FerrersPotential does not agree with finite-difference calculation'
      return None
 
 def test_plotting():
