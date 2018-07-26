@@ -13,9 +13,9 @@ from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
     evaluatePotentials, evaluateRforces, toPlanarPotential
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
 from galpy.actionAngle import actionAngleSpherical
-from galpy.actionAngle_src.actionAngleAxi import actionAngleAxi
-from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
-from galpy.actionAngle_src.actionAngleIsochrone import _actionAngleIsochroneHelper
+from .actionAngleAxi import actionAngleAxi
+from .actionAngleInverse import actionAngleInverse
+from .actionAngleIsochrone import _actionAngleIsochroneHelper
 _APY_LOADED= True
 try:
     from astropy import units

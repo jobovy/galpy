@@ -14,10 +14,10 @@ import math as m
 import numpy as nu
 from scipy import integrate, optimize
 from galpy.potential import vcirc, epifreq, omegac, _dim
-from galpy.potential.Potential import _evaluatePotentials
 from galpy.potential.planarPotential import _evaluateplanarPotentials
 from galpy.potential.Potential import flatten as flatten_potential
 from .actionAngle import actionAngle, UnboundError
+_EPS= 10.**-15.
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):

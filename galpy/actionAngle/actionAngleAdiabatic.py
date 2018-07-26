@@ -19,7 +19,7 @@ from .actionAngleVertical import actionAngleVertical
 from .actionAngle import actionAngle
 from . import actionAngleAdiabatic_c
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
-from galpy.potential.Potential import _check_c _dim
+from galpy.potential.Potential import _check_c, _dim
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
