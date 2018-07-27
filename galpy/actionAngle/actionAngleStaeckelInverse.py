@@ -17,9 +17,9 @@ from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
     OblateStaeckelWrapperPotential
 from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
 from galpy.actionAngle import actionAngleSpherical, actionAngleStaeckel
-from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
-from galpy.actionAngle_src.actionAngleIsochrone import _actionAngleIsochroneHelper
-import galpy.actionAngle_src.actionAngleStaeckel_c as actionAngleStaeckel_c
+from .actionAngleInverse import actionAngleInverse
+from .actionAngleIsochrone import _actionAngleIsochroneHelper
+from . import actionAngleStaeckel_c
 from galpy.util import bovy_coords
 _APY_LOADED= True
 try:
