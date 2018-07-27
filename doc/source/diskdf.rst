@@ -250,7 +250,7 @@ overplotting this over the previous distribution gives
 
 which is slightly different from the conditioned
 distribution. Similarly, we can calculate marginalized velocity
-probabilities ```pvR``, ``pvz``, ``pvRvT``, ``pvRvz``, and
+probabilities ``pvR``, ``pvz``, ``pvRvT``, ``pvRvz``, and
 ``pvTvz``. These are all multiplied with the density, such that
 marginalizing these over the remaining velocity component results in
 the density.

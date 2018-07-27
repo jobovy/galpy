@@ -63,10 +63,10 @@ PYTHON VERSIONS AND DEPENDENCIES
 ---------------------------------
 
 ``galpy`` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.4, 3.5, and 3.6. It may also work on earlier
-Python 3.* versions, but this has not been tested. Travis CI builds
-regularly check support for Python 2.7 and 3.6 (and of 3.4/3.5 using a
-limited set of tests).
+Python 2.7 and Python 3.5 and 3.6. It may also work on earlier Python
+3.* versions, but this has not been extensively tested. Travis CI
+builds regularly check support for Python 2.7 and 3.6 (and of 3.5
+using a limited set of tests).
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
 <http://www.scipy.org/>`__, and `Matplotlib
@@ -143,7 +143,7 @@ profiles more closely (see `1999AJ....118.1201D
 these corrections is expensive, and a large set of precalculated
 corrections can be found `here
 <http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`__
-\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df_src/data directory before running the setup.py installation. E.g.::
+\[tar.gz archive\]. Install these by downloading them and unpacking them into the galpy/df/data directory before running the setup.py installation. E.g.::
 
    curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
-   tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df_src/data/
+   tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/

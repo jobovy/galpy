@@ -565,11 +565,11 @@ def test_determine_deltav_valueerrort():
 
 # Test the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector():
-    from galpy.df_src import streamgapdf
+    from galpy.df.streamgapdf import _rotate_to_arbitrary_vector
     tol= -10.
     v= numpy.array([[1.,0.,0.]])
     # Rotate to 90 deg off
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,[0,1.,0])
+    ma= _rotate_to_arbitrary_vector(v,[0,1.,0])
     assert numpy.fabs(ma[0,0,1]+1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,0]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,2]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
@@ -580,7 +580,7 @@ def test_rotate_to_arbitrary_vector():
     assert numpy.fabs(ma[0,2,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,1]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     # Rotate to 90 deg off
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,[0,0,1.])
+    ma= _rotate_to_arbitrary_vector(v,[0,0,1.])
     assert numpy.fabs(ma[0,0,2]+1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,0]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,1]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
@@ -591,13 +591,13 @@ def test_rotate_to_arbitrary_vector():
     assert numpy.fabs(ma[0,1,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,2]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     # Rotate to same should be unit matrix
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,v[0])
+    ma= _rotate_to_arbitrary_vector(v,v[0])
     assert numpy.all(numpy.fabs(numpy.diag(ma[0])-1.) < 10.**tol), \
         'Rotation matrix to same vector is not unity'
     assert numpy.fabs(numpy.sum(ma**2.)-3.)< 10.**tol, \
         'Rotation matrix to same vector is not unity'
     # Rotate to -same should be -unit matrix
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,-v[0])
+    ma= _rotate_to_arbitrary_vector(v,-v[0])
     assert numpy.all(numpy.fabs(numpy.diag(ma[0])+1.) < 10.**tol), \
         'Rotation matrix to minus same vector is not minus unity'
     assert numpy.fabs(numpy.sum(ma**2.)-3.)< 10.**tol, \
@@ -606,11 +606,11 @@ def test_rotate_to_arbitrary_vector():
 
 # Test that the rotation routine works for multiple vectors
 def test_rotate_to_arbitrary_vector_multi():
-    from galpy.df_src import streamgapdf
+    from galpy.df.streamgapdf import _rotate_to_arbitrary_vector
     tol= -10.
     v= numpy.array([[1.,0.,0.],[0.,1.,0.]])
     # Rotate to 90 deg off
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,[0,0,1.])
+    ma= _rotate_to_arbitrary_vector(v,[0,0,1.])
     assert numpy.fabs(ma[0,0,2]+1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,0]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,1]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
@@ -634,25 +634,25 @@ def test_rotate_to_arbitrary_vector_multi():
 
 # Test the inverse of the routine that rotates vectors to an arbitrary vector
 def test_rotate_to_arbitrary_vector_inverse():
-    from galpy.df_src import streamgapdf
+    from galpy.df.streamgapdf import _rotate_to_arbitrary_vector
     tol= -10.
     v= numpy.array([[1.,0.,0.]])
     # Rotate to random vector and back
     a= numpy.random.uniform(size=3)
     a/= numpy.sqrt(numpy.sum(a**2.))
-    ma= streamgapdf._rotate_to_arbitrary_vector(v,a)
-    ma_inv= streamgapdf._rotate_to_arbitrary_vector(v,a,inv=True)
+    ma= _rotate_to_arbitrary_vector(v,a)
+    ma_inv= _rotate_to_arbitrary_vector(v,a,inv=True)
     ma= numpy.dot(ma[0],ma_inv[0])
     assert numpy.all(numpy.fabs(ma-numpy.eye(3)) < 10.**tol), 'Inverse rotation matrix incorrect'
     return None
 
 # Test that rotating to vy in particular works as expected
 def test_rotation_vy():
-    from galpy.df_src import streamgapdf
+    from galpy.df.streamgapdf import _rotation_vy
     tol= -10.
     v= numpy.array([[1.,0.,0.]])
     # Rotate to 90 deg off
-    ma= streamgapdf._rotation_vy(v)
+    ma= _rotation_vy(v)
     assert numpy.fabs(ma[0,0,1]+1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,1,0]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,2]-1.) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
@@ -909,14 +909,14 @@ def test_impulse_deltav_general_curved_hernquist():
     return None
 
 def test_hernquistX_negative():
-    from galpy.df_src import streamgapdf
+    from galpy.df.streamgapdf import HernquistX
     with pytest.raises(ValueError) as excinfo:
-        streamgapdf.HernquistX(-1.)
+        HernquistX(-1.)
     return None
 
 def test_hernquistX_unity():
-    from galpy.df_src import streamgapdf
-    assert streamgapdf.HernquistX(1.)==1., 'Hernquist X function not returning 1 with argument 1'
+    from galpy.df.streamgapdf import HernquistX
+    assert HernquistX(1.)==1., 'Hernquist X function not returning 1 with argument 1'
     return None
 
 # Test general impulse vs. full orbit integration for zero force
