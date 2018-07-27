@@ -8,11 +8,11 @@
 #
 ###############################################################################
 import numpy
-from galpy.potential_src.Potential import _evaluatePotentials, \
-    _evaluateRforces, _evaluatezforces, evaluateR2derivs, evaluateRzderivs, \
+from .Potential import _evaluatePotentials, _evaluateRforces, \
+    _evaluatezforces, evaluateR2derivs, evaluateRzderivs, \
     evaluatez2derivs
-from galpy.potential_src.WrapperPotential import parentWrapperPotential
-from galpy.potential_src.Potential import _APY_LOADED
+from .WrapperPotential import parentWrapperPotential
+from .Potential import _APY_LOADED
 from galpy.util import bovy_coords
 if _APY_LOADED:
     from astropy import units
