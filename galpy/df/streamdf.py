@@ -239,6 +239,10 @@ class streamdf(df):
                                                   self._progenitor_lz,
                                                   self._progenitor_jz)
             self._dOdJp= h
+            print(self._progenitor_jr,
+                  self._progenitor_lz,
+                  self._progenitor_jz,
+                  h,fr,fp,fz)
             # Replace frequencies with TM frequencies
             self._progenitor_Omegar= fr
             self._progenitor_Omegaphi= fp

@@ -745,23 +745,41 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and not vo is None and not ro is None:
+                out= method(*args,**kwargs)
                 if 'call' in quantity or 'actions' in quantity:
-                    fac= [ro*vo,ro*vo,ro*vo]
-                    if _APY_UNITS:
-                        u= [units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s]
+                    if 'actions' in quantity and len(out) < 4: # 1D system
+                        fac= [ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s]
+                    else:
+                        fac= [ro*vo,ro*vo,ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s]
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
-                    fac.extend([FreqsFac,FreqsFac,FreqsFac])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([Freqsu,Freqsu,Freqsu])
+                    if len(out) < 4: # 1D system
+                        fac.append(FreqsFac)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(Freqsu)
+                    else:
+                        fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([Freqsu,Freqsu,Freqsu])
                 if 'Angles' in quantity:
-                    fac.extend([1.,1.,1.])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([units.rad,units.rad,units.rad])
+                    if len(out) < 4: # 1D system
+                        fac.append(1.)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(units.rad)
+                    else:
+                        fac.extend([1.,1.,1.])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([units.rad,units.rad,units.rad])
                 if 'EccZmaxRperiRap' in quantity:
                     fac= [1.,ro,ro,ro]
                     if _APY_UNITS:
@@ -769,16 +787,21 @@ def physical_conversion_actionAngle(quantity,pop=False):
                             units.kpc,
                             units.kpc,
                             units.kpc]
-                out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(units.Quantity(out[ii]*fac[ii],
-                                                       unit=u[ii]),)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                           unit=u[ii]),)
+                    except TypeError: # happens if out = scalar
+                        newOut= units.Quantity(out*fac[0],unit=u[0])
                 else:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(out[ii]*fac[ii],)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(out[ii]*fac[ii],)
+                    except TypeError: # happens if out = scalar
+                        newOut= out*fac[0]
                 return newOut
             else:
                 return method(*args,**kwargs)
@@ -847,28 +870,46 @@ def physical_conversion_actionAngleInverse(quantity,pop=False):
             if use_physical and not vo is None and not ro is None:
                 fac= []
                 u= []
+                out= method(*args,**kwargs)
                 if 'call' in quantity or 'xv' in quantity:
-                    fac.extend([ro,vo,vo,ro,vo,1.])
-                    if _APY_UNITS:
-                        u.extend([units.kpc,units.km/units.s,
-                                  units.km/units.s,units.kpc,units.km/units.s,
-                                  units.rad])
+                    if 'xv' in quantity and len(out) < 4: # 1D system
+                        fac.extend([ro,vo])
+                        if _APY_UNITS:
+                            u.extend([units.kpc,units.km/units.s])
+                    else:
+                        fac.extend([ro,vo,vo,ro,vo,1.])
+                        if _APY_UNITS:
+                            u.extend([units.kpc,units.km/units.s,
+                                      units.km/units.s,units.kpc,
+                                      units.km/units.s,
+                                      units.rad])
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
-                    fac.extend([FreqsFac,FreqsFac,FreqsFac])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([Freqsu,Freqsu,Freqsu])
-                out= method(*args,**kwargs)
+                    if isinstance(out,float): # 1D system
+                        fac.append(FreqsFac)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(Freqsu)
+                    else:
+                        fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([Freqsu,Freqsu,Freqsu])
                 if _APY_UNITS:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(units.Quantity(out[ii]*fac[ii],
-                                                       unit=u[ii]),)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                           unit=u[ii]),)
+                    except TypeError: # Happens when out == scalar
+                        newOut= units.Quantity(out*fac[0],unit=u[0])
                 else:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(out[ii]*fac[ii],)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(out[ii]*fac[ii],)
+                    except TypeError: # Happens when out == scalar
+                        newOut= out*fac[0]
                 return newOut
             else:
                 return method(*args,**kwargs)

@@ -127,10 +127,10 @@ class DoubleExponentialDiskPotential(Potential):
            >>> assert( r+1.89595350484)**2.< 10.**-6.
         """
         if True:
-            if isinstance(R,float):
+            if isinstance(R,float) or isinstance(z,float):
                 floatIn= True
-                R= nu.array([R])
-                z= nu.array([z])
+                R= nu.atleast_1d(R)
+                z= nu.atleast_1d(z)
             else:
                 floatIn= False
             out= nu.empty(len(R))

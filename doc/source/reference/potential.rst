@@ -366,6 +366,7 @@ Specific potentials
 .. toctree::
    :maxdepth: 2
 
+   IsothermalDiskPotential <potentialisodisk.rst>
    KGPotential <potentialkg.rst>
 
 One-dimensional potentials can also be derived from 3D axisymmetric potentials as the vertical potential at a certain Galactocentric radius

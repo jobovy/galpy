@@ -8,6 +8,255 @@ _TRAVIS= bool(os.getenv('TRAVIS'))
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
+#Test the actions of an actionAngleHarmonic
+def test_actionAngleHarmonic_conserved_actions():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    js= aAH(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)))/numpy.mean(js)
+    assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
+    return None
+
+#Test that the angles of an actionAngleHarmonic increase linearly
+def test_actionAngleHarmonic_linear_angles():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import dePeriod
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    acfs_init= aAH.actionsFreqsAngles(obs.x(),obs.vx()) #to check the init. angles
+    acfs= aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    angle= dePeriod(numpy.reshape(acfs[2],(1,len(times)))).flatten()
+    # Do linear fit to the angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,angle,1)
+    assert numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]) < 10.**-5., \
+        'Angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]))
+    assert numpy.fabs(linfit[0]-acfs_init[1]) < 10.**-5., \
+        'Frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[1])/acfs_init[1]))
+    devs= (angle-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**-6., 'Maximum deviation from linear trend in the angles is %g' % maxdev
+    # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
+    assert numpy.all(numpy.fabs(aAH.actionsFreqs(obs.x(times),obs.vx(times))[1]-aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))[1])) < 1e-100, 'Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles'
+    return None
+
+# Test physical output for actionAngleHarmonic
+def test_physical_harmonic():
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
+                             ro=ro,vo=vo)
+    aAHnu= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    # __call__
+    assert numpy.fabs(aAH(-0.1,0.1)-aAHnu(-0.1,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value for actionAngleHarmonic'
+    # actionsFreqs
+    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[0]-aAHnu.actionsFreqs(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[1]-aAHnu.actionsFreqs(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
+    # actionsFreqsAngles
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[0]-aAHnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[1]-aAHnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[2]-aAHnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    return None
+
+#Test the actions of an actionAngleVertical
+def test_actionAngleVertical_conserved_actions():
+    # Use an isothermal disk potential
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.orbit import Orbit
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,isopot)
+    js= aAV(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)/numpy.mean(js)))
+    assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
+    return None
+
+#Test the frequencies of an actionAngleVertical
+def test_actionAngleVertical_conserved_freqs():
+    # Use an isothermal disk potential
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.orbit import Orbit
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,isopot)
+    js, os= aAV.actionsFreqs(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)/numpy.mean(js)))
+    assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
+    maxdo= numpy.amax(numpy.fabs((os-numpy.tile(numpy.mean(os),(len(times),1)).T)/numpy.mean(os)))
+    assert maxdo < 10.**-4., 'Frequency conservation fails at %g%%' % (100.*maxdo)
+    return None
+
+#Test that the angles of an actionAngleVertical increase linearly
+def test_actionAngleVertical_linear_angles():
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import dePeriod
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 1001
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,isopot)
+    acfs_init= aAV.actionsFreqsAngles(obs.x(),obs.vx()) #to check the init. angles
+    acfs= aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    angle= dePeriod(numpy.reshape(acfs[2],(1,len(times)))).flatten()
+    # Do linear fit to the angle, check that deviations are small, check 
+    # that the slope is the frequency
+    linfit= numpy.polyfit(times,angle,1)
+    assert numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]) < 10.**-5., \
+        'Angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%' % (100.*numpy.fabs((linfit[1]-acfs_init[2])/acfs_init[2]))
+    assert numpy.fabs(linfit[0]-acfs_init[1]) < 10.**-5., \
+        'Frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%' % (100.*numpy.fabs((linfit[0]-acfs_init[1])/acfs_init[1]))
+    devs= (angle-linfit[0]*times-linfit[1])
+    maxdev= numpy.amax(numpy.fabs(devs))
+    assert maxdev < 10.**-6., 'Maximum deviation from linear trend in the angles is %g' % maxdev
+    # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
+    assert numpy.all(numpy.fabs(aAV.actionsFreqs(obs.x(times),obs.vx(times))[1]-aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))[1])) < 1e-100, 'Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles'
+    return None
+
+# Test actionAngleVertical against actionAngleHarmonic for HO
+def test_actionAngleVertical_Harmonic_actions():
+    from galpy.potential import linearPotential
+    from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.orbit import Orbit
+    # Stop-gap until we implement a proper 1D (or 3D) HO potential,
+    # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
+    # that mess up this test
+    class HO(linearPotential):
+        def __init__(self,omega):
+            linearPotential.__init__(self,amp=1.)
+            self._omega= omega
+        def _evaluate(self,x,t=0.):
+            return self._omega**2.*x**2./2.
+        def _force(self,x,t=0.):
+            return -self._omega**2.*x
+    ipz= HO(omega=2.23)
+    aAH= actionAngleHarmonic(omega=ipz._omega)
+    aAV= actionAngleVertical(pot=ipz)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 101
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    js= aAH(obs.x(times),obs.vx(times))
+    jsv= aAV(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-jsv)/js))
+    assert maxdj < 10.**-10., 'Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxdj)
+    return None
+
+def test_actionAngleVertical_Harmonic_actionsFreqs():
+    from galpy.potential import linearPotential
+    from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.orbit import Orbit
+    # Stop-gap until we implement a proper 1D (or 3D) HO potential,
+    # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
+    # that mess up this test
+    class HO(linearPotential):
+        def __init__(self,omega):
+            linearPotential.__init__(self,amp=1.)
+            self._omega= omega
+        def _evaluate(self,x,t=0.):
+            return self._omega**2.*x**2./2.
+        def _force(self,x,t=0.):
+            return -self._omega**2.*x
+    ipz= HO(omega=2.23)
+    aAH= actionAngleHarmonic(omega=ipz._omega)
+    aAV= actionAngleVertical(pot=ipz)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 101
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    js,os= aAH.actionsFreqs(obs.x(times),obs.vx(times))
+    jsv,osv= aAV.actionsFreqs(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-jsv)/js))
+    assert maxdj < 10.**-10., 'Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxdj)
+    maxdo= numpy.amax(numpy.fabs((os-osv)/os))
+    assert maxdo < 10.**-10., 'Frequencies of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxdo)
+    return None
+
+def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
+    from galpy.potential import linearPotential
+    from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.orbit import Orbit
+    # Stop-gap until we implement a proper 1D (or 3D) HO potential,
+    # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
+    # that mess up this test
+    class HO(linearPotential):
+        def __init__(self,omega):
+            linearPotential.__init__(self,amp=1.)
+            self._omega= omega
+        def _evaluate(self,x,t=0.):
+            return self._omega**2.*x**2./2.
+        def _force(self,x,t=0.):
+            return -self._omega**2.*x
+    ipz= HO(omega=2.236)
+    aAH= actionAngleHarmonic(omega=ipz._omega)
+    aAV= actionAngleVertical(pot=ipz)
+    obs= Orbit([0.1,-0.3])
+    ntimes= 101
+    times= numpy.linspace(0.,20.,ntimes)
+    obs.integrate(times,ipz)
+    js,os,ans= aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    jsv,osv,ansv= aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    maxdj= numpy.amax(numpy.fabs((js-jsv)/js))
+    assert maxdj < 10.**-10., 'Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxdj)
+    maxdo= numpy.amax(numpy.fabs((os-osv)/os))
+    assert maxdo < 10.**-10., 'Frequencies of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxdo)
+    maxda= numpy.amax(numpy.fabs(((ans-ansv)+numpy.pi) % (2.*numpy.pi)-numpy.pi))
+    assert maxda < 10.**-10., 'Angles of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%' % (100.*maxda)
+    return None
+
+# Test physical output for actionAngleVertical
+def test_physical_vertical():
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.util import bovy_conversion
+    ro,vo= 7., 230.
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    # Omega = sqrt(4piG density / 3)
+    aAV= actionAngleVertical(pot=isopot,ro=ro,vo=vo)
+    aAVnu= actionAngleVertical(pot=isopot)
+    # __call__
+    assert numpy.fabs(aAV(-0.1,0.1)-aAVnu(-0.1,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value for actionAngleVertical'
+    # actionsFreqs
+    assert numpy.fabs(aAV.actionsFreqs(0.2,0.1)[0]-aAVnu.actionsFreqs(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical'
+    assert numpy.fabs(aAV.actionsFreqs(0.2,0.1)[1]-aAVnu.actionsFreqs(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical'
+    # actionsFreqsAngles
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[0]-aAVnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[1]-aAVnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[2]-aAVnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
+    return None
+
 #Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
     from galpy.actionAngle import actionAngleIsochrone
@@ -144,7 +393,7 @@ def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -165,7 +414,7 @@ def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
     aAI= actionAngleIsochrone(ip=ip)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -410,7 +659,7 @@ def test_actionAngleSpherical_noninclinedorbit_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -433,7 +682,7 @@ def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
     aAS= actionAngleSpherical(pot=lp)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -2764,6 +3013,101 @@ def test_MWPotential_warning_isochroneapprox():
         assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
+# Test that actionAngleHarmonicInverse is the inverse of actionAngleHarmonic
+def test_actionAngleHarmonicInverse_wrtHarmonic():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic, \
+        actionAngleHarmonicInverse
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    # Check a few orbits
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    times= numpy.linspace(0.,30.,1001)
+    obs.integrate(times,ipz)
+    j,_,a= aAH.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    xi, vxi= aAHI(numpy.median(j),a)
+    assert numpy.amax(numpy.fabs(obs.x(times)-xi)) < 10.**-6., 'actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vx(times)-vxi)) < 10.**-6., 'actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit'
+    return None
+
+def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonic, \
+        actionAngleHarmonicInverse
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    # Omega = sqrt(4piG density / 3)
+    aAH= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    tol= -10.
+    j= 0.1
+    Om= aAHI.Freqs(j)
+    # Compute frequency with actionAngleHarmonic
+    _,Omi= aAH.actionsFreqs(*aAHI(j,0.))
+    assert numpy.fabs((Om-Omi)/Om) < 10.**tol, \
+        'Radial frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic'
+    return None
+
+#Test that orbit from actionAngleHarmonicInverse is the same as an integrated orbit
+def test_actionAngleHarmonicInverse_orbit():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonicInverse
+    from galpy.orbit import Orbit
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ipz= ip.toVertical(1.2)
+    # Omega = sqrt(4piG density / 3)
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    j= 0.01
+    # First calculate frequencies and the initial x,v
+    xvom= aAHI.xvFreqs(j,numpy.array([0.1]))
+    om= xvom[2:]
+    # Angles along an orbit
+    ts= numpy.linspace(0.,20.,1001)
+    angle= 0.1+ts*om[0]
+    # Calculate the orbit using actionAngleHarmonicInverse
+    xv= aAHI(j,angle)
+    # Calculate the orbit using orbit integration
+    orb= Orbit([xvom[0][0],xvom[1][0]])
+    orb.integrate(ts,ipz)
+    # Compare
+    tol= -6.
+    assert numpy.all(numpy.fabs(orb.x(ts)-xv[0]) < 10.**tol), \
+        'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x'
+    assert numpy.all(numpy.fabs(orb.vx(ts)-xv[1]) < 10.**tol), \
+        'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v'
+    return None
+
+# Test physical output for actionAngleHarmonicInverse
+def test_physical_actionAngleHarmonicInverse():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.potential import IsochronePotential
+    from galpy.actionAngle import actionAngleHarmonicInverse
+    from galpy.util import bovy_conversion
+    ip= IsochronePotential(normalize=5.,b=10000.)
+    ro,vo= 7., 230.
+    aAHI= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),ro=ro,vo=vo)
+    aAHInu= actionAngleHarmonicInverse(\
+        omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.))
+    correct_fac= [ro,vo]
+    for ii in range(2):
+        assert numpy.fabs(aAHI(0.1,-0.2)[ii]-aAHInu(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
+    correct_fac= [ro,vo,bovy_conversion.freq_in_Gyr(vo,ro)]
+    for ii in range(3):
+        assert numpy.fabs(aAHI.xvFreqs(0.1,-0.2)[ii]-aAHInu.xvFreqs(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
+    assert numpy.fabs(aAHI.Freqs(0.1)-aAHInu.Freqs(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    return None
+
 # Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
 def test_actionAngleIsochroneInverse_wrtIsochrone():
     from galpy.actionAngle import actionAngleIsochrone, \
@@ -2899,7 +3243,7 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
 
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
 def test_actionAngleIsochroneInverse_orbit():
-    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.actionAngle.actionAngleIsochroneInverse import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
     # Set up instance

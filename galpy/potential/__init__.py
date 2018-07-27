@@ -43,6 +43,7 @@ from . import OblateStaeckelWrapperPotential
 from . import CorotatingRotationWrapperPotential
 from . import GaussianAmplitudeWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
+from . import IsothermalDiskPotential
 #
 # Functions
 #
@@ -146,6 +147,7 @@ SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotentia
 DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
+IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
