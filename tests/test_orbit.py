@@ -57,7 +57,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
     testorbitHenonHeilesPotential, \
-    KuzminKutuzovOblateStaeckelWrapperPotential
+    KuzminKutuzovOblateStaeckelWrapperPotential, \
     mockFlatCorotatingRotationSpiralArmsPotential, \
     mockFlatTrulyCorotatingRotationSpiralArmsPotential, \
     mockFlatGaussianAmplitudeBarPotential, \
