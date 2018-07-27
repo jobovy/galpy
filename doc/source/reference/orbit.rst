@@ -11,6 +11,7 @@ Class
    :maxdepth: 2
 
    Orbit <orbitinit.rst>
+   Orbit.from_name <orbitfromname.rst>
 
 Methods
 -------
