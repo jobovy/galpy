@@ -4403,8 +4403,9 @@ def test_from_name_values():
         "RA of LMC does not match SIMBAD value"
     assert numpy.isclose(o.dec(), -69.75611111111111), \
         "DEC of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.dist(), 50.0), \
-        "Parallax of LMC does not match SIMBAD value"
+    # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
+    #assert numpy.isclose(o.dist(), 50.0), \
+    #    "Parallax of LMC does not match SIMBAD value"
     assert numpy.isclose(o.pmra(), 1.91), \
         "PMRA of LMC does not match SIMBAD value"
     assert numpy.isclose(o.pmdec(), 0.229), \
