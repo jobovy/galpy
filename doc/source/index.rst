@@ -336,6 +336,21 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The Study of Galactic Disk Kinematics with SCUSS and SDSS Data*, Xiyan Peng, Zhenyu Wu, Zhaoxiang Qi, Cuihua Du, Jun Ma, Xu Zhou, Yunpeng Jia, & Songhu Wang (2018) *Publ. Astron. Soc. Pacific*, in press (`2018PASP..130g4102P <http://adsabs.harvard.edu/abs/2018PASP..130g4102P>`_)
 
+#. *Common origin for Hercules-Aquila and Virgo Clouds in Gaia DR2*, Iulia T. Simion, Vasily Belokurov, & Sergey E. Koposov (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.01335 <http://arxiv.org/abs/1807.01335>`_)
+
+#. *The GALAH Survey and Gaia DR2: (Non)existence of five sparse high-latitude open clusters*, Janez Kos, Gayandhi de Silva, Joss Bland-Hawthorn, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.00822 <http://arxiv.org/abs/1807.00822>`_)
+
+#. *Testing the universality of free fall by tracking a pulsar in a stellar triple system*, Anne M. Archibald, Nina V. Gusinskaia, Jason W. T. Hessels, Adam T. Deller, David L. Kaplan, Duncan R. Lorimer, Ryan S. Lynch, Scott M. Ransom, & Ingrid H. Stairs (2018) *Nature*, in press (`arXiv/1807.02059 <http://arxiv.org/abs/1807.02059>`_)
+
+#. *On measuring the Galactic dark matter halo with hypervelocity stars*, O. Contigiani, E. M. Rossi, T. Marchetti (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.04468 <http://arxiv.org/abs/1807.04468>`_)
+
+#. *Constraining the Milky Way Halo Potential with the GD-1 stellar stream*, Khyati Malhan & Rodrigo A. Ibata (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.05994 <http://arxiv.org/abs/1807.05994>`_)
+
+#. *Interstellar magnetic cannon targeting the Galactic halo : A young bubble at the origin of the Ophiuchus and Lupus molecular complexes*, J.-F. Robitaille, A. M. M. Scaife, E. Carretti, M. Haverkorn, R. M. Crocker, M. J. Kesteven, S. Poppi, & L. Staveley-Smith (2018) *Astron. & Astrophys.*, submitted (`arXiv/1807.04054 <http://arxiv.org/abs/1807.04054>`_)
+
+#. *Emergence of the Gaia Phase Space Spirals from Bending Waves*, Keir Darling & Lawrence M. Widrow (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.11516 <http://arxiv.org/abs/1807.11516>`_)
+
+#. *Pristine Dwarf-Galaxy Survey I: A detailed photometric and spectroscopic study of the very metal-poor Draco II satellite*, Nicolas Longeard, Nicolas Martin, Else Starkenburg, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1807.10655 <http://arxiv.org/abs/1807.10655>`_)
 
 Indices and tables
 ==================
