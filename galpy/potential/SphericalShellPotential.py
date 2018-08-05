@@ -28,7 +28,7 @@ class SphericalShellPotential(Potential):
 
            amp - mass of the shell (default: 1); can be a Quantity with units of mass or Gxmass
 
-           r0= (2.) radius of the shell (can be Quantity)
+           r0= (0.75) radius of the shell (can be Quantity)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < r0, this does not work if r_0 > 1
 
