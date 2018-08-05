@@ -1772,6 +1772,14 @@ def test_potential_ampunits():
     # # SpiralArmsPotential
     # pot= potential.SpiralArmsPotential(amp=0.3*units.Msun / units.pc**3)
     # assert numpy.fabs(pot(1.,0.,phi=1.,use_physical=False)*) < 10.**-8., "SpiralArmsPotential w/ amp w/ units does not behave as expected"
+    # SphericalShellPotential
+    pot= potential.SphericalShellPotential(amp=4.*10.**10.*units.Msun,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.SphericalShellPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -1919,6 +1927,14 @@ def test_potential_ampunits_altunits():
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
+    # SphericalShellPotential
+    pot= potential.SphericalShellPotential(amp=4.*10.**10.*units.Msun*constants.G,
+                                    ro=ro,vo=vo)
+    pot_nounits= potential.SphericalShellPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -2033,6 +2049,10 @@ def test_potential_ampunits_wrongunits():
     # SpiralArmsPotential
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.SpiralArmsPotential(amp=10**10 * units.Msun)
+    # SphericalShellPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.SphericalShellPotential(amp=40.*units.Msun/units.pc**2,
+                                          r0=2.,ro=ro,vo=vo)
     return None
 
 def test_potential_paramunits():
@@ -2389,6 +2409,16 @@ def test_potential_paramunits():
         GMs=10.**8./bovy_conversion.mass_in_msol(vo,ro),rhm=12/ro,
         minr=1./ro/1000.,maxr=100./ro)
     assert numpy.fabs(pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits_direct.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
+    # SphericalShellPotential
+    pot= potential.SphericalShellPotential(amp=4.*10.**10.*units.Msun,
+                                           r0=5.*units.kpc,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.SphericalShellPotential(\
+        amp=4.*10.**10.*units.Msun,
+        r0=5./ro,
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 

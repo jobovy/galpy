@@ -131,6 +131,7 @@ Spherical potentials
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialpseudoiso.rst
+   potentialsphericalshell.rst
 
 Axisymmetric potentials
 ***********************
