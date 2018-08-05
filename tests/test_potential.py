@@ -1753,6 +1753,12 @@ def test_FerrersPotential_nNegative():
         dummy= potential.FerrersPotential(n=-1.)
     return None
 
+# Test that SphericalShellPotential raises a value error for normalize=True and r0 > 1
+def test_SphericalShellPotential_normalizer0():
+    with pytest.raises(ValueError) as excinfo:
+        dummy= potential.SphericalShellPotential(normalize=1.,r0=2.)
+    return None
+
 def test_planeRotatedNFWPotential():
     # Test that the rotation according to pa works as expected
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.5,
