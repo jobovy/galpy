@@ -2052,7 +2052,7 @@ def test_potential_ampunits_wrongunits():
     # SphericalShellPotential
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.SphericalShellPotential(amp=40.*units.Msun/units.pc**2,
-                                          r0=2.,ro=ro,vo=vo)
+                                          a=2.,ro=ro,vo=vo)
     return None
 
 def test_potential_paramunits():
@@ -2411,11 +2411,11 @@ def test_potential_paramunits():
     assert numpy.fabs(pot_nounits.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)-pot_nounits_direct.Rforce(1.5,0.3,phi=0.1,v=[1.,0.,0.],use_physical=False)) < 10.**-8., "ChandrasekharDynamicalFrictionForce w/ parameters w/ units does not behave as expected"
     # SphericalShellPotential
     pot= potential.SphericalShellPotential(amp=4.*10.**10.*units.Msun,
-                                           r0=5.*units.kpc,
+                                           a=5.*units.kpc,
                                            ro=ro,vo=vo)
     pot_nounits= potential.SphericalShellPotential(\
         amp=4.*10.**10.*units.Msun,
-        r0=5./ro,
+        a=5./ro,
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   

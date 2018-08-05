@@ -11,10 +11,10 @@ class SphericalShellPotential(Potential):
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{4\pi\,r_0^2}\\,\\delta(r-r_0)
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\pi\,a^2}\\,\\delta(r-a)
 
     """
-    def __init__(self,amp=1.,r0=0.75,normalize=False,ro=None,vo=None):
+    def __init__(self,amp=1.,a=0.75,normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -28,9 +28,9 @@ class SphericalShellPotential(Potential):
 
            amp - mass of the shell (default: 1); can be a Quantity with units of mass or Gxmass
 
-           r0= (0.75) radius of the shell (can be Quantity)
+           a= (0.75) radius of the shell (can be Quantity)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < r0, this does not work if r_0 > 1
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < a, this does not work if r_0 > 1
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -44,15 +44,15 @@ class SphericalShellPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(r0,units.Quantity):
-            r0= r0.to(units.kpc).value/self._ro
-        self.r0= r0
-        self.r02= r0**2
+        if _APY_LOADED and isinstance(a,units.Quantity):
+            a= a.to(units.kpc).value/self._ro
+        self.a= a
+        self.a2= a**2
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
-            if self.r0 > 1.:
-                raise ValueError('SphericalShellPotential with normalize= for r0 > 1 is not supported (because the force is always 0 at r=1)')
+            if self.a > 1.:
+                raise ValueError('SphericalShellPotential with normalize= for a > 1 is not supported (because the force is always 0 at r=1)')
             self.normalize(normalize)
         self.hasC= False
         self.hasC_dxdv= False
@@ -74,8 +74,8 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r2= R**2+z**2
-        if r2 <= self.r02:
-            return -1./self.r0
+        if r2 <= self.a2:
+            return -1./self.a
         else:
             return -1./nu.sqrt(r2)
 
@@ -96,7 +96,7 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r= nu.sqrt(R**2+z**2)
-        if r <= self.r0:
+        if r <= self.a:
             return 0.
         else:
             return -R/r**3
@@ -118,7 +118,7 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r= nu.sqrt(R**2+z**2)
-        if r <= self.r0:
+        if r <= self.a:
             return 0.
         else:
             return -z/r**3
@@ -140,7 +140,7 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r= nu.sqrt(R**2+z**2)
-        if r <= self.r0:
+        if r <= self.a:
             return 0.
         else:
             return (z**2-2*R**2)/r**5
@@ -180,7 +180,7 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r= nu.sqrt(R**2+z**2)
-        if r <= self.r0:
+        if r <= self.a:
             return 0.
         else:
             return -3*R*z/r**5
@@ -202,7 +202,7 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         r2= R**2+z**2
-        if r2 != self.r02:
+        if r2 != self.a2:
             return 0.
         else: # pragma: no cover
             return nu.infty
