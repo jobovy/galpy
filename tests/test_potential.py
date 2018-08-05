@@ -1753,10 +1753,16 @@ def test_FerrersPotential_nNegative():
         dummy= potential.FerrersPotential(n=-1.)
     return None
 
-# Test that SphericalShellPotential raises a value error for normalize=True and r0 > 1
+# Test that SphericalShellPotential raises a value error for normalize=True and a > 1
 def test_SphericalShellPotential_normalizer0():
     with pytest.raises(ValueError) as excinfo:
         dummy= potential.SphericalShellPotential(normalize=1.,a=2.)
+    return None
+
+# Test that RingPotential raises a value error for normalize=True and a > 1
+def test_RingPotential_normalizer0():
+    with pytest.raises(ValueError) as excinfo:
+        dummy= potential.RingPotential(normalize=1.,a=2.)
     return None
 
 def test_planeRotatedNFWPotential():
@@ -2130,6 +2136,21 @@ def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
     # r > maxr
     assert numpy.fabs(cdf.Rforce(3.,0.,v=v)-cdf2.Rforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
     assert numpy.fabs(cdf.zforce(3.,0.,v=v)-cdf2.zforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
+    return None
+
+def test_RingPotential_correctPotentialIntegral():
+    # Test that the RingPotential's potential is correct, by comparing it to a 
+    # direct integral solution of the Poisson equation
+    from scipy import special, integrate
+    # Direct solution
+    def pot(R,z,amp=1.,a=0.75):
+        return -amp\
+            *integrate.quad(lambda k: special.jv(0,k*R)*special.jv(0,k*a)*numpy.exp(-k*numpy.fabs(z)),0.,numpy.infty)[0]
+    rp= potential.RingPotential(amp=3.,a=0.75)
+    # Just check a bunch of (R,z)s; z=0 the direct integration doesn't work well, so we don't check that
+    Rs, zs= [1.2,1.2,0.2,0.2], [0.1,-1.1,-0.1,1.1]
+    for R,z in zip(Rs,zs):
+        assert numpy.fabs(pot(R,z,amp=3.)-rp(R,z)) < 1e-8, 'RingPotential potential evaluation does not agree with direct integration at (R,z) = ({},{})'.format(R,z)
     return None
 
 def test_vtermnegl_issue314():

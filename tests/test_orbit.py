@@ -141,6 +141,7 @@ def test_energy_jacobi_conservation():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -559,7 +560,7 @@ def test_liouville_planar():
     rmpots.append('TriaxialJaffePotential')
     rmpots.append('SoftenedNeedleBarPotential')
     rmpots.append('DiskSCFPotential')
-    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -672,6 +673,7 @@ def test_eccentricity():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -793,6 +795,7 @@ def test_pericenter():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -913,6 +916,7 @@ def test_apocenter():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1033,6 +1037,7 @@ def test_zmax():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1140,6 +1145,7 @@ def test_analytic_ecc_rperi_rap():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1410,6 +1416,7 @@ def test_analytic_zmax():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential']
     rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')

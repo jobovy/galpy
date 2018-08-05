@@ -149,6 +149,7 @@ Axisymmetric potentials
    potentialmiyamoto.rst
    potential3mn.rst
    potentialrazorexp.rst
+   potentialring.rst
    potentialsnapshotrzpotential.rst
 
 Triaxial, spiral, and bar potentials

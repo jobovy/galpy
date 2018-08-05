@@ -43,6 +43,7 @@ from . import CorotatingRotationWrapperPotential
 from . import GaussianAmplitudeWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
+from . import RingPotential
 #
 # Functions
 #
@@ -148,6 +149,7 @@ SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
 ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
 SphericalShellPotential= SphericalShellPotential.SphericalShellPotential
+RingPotential= RingPotential.RingPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
