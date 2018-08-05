@@ -30,7 +30,7 @@ class SphericalShellPotential(Potential):
 
            a= (0.75) radius of the shell (can be Quantity)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < a, this does not work if r_0 > 1
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < a, this does not work if a > 1
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
