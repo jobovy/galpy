@@ -16,6 +16,7 @@ class MiyamotoNagaiPotential(Potential):
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+(a+\\sqrt{z^2+b^2})^2}}
 
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self,amp=1.,a=1.,b=0.1,normalize=False,
                  ro=None,vo=None):
@@ -30,7 +31,7 @@ class MiyamotoNagaiPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass
 
            a - scale length (can be Quantity)
 

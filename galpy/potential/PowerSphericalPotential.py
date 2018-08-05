@@ -197,12 +197,13 @@ class PowerSphericalPotential(Potential):
         return (3.-self.alpha)/4./nu.pi/r**self.alpha
 
 class KeplerPotential(PowerSphericalPotential):
-    """Class that implements the Kepler potential
+    """Class that implements the Kepler (point mass) potential
 
     .. math::
 
         \\Phi(r) = -\\frac{\\mathrm{amp}}{r}
 
+    with :math:`\\mathrm{amp} = GM` the mass.
     """
     def __init__(self,amp=1.,normalize=False,
                  ro=None,vo=None):
@@ -213,11 +214,11 @@ class KeplerPotential(PowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Kepler potential
+           initialize a Kepler, point-mass potential
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp - amplitude to be applied to the potential, the mass of the point mass (default: 1); can be a Quantity with units of mass density or Gxmass density
 
            alpha - inner power
 

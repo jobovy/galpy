@@ -13,6 +13,7 @@ class RingPotential(Potential):
 
         \\rho(R,z) = \\frac{\\mathrm{amp}}{2\pi\,R_0}\\,\\delta(R-R_0)\\,\\delta(z)
 
+    with :math:`\\mathrm{amp} = GM` the mass of the ring.
     """
     def __init__(self,amp=1.,a=0.75,normalize=False,ro=None,vo=None):
         """

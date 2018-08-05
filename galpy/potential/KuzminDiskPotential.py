@@ -15,6 +15,8 @@ class KuzminDiskPotential(Potential):
     .. math::
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2 + (a + |z|)^2}}
+
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self, amp=1., a=1. ,normalize=False, ro=None,vo=None):
         """
@@ -28,7 +30,7 @@ class KuzminDiskPotential(Potential):
 
         INPUT:
 
-            amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+            amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass density or Gxmass density
 
             a - scale length (can be Quantity)
     

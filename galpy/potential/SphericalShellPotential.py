@@ -13,6 +13,7 @@ class SphericalShellPotential(Potential):
 
         \\rho(r) = \\frac{\\mathrm{amp}}{4\pi\,a^2}\\,\\delta(r-a)
 
+    with :math:`\\mathrm{amp} = GM` the mass of the shell.
     """
     def __init__(self,amp=1.,a=0.75,normalize=False,ro=None,vo=None):
         """

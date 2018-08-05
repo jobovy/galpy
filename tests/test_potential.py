@@ -770,6 +770,44 @@ def test_evaluateAndDerivs_potential():
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
     return None
 
+# Test that the amplitude for potentials with a finite mass and amp=mass is 
+# correct through the relation -r^2 F_r =~ GM at large r
+def test_finitemass_amp():
+    r_large= 10000.
+    # KeplerPotential
+    mass= 3.
+    kp= potential.KeplerPotential(amp=mass)
+    assert numpy.fabs(mass+r_large**2.*kp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of KeplerPotential does not not equal total mass'
+    # IsochronePotential
+    r_large= 1000000000.
+    mass= 3.
+    ip= potential.IsochronePotential(amp=mass,b=0.4)
+    assert numpy.fabs(mass+r_large**2.*ip.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of IsochronePotential does not not equal total mass'
+    # PlummerPotential
+    r_large= 10000.
+    mass= 3.
+    pp= potential.PlummerPotential(amp=mass,b=0.4)
+    assert numpy.fabs(mass+r_large**2.*pp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of PlummerPotential does not not equal total mass'
+    # SphericalShellPotential
+    mass= 3.
+    sp= potential.SphericalShellPotential(amp=mass,a=0.4)
+    assert numpy.fabs(mass+r_large**2.*sp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of SphericalShellPotential does not not equal total mass'
+    # RingPotential
+    mass= 3.
+    rp= potential.RingPotential(amp=mass,a=0.4)
+    assert numpy.fabs(mass+r_large**2.*rp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of RingPotential does not not equal total mass'
+    # KuzminDiskPotential
+    r_large= 1000000000.
+    mass= 3.
+    kp= potential.KuzminDiskPotential(amp=mass,a=0.4)
+    assert numpy.fabs(mass+r_large**2.*kp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of KuzminDiskPotential does not not equal total mass'
+    # MiyamotoNagaiPotential
+    r_large= 1000000000.
+    mass= 3.
+    mp= potential.MiyamotoNagaiPotential(amp=mass,a=0.4)
+    assert numpy.fabs(mass+r_large**2.*mp.rforce(r_large/numpy.sqrt(2.),r_large/numpy.sqrt(2.),)) < 1e-8, 'Mass amp parameter of MiyamotoNagaiPotential does not not equal total mass'
+    return None
+
 # Test that the spherically radial force is correct
 def test_rforce():
     # Spherical potentials: Rforce = rforce x R / r; zforce = rforce x z /r

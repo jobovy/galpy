@@ -16,6 +16,7 @@ class IsochronePotential(Potential):
 
         \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
 
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self,amp=1.,b=1.,normalize=False,
                  ro=None,vo=None):
@@ -30,7 +31,7 @@ class IsochronePotential(Potential):
 
         INPUT:
 
-           amp= amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp= amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass density or Gxmass density
 
            b= scale radius of the isochrone potential (can be Quantity)
 

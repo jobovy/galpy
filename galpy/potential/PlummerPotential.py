@@ -15,6 +15,7 @@ class PlummerPotential(Potential):
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+z^2+b^2}}
 
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self,amp=1.,b=0.8,normalize=False,
                  ro=None,vo=None):
@@ -29,7 +30,7 @@ class PlummerPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass
 
            b - scale parameter (can be Quantity)
 
