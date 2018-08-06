@@ -66,6 +66,19 @@ def test_normalize_potential():
             "Normalization of %s potential fails" % p
         assert (ptp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
             "Normalization of %s potential fails" % p
+    # Also test SphericalShell and RingPotential's setup, bc not done elsewhere
+    tp= potential.SphericalShellPotential(normalize=1.)
+    assert (tp.Rforce(1.,0.)+1.)**2. < 10.**-16., \
+        "Normalization of %s potential fails" % p
+    assert (tp.vcirc(1.)**2.-1.)**2. < 10.**-16., \
+        "Normalization of %s potential fails" % p
+    tp= potential.RingPotential(normalize=0.5)
+    assert (tp.Rforce(1.,0.)+0.5)**2. < 10.**-16., \
+        "Normalization of %s potential fails" % p
+    assert (tp.vcirc(1.)**2.-0.5)**2. < 10.**-16., \
+        "Normalization of %s potential fails" % p
+    return None
+
 
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
