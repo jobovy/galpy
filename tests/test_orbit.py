@@ -560,6 +560,7 @@ def test_liouville_planar():
     rmpots.append('TriaxialJaffePotential')
     rmpots.append('SoftenedNeedleBarPotential')
     rmpots.append('DiskSCFPotential')
+    rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     for p in rmpots:
         pots.remove(p)
