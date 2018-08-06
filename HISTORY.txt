@@ -43,6 +43,10 @@ v1.4 (??????)
 - Added rtide and ttensor methods/functions for Potentials: tidal
   radius and tidal tensor.
 
+- Added potentials SphericalShellPotential and RingPotential for the
+  potential of a spherical shell and a circular ring,
+  respectively. Useful for talking about Newton's theorems.
+
 - Switched default solarmotion parameter for Orbit initialization to
   be schoenrich (for the Schoenrich, Binney, & Dehnen 2010 solar
   motion wrt the LSR).
