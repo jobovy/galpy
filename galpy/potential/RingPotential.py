@@ -54,7 +54,7 @@ class RingPotential(Potential):
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
             if self.a > 1.:
-                raise ValueError('RingPotential with normalize= for a > 1 is not supported (because the force is always 0 at r=1)')
+                raise ValueError('RingPotential with normalize= for a > 1 is not supported (because the force is always positive at r=1)')
             self.normalize(normalize)
         self.hasC= False
         self.hasC_dxdv= False
