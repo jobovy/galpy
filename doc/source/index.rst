@@ -352,6 +352,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Pristine Dwarf-Galaxy Survey I: A detailed photometric and spectroscopic study of the very metal-poor Draco II satellite*, Nicolas Longeard, Nicolas Martin, Else Starkenburg, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1807.10655 <http://arxiv.org/abs/1807.10655>`_)
 
+#. *The origin of accreted stellar halo populations in the Milky Way using APOGEE, Gaia, and the EAGLE simulations*, J. Ted Mackereth, Ricardo P. Schiavon, Joel Pfeffer, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1808.00968 <http://arxiv.org/abs/1808.00968>`_)
+
 Indices and tables
 ==================
 
