@@ -1780,6 +1780,14 @@ def test_potential_ampunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"
+    # RingPotential
+    pot= potential.RingPotential(amp=4.*10.**10.*units.Msun,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.RingPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -1935,6 +1943,14 @@ def test_potential_ampunits_altunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
+    # RingPotential
+    pot= potential.RingPotential(amp=4.*10.**10.*units.Msun*constants.G,
+                                    ro=ro,vo=vo)
+    pot_nounits= potential.RingPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -2052,6 +2068,10 @@ def test_potential_ampunits_wrongunits():
     # SphericalShellPotential
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.SphericalShellPotential(amp=40.*units.Msun/units.pc**2,
+                                          a=2.,ro=ro,vo=vo)
+    # RingPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.RingPotential(amp=40.*units.Msun/units.pc**2,
                                           a=2.,ro=ro,vo=vo)
     return None
 
@@ -2419,6 +2439,16 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
+    # RingPotential
+    pot= potential.RingPotential(amp=4.*10.**10.*units.Msun,
+                                           a=5.*units.kpc,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.RingPotential(\
+        amp=4.*10.**10.*units.Msun,
+        a=5./ro,
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
