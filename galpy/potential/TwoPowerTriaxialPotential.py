@@ -78,6 +78,8 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
 
            2016-05-30 - Started - Bovy (UofT)
 
+           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
+
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
@@ -186,6 +188,8 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
 
            2010-07-09 - Written - Bovy (UofT)
 
+           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
+
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
@@ -271,6 +275,8 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         HISTORY:
 
            2010-07-09 - Written - Bovy (UofT)
+
+           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
