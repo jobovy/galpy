@@ -78,6 +78,8 @@ class EllipsoidalPotential(Potential):
         self._setup_zvec_pa(zvec,pa)
         # Setup integration
         self._setup_gl(glorder)
+        if not self._aligned or numpy.fabs(self._b-1.) > 10.**-10.:
+            self.isNonAxi= True
         return None
 
     def _setup_zvec_pa(self,zvec,pa):
@@ -454,6 +456,21 @@ class EllipsoidalPotential(Potential):
         m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
         return self._mdens(m)
         
+    def OmegaP(self):
+        """
+        NAME:
+           OmegaP
+        PURPOSE:
+           return the pattern speed
+        INPUT:
+           (none)
+        OUTPUT:
+           pattern speed
+        HISTORY:
+           2016-05-31 - Written - Bovy (UofT)
+        """
+        return 0.
+
 def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
     """int_0^\infty [psi(m)-psi(\infy)]/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau"""
     def integrand(s):

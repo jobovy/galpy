@@ -35,7 +35,8 @@ def test_normalize_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -160,7 +161,8 @@ def test_forceAsDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -323,7 +325,8 @@ def test_2ndDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -542,7 +545,8 @@ def test_poisson_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -660,7 +664,8 @@ def test_evaluateAndDerivs_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -974,7 +979,8 @@ def test_toVertical_toPlanar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1417,7 +1423,7 @@ def test_TriaxialNFW_virialsetup_wrtmeanmatter():
                                         H=H,Om=Om,overdens=overdens,
                                         wrtcrit=wrtcrit)
     assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
-    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
 def test_TriaxialNFW_virialsetup_wrtcrit():
@@ -1432,7 +1438,7 @@ def test_TriaxialNFW_virialsetup_wrtcrit():
                                         H=H,Om=Om,overdens=overdens,
                                         wrtcrit=wrtcrit)
     assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
-    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
 def test_conc_attributeerror():

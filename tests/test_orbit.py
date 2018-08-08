@@ -139,9 +139,11 @@ def test_energy_jacobi_conservation():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -547,7 +549,8 @@ def test_liouville_planar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
@@ -562,6 +565,7 @@ def test_liouville_planar():
     rmpots.append('DiskSCFPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -672,9 +676,11 @@ def test_eccentricity():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -794,9 +800,11 @@ def test_pericenter():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -915,9 +923,11 @@ def test_apocenter():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1036,9 +1046,11 @@ def test_zmax():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1144,9 +1156,11 @@ def test_analytic_ecc_rperi_rap():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1415,9 +1429,11 @@ def test_analytic_zmax():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')

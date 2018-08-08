@@ -175,14 +175,19 @@ def _parse_pot(pot):
                  and isinstance(p._Pot,potential.BurkertPotential):
             pot_type.append(20)
             pot_args.extend([p._Pot._amp,p._Pot.a])
-        elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) and isinstance(p._Pot,potential.TwoPowerTriaxialPotential):
+        elif (isinstance(p,planarPotentialFromFullPotential) \
+             or isinstance(p,planarPotentialFromRZPotential)) \
+             and (isinstance(p._Pot,potential.TriaxialHernquistPotential) \
+               or isinstance(p._Pot,potential.TriaxialNFWPotential) \
+               or isinstance(p._Pot,potential.TriaxialJaffePotential)):
             if isinstance(p._Pot,potential.TriaxialHernquistPotential):
                 pot_type.append(21)
             elif isinstance(p._Pot,potential.TriaxialNFWPotential):
                 pot_type.append(22)
             elif isinstance(p._Pot,potential.TriaxialJaffePotential):
                 pot_type.append(23)
-            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot._b2,
+            pot_args.extend([p._Pot._amp*4.*nu.pi,
+                             p._Pot.a,p._Pot._b2,
                              p._Pot._c2,int(p._Pot._aligned)])
             if not p._Pot._aligned:
                 pot_args.extend(list(p._Pot._rot.flatten()))
@@ -191,7 +196,7 @@ def _parse_pot(pot):
             pot_args.append(p._Pot._glorder)
             pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-p._Pot._glw[ii]*p._Pot._b*p._Pot._c/p._Pot.a**3.\
+            pot_args.extend([-p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
                                  /nu.sqrt(( 1.+(p._Pot._b2-1.)
                                             *p._Pot._glx[ii]**2.)
                                           *(1.+(p._Pot._c2-1.)
