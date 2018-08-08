@@ -44,6 +44,7 @@ from . import GaussianAmplitudeWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
 from . import RingPotential
+from . import PerfectEllipsoidPotential
 #
 # Functions
 #
@@ -150,6 +151,7 @@ HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
 ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
 SphericalShellPotential= SphericalShellPotential.SphericalShellPotential
 RingPotential= RingPotential.RingPotential
+PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
