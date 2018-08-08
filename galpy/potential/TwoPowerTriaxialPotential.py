@@ -80,7 +80,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
 
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,
+                                      zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -188,7 +188,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
 
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,
+                                      zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -274,7 +274,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
 
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,
+                                      zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
@@ -382,7 +382,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
 
         """
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,
+                                      zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
