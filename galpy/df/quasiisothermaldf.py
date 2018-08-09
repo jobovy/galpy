@@ -1685,6 +1685,73 @@ class quasiisothermaldf(df):
         else:
             return out
 
+    @potential_physical_input
+    def sampleV_preoptimized(self,R,z,maxVT,n=1):
+        """
+        NAME:
+
+           sampleV_preoptimized
+
+        PURPOSE:
+
+           sample a radial, azimuthal, and vertical velocity at R,z;
+           R,z can be an array of positions
+
+        INPUT:
+
+           R - Galactocentric distance (can be Quantity)
+
+           z - height (can be Quantity)
+           
+           maxVT - an array of pre-optimized maximum vT at corresponding R,z
+
+           n= number of distances to sample
+
+        OUTPUT:
+
+           list of samples
+
+        HISTORY:
+
+           2012-12-17 - Written - Bovy (IAS)
+
+        """
+        #Determine the maximum of the velocity distribution
+        maxVR= 0.
+        maxVz= 0.
+        maxVT= optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
+                                                     use_physical=False)),
+                                    1.)
+        logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
+        #Now rejection-sample
+        vRs= []
+        vTs= []
+        vzs= []
+        while len(vRs) < n:
+            nmore= n-len(vRs)+1
+            #sample
+            propvR= numpy.random.normal(size=nmore)*2.*self._sr
+            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT
+            propvz= numpy.random.normal(size=nmore)*2.*self._sz
+            VDatprop= self(R+numpy.zeros(nmore),
+                           propvR,propvT,z+numpy.zeros(nmore),
+                           propvz,log=True,use_physical=False)-logmaxVD
+            VDatprop-= -0.5*(propvR**2./4./self._sr**2.+propvz**2./4./self._sz**2.\
+                                 +(propvT-maxVT)**2./4./self._sr**2.)
+            VDatprop= numpy.reshape(VDatprop,(nmore))
+            indx= (VDatprop > numpy.log(numpy.random.random(size=nmore))) #accept
+            vRs.extend(list(propvR[indx]))
+            vTs.extend(list(propvT[indx]))
+            vzs.extend(list(propvz[indx]))
+        out= numpy.empty((n,3))
+        out[:,0]= vRs[0:n]
+        out[:,1]= vTs[0:n]
+        out[:,2]= vzs[0:n]
+        if _APY_UNITS and self._voSet:
+            return units.Quantity(out*self._vo,unit=units.km/units.s)
+        else:
+            return out
+
     @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
     def pvR(self,vR,R,z,gl=True,ngl=_DEFAULTNGL2,nsigma=4.,vTmax=1.5):
