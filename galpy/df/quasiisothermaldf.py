@@ -1757,7 +1757,7 @@ class quasiisothermaldf(df):
             if self._voSet:
                 out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
             if self._roSet:
-                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.km)
+                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
         return out
 
     @actionAngle_physical_input
