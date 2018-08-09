@@ -1686,7 +1686,7 @@ class quasiisothermaldf(df):
             return out
 
     @potential_physical_input
-    def sampleV_preoptimized(self,R,z,maxVT,n=1):
+    def sampleV_preoptimized(self,R,z,maxVT):
         """
         NAME:
 
@@ -1705,8 +1705,6 @@ class quasiisothermaldf(df):
            
            maxVT - an array of pre-optimized maximum vT at corresponding R,z
 
-           n= number of distances to sample
-
         OUTPUT:
 
            list of samples
@@ -1716,12 +1714,10 @@ class quasiisothermaldf(df):
            2012-12-17 - Written - Bovy (IAS)
 
         """
+        length = numpy.size(R)
         #Determine the maximum of the velocity distribution
-        maxVR= 0.
-        maxVz= 0.
-        maxVT= optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
-                                                     use_physical=False)),
-                                    1.)
+        maxVR= numpy.zeros(length)
+        maxVz= numpy.zeros(length)
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
         vRs= []
