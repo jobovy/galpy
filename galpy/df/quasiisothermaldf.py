@@ -1707,11 +1707,11 @@ class quasiisothermaldf(df):
 
         OUTPUT:
 
-           list of samples
+           list of position and velocity, array of [R,z,vR,vT,vz]
 
         HISTORY:
 
-           2012-12-17 - Written - Bovy (IAS)
+           
 
         """
         length = numpy.size(R)
@@ -1747,16 +1747,18 @@ class quasiisothermaldf(df):
             vRs.extend(list(propvR[indx]))
             vTs.extend(list(propvT[indx]))
             vzs.extend(list(propvz[indx]))
-        
-
-        out= numpy.empty((n,3))
-        out[:,0]= vRs[0:n]
-        out[:,1]= vTs[0:n]
-        out[:,2]= vzs[0:n]
-        if _APY_UNITS and self._voSet:
-            return units.Quantity(out*self._vo,unit=units.km/units.s)
-        else:
-            return out
+        out= numpy.empty((length,5))
+        out[:,0]= Rs[0:length]
+        out[:,1]= zs[0:length]
+        out[:,2]= vRs[0:length]
+        out[:,3]= vTs[0:length]
+        out[:,4]= vzs[0:length]
+        if _APY_UNITS:
+            if self._voSet:
+                out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
+            if self._roSet:
+                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.km)
+        return out
 
     @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
