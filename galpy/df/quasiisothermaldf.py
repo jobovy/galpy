@@ -1720,25 +1720,35 @@ class quasiisothermaldf(df):
         maxVz= numpy.zeros(length)
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
+        maxVT_remain = numpy.copy(maxVT)
+        R_remain = numpy.copy(R)
+        z_remain = numpy.copy(z)
+        Rs= []
+        zs= []
         vRs= []
         vTs= []
         vzs= []
-        while len(vRs) < n:
-            nmore= n-len(vRs)+1
-            #sample
+        while len(Rs) < length:
+            nmore= length-len(Rs)
             propvR= numpy.random.normal(size=nmore)*2.*self._sr
-            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT
+            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT_remain
             propvz= numpy.random.normal(size=nmore)*2.*self._sz
-            VDatprop= self(R+numpy.zeros(nmore),
-                           propvR,propvT,z+numpy.zeros(nmore),
-                           propvz,log=True,use_physical=False)-logmaxVD
+            VDatprop= self(R_remain,propvR,propvT,z_remain,propvz,log=True,
+                           use_physical=False)-logmaxVD
             VDatprop-= -0.5*(propvR**2./4./self._sr**2.+propvz**2./4./self._sz**2.\
-                                 +(propvT-maxVT)**2./4./self._sr**2.)
-            VDatprop= numpy.reshape(VDatprop,(nmore))
+                                 +(propvT-maxVT_remain)**2./4./self._sr**2.)
             indx= (VDatprop > numpy.log(numpy.random.random(size=nmore))) #accept
+            maxVT_remain = maxVT_remain[indx]
+            R_remain = R_remain[indx]
+            z_remain = z_remain[indx]
+            logmaxVD = logmaxVD[indx]
+            Rs.extend(list(R_remain[indx]))
+            zs.extend(list(z_remain[indx]))
             vRs.extend(list(propvR[indx]))
             vTs.extend(list(propvT[indx]))
             vzs.extend(list(propvz[indx]))
+        
+
         out= numpy.empty((n,3))
         out[:,0]= vRs[0:n]
         out[:,1]= vTs[0:n]
