@@ -257,6 +257,25 @@ def _parse_pot(pot):
         elif isinstance(p,potential.HenonHeilesPotential):
             pot_type.append(29)
             pot_args.extend([p._amp])
+        elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential.PerfectEllipsoidPotential):
+            pot_type.append(30)
+            pot_args.append(p._Pot._amp)
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([1,p._Pot.a2]) # for psi, mdens, mdens_deriv
+            pot_args.extend([p._Pot._b2,p._Pot._c2,
+                             int(p._Pot._aligned)]) # Reg. Ellipsoidal
+            if not p._Pot._aligned:
+                pot_args.extend(list(p._Pot._rot.flatten()))
+            else:
+                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+            pot_args.append(p._Pot._glorder)
+            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
+            # this adds some common factors to the integration weights
+            pot_args.extend([-4.*nu.pi*p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
+                            /nu.sqrt(( 1.+(p._Pot._b2-1.)*p._Pot._glx[ii]**2.)
+                                     *(1.+(p._Pot._c2-1.)*p._Pot._glx[ii]**2.))
+                             for ii in range(p._Pot._glorder)])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

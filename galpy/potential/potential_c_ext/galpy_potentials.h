@@ -45,7 +45,11 @@ struct potentialArg{
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
   int nwrapped; // For wrappers
-  struct potentialArg * wrappedPotentialArg;  
+  struct potentialArg * wrappedPotentialArg;
+  // For EllipsoidalPotentials
+  double (*psi)(double m,double * args);
+  double (*mdens)(double m,double * args);
+  double (*mdensDeriv)(double m,double * args);
 };
 /*
   Function declarations
@@ -421,6 +425,23 @@ double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialPlanarRphideriv(double, double, double,
                             struct potentialArg*);
+//EllipsoidalPotential
+double EllipsoidalPotentialEval(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialRforce(double,double,double,double,
+				  struct potentialArg *);
+double EllipsoidalPotentialPlanarRforce(double,double,double,
+					struct potentialArg *);
+double EllipsoidalPotentialphiforce(double,double,double,double,
+				    struct potentialArg *);
+double EllipsoidalPotentialPlanarphiforce(double,double,double,
+					  struct potentialArg *);
+double EllipsoidalPotentialzforce(double,double,double,double,
+				  struct potentialArg *);
+//PerfectEllipsoid: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double PerfectEllipsoidPotentialpsi(double,double *);
+double PerfectEllipsoidPotentialmdens(double,double *);
+double PerfectEllipsoidPotentialmdensDeriv(double,double *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential

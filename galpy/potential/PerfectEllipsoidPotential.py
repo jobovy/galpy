@@ -70,6 +70,12 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         self._scale= self.a
         # Adjust amp
         self._amp*= self.a/(numpy.pi**2*self._b*self._c)
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)): #pragma: no cover
+            self.normalize(normalize)
+        self.hasC= not self._glorder is None
+        self.hasC_dxdv= False
         return None
 
     def _psi(self,m):
