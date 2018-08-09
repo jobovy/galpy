@@ -1738,15 +1738,15 @@ class quasiisothermaldf(df):
             VDatprop-= -0.5*(propvR**2./4./self._sr**2.+propvz**2./4./self._sz**2.\
                                  +(propvT-maxVT_remain)**2./4./self._sr**2.)
             indx= (VDatprop > numpy.log(numpy.random.random(size=nmore))) #accept
-            maxVT_remain = maxVT_remain[indx]
-            R_remain = R_remain[indx]
-            z_remain = z_remain[indx]
-            logmaxVD = logmaxVD[indx]
             Rs.extend(list(R_remain[indx]))
             zs.extend(list(z_remain[indx]))
             vRs.extend(list(propvR[indx]))
             vTs.extend(list(propvT[indx]))
             vzs.extend(list(propvz[indx]))
+            maxVT_remain = maxVT_remain[~indx]
+            R_remain = R_remain[~indx]
+            z_remain = z_remain[~indx]
+            logmaxVD = logmaxVD[~indx]
         out= numpy.empty((length,5))
         out[:,0]= Rs[0:length]
         out[:,1]= zs[0:length]
