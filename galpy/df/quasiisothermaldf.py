@@ -1710,6 +1710,9 @@ class quasiisothermaldf(df):
                             
             R_pixel, z_pixel = the pixel size for creating the grid for
                                interpolation (in natural unit)
+            
+            num_std = number of standard deviation to be considered outliers
+                      sampled separately from interpolation
     
         HISTORY:
             
@@ -1733,7 +1736,8 @@ class quasiisothermaldf(df):
             R, z = outlier
             vR, vT, vz = self.sampleV(R, z)[0]
             outlier_coord_v[i] = numpy.array([R, z, vR, vT, vz])
-
+        print("shape of outlier coord v =", numpy.shape(outlier_coord_v))
+        print("outlier coord v =", outlier_coord_v)
         #optimize the dimensions of the grid for interpolation
         #get the minimum and maximum of each coordinate
         R_min, z_min = numpy.min(normal, axis = 0)
