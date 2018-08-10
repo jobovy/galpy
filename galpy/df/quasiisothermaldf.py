@@ -1685,11 +1685,11 @@ class quasiisothermaldf(df):
         else:
             return out
 
-    def sampleV_on_set(self, Rz_set, R_pixel, z_pixel, num_std = 3):
+    def sampleV_interpolate(self, Rz_set, R_pixel, z_pixel, num_std = 3):
         """
         NAME:
             
-            sampleV_on_set
+            sampleV_interpolate
     
         PURPOSE:
             
