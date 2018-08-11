@@ -314,45 +314,31 @@ double BurkertPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double BurkertPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
-//TriaxialHernquistPotential
-double TriaxialHernquistPotentialEval(double,double,double,double,
-				struct potentialArg *);
-double TriaxialHernquistPotentialRforce(double,double,double,double,
-					struct potentialArg *);
-double TriaxialHernquistPotentialPlanarRforce(double,double,double,
-					      struct potentialArg *);
-double TriaxialHernquistPotentialphiforce(double,double,double,double,
-					  struct potentialArg *);
-double TriaxialHernquistPotentialPlanarphiforce(double,double,double,
-						struct potentialArg *);
-double TriaxialHernquistPotentialzforce(double,double,double,double,
-					struct potentialArg *);
-//TriaxialNFWPotential
-double TriaxialNFWPotentialEval(double,double,double,double,
-				struct potentialArg *);
-double TriaxialNFWPotentialRforce(double,double,double,double,
+//EllipsoidalPotential
+double EllipsoidalPotentialEval(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialRforce(double,double,double,double,
 				  struct potentialArg *);
-double TriaxialNFWPotentialPlanarRforce(double,double,double,
+double EllipsoidalPotentialPlanarRforce(double,double,double,
 					struct potentialArg *);
-double TriaxialNFWPotentialphiforce(double,double,double,double,
+double EllipsoidalPotentialphiforce(double,double,double,double,
 				    struct potentialArg *);
-double TriaxialNFWPotentialPlanarphiforce(double,double,double,
+double EllipsoidalPotentialPlanarphiforce(double,double,double,
 					  struct potentialArg *);
-double TriaxialNFWPotentialzforce(double,double,double,double,
+double EllipsoidalPotentialzforce(double,double,double,double,
 				  struct potentialArg *);
-//TriaxialJaffePotential
-double TriaxialJaffePotentialEval(double,double,double,double,
-				struct potentialArg *);
-double TriaxialJaffePotentialRforce(double,double,double,double,
-				    struct potentialArg *);
-double TriaxialJaffePotentialPlanarRforce(double,double,double,
-					  struct potentialArg *);
-double TriaxialJaffePotentialphiforce(double,double,double,double,
-				      struct potentialArg *);
-double TriaxialJaffePotentialPlanarphiforce(double,double,double,
-					    struct potentialArg *);
-double TriaxialJaffePotentialzforce(double,double,double,double,
-				    struct potentialArg *);					      
+//TriaxialHernquistPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double TriaxialHernquistPotentialpsi(double,double *);
+double TriaxialHernquistPotentialmdens(double,double *);
+double TriaxialHernquistPotentialmdensDeriv(double,double *);
+//TriaxialJaffePotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double TriaxialJaffePotentialpsi(double,double *);
+double TriaxialJaffePotentialmdens(double,double *);
+double TriaxialJaffePotentialmdensDeriv(double,double *);
+//TriaxialNFWPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double TriaxialNFWPotentialpsi(double,double *);
+double TriaxialNFWPotentialmdens(double,double *);
+double TriaxialNFWPotentialmdensDeriv(double,double *);
 //SCFPotential
 double SCFPotentialEval(double,double,double,double,
 				     struct potentialArg *);
@@ -425,19 +411,6 @@ double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialPlanarRphideriv(double, double, double,
                             struct potentialArg*);
-//EllipsoidalPotential
-double EllipsoidalPotentialEval(double,double,double,double,
-				     struct potentialArg *);
-double EllipsoidalPotentialRforce(double,double,double,double,
-				  struct potentialArg *);
-double EllipsoidalPotentialPlanarRforce(double,double,double,
-					struct potentialArg *);
-double EllipsoidalPotentialphiforce(double,double,double,double,
-				    struct potentialArg *);
-double EllipsoidalPotentialPlanarphiforce(double,double,double,
-					  struct potentialArg *);
-double EllipsoidalPotentialzforce(double,double,double,double,
-				  struct potentialArg *);
 //PerfectEllipsoid: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double PerfectEllipsoidPotentialpsi(double,double *);
 double PerfectEllipsoidPotentialmdens(double,double *);

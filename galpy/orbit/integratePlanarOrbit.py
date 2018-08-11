@@ -175,20 +175,24 @@ def _parse_pot(pot):
                  and isinstance(p._Pot,potential.BurkertPotential):
             pot_type.append(20)
             pot_args.extend([p._Pot._amp,p._Pot.a])
-        elif (isinstance(p,planarPotentialFromFullPotential) \
-             or isinstance(p,planarPotentialFromRZPotential)) \
-             and (isinstance(p._Pot,potential.TriaxialHernquistPotential) \
-               or isinstance(p._Pot,potential.TriaxialNFWPotential) \
-               or isinstance(p._Pot,potential.TriaxialJaffePotential)):
+        elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+                and isinstance(p._Pot,potential.EllipsoidalPotential.EllipsoidalPotential):
+            pot_args.append(p._Pot._amp)
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
             if isinstance(p._Pot,potential.TriaxialHernquistPotential):
                 pot_type.append(21)
-            elif isinstance(p._Pot,potential.TriaxialNFWPotential):
+                pot_args.extend([2,p._Pot.a,p._Pot.a4]) # for psi, mdens, mdens_deriv
+            if isinstance(p._Pot,potential.TriaxialNFWPotential):
                 pot_type.append(22)
-            elif isinstance(p._Pot,potential.TriaxialJaffePotential):
+                pot_args.extend([2,p._Pot.a,p._Pot.a3]) # for psi, mdens, mdens_deriv
+            if isinstance(p._Pot,potential.TriaxialJaffePotential):
                 pot_type.append(23)
-            pot_args.extend([p._Pot._amp*4.*nu.pi,
-                             p._Pot.a,p._Pot._b2,
-                             p._Pot._c2,int(p._Pot._aligned)])
+                pot_args.extend([2,p._Pot.a,p._Pot.a2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p._Pot,potential.PerfectEllipsoidPotential):
+                pot_type.append(30)
+                pot_args.extend([1,p._Pot.a2]) # for psi, mdens, mdens_deriv
+            pot_args.extend([p._Pot._b2,p._Pot._c2,
+                             int(p._Pot._aligned)]) # Reg. Ellipsoidal
             if not p._Pot._aligned:
                 pot_args.extend(list(p._Pot._rot.flatten()))
             else:
@@ -196,14 +200,10 @@ def _parse_pot(pot):
             pot_args.append(p._Pot._glorder)
             pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
-                                 /nu.sqrt(( 1.+(p._Pot._b2-1.)
-                                            *p._Pot._glx[ii]**2.)
-                                          *(1.+(p._Pot._c2-1.)
-                                            *p._Pot._glx[ii]**2.))
+            pot_args.extend([-4.*nu.pi*p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
+                            /nu.sqrt(( 1.+(p._Pot._b2-1.)*p._Pot._glx[ii]**2.)
+                                     *(1.+(p._Pot._c2-1.)*p._Pot._glx[ii]**2.))
                              for ii in range(p._Pot._glorder)])
-            pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([0.,0.,0.,0.,0.,0.]) 
         elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
             pt,pa= _parse_scf_pot(p._Pot)
@@ -257,25 +257,7 @@ def _parse_pot(pot):
         elif isinstance(p,potential.HenonHeilesPotential):
             pot_type.append(29)
             pot_args.extend([p._amp])
-        elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
-                and isinstance(p._Pot,potential.PerfectEllipsoidPotential):
-            pot_type.append(30)
-            pot_args.append(p._Pot._amp)
-            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
-            pot_args.extend([1,p._Pot.a2]) # for psi, mdens, mdens_deriv
-            pot_args.extend([p._Pot._b2,p._Pot._c2,
-                             int(p._Pot._aligned)]) # Reg. Ellipsoidal
-            if not p._Pot._aligned:
-                pot_args.extend(list(p._Pot._rot.flatten()))
-            else:
-                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
-            pot_args.append(p._Pot._glorder)
-            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
-            # this adds some common factors to the integration weights
-            pot_args.extend([-4.*nu.pi*p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
-                            /nu.sqrt(( 1.+(p._Pot._b2-1.)*p._Pot._glx[ii]**2.)
-                                     *(1.+(p._Pot._c2-1.)*p._Pot._glx[ii]**2.))
-                             for ii in range(p._Pot._glorder)])
+        # 30: PerfectEllipsoidPotential, done with other EllipsoidalPotentials above
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

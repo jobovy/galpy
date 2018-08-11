@@ -215,7 +215,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
 
     def _mdens(self,m):
         """Density as a function of m"""
-        return self.a/m/(1.+m/self.a)**3
+        return self.a4/m/(m+self.a)**3
 
     def _mdens_deriv(self,m):
         """Derivative of the density as a function of m"""
