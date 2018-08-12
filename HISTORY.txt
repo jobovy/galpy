@@ -22,6 +22,22 @@ v1.4 (??????)
   Gaussian (growing from zero to the full amplitude and dying off
   again).
 
+- Added a general class EllipsoidalPotential that is a superclass for
+  implementing potentials with densities that are constant on
+  ellipsoids (functions of m^2 = x^2 + y^2/b^2 + z^2/c^2). Als
+  implemented in C. Implementing new types of ellipsoidal potentials
+  now only requires three simple functions to be defined: the density
+  as a function of m, its derivative with respect to m, and its
+  integral with respect to m^2 (#348).
+
+- Added PerfectEllipsoidPotential, the potential of a perfect
+  ellipsoid (de Zeeuw 1985): this is a fully integrable
+  (Staeckel-type), triaxial potential.
+
+- Re-implemented TwoPowerTriaxialPotential and special cases
+  TriaxialHernquistPotential, TriaxialJaffePotential, and
+  TriaxialNFWPotential using the general EllipsoidalPotential class.
+
 - Allow nested lists of Potential instances everywhere where lists of
   Potential instances were previously allowed; allow easy adding of
   components (e.g., a bar) to previously defined potentials (which may
