@@ -1685,7 +1685,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
-    def sampleV_interpolate(self, Rz_set, R_pixel, z_pixel, num_std = 3):
+    def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3):
         """
         NAME:
             
@@ -1698,27 +1698,28 @@ class quasiisothermaldf(df):
     
         INPUT:
             
-            Rz_set = a numpy array containing a list of (R,z) coordinates,
-                    where R is Galactocentric distance (can be Quantity) and z
-                    is height (can be Quantity)
+            R - array of Galactocentric distance (can be Quantity)
+
+            z - array of height (can be Quantity)
+            
+            R_pixel, z_pixel = the pixel size for creating the grid for
+                   interpolation (in natural unit)
+            
+            num_std = number of standard deviation to be considered outliers
+                      sampled separately from interpolation
     
         OUTPUT:
             
             coord_v = a numpy array containing the original coordinate but
                             with velocity attached. Each coordinate is of the
                             form (R, z, vR, vT, vz)
-                            
-            R_pixel, z_pixel = the pixel size for creating the grid for
-                               interpolation (in natural unit)
-            
-            num_std = number of standard deviation to be considered outliers
-                      sampled separately from interpolation
     
         HISTORY:
             
             2018-08-10 - Written - Samuel Wong
             
         """
+        Rz_set = numpy.stack((R,z), axis = 1)
         #separate the coodinates into outliers and normal points.
         # get the standard deviation and mean of R and z
         std_R, std_z = numpy.std(Rz_set, axis = 0)
@@ -1771,7 +1772,6 @@ class quasiisothermaldf(df):
         # generate interpolation object
         ip_max_vT = interpolate.RectBivariateSpline(z_linspace, R_linspace,
                                                     grid_max_vT)
-        print("generated interpolation object")
         #break down normal into its R and z components
         normal_R = normal[:,0]
         normal_z = normal[:,1]
