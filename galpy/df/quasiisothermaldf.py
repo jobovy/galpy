@@ -1720,7 +1720,7 @@ class quasiisothermaldf(df):
             
         """
         #initialize output array
-        coord_v = numpy.array((numpy.size(R), 5))
+        coord_v = numpy.empty((numpy.size(R), 5))
         #separate the coodinates into outliers and normal points.
         # get the standard deviation and mean of R and z
         Rz_set = numpy.stack((R,z), axis = 1)
