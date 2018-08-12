@@ -1719,9 +1719,11 @@ class quasiisothermaldf(df):
             2018-08-10 - Written - Samuel Wong
             
         """
-        Rz_set = numpy.stack((R,z), axis = 1)
+        #initialize output array
+        coord_v = numpy.array((numpy.size(R), 5))
         #separate the coodinates into outliers and normal points.
         # get the standard deviation and mean of R and z
+        Rz_set = numpy.stack((R,z), axis = 1)
         std_R, std_z = numpy.std(Rz_set, axis = 0)
         mean_R, mean_z = numpy.mean(Rz_set, axis = 0)
         # create a boolean mask that encodes which stars are outliers
@@ -1781,8 +1783,9 @@ class quasiisothermaldf(df):
         #sample all 3 velocities at a normal point and use interpolated vT
         normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,
                                                   normal_max_vT)
-        # combine normal and outlier result
-        coord_v = numpy.vstack((normal_coord_v, outlier_coord_v))
+        # combine normal and outlier result, preserving original order
+        coord_v[mask] = outlier_coord_v
+        coord_v[~mask] = normal_coord_v
         return coord_v
 
     @potential_physical_input
