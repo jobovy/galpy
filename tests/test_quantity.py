@@ -1788,6 +1788,16 @@ def test_potential_ampunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"
+    # PerfectEllipsoidPotential
+    pot= potential.PerfectEllipsoidPotential(amp=4.*10.**10.*units.Msun,
+                                             a=2.,ro=ro,vo=vo,
+                                             b=1.3,c=0.4)
+    pot_nounits= potential.PerfectEllipsoidPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        a=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -1951,6 +1961,17 @@ def test_potential_ampunits_altunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
+    # PerfectEllipsoidPotential
+    pot= potential.PerfectEllipsoidPotential(\
+        amp=4.*10.**10.*units.Msun*constants.G,
+        a=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    pot_nounits= potential.PerfectEllipsoidPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        a=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -2073,6 +2094,11 @@ def test_potential_ampunits_wrongunits():
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.RingPotential(amp=40.*units.Msun/units.pc**2,
                                           a=2.,ro=ro,vo=vo)
+    # PerfectEllipsoidPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.PerfectEllipsoidPotential(amp=40.*units.Msun/units.pc**2,
+                                            a=2.,ro=ro,vo=vo,
+                                            b=1.3,c=0.4)
     return None
 
 def test_potential_paramunits():
@@ -2449,6 +2475,19 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
+    # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
+    # PerfectEllipsoidPotential
+    pot= potential.PerfectEllipsoidPotential(amp=4.*10.**10.*units.Msun,
+                                             a=5.*units.kpc,
+                                             ro=ro,vo=vo,
+                                             b=1.3,c=0.4)
+    pot_nounits= potential.PerfectEllipsoidPotential(\
+        amp=4.*10.**10.*units.Msun,
+        a=5./ro,
+        ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
