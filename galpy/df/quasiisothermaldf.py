@@ -1818,49 +1818,42 @@ class quasiisothermaldf(df):
 
         """
         length = numpy.size(R)
+        out= numpy.empty((length,5)) #Initialize output
         #Determine the maximum of the velocity distribution
         maxVR= numpy.zeros(length)
         maxVz= numpy.zeros(length)
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
-        maxVT_remain = numpy.copy(maxVT)
-        R_remain = numpy.copy(R)
-        z_remain = numpy.copy(z)
-        Rs= []
-        zs= []
-        vRs= []
-        vTs= []
-        vzs= []
-        while len(Rs) < length:
-            nmore= length-len(Rs)
+        #Intiialize boolean index of position remaining to be sampled
+        remain_indx = numpy.full(length,True)
+        while numpy.any(remain_indx):
+            nmore= numpy.sum(remain_indx)
             propvR= numpy.random.normal(size=nmore)*2.*self._sr
-            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT_remain
+            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT[remain_indx]
             propvz= numpy.random.normal(size=nmore)*2.*self._sz
-            VDatprop= self(R_remain,propvR,propvT,z_remain,propvz,log=True,
-                           use_physical=False)-logmaxVD
-            VDatprop-= -0.5*(propvR**2./4./self._sr**2.+propvz**2./4./self._sz**2.\
-                                 +(propvT-maxVT_remain)**2./4./self._sr**2.)
-            indx= (VDatprop > numpy.log(numpy.random.random(size=nmore))) #accept
-            Rs.extend(list(R_remain[indx]))
-            zs.extend(list(z_remain[indx]))
-            vRs.extend(list(propvR[indx]))
-            vTs.extend(list(propvT[indx]))
-            vzs.extend(list(propvz[indx]))
-            maxVT_remain = maxVT_remain[~indx]
-            R_remain = R_remain[~indx]
-            z_remain = z_remain[~indx]
-            logmaxVD = logmaxVD[~indx]
-        out= numpy.empty((length,5))
-        out[:,0]= Rs[0:length]
-        out[:,1]= zs[0:length]
-        out[:,2]= vRs[0:length]
-        out[:,3]= vTs[0:length]
-        out[:,4]= vzs[0:length]
-        if _APY_UNITS:
-            if self._voSet:
-                out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
-            if self._roSet:
-                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
+            VDatprop= self(R[remain_indx],propvR,propvT,z[remain_indx],propvz,
+                           log=True, use_physical=False)-logmaxVD[remain_indx]
+            VDatprop-= -0.5*(propvR**2./4./self._sr**2.+
+                             propvz**2./4./self._sz**2.+
+                             (propvT-maxVT[remain_indx])**2./4./self._sr**2.)
+            accept_indx= (VDatprop > numpy.log(numpy.random.random(size=nmore)))
+            R_accept= R[remain_indx][accept_indx]
+            z_accept= z[remain_indx][accept_indx]
+            vR_accept= propvR[accept_indx]
+            vT_accept= propvT[accept_indx]
+            vz_accept= propvz[accept_indx]
+            #Get the indexing of rows of output array that need to be updated
+            #with newly accepted velocity
+            to_change = numpy.copy(remain_indx)
+            to_change[remain_indx] = accept_indx
+            out[to_change]= numpy.stack((R_accept,z_accept,vR_accept,vT_accept,
+               vz_accept), axis = 1)
+            #Removing accepted sampled from remain index
+            remain_indx[remain_indx == True] = ~accept_indx
+        if self._voSet:
+            out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
+        if self._roSet:
+            out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
         return out
 
     @actionAngle_physical_input
