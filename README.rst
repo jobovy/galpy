@@ -33,6 +33,12 @@ galpy
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
    :target: http://www.astropy.org/
 
+.. raw:: html
+
+    <embed>
+    <script async defer src="https://slackin-galpy.herokuapp.com/slackin.js"></script>
+    </embed>
+
 AUTHOR
 -------
 
