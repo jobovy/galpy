@@ -3,6 +3,7 @@ from distutils.core import Extension
 import sys
 import distutils.sysconfig as sysconfig
 import distutils.ccompiler
+from distutils.errors import DistutilsPlatformError
 import os, os.path
 import platform
 import subprocess
@@ -287,6 +288,15 @@ if float(gsl_version[0]) >= 1. \
     ext_modules.append(actionAngleTorus_c)
 else:
     actionAngleTorus_c_incl= False
+
+# only msvc compiler can be tested with initialize(), msvc is a default on windows
+# check for 'msvc' not WIN32 because user can use other compiler like 'mingw32', in such case compiler exists for them
+if distutils.ccompiler.get_default_compiler() == 'msvc':
+    try:
+        test_compiler = distutils.ccompiler.new_compiler()
+        test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
+    except DistutilsPlatformError:  # this error will be raised if no compiler in the system
+        ext_modules = None
     
 setup(name='galpy',
       version='1.4.dev',
