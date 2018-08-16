@@ -36,7 +36,7 @@ galpy
 .. image:: https://slackin-galpy.herokuapp.com/badge.svg
    :target: https://galpy.slack.com/
 
-.. image:: http://img.shields.io/badge/join-slack-E01563.svg?style=flat
+.. image:: https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10
    :target: https://slackin-galpy.herokuapp.com
 
 AUTHOR
