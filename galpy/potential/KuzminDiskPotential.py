@@ -168,6 +168,24 @@ class KuzminDiskPotential(Potential):
         """
         return -3 * nu.sign(z) * R * (self._a + nu.fabs(z)) *self._denom(R, z)**-2.5 
        
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Sigma (R,z)
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return self._a*(R**2+self._a**2)**-1.5/2./nu.pi
+
     def _denom(self, R, z):
         """
         NAME:

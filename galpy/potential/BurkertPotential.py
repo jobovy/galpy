@@ -195,7 +195,16 @@ class BurkertPotential(Potential):
         x= r/self.a
         Rpa= numpy.sqrt(R**2.+self.a**2.)
         Rma= numpy.sqrt(R**2.-self.a**2.+0j)
-        return self.a**2.*(numpy.arctan(z/x/Rma)/Rma
-                           +numpy.arctanh(z/x/Rpa)/Rpa
-                           -numpy.arctan(z/Rma)/Rma
-                           +numpy.arctan(z/Rpa)/Rpa).real
+        if Rma == 0:
+            za= z/self.a
+            return self.a**2./2.*((2.-2.*numpy.sqrt(za**2.+1)
+                                   +numpy.sqrt(2.)*za\
+                                       *numpy.arctan(za/numpy.sqrt(2.)))/z
+                                  +numpy.sqrt(2*za**2.+2.)\
+                                   *numpy.arctanh(za/numpy.sqrt(2.*(za**2.+1)))
+                                  /numpy.sqrt(self.a**2.+z**2.))
+        else:
+            return self.a**2.*(numpy.arctan(z/x/Rma)/Rma
+                               +numpy.arctanh(z/x/Rpa)/Rpa
+                               -numpy.arctan(z/Rma)/Rma
+                               +numpy.arctan(z/Rpa)/Rpa).real

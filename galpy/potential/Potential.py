@@ -316,6 +316,24 @@ class Potential(Force):
                 +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
                 0.,nu.fabs(z))[0])/2./nu.pi
 
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
+
     @potential_physical_input
     @physical_conversion('mass',pop=True)
     def mass(self,R,z=None,t=0.,forceint=False):
@@ -1626,6 +1644,58 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
                         use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('surfacedensity',pop=True)
+def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
+    """
+    NAME:
+
+       evaluateSurfaceDensities
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of surface densities
+
+    INPUT:
+
+       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (can be Quantity)
+
+       t - time (can be Quantity)
+
+       forcepoisson= if True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists
+
+    OUTPUT:
+
+       Sigma(R,z)
+
+    HISTORY:
+
+       2018-08-20 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        sum= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                sum+= pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                                   use_physical=False)
+        return sum
+    elif isinstance(Pot,Potential):
+        return Pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                            use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)

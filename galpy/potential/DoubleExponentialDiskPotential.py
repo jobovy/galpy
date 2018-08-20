@@ -321,7 +321,7 @@ class DoubleExponentialDiskPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           dens
+           _dens
         PURPOSE:
            evaluate the density
         INPUT:
@@ -335,3 +335,22 @@ class DoubleExponentialDiskPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         return nu.exp(-self._alpha*R-self._beta*nu.fabs(z))
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Sigma (R,z)
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return 2.*nu.exp(-self._alpha*R)/self._beta\
+            *(1.-nu.exp(-self._beta*nu.fabs(z)))

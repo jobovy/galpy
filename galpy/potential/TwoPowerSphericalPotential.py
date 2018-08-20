@@ -184,24 +184,6 @@ class TwoPowerSphericalPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
 
-    def _surfdens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
-        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
-
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -544,13 +526,19 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         """
         r= numpy.sqrt(R**2.+z**2.)
         Rma= numpy.sqrt(R**2.-self.a**2.+0j)
-        return self.a*((2.*self.a**2.+R**2.)*Rma**-5\
-                           *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
-                       +z*(5.*self.a**3.*r-4.*self.a**4
-                           +self.a**2*(2.*r**2.+R**2)
-                           -self.a*r*(5.*R**2.+3.*z**2.)+R**2.*r**2.)
-                       /(self.a**2.-R**2.)**2.
-                       /(r**2-self.a**2.)**2.).real/4./numpy.pi
+        if Rma == 0.:
+            return (-12.*self.a**3-5.*self.a*z**2
+                      +numpy.sqrt(1.+z**2/self.a**2)\
+                         *(12.*self.a**3-self.a*z**2+2/self.a*z**4))\
+                          /30./numpy.pi*z**-5.
+        else:
+            return self.a*((2.*self.a**2.+R**2.)*Rma**-5\
+                               *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
+                           +z*(5.*self.a**3.*r-4.*self.a**4
+                               +self.a**2*(2.*r**2.+R**2)
+                               -self.a*r*(5.*R**2.+3.*z**2.)+R**2.*r**2.)
+                           /(self.a**2.-R**2.)**2.
+                           /(r**2-self.a**2.)**2.).real/4./numpy.pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -737,10 +725,18 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         """
         r= numpy.sqrt(R**2.+z**2.)
         Rma= numpy.sqrt(R**2.-self.a**2.+0j)
-        return ((2.*self.a**2.-R**2.)*Rma**-3\
-                           *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
-                +numpy.arctan(z/R)/R
-                -self.a*z/(R**2-self.a**2)/(r+self.a)).real/self.a/2./numpy.pi
+        if Rma == 0.:
+            return (3.*z**2.-2.*self.a**2.
+                    +2.*numpy.sqrt(1.+(z/self.a)**2.)\
+                        *(self.a**2.-2.*z**2.)
+                    +3.*z**3./self.a*numpy.arctan(z/self.a))\
+                    /self.a/z**3./6./numpy.pi
+        else:
+            return ((2.*self.a**2.-R**2.)*Rma**-3\
+                        *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
+                    +numpy.arctan(z/R)/R
+                    -self.a*z/(R**2-self.a**2)/(r+self.a)).real\
+                    /self.a/2./numpy.pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -970,9 +966,13 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         """
         r= numpy.sqrt(R**2.+z**2.)
         Rma= numpy.sqrt(R**2.-self.a**2.+0j)
-        return (self.a*Rma**-3\
-                    *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
-                +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
+        if Rma == 0.:
+            za2= (z/self.a)**2
+            return self.a*(2.+numpy.sqrt(za2+1.)*(za2-2.))/6./numpy.pi/z**3
+        else:
+            return (self.a*Rma**-3\
+                        *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
+                    +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
 
     def _mass(self,R,z=0.,t=0.):
         """
