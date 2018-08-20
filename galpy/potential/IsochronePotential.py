@@ -191,7 +191,7 @@ class IsochronePotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -206,4 +206,26 @@ class IsochronePotential(Potential):
         rb= nu.sqrt(r2+self.b2)
         return (3.*(self.b+rb)*rb**2.-r2*(self.b+3.*rb))/\
             rb**3./(self.b+rb)**3./4./nu.pi
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r2= R**2.+z**2.
+        rb= nu.sqrt(r2+self.b2)
+        return self.b*((R*z)/r2-(self.b*R*z*(self.b**2+2.*R**2+z**2))
+                       /((self.b**2+R**2)*r2*rb)
+                       +nu.arctan(z/R)-nu.arctan(self.b*z/R/rb))/R**3/2./nu.pi
 

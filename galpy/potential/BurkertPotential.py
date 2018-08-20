@@ -160,7 +160,7 @@ class BurkertPotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -175,3 +175,27 @@ class BurkertPotential(Potential):
         x= r/self.a
         return 1./(1.+x)/(1.+x**2.)
 
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        x= r/self.a
+        Rpa= numpy.sqrt(R**2.+self.a**2.)
+        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        return self.a**2.*(numpy.arctan(z/x/Rma)/Rma
+                           +numpy.arctanh(z/x/Rpa)/Rpa
+                           -numpy.arctan(z/Rma)/Rma
+                           +numpy.arctan(z/Rpa)/Rpa).real

@@ -191,7 +191,29 @@ class SphericalShellPotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r2= R**2+z**2
+        if r2 != self.a2:
+            return 0.
+        else: # pragma: no cover
+            return nu.infty
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -202,8 +224,7 @@ class SphericalShellPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        r2= R**2+z**2
-        if r2 != self.a2:
-            return 0.
-        else: # pragma: no cover
-            return nu.infty
+        if R > self.a: return 0.
+        h= nu.sqrt(self.a2-R**2)
+        if z < h: return 0.
+        else: return 1./(2.*nu.pi*self.a*h)

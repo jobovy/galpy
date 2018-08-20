@@ -194,7 +194,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -207,6 +207,24 @@ class PowerSphericalPotentialwCutoff(Potential):
         """
         r= nu.sqrt(R**2.+z**2.)
         return 1./r**self.alpha*nu.exp(-(r/self.rc)**2.)
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
 
     def _mass(self,R,z=0.,t=0.):
         """
