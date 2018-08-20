@@ -50,6 +50,7 @@ from . import PerfectEllipsoidPotential
 #
 evaluatePotentials= Potential.evaluatePotentials
 evaluateDensities= Potential.evaluateDensities
+evaluateSurfaceDensities= Potential.evaluateSurfaceDensities
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
