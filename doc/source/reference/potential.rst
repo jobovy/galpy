@@ -37,6 +37,7 @@ Use as ``Potential-instance.method(...)``
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
+   surfdens <potentialsurfdens.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    ttensor <potentialttensor.rst>
@@ -78,6 +79,7 @@ Use as ``method(...)``
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>
+   evaluateSurfaceDensities <potentialsurfdensities.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
    flatten <potentialflatten.rst>
