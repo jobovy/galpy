@@ -270,6 +270,53 @@ class Potential(Force):
                      +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./nu.pi
 
     @potential_physical_input
+    @physical_conversion('surfacedensity',pop=True)
+    def surfdens(self,R,z,phi=0.,t=0.,forcepoisson=False):
+        """
+        NAME:
+
+           surfdens
+
+        PURPOSE:
+
+           evaluate the surface density Sigma(R,z,t) = \int_-z^+z dz' \rho(R,z',phi,t)
+
+        INPUT:
+
+           R - Cylindrical Galactocentric radius (can be Quantity)
+
+           z - vertical height (can be Quantity)
+
+           phi - azimuth (optional; can be Quantity)
+
+           t - time (optional; can be Quantity)
+
+        KEYWORDS:
+
+           forcepoisson= if True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists
+
+        OUTPUT:
+
+           Sigma (R,z,phi,t)
+
+        HISTORY:
+
+           2018-08-19 - Written - Bovy (UofT)
+
+        """
+        try:
+            if forcepoisson: raise AttributeError #Hack!
+            return self._amp*self._surfdens(R,z,phi=phi,t=t)
+        except AttributeError:
+            #Use the Poisson equation to get the surface density
+            return (-self.zforce(R,nu.fabs(z),phi=phi,t=t,use_physical=False)
+                    +integrate.quad(\
+                lambda x: -self.Rforce(R,x,phi=phi,t=t,use_physical=False)/R
+                +self.R2deriv(R,x,phi=phi,t=t,use_physical=False)
+                +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
+                0.,nu.fabs(z))[0])/2./nu.pi
+
+    @potential_physical_input
     @physical_conversion('mass',pop=True)
     def mass(self,R,z=None,t=0.,forceint=False):
         """
