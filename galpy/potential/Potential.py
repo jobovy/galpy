@@ -279,7 +279,7 @@ class Potential(Force):
 
         PURPOSE:
 
-           evaluate the surface density Sigma(R,z,t) = \int_-z^+z dz' \rho(R,z',phi,t)
+           evaluate the surface density :math:`\\Sigma(R,z,\\phi,t) = \\int_{-z}^{+z} dz' \\rho(R,z',\\phi,t)`
 
         INPUT:
 
