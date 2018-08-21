@@ -3,12 +3,14 @@ from distutils.core import Extension
 import sys
 import distutils.sysconfig as sysconfig
 import distutils.ccompiler
+from distutils.errors import DistutilsPlatformError
 import os, os.path
 import platform
 import subprocess
 import glob
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'
+no_compiler = False  # Flag for cases where we are sure there is no compiler exists in user's system
 
 long_description= ''
 previous_line= ''
@@ -115,6 +117,13 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 # MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
 if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
     extra_compile_args.append("-Dinline=__inline")
+    # only msvc compiler can be tested with initialize(), msvc is a default on windows
+    # check for 'msvc' not WIN32, user can use other compiler like 'mingw32', in such case compiler exists for them
+    try:
+        test_compiler = distutils.ccompiler.new_compiler()
+        test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
+    except DistutilsPlatformError:  # this error will be raised if no compiler in the system
+        no_compiler = True
 
 # To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
 if WIN32:
@@ -304,7 +313,7 @@ setup(name='galpy',
                     "": ["README.rst","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
       install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six'],
-      ext_modules=ext_modules,
+      ext_modules=ext_modules if not no_compiler else None,
       classifiers=[
         "Development Status :: 6 - Mature",
         "Intended Audience :: Science/Research",
