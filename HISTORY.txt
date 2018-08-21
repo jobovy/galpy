@@ -59,6 +59,10 @@ v1.4 (??????)
 - Added rtide and ttensor methods/functions for Potentials: tidal
   radius and tidal tensor.
 
+- Added surfdens and evaluateSurfaceDensities method and function,
+  respectively, for Potentials for evaluating the surface density up
+  to a given z.
+
 - Added potentials SphericalShellPotential and RingPotential for the
   potential of a spherical shell and a circular ring,
   respectively. Useful for talking about Newton's theorems.
