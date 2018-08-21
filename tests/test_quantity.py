@@ -855,6 +855,7 @@ def test_potential_method_returntype():
     assert isinstance(pot.zforce(1.1,0.1),units.Quantity), 'Potential method zforce does not return Quantity when it should'
     assert isinstance(pot.phiforce(1.1,0.1),units.Quantity), 'Potential method phiforce does not return Quantity when it should'
     assert isinstance(pot.dens(1.1,0.1),units.Quantity), 'Potential method dens does not return Quantity when it should'
+    assert isinstance(pot.surfdens(1.1,0.1),units.Quantity), 'Potential method surfdens does not return Quantity when it should'
     assert isinstance(pot.mass(1.1,0.1),units.Quantity), 'Potential method mass does not return Quantity when it should'
     assert isinstance(pot.R2deriv(1.1,0.1),units.Quantity), 'Potential method R2deriv does not return Quantity when it should'
     assert isinstance(pot.z2deriv(1.1,0.1),units.Quantity), 'Potential method z2deriv does not return Quantity when it should'
@@ -937,6 +938,10 @@ def test_potential_method_returnunit():
         pot.dens(1.1,0.1).to(units.kg/units.m**3)
     except units.UnitConversionError:
         raise AssertionError('Potential method dens does not return Quantity with the right units')
+    try:
+        pot.surfdens(1.1,0.1).to(units.kg/units.m**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential method surfdens does not return Quantity with the right units')
     try:
         pot.mass(1.1,0.1).to(units.kg)
     except units.UnitConversionError:
@@ -1089,6 +1094,7 @@ def test_potential_method_value():
     assert numpy.fabs(pot.zforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.zforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method zforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.phiforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.phiforce(1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.dens(1.1,0.1).to(units.Msun/units.pc**3).value-potu.dens(1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential method dens does not return the correct value as Quantity'
+    assert numpy.fabs(pot.surfdens(1.1,0.1).to(units.Msun/units.pc**2).value-potu.surfdens(1.1,0.1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'Potential method surfdens does not return the correct value as Quantity'
     assert numpy.fabs(pot.mass(1.1,0.1).to(units.Msun).value/10.**10.-potu.mass(1.1,0.1)*bovy_conversion.mass_in_1010msol(vo,ro)) < 10.**-8., 'Potential method mass does not return the correct value as Quantity'
     assert numpy.fabs(pot.R2deriv(1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.R2deriv(1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential method R2deriv does not return the correct value as Quantity'
     assert numpy.fabs(pot.z2deriv(1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.z2deriv(1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential method z2deriv does not return the correct value as Quantity'
@@ -1148,6 +1154,7 @@ def test_potential_function_returntype():
     assert isinstance(potential.evaluatezforces(pot,1.1,0.1),units.Quantity), 'Potential function zforce does not return Quantity when it should'
     assert isinstance(potential.evaluatephiforces(pot,1.1,0.1),units.Quantity), 'Potential function phiforce does not return Quantity when it should'
     assert isinstance(potential.evaluateDensities(pot,1.1,0.1),units.Quantity), 'Potential function dens does not return Quantity when it should'
+    assert isinstance(potential.evaluateSurfaceDensities(pot,1.1,0.1),units.Quantity), 'Potential function surfdens does not return Quantity when it should'
     assert isinstance(potential.evaluateR2derivs(pot,1.1,0.1),units.Quantity), 'Potential function R2deriv does not return Quantity when it should'
     assert isinstance(potential.evaluatez2derivs(pot,1.1,0.1),units.Quantity), 'Potential function z2deriv does not return Quantity when it should'
     assert isinstance(potential.evaluateRzderivs(pot,1.1,0.1),units.Quantity), 'Potential function Rzderiv does not return Quantity when it should'
@@ -1219,6 +1226,10 @@ def test_potential_function_returnunit():
         potential.evaluateDensities(pot,1.1,0.1).to(units.kg/units.m**3)
     except units.UnitConversionError:
         raise AssertionError('Potential function dens does not return Quantity with the right units')
+    try:
+        potential.evaluateSurfaceDensities(pot,1.1,0.1).to(units.kg/units.m**2)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function surfdens does not return Quantity with the right units')
     try:
         potential.evaluateR2derivs(pot,1.1,0.1).to(1/units.s**2)
     except units.UnitConversionError:
@@ -1356,6 +1367,7 @@ def test_potential_function_value():
     assert numpy.fabs(potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatezforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function zforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatephiforces(potu,1.1,0.1)*bovy_conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1,0.1).to(units.Msun/units.pc**3).value-potential.evaluateDensities(potu,1.1,0.1)*bovy_conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential function dens does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateSurfaceDensities(pot,1.1,0.1).to(units.Msun/units.pc**2).value-potential.evaluateSurfaceDensities(potu,1.1,0.1)*bovy_conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'Potential function surfdens does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateR2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateR2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatez2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluatez2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function z2deriv does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateRzderivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateRzderivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function Rzderiv does not return the correct value as Quantity'
@@ -1417,6 +1429,7 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.zforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.zforce(1.1,0.1)) < 10.**-4., 'Potential method zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.phiforce(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.phiforce(1.1,0.1)) < 10.**-4., 'Potential method phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.dens(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.dens(1.1,0.1)) < 10.**-8., 'Potential method dens does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.surfdens(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.surfdens(1.1,0.1)) < 10.**-8., 'Potential method surfdens does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.mass(1.1*ro,0.1*ro,use_physical=False)-potu.mass(1.1,0.1)) < 10.**-8., 'Potential method mass does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.R2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.R2deriv(1.1,0.1)) < 10.**-8., 'Potential method R2deriv does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.z2deriv(1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potu.z2deriv(1.1,0.1)) < 10.**-8., 'Potential method z2deriv does not return the correct value when input is Quantity'
@@ -1506,6 +1519,7 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.evaluatezforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatezforces(potu,1.1,0.1)) < 10.**-4., 'Potential function zforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatephiforces(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatephiforces(potu,1.1,0.1)) < 10.**-4., 'Potential function phiforce does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateDensities(potu,1.1,0.1)) < 10.**-8., 'Potential function dens does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.evaluateSurfaceDensities(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateSurfaceDensities(potu,1.1,0.1)) < 10.**-8., 'Potential function surfdens does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateR2derivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateR2derivs(potu,1.1,0.1)) < 10.**-8., 'Potential function R2deriv does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluatez2derivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluatez2derivs(potu,1.1,0.1)) < 10.**-8., 'Potential function z2deriv does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.evaluateRzderivs(pot,1.1*ro,0.1*ro,phi=10.*units.deg,t=10.*units.Gyr,use_physical=False)-potential.evaluateRzderivs(potu,1.1,0.1)) < 10.**-8., 'Potential function Rzderiv does not return the correct value when input is Quantity'
