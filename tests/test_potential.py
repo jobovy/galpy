@@ -609,6 +609,7 @@ def test_poisson_surfdens_potential():
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p)]
+    pots.append('testMWPotential')
     """
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
@@ -620,7 +621,6 @@ def test_poisson_surfdens_potential():
     pots.append('specialMN3ExponentialDiskPotentialSECH')
     pots.append('specialFlattenedPowerPotential')
     pots.append('specialPowerSphericalPotential')
-    pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     pots.append('testlinearMWPotential')
     pots.append('oblateHernquistPotential') # in cae these are ever implemented
@@ -690,7 +690,7 @@ def test_poisson_surfdens_potential():
         if not hasattr(tp,'_surfdens') or not hasattr(tp,'_R2deriv') \
                 or not hasattr(tp,'_Rforce') or not hasattr(tp,'phi2deriv') \
                 or not hasattr(tp,'_zforce') \
-                or (tclass._surfdens == potential.Potential._surfdens and not p == 'TwoPowerSphericalPotential'): # make sure _surfdens is explicitly implemented
+                or (tclass._surfdens == potential.Potential._surfdens and not p == 'FlattenedPowerPotential'): # make sure _surfdens is explicitly implemented
             continue
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
@@ -2035,6 +2035,8 @@ def test_nonaxierror_function():
         potential.evaluaterforces(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluater2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateSurfaceDensities(tnp,1.,0.1)
     return None
 
 def test_SoftenedNeedleBarPotential_density():
@@ -2953,7 +2955,7 @@ class mockSCFDensityPotential(potential.SCFPotential):
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    evaluateDensities, _isNonAxi
+    evaluateDensities, _isNonAxi, evaluateSurfaceDensities
 from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
@@ -2987,6 +2989,9 @@ class testMWPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(self._potlist,R,z,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
+    def _surfdens(self,R,z,phi=0.,t=0.,forcepoisson=False):
+        return evaluateSurfaceDensities(self._potlist,R,z,phi=phi,t=t,
+                                        forcepoisson=forcepoisson)
     def vcirc(self,R):
         return potential.vcirc(self._potlist,R)
     def normalize(self,norm,t=0.):
