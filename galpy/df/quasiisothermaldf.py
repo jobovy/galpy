@@ -1717,74 +1717,57 @@ class quasiisothermaldf(df):
     
         HISTORY:
             
-            2018-08-10 - Written - Samuel Wong
+            2018-08-10 - Written - Samuel Wong (University of Toronto)
             
         """
-        #initialize output array
+        #Initialize output array
         coord_v = numpy.empty((numpy.size(R), 5))
-        #separate the coodinates into outliers and normal points.
-        # get the standard deviation and mean of R and z
+        #Separate the coodinates into outliers and normal points.
+        #Get the standard deviation and mean of R and z
         Rz_set = numpy.stack((R,z), axis = 1)
         std_R, std_z = numpy.std(Rz_set, axis = 0)
         mean_R, mean_z = numpy.mean(Rz_set, axis = 0)
-        # create a boolean mask that encodes which stars are outliers
+        #Create outliers and normal numpy array
         mask = numpy.any([numpy.abs(Rz_set[:, 0] - mean_R) > num_std*std_R, 
                        numpy.abs(Rz_set[:, 1] - mean_z) > num_std*std_z], axis = 0)
-        # create outliers and normal numpy array
         outliers = Rz_set[mask]
         normal = Rz_set[~mask]
-        #initialize numpy array storing result of outliers
+        #Initialize numpy array storing result of outliers
         outlier_coord_v = numpy.empty((outliers.shape[0], 5))
-        #sample the velocity of outliers directly
+        #Sample the velocity of outliers directly (without interpolation)
         for i, outlier in enumerate(outliers):
             R, z = outlier
             vR, vT, vz = self.sampleV(R, z)[0]
             outlier_coord_v[i] = numpy.array([R, z, vR, vT, vz])
-        print("shape of outlier coord v =", numpy.shape(outlier_coord_v))
-        print("outlier coord v =", outlier_coord_v)
-        #optimize the dimensions of the grid for interpolation
-        #get the minimum and maximum of each coordinate
+        #Prepare for optimizing max VT on a grid
         R_min, z_min = numpy.min(normal, axis = 0)
         R_max, z_max = numpy.max(normal, axis = 0)
-        # get the range in each direction
-        R_range = R_max - R_min
-        z_range = z_max - z_min
-        # calculate the number of spacing in each direction
-        R_number = int(R_range/R_pixel)
-        z_number = int(z_range/z_pixel)
-        #create the linspace in each direction according to the specified number
-        #of points in each axis
+        R_number = int((R_max - R_min)/R_pixel)
+        z_number = int((z_max - z_min)/z_pixel)
         R_linspace = numpy.linspace(R_min, R_max, R_number)
         z_linspace = numpy.linspace(z_min, z_max, z_number)
-        # mesh and create the grid
         Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
-        #get grid
-        grid = numpy.dstack((Rv, zv))
-        #initialize grid values.
-        #grid is a 3 dimensional array since it stores pairs of values, but 
-        #grid max vT are 2 dimensinal array
+        grid = numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
+        #Grid is a 3 dimensional array since it stores pairs of values, but 
+        #grid max vT is a 2 dimensinal array
         grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
-        #optimize max_vT on the grid
+        #Optimize max_vT on the grid
         for i in range(z_number):
             for j in range(R_number):
                 R, z = grid[i][j]
-                print("about to optimize ({}, {}) on grid".format(R,z))
                 grid_max_vT[i][j] = optimize.fmin_powell((lambda x: -self(
                         R,0.,x,z,0.,log=True, use_physical=False)),1.)
-        print("finished optimizing on grid")
-        # generate interpolation object
+        #Generate interpolation object
         ip_max_vT = interpolate.RectBivariateSpline(z_linspace, R_linspace,
                                                     grid_max_vT)
-        #break down normal into its R and z components
+        #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_R = normal[:,0]
         normal_z = normal[:,1]
-        #sample the max_VT of normal points using interpolation of the grid
         normal_max_vT = ip_max_vT.ev(normal_z, normal_R)
-        print("evaluated interpolation object")
-        #sample all 3 velocities at a normal point and use interpolated vT
+        #Sample all 3 velocities at a normal point and use interpolated vT
         normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,
                                                   normal_max_vT)
-        # combine normal and outlier result, preserving original order
+        #Combine normal and outlier result, preserving original order
         coord_v[mask] = outlier_coord_v
         coord_v[~mask] = normal_coord_v
         return coord_v
@@ -1798,7 +1781,7 @@ class quasiisothermaldf(df):
         PURPOSE:
 
            sample a radial, azimuthal, and vertical velocity at R,z;
-           R,z can be an array of positions
+           R,z can be an array of positions maxVT is already optimized
 
         INPUT:
 
@@ -1850,10 +1833,11 @@ class quasiisothermaldf(df):
                vz_accept), axis = 1)
             #Removing accepted sampled from remain index
             remain_indx[remain_indx] = ~accept_indx
-        if self._voSet:
-            out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
-        if self._roSet:
-            out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
+        if _APY_UNITS:
+            if self._voSet:
+                out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
+            if self._roSet:
+                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
         return out
 
     @actionAngle_physical_input
