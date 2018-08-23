@@ -409,7 +409,7 @@ def test_sampleV_interpolate():
     numpy.random.seed(1)
     R= numpy.hstack([i*numpy.ones(1000) for i in [0.8,0.9,1.0,1.1]])
     z= numpy.hstack([i*numpy.ones(1000) for i in [0.1,0.2,0.3,0.4]])
-    # add outlier
+    #add outlier
     R= numpy.append(R,3.0)
     z= numpy.append(z,2.0)
     #shuffle up the order to test order preservation
