@@ -9,7 +9,7 @@ from galpy.actionAngle import actionAngleIsochrone
 from galpy.potential import IsochronePotential
 from galpy.potential import flatten as flatten_potential
 from galpy.orbit import Orbit
-from galpy.df_src.df import df, _APY_LOADED
+from .df import df, _APY_LOADED
 from galpy.util import galpyWarning
 from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, actionAngle_physical_input, _APY_UNITS
@@ -1685,6 +1685,7 @@ class quasiisothermaldf(df):
         else:
             return out
 
+    @potential_physical_input
     def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3):
         """
         NAME:
@@ -1788,7 +1789,6 @@ class quasiisothermaldf(df):
         coord_v[~mask] = normal_coord_v
         return coord_v
 
-    @potential_physical_input
     def sampleV_preoptimized(self,R,z,maxVT):
         """
         NAME:
@@ -1849,7 +1849,7 @@ class quasiisothermaldf(df):
             out[to_change]= numpy.stack((R_accept,z_accept,vR_accept,vT_accept,
                vz_accept), axis = 1)
             #Removing accepted sampled from remain index
-            remain_indx[remain_indx == True] = ~accept_indx
+            remain_indx[remain_indx] = ~accept_indx
         if self._voSet:
             out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
         if self._roSet:
