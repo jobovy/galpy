@@ -1757,9 +1757,18 @@ class quasiisothermaldf(df):
                 R, z = grid[i][j]
                 grid_max_vT[i][j] = optimize.fmin_powell((lambda x: -self(
                         R,0.,x,z,0.,log=True, use_physical=False)),1.)
+        #Determine degree of interpolation
+        if R_number>3:
+            ky= 3
+        else:
+            ky= R_number-1
+        if z_number>3:
+            kx= 3
+        else:
+            kx= z_number-1
         #Generate interpolation object
-        ip_max_vT = interpolate.RectBivariateSpline(z_linspace, R_linspace,
-                                                    grid_max_vT)
+        ip_max_vT = interpolate.RectBivariateSpline(z_linspace,R_linspace,
+                                                    grid_max_vT,kx=kx,ky=ky)
         #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_R = normal[:,0]
         normal_z = normal[:,1]
