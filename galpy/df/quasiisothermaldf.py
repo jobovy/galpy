@@ -1725,6 +1725,9 @@ class quasiisothermaldf(df):
         """
         #Initialize output array
         coord_v= numpy.empty((numpy.size(R), 5))
+        #Since the sign of z doesn't matter, work with absolute value of z
+        z_original= z
+        z= numpy.abs(z)
         #Separate the coodinates into outliers and normal points.
         mean_R= numpy.mean(R)
         std_R= numpy.std(R)
@@ -1734,14 +1737,16 @@ class quasiisothermaldf(df):
                        numpy.abs(z - mean_z) > num_std*std_z], axis = 0)
         outliers_R= R[mask]
         outliers_z= z[mask]
+        outliers_z_original= z_original[mask]
         normal_R= R[~mask]
         normal_z= z[~mask]
+        normal_z_original= z_original[~mask]
         #Sample the velocity of outliers directly (without interpolation)
         outlier_coord_v= numpy.empty((outliers_R.size, 5))
         for i in range(outliers_R.size):
             vR, vT, vz= self.sampleV(outliers_R[i], outliers_z[i])[0]
-            outlier_coord_v[i]= numpy.array([outliers_R[i],outliers_z[i],vR,vT,
-                                            vz])
+            outlier_coord_v[i]= numpy.array([outliers_R[i],
+                                            outliers_z_original[i],vR,vT,vz])
         #Prepare for optimizing maxVT on a grid
         #Edges of grid determined by input, unless prespecified by users
         if R_min is None:
@@ -1782,7 +1787,7 @@ class quasiisothermaldf(df):
         #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,
+        normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z_original,
                                                   normal_max_vT)
         #Combine normal and outlier result, preserving original order
         coord_v[mask]= outlier_coord_v
