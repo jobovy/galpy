@@ -1686,7 +1686,8 @@ class quasiisothermaldf(df):
             return out
 
     @potential_physical_input
-    def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3):
+    def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3,R_min=None,
+                            R_max=None,z_min=None,z_max=None):
         """
         NAME:
             
@@ -1703,15 +1704,17 @@ class quasiisothermaldf(df):
 
             z - array of height (can be Quantity)
             
-            R_pixel, z_pixel = the pixel size for creating the grid for
+            R_pixel, z_pixel= the pixel size for creating the grid for
                    interpolation (in natural unit)
             
-            num_std = number of standard deviation to be considered outliers
+            num_std= number of standard deviation to be considered outliers
                       sampled separately from interpolation
+                      
+            R_min, R_max, z_min, z_max= optional edges of the grid
     
         OUTPUT:
             
-            coord_v = a numpy array containing the original coordinate but
+            coord_v= a numpy array containing the original coordinate but
                             with velocity attached. Each coordinate is of the
                             form (R, z, vR, vT, vz)
     
@@ -1721,41 +1724,47 @@ class quasiisothermaldf(df):
             
         """
         #Initialize output array
-        coord_v = numpy.empty((numpy.size(R), 5))
+        coord_v= numpy.empty((numpy.size(R), 5))
         #Separate the coodinates into outliers and normal points.
         #Get the standard deviation and mean of R and z
-        Rz_set = numpy.stack((R,z), axis = 1)
-        std_R, std_z = numpy.std(Rz_set, axis = 0)
-        mean_R, mean_z = numpy.mean(Rz_set, axis = 0)
+        Rz_set= numpy.stack((R,z), axis = 1)
+        std_R, std_z= numpy.std(Rz_set, axis = 0)
+        mean_R, mean_z= numpy.mean(Rz_set, axis = 0)
         #Create outliers and normal numpy array
-        mask = numpy.any([numpy.abs(Rz_set[:, 0] - mean_R) > num_std*std_R, 
+        mask= numpy.any([numpy.abs(Rz_set[:, 0] - mean_R) > num_std*std_R, 
                        numpy.abs(Rz_set[:, 1] - mean_z) > num_std*std_z], axis = 0)
-        outliers = Rz_set[mask]
-        normal = Rz_set[~mask]
+        outliers= Rz_set[mask]
+        normal= Rz_set[~mask]
         #Initialize numpy array storing result of outliers
-        outlier_coord_v = numpy.empty((outliers.shape[0], 5))
+        outlier_coord_v= numpy.empty((outliers.shape[0], 5))
         #Sample the velocity of outliers directly (without interpolation)
         for i, outlier in enumerate(outliers):
-            R, z = outlier
-            vR, vT, vz = self.sampleV(R, z)[0]
-            outlier_coord_v[i] = numpy.array([R, z, vR, vT, vz])
+            R, z= outlier
+            vR, vT, vz= self.sampleV(R, z)[0]
+            outlier_coord_v[i]= numpy.array([R, z, vR, vT, vz])
         #Prepare for optimizing max VT on a grid
-        R_min, z_min = numpy.min(normal, axis = 0)
-        R_max, z_max = numpy.max(normal, axis = 0)
-        R_number = int((R_max - R_min)/R_pixel)
-        z_number = int((z_max - z_min)/z_pixel)
-        R_linspace = numpy.linspace(R_min, R_max, R_number)
-        z_linspace = numpy.linspace(z_min, z_max, z_number)
-        Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
-        grid = numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
+        if R_min is None:
+            R_min= numpy.min(normal[:,0])
+        if z_min is None:
+            z_min= numpy.min(normal[:,1])
+        if R_max is None:
+            R_max= numpy.max(normal[:,0])
+        if z_max is None:
+            z_max= numpy.max(normal[:,1])
+        R_number= int((R_max - R_min)/R_pixel)
+        z_number= int((z_max - z_min)/z_pixel)
+        R_linspace= numpy.linspace(R_min, R_max, R_number)
+        z_linspace= numpy.linspace(z_min, z_max, z_number)
+        Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
+        grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
         #Grid is a 3 dimensional array since it stores pairs of values, but 
         #grid max vT is a 2 dimensinal array
-        grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
+        grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
         #Optimize max_vT on the grid
         for i in range(z_number):
             for j in range(R_number):
-                R, z = grid[i][j]
-                grid_max_vT[i][j] = optimize.fmin_powell((lambda x: -self(
+                R, z= grid[i][j]
+                grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
                         R,0.,x,z,0.,log=True, use_physical=False)),1.)
         #Determine degree of interpolation
         if R_number>3:
@@ -1767,18 +1776,18 @@ class quasiisothermaldf(df):
         else:
             kx= z_number-1
         #Generate interpolation object
-        ip_max_vT = interpolate.RectBivariateSpline(z_linspace,R_linspace,
+        ip_max_vT= interpolate.RectBivariateSpline(z_linspace,R_linspace,
                                                     grid_max_vT,kx=kx,ky=ky)
         #Evaluate interpolation object to get maxVT at the normal coordinates
-        normal_R = normal[:,0]
-        normal_z = normal[:,1]
-        normal_max_vT = ip_max_vT.ev(normal_z, normal_R)
+        normal_R= normal[:,0]
+        normal_z= normal[:,1]
+        normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
         normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,
                                                   normal_max_vT)
         #Combine normal and outlier result, preserving original order
-        coord_v[mask] = outlier_coord_v
-        coord_v[~mask] = normal_coord_v
+        coord_v[mask]= outlier_coord_v
+        coord_v[~mask]= normal_coord_v
         return coord_v
 
     def sampleV_preoptimized(self,R,z,maxVT):
@@ -1836,12 +1845,12 @@ class quasiisothermaldf(df):
             vz_accept= propvz[accept_indx]
             #Get the indexing of rows of output array that need to be updated
             #with newly accepted velocity
-            to_change = numpy.copy(remain_indx)
-            to_change[remain_indx] = accept_indx
+            to_change= numpy.copy(remain_indx)
+            to_change[remain_indx]= accept_indx
             out[to_change]= numpy.stack((R_accept,z_accept,vR_accept,vT_accept,
                vz_accept), axis = 1)
             #Removing accepted sampled from remain index
-            remain_indx[remain_indx] = ~accept_indx
+            remain_indx[remain_indx]= ~accept_indx
         if _APY_UNITS:
             if self._voSet:
                 out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
