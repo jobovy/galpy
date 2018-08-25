@@ -1726,31 +1726,32 @@ class quasiisothermaldf(df):
         #Initialize output array
         coord_v= numpy.empty((numpy.size(R), 5))
         #Separate the coodinates into outliers and normal points.
-        #Get the standard deviation and mean of R and z
-        Rz_set= numpy.stack((R,z), axis = 1)
-        std_R, std_z= numpy.std(Rz_set, axis = 0)
-        mean_R, mean_z= numpy.mean(Rz_set, axis = 0)
-        #Create outliers and normal numpy array
-        mask= numpy.any([numpy.abs(Rz_set[:, 0] - mean_R) > num_std*std_R, 
-                       numpy.abs(Rz_set[:, 1] - mean_z) > num_std*std_z], axis = 0)
-        outliers= Rz_set[mask]
-        normal= Rz_set[~mask]
-        #Initialize numpy array storing result of outliers
-        outlier_coord_v= numpy.empty((outliers.shape[0], 5))
+        mean_R= numpy.mean(R)
+        std_R= numpy.std(R)
+        mean_z= numpy.mean(z)
+        std_z= numpy.std(z)
+        mask= numpy.any([numpy.abs(R - mean_R) > num_std*std_R, 
+                       numpy.abs(z - mean_z) > num_std*std_z], axis = 0)
+        outliers_R= R[mask]
+        outliers_z= z[mask]
+        normal_R= R[~mask]
+        normal_z= z[~mask]
         #Sample the velocity of outliers directly (without interpolation)
-        for i, outlier in enumerate(outliers):
-            R, z= outlier
-            vR, vT, vz= self.sampleV(R, z)[0]
-            outlier_coord_v[i]= numpy.array([R, z, vR, vT, vz])
-        #Prepare for optimizing max VT on a grid
+        outlier_coord_v= numpy.empty((outliers_R.size, 5))
+        for i in range(outliers_R.size):
+            vR, vT, vz= self.sampleV(outliers_R[i], outliers_z[i])[0]
+            outlier_coord_v[i]= numpy.array([outliers_R[i],outliers_z[i],vR,vT,
+                                            vz])
+        #Prepare for optimizing maxVT on a grid
+        #Edges of grid determined by input, unless prespecified by users
         if R_min is None:
-            R_min= numpy.min(normal[:,0])
+            R_min= numpy.min(normal_R)
         if z_min is None:
-            z_min= numpy.min(normal[:,1])
+            z_min= numpy.min(normal_z)
         if R_max is None:
-            R_max= numpy.max(normal[:,0])
+            R_max= numpy.max(normal_R)
         if z_max is None:
-            z_max= numpy.max(normal[:,1])
+            z_max= numpy.max(normal_z)
         R_number= int((R_max - R_min)/R_pixel)
         z_number= int((z_max - z_min)/z_pixel)
         R_linspace= numpy.linspace(R_min, R_max, R_number)
@@ -1779,8 +1780,6 @@ class quasiisothermaldf(df):
         ip_max_vT= interpolate.RectBivariateSpline(z_linspace,R_linspace,
                                                     grid_max_vT,kx=kx,ky=ky)
         #Evaluate interpolation object to get maxVT at the normal coordinates
-        normal_R= normal[:,0]
-        normal_z= normal[:,1]
         normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
         normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,
