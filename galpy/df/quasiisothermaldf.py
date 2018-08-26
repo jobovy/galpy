@@ -2,6 +2,7 @@
 import math
 import warnings
 import numpy
+import hashlib
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
@@ -102,6 +103,8 @@ class quasiisothermaldf(df):
         self._lo= lo
         self._lnsr= math.log(self._sr)
         self._lnsz= math.log(self._sz)
+        self._maxVT_hash= None
+        self._maxVT_ip= None
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
@@ -1757,27 +1760,38 @@ class quasiisothermaldf(df):
             R_max= numpy.max(normal_R)
         if z_max is None:
             z_max= numpy.max(normal_z)
-        R_number= int((R_max - R_min)/R_pixel)
-        z_number= int((z_max - z_min)/z_pixel)
-        R_linspace= numpy.linspace(R_min, R_max, R_number)
-        z_linspace= numpy.linspace(z_min, z_max, z_number)
-        Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
-        grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
-        #Grid is a 3 dimensional array since it stores pairs of values, but 
-        #grid max vT is a 2 dimensinal array
-        grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
-        #Optimize max_vT on the grid
-        for i in range(z_number):
-            for j in range(R_number):
-                R, z= grid[i][j]
-                grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
-                        R,0.,x,z,0.,log=True, use_physical=False)),1.)
-        #Determine degree of interpolation
-        ky= numpy.min([R_number-1,3])
-        kx= numpy.min([z_number-1,3])
-        #Generate interpolation object
-        ip_max_vT= interpolate.RectBivariateSpline(z_linspace,R_linspace,
-                                                    grid_max_vT,kx=kx,ky=ky)
+        #Get the new hash of the parameters of grid
+        new_hash= hashlib.md5(numpy.array([R_min,R_max,z_min,z_max,R_pixel,z_pixel])).hexdigest()
+        #Reuse old interpolated object if new hash matches the old one
+        if new_hash == self._maxVT_hash:
+            ip_max_vT= self._maxVT_ip
+        #Generate a new interpolation object if different from before
+        else:
+            R_number= int((R_max - R_min)/R_pixel)
+            z_number= int((z_max - z_min)/z_pixel)
+            R_linspace= numpy.linspace(R_min, R_max, R_number)
+            z_linspace= numpy.linspace(z_min, z_max, z_number)
+            Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
+            grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
+            #Grid is a 3 dimensional array since it stores pairs of values, but 
+            #grid max vT is a 2 dimensinal array
+            grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
+            #Optimize max_vT on the grid
+            for i in range(z_number):
+                for j in range(R_number):
+                    R, z= grid[i][j]
+                    grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
+                            R,0.,x,z,0.,log=True, use_physical=False)),1.)
+            #Determine degree of interpolation
+            ky= numpy.min([R_number-1,3])
+            kx= numpy.min([z_number-1,3])
+            #Generate interpolation object
+            ip_max_vT= interpolate.RectBivariateSpline(z_linspace,R_linspace,
+                                                       grid_max_vT,kx=kx,ky=ky)
+            #Store interpolation object
+            self._maxVT_ip= ip_max_vT
+            #Update hash of parameters
+            self._maxVT_hash= new_hash
         #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
