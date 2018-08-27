@@ -7,10 +7,10 @@ v1.4 (??????)
   results from N-body simulations).
 
 - Added galpy.df.jeans with tools for Jeans modeling. Currently only
-  contains the function sigmar to calculate the velocity dispersion
-  using the spherical Jeans equation in a given potential, density
-  profile, and anisotropy profile (anisotropy can be radially
-  varying).
+  contains the functions sigmar and sigmalos to calculate the velocity
+  dispersion in the radial or line-of-sight direction using the
+  spherical Jeans equation in a given potential, density profile, and
+  anisotropy profile (anisotropy can be radially varying).
 
 - Added CorotatingRotationWrapperPotential to galpy.potential: a
   wrapper to make a pattern wind up over time such that it is always
