@@ -63,30 +63,30 @@ def test_sigmar_wlog_linbeta():
 def test_sigmalos_wlog_zerobeta():
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
-    rs= numpy.linspace(0.001,2.,3)
+    rs= numpy.linspace(0.5,2.,3)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed sigmar
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,sigma_r=1./numpy.sqrt(2.)) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed, callable sigmar
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,sigma_r=lambda x: 1./numpy.sqrt(2.)) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed, callable sigmar and dens given
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,dens=lambda x: x**-2,sigma_r=lambda x: 1./numpy.sqrt(2.)) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed, callable sigmar and dens,surfdens given as func
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,dens=lambda x: lp.dens(x,0.),surfdens=lambda x: lp.surfdens(x,numpy.inf),sigma_r=lambda x: 1./numpy.sqrt(2.)) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed, callable sigmar and dens,surfdens given (value)
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,dens=lambda x: lp.dens(x,0.),surfdens=lp.surfdens(r,numpy.inf),sigma_r=lambda x: 1./numpy.sqrt(2.)) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     # Also with pre-computed sigmar and callable beta
-    rs= numpy.linspace(0.001,2.,11)
+    rs= numpy.linspace(0.5,2.,11)
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,sigma_r=1./numpy.sqrt(2.),beta=lambda x: 0.) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     return None
