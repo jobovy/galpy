@@ -14,6 +14,7 @@ Jeans modeling tools (``galpy.df.jeans``)
    :maxdepth: 2
 
    sigmar <dfjeanssigmar.rst>
+   sigmalos <dfjeanssigmalos.rst>
 
 General instance routines for all df classes
 --------------------------------------------
