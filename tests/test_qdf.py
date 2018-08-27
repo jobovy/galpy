@@ -442,8 +442,20 @@ def test_sampleV_interpolate():
     Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=4, z_number=4
     Rz_array([0.8,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=2, z_number=4
     Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.2]) #R_number=4, z_number=2
-    #test example with negative z
-    Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3]) #R_number=4, z_number=4
+    #test saved hash and interpolation object, as well as absolute value of z
+    Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash1= qdf._maxVT_hash
+    ip1= qdf._maxVT_ip
+    Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash2= qdf._maxVT_hash
+    ip2= qdf._maxVT_ip
+    Rz_array([0.6,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash3= qdf._maxVT_hash
+    ip3= qdf._maxVT_ip
+    assert hash1 == hash2, 'sampeV interpolate hash is changed unexpectedly'
+    assert ip1 == ip2, 'sampleV interpolate interpolation object is changed unexpectedly'
+    assert hash3 != hash2, 'sampeV interpolate hash did not changed as expected'
+    assert ip3 != ip2, 'sampleV interpolate interpolation object did not changed as expected'
     return None
 
 def test_pvR_adiabatic():
