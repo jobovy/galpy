@@ -1690,7 +1690,7 @@ class quasiisothermaldf(df):
 
     @potential_physical_input
     def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3,R_min=None,
-                            R_max=None,z_min=None,z_max=None):
+                            R_max=None,z_max=None):
         """
         NAME:
             
@@ -1713,7 +1713,7 @@ class quasiisothermaldf(df):
             num_std= number of standard deviation to be considered outliers
                       sampled separately from interpolation
                       
-            R_min, R_max, z_min, z_max= optional edges of the grid
+            R_min, R_max, z_max= optional edges of the grid
     
         OUTPUT:
             
@@ -1754,14 +1754,13 @@ class quasiisothermaldf(df):
         #Edges of grid determined by input, unless prespecified by users
         if R_min is None:
             R_min= numpy.min(normal_R)
-        if z_min is None:
-            z_min= numpy.min(normal_z)
         if R_max is None:
             R_max= numpy.max(normal_R)
         if z_max is None:
             z_max= numpy.max(normal_z)
+        z_min= 0. #Always start grid at z=0 for stars close to plane
         #Get the new hash of the parameters of grid
-        new_hash= hashlib.md5(numpy.array([R_min,R_max,z_min,z_max,R_pixel,z_pixel])).hexdigest()
+        new_hash= hashlib.md5(numpy.array([R_min,R_max,z_max,R_pixel,z_pixel])).hexdigest()
         #Reuse old interpolated object if new hash matches the old one
         if new_hash == self._maxVT_hash:
             ip_max_vT= self._maxVT_ip
