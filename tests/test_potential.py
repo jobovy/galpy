@@ -2394,6 +2394,15 @@ def test_ttensor_nonaxi():
         dummy= potential.ttensor(lp,1.,0.,0.)
     return None
 
+# Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
+def test_scf_tupleindexwarning():
+    import warnings
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("error",FutureWarning)
+        p= mockSCFZeeuwPotential()
+        p.Rforce(1.,0.)
+    return None   
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
