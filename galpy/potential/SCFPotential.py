@@ -853,7 +853,7 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     
     ##Performs the actual integration
     for i in range(li.shape[0]):
-        index = [nu.arange(len(bounds)),li[i]]
+        index = (nu.arange(len(bounds)),li[i])
         s+= nu.prod(wp[index])*integrand(*xp[index])
     
     ##Rounds values that are less than roundoff to zero    
