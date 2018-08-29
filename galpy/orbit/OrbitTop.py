@@ -1201,6 +1201,26 @@ class OrbitTop(object):
             kwargs.pop('use_physical')
         return out
 
+    @physical_conversion('action')
+    def Lz(self,*args,**kwargs):
+        """
+        NAME:
+           Lz
+        PURPOSE:
+           calculate the z component of the angular momentum
+        INPUT:
+           (none)
+        OUTPUT:
+           z-component of the angular momentum
+        HISTORY:
+           2018-08-29 - Written - Bovy (UofT)
+        """
+        tL= self.L(*args,use_physical=False)
+        if len(tL.shape) == 2: # 3D orbit
+            return tL[:,2]
+        else: # 2D orbit
+            return tL
+
     def _resetaA(self,pot=None,type=None):
         """
         NAME:

@@ -27,6 +27,7 @@ from .planarOrbit import planarOrbit, planarROrbit, \
     planarOrbitTop
 from .linearOrbit import linearOrbit
 from galpy.potential import flatten as flatten_potential
+from galpy.potential import rl, _isNonAxi
 _K=4.74047
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
@@ -844,6 +845,37 @@ class Orbit(object):
         """
         return self._orb.L(*args,**kwargs)
 
+    def Lz(self,*args,**kwargs):
+        """
+        NAME:
+
+           Lz
+
+        PURPOSE:
+
+           calculate the z-component of the angular momentum at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the angular momentum (can be Quantity)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           z-component of the angular momentum
+
+        HISTORY:
+
+           2018-08-29 - Written - Bovy (UofT)
+
+        """
+        return self._orb.Lz(*args,**kwargs)
+
     def ER(self,*args,**kwargs):
         """
         NAME:
@@ -1084,6 +1116,46 @@ class Orbit(object):
         if not pot is None: pot= flatten_potential(pot)
         _check_consistent_units(self,pot)
         return self._orb.rperi(analytic=analytic,pot=pot,**kwargs)
+
+    @physical_conversion('position')
+    def rguiding(self,*args,**kwargs):
+        """
+        NAME:
+
+           rguiding
+
+        PURPOSE:
+
+           calculate the guiding-center radius (the radius of a circular orbit with the same angular momentum)
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           R_guiding
+
+        HISTORY:
+
+           2018-08-29 - Written as thin wrapper around Potential.rl - Bovy (UofT)
+
+        """
+        pot= kwargs.get('pot',None)
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        Lz= self.Lz(*args,use_physical=False)
+        return nu.array([rl(pot,lz,use_physical=False) for lz in Lz])
 
     def zmax(self,analytic=False,pot=None,**kwargs):
         """
