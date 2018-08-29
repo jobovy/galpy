@@ -4508,6 +4508,20 @@ def test_from_name_errors():
     assert str(excinfo.value) == msg, \
         "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
+def test_rguiding_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding(pot=np)
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
