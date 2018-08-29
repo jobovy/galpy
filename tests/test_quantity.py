@@ -228,8 +228,10 @@ def test_orbit_method_returntype_scalar():
     assert isinstance(o.Ez(pot=MWPotential2014),units.Quantity), 'Orbit method Ez does not return Quantity when it should'
     assert isinstance(o.Jacobi(pot=MWPotential2014),units.Quantity), 'Orbit method Jacobi does not return Quantity when it should'
     assert isinstance(o.L(),units.Quantity), 'Orbit method L does not return Quantity when it should'
+    assert isinstance(o.Lz(),units.Quantity), 'Orbit method Lz does not return Quantity when it should'
     assert isinstance(o.rap(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method rap does not return Quantity when it should'
     assert isinstance(o.rperi(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method rperi does not return Quantity when it should'
+    assert isinstance(o.rguiding(pot=MWPotential2014),units.Quantity), 'Orbit method rguiding does not return Quantity when it should'
     assert isinstance(o.zmax(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method zmax does not return Quantity when it should'
     assert isinstance(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jr does not return Quantity when it should'
     assert isinstance(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jp does not return Quantity when it should'
@@ -290,6 +292,7 @@ def test_orbit_method_returntype():
     assert isinstance(o.Ez(ts),units.Quantity), 'Orbit method Ez does not return Quantity when it should'
     assert isinstance(o.Jacobi(ts),units.Quantity), 'Orbit method Jacobi does not return Quantity when it should'
     assert isinstance(o.L(ts),units.Quantity), 'Orbit method L does not return Quantity when it should'
+    assert isinstance(o.Lz(ts),units.Quantity), 'Orbit method L does not return Quantity when it should'
     assert isinstance(o.time(ts),units.Quantity), 'Orbit method time does not return Quantity when it should'
     assert isinstance(o.R(ts),units.Quantity), 'Orbit method R does not return Quantity when it should'
     assert isinstance(o.r(ts),units.Quantity), 'Orbit method r does not return Quantity when it should'
@@ -351,6 +354,10 @@ def test_orbit_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Orbit method L does not return Quantity with the right units')
     try:
+        o.Lz().to(units.km**2/units.s)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method Lz does not return Quantity with the right units')
+    try:
         o.rap(pot=MWPotential2014,analytic=True).to(units.kpc)
     except units.UnitConversionError:
         raise AssertionError('Orbit method rap does not return Quantity with the right units')
@@ -358,6 +365,10 @@ def test_orbit_method_returnunit():
         o.rperi(pot=MWPotential2014,analytic=True).to(units.kpc)
     except units.UnitConversionError:
         raise AssertionError('Orbit method rperi does not return Quantity with the right units')
+    try:
+        o.rguiding(pot=MWPotential2014).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Orbit method rguiding does not return Quantity with the right units')
     try:
         o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc)
     except units.UnitConversionError:
@@ -557,8 +568,10 @@ def test_orbit_method_value():
     assert numpy.fabs(o.Ez(pot=MWPotential2014).to(units.km**2/units.s**2).value-oc.Ez(pot=MWPotential2014)*o._vo**2.) < 10.**-8., 'Orbit method Ez does not return the correct value as Quantity'
     assert numpy.fabs(o.Jacobi(pot=MWPotential2014).to(units.km**2/units.s**2).value-oc.Jacobi(pot=MWPotential2014)*o._vo**2.) < 10.**-8., 'Orbit method Jacobi does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014).to(units.km/units.s*units.kpc).value-oc.L(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method L does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(o.Lz(pot=MWPotential2014).to(units.km/units.s*units.kpc).value-oc.Lz(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method L does not return the correct value as Quantity'
     assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.rap(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rap does not return the correct value as Quantity'
     assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rperi does not return the correct value as Quantity'
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014).to(units.kpc).value-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rguiding does not return the correct value as Quantity'
     assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method zmax does not return the correct value as Quantity'
     assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km/units.s*units.kpc).value-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jr does not return the correct value as Quantity'
     assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc).to(units.km/units.s*units.kpc).value-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jp does not return the correct value as Quantity'
@@ -620,8 +633,10 @@ def test_orbit_method_value_turnquantityoff():
     assert numpy.fabs(o.Ez(pot=MWPotential2014,quantity=False)-oc.Ez(pot=MWPotential2014)*o._vo**2.) < 10.**-8., 'Orbit method Ez does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.Jacobi(pot=MWPotential2014,quantity=False)-oc.Jacobi(pot=MWPotential2014)*o._vo**2.) < 10.**-8., 'Orbit method Jacobi does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.L(pot=MWPotential2014,quantity=False)-oc.L(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method L does not return the correct value when Quantity turned off'
+    assert numpy.all(numpy.fabs(o.Lz(pot=MWPotential2014,quantity=False)-oc.Lz(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method L does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.rap(pot=MWPotential2014,analytic=True,quantity=False)-oc.rap(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rap does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,quantity=False)-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rperi does not return the correct value when Quantity turned off'
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014,quantity=False)-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rguiding does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,quantity=False)-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method zmax does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,quantity=False)-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jr does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc,quantity=False)-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jp does not return the correct value when Quantity turned off'

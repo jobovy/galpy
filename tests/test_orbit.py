@@ -1404,6 +1404,52 @@ def test_analytic_ecc_rperi_rap():
     #raise AssertionError
     return None
     
+def test_orbit_rguiding():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
+def test_orbit_rguiding_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
 # Check that zmax calculated analytically agrees with numerical calculation
 def test_analytic_zmax():
     #Basic parameters for the test
