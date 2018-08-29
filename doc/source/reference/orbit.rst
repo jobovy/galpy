@@ -44,6 +44,7 @@ Methods
    jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
+   Lz <orbitlz.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>
    Oz <orbitoz.rst>
@@ -73,6 +74,7 @@ Methods
    ra <orbitra.rst>
    rap <orbitrap.rst>
    resetaA <orbitresetaa.rst>
+   rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
    SkyCoord <orbitskycoord.rst>
