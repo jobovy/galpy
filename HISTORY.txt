@@ -46,6 +46,10 @@ v1.4 (??????)
 - Add from_name class method of Orbit, which allows Orbit instances to
   be initialized using the coordinates of a named object found in SIMBAD.
 
+- Add rguiding method of Orbit, to compute the guiding-center radius
+  of an orbit. Also added Lz method to easily obtain the z-component
+  of the angular momentum for different types of orbits.
+
 - Defined Orbit initialization without any arguments (or, more
   generally, without specifying the vxvv initial phase-space input) to
   return an Orbit instances representing the Sun. Can therefore setup
