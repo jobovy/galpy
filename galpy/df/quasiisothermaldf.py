@@ -1717,9 +1717,8 @@ class quasiisothermaldf(df):
     
         OUTPUT:
             
-            coord_v= a numpy array containing the original coordinate but
-                            with velocity attached. Each coordinate is of the
-                            form (R, z, vR, vT, vz)
+            coord_v= a numpy array containing the sampled velocity, (vR, vT, vz),
+                     where each row correspond to the row of (R,z)
     
         HISTORY:
             
@@ -1727,9 +1726,8 @@ class quasiisothermaldf(df):
             
         """
         #Initialize output array
-        coord_v= numpy.empty((numpy.size(R), 5))
+        coord_v= numpy.empty((numpy.size(R), 3))
         #Since the sign of z doesn't matter, work with absolute value of z
-        z_original= z
         z= numpy.abs(z)
         #Separate the coodinates into outliers and normal points.
         mean_R= numpy.mean(R)
@@ -1740,16 +1738,12 @@ class quasiisothermaldf(df):
                        numpy.abs(z - mean_z) > num_std*std_z], axis = 0)
         outliers_R= R[mask]
         outliers_z= z[mask]
-        outliers_z_original= z_original[mask]
         normal_R= R[~mask]
         normal_z= z[~mask]
-        normal_z_original= z_original[~mask]
         #Sample the velocity of outliers directly (without interpolation)
-        outlier_coord_v= numpy.empty((outliers_R.size, 5))
+        outlier_coord_v= numpy.empty((outliers_R.size, 3))
         for i in range(outliers_R.size):
-            vR, vT, vz= self.sampleV(outliers_R[i], outliers_z[i])[0]
-            outlier_coord_v[i]= numpy.array([outliers_R[i],
-                                            outliers_z_original[i],vR,vT,vz])
+            outlier_coord_v[i]= self.sampleV(outliers_R[i], outliers_z[i])[0]
         #Prepare for optimizing maxVT on a grid
         #Edges of grid determined by input, unless prespecified by users
         if R_min is None:
@@ -1794,8 +1788,7 @@ class quasiisothermaldf(df):
         #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z_original,
-                                                  normal_max_vT)
+        normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,normal_max_vT)
         #Combine normal and outlier result, preserving original order
         coord_v[mask]= outlier_coord_v
         coord_v[~mask]= normal_coord_v
@@ -1822,7 +1815,8 @@ class quasiisothermaldf(df):
 
         OUTPUT:
 
-           array of [R,z,vR,vT,vz]
+           a numpy array containing the sampled velocity, (vR, vT, vz),
+           where each row correspond to the row of (R,z)
 
         HISTORY:
 
@@ -1830,7 +1824,7 @@ class quasiisothermaldf(df):
 
         """
         length = numpy.size(R)
-        out= numpy.empty((length,5)) #Initialize output
+        out= numpy.empty((length,3)) #Initialize output
         #Determine the maximum of the velocity distribution
         maxVR= numpy.zeros(length)
         maxVz= numpy.zeros(length)
@@ -1849,8 +1843,6 @@ class quasiisothermaldf(df):
                              propvz**2./4./self._sz**2.+
                              (propvT-maxVT[remain_indx])**2./4./self._sr**2.)
             accept_indx= (VDatprop > numpy.log(numpy.random.random(size=nmore)))
-            R_accept= R[remain_indx][accept_indx]
-            z_accept= z[remain_indx][accept_indx]
             vR_accept= propvR[accept_indx]
             vT_accept= propvT[accept_indx]
             vz_accept= propvz[accept_indx]
@@ -1858,16 +1850,13 @@ class quasiisothermaldf(df):
             #with newly accepted velocity
             to_change= numpy.copy(remain_indx)
             to_change[remain_indx]= accept_indx
-            out[to_change]= numpy.stack((R_accept,z_accept,vR_accept,vT_accept,
-               vz_accept), axis = 1)
+            out[to_change]= numpy.stack((vR_accept,vT_accept,vz_accept), axis = 1)
             #Removing accepted sampled from remain index
             remain_indx[remain_indx]= ~accept_indx
-        if _APY_UNITS:
-            if self._voSet:
-                out[:,2:5]= units.Quantity(out[:,2:5]*self._vo,unit=units.km/units.s)
-            if self._roSet:
-                out[:,0:2]= units.Quantity(out[:,0:2]*self._ro,unit=units.kpc)
-        return out
+        if _APY_UNITS and self._voSet:
+            return units.Quantity(out*self._vo,unit=units.km/units.s)
+        else:
+            return out
 
     @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
