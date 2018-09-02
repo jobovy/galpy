@@ -413,36 +413,26 @@ def test_sampleV_interpolate():
         #add outlier
         R= numpy.append(R,8.0)
         z= numpy.append(z,5.0)
-        #shuffle up the order to test order preservation
-        permutation = numpy.random.permutation(R.size)
-        R_shuffled = R[permutation]
-        z_shuffled = z[permutation]
-        # apply sample V interpolate to shuffled arrays
-        samples_scrambled = qdf.sampleV_interpolate(R_shuffled,z_shuffled,0.07,0.07)
-        # unscramble by sorting by first two columns
-        temp = samples_scrambled[samples_scrambled[:,0].argsort()]
-        samples= temp[temp[:,1].argsort()]
-        #test order preservation
-        assert numpy.all(samples_scrambled[:,0] - R_shuffled == 0.), "sampleV interpolate does not preserve order"
-        #only test the second 1000, at R=0.8,z=0.1
+        # apply sample V interpolate
+        samples = qdf.sampleV_interpolate(R,z,0.07,0.07)
         samples = samples[1000:2000,:]
         #test vR
-        assert numpy.fabs(numpy.mean(samples[:,2])) < 0.02, 'sampleV interpolate vR mean is not zero'
-        assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1))) < 0.05, 'sampleV interpolate vR stddev is not equal to sigmaR'
+        assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02, 'sampleV interpolate vR mean is not zero'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,0]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1))) < 0.05, 'sampleV interpolate vR stddev is not equal to sigmaR'
         #test vT
-        assert numpy.fabs(numpy.mean(samples[:,3]-qdf.meanvT(0.8,0.1))) < 0.015, 'sampleV interpolate vT mean is not equal to meanvT'
-        assert numpy.fabs(numpy.log(numpy.std(samples[:,3]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1))) < 0.05, 'sampleV interpolate vT stddev is not equal to sigmaT'
+        assert numpy.fabs(numpy.mean(samples[:,1]-qdf.meanvT(0.8,0.1))) < 0.015, 'sampleV interpolate vT mean is not equal to meanvT'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,1]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1))) < 0.05, 'sampleV interpolate vT stddev is not equal to sigmaT'
         #test vz
-        assert numpy.fabs(numpy.mean(samples[:,4])) < 0.01, 'sampleV interpolate vz mean is not zero'
-        assert numpy.fabs(numpy.log(numpy.std(samples[:,4]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz interpolate stddev is not equal to sigmaz'
+        assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01, 'sampleV interpolate vz mean is not zero'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz interpolate stddev is not equal to sigmaz'
         return None
-    #test the sampling at (0.8,0.2) with different order of interpolation
+    #test the sampling at (0.8,0.1) with different order of interpolation
     #which is determined by R_number and z_number
     Rz_array([0.7,0.8,0.9],[0.,0.1,0.2]) #R_number=2, z_number=2
     Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=4, z_number=4
     Rz_array([0.8,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=2, z_number=4
     Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.2]) #R_number=4, z_number=2
-    #test saved hash and interpolation object, as well as absolute value of z
+    #test saved hash and interpolation object
     Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
     hash1= qdf._maxVT_hash
     ip1= qdf._maxVT_ip
