@@ -4230,6 +4230,8 @@ def test_quasiisothermaldf_method_returntype():
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                            cutcounter=True,ro=8.,vo=220.)
     o= Orbit([1.1,0.1,1.1,0.1,0.03,0.4])
+    R= numpy.array([1.0,1.1,1.2,1.3])
+    z= numpy.array([-0.1,0.,0.1,0.2])
     assert isinstance(qdf(o),units.Quantity), 'quasiisothermaldf method __call__ does not return Quantity when it should'
     assert isinstance(qdf.estimate_hr(1.1),units.Quantity), 'quasiisothermaldf method estimate_hr does not return Quantity when it should'
     assert isinstance(qdf.estimate_hz(1.1,0.1),units.Quantity), 'quasiisothermaldf method estimate_hz does not return Quantity when it should'
@@ -4249,6 +4251,7 @@ def test_quasiisothermaldf_method_returntype():
     assert isinstance(qdf.meanlz(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanlz does not return Quantity when it should'
     assert isinstance(qdf.meanjz(1.1,0.1),units.Quantity), 'quasiisothermaldf method meanjz does not return Quantity when it should'
     assert isinstance(qdf.sampleV(1.1,0.1),units.Quantity), 'quasiisothermaldf method sampleV does not return Quantity when it should'
+    assert isinstance(qdf.sampleV_interpolate(R,z,0.1,0.1),units.Quantity), 'quasiisothermaldf method sampleV_interpolate does not return Quantity when it should'
     assert isinstance(qdf.pvR(0.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvR does not return Quantity when it should'
     assert isinstance(qdf.pvT(1.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvT does not return Quantity when it should'
     assert isinstance(qdf.pvz(0.1,1.1,0.1),units.Quantity), 'quasiisothermaldf method pvz does not return Quantity when it should'
@@ -4278,6 +4281,8 @@ def test_quasiisothermaldf_method_returnunit():
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                            cutcounter=True,ro=8.,vo=220.)
     o= Orbit([1.1,0.1,1.1,0.1,0.03,0.4])
+    R= numpy.array([0.6,0.7,0.8,0.9,1.0])
+    z= numpy.array([0.,0.1,0.2,0.3,0.4])
     try:
         qdf(o).to(1/(units.km/units.s)**3/units.kpc**3)
     except units.UnitConversionError:
@@ -4354,6 +4359,10 @@ def test_quasiisothermaldf_method_returnunit():
         qdf.sampleV(1.1,0.1).to((units.km/units.s))
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method sampleV does not return Quantity with the right units')
+    try:
+        qdf.sampleV_interpolate(R,z,0.1,0.1).to((units.km/units.s))
+    except units.UnitConversionError:
+        raise AssertionError('quasiisothermaldf method sampleV_interpolate does not return Quantity with the right units')
     try:
         qdf.pvR(0.1,1.1,0.1).to(1/(units.km/units.s)/units.pc**3)
     except units.UnitConversionError:
@@ -4468,6 +4477,25 @@ def test_quasiisothermaldf_sample():
     numpy.random.seed(1)
     vnou= qdfnou.sampleV(1.1,0.1,n=1)
     assert numpy.all(numpy.fabs(vu-vnou)< 10.**-8.), 'quasiisothermaldf sampleV does not return correct Quantity'
+    return None
+
+def test_quasiisothermaldf_interpolate_sample():
+    from galpy.potential import MWPotential
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf
+    aA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    ro, vo= 9., 210.
+    R= numpy.array([0.6,0.7,0.8,0.9,1.0])
+    z= numpy.array([0.,0.1,0.2,0.3,0.4])
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                           cutcounter=True,ro=ro,vo=vo)
+    qdfnou= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
+                              cutcounter=True)
+    numpy.random.seed(1)
+    vu= qdf.sampleV_interpolate(R,z,0.1,0.1).to(units.km/units.s).value/vo
+    numpy.random.seed(1)
+    vnou= qdfnou.sampleV_interpolate(R,z,0.1,0.1)
+    assert numpy.all(numpy.fabs(vu-vnou)< 10.**-8.), 'quasiisothermaldf sampleV_interpolate does not return correct Quantity'
     return None
 
 def test_quasiisothermaldf_method_inputAsQuantity():
