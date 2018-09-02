@@ -1734,8 +1734,23 @@ class quasiisothermaldf(df):
         std_R= numpy.std(R)
         mean_z= numpy.mean(z)
         std_z= numpy.std(z)
+        #Define outliers as points either more than <num_std> std away from
+        #mean, or those outside user-specified grid
+        if R_min is None:
+            R_min_temp= 0
+        else:
+            R_min_temp= R_min
+        if R_max is None:
+            R_max_temp= numpy.max(R)
+        else:
+            R_max_temp= R_max
+        if z_max is None:
+            z_max_temp= numpy.max(z)
+        else:
+            z_max_temp= z_max
         mask= numpy.any([numpy.abs(R - mean_R) > num_std*std_R, 
-                       numpy.abs(z - mean_z) > num_std*std_z], axis = 0)
+                       numpy.abs(z - mean_z) > num_std*std_z,
+                       R < R_min_temp, R > R_max_temp, z > z_max_temp],axis = 0)
         outliers_R= R[mask]
         outliers_z= z[mask]
         normal_R= R[~mask]
