@@ -1792,7 +1792,10 @@ class quasiisothermaldf(df):
         #Combine normal and outlier result, preserving original order
         coord_v[mask]= outlier_coord_v
         coord_v[~mask]= normal_coord_v
-        return coord_v
+        if _APY_UNITS and self._voSet:
+            return units.Quantity(coord_v,unit=units.km/units.s)
+        else:
+            return coord_v
 
     def sampleV_preoptimized(self,R,z,maxVT):
         """
