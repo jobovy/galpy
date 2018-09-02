@@ -407,14 +407,15 @@ def test_sampleV_interpolate():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                        pot=MWPotential,aA=aAS,cutcounter=True)
     numpy.random.seed(1)
-    def Rz_array(R_array,z_array):
+    def Rz_array(R_array,z_array,R_min=None,R_max=None,z_max=None):
         R= numpy.hstack([i*numpy.ones(1000) for i in R_array])
         z= numpy.hstack([i*numpy.ones(1000) for i in z_array])
         #add outlier
         R= numpy.append(R,8.0)
         z= numpy.append(z,5.0)
         # apply sample V interpolate
-        samples = qdf.sampleV_interpolate(R,z,0.07,0.07)
+        samples = qdf.sampleV_interpolate(
+                R=R,z=z,R_pixel=0.07,z_pixel=0.07,R_min=R_min,R_max=R_max,z_max=z_max)
         samples = samples[1000:2000,:]
         #test vR
         assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02, 'sampleV interpolate vR mean is not zero'
@@ -446,6 +447,8 @@ def test_sampleV_interpolate():
     assert ip1 == ip2, 'sampleV interpolate interpolation object is changed unexpectedly'
     assert hash3 != hash2, 'sampeV interpolate hash did not changed as expected'
     assert ip3 != ip2, 'sampleV interpolate interpolation object did not changed as expected'
+    #test user-specified grid edges
+    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3],R_min=0.5,R_max=1.1,z_max=0.4) 
     return None
 
 def test_pvR_adiabatic():
