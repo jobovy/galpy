@@ -407,7 +407,7 @@ def test_sampleV_interpolate():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                        pot=MWPotential,aA=aAS,cutcounter=True)
     numpy.random.seed(1)
-    def Rz_array(R_array,z_array,R_min=None,R_max=None,z_max=None):
+    def Rz_array(R_array,z_array,num_std=3,R_min=None,R_max=None,z_max=None):
         R= numpy.hstack([i*numpy.ones(1000) for i in R_array])
         z= numpy.hstack([i*numpy.ones(1000) for i in z_array])
         #add outlier
@@ -415,7 +415,8 @@ def test_sampleV_interpolate():
         z= numpy.append(z,5.0)
         # apply sample V interpolate
         samples = qdf.sampleV_interpolate(
-                R=R,z=z,R_pixel=0.07,z_pixel=0.07,R_min=R_min,R_max=R_max,z_max=z_max)
+                R=R,z=z,R_pixel=0.07,z_pixel=0.07,num_std=num_std,R_min=R_min,
+                R_max=R_max,z_max=z_max)
         samples = samples[1000:2000,:]
         #test vR
         assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02, 'sampleV interpolate vR mean is not zero'
@@ -448,7 +449,11 @@ def test_sampleV_interpolate():
     assert hash3 != hash2, 'sampeV interpolate hash did not changed as expected'
     assert ip3 != ip2, 'sampleV interpolate interpolation object did not changed as expected'
     #test user-specified grid edges
-    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3],R_min=0.5,R_max=1.1,z_max=0.4) 
+    #since num_std is set so high, the extra outlier of (8,5) is not covered
+    #by it. So in order for this function to run in a reasonable time, it must
+    #be that the user-specified grid edges are doing their job
+    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3],num_std=10,
+             R_min=0.7,R_max=1.0,z_max=0.3)
     return None
 
 def test_pvR_adiabatic():
