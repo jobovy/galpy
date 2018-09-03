@@ -444,9 +444,9 @@ def test_sampleV_interpolate():
     Rz_array([0.6,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
     hash3= qdf._maxVT_hash
     ip3= qdf._maxVT_ip
-    assert hash1 == hash2, 'sampeV interpolate hash is changed unexpectedly'
+    assert hash1 == hash2, 'sampleV interpolate hash is changed unexpectedly'
     assert ip1 == ip2, 'sampleV interpolate interpolation object is changed unexpectedly'
-    assert hash3 != hash2, 'sampeV interpolate hash did not changed as expected'
+    assert hash3 != hash2, 'sampleV interpolate hash did not changed as expected'
     assert ip3 != ip2, 'sampleV interpolate interpolation object did not changed as expected'
     #test user-specified grid edges
     #since num_std is set so high, the extra outlier of (8,5) is not covered
@@ -454,6 +454,16 @@ def test_sampleV_interpolate():
     #be that the user-specified grid edges are doing their job
     Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3],num_std=10,
              R_min=0.7,R_max=1.0,z_max=0.3)
+    #test absolute value
+    numpy.random.seed(1)
+    pos= qdf.sampleV_interpolate(numpy.array([0.7,0.8,0.9,1.0]),
+                                 numpy.array([0.1,0.2,0.3,0.4]), R_pixel=0.07,
+                                 z_pixel=0.07)
+    numpy.random.seed(1)
+    neg= qdf.sampleV_interpolate(numpy.array([0.7,0.8,0.9,1.0]),
+                                 numpy.array([-0.1,-0.2,0.3,-0.4]), R_pixel=0.07,
+                                 z_pixel=0.07)
+    assert numpy.all(numpy.fabs(pos-neg)< 10.**-8.), 'sampleV interpolate absolute value of z is incorrect'
     return None
 
 def test_pvR_adiabatic():
