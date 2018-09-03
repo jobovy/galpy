@@ -201,6 +201,18 @@ and lib directories that have the gsl directory). If you already have
 ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
 to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
 
+If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
+
+   gsl-config --cflags
+   gsl-config --libs
+
+(don't include the ``-lgsl lgslcblas`` portion of the latter output.)
+
+I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This typically happens if you install using ``sudo``, but have defined the ``CFLAGS`` etc. environment variables without using sudo. Try using ``sudo -E`` instead, which propagates your own environment variables to the ``sudo`` user.
+
 I'm having issues with OpenMP
 +++++++++++++++++++++++++++++++
 
