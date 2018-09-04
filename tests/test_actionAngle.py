@@ -1480,7 +1480,8 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.FullOrbit import ext_loaded
@@ -1498,7 +1499,8 @@ def test_actionAngleStaeckel_conserved_actions_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -1665,7 +1667,8 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.FullOrbit import ext_loaded
@@ -1683,7 +1686,8 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])

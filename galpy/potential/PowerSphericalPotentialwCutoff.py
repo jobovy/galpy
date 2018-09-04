@@ -194,7 +194,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height

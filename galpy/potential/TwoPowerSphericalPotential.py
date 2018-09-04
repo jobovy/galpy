@@ -8,7 +8,7 @@
 ###############################################################################
 import math as m
 import numpy
-from scipy import special, optimize
+from scipy import special, optimize, integrate
 from galpy.util import bovy_conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
@@ -170,7 +170,7 @@ class TwoPowerSphericalPotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -508,6 +508,38 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3./2.
 
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        if Rma == 0.:
+            return (-12.*self.a**3-5.*self.a*z**2
+                      +numpy.sqrt(1.+z**2/self.a**2)\
+                         *(12.*self.a**3-self.a*z**2+2/self.a*z**4))\
+                          /30./numpy.pi*z**-5.
+        else:
+            return self.a*((2.*self.a**2.+R**2.)*Rma**-5\
+                               *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
+                           +z*(5.*self.a**3.*r-4.*self.a**4
+                               +self.a**2*(2.*r**2.+R**2)
+                               -self.a*r*(5.*R**2.+3.*z**2.)+R**2.*r**2.)
+                           /(self.a**2.-R**2.)**2.
+                           /(r**2-self.a**2.)**2.).real/4./numpy.pi
+
     def _mass(self,R,z=0.,t=0.):
         """
         NAME:
@@ -674,6 +706,37 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
             *(self.a+sqrtRz)**-2.
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        if Rma == 0.:
+            return (3.*z**2.-2.*self.a**2.
+                    +2.*numpy.sqrt(1.+(z/self.a)**2.)\
+                        *(self.a**2.-2.*z**2.)
+                    +3.*z**3./self.a*numpy.arctan(z/self.a))\
+                    /self.a/z**3./6./numpy.pi
+        else:
+            return ((2.*self.a**2.-R**2.)*Rma**-3\
+                        *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
+                    +numpy.arctan(z/R)/R
+                    -self.a*z/(R**2-self.a**2)/(r+self.a)).real\
+                    /self.a/2./numpy.pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -884,6 +947,32 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= numpy.sqrt(Rz)
         return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        if Rma == 0.:
+            za2= (z/self.a)**2
+            return self.a*(2.+numpy.sqrt(za2+1.)*(za2-2.))/6./numpy.pi/z**3
+        else:
+            return (self.a*Rma**-3\
+                        *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
+                    +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
 
     def _mass(self,R,z=0.,t=0.):
         """

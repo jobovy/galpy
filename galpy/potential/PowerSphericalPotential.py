@@ -7,7 +7,7 @@
 #                                   r^\alpha
 ###############################################################################
 import numpy as nu
-from scipy import special, integrate
+from scipy import special
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -182,7 +182,7 @@ class PowerSphericalPotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -195,6 +195,25 @@ class PowerSphericalPotential(Potential):
         """
         r= nu.sqrt(R**2.+z**2.)
         return (3.-self.alpha)/4./nu.pi/r**self.alpha
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return (3.-self.alpha)/2./nu.pi*z*R**-self.alpha\
+            *special.hyp2f1(0.5,self.alpha/2.,1.5,-(z/R)**2)
 
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler (point mass) potential

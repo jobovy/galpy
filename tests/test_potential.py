@@ -35,7 +35,8 @@ def test_normalize_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -160,7 +161,8 @@ def test_forceAsDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -323,7 +325,8 @@ def test_2ndDeriv_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -542,7 +545,8 @@ def test_poisson_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -596,6 +600,112 @@ def test_poisson_potential():
                     else:
                         assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
                             "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+    return None
+                        
+#Test whether the (integrated) Poisson equation is satisfied if _surfdens and the relevant second derivatives are implemented
+def test_poisson_surfdens_potential():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p)]
+    pots.append('testMWPotential')
+    """
+    pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('specialPowerSphericalPotential')
+    pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
+    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('HernquistTwoPowerTriaxialPotential')
+    pots.append('NFWTwoPowerTriaxialPotential')
+    pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
+    pots.append('nestedListPotential')
+    """
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    if False: #_TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('RazorThinExponentialDiskPotential') # R2deriv not implemented for |Z| > 0
+    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
+    for p in rmpots:
+        pots.remove(p)
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([.125,0.25,1.,10.])
+    phis= numpy.array([0.,0.5,-0.5,1.,-1.,
+                       numpy.pi,0.5+numpy.pi,
+                       1.+numpy.pi])
+    #tolerances in log10
+    tol= {}
+    tol['default']= -8.
+    tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
+    tol['SphericalShellPotential']= -0 # Direct integration fails to deal with delta function!
+    #tol['SpiralArmsPotential']= -3 #these are more difficult
+    #tol['rotatingSpiralArmsPotential']= -3
+    #tol['specialSpiralArmsPotential']= -4
+    #tol['SolidBodyRotationSpiralArmsPotential']= -2.9 #these are more difficult
+    #tol['nestedListPotential']= -3 #these are more difficult
+    #tol['RazorThinExponentialDiskPotential']= -6.
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #if 'Isochrone' in p: continue #For testing the test
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if hasattr(tp,'normalize'): tp.normalize(1.)
+        #Set tolerance
+        if p in list(tol.keys()): ttol= tol[p]
+        else: ttol= tol['default']
+        #2nd radial
+        if not hasattr(tp,'_surfdens') or not hasattr(tp,'_R2deriv') \
+                or not hasattr(tp,'_Rforce') or not hasattr(tp,'phi2deriv') \
+                or not hasattr(tp,'_zforce') \
+                or (tclass._surfdens == potential.Potential._surfdens and not p == 'FlattenedPowerPotential'): # make sure _surfdens is explicitly implemented
+            continue
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                for kk in range(len(phis)):
+                    tpoissondens= tp.surfdens(Rs[ii],Zs[jj],phi=phis[kk],
+                                                 forcepoisson=True)
+                    tdens= potential.evaluateSurfaceDensities(tp,Rs[ii],Zs[jj],
+                                                              phi=phis[kk],
+                                                              forcepoisson=False)
+                    if tdens**2. < 10.**ttol:
+                        assert tpoissondens**2. < 10.**ttol, \
+                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                    else:
+                        assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
+                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
     return None
                         
 #Test whether the _evaluate function is correctly implemented in specifying derivatives
@@ -660,7 +770,8 @@ def test_evaluateAndDerivs_potential():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -974,7 +1085,8 @@ def test_toVertical_toPlanar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1417,7 +1529,7 @@ def test_TriaxialNFW_virialsetup_wrtmeanmatter():
                                         H=H,Om=Om,overdens=overdens,
                                         wrtcrit=wrtcrit)
     assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
-    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
 def test_TriaxialNFW_virialsetup_wrtcrit():
@@ -1432,7 +1544,7 @@ def test_TriaxialNFW_virialsetup_wrtcrit():
                                         H=H,Om=Om,overdens=overdens,
                                         wrtcrit=wrtcrit)
     assert numpy.fabs(np.a-tnp.a) < 10.**-10., "TriaxialNFWPotential virial setup's concentration does not work"
-    assert numpy.fabs(np._amp-tnp._amp) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
+    assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
 def test_conc_attributeerror():
@@ -1923,6 +2035,8 @@ def test_nonaxierror_function():
         potential.evaluaterforces(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluater2derivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluateSurfaceDensities(tnp,1.,0.1)
     return None
 
 def test_SoftenedNeedleBarPotential_density():
@@ -2279,6 +2393,15 @@ def test_ttensor_nonaxi():
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.ttensor(lp,1.,0.,0.)
     return None
+
+# Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
+def test_scf_tupleindexwarning():
+    import warnings
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("error",FutureWarning)
+        p= mockSCFZeeuwPotential()
+        p.Rforce(1.,0.)
+    return None   
 
 def test_plotting():
     import tempfile
@@ -2841,7 +2964,7 @@ class mockSCFDensityPotential(potential.SCFPotential):
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    evaluateDensities, _isNonAxi
+    evaluateDensities, _isNonAxi, evaluateSurfaceDensities
 from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
@@ -2875,6 +2998,9 @@ class testMWPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(self._potlist,R,z,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
+    def _surfdens(self,R,z,phi=0.,t=0.,forcepoisson=False):
+        return evaluateSurfaceDensities(self._potlist,R,z,phi=phi,t=t,
+                                        forcepoisson=forcepoisson)
     def vcirc(self,R):
         return potential.vcirc(self._potlist,R)
     def normalize(self,norm,t=0.):

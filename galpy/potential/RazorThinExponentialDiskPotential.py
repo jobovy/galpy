@@ -225,3 +225,21 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         return nu.infty
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Sigma (R,z)
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return nu.exp(-self._alpha*R)

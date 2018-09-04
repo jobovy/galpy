@@ -37,6 +37,7 @@ Use as ``Potential-instance.method(...)``
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
+   surfdens <potentialsurfdens.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    ttensor <potentialttensor.rst>
@@ -78,6 +79,7 @@ Use as ``method(...)``
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>
+   evaluateSurfaceDensities <potentialsurfdensities.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
    flatten <potentialflatten.rst>
@@ -152,22 +154,46 @@ Axisymmetric potentials
    potentialring.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial, spiral, and bar potentials
-************************************
+Ellipsoidal triaxial  potentials
+********************************
+
+``galpy`` has very general support for implementing triaxial (or the
+oblate and prolate special cases) of ellipsoidal potentials through
+the general ``EllipsoidalPotential`` class. These potentials have
+densities that are uniform on ellipsoids, thus only functions of
+:math:`m^2 = x^2 + \frac{y^2}{b^2}+\frac{z^2}{c^2}`. New potentials
+of this type can be implemented by inheriting from this class and
+implementing the ``_mdens(self,m)``, ``_psi(self,m)``, and
+``_mdens_deriv`` functions for the density, its integral with respect
+to :math:`m^2`, and its derivative with respect to m,
+respectively. For adding a C implementation, follow similar steps (use
+``PerfectEllipsoidPotential`` as an example to follow).
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialperfectellipsoid.rst
+   potentialdoublepowertriaxial.rst
+   potentialtriaxialjaffe.rst
+   potentialtriaxialhernquist.rst
+   potentialtriaxialnfw.rst
+
+Note that the Ferrers potential listed below is a potential of this
+type, but it is currently not implemented using the
+``EllipsoidalPotential`` class.
+
+Spiral, bar, other triaxial, and miscellaneous potentials
+**********************************************************
 
 .. toctree::
    :maxdepth: 2
 
    potentialdehnenbar.rst
-   potentialdoublepowertriaxial.rst
    potentialferrers.rst
    potentialloghalo.rst
    potentialmovingobj.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
-   potentialtriaxialjaffe.rst
-   potentialtriaxialhernquist.rst
-   potentialtriaxialnfw.rst
 
 All ``galpy`` potentials can also be made to rotate using the ``SolidBodyRotationWrapperPotential`` listed in the section on wrapper potentials :ref:`below <potwrapperapi>`.
 

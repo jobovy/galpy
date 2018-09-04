@@ -139,7 +139,8 @@ def test_energy_jacobi_conservation():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -547,7 +548,8 @@ def test_liouville_planar():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
@@ -562,6 +564,7 @@ def test_liouville_planar():
     rmpots.append('DiskSCFPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -672,7 +675,8 @@ def test_eccentricity():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -794,7 +798,8 @@ def test_pericenter():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -915,7 +920,8 @@ def test_apocenter():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1036,7 +1042,8 @@ def test_zmax():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1144,7 +1151,8 @@ def test_analytic_ecc_rperi_rap():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1396,6 +1404,52 @@ def test_analytic_ecc_rperi_rap():
     #raise AssertionError
     return None
     
+def test_orbit_rguiding():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
+def test_orbit_rguiding_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
 # Check that zmax calculated analytically agrees with numerical calculation
 def test_analytic_zmax():
     #Basic parameters for the test
@@ -1415,7 +1469,8 @@ def test_analytic_zmax():
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -4452,6 +4507,20 @@ def test_from_name_errors():
     msg = "failed to find some coordinates for GRB 090423 in SIMBAD"
     assert str(excinfo.value) == msg, \
         "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+def test_rguiding_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding(pot=np)
+    return None
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):

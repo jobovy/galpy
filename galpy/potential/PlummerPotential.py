@@ -135,6 +135,25 @@ class PlummerPotential(Potential):
         """
         return 3./4./nu.pi*self._b2*(R**2.+z**2.+self._b2)**-2.5
 
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        Rb= R**2.+self._b2
+        return self._b2*z*(3.*Rb+2.*z**2.)/Rb**2.*(Rb+z**2.)**-1.5/2./nu.pi
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
