@@ -1625,7 +1625,7 @@ class quasiisothermaldf(df):
                                             **kwargs))
         
     @potential_physical_input
-    def sampleV(self,R,z,n=1):
+    def sampleV(self,R,z,n=1,**kwargs):
         """
         NAME:
 
@@ -1652,6 +1652,12 @@ class quasiisothermaldf(df):
            2012-12-17 - Written - Bovy (IAS)
 
         """
+        use_physical= kwargs.pop('use_physical',True)
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
         #Determine the maximum of the velocity distribution
         maxVR= 0.
         maxVz= 0.
@@ -1683,8 +1689,11 @@ class quasiisothermaldf(df):
         out[:,0]= vRs[0:n]
         out[:,1]= vTs[0:n]
         out[:,2]= vzs[0:n]
-        if _APY_UNITS and self._voSet:
-            return units.Quantity(out*self._vo,unit=units.km/units.s)
+        if use_physical and not vo is None:
+            if _APY_UNITS:
+                return units.Quantity(out*vo,unit=units.km/units.s)
+            else:
+                return out*vo
         else:
             return out
 

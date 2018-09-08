@@ -403,6 +403,24 @@ def test_sampleV():
     assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
     return None
 
+def test_sampleV_physical():
+    # Test physical output of sampleV
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    numpy.random.seed(1)
+    vo= 225.
+    samples= qdf.sampleV(0.8,0.1,n=1000,vo=vo)
+    #test vR
+    assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02*vo, 'sampleV vR mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,0]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vR stddev is not equal to sigmaR'
+    #test vT
+    assert numpy.fabs(numpy.mean(samples[:,1]-qdf.meanvT(0.8,0.1,vo=vo))) < 0.015*vo, 'sampleV vT mean is not equal to meanvT'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,1]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vT stddev is not equal to sigmaT'
+    #test vz
+    assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01*vo, 'sampleV vz mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
+    return None
+
 def test_sampleV_interpolate():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                        pot=MWPotential,aA=aAS,cutcounter=True)
