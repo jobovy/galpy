@@ -425,7 +425,7 @@ def test_sampleV_interpolate():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                        pot=MWPotential,aA=aAS,cutcounter=True)
     vo= 225.
-    numpy.random.seed(1)
+    numpy.random.seed(3)
     def Rz_array(R_array,z_array,num_std=3,R_min=None,R_max=None,z_max=None):
         R= numpy.hstack([i*numpy.ones(1000) for i in R_array])
         z= numpy.hstack([i*numpy.ones(1000) for i in z_array])

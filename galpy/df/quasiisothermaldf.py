@@ -1744,28 +1744,20 @@ class quasiisothermaldf(df):
         coord_v= numpy.empty((numpy.size(R), 3))
         #Since the sign of z doesn't matter, work with absolute value of z
         z= numpy.abs(z)
-        #Separate the coodinates into outliers and normal points.
-        mean_R= numpy.mean(R)
-        std_R= numpy.std(R)
-        mean_z= numpy.mean(z)
-        std_z= numpy.std(z)
-        #Define outliers as points either more than <num_std> std away from
-        #mean, or those outside user-specified grid
+        # Grid edges
         if R_min is None:
-            R_min_temp= 0
-        else:
-            R_min_temp= R_min
+            R_min= numpy.amax([numpy.mean(R)-num_std*numpy.std(R),
+                               numpy.amin(R)])
         if R_max is None:
-            R_max_temp= numpy.max(R)
-        else:
-            R_max_temp= R_max
+            R_max= numpy.amin([numpy.mean(R)+num_std*numpy.std(R),
+                               numpy.amax(R)])
         if z_max is None:
-            z_max_temp= numpy.max(z)
-        else:
-            z_max_temp= z_max
-        mask= numpy.any([numpy.abs(R - mean_R) > num_std*std_R, 
-                       numpy.abs(z - mean_z) > num_std*std_z,
-                       R < R_min_temp, R > R_max_temp, z > z_max_temp],axis = 0)
+            z_max= numpy.amin([numpy.mean(z)+num_std*numpy.std(z),
+                               numpy.amax(z)])
+        z_min= 0. #Always start grid at z=0 for stars close to plane
+        #Separate the coodinates into outliers and normal points
+        #Define outliers as points outside of grid
+        mask= numpy.any([R < R_min, R > R_max, z > z_max],axis = 0)
         outliers_R= R[mask]
         outliers_z= z[mask]
         normal_R= R[~mask]
@@ -1776,15 +1768,7 @@ class quasiisothermaldf(df):
             outlier_coord_v[i]= self.sampleV(outliers_R[i], outliers_z[i],
                                              use_physical=False)[0]
         #Prepare for optimizing maxVT on a grid
-        #Edges of grid determined by input, unless prespecified by users
-        if R_min is None:
-            R_min= numpy.min(normal_R)
-        if R_max is None:
-            R_max= numpy.max(normal_R)
-        if z_max is None:
-            z_max= numpy.max(normal_z)
-        z_min= 0. #Always start grid at z=0 for stars close to plane
-        #Get the new hash of the parameters of grid
+         #Get the new hash of the parameters of grid
         new_hash= hashlib.md5(numpy.array([R_min,R_max,z_max,R_pixel,z_pixel])).hexdigest()
         #Reuse old interpolated object if new hash matches the old one
         if new_hash == self._maxVT_hash:
