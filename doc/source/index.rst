@@ -354,6 +354,14 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The origin of accreted stellar halo populations in the Milky Way using APOGEE, Gaia, and the EAGLE simulations*, J. Ted Mackereth, Ricardo P. Schiavon, Joel Pfeffer, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1808.00968 <http://arxiv.org/abs/1808.00968>`_)
 
+#. *The vertical motion history of disk stars throughout the Galaxy*, Yuan-Sen Ting & Hans-Walter Rix (2018) *Astrophys. J.*, submitted (`arXiv/1808.03278 <http://arxiv.org/abs/1808.03278>`_)
+
+#. *A kinematical age for the interstellar object 1I/'Oumuamua*, F. Almeida-Fernandes & H. J. Rocha-Pinto (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1808.03637 <http://arxiv.org/abs/1808.03637>`_)
+
+#. *Masses and ages for metal-poor stars: a pilot program combining asteroseismology and high-resolution spectroscopic follow-up of RAVE halo stars*, M. Valentini, C. Chiappini, D. Bossini, et al. (2018) *Astron. & Astrophys.*, submitted (`arXiv/1808.08569 <http://arxiv.org/abs/1808.08569>`_)
+
+#. *On the radial metallicity gradient and radial migration effect of the Galactic disk*, Yunpeng Jia, Yuqin Chen, Gang Zhao, Xiangxiang Xue, Jingkun Zhao, Chengqun Yang, & Chengdong Li (2018) *Astrophys. J.*, in press (`arXiv/1808.05386 <http://arxiv.org/abs/1808.05386>`_)
+
 Indices and tables
 ==================
 
