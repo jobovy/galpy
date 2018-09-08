@@ -4503,6 +4503,13 @@ def test_quasiisothermaldf_interpolate_sample():
     numpy.random.seed(1)
     vnou= qdfnou.sampleV_interpolate(R,z,0.1,0.1)
     assert numpy.all(numpy.fabs(vu-vnou)< 10.**-8.), 'quasiisothermaldf sampleV_interpolate does not return correct Quantity'
+    # Also when giving vo with units itself
+    numpy.random.seed(1)
+    vu= qdf.sampleV_interpolate(R,z,0.1,0.1,vo=vo*units.km/units.s)\
+        .to(units.km/units.s).value/vo
+    numpy.random.seed(1)
+    vnou= qdfnou.sampleV_interpolate(R,z,0.1,0.1)
+    assert numpy.all(numpy.fabs(vu-vnou)< 10.**-8.), 'quasiisothermaldf sampleV_interpolate does not return correct Quantity'
     return None
 
 def test_quasiisothermaldf_method_inputAsQuantity():

@@ -1699,7 +1699,7 @@ class quasiisothermaldf(df):
 
     @potential_physical_input
     def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3,R_min=None,
-                            R_max=None,z_max=None):
+                            R_max=None,z_max=None,**kwargs):
         """
         NAME:
             
@@ -1734,6 +1734,12 @@ class quasiisothermaldf(df):
             2018-08-10 - Written - Samuel Wong (University of Toronto)
             
         """
+        use_physical= kwargs.pop('use_physical',True)
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
         #Initialize output array
         coord_v= numpy.empty((numpy.size(R), 3))
         #Since the sign of z doesn't matter, work with absolute value of z
@@ -1766,14 +1772,9 @@ class quasiisothermaldf(df):
         normal_z= z[~mask]
         #Sample the velocity of outliers directly (without interpolation)
         outlier_coord_v= numpy.empty((outliers_R.size, 3))
-        if _APY_UNITS and self._voSet:
-            for i in range(outliers_R.size):
-                #Strip off astropy unit
-                outlier_coord_v[i]= self.sampleV(outliers_R[i], 
-                               outliers_z[i])[0].to(units.km/units.s).value
-        else:
-            for i in range(outliers_R.size):
-                outlier_coord_v[i]= self.sampleV(outliers_R[i], outliers_z[i])[0]
+        for i in range(outliers_R.size):
+            outlier_coord_v[i]= self.sampleV(outliers_R[i], outliers_z[i],
+                                             use_physical=False)[0]
         #Prepare for optimizing maxVT on a grid
         #Edges of grid determined by input, unless prespecified by users
         if R_min is None:
@@ -1818,23 +1819,24 @@ class quasiisothermaldf(df):
         #Evaluate interpolation object to get maxVT at the normal coordinates
         normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
         #Sample all 3 velocities at a normal point and use interpolated vT
-        normal_coord_v= self.sampleV_preoptimized(normal_R,normal_z,normal_max_vT)
+        normal_coord_v= \
+            self._sampleV_preoptimized(normal_R,normal_z,normal_max_vT)
         #Combine normal and outlier result, preserving original order
         coord_v[mask]= outlier_coord_v
-        if _APY_UNITS and self._voSet:
-            coord_v[~mask]= normal_coord_v.to(units.km/units.s).value
-            #The value of coord_v is already in physical unit
-            #Tag the unit back on without multiplying by vo
-            return units.Quantity(coord_v,unit=units.km/units.s)
+        coord_v[~mask]= normal_coord_v
+        if use_physical and not vo is None:
+            if _APY_UNITS:
+                return units.Quantity(coord_v*vo,unit=units.km/units.s)
+            else:
+                return coord_v*vo
         else:
-            coord_v[~mask]= normal_coord_v
             return coord_v
 
-    def sampleV_preoptimized(self,R,z,maxVT):
+    def _sampleV_preoptimized(self,R,z,maxVT):
         """
         NAME:
 
-           sampleV_preoptimized
+           _sampleV_preoptimized
 
         PURPOSE:
 
@@ -1889,10 +1891,7 @@ class quasiisothermaldf(df):
             out[to_change]= numpy.stack((vR_accept,vT_accept,vz_accept), axis = 1)
             #Removing accepted sampled from remain index
             remain_indx[remain_indx]= ~accept_indx
-        if _APY_UNITS and self._voSet:
-            return units.Quantity(out*self._vo,unit=units.km/units.s)
-        else:
-            return out
+        return out
 
     @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
