@@ -2,6 +2,7 @@
 import math
 import warnings
 import numpy
+import hashlib
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
@@ -102,6 +103,8 @@ class quasiisothermaldf(df):
         self._lo= lo
         self._lnsr= math.log(self._sr)
         self._lnsz= math.log(self._sz)
+        self._maxVT_hash= None
+        self._maxVT_ip= None
         if pot is None:
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
@@ -1622,7 +1625,7 @@ class quasiisothermaldf(df):
                                             **kwargs))
         
     @potential_physical_input
-    def sampleV(self,R,z,n=1):
+    def sampleV(self,R,z,n=1,**kwargs):
         """
         NAME:
 
@@ -1649,6 +1652,12 @@ class quasiisothermaldf(df):
            2012-12-17 - Written - Bovy (IAS)
 
         """
+        use_physical= kwargs.pop('use_physical',True)
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
         #Determine the maximum of the velocity distribution
         maxVR= 0.
         maxVz= 0.
@@ -1680,10 +1689,193 @@ class quasiisothermaldf(df):
         out[:,0]= vRs[0:n]
         out[:,1]= vTs[0:n]
         out[:,2]= vzs[0:n]
-        if _APY_UNITS and self._voSet:
-            return units.Quantity(out*self._vo,unit=units.km/units.s)
+        if use_physical and not vo is None:
+            if _APY_UNITS:
+                return units.Quantity(out*vo,unit=units.km/units.s)
+            else:
+                return out*vo
         else:
             return out
+
+    @potential_physical_input
+    def sampleV_interpolate(self,R,z,R_pixel,z_pixel,num_std=3,R_min=None,
+                            R_max=None,z_max=None,**kwargs):
+        """
+        NAME:
+            
+            sampleV_interpolate
+    
+        PURPOSE:
+            
+            Given an array of R and z coordinates of stars, return the 
+            positions and their radial, azimuthal, and vertical velocity.
+    
+        INPUT:
+            
+            R - array of Galactocentric distance (can be Quantity)
+
+            z - array of height (can be Quantity)
+            
+            R_pixel, z_pixel= the pixel size for creating the grid for
+                   interpolation (in natural unit)
+            
+            num_std= number of standard deviation to be considered outliers
+                      sampled separately from interpolation
+                      
+            R_min, R_max, z_max= optional edges of the grid
+    
+        OUTPUT:
+            
+            coord_v= a numpy array containing the sampled velocity, (vR, vT, vz),
+                     where each row correspond to the row of (R,z)
+    
+        HISTORY:
+            
+            2018-08-10 - Written - Samuel Wong (University of Toronto)
+            
+        """
+        use_physical= kwargs.pop('use_physical',True)
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        #Initialize output array
+        coord_v= numpy.empty((numpy.size(R), 3))
+        #Since the sign of z doesn't matter, work with absolute value of z
+        z= numpy.abs(z)
+        # Grid edges
+        if R_min is None:
+            R_min= numpy.amax([numpy.mean(R)-num_std*numpy.std(R),
+                               numpy.amin(R)])
+        if R_max is None:
+            R_max= numpy.amin([numpy.mean(R)+num_std*numpy.std(R),
+                               numpy.amax(R)])
+        if z_max is None:
+            z_max= numpy.amin([numpy.mean(z)+num_std*numpy.std(z),
+                               numpy.amax(z)])
+        z_min= 0. #Always start grid at z=0 for stars close to plane
+        #Separate the coodinates into outliers and normal points
+        #Define outliers as points outside of grid
+        mask= numpy.any([R < R_min, R > R_max, z > z_max],axis = 0)
+        outliers_R= R[mask]
+        outliers_z= z[mask]
+        normal_R= R[~mask]
+        normal_z= z[~mask]
+        #Sample the velocity of outliers directly (without interpolation)
+        outlier_coord_v= numpy.empty((outliers_R.size, 3))
+        for i in range(outliers_R.size):
+            outlier_coord_v[i]= self.sampleV(outliers_R[i], outliers_z[i],
+                                             use_physical=False)[0]
+        #Prepare for optimizing maxVT on a grid
+         #Get the new hash of the parameters of grid
+        new_hash= hashlib.md5(numpy.array([R_min,R_max,z_max,R_pixel,z_pixel])).hexdigest()
+        #Reuse old interpolated object if new hash matches the old one
+        if new_hash == self._maxVT_hash:
+            ip_max_vT= self._maxVT_ip
+        #Generate a new interpolation object if different from before
+        else:
+            R_number= int((R_max - R_min)/R_pixel)
+            z_number= int((z_max - z_min)/z_pixel)
+            R_linspace= numpy.linspace(R_min, R_max, R_number)
+            z_linspace= numpy.linspace(z_min, z_max, z_number)
+            Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
+            grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
+            #Grid is a 3 dimensional array since it stores pairs of values, but 
+            #grid max vT is a 2 dimensinal array
+            grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
+            #Optimize max_vT on the grid
+            for i in range(z_number):
+                for j in range(R_number):
+                    R, z= grid[i][j]
+                    grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
+                            R,0.,x,z,0.,log=True, use_physical=False)),1.)
+            #Determine degree of interpolation
+            ky= numpy.min([R_number-1,3])
+            kx= numpy.min([z_number-1,3])
+            #Generate interpolation object
+            ip_max_vT= interpolate.RectBivariateSpline(z_linspace,R_linspace,
+                                                       grid_max_vT,kx=kx,ky=ky)
+            #Store interpolation object
+            self._maxVT_ip= ip_max_vT
+            #Update hash of parameters
+            self._maxVT_hash= new_hash
+        #Evaluate interpolation object to get maxVT at the normal coordinates
+        normal_max_vT= ip_max_vT.ev(normal_z, normal_R)
+        #Sample all 3 velocities at a normal point and use interpolated vT
+        normal_coord_v= \
+            self._sampleV_preoptimized(normal_R,normal_z,normal_max_vT)
+        #Combine normal and outlier result, preserving original order
+        coord_v[mask]= outlier_coord_v
+        coord_v[~mask]= normal_coord_v
+        if use_physical and not vo is None:
+            if _APY_UNITS:
+                return units.Quantity(coord_v*vo,unit=units.km/units.s)
+            else:
+                return coord_v*vo
+        else:
+            return coord_v
+
+    def _sampleV_preoptimized(self,R,z,maxVT):
+        """
+        NAME:
+
+           _sampleV_preoptimized
+
+        PURPOSE:
+
+           sample a radial, azimuthal, and vertical velocity at R,z;
+           R,z can be an array of positions maxVT is already optimized
+
+        INPUT:
+
+           R - Galactocentric distance (can be Quantity)
+
+           z - height (can be Quantity)
+           
+           maxVT - an array of pre-optimized maximum vT at corresponding R,z
+
+        OUTPUT:
+
+           a numpy array containing the sampled velocity, (vR, vT, vz),
+           where each row correspond to the row of (R,z)
+
+        HISTORY:
+
+           2018-08-09 - Written - Samuel Wong (University of Toronto)
+
+        """
+        length = numpy.size(R)
+        out= numpy.empty((length,3)) #Initialize output
+        #Determine the maximum of the velocity distribution
+        maxVR= numpy.zeros(length)
+        maxVz= numpy.zeros(length)
+        logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
+        #Now rejection-sample
+        #Intiialize boolean index of position remaining to be sampled
+        remain_indx = numpy.full(length,True)
+        while numpy.any(remain_indx):
+            nmore= numpy.sum(remain_indx)
+            propvR= numpy.random.normal(size=nmore)*2.*self._sr
+            propvT= numpy.random.normal(size=nmore)*2.*self._sr+maxVT[remain_indx]
+            propvz= numpy.random.normal(size=nmore)*2.*self._sz
+            VDatprop= self(R[remain_indx],propvR,propvT,z[remain_indx],propvz,
+                           log=True, use_physical=False)-logmaxVD[remain_indx]
+            VDatprop-= -0.5*(propvR**2./4./self._sr**2.+
+                             propvz**2./4./self._sz**2.+
+                             (propvT-maxVT[remain_indx])**2./4./self._sr**2.)
+            accept_indx= (VDatprop > numpy.log(numpy.random.random(size=nmore)))
+            vR_accept= propvR[accept_indx]
+            vT_accept= propvT[accept_indx]
+            vz_accept= propvz[accept_indx]
+            #Get the indexing of rows of output array that need to be updated
+            #with newly accepted velocity
+            to_change= numpy.copy(remain_indx)
+            to_change[remain_indx]= accept_indx
+            out[to_change]= numpy.stack((vR_accept,vT_accept,vz_accept), axis = 1)
+            #Removing accepted sampled from remain index
+            remain_indx[remain_indx]= ~accept_indx
+        return out
 
     @actionAngle_physical_input
     @physical_conversion('phasespacedensityvelocity2',pop=True)
