@@ -345,8 +345,8 @@ we are using a spherical potential):
 
 .. _orbanim:
 
-**NEW in v1.3**: Animating the orbit
--------------------------------------
+Animating the orbit
+-------------------
 
 .. WARNING::
    Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
@@ -434,8 +434,8 @@ behavior
 
 .. _fastchar:
 
-**NEW in v1.3** Fast orbit characterization
---------------------------------------------
+Fast orbit characterization
+---------------------------
 
 It is also possible to use galpy for the fast estimation of orbit parameters as demonstrated
 in Mackereth & Bovy (2018, in prep.) via the Staeckel approximation (originally used by `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_

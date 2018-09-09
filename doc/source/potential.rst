@@ -206,8 +206,8 @@ Clearly, the potential is much less flattened than the density.
 
 .. _potwrappers:
 
-**NEW in v1.3**: Modifying potential instances using wrappers
--------------------------------------------------------------
+Modifying potential instances using wrappers
+--------------------------------------------
 
 Potentials implemented in galpy can be modified using different kinds
 of wrappers. These wrappers modify potentials to, for example, change
@@ -390,8 +390,8 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**UPDATED in v1.3**: General density/potential pairs with basis-function expansions
-------------------------------------------------------------------------------------------------
+General density/potential pairs with basis-function expansions
+--------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the
@@ -975,8 +975,8 @@ used in any galpy context in which C is used to speed up computations.
 
 .. _addwrappot:
 
-**NEW in v1.3**: Adding wrapper potentials to the galpy framework
-------------------------------------------------------------------
+Adding wrapper potentials to the galpy framework
+------------------------------------------------
 
 Wrappers all inherit from the general ``WrapperPotential`` or
 ``planarWrapperPotential`` classes (which themselves inherit from the
