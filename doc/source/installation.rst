@@ -57,8 +57,6 @@ If you want to use a feature that is currently only available in a branch, do::
 
 to, for example, install the ``dev`` branch.
 
-.. _install_tm:
-
 Installing from source on Windows
 ---------------------------------
 
@@ -82,6 +80,7 @@ If you encounter any issue related to OpenMP during compilation, you can do::
 
     python setup.py install --no-openmp
 
+.. _install_tm:
 
 Installing the TorusMapper code
 --------------------------------
