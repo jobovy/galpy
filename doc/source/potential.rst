@@ -802,8 +802,8 @@ to use a flattened logarithmic potential, one has to flip ``y`` and
 
 .. _addpot:
 
-**NEW in v1.4**: : Dissipative forces
--------------------------------------
+**NEW in v1.4**: Dissipative forces
+------------------------------------
 
 While almost all of the forces that you can use in ``galpy`` derive
 from a potential (that is, the force is the gradient of a scalar
