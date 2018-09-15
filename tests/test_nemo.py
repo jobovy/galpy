@@ -64,7 +64,7 @@ def test_nemo_PlummerPotential():
 
 def test_nemo_MWPotential2014():
     mp= potential.MWPotential2014
-    tmax= 4.
+    tmax= 3.5
     vo,ro= 220., 8.
     o= Orbit([1.,0.1,1.1,0.2,0.1,1.4],ro=ro,vo=vo)
     run_orbitIntegration_comparison(o,mp,tmax,vo,ro,isList=True)
