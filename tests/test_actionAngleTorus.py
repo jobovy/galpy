@@ -1,10 +1,13 @@
 from __future__ import print_function, division
 import os
+import sys
 import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
+from test_actionAngle import reset_warning_registry
 _TRAVIS= bool(os.getenv('TRAVIS'))
+PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
@@ -513,6 +516,7 @@ def test_actionAngleTorus_AutoFitWarning():
     #Turn warnings into errors to test for them
     import warnings
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAT(jr,jp,jz,ar,ap,az)
         # Should raise warning bc of Autofit, might raise others
@@ -563,6 +567,7 @@ def test_MWPotential_warning_torus():
     # Test that using MWPotential throws a warning, see #229
     from galpy.actionAngle import actionAngleTorus
     from galpy.potential import MWPotential
+    if PY2: reset_warning_registry('galpy')
     warnings.simplefilter("error",galpyWarning)
     try:
         aAA= actionAngleTorus(pot=MWPotential)

@@ -1,10 +1,12 @@
 from __future__ import print_function, division
 import os
+import sys
 import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
 _TRAVIS= bool(os.getenv('TRAVIS'))
+PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
@@ -2611,6 +2613,7 @@ def test_MWPotential_warning_adiabatic():
         actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -2638,6 +2641,7 @@ def test_MWPotential_warning_staeckel():
         actionAngleStaeckelGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleStaeckel(pot=MWPotential,delta=0.5)
         # Should raise warning bc of MWPotential, might raise others
@@ -2664,6 +2668,7 @@ def test_MWPotential_warning_isochroneapprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleIsochroneApprox(pot=MWPotential,b=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -2787,4 +2792,18 @@ def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
     assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
     assert numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)) < 10.**tolrap, 'Rap conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)))
     return None
+
+# Python 2 bug: setting simplefilter to 'always' still does not display 
+# warnings that were already displayed using 'once' or 'default', so some
+# warnings tests fail; need to reset the registry
+# Has become an issue at pytest 3.8.0, which seems to have changed the scope of
+# filterwarnings (global one at the start is ignored)
+def reset_warning_registry(pattern=".*"):
+    "clear warning registry for all match modules"
+    import re
+    import sys
+    key = "__warningregistry__"
+    for mod in sys.modules.values():
+        if hasattr(mod, key) and re.match(pattern, mod.__name__):
+            getattr(mod, key).clear()
 

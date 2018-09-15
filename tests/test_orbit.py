@@ -11,10 +11,12 @@ import subprocess
 import pytest
 import numpy
 import astropy
+PY2= sys.version < '3'
 _APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
+from test_actionAngle import reset_warning_registry
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
@@ -68,7 +70,7 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
-_NOLONGINTEGRATIONS= False
+_NOLONGINTEGRATIONS= True
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always",galpyWarning)
 
@@ -3025,6 +3027,8 @@ def test_MWPotential_warning():
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
         # Should raise warning bc of MWPotential, might raise others
     raisedWarning= False
@@ -3808,6 +3812,8 @@ def test_orbitint_pythonfallback():
     for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.]),Orbit([1.,0.1,1.1,0.1,0.]),
                 Orbit([1.,0.1,1.1,1.]),Orbit([1.,0.1,1.1])]:
         with pytest.warns(None) as record:
+            if PY2: reset_warning_registry('galpy')
+            warnings.simplefilter("always",galpyWarning)
             #Test w/ dopr54_c
             orb.integrate(ts,bp, method='dopr54_c')
         raisedWarning= False
@@ -4694,6 +4700,8 @@ def check_radecetc_roWarning(o,funcName):
     # Convenience function to check whether the ro-needs-to-be-specified 
     # warning is sounded
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
     raisedWarning= False
     for rec in record:
@@ -4706,6 +4714,8 @@ def check_radecetc_voWarning(o,funcName):
     # Convenience function to check whether the vo-needs-to-be-specified 
     # warning is sounded
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
     raisedWarning= False
     for rec in record:
