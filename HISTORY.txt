@@ -1,3 +1,9 @@
+v1.5 (????-??-??)
+=================
+
+- Added nemo_accname and nemo_accpars for the HernquistPotential,
+  allowing it to be converted to NEMO.
+
 v1.4 (2018-09-09)
 =================
 
