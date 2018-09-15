@@ -791,14 +791,15 @@ LogarithmicHaloPotential, the radial force scales as :math:`R^{-1}`,
 so the amplitude scales as :math:`V_0^2`.
 
 Currently, only the ``MiyamotoNagaiPotential``, ``NFWPotential``,
-``PowerSphericalPotentialwCutoff``, ``PlummerPotential``,
-``MN3ExponentialDiskPotential``, and the ``LogarithmicHaloPotential``
-have this NEMO support. Combinations of the first three are also
-supported (e.g., ``MWPotential2014``); they can also be combined with
-spherical ``LogarithmicHaloPotentials``. Because of the definition of
-the logarithmic potential in NEMO, it cannot be flattened in ``z``, so
-to use a flattened logarithmic potential, one has to flip ``y`` and
-``z`` between ``galpy`` and NEMO (one can flatten in ``y``).
+``PowerSphericalPotentialwCutoff``, ``HernquistPotential``,
+``PlummerPotential``, ``MN3ExponentialDiskPotential``, and the
+``LogarithmicHaloPotential`` have this NEMO support. Combinations of
+all but the ``LogarithmicHaloPotential`` are allowed in general (e.g.,
+``MWPotential2014``); they can also be combined with spherical
+``LogarithmicHaloPotentials``. Because of the definition of the
+logarithmic potential in NEMO, it cannot be flattened in ``z``, so to
+use a flattened logarithmic potential, one has to flip ``y`` and ``z``
+between ``galpy`` and NEMO (one can flatten in ``y``).
 
 .. _addpot:
 
