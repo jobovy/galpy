@@ -412,6 +412,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self._nemo_accname= 'Dehnen'
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -557,6 +558,35 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         if z is None: r= R
         else: r= numpy.sqrt(R**2.+z**2.)
         return (r/self.a)**2./2./(1.+r/self.a)**2.
+
+    @kms_to_kpcGyrDecorator
+    def _nemo_accpars(self,vo,ro):
+        """
+        NAME:
+
+           _nemo_accpars
+
+        PURPOSE:
+
+           return the accpars potential parameters for use of this potential with NEMO
+
+        INPUT:
+
+           vo - velocity unit in km/s
+
+           ro - length unit in kpc
+
+        OUTPUT:
+
+           accpars string
+
+        HISTORY:
+
+           2018-09-14 - Written - Bovy (UofT)
+
+        """
+        GM= self._amp*vo**2.*ro/2.
+        return "0,1,%s,%s,0" % (GM,self.a*ro)
 
 class JaffePotential(TwoPowerIntegerSphericalPotential):
     """Class that implements the Jaffe potential

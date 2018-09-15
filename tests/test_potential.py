@@ -1638,6 +1638,9 @@ def test_nemoaccname():
     # Plummer
     pp= potential.PlummerPotential(normalize=1.)
     assert pp.nemo_accname() == 'Plummer', "PlummerPotential's NEMO name incorrect"
+    # Hernquist
+    hp= potential.HernquistPotential(normalize=1.)
+    assert hp.nemo_accname() == 'Dehnen', "HernquistPotential's NEMO name incorrect"
     return None
 
 def test_nemoaccnamepars_attributeerror():
@@ -1721,6 +1724,15 @@ def test_nemoaccpars():
     assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Plummer's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[1])-1323.0) < 10.**-5., "Plummer's NEMO accpars incorrect"
     assert numpy.fabs(float(ap[2])-45.0) < 10.**-8., "Plummer's NEMO accpars incorrect"
+    # Hernquist
+    hp= potential.HernquistPotential(amp=2.,a=1./4.)
+    vo, ro= 3., 4.
+    vo/= 1.0227121655399913
+    ap= hp.nemo_accpars(vo,ro).split(',')
+    assert numpy.fabs(float(ap[0])-0) < 10.**-8., "Hernquist's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1])-1.) < 10.**-8., "Hernquist's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2])-9.*4) < 10.**-7., "Hernquist's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[3])-1.0) < 10.**-8., "Hernquist's NEMO accpars incorrect"
     return None
 
 def test_nemoaccparss():
