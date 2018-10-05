@@ -1,11 +1,14 @@
+import warnings
 import numpy as nu
 from scipy import integrate
 from .OrbitTop import OrbitTop
-from galpy.potential.linearPotential import _evaluatelinearForces,\
-    evaluatelinearPotentials
-import galpy.util.bovy_plot as plot
+from .linearPotential import _evaluatelinearForces, evaluatelinearPotentials
+from .Potential import _check_c
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
+from galpy.util import galpyWarning, galpyWarningVerbose
+from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
+ext_loaded= _ext_loaded
 class linearOrbit(OrbitTop):
     """Class that represents an orbit in a (effectively) one-dimensional potential"""
     def __init__(self,vxvv=[1.,0.],vo=220.,ro=8.0):
@@ -58,7 +61,7 @@ class linearOrbit(OrbitTop):
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         self.t= nu.array(t)
         self._pot= pot
-        self.orbit= _integrateLinearOrbit(self.vxvv,pot,t,method)
+        self.orbit= _integrateLinearOrbit(self.vxvv,pot,t,method,dt)
 
     @physical_conversion('energy')
     def E(self,*args,**kwargs):
@@ -125,7 +128,7 @@ class linearOrbit(OrbitTop):
     def zmax(self): #pragma: no cover
         raise AttributeError("linearOrbit does not have a zmax")
 
-def _integrateLinearOrbit(vxvv,pot,t,method):
+def _integrateLinearOrbit(vxvv,pot,t,method,dt):
     """
     NAME:
        integrateLinearOrbit
@@ -140,7 +143,19 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
        [:,2] array of [x,vx] at each t
     HISTORY:
        2010-07-13- Written - Bovy (NYU)
+       2018-10-05- Added support for C integration - Bovy (UofT)
     """
+    #First check that the potential has C
+    if '_c' in method:
+        if not ext_loaded or not _check_c(pot):
+            if ('leapfrog' in method or 'symplec' in method):
+                method= 'leapfrog'
+            else:
+                method= 'odeint'
+            if not ext_loaded: # pragma: no cover
+                warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            else:
+                warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if '_c' in method:
         if 'leapfrog' in method or 'symplec' in method:
             method= 'leapfrog'
@@ -151,7 +166,15 @@ def _integrateLinearOrbit(vxvv,pot,t,method):
                                                                          t=t),
                                       nu.array(vxvv),
                                       t,rtol=10.**-8)
-    elif method.lower() == 'odeint':
+    elif ext_loaded and \
+            (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+        warnings.warn("Using C implementation to integrate orbits",
+                      galpyWarningVerbose)
+        out, msg= integrateLinearOrbit_c(pot,nu.array(vxvv),t,method,dt=dt)
+        return out
+    elif method.lower() == 'odeint' or not ext_loaded:
         return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=10.**-8.)
 
 def _linearEOM(y,t,pot):
