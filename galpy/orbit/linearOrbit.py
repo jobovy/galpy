@@ -2,8 +2,9 @@ import warnings
 import numpy as nu
 from scipy import integrate
 from .OrbitTop import OrbitTop
-from .linearPotential import _evaluatelinearForces, evaluatelinearPotentials
-from .Potential import _check_c
+from ..potential.linearPotential import \
+    _evaluatelinearForces, evaluatelinearPotentials
+from ..potential.Potential import _check_c
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning, galpyWarningVerbose
