@@ -56,6 +56,7 @@ def _parse_pot(pot):
             pot_type.extend(pt)
             pot_args.extend(pa)
             pot_args.append(p._R)
+            pot_args.append(p._phi)
         elif isinstance(p,potential.KGPotential):
             pot_type.append(31)
             pot_args.extend([p._amp,p._K,p._D2,2.*p._F]) 

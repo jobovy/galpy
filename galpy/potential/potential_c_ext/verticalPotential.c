@@ -4,7 +4,8 @@
 double verticalPotentialLinearForce(double x, double t,
 				    struct potentialArg * potentialArgs){
   double R= *potentialArgs->args;
-  return calczforce(R,x,0.,t,
+  double phi= *(potentialArgs->args+1);
+  return calczforce(R,x,phi,t,
 		    potentialArgs->nwrapped,
 		    potentialArgs->wrappedPotentialArg);
 }

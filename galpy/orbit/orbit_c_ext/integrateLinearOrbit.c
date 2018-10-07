@@ -89,7 +89,7 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
       parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
-      potentialArgs->nargs= 1; // R
+      potentialArgs->nargs= 2; // R, phi
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
