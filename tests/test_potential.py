@@ -20,7 +20,8 @@ def test_normalize_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -87,7 +88,8 @@ def test_forceAsDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -268,7 +270,8 @@ def test_2ndDeriv_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -507,7 +510,8 @@ def test_poisson_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -608,7 +612,8 @@ def test_poisson_surfdens_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     """
     pots.append('mockTwoPowerIntegerSphericalPotential')
@@ -714,7 +719,8 @@ def test_evaluateAndDerivs_potential():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerIntegerSphericalPotential')
@@ -1080,7 +1086,8 @@ def test_toVertical_toPlanar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1107,7 +1114,7 @@ def test_toVertical_toPlanar():
         tpp= tp.toPlanar()
         assert isinstance(tpp,potential.planarPotential), \
             "Conversion into planar potential of potential %s fails" % p
-        tlp= tp.toVertical(1.)
+        tlp= tp.toVertical(1.,phi=2.)
         assert isinstance(tlp,potential.linearPotential), \
             "Conversion into linear potential of potential %s fails" % p
 
@@ -1116,7 +1123,7 @@ def test_RZToplanarPotential():
     plp= potential.RZToplanarPotential(lp)
     assert isinstance(plp,potential.planarPotential), 'Running an RZPotential through RZToplanarPotential does not produce a planarPotential'
     #Check that a planarPotential through RZToplanarPotential is still planar
-    pplp= potential.RZToplanarPotential(lp)
+    pplp= potential.RZToplanarPotential(plp)
     assert isinstance(pplp,potential.planarPotential), 'Running a planarPotential through RZToplanarPotential does not produce a planarPotential'
     # Check that giving an object that is not a list or Potential instance produces an error
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -1170,6 +1177,71 @@ def test_toPlanarPotential():
         plp= potential.toPlanarPotential([pp,cdfc])
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.toPlanarPotential(cdfc)
+    return None
+
+def test_RZToverticalPotential():
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    plp= potential.RZToverticalPotential(lp,1.2)
+    assert isinstance(plp,potential.linearPotential), 'Running an RZPotential through RZToverticalPotential does not produce a linearPotential'
+    #Check that a verticalPotential through RZToverticalPotential is still vertical
+    pplp= potential.RZToverticalPotential(plp,1.2)
+    assert isinstance(pplp,potential.linearPotential), 'Running a linearPotential through RZToverticalPotential does not produce a linearPotential'
+    # Check that giving an object that is not a list or Potential instance produces an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential('something else',1.2)
+    # Check that given a list of objects that are not a Potential instances gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential([3,4,45],1.2)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential([lp,3,4,45],1.2)
+    # Check that using a non-axisymmetric potential gives an error
+    lpna= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential(lpna,1.2)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential([lpna],1.2)
+    # Check that giving potential.ChandrasekharDynamicalFrictionForce
+    # gives an error
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential([pp,cdfc],1.2)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential(cdfc,1.2)
+    return None
+
+def test_toVerticalPotential():
+    tnp= potential.TriaxialNFWPotential(normalize=1.,b=0.5)
+    ptnp= potential.toVerticalPotential(tnp,1.2,phi=0.8)
+    assert isinstance(ptnp,potential.linearPotential), 'Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential'
+    # Also for list
+    ptnp= potential.toVerticalPotential([tnp],1.2,phi=0.8)
+    assert isinstance(ptnp[0],potential.linearPotential), 'Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential'
+    #Check that a linearPotential through toVerticalPotential is still vertical
+    pptnp= potential.toVerticalPotential(tnp,1.2,phi=0.8)
+    assert isinstance(pptnp,potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
+    try:
+        ptnp= potential.toVerticalPotential('something else',1.2,phi=0.8)
+    except potential.PotentialError:
+        pass
+    else:
+        raise AssertionError('Using toVerticalPotential with a string rather than an Potential or a linearPotential did not raise PotentialError')
+    # Check that giving potential.ChandrasekharDynamicalFrictionForce
+    # gives an error
+    pp= potential.PlummerPotential(amp=1.12,b=2.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,const_lnLambda=8.,
+        dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential([pp,cdfc],1.2,phi=0.8)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential(cdfc,1.2,phi=0.8)
+    # Check that running a non-axisymmetric potential through toVertical w/o
+    # phi gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        ptnp= potential.toVerticalPotential(tnp,1.2)
     return None
 
 # Sanity check the derivative of the rotation curve and the frequencies in the plane
