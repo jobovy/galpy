@@ -157,11 +157,6 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if '_c' in method:
-        if 'leapfrog' in method or 'symplec' in method:
-            method= 'leapfrog'
-        else:
-            method= 'odeint'
     if method.lower() == 'leapfrog':
         return symplecticode.leapfrog(lambda x,t=t: _evaluatelinearForces(pot,x,
                                                                          t=t),
