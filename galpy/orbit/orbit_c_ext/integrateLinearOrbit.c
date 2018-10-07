@@ -42,6 +42,10 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
     default: //verticalPotential
       potentialArgs->linearForce= &verticalPotentialLinearForce;
       break;
+    case 31:
+      potentialArgs->linearForce= &KGPotentialLinearForce;
+      potentialArgs->nargs= 4;
+      break; 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
       // NOT CURRENTLY SUPPORTED
       /*

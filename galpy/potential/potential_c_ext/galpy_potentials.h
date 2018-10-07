@@ -516,6 +516,8 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//KGPotential
+double KGPotentialLinearForce(double,double,struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

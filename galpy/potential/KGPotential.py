@@ -69,6 +69,7 @@ class KGPotential(linearPotential):
         self._F= F
         self._D= D
         self._D2= self._D**2.
+        self.hasC= True
         
     def _evaluate(self,x,t=0.):
         return self._K*(sc.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
