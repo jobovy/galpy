@@ -2991,7 +2991,7 @@ def _check_c(Pot,dxdv=False):
 
     """
     Pot= flatten(Pot)
-    from galpy.potential import planarPotential
+    from galpy.potential import planarPotential, linearPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
@@ -3000,7 +3000,8 @@ def _check_c(Pot,dxdv=False):
                                dtype='bool'))
     elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
-    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential):
+    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential) \
+            or isinstance(Pot,linearPotential):
         return Pot.__dict__[hasC_attr]
 
 def _dim(Pot):
