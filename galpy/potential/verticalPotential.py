@@ -25,6 +25,7 @@ class verticalPotential(linearPotential):
         linearPotential.__init__(self,amp=1.,ro=RZPot._ro,vo=RZPot._vo)
         self._Pot= RZPot
         self._R= R
+        self.hasC= RZPot.hasC
         # Also transfer roSet and voSet
         self._roSet= RZPot._roSet
         self._voSet= RZPot._voSet

@@ -196,3 +196,14 @@ double calcPlanarRphideriv(double R, double phi, double t,
   potentialArgs-= nargs;
   return Rphideriv;
 }
+double calcLinearForce(double x, double t, 
+		       int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double force= 0.;
+  for (ii=0; ii < nargs; ii++){
+    force+= potentialArgs->linearForce(x,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return force;
+}
