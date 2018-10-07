@@ -25,7 +25,10 @@ def check_inputs_not_arrays(func):
     """
     @wraps(func)
     def func_wrapper(self, R, z, phi, t):
-        if hasattr(R, '__len__') or hasattr(z, '__len__') or hasattr(phi, '__len__') or hasattr(t, '__len__'):
+        if (hasattr(R, '__len__') and len(R) > 1) \
+                or (hasattr(z, '__len__') and len(z) > 1) \
+                or (hasattr(phi, '__len__') and len(phi) > 1) \
+                or (hasattr(t, '__len__') and len(t) > 1):
             raise TypeError('Methods in SpiralArmsPotential do not accept array inputs. Please input scalars.')
         return func(self, R, z, phi, t)
 
@@ -206,7 +209,6 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
-
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
