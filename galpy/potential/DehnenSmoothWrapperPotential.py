@@ -56,6 +56,8 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
 
            2017-06-26 - Started - Bovy (UofT)
 
+           2018-10-07 - Added 'decay' option - Bovy (UofT)
+
         """
         if _APY_LOADED and isinstance(tform,units.Quantity):
             tform= tform.to(units.Gyr).value\
