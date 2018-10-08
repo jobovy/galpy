@@ -55,6 +55,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     expwholeDiskSCFPotential, \
     mockFlatDehnenSmoothBarPotential, \
     mockSlowFlatDehnenSmoothBarPotential, \
+    mockSlowFlatDecayingDehnenSmoothBarPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
@@ -70,7 +71,7 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
-_NOLONGINTEGRATIONS= True
+_NOLONGINTEGRATIONS= False
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always",galpyWarning)
 
@@ -130,6 +131,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential')
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
@@ -164,6 +166,7 @@ def test_energy_jacobi_conservation():
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
+    jactol['mockSlowFlatDecayingDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -175,7 +178,7 @@ def test_energy_jacobi_conservation():
             tclass= getattr(potential,p)
         except AttributeError:
             tclass= getattr(sys.modules[__name__],p)
-        #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
+        #if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
@@ -540,6 +543,7 @@ def test_liouville_planar():
     #pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential') 
+    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential') 
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
@@ -589,7 +593,7 @@ def test_liouville_planar():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
-        #if not p == 'NFWPotential' and not p == 'mockFlatTrulyGaussianAmplitudeBarPotential': continue
+        #if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
         if hasattr(tp,'toPlanar'):
             ptp= tp.toPlanar()
         for integrator in integrators:
