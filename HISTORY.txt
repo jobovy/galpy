@@ -1,6 +1,13 @@
 v1.5 (????-??-??)
 =================
 
+- Added support for 1D orbit integration in C.
+
+- Added potential.toVerticalPotential to convert any 3D potential to a
+  1D potential at a given (R,phi) [generalizes RZToverticalPotential
+  to non-axi potentials; RZToverticalPotential retained for backwards
+  compatibility].
+
 - Added nemo_accname and nemo_accpars for the HernquistPotential,
   allowing it to be converted to NEMO.
 
