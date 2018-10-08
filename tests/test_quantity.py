@@ -1492,7 +1492,7 @@ def test_planarPotential_method_inputAsQuantity():
     return None
 
 def test_linearPotential_method_inputAsQuantity():
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
     ro, vo= 8.*units.kpc, 220.*units.km/units.s
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
@@ -1504,6 +1504,18 @@ def test_linearPotential_method_inputAsQuantity():
     pot= pot.toVertical(1.1)
     potu= potential.RZToverticalPotential(PlummerPotential(normalize=True),
                                           1.1*ro)
+    assert numpy.fabs(pot(1.1*ro,use_physical=False)-potu(1.1)) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(pot.force(1.1*ro,use_physical=False)-potu.force(1.1)) < 10.**-4., 'Potential method force does not return the correct value as Quantity'
+    # also toVerticalPotential w/ non-axi
+    pot= SpiralArmsPotential(ro=ro,vo=vo)
+    # Force linearPotential setup with default
+    pot._ro= None
+    pot._roSet= False
+    pot._vo= None
+    pot._voSet= False
+    pot= pot.toVertical(1.1,10./180.*numpy.pi)
+    potu= potential.toVerticalPotential(SpiralArmsPotential(),
+                                        1.1*ro,phi=10*units.deg)
     assert numpy.fabs(pot(1.1*ro,use_physical=False)-potu(1.1)) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.force(1.1*ro,use_physical=False)-potu.force(1.1)) < 10.**-4., 'Potential method force does not return the correct value as Quantity'
     return None
@@ -1588,12 +1600,19 @@ def test_planarPotential_function_inputAsQuantity():
     return None
 
 def test_linearPotential_function_inputAsQuantity():
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1*ro)]
     potu= potential.RZToverticalPotential([PlummerPotential(normalize=True)],
                                           1.1*ro)
+    assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
+    # Also toVerticalPotential, with non-axi
+    pot= [SpiralArmsPotential(ro=ro,vo=vo)\
+              .toVertical((1.1*ro).to(units.kpc).value/8.,phi=20.*units.deg)]
+    potu= potential.toVerticalPotential([SpiralArmsPotential()],
+                                        1.1*ro,phi=20.*units.deg)
     assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     return None
