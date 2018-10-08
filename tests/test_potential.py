@@ -1223,7 +1223,10 @@ def test_toVerticalPotential():
     ptnp= potential.toVerticalPotential([tnp],1.2,phi=0.8)
     assert isinstance(ptnp[0],potential.linearPotential), 'Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential'
     #Check that a linearPotential through toVerticalPotential is still vertical
-    pptnp= potential.toVerticalPotential(tnp,1.2,phi=0.8)
+    pptnp= potential.toVerticalPotential(ptnp,1.2,phi=0.8)
+    assert isinstance(pptnp,potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
+    # also for list
+    pptnp= potential.toVerticalPotential([ptnp],1.2,phi=0.8)
     assert isinstance(pptnp,potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
     try:
         ptnp= potential.toVerticalPotential('something else',1.2,phi=0.8)
