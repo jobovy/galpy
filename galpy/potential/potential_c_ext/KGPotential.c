@@ -1,4 +1,4 @@
-#import <math.h>
+#include <math.h>
 #include <galpy_potentials.h>
 //KGPotential: 4 parameters: amp, K, D^2, 2F
 //Routines to evaluate forces etc. for a verticalPotential, i.e., a 1D 
