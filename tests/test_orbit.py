@@ -70,12 +70,12 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
-_NOLONGINTEGRATIONS= True
+_NOLONGINTEGRATIONS= False
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
-# integrators
+# integrators; tests 3D and 2D orbits, 1D orbits done separately below
 def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
@@ -90,8 +90,9 @@ def test_energy_jacobi_conservation():
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p 
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
@@ -107,9 +108,6 @@ def test_energy_jacobi_conservation():
     pots.append('BurkertPotentialNoC')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
-    pots.append('testlinearMWPotential')
-    pots.append('mockCombLinearPotential')
-    pots.append('mockSimpleLinearPotential')
     pots.append('mockMovingObjectLongIntPotential')
     pots.append('oblateHernquistPotential')
     pots.append('oblateNFWPotential')
@@ -198,12 +196,10 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp._potlist,method=integrator)
             elif isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
-            elif isinstance(tp,testlinearMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             if not 'Bar' in p and not 'Spiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
@@ -218,28 +214,24 @@ def test_energy_jacobi_conservation():
                     or 'Cosmphi' in p or 'triaxialLog' in p \
                     or 'Henon' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
-            elif isinstance(tp,potential.linearPotential):
-                tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
 #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level" %(p,integrator,(numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
-            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
+            if firstTest or 'testMWPotential' in p:
                 #Some basic checking of the energy and Jacobi functions
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 assert (o.E()-o.E(0.))**2. < 10.**ttol, \
                     "Energy calculated with o.E() and o.E(0.) do not agree"
-                if not isinstance(tp,potential.linearPotential):
-                    assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
-                if not isinstance(tp,potential.linearPotential) \
-                        and not tp.isNonAxi:
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
+                if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                     assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
@@ -260,8 +252,7 @@ def test_energy_jacobi_conservation():
                         pass
                     else:
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            if isinstance(tp,potential.linearPotential) \
-                    or 'MovingObject' in p:
+            if 'MovingObject' in p:
                 if _QUICKTEST \
                         and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p)
                                  or 'linearMWPotential' in p \
@@ -464,6 +455,124 @@ def test_energy_jacobi_conservation():
     #raise AssertionError
     return None
 
+# Test whether the energy of 1D orbits is conserved for different integrators
+def test_energy_conservation_linear():
+    if _NOLONGINTEGRATIONS: return None
+    #Basic parameters for the test
+    times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
+    growtimes= numpy.linspace(0.,280.,5001) # for pots that grow slowly
+    fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
+    integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'odeint', #direct python solver
+                  'leapfrog','leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p 
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('BurkertPotentialNoC')
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
+    pots.append('mockCombLinearPotential')
+    pots.append('mockSimpleLinearPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('triaxialLogarithmicHaloPotential')   
+    pots.append('nestedListPotential')
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
+    rmpots.append('SoftenedNeedleBarPotential')
+    if False: #_TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    #tolerances in log10
+    tol= {}
+    tol['default']= -10.
+    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    firstTest= True
+    for p in pots:
+        #Setup instance of potential
+        if p in list(tol.keys()): ttol= tol[p]
+        else: ttol= tol['default']
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
+        tp= tclass()
+        if not hasattr(tp,'normalize'): continue #skip these
+        tp.normalize(1.)
+        if hasattr(tp,'toVertical'):
+            tp= tp.toVertical(1.2,phi=0.3)
+        elif isinstance(tp,potential.linearPotential):
+            pass
+        else: # not 3D --> 1D or 1D, so skip
+            continue
+        for integrator in integrators:
+            if integrator == 'dopr54_c' \
+                    and ('Spiral' in p or 'Lopsided' in p \
+                             or 'Dehnen' in p or 'Cosmphi' in p):
+                ttimes= growtimes
+            elif integrator == 'dopr54_c' \
+                    and not 'MovingObject' in p \
+                    and not p == 'FerrersPotential': ttimes= times
+            else: ttimes= fasttimes
+            #First track azimuth
+            o= setup_orbit_energy(tp)
+            if isinstance(tp,testMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testlinearMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            else:
+                o.integrate(ttimes,tp,method=integrator)
+            tEs= o.E(ttimes)
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            if not 'Bar' in p and not 'Spiral' in p \
+                    and not 'MovingObject' in p and not 'Slow' in p:
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
+            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
+                #Some basic checking of the energy function
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+            if _QUICKTEST and not (p == 'NFWPotential' \
+                                  or ('Burkert' in p and not tp.hasC)): break
+    return None
+
 # Test some long-term integrations for the symplectic integrators
 def test_energy_symplec_longterm():
     if _NOLONGINTEGRATIONS: return None
@@ -516,7 +625,8 @@ def test_liouville_planar():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
@@ -670,7 +780,8 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -793,7 +904,8 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -915,7 +1027,8 @@ def test_apocenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -1038,7 +1151,8 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
@@ -1146,7 +1260,8 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -1465,7 +1580,8 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
