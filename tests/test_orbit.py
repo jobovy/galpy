@@ -526,9 +526,9 @@ def test_energy_conservation_linear():
             tclass= getattr(sys.modules[__name__],p)
         #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
         tp= tclass()
-        if not hasattr(tp,'normalize'): continue #skip these
-        tp.normalize(1.)
         if hasattr(tp,'toVertical'):
+            if not hasattr(tp,'normalize'): continue #skip these
+            tp.normalize(1.)
             tp= tp.toVertical(1.2,phi=0.3)
         elif isinstance(tp,potential.linearPotential):
             pass
