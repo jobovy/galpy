@@ -1,4 +1,5 @@
 from .linearPotential import linearPotential
+from .planarPotential import planarPotential
 from .Potential import PotentialError, Potential, flatten
 _APY_LOADED= True
 try:
@@ -111,6 +112,8 @@ def RZToverticalPotential(RZPot,R):
                 out.append(pot)
             elif isinstance(pot,Potential):
                 out.append(verticalPotential(pot,R))
+            elif isinstance(pot,planarPotential):
+                raise PotentialError("Input to 'RZToverticalPotential' cannot be a planarPotential")
             else:
                 raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
@@ -118,7 +121,9 @@ def RZToverticalPotential(RZPot,R):
         return verticalPotential(RZPot,R)
     elif isinstance(RZPot,linearPotential):
         return RZPot
-    else: #pragma: no cover
+    elif isinstance(RZPot,planarPotential):
+        raise PotentialError("Input to 'RZToverticalPotential' cannot be a planarPotential")
+    else:
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
 
 def toVerticalPotential(Pot,R,phi=None):
@@ -164,13 +169,17 @@ def toVerticalPotential(Pot,R,phi=None):
                 out.append(pot)
             elif isinstance(pot,Potential):
                 out.append(verticalPotential(pot,R,phi=phi))
+            elif isinstance(pot,planarPotential):
+                raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
             else:
-                raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
+                raise PotentialError("Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
         return verticalPotential(Pot,R,phi=phi)
     elif isinstance(Pot,linearPotential):
         return Pot
-    else: #pragma: no cover
+    elif isinstance(Pot,planarPotential):
+        raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
+    else:
         raise PotentialError("Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances")
 

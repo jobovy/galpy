@@ -1189,6 +1189,9 @@ def test_RZToverticalPotential():
     #Check that a verticalPotential through RZToverticalPotential is still vertical
     pplp= potential.RZToverticalPotential(plp,1.2)
     assert isinstance(pplp,potential.linearPotential), 'Running a linearPotential through RZToverticalPotential does not produce a linearPotential'
+    # Also for list
+    pplp= potential.RZToverticalPotential([plp],1.2)
+    assert isinstance(pplp[0],potential.linearPotential), 'Running a linearPotential through RZToverticalPotential does not produce a linearPotential'
     # Check that giving an object that is not a list or Potential instance produces an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.RZToverticalPotential('something else',1.2)
@@ -1197,6 +1200,12 @@ def test_RZToverticalPotential():
         plp= potential.RZToverticalPotential([3,4,45],1.2)
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.RZToverticalPotential([lp,3,4,45],1.2)
+    # Check that giving a planarPotential gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential(lp.toPlanar(),1.2)       
+    # Check that giving a list of planarPotential gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.RZToverticalPotential([lp.toPlanar()],1.2)       
     # Check that using a non-axisymmetric potential gives an error
     lpna= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,b=0.8)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -1223,17 +1232,24 @@ def test_toVerticalPotential():
     ptnp= potential.toVerticalPotential([tnp],1.2,phi=0.8)
     assert isinstance(ptnp[0],potential.linearPotential), 'Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential'
     #Check that a linearPotential through toVerticalPotential is still vertical
+    ptnp= potential.toVerticalPotential(tnp,1.2,phi=0.8)
     pptnp= potential.toVerticalPotential(ptnp,1.2,phi=0.8)
     assert isinstance(pptnp,potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
     # also for list
     pptnp= potential.toVerticalPotential([ptnp],1.2,phi=0.8)
-    assert isinstance(pptnp,potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
+    assert isinstance(pptnp[0],potential.linearPotential), 'Running a linearPotential through toVerticalPotential does not produce a linearPotential'
     try:
         ptnp= potential.toVerticalPotential('something else',1.2,phi=0.8)
     except potential.PotentialError:
         pass
     else:
         raise AssertionError('Using toVerticalPotential with a string rather than an Potential or a linearPotential did not raise PotentialError')
+    # Check that giving a planarPotential gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential(tnp.toPlanar(),1.2,phi=0.8)       
+    # Check that giving a list of planarPotential gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential([tnp.toPlanar()],1.2,phi=0.8)       
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp= potential.PlummerPotential(amp=1.12,b=2.)
