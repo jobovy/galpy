@@ -89,8 +89,12 @@ after_success:
  # Generate lcov output 
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.6/galpy/ --no-external --output-file coverage_full.info; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
- # Codecov
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
+ # Codecov, need to edit bash uploader for incorrect TRAVIS_PYTHON_VERSION environment variable matching, at least until codecov/codecov-bash#133 is resolved
+ - curl -s https://codecov.io/bash > .codecov
+ - sed -i -e 's/TRAVIS_.*_VERSION/^TRAVIS_.*_VERSION=/' .codecov
+ - chmod +x .codecov
+# - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then bash <(curl -s https://codecov.io/bash) -X gcov; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then ./.codecov -X gcov; fi
  # coveralls: combine, generate json, and upload
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then coveralls-lcov -v -n coverage.info > coverage.c.json; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then coveralls-merge coverage.c.json; fi

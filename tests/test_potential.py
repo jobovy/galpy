@@ -154,6 +154,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('mockDehnenSmoothBarPotentialDecay')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
@@ -318,7 +319,8 @@ def test_2ndDeriv_potential():
     pots.append('DehnenSmoothDehnenBarPotential')
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
-    pots.append('mockDehnenSmoothBarPotentialTm5') 
+    pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('mockDehnenSmoothBarPotentialDecay')
     pots.append('SolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
@@ -768,6 +770,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockDehnenSmoothBarPotentialT1')
     pots.append('mockDehnenSmoothBarPotentialTm1')
     pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('mockDehnenSmoothBarPotentialDecay')
     pots.append('triaxialLogarithmicHaloPotential')
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
@@ -2402,6 +2405,19 @@ def test_RingPotential_correctPotentialIntegral():
         assert numpy.fabs(pot(R,z,amp=3.)-rp(R,z)) < 1e-8, 'RingPotential potential evaluation does not agree with direct integration at (R,z) = ({},{})'.format(R,z)
     return None
 
+def test_DehnenSmoothWrapper_decay():
+    # Test that DehnenSmoothWrapperPotential with decay=True is the opposite
+    # of decay=False
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    pot_grow= potential.DehnenSmoothWrapperPotential(pot=lp,tform=4.,
+                                                     tsteady=3.)
+    pot_decay= potential.DehnenSmoothWrapperPotential(pot=lp,tform=4.,
+                                                      tsteady=3.,decay=True)
+    ts= numpy.linspace(0.,10.,1001)
+    assert numpy.amax(numpy.fabs(lp(2.,0.,ts)-[pot_grow(2.,0.,t=t)+pot_decay(2.,0.,t=t) for t in ts])) < 1e-10, 'DehnenSmoothWrapper with decay=True is not the opposite of the same with decay=False'
+    assert numpy.amax(numpy.fabs(lp.Rforce(2.,0.,ts)-[pot_grow.Rforce(2.,0.,t=t)+pot_decay.Rforce(2.,0.,t=t) for t in ts])) < 1e-10, 'DehnenSmoothWrapper with decay=True is not the opposite of the same with decay=False'
+    return None
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
@@ -3329,6 +3345,17 @@ class mockDehnenSmoothBarPotentialTm5(DehnenSmoothWrapperPotential):
                                 tform=-99.,tsteady=1.)
         return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
             tform=-5.,tsteady=2.)
+class mockDehnenSmoothBarPotentialDecay(DehnenSmoothWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+#                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
+            tform=-0.5,tsteady=1.,decay=True)
 class mockFlatDehnenSmoothBarPotential(testMWPotential):
     def __init__(self):
         dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
@@ -3352,6 +3379,18 @@ class mockSlowFlatDehnenSmoothBarPotential(testMWPotential):
             potlist=[potential.LogarithmicHaloPotential(normalize=1.),
                      DehnenSmoothWrapperPotential(\
                         amp=1.,pot=dpn,tform=0.1,tsteady=500.)])
+    def OmegaP(self):
+        return self._potlist[1]._pot.OmegaP()
+class mockSlowFlatDecayingDehnenSmoothBarPotential(testMWPotential):
+    def __init__(self):
+        dpn= DehnenBarPotential(omegab=1.9,rb=0.4,
+                                barphi=25.*numpy.pi/180.,beta=0.,
+                                alpha=0.01,Af=0.04,
+                                tform=-99.,tsteady=1.)
+        testMWPotential.__init__(self,\
+            potlist=[potential.LogarithmicHaloPotential(normalize=1.),
+                     DehnenSmoothWrapperPotential(\
+                        amp=1.,pot=dpn,tform=-250.,tsteady=500.,decay=True)])
     def OmegaP(self):
         return self._potlist[1]._pot.OmegaP()
 # A DehnenSmoothWrappered version of LogarithmicHaloPotential for simple aAtest

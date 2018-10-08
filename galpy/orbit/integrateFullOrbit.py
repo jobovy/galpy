@@ -224,7 +224,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
-            pot_args.extend([p._amp,p._tform,p._tsteady])
+            pot_args.extend([p._amp,p._tform,p._tsteady,int(p._grow)])
         elif isinstance(p,potential.SolidBodyRotationWrapperPotential):
             pot_type.append(-2)
             # Not sure how to easily avoid this duplication

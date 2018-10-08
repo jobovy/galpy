@@ -269,7 +269,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
-            pot_args.extend([p._amp,p._tform,p._tsteady])
+            pot_args.extend([p._amp,p._tform,p._tsteady,int(p._grow)])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
           and isinstance(p._Pot,potential.SolidBodyRotationWrapperPotential)) \
           or isinstance(p,potential.SolidBodyRotationWrapperPotential):
