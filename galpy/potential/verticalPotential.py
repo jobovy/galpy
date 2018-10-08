@@ -108,8 +108,10 @@ def RZToverticalPotential(RZPot,R):
         for pot in RZPot:
             if isinstance(pot,linearPotential):
                 out.append(pot)
-            else:
+            elif isinstance(pot,Potential):
                 out.append(verticalPotential(pot,R))
+            else:
+                raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(RZPot,Potential):
         return verticalPotential(RZPot,R)
@@ -158,8 +160,10 @@ def toVerticalPotential(Pot,R,phi=None):
         for pot in Pot:
             if isinstance(pot,linearPotential):
                 out.append(pot)
-            else:
+            elif isinstance(pot,Potential):
                 out.append(verticalPotential(pot,R,phi=phi))
+            else:
+                raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
         return verticalPotential(Pot,R,phi=phi)
