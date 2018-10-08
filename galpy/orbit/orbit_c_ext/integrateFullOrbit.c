@@ -328,7 +328,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->nargs= (int) 4;
       break;
     case -2: //SolidBodyRotationWrapperPotential
       potentialArgs->Rforce= &SolidBodyRotationWrapperPotentialRforce;

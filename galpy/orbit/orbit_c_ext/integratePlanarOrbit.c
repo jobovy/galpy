@@ -315,7 +315,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &DehnenSmoothWrapperPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->nargs= (int) 4;
       break;
     case -2: //SolidBodyRotationWrapperPotential
       potentialArgs->planarRforce= &SolidBodyRotationWrapperPotentialPlanarRforce;
