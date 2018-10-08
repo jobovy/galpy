@@ -717,7 +717,7 @@ class Potential(Force):
         from galpy.potential import toPlanarPotential
         return toPlanarPotential(self)
 
-    def toVertical(self,R):
+    def toVertical(self,R,phi=None):
         """
         NAME:
 
@@ -731,6 +731,8 @@ class Potential(Force):
 
            R - Galactocentric radius at which to create the vertical potential (can be Quantity)
 
+           phi= (None) Galactocentric azimuth at which to create the vertical potential (can be Quantity); required for non-axisymmetric potential
+
         OUTPUT:
 
            linear (vertical) potential
@@ -742,8 +744,10 @@ class Potential(Force):
         """
         if _APY_LOADED and isinstance(R,units.Quantity):
             R= R.to(units.kpc).value/self._ro
-        from galpy.potential import RZToverticalPotential
-        return RZToverticalPotential(self,R)
+        if _APY_LOADED and isinstance(phi,units.Quantity):
+            phi= phi.to(units.rad).value
+        from galpy.potential import toVerticalPotential
+        return toVerticalPotential(self,R,phi=phi)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,phi=None,xy=False,
@@ -2991,7 +2995,7 @@ def _check_c(Pot,dxdv=False):
 
     """
     Pot= flatten(Pot)
-    from galpy.potential import planarPotential
+    from galpy.potential import planarPotential, linearPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
@@ -3000,7 +3004,8 @@ def _check_c(Pot,dxdv=False):
                                dtype='bool'))
     elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
-    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential):
+    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential) \
+            or isinstance(Pot,linearPotential):
         return Pot.__dict__[hasC_attr]
 
 def _dim(Pot):

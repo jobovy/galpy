@@ -33,6 +33,8 @@ struct potentialArg{
 			    struct potentialArg *);
   double (*planarRphideriv)(double R,double phi, double t,
 			    struct potentialArg *);
+  double (*linearForce)(double x, double t,
+			 struct potentialArg *);
   int nargs;
   double * args;
   interp_2d * i2d;
@@ -81,11 +83,14 @@ double calcPlanarphi2deriv(double, double, double,
 			   int, struct potentialArg *);
 double calcPlanarRphideriv(double, double, double, 
 			   int, struct potentialArg *);
+double calcLinearForce(double, double, int, struct potentialArg *);
 //ZeroForce
 double ZeroPlanarForce(double,double,double,
 		       struct potentialArg *);
 double ZeroForce(double,double,double,double,
 		 struct potentialArg *);
+//verticalPotential
+double verticalPotentialLinearForce(double,double,struct potentialArg *);
 //LogarithmicHaloPotential
 double LogarithmicHaloPotentialEval(double ,double , double, double,
 				    struct potentialArg *);
@@ -511,6 +516,8 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//KGPotential
+double KGPotentialLinearForce(double,double,struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

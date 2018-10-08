@@ -401,6 +401,7 @@ One-dimensional potentials can also be derived from 3D axisymmetric potentials a
 .. toctree::
    :maxdepth: 2
 
+   toVerticalPotential (general) <potential1dtolinear.rst>
    RZToverticalPotential <potential1dRZtolinear.rst>
 
 .. _potwrapperapi:
