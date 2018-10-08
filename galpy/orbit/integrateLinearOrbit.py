@@ -42,6 +42,7 @@ else:
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from .integrateFullOrbit import _parse_scf_pot
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
@@ -51,15 +52,63 @@ def _parse_pot(pot):
     npot= len(pot)
     for p in pot:
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
-        if isinstance(p,verticalPotential):
+        if isinstance(p,verticalPotential) \
+                and isinstance(p._Pot,potential.MN3ExponentialDiskPotential):
+            # Need to do this one separately, because combination of many parts
+            # Three Miyamoto-Nagai disks
+            npot+= 2
+            pot_type.extend([5,5,5])
+            pot_args.extend([p._Pot._amp*p._Pot._mn3[0]._amp,
+                             p._Pot._mn3[0]._a,p._Pot._mn3[0]._b,
+                             p._R,p._phi,
+                             p._Pot._amp*p._Pot._mn3[1]._amp,
+                             p._Pot._mn3[1]._a,p._Pot._mn3[1]._b,
+                             p._R,p._phi,
+                             p._Pot._amp*p._Pot._mn3[2]._amp,
+                             p._Pot._mn3[2]._a,p._Pot._mn3[2]._b,
+                             p._R,p._phi])
+        elif isinstance(p,verticalPotential) \
+                and isinstance(p._Pot,potential.DiskSCFPotential):
+            # Need to do this one separately, because combination of many parts
+            # Need to pull this apart into: (a) SCF part, (b) constituent
+            # [Sigma_i,h_i] parts
+            # (a) SCF, multiply in any add'l amp
+            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            pot_args.extend([p._R,p._phi])
+            # (b) constituent [Sigma_i,h_i] parts
+            for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
+                npot+= 1
+                pot_type.append(26)
+                stype= Sigma.get('type','exp')
+                if stype == 'exp' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([3,0,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     Sigma.get('h',1./3.)])
+                elif stype == 'expwhole' \
+                        or (stype == 'exp' and 'Rhole' in Sigma):
+                    pot_args.extend([4,1,
+                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     Sigma.get('h',1./3.),
+                                     Sigma.get('Rhole',0.5)])
+                hztype= hz.get('type','exp')
+                if hztype == 'exp':
+                    pot_args.extend([0,hz.get('h',0.0375)])
+                elif hztype == 'sech2':
+                    pot_args.extend([1,hz.get('h',0.0375)])
+                pot_args.extend([p._R,p._phi])
+        elif isinstance(p,potential.KGPotential):
+            pot_type.append(31)
+            pot_args.extend([p._amp,p._K,p._D2,2.*p._F]) 
+        # All other potentials can be handled in the same way as follows:
+        elif isinstance(p,verticalPotential):
             _,pt,pa= _parse_pot_full(p._Pot)
             pot_type.extend(pt)
             pot_args.extend(pa)
             pot_args.append(p._R)
             pot_args.append(p._phi)
-        elif isinstance(p,potential.KGPotential):
-            pot_type.append(31)
-            pot_args.extend([p._amp,p._K,p._D2,2.*p._F]) 
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
