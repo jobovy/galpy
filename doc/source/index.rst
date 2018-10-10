@@ -362,6 +362,13 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *On the radial metallicity gradient and radial migration effect of the Galactic disk*, Yunpeng Jia, Yuqin Chen, Gang Zhao, Xiangxiang Xue, Jingkun Zhao, Chengqun Yang, & Chengdong Li (2018) *Astrophys. J.*, in press (`arXiv/1808.05386 <http://arxiv.org/abs/1808.05386>`_)
 
+#. *Rediscovering the Tidal Tails of NGC 288 with Gaia DR2*, Shaziana Kaderali, Jason A. S. Hunt, Jeremy J. Webb, Natalie Price-Jones, & Raymond Carlberg (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1809.04108 <http://arxiv.org/abs/1809.04108>`_)
+
+#. *A Catalog of 10,000 Very Metal-poor Stars from LAMOST DR3*, Haining Li, Kefeng Tan, & Gang Zhao (2018) *Astrophys. J. Supp.*, in press (`ApJS <https://doi.org/10.3847/1538-4365/aada4a>`_)
+
+#. *The AMBRE Project: searching for the closest solar siblings*, V. Adibekyan, P. de Laverny, A. Recio-Blanco, et al. (2018) *Astron. & Astrophys.*, in press (`arXiv/1810.01813 <http://arxiv.org/abs/1810.01813>`_)
+
+
 Indices and tables
 ==================
 
