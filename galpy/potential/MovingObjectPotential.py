@@ -1,36 +1,28 @@
 ###############################################################################
 #   MovingObjectPotential.py: class that implements the potential coming from
 #                             a moving object
-#                                                           GM
-#                              phi(R,z) = -  ---------------------------------
-#                                                        distance
 ###############################################################################
 import copy
 import numpy as nu
-from .Potential import Potential, _APY_LOADED
+import warnings
+from .Potential import Potential, _APY_LOADED, _isNonAxi, flatten, \
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities, \
+    evaluatephiforces
+from .PlummerPotential import PlummerPotential
 if _APY_LOADED:
     from astropy import units
 from .ForceSoftening import PlummerSoftening
+from galpy.util import galpyWarning
 class MovingObjectPotential(Potential):
-    """Class that implements the potential coming from a moving object
-
-    .. math::
-
-        \\Phi(R,z,\\phi,t) = -\\mathrm{amp}\\,GM\\,S(d)
-
-    where :math:`d` is the distance between :math:`(R,z,\\phi)` and the moving object at time :math:`t` and :math:`S(\\cdot)` is a softening kernel. In the case of Plummer softening, this kernel is
-
-    .. math::
-
-        S(d) = \\frac{1}{\\sqrt{d^2+\\mathrm{softening\_length}^2}}
-
-    Plummer is currently the only implemented softening.
-
     """
-    def __init__(self,orbit,amp=1.,GM=.06,
+    Class that implements the potential coming from a moving object by combining
+    any galpy potential with an integrated galpy orbit.
+    """
+    def __init__(self,orbit,pot=None,
                  ro=None,vo=None,
-                 softening=None,
-                 softening_model='plummer',softening_length=0.01):
+                 amp=None, GM=None, softening=None,
+                 softening_model=None, softening_length=None
+                 ):
         """
         NAME:
 
@@ -44,17 +36,7 @@ class MovingObjectPotential(Potential):
 
            orbit - the Orbit of the object (Orbit object)
 
-           amp= - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           GM - 'mass' of the object (degenerate with amp, don't use both); can be a Quantity with units of mass or Gxmass
-
-           Softening: either provide
-
-              a) softening= with a ForceSoftening-type object
-
-              b) softening_model=  type of softening to use ('plummer')
-
-                 softening_length= (optional; can be Quantity)
+           pot - A potential object or list of potential objects (default: PlummerPotential with amp=1.0 and b=1.0)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -67,17 +49,34 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp*GM,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(softening_length,units.Quantity):
-            softening_length= softening_length.to(units.kpc).value/self._ro
-        # Make sure we aren't getting physical outputs
+
+        Potential.__init__(self,ro=ro,vo=vo)
+        isList = isinstance(pot,list)
+        if isList:
+            pot=flatten(pot)
+            if isinstance(pot[0],Potential):
+                nonAxi = _isNonAxi(pot)
+                if nonAxi:
+                    raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
+                self._pot = copy.deepcopy(pot)
+            else:
+                raise RuntimeError("List input to 'MovingObjectPotential' must be of Potential-istances")
+        elif isinstance(pot,Potential):
+            if pot.isNonAxi:
+                raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
+            self._pot = copy.deepcopy(pot)
+        elif pot == None:
+            # Initialize a Plummer potential by default for comptatability & tests
+            pot = PlummerPotential(amp=1.0,b=1.0,ro=ro,vo=vo)
+            self._pot = copy.deepcopy(pot)
+        else:
+            raise RuntimeError("Input to 'MovingObjectPotential' is neither a Potential-instance or a list of such instances")
+        # Warn the user if they supplied deprecated keywords
+        if ( (amp!=None) or (GM!=None) or (softening!=None) or
+             (softening_model!=None) or (softening_length!=None)):
+             warnings.warn("Use of 'amp', 'GM', 'softening', 'softening_model', or 'softening_length' keywords is deprecated; a potential must be initialized and supplied as an argument through the 'pot' keyword",galpyWarning)
         self._orb= copy.deepcopy(orbit)
         self._orb.turn_physical_off()
-        if softening is None:
-            if softening_model.lower() == 'plummer':
-                self._softening= PlummerSoftening(softening_length=softening_length)
-        else:
-            self._softening= softening
         self.isNonAxi= True
         return None
 
@@ -97,11 +96,10 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010104-10 - Started - Bovy (NYU)
         """
-        #Calculate distance
-        dist= _cyldist(R,phi,z,
-                       self._orb.R(t),self._orb.phi(t),self._orb.z(t))
+        #Cylindrical distance
+        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
         #Evaluate potential
-        return -self._softening.potential(dist)
+        return evaluatePotentials( self._pot, Rdist, self._orb.z(t)-z, use_physical=False)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -119,14 +117,15 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
         """
-        #Calculate distance and difference vector
-        (xd,yd,zd,dist)= _cyldiffdist(self._orb.R(t),self._orb.phi(t),
-                                   self._orb.z(t),
-                                   R,phi,z)
-                                   
-        #Evaluate force
-        return (nu.cos(phi)*xd+nu.sin(phi)*yd)/dist\
-            *self._softening(dist)
+        #Cylindrical distance
+        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Difference vector
+        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), self._orb.z(t),
+            R, phi, z)
+        #Evaluate cylindrical radial force
+        RF = evaluateRforces(self._pot,Rdist,zd, use_physical=False)
+        # Return R force, negative of radial vector to evaluation location.
+        return -RF*(nu.cos(phi)*xd+nu.sin(phi)*yd)/Rdist
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -144,13 +143,13 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
         """
-        #Calculate distance and difference vector
-        (xd,yd,zd,dist)= _cyldiffdist(self._orb.R(t),self._orb.phi(t),
-                                   self._orb.z(t),
-                                   R,phi,z)
-                                   
-        #Evaluate force
-        return zd/dist*self._softening(dist)
+        #Cylindrical distance
+        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Difference vector
+        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), self._orb.z(t),
+            R, phi, z)
+        #Evaluate and return z force
+        return -evaluatezforces(self._pot,Rdist,zd, use_physical=False)
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -168,14 +167,15 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
         """
-        #Calculate distance and difference vector
-        (xd,yd,zd,dist)= _cyldiffdist(self._orb.R(t),self._orb.phi(t),
-                                   self._orb.z(t),
-                                   R,phi,z)
-                                   
-        #Evaluate force
-        return R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/dist\
-            *self._softening(dist)
+        #Cylindrical distance
+        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Difference vector
+        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), self._orb.z(t),
+            R, phi, z)
+        #Evaluate cylindrical radial force.
+        RF = evaluateRforces(self._pot, Rdist, zd, use_physical=False)
+        # Return phi force, negative of phi vector to evaluate location
+        return -RF*R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/Rdist
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -193,18 +193,19 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        dist= _cyldist(R,phi,z,
-                       self._orb.R(t),self._orb.phi(t),self._orb.z(t))
-        return self._softening.density(dist)
+        #Cylindrical distance
+        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Difference vector
+        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), self._orb.z(t),
+            R, phi, z)
+        # Return the density
+        return evaluateDensities(self._pot, Rdist, zd, use_physical=False)
 
-def _cyldist(R1,phi1,z1,R2,phi2,z2):
-    return nu.sqrt( (R1*nu.cos(phi1)-R2*nu.cos(phi2))**2.
-                    +(R1*nu.sin(phi1)-R2*nu.sin(phi2))**2.
-                    +(z1-z2)**2.)     
+def _cylR(R1,phi1,R2,phi2):
+    return nu.sqrt(R1**2.+R2**2.-2.*R1*R2*nu.cos(phi1-phi2)) # Cosine law
 
-def _cyldiffdist(R1,phi1,z1,R2,phi2,z2):
-    x= R1*nu.cos(phi1)-R2*nu.cos(phi2)
-    y= R1*nu.sin(phi1)-R2*nu.sin(phi2)
-    z= z1-z2
-    return (x,y,z,nu.sqrt(x**2.+y**2.+z**2.))
-
+def _cyldiff(R1,phi1,z1,R2,phi2,z2):
+    dx = R1*nu.cos(phi1)-R2*nu.cos(phi2)
+    dy = R1*nu.sin(phi1)-R2*nu.sin(phi2)
+    dz = z1-z2
+    return (dx,dy,dz)
