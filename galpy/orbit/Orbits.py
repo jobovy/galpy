@@ -4,6 +4,7 @@ try:
     from astropy.coordinates import SkyCoord
     _APY_LOADED = True
 except ImportError:
+    SkyCoord = None
     _APY_LOADED = False
 
 
@@ -142,9 +143,9 @@ class Orbits:
                      'rk6_c' for a 6-th order Runge-Kutta integrator in C
                      'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
 
-            dt = (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
+            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
-            numcores = (1) number of cores to use for multiprocessing
+            numcores - number of cores to use for multiprocessing; default = 1
 
         OUTPUT:
 
@@ -160,4 +161,5 @@ class Orbits:
             orbit.integrate(t, pot, method=method, dt=dt)
             return orbit
 
-        self._orbits = list(parallel_map(integrate, self._orbits, numcores))
+        self._orbits = list(parallel_map(integrate, self._orbits,
+                                         numcores=numcores))
