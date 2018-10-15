@@ -101,7 +101,8 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
   }
   potentialArgs-= npot;
 }
-EXPORT void integrateLinearOrbit(double *yo,
+EXPORT void integrateLinearOrbit(int nobj,
+				 double *yo,
 				 int nt, 
 				 double *t,
 				 int npot,
@@ -115,6 +116,7 @@ EXPORT void integrateLinearOrbit(double *yo,
 				 int odeint_type){
   //Set up the forces, first count
   int dim;
+  int ii;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Linear(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
@@ -160,8 +162,10 @@ EXPORT void integrateLinearOrbit(double *yo,
     dim= 2;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  for (ii=0; ii < nobj; ii++)
+    odeint_func(odeint_deriv_func,dim,yo+2*ii,nt,dt,t,
+		npot,potentialArgs,rtol,atol,
+		result+2*nt*ii,err+ii);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
