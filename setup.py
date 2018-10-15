@@ -139,6 +139,8 @@ orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
+if 'gomp' in pot_libraries:
+    orbit_libraries.append('gomp')
 
 # On Windows it's unnecessary and erroneous to include m
 if WIN32:
