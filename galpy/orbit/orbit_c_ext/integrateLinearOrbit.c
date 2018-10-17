@@ -129,12 +129,18 @@ EXPORT void integrateLinearOrbit(int nobj,
   int dim;
   int ii;
   int max_threads;
+  int * thread_pot_type;
+  double * thread_pot_args;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
-  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( nobj * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads) 
-  for (ii=0; ii < max_threads; ii++)
-    parse_leapFuncArgs_Linear(npot,potentialArgs+ii*npot,&pot_type,&pot_args);
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+  for (ii=0; ii < max_threads; ii++) {
+    thread_pot_type= pot_type; // need to make thread-private pointers, bc
+    thread_pot_args= pot_args; // these pointers are changed in parse_...
+    parse_leapFuncArgs_Linear(npot,potentialArgs+ii*npot,
+			      &thread_pot_type,&thread_pot_args);
+  }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
