@@ -18,10 +18,8 @@ class MovingObjectPotential(Potential):
     Class that implements the potential coming from a moving object by combining
     any galpy potential with an integrated galpy orbit.
     """
-    def __init__(self,orbit,pot=None,
-                 ro=None,vo=None,
-                 amp=None, GM=None, softening=None,
-                 softening_model=None, softening_length=None
+    def __init__(self,orbit,pot=None,amp=1.0,
+                 ro=None,vo=None
                  ):
         """
         NAME:
@@ -36,7 +34,9 @@ class MovingObjectPotential(Potential):
 
            orbit - the Orbit of the object (Orbit object)
 
-           pot - A potential object or list of potential objects (default: PlummerPotential with amp=1.0 and b=1.0)
+           pot - A potential object or list of potential objects (default: PlummerPotential with amp=0.06 and b=0.01)
+           
+           amp - amplitude
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -50,31 +50,17 @@ class MovingObjectPotential(Potential):
 
         """
 
-        Potential.__init__(self,ro=ro,vo=vo)
-        isList = isinstance(pot,list)
-        if isList:
-            pot=flatten(pot)
-            if isinstance(pot[0],Potential):
-                nonAxi = _isNonAxi(pot)
-                if nonAxi:
-                    raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
-                self._pot = copy.deepcopy(pot)
-            else:
-                raise RuntimeError("List input to 'MovingObjectPotential' must be of Potential-istances")
-        elif isinstance(pot,Potential):
-            if pot.isNonAxi:
-                raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
-            self._pot = copy.deepcopy(pot)
-        elif pot == None:
-            # Initialize a Plummer potential by default for comptatability & tests
-            pot = PlummerPotential(amp=1.0,b=1.0,ro=ro,vo=vo)
-            self._pot = copy.deepcopy(pot)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        
+        # If no potential supplied implement the default Plummer sphere
+        if pot==None:
+            pot=PlummerPotential(amp=0.06,b=0.01)
+            self._pot = pot
         else:
-            raise RuntimeError("Input to 'MovingObjectPotential' is neither a Potential-instance or a list of such instances")
-        # Warn the user if they supplied deprecated keywords
-        if ( (amp!=None) or (GM!=None) or (softening!=None) or
-             (softening_model!=None) or (softening_length!=None)):
-             warnings.warn("Use of 'amp', 'GM', 'softening', 'softening_model', or 'softening_length' keywords is deprecated; a potential must be initialized and supplied as an argument through the 'pot' keyword",galpyWarning)
+            pot=flatten(pot)
+            if _isNonAxi(pot):
+                raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
+            self._pot=pot
         self._orb= copy.deepcopy(orbit)
         self._orb.turn_physical_off()
         self.isNonAxi= True
