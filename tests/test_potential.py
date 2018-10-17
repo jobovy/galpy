@@ -121,6 +121,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockTransientLogSpiralPotential')
     pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
     pots.append('mockMovingObjectPotential')
+    pots.append('mockMovingObjectPotentialExplPlummer')
     pots.append('oblateHernquistPotential')
     pots.append('oblateNFWPotential')
     pots.append('oblatenoGLNFWPotential')
@@ -3276,6 +3277,25 @@ class mockSimpleLinearPotential(testlinearMWPotential):
 
 from galpy.potential import PlummerPotential
 class mockMovingObjectPotential(testMWPotential):
+    def __init__(self,rc=0.75,maxt=1.,nt=50):
+        from galpy.orbit import Orbit
+        self._rc= rc
+        o1= Orbit([self._rc,0.,1.,0.,0.,0.])
+        o2= Orbit([self._rc,0.,1.,0.,0.,numpy.pi])
+        lp= potential.LogarithmicHaloPotential(normalize=1.)
+        times= numpy.linspace(0.,maxt,nt)
+        o1.integrate(times,lp,method='dopr54_c')
+        o2.integrate(times,lp,method='dopr54_c')
+        self._o1p= potential.MovingObjectPotential(o1)
+        self._o2p= potential.MovingObjectPotential(o2)
+        testMWPotential.__init__(self,[self._o1p,self._o2p])
+        self.isNonAxi= True
+        return None
+    def phi2deriv(self,R,z,phi=0.,t=0.):
+        raise AttributeError
+    def OmegaP(self):
+        return 1./self._rc
+class mockMovingObjectPotentialExplPlummer(testMWPotential):
     def __init__(self,rc=0.75,maxt=1.,nt=50):
         from galpy.orbit import Orbit
         self._rc= rc
