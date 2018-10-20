@@ -4,23 +4,16 @@
 ###############################################################################
 import copy
 import numpy as nu
-import warnings
-from .Potential import Potential, _APY_LOADED, _isNonAxi, flatten, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities, \
-    evaluatephiforces
+from .Potential import Potential, _isNonAxi, flatten, \
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities
 from .PlummerPotential import PlummerPotential
-if _APY_LOADED:
-    from astropy import units
-from .ForceSoftening import PlummerSoftening
-from galpy.util import galpyWarning
 class MovingObjectPotential(Potential):
     """
     Class that implements the potential coming from a moving object by combining
     any galpy potential with an integrated galpy orbit.
     """
     def __init__(self,orbit,pot=None,amp=1.0,
-                 ro=None,vo=None
-                 ):
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -34,9 +27,9 @@ class MovingObjectPotential(Potential):
 
            orbit - the Orbit of the object (Orbit object)
 
-           pot - A potential object or list of potential objects (default: PlummerPotential with amp=0.06 and b=0.01)
+           pot - A potential object or list of potential objects representing the potential of the moving object; should be spherical, but this is not checked [default= PlummerPotential(amp=0.06,b=0.01)]
            
-           amp - amplitude
+           amp (=1.) another amplitude to apply to the potential
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -48,12 +41,13 @@ class MovingObjectPotential(Potential):
 
            2011-04-10 - Started - Bovy (NYU)
 
+           2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
+
         """
 
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
-        
-        # If no potential supplied implement the default Plummer sphere
-        if pot==None:
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)       
+        # If no potential supplied use a default Plummer sphere
+        if pot is None:
             pot=PlummerPotential(amp=0.06,b=0.01)
             self._pot = pot
         else:
@@ -80,7 +74,8 @@ class MovingObjectPotential(Potential):
         OUTPUT:
            Phi(R,z,phi)
         HISTORY:
-           2010104-10 - Started - Bovy (NYU)
+           2011-04-10 - Started - Bovy (NYU)
+           2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
         #Cylindrical distance
         Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
@@ -102,6 +97,7 @@ class MovingObjectPotential(Potential):
            the radial force
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
+           2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
         #Cylindrical distance
         Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
@@ -128,6 +124,7 @@ class MovingObjectPotential(Potential):
            the vertical force
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
+           2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
         #Cylindrical distance
         Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
@@ -152,6 +149,7 @@ class MovingObjectPotential(Potential):
            the azimuthal force
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
+           2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
         #Cylindrical distance
         Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
