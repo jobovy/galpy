@@ -18,7 +18,6 @@ from . import DehnenBarPotential
 from . import SteadyLogSpiralPotential
 from . import TransientLogSpiralPotential
 from . import MovingObjectPotential
-from . import ForceSoftening
 from . import EllipticalDiskPotential
 from . import CosmphiDiskPotential
 from . import RazorThinExponentialDiskPotential
@@ -159,8 +158,6 @@ DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPo
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
-#Softenings
-PlummerSoftening= ForceSoftening.PlummerSoftening
 
 #
 # Constants
