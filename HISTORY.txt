@@ -8,6 +8,13 @@ v1.5 (????-??-??)
   to non-axi potentials; RZToverticalPotential retained for backwards
   compatibility].
 
+- Re-wrote potential.MovingObjectPotential to allow general mass
+  distributions for the moving object, implemented now as standard
+  galpy potentials rather than with separate ForceSoftening class,
+  which has now been removed (#355). Initialization keywords for
+  potential.MovingObjectPotential have changed because of this in a
+  non-backwards-compatible manner.
+
 - Added nemo_accname and nemo_accpars for the HernquistPotential,
   allowing it to be converted to NEMO.
 
