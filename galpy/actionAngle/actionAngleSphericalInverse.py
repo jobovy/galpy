@@ -10,10 +10,10 @@
 import numpy
 from scipy import optimize
 from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
-    evaluatePotentials, evaluateRforces, toPlanarPotential
-from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
+    evaluatePotentials, evaluateRforces
+from .actionAngleIsochrone import actionAngleIsochrone
+from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 from galpy.actionAngle import actionAngleSpherical
-from .actionAngleAxi import actionAngleAxi
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import _actionAngleIsochroneHelper
 _APY_LOADED= True
@@ -230,17 +230,18 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
         # Calculate jr if not given
         if jr is None or rperi is None or rap is None or Omegar is None \
                 or Omegaphi is None or Omegaz is None:
-            # Just setup an actionAngleAxi instance for all of this
+            # Just setup an actionAngleSpherical instance for all of this
             # Setup the orbit at R_L s.t. R_L vc(R_L) = L
             rl= optimize.newton(lambda x: x*vcirc(self._pot,x)-L,1.,
                                 lambda x: dvcircdR(self._pot,x)+x)
-            aAS= actionAngleAxi(rl,
+            aAS= actionAngleSpherical(pot=self._pot)
+            self._jr,_,_,self._Omegar,_,self._Omegaz= \
+                aAS.actionsFreqs(rl,
                                 numpy.sqrt(2.*(E
                                                -evaluatePotentials(self._pot,
                                                                    rl,0.))
                                            -L2/rl**2.),
-                                L/rl,pot=toPlanarPotential(self._pot))
-            self._jr= aAS.JR()
+                                L/rl,0.,0.)
             # Assume that the orbit is in the plane unless otherwise specified
             if jphi is None and jz is None:
                 self._jphi= L
@@ -249,15 +250,13 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
                 # Should probably check that jphi and jz are consistent with L
                 self._jphi= jphi
                 self._jz= jz
-            self._rperi,self._rap= aAS.calcRapRperi()
-            # Also compute the frequencies, use internal actionAngleSpherical
-            aAS= actionAngleSpherical(pot=self._pot)
-            Rmean= numpy.exp((numpy.log(self._rperi)+numpy.log(self._rap))/2.)
-            self._Omegar= aAS._calc_or(Rmean,self._rperi,self._rap,
-                                       self._E,self._L,False)
-            self._Omegaz= aAS._calc_op(self._Omegar,Rmean,
-                                       self._rperi,self._rap,
-                                       self._E,self._L,False)
+            # Also need rperi and rap
+            _,_,self._rperi,self._rap= aAS.EccZmaxRperiRap(rl,
+                                numpy.sqrt(2.*(E
+                                               -evaluatePotentials(self._pot,
+                                                                   rl,0.))
+                                           -L2/rl**2.),
+                                                           L/rl,0.,0.)
         else:
             # Store everything
             self._jr= jr
