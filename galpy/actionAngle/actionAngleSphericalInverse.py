@@ -7,8 +7,11 @@
 #             given actions-angle coordinates
 #
 ###############################################################################
+import copy
 import numpy
+import warnings
 from scipy import optimize
+from galpy.util import galpyWarning
 from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
     evaluatePotentials, evaluateRforces
 from .actionAngleIsochrone import actionAngleIsochrone
@@ -23,7 +26,9 @@ except ImportError:
     _APY_LOADED= False
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle formalism for spherical potentials"""
-    def __init__(self,*args,**kwargs):
+    def __init__(self,pot=None,Es=[0.1,0.3],Ls=[1.,1.2],grid=False,
+                 nta=128,
+                 setup_interp=False,maxiter=100,angle_tol=1e-12,bisect=False):
         """
         NAME:
 
@@ -35,42 +40,313 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
         INPUT:
 
-           pot= a Spherical potential
+           pot= a Potential or list thereof, should be a spherical potential
 
-           ro= distance from vantage point to GC (kpc; can be Quantity)
+           Es= energies of the orbits to map the tori for, will be forcibly sorted when grid=True (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
 
-           vo= circular velocity at ro (km/s; can be Quantity)
+           Ls= angular momenta of the orbits to map the tori for, will be forcibly sorted when grid=True (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
 
+           grid= (False) if True, make a 2D grid out of provide 1D Es and Ls, to fully map (E,L)
+
+           nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
+
+           setup_interp= (False) if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
+
+           maxiter= (100) maximum number of iterations of root-finding algorithms
+
+           angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
+
+           bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
+           
         OUTPUT:
         
            instance
 
         HISTORY:
 
-           2017-11-21 - Started - Bovy (UofT)
+           2017-11-21 - Started initial implementation that works for single (E,L) - Bovy (UofT)
+
+           2017-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
 
         """
-        actionAngleInverse.__init__(self,*args,**kwargs)
-        if not 'pot' in kwargs: #pragma: no cover
+        #actionAngleInverse.__init__(self,*args,**kwargs)
+        if pot is None: #pragma: no cover
             raise IOError("Must specify pot= for actionAngleSphericalInverse")
-        self._pot= kwargs['pot']
-        #Also store a 'planar' (2D) version of the potential
-        if isinstance(self._pot,list):
-            self._2dpot= [p.toPlanar() for p in self._pot]
+        self._pot= pot
+        self._aAS= actionAngleSpherical(pot=self._pot)
+        # Determine gridding options
+        self._Es= numpy.atleast_1d(Es)
+        self._Ls= numpy.atleast_1d(Ls)
+        self._nE= len(self._Es)
+        self._nL= len(self._Ls)
+        if not grid and self._nE != self._nL:
+            raise ValueError("When grid=False, len(Es) has to equal len(Ls)")
+        if grid:
+            # Make grid, flatten so we can treat it as regular 1D input
+            self._Es= numpy.sort(self._Es)
+            self._Ls= numpy.sort(self._Ls)
+            self._internal_Es,self._internal_Ls= \
+                numpy.meshgrid(self._Es,self._Ls,indexing='ij')
+            self._internal_Es= self._internal_Es.flatten()
+            self._internal_Ls= self._internal_Ls.flatten()
         else:
-            self._2dpot= self._pot.toPlanar()
-        #The following for if we ever implement this code in C
-        self._c= False
-        ext_loaded= False
-        if ext_loaded and (('c' in kwargs and kwargs['c'])
-                           or not 'c' in kwargs):
-            self._c= True #pragma: no cover
-        else:
-            self._c= False
+            self._internal_Es= copy.copy(self._Es)
+            self._internal_Ls= copy.copy(self._Ls)
+        self._L2= self._internal_Ls**2
+        # Compute actions, frequencies, and rperi/rap for each (E,L), to do
+        # this, setup orbit at radius of circular orbit for given L
+        rls= numpy.array([optimize.newton(lambda x: x*vcirc(self._pot,x)-L,1.,
+                                          lambda x: dvcircdR(self._pot,x)+x)
+                          for L in self._internal_Ls])
+        self._jr,_,_,self._Omegar,_,self._Omegaz= self._aAS.actionsFreqs(\
+            rls,numpy.sqrt(2.*(self._internal_Es\
+                                  -evaluatePotentials(self._pot,rls,
+                                                      numpy.zeros_like(rls)))
+                          -self._L2/rls**2.),
+            self._internal_Ls/rls,numpy.zeros_like(rls),numpy.zeros_like(rls))
+        # Also need rperi and rap
+        _,_,self._rperi,self._rap= self._aAS.EccZmaxRperiRap(\
+            rls,numpy.sqrt(2.*(self._internal_Es\
+                                  -evaluatePotentials(self._pot,rls,
+                                                      numpy.zeros_like(rls)))
+                          -self._L2/rls**2.),
+            self._internal_Ls/rls,numpy.zeros_like(rls),numpy.zeros_like(rls))
+        self._OmegazoverOmegar= self._Omegaz/self._Omegar
+        # First need to determine appropriate IsochronePotentials
+        ampb= self._L2*self._Omegaz*(self._Omegar-self._Omegaz)\
+            /(2.*self._Omegaz-self._Omegar)**2.
+        if numpy.any(ampb < 0.):
+            raise NotImplementedError('actionAngleSphericalInverse not implemented for the case where Omegaz > Omegar or Omegaz < Omegar/2')
+        amp= numpy.sqrt(self._Omegar
+                        *(self._jr+numpy.sqrt(self._L2+4.*ampb)
+                          *self._Omegaz/self._Omegar)**3.)
+        self._amp= amp
+        self._b= ampb/amp
+        # This sets up objects with arrays of parameters, which is not
+        # generally supported in galpy, but works here as long as the object
+        # is evaluated with the same number of phase-space points as the 
+        # length of the parameter array
+        self._ip= IsochronePotential(amp=self._amp,b=self._b)
+        self._isoaa= actionAngleIsochrone(ip=self._ip)
+        self._isoaainv= actionAngleIsochroneInverse(ip=self._ip)
+        # Now map all tori
+        self._nta= nta
+        self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
+        self._maxiter= maxiter
+        self._angle_tol= angle_tol
+        self._bisect= bisect
+        # Determine the r grid for even-spaced theta_r grid
+        self._rgrid= self._create_rgrid()
+        # Compute mapping coefficients
+        isoaa_helper= _actionAngleIsochroneHelper(\
+            ip=IsochronePotential(amp=self._ampgrid,b=self._bgrid))
+        tE= self._Egrid+isoaa_helper._ip(self._rgrid,
+                                         numpy.zeros_like(self._rgrid))\
+            -evaluatePotentials(self._pot,self._rgrid,
+                                numpy.zeros_like(self._rgrid))
+        self._jra= isoaa_helper.Jr(tE,self._Lgrid)
+        self._ora= isoaa_helper.Or(tE)
+        # Compute dEA/dE and dEA/dL for dJr^A/d(Jr,L)
+        dEAdr= evaluateRforces(self._pot,
+                               self._rgrid,numpy.zeros_like(self._rgrid))\
+            -evaluateRforces(isoaa_helper._ip,
+                             self._rgrid,numpy.zeros_like(self._rgrid))
+        drdE,drdL= isoaa_helper.drdEL_constant_angler(\
+            self._rgrid,
+            2.*(self._Egrid
+                -evaluatePotentials(self._pot,
+                                    self._rgrid,
+                                    numpy.zeros_like(self._rgrid)))\
+                -self._Lgrid**2/self._rgrid**2.,
+            tE,self._Lgrid,dEAdr)
+        self._dEdE= drdE*dEAdr+1.
+        self._dEdL= drdL*dEAdr/self._ora
+        self._djradjr= numpy.tile(self._Omegar,(self._nta,1)).T\
+            /self._ora*self._dEdE
+        self._djradLish= self._dEdL
+        # Store mean(jra) as probably a better approx. of jr
+        self._jr_orig= copy.copy(self._jr)
+        self._jr= numpy.mean(self._jra,axis=1)
+        # Compute Fourier expansions
+        self._nforSn= numpy.arange(self._jra.shape[1]//2+1)
+        self._nSn= numpy.real(numpy.fft.rfft(self._jra
+                                             -numpy.atleast_2d(self._jr).T,
+                                             axis=1))[:,1:]/self._jra.shape[1]
+        self._dSndJr= numpy.real(numpy.fft.rfft(self._djradjr-1.,axis=1))[:,1:]\
+                          /self._jra.shape[1]
+        self._dSndLish= numpy.real(numpy.fft.rfft(self._djradLish,axis=1))[:,1:]\
+                          /self._jra.shape[1]
+        self._dSndJr/= numpy.atleast_2d(self._nforSn)[:,1:]
+        self._dSndLish/= numpy.atleast_2d(self._nforSn)[:,1:]
+        self._nforSn= self._nforSn[1:]
         # Check the units
-        self._check_consistent_units()
+        #self._check_consistent_units()
         return None
-    
+           
+    def _create_rgrid(self):
+        # Find r grid for regular grid in auxiliary angle (thetara)
+        # in practice only need to map 0 < thetara < pi  to r with +v bc symm
+        # To efficiently start the search, first compute thetara for a dense
+        # grid in r (at +v); also don't allow points to be exactly at 
+        # rperi or rap, because Newton derivative is inf there...
+        rgrid= numpy.linspace(0.,1.,2*self._nta)
+        rs= rgrid*numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T\
+            +numpy.atleast_2d(self._rperi+1e-8).T
+        # Setup helper for computing angles, and derivative
+        isoaa_helper= _actionAngleIsochroneHelper(\
+            ip=IsochronePotential(amp=numpy.tile(self._amp,(rs.shape[1],1)).T,
+                                  b=numpy.tile(self._b,(rs.shape[1],1)).T))
+        rta= isoaa_helper.angler(\
+            rs,2.*(numpy.tile(self._internal_Es,(rs.shape[1],1)).T
+                   -evaluatePotentials(self._pot,rs,numpy.zeros_like(rs)))
+            -numpy.tile(self._L2,(rs.shape[1],1)).T/rs**2.,
+            numpy.tile(self._internal_Ls,(rs.shape[1],1)).T,reuse=False)
+        rta[numpy.isnan(rta)]= 0. # Zero energy orbit -> NaN
+        # Now use Newton-Raphson to iterate to a regular grid
+        cindx= numpy.nanargmin(numpy.fabs(\
+                (rta-numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)
+                 +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
+        rgrid= rgrid[cindx].T*numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T\
+            +numpy.atleast_2d(self._rperi+1e-8).T
+        Egrid= numpy.tile(self._internal_Es,(self._nta,1)).T
+        Lgrid= numpy.tile(self._internal_Ls,(self._nta,1)).T
+        L2grid= Lgrid**2
+        # Force rperi and rap to be thetar=0 and pi and don't optimize later
+        rgrid[:,0]= self._rperi
+        rgrid[:,self._nta//2]= self._rap
+        # Need to adjust parameters of helpers
+        ampgrid= numpy.tile(self._amp,(self._nta,1)).T
+        bgrid= numpy.tile(self._b,(self._nta,1)).T
+        isoaa_helper._ip= IsochronePotential(amp=ampgrid,b=bgrid)
+        isoaa_helper.amp= ampgrid
+        isoaa_helper.b= bgrid
+        rperigrid= numpy.tile(self._rperi,(self._nta,1)).T
+        rapgrid= numpy.tile(self._rap,(self._nta,1)).T
+        ta= isoaa_helper.angler(\
+            rgrid,2.*(Egrid
+                   -evaluatePotentials(self._pot,rgrid,
+                                       numpy.zeros_like(rgrid)))
+            -L2grid/rgrid**2.,Lgrid,reuse=False)
+        mta= numpy.tile(self._thetaa,(len(self._internal_Es),1))
+        # Now iterate
+        cntr= 0
+        unconv= numpy.ones(rgrid.shape,dtype='bool')
+        # We'll fill in the -v part using the +v, also remove rperi/rap
+        unconv[:,0]= False
+        unconv[:,self._nta//2:]= False
+        dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+        unconv[unconv]= numpy.fabs(dta) > self._angle_tol
+        # Don't allow too big steps
+        maxdr= numpy.tile((self._rap-self._rperi)/float(self._nta),
+                          (self._nta,1)).T
+        isoaa_helper._ip= IsochronePotential(amp=ampgrid[unconv],
+                                             b=bgrid[unconv])
+        isoaa_helper.amp= ampgrid[unconv]
+        isoaa_helper.b= bgrid[unconv]
+        while not self._bisect:
+            dtadr= isoaa_helper.danglerdr_constant_L(\
+                rgrid[unconv],
+                2.*(Egrid[unconv]-evaluatePotentials(self._pot,rgrid[unconv],
+                                                     numpy.zeros_like(rgrid[unconv])))
+                -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],
+                evaluateRforces(self._pot,rgrid[unconv],0.)
+                -evaluateRforces(isoaa_helper._ip,rgrid[unconv],
+                                 numpy.zeros_like(rgrid[unconv])))
+            dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+            dr= -dta/dtadr
+            dr[numpy.fabs(dr) > maxdr[unconv]]=\
+                (numpy.sign(dr)*maxdr[unconv])[numpy.fabs(dr) > maxdr[unconv]]
+            rgrid[unconv]+= dr
+            rgrid[unconv*(rgrid > rapgrid)]=\
+                rapgrid[unconv*(rgrid > rapgrid)]
+            rgrid[unconv*(rgrid < rperigrid)]=\
+                rperigrid[unconv*(rgrid < rperigrid)]
+            unconv[unconv]= numpy.fabs(dta) > self._angle_tol
+            isoaa_helper._ip= IsochronePotential(amp=ampgrid[unconv],
+                                                 b=bgrid[unconv])
+            isoaa_helper.amp= ampgrid[unconv]
+            isoaa_helper.b= bgrid[unconv]
+            newta= isoaa_helper.angler(\
+                rgrid[unconv],2.*(Egrid[unconv]
+                          -evaluatePotentials(self._pot,rgrid[unconv],
+                                              numpy.zeros_like(rgrid[unconv])))
+                -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],reuse=False)
+            ta[unconv]= newta
+            cntr+= 1
+            if numpy.sum(unconv) == 0:
+                break
+            if cntr > self._maxiter:
+                warnings.warn(\
+                    "Torus mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
+                        .format(self._maxiter),galpyWarning)
+                break
+        if False:#self._bisect or cntr > self._maxiter:
+            # Reset cntr
+            cntr= 0
+            # Start from nearest guess from below
+            new_rgrid= numpy.linspace(0.,1.,2*self._nta)
+            da=(rta-numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)+numpy.pi)\
+                % (2.*numpy.pi) - numpy.pi
+            da[da >= 0.]= -numpy.nanmax(numpy.fabs(da))-0.1
+            cindx= numpy.nanargmax(da,axis=2)
+            tryr_min= (new_rgrid[cindx].T
+                       *numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T
+                       +numpy.atleast_2d(self._rperi+1e-8).T)[unconv]
+            dr= 2./(2.*self._nta-1)*(rapgrid-rperigrid) # delta of initial x grid above
+            while True:
+                dr*= 0.5
+                rgrid[unconv]= tryr_min+dr[unconv]
+                isoaa_helper._ip= IsochronePotential(amp=ampgrid[unconv],
+                                                     b=bgrid[unconv])
+                isoaa_helper.amp= ampgrid[unconv]
+                isoaa_helper.b= bgrid[unconv]
+                newta= (isoaa_helper.angler(\
+                    rgrid[unconv],2.*(Egrid[unconv]
+                          -evaluatePotentials(self._pot,rgrid[unconv],
+                                              numpy.zeros_like(rgrid[unconv])))
+                    -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],
+                    reuse=False)+2.*numpy.pi) \
+                                % (2.*numpy.pi)
+                ta[unconv]= newta
+                dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+                tryr_min[newta < mta[unconv]]=\
+                    rgrid[unconv][newta < mta[unconv]]
+                unconv[unconv]= numpy.fabs(dta) > self._angle_tol
+                tryr_min= tryr_min[numpy.fabs(dta) > self._angle_tol]
+                cntr+= 1
+                if numpy.sum(unconv) == 0:
+                    break
+                if cntr > self._maxiter:
+                    warnings.warn(\
+                        "Torus mapping with bisection did not converge in {} iterations"\
+                            .format(self._maxiter)
+                        +" for energies:"+""\
+                  .join(' {:g}'.format(k) for k in sorted(set(Egrid[unconv]))),
+                    galpyWarning)
+                    break
+        rgrid[:,self._nta//2+1:]= rgrid[:,1:self._nta//2][:,::-1]
+        isoaa_helper._ip= IsochronePotential(amp=ampgrid[:,self._nta//2+1:],
+                                             b=bgrid[:,self._nta//2+1:])
+        isoaa_helper.amp= ampgrid[:,self._nta//2+1:]
+        isoaa_helper.b= bgrid[:,self._nta//2+1:]
+        ta[:,self._nta//2+1:]= isoaa_helper.angler(\
+            rgrid[:,self._nta//2+1:],2.*(Egrid[:,self._nta//2+1:]
+                          -evaluatePotentials(self._pot,rgrid[:,self._nta//2+1:],
+                                              numpy.zeros_like(rgrid[:,self._nta//2+1:])))
+                    -L2grid[:,self._nta//2+1:]/rgrid[:,self._nta//2+1:]**2.,Lgrid[:,self._nta//2+1:],
+                    reuse=False,vrneg=True)
+        self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
+        self._mta= mta
+        # Store these, they are useful (obv. arbitrary to return rgrid 
+        # and not just store it...)
+        self._Egrid= Egrid
+        self._Lgrid= Lgrid
+        self._ampgrid= ampgrid
+        self._bgrid= bgrid
+        self._rperigrid= rperigrid
+        self._rapgrid= rapgrid
+        return rgrid
+
     def _evaluate(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
@@ -284,6 +560,7 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
         if ntr == 'auto': ntr= 128 # BOVY: IMPLEMENT CORRECTLY
         thetara= numpy.linspace(0.,2.*numpy.pi*(1.-1./ntr),ntr)
         solvera= numpy.empty_like(thetara)
+        solvedta= numpy.empty_like(thetara)
         jra= numpy.empty_like(thetara)
         ora= numpy.empty_like(thetara)
         dEdL= numpy.empty_like(thetara)
@@ -308,6 +585,7 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
             tjra= self._isoaa_helper.Jr(tE,L)
             tora= self._isoaa_helper.Or(tE)
             solvera[ii]= tr
+            solvedta[ii]= self._isoaa_helper.angler(tr,2.*(E-evaluatePotentials(self._pot,tr,0.))-L2/tr**2.,L,reuse=False)-tra
             jra[ii]= tjra
             # Compute dEA/dE and dEA/dL
             dEAdr= evaluateRforces(self._pot,tr,0.)\
@@ -320,11 +598,13 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
             ora[ii]= tora/dEdE
         # don't need solvera, just for sanity checking
         solvera[ntr//2+1:]= solvera[::-1][ntr//2:-1]
+        solvedta[ntr//2+1:]= solvedta[::-1][ntr//2:-1]
         jra[ntr//2+1:]= jra[::-1][ntr//2:-1]
         ora[ntr//2+1:]= ora[::-1][ntr//2:-1]
         dEdL[ntr//2+1:]= dEdL[::-1][ntr//2:-1]
         self._thetara= thetara
         self._solvera= solvera
+        self._solvedta= solvedta
         self._jra= jra
         self._ora= ora
         self._dEdL= dEdL
