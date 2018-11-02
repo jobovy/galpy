@@ -432,7 +432,7 @@ class actionAngleSpherical(actionAngle):
             rend= _rapRperiAxiFindStart(r,E,L,self._2dpot,rap=True,
                                         startsign=startsign)
             rap= optimize.brentq(_rapRperiAxiEq,r,rend,
-                                 (E,L,self._2dpot))
+                                 (E,L,self._2dpot),xtol=1e-16)
         return (rperi,rap)
 
     def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
