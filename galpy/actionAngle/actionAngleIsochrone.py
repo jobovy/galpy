@@ -420,20 +420,29 @@ class _actionAngleIsochroneHelper(object):
         if reuse: 
             return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*nu.pi)
         E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
-        if E > 0.: return -1.
+        #if E > 0.: return -1.
         c= -self.amp/2./E-self.b
         e2= 1.-L*L/self.amp/c*(1.+self.b/c)
         e= nu.sqrt(e2)
-        if self.b == 0.:
-            coseta= 1/e*(1.-r/c)
-        else:
+        if isinstance(self.b,nu.ndarray):
             s= 1.+nu.sqrt(1.+r*r/self.b**2.)
-            coseta= 1/e*(1.-self.b/c*(s-2.))
-        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
-        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+            coseta= (1/e*(1.-self.b/c*(s-2.)))
+            pindx= (self.b == 0.)
+            coseta[pindx]= 1/e[pindx]*(1.-r[pindx]/c[pindx])
+        else:
+            if self.b == 0.:
+                coseta= 1/e*(1.-r/c)
+            else:
+                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                coseta= 1/e*(1.-self.b/c*(s-2.))
+        pindx= (coseta > 1.)
+        coseta[pindx]= 1.
+        pindx= (coseta < -1.)
+        coseta[pindx]= -1.           
         eta= nu.arccos(coseta)
         if vrneg: eta= 2.*nu.pi-eta
         angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        angler[E>0.]= -1.
         return angler
 
     def danglerdr_constant_L(self,r,vr2,L,dEdr,vrneg=False):
@@ -444,13 +453,21 @@ class _actionAngleIsochroneHelper(object):
         L2overampc= L2/self.amp/self._c
         e2= 1.-L2overampc*(1.+self.b/self._c)
         self._e= nu.sqrt(e2)
-        if self.b == 0.:
-            coseta= 1/self._e*(1.-r/self._c)
+        if isinstance(self.b,nu.ndarray):
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= (1/self._e*(1.-self.b/self._c*(s-2.)))
+            pindx= (self.b == 0.)
+            coseta[pindx]= 1/self._e[pindx]*(1.-r[pindx]/self._c[pindx])
         else:
-            s= 1.+nu.sqrt(1.+r**2./self.b**2.)
-            coseta= 1/self._e*(1.-self.b/self._c*(s-2.))
-        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
-        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+            if self.b == 0.:
+                coseta= 1/self._e*(1.-r/self._c)
+            else:
+                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                coseta= 1/self._e*(1.-self.b/self._c*(s-2.))
+        pindx= (coseta > 1.)
+        coseta[pindx]= 1.
+        pindx= (coseta < -1.)
+        coseta[pindx]= -1.           
         self._eta= nu.arccos(coseta)
         if vrneg: self._eta= 2.*nu.pi-self._eta
         self._sineta= nu.sin(self._eta)
@@ -474,13 +491,21 @@ class _actionAngleIsochroneHelper(object):
         c= -self.amp/2./E-self.b
         e2= 1.-L2/self.amp/c*(1.+self.b/c)
         e= nu.sqrt(e2)
-        if self.b == 0.:
-            coseta= 1/e*(1.-r/c)
+        if isinstance(self.b,nu.ndarray):
+            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+            coseta= (1/e*(1.-self.b/c*(s-2.)))
+            pindx= (self.b == 0.)
+            coseta[pindx]= 1/e[pindx]*(1.-r[pindx]/c[pindx])
         else:
-            s= 1.+nu.sqrt(1.+r**2./self.b**2.)
-            coseta= 1/e*(1.-self.b/c*(s-2.))
-        if coseta > 1. and coseta < (1.+10.**-7.): coseta= 1.
-        elif coseta < -1. and coseta > (-1.-10.**-7.): coseta= -1.
+            if self.b == 0.:
+                coseta= 1/e*(1.-r/c)
+            else:
+                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                coseta= 1/e*(1.-self.b/c*(s-2.))
+        pindx= (coseta > 1.)
+        coseta[pindx]= 1.
+        pindx= (coseta < -1.)
+        coseta[pindx]= -1.           
         eta= nu.arccos(coseta)
         if vrneg: eta= 2.*nu.pi-eta
         sineta= nu.sin(eta)
