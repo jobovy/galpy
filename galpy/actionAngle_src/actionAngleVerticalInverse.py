@@ -198,6 +198,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 newta= (_anglea(xgrid[unconv],Egrid[unconv],
                                 self._pot,omegagrid[unconv])+2.*numpy.pi) \
                                 % (2.*numpy.pi)
+                # BOVY: Shouldn't I store newta in ta? Yes!
                 dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
                 tryx_min[newta < mta[unconv]]=\
                     xgrid[unconv][newta < mta[unconv]]
