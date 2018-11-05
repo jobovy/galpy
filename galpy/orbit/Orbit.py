@@ -484,6 +484,10 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        if method.lower() not in ['odeint', 'leapfrog', 'leapfrog_c',
+                'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
+                'dopr54_c']:
+            raise ValueError('{:s} is not a valid `method`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)

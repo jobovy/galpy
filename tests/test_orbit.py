@@ -4853,3 +4853,12 @@ def check_integrate_t_asQuantity_warning(o,funcName):
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
     assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None  
+
+def test_integrate_method_warning():
+    """ Test Orbit.integrate raises an error if method is unvalid """
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])
+    t = numpy.arange(0.0, 10.0, 0.001)
+    with pytest.raises(ValueError):
+        o.integrate(t, MWPotential2014, method='rk4')
