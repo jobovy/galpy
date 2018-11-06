@@ -368,6 +368,10 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The AMBRE Project: searching for the closest solar siblings*, V. Adibekyan, P. de Laverny, A. Recio-Blanco, et al. (2018) *Astron. & Astrophys.*, in press (`arXiv/1810.01813 <http://arxiv.org/abs/1810.01813>`_)
 
+#. *SB 796: a high-velocity RRc star*, Roy Gomel, Sahar Shahaf, Tsevi Mazeh, Simchon Faigler, Lisa A. Crause, Ramotholo Sefako, Damien Segransan, Pierre F.L. Maxted, & Igor Soszynski (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1810.09501 <http://arxiv.org/abs/1810.09501>`_)
+
+#. *An Ultra Metal-poor Star Near the Hydrogen-burning Limit*, Kevin C. Schlaufman, Ian B. Thompson, & Andrew R. Casey (2018) *Astrophys. J.*, in press (`arXiv/1811.00549 <http://arxiv.org/abs/1811.00549>`_)
+
 
 Indices and tables
 ==================
