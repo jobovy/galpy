@@ -341,14 +341,10 @@ void calcRapRperi(int ndata,
     (JRRoot+tid)->params = params+tid;
     (JRRoot+tid)->function = &JRAdiabaticIntegrandSquared;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(R+ii))) < 0.0000001){ //we are at rap or rperi
-      peps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)+0.0000001);
-      meps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)-0.0000001);
-      if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 && peps*meps >= 0.) {//circular
-	*(rperi+ii) = *(R+ii);
-	*(rap+ii) = *(R+ii);
-      }
-      else if ( peps < 0. && meps > 0. ) {//umax
+    peps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)+0.0000001);
+    meps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)-0.0000001);
+    if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(R+ii))) < 0.0000001 && peps*meps < 0 ){ //we are at rap or rperi
+      if ( peps < 0. && meps > 0. ) {//umax
 	*(rap+ii)= *(R+ii);
 	R_lo= 0.9 * (*(R+ii) - 0.0000001);
 	R_hi= *(R+ii) - 0.00000001;
@@ -419,6 +415,10 @@ void calcRapRperi(int ndata,
 	// LCOV_EXCL_STOP
 	*(rap+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
+    }
+    else if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 && peps <= 0 && meps <= 0 ) {//circular
+      *(rperi+ii) = *(R+ii);
+      *(rap+ii) = *(R+ii);
     }
     else {
       R_lo= 0.9 * *(R+ii);
