@@ -2679,6 +2679,18 @@ def test_MWPotential_warning_isochroneapprox():
         assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
+# Test of the fix to issue 361
+def test_actionAngleAdiabatic_issue361():
+    from galpy.potential import MWPotential2014
+    from galpy import actionAngle
+    aA_adi = actionAngle.actionAngleAdiabatic(pot=MWPotential2014, c=True) 
+    R = 8.7007/8.
+    vT = 188.5/220.
+    jr_good,_,_= aA_adi(R, -0.1/220., vT, 0, 0)
+    jr_bad,_,_= aA_adi(R, -0.09/220., vT, 0, 0)
+    assert numpy.fabs(jr_good-jr_bad) < 1e-6, 'Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {}, Jr_bad = {}'.format(jr_good,jr_bad)
+    return None
+
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
                                         ntimes=1001,fixed_quad=False,
