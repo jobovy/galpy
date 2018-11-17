@@ -923,7 +923,7 @@ def test_actionAngleStaeckel_basic_actions_u0_interppot_c():
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
-    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[0][0]) < 10.**-12., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 

@@ -344,7 +344,7 @@ void calcRapRperi(int ndata,
     peps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)+0.0000001);
     meps= GSL_FN_EVAL(JRRoot+tid,*(R+ii)-0.0000001);
     if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(R+ii))) < 0.0000001 && peps*meps < 0 ){ //we are at rap or rperi
-      if ( peps < 0. && meps > 0. ) {//umax
+      if ( peps < 0. && meps > 0. ) {//rap
 	*(rap+ii)= *(R+ii);
 	R_lo= 0.9 * (*(R+ii) - 0.0000001);
 	R_hi= *(R+ii) - 0.00000001;
@@ -379,7 +379,7 @@ void calcRapRperi(int ndata,
 	// LCOV_EXCL_STOP
 	*(rperi+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
-      else if ( peps > 0. && meps < 0. ){//umin
+      else {// JB: Should catch all: if ( peps > 0. && meps < 0. ){//rperi
 	*(rperi+ii)= *(R+ii);
 	R_lo= *(R+ii) + 0.0000001;
 	R_hi= 1.1 * (*(R+ii) + 0.0000001);
