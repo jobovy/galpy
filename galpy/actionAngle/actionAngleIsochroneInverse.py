@@ -170,15 +170,17 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         anglephi= numpy.atleast_1d(anglephi)
         anglez= numpy.atleast_1d(anglez)
         eta= numpy.empty(len(angler))
+        aeoverab= a*e/ab
         for ii,ar in enumerate(angler):
+            taeoverab= aeoverab[ii*(len(jr) > 1)] # sometimes jr is an array...
             try:
-                eta[ii]= optimize.newton(lambda x: x-a*e/ab*numpy.sin(x)-ar,
+                eta[ii]= optimize.newton(lambda x: x-taeoverab*numpy.sin(x)-ar,
                                          0.,
-                                         lambda x: 1-a*e/ab*numpy.cos(x))
+                                         lambda x: 1-taeoverab*numpy.cos(x))
             except RuntimeError:
                 # Newton-Raphson did not converge, this has to work, 
                 # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii]= optimize.brentq(lambda x: x-a*e/ab*numpy.sin(x)-ar,
+                eta[ii]= optimize.brentq(lambda x: x-taeoverab*numpy.sin(x)-ar,
                                          0.,2.*numpy.pi)
         coseta= numpy.cos(eta)
         r= a*numpy.sqrt((1.-e*coseta)*(1.-e*coseta+2.*self.b/a))
