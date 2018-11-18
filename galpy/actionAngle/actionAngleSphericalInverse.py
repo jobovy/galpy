@@ -66,7 +66,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
            2017-11-21 - Started initial implementation that works for single (E,L) - Bovy (UofT)
 
-           2017-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
+           2018-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
 
         """
         #actionAngleInverse.__init__(self,*args,**kwargs)
@@ -179,6 +179,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._dSndJr/= numpy.atleast_2d(self._nforSn)[:,1:]
         self._dSndLish/= numpy.atleast_2d(self._nforSn)[:,1:]
         self._nforSn= self._nforSn[1:]
+        # Setup interpolation if requested
+        if setup_interp:
+            self._interp= True
+            self._setup_interp()
+        else:
+            self._interp= False
         # Check the units
         #self._check_consistent_units()
         return None
@@ -379,7 +385,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
         HISTORY:
 
-           2017-11-21 - Written - Bovy (UofT)
+           2018-11-17 - Written - Bovy (UofT)
 
         """
         return self._xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[:6]
@@ -415,10 +421,102 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
         HISTORY:
 
-           2017-11-15 - Written - Bovy (UofT)
+           2018-11-17 - Written - Bovy (UofT)
 
         """
-        raise NotImplementedError("Method not implemented yet")
+        # Find torus
+        if not self._interp:
+            indx= numpy.nanargmin(numpy.fabs(jr-self._jr))
+            if numpy.fabs(jr-self._jr[indx]) > 1e-10 \
+                    or numpy.fabs(jz+numpy.fabs(jphi)-self._Ls[indx]) > 1e-10:
+                raise ValueError('Given actions not found, to use interpolation, initialize with setup_interp=True')
+            tnSn= self._nSn[indx]
+            tdSndJr= self._dSndJr[indx]
+            tdSndLish= self._dSndLish[indx]
+            tOmegazoverOmegar= self._OmegazoverOmegar[indx]
+            tOmegar= self._Omegar[indx]
+            tOmegaz= self._Omegaz[indx]
+            isoaainv= actionAngleIsochroneInverse(\
+                ip=IsochronePotential(amp=self._amp[indx],b=self._b[indx]))
+        else:
+            pass
+        # First we need to solve for anglera
+        angler= numpy.atleast_1d(angler)
+        anglera= copy.copy(angler)
+        # Now iterate Newton's method
+        cntr= 0
+        unconv= numpy.ones(len(angler),dtype='bool')
+        tar= anglera\
+            +2.*numpy.sum(tdSndJr
+                  *numpy.sin(self._nforSn*numpy.atleast_2d(anglera).T),axis=1)
+        dtar= (tar-angler+numpy.pi) % (2.*numpy.pi)-numpy.pi
+        unconv[unconv]= numpy.fabs(dtar) > self._angle_tol
+        # Don't allow too big steps
+        maxdar= 2.*numpy.pi/101
+        while not self._bisect:
+            danglear= 1.+2.*numpy.sum(\
+                self._nforSn*tdSndJr
+                *numpy.cos(self._nforSn*numpy.atleast_2d(anglera[unconv]).T),
+                axis=1)
+            dtar= (tar[unconv]-angler[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+            dar= -dtar/danglear
+            dar[numpy.fabs(dar) > maxdar]= \
+                (numpy.sign(dar)*maxdar)[numpy.fabs(dar) > maxdar]
+            anglera[unconv]+= dar
+            unconv[unconv]= numpy.fabs(dtar) > self._angle_tol
+            newtar= anglera[unconv]\
+                +2.*numpy.sum(tdSndJr
+                   *numpy.sin(self._nforSn*numpy.atleast_2d(anglera[unconv]).T),
+                              axis=1)
+            tar[unconv]= newtar
+            cntr+= 1
+            if numpy.sum(unconv) == 0:
+                break
+            if cntr > self._maxiter:
+                warnings.warn(\
+                    "Radial angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
+                        .format(self._maxiter),galpyWarning)
+                break
+        # Fallback onto simple bisection in case of non-convergence
+        if self._bisect or cntr > self._maxiter:
+            # Reset cntr
+            cntr= 0
+            tryar_min= numpy.zeros(numpy.sum(unconv))
+            dar= 2.*numpy.pi
+            while True:
+                dar*= 0.5
+                anglera[unconv]= tryar_min+dar
+                newtar= (anglera[unconv]\
+                    +2.*numpy.sum(tdSndJr
+                   *numpy.sin(self._nforSn*numpy.atleast_2d(anglera[unconv]).T),
+                              axis=1)+2.*numpy.pi) % (2.*numpy.pi)
+                dtar= (newtar-angler[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
+                tryar_min[newtar < angler[unconv]]=\
+                    anglera[unconv][newtar < angler[unconv]]
+                unconv[unconv]= numpy.fabs(dtar) > self._angle_tol
+                tryar_min= tryar_min[numpy.fabs(dtar) > self._angle_tol]
+                cntr+= 1
+                if numpy.sum(unconv) == 0:
+                    break
+                if cntr > self._maxiter:
+                    warnings.warn(\
+                        "Radial angle mapping with bisection did not converge in {} iterations"\
+                            .format(self._maxiter)
+                        +" for radial angles:"+""\
+                  .join(' {:g}'.format(k) for k in sorted(set(angler[unconv]))),
+                    galpyWarning)
+                    break
+        # Then compute the auxiliary action
+        jra= jr+2.*numpy.sum(tnSn
+                           *numpy.cos(self._nforSn*numpy.atleast_2d(anglera).T),
+                           axis=1)
+        angleza= anglez+tOmegazoverOmegar*(anglera-angler)\
+            -2.*numpy.sum(tdSndLish\
+                              *numpy.sin(self._nforSn*numpy.atleast_2d(anglera).T),
+                          axis=1)
+        anglephia= anglephi+numpy.sign(jphi)*(angleza-anglez)
+        return tuple(isoaainv(jra,jphi,jz,anglera,anglephia,angleza)\
+                         +(tOmegar,numpy.sign(jphi)*tOmegaz,tOmegaz,))
 
     def _Freqs(self,jr,jphi,jz,**kwargs):
         """
@@ -444,10 +542,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
         HISTORY:
 
-           2017-11-21 - Written - Bovy (UofT)
+           2018-11-17 - Written - Bovy (UofT)
 
         """
-        raise NotImplementedError("Method not implemented yet")
+        # Find torus
+        if not self._interp:
+            indx= numpy.nanargmin(numpy.fabs(jr-self._jr))
+            if numpy.fabs(jr-self._jr[indx]) > 1e-10 \
+                    or numpy.fabs(jz+numpy.fabs(jphi)-self._Ls[indx]) > 1e-10:
+                raise ValueError('Given actions not found, to use interpolation, initialize with setup_interp=True')
+            tOmegar= self._Omegar[indx]
+            tOmegaz= self._Omegaz[indx]
+        else:
+            pass
+        return (tOmegar,numpy.sign(jphi)*tOmegaz,tOmegaz)
 
 class actionAngleSphericalInverseSingle(actionAngleInverse):
     """Invert the action-angle formalism for a spherical potential for a single torus"""
