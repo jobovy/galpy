@@ -10,7 +10,8 @@
 import copy
 import numpy
 import warnings
-from scipy import interpolate,ndimage
+from numpy.polynomial import polynomial, chebyshev
+from scipy import interpolate,ndimage, optimize
 from galpy.potential import evaluatelinearPotentials, \
     evaluatelinearForces
 from galpy.util import bovy_plot, galpyWarning
@@ -23,6 +24,7 @@ from .actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
     def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,
+                 use_pointtransform=False,pt_deg=7,pt_nxa=301,
                  maxiter=100,angle_tol=1e-12,bisect=False):
         """
         NAME:
@@ -79,6 +81,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                              E-evaluatelinearPotentials(self._pot,0.))),
                            E=E)
         self._js= js
+        #print("FIXING OMEGA")
+        #Omegas= numpy.array([3.37426323, 2.34042556,  0.86533923])
         self._Omegas= Omegas
         self._xmaxs= xmaxs
         # Set harmonic-oscillator frequencies == frequencies
@@ -86,6 +90,30 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # The following work properly for arrays of omega
         self._hoaa= actionAngleHarmonic(omega=self._OmegaHO)
         self._hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO)
+        if use_pointtransform and pt_deg > 1:
+            self._setup_pointtransform(pt_deg-(1-pt_deg%2),pt_nxa) # make odd
+            #print("FIXING PT TRANSFORM")
+            """
+            self._pt_coeffs[1]= numpy.array([  0.00000000e+00,   9.37029560e-01,   0.00000000e+00,
+                                               8.11773692e-02,   0.00000000e+00,  -1.83556394e-02,
+                                               0.00000000e+00,   1.48710173e-04])
+            self._pt_deriv_coeffs[1]= numpy.array([ 0.93702956,  0.        ,  0.24353211,  0.        , -0.0917782 ,
+        0.        ,  0.00104097])
+            self._pt_deriv2_coeffs[1]= numpy.array([ 0.        ,  0.48706422,  0.        , -0.36711279,  0.        ,
+                    0.00624583])
+            #self._pt_xmaxs= numpy.array([ 0.13092613,0.55076953,4.29009437])
+
+            tmp= numpy.tile(numpy.array([ 0.13040087,  0.53628544,  4.12768566]),(nta,1)).T
+            tmp2= numpy.tile(numpy.array([ 0.13092613,0.55076953,4.29009437]),(nta,1)).T
+            #self._xmaxs= numpy.array([ 0.13092613,0.55076953,4.29009437])
+            """
+        else:
+            # Setup identity point transformation
+            self._pt_xmaxs= self._xmaxs
+            self._pt_coeffs= numpy.zeros((self._nE,2))
+            self._pt_coeffs[:,1]= 1.
+            self._pt_deriv_coeffs= numpy.ones((self._nE,1))
+            self._pt_deriv2_coeffs= numpy.zeros((self._nE,1))
         # Now map all tori
         self._nta= nta
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
@@ -93,8 +121,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._angle_tol= angle_tol
         self._bisect= bisect
         self._xgrid= self._create_xgrid()
-        self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid)
-        self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid)
+        self._ja= _ja(self._xgrid,self._Egrid,self._pot,self._omegagrid,
+                      self._ptcoeffsgrid,self._ptderivcoeffsgrid,
+                      self._xmaxgrid,self._ptxmaxgrid)
+        self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid,
+                            self._ptcoeffsgrid,self._ptderivcoeffsgrid,
+                            self._ptderiv2coeffsgrid,
+                            self._xmaxgrid,self._ptxmaxgrid)
         # Store mean(ja) as probably a better approx. of j
         self._js_orig= copy.copy(self._js)
         self._js= numpy.mean(self._ja,axis=1)
@@ -126,25 +159,113 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._interp= False
         return None
 
+    def _setup_pointtransform(self,pt_deg,pt_nxa):
+        # Setup a point transformation for each torus
+        xamesh= numpy.linspace(-1.,1.,pt_nxa)
+        self._pt_coeffs= numpy.empty((self._nE,pt_deg+1))
+        self._pt_deriv_coeffs= numpy.empty((self._nE,pt_deg))
+        self._pt_deriv2_coeffs= numpy.empty((self._nE,pt_deg-1))
+        self._pt_xmaxs= numpy.sqrt(2.*self._js/self._OmegaHO)
+        for ii in range(self._nE):
+            Ea= self._js[ii]*self._OmegaHO[ii]
+            # Function to optimize with least squares: p-p
+            def opt_func(coeffs):
+                # constraints: symmetric, maps [-1,1] --> [-1,1]
+                ccoeffs= numpy.zeros(pt_deg+1)
+                ccoeffs[1]= 1.
+                ccoeffs[3::2]= coeffs
+                ccoeffs/= chebyshev.chebval(1,ccoeffs)
+                pt= chebyshev.Chebyshev(ccoeffs)
+                xmesh= pt(xamesh)*self._xmaxs[ii]
+                # Compute v from (E,xmesh)
+                v2mesh= 2.*(self._Es[ii]\
+                                -evaluatelinearPotentials(self._pot,
+                                                          xmesh))
+                v2mesh[v2mesh < 0.]= 0.
+                vmesh= numpy.sqrt(v2mesh)
+                va2mesh= 2.*(Ea-self._OmegaHO[ii]**2.\
+                                 *(xamesh*self._pt_xmaxs[ii])**2./2.)
+                va2mesh[va2mesh < 0.]= 0.
+                vamesh= numpy.sqrt(va2mesh)
+                vtildemesh= vamesh/pt.deriv()(xamesh)/self._xmaxs[ii]*self._pt_xmaxs[ii]
+                return vmesh-vtildemesh
+            if ii == 0:
+                # Start from identity mapping
+                start_coeffs= [0.]
+                start_coeffs.extend([0. for jj in range((pt_deg+1)//2-2)])
+            else:
+                # Start from previous best fit
+                start_coeffs= coeffs[3::2]/coeffs[1]
+            coeffs= optimize.leastsq(opt_func,start_coeffs)[0]
+            # Extract full Chebyshev parameters from constrained optimization
+            ccoeffs= numpy.zeros(pt_deg+1)
+            ccoeffs[1]= 1.
+            ccoeffs[3::2]= coeffs
+            ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [-1,1] --> [-1,1]
+            coeffs= ccoeffs
+            # Store point transformation as simple polynomial
+            self._pt_coeffs[ii]= chebyshev.cheb2poly(coeffs)
+            self._pt_deriv_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                          m=1)
+            self._pt_deriv2_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                           m=2)
+
+            """
+            from matplotlib import pyplot
+            pt= chebyshev.Chebyshev(coeffs)
+            print("ROOTS")
+            print(chebyshev.chebroots(chebyshev.chebder(coeffs)))
+            xmesh= pt(xamesh)*self._xmaxs[ii]
+            # Compute v from (E,xmesh)
+            v2mesh= 2.*(self._Es[ii]\
+                            -evaluatelinearPotentials(self._pot,
+                                                      xmesh))
+            v2mesh[v2mesh < 0.]= 0.
+            vmesh= numpy.sqrt(v2mesh)
+            va2mesh= 2.*(Ea-self._OmegaHO[ii]**2.\
+                             *(xamesh*self._pt_xmaxs[ii])**2./2.)
+            va2mesh[va2mesh < 0.]= 0.
+            vamesh= numpy.sqrt(va2mesh)
+            vtildemesh= vamesh/pt.deriv()(xamesh)/self._xmaxs[ii]*self._pt_xmaxs[ii]
+            pyplot.plot(xamesh,vmesh)
+            pyplot.plot(xamesh,vamesh)
+            pyplot.plot(xamesh,vtildemesh)
+            """
+        return None
+
     def _create_xgrid(self):
         # Find x grid for regular grid in auxiliary angle (thetaa)
         # in practice only need to map 0 < thetaa < pi/2  to +x with +v bc symm
         # To efficiently start the search, we first compute thetaa for a dense
         # grid in x (at +v)
         xgrid= numpy.linspace(-1.,1.,2*self._nta)
-        xs= xgrid*numpy.atleast_2d(self._xmaxs).T
+        xs= xgrid*numpy.atleast_2d(self._pt_xmaxs).T
         xta= _anglea(xs,numpy.tile(self._Es,(xs.shape[1],1)).T,
-                     self._pot,numpy.tile(self._hoaa._omega,(xs.shape[1],1)).T)
+                     self._pot,numpy.tile(self._hoaa._omega,(xs.shape[1],1)).T,
+                     numpy.rollaxis(numpy.tile(self._pt_coeffs,
+                                               (xs.shape[1],1,1)),1),
+                     numpy.rollaxis(numpy.tile(self._pt_deriv_coeffs,
+                                               (xs.shape[1],1,1)),1),
+                     numpy.tile(self._xmaxs,(xs.shape[1],1)).T,
+                     numpy.tile(self._pt_xmaxs,(xs.shape[1],1)).T)
         xta[numpy.isnan(xta)]= 0. # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
         cindx= numpy.nanargmin(numpy.fabs(\
                 (xta-numpy.rollaxis(numpy.atleast_3d(self._thetaa),1)
                  +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
-        xgrid= xgrid[cindx].T*numpy.atleast_2d(self._xmaxs).T
+        xgrid= xgrid[cindx].T*numpy.atleast_2d(self._pt_xmaxs).T
         Egrid= numpy.tile(self._Es,(self._nta,1)).T
         omegagrid= numpy.tile(self._hoaa._omega,(self._nta,1)).T
         xmaxgrid= numpy.tile(self._xmaxs,(self._nta,1)).T
-        ta= _anglea(xgrid,Egrid,self._pot,omegagrid)
+        ptxmaxgrid= numpy.tile(self._pt_xmaxs,(self._nta,1)).T
+        ptcoeffsgrid= numpy.rollaxis(numpy.tile(self._pt_coeffs,
+                                                (self._nta,1,1)),1)
+        ptderivcoeffsgrid= numpy.rollaxis(numpy.tile(self._pt_deriv_coeffs,
+                                                     (self._nta,1,1)),1)
+        ptderiv2coeffsgrid= numpy.rollaxis(numpy.tile(self._pt_deriv2_coeffs,
+                                                      (self._nta,1,1)),1)
+        ta= _anglea(xgrid,Egrid,self._pot,omegagrid,ptcoeffsgrid,
+                    ptderivcoeffsgrid,xmaxgrid,ptxmaxgrid)
         mta= numpy.tile(self._thetaa,(len(self._Es),1))
         # Now iterate
         cntr= 0
@@ -154,22 +275,29 @@ class actionAngleVerticalInverse(actionAngleInverse):
         dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
         unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
-        maxdx= numpy.tile(self._xmaxs/float(self._nta),(self._nta,1)).T
+        maxdx= numpy.tile(self._pt_xmaxs/float(self._nta),(self._nta,1)).T
         while not self._bisect:
             dtadx= _danglea(xgrid[unconv],Egrid[unconv],
-                            self._pot,omegagrid[unconv])
+                            self._pot,omegagrid[unconv],
+                            ptcoeffsgrid[unconv],
+                            ptderivcoeffsgrid[unconv],
+                            ptderiv2coeffsgrid[unconv],
+                            xmaxgrid[unconv],ptxmaxgrid[unconv])
             dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
             dx= -dta/dtadx
             dx[numpy.fabs(dx) > maxdx[unconv]]=\
                 (numpy.sign(dx)*maxdx[unconv])[numpy.fabs(dx) > maxdx[unconv]]
             xgrid[unconv]+= dx
-            xgrid[unconv*(xgrid > xmaxgrid)]=\
-                xmaxgrid[unconv*(xgrid > xmaxgrid)]
-            xgrid[unconv*(xgrid < -xmaxgrid)]=\
-                xmaxgrid[unconv*(xgrid < -xmaxgrid)]
+            xgrid[unconv*(xgrid > ptxmaxgrid)]=\
+                ptxmaxgrid[unconv*(xgrid > ptxmaxgrid)]
+            xgrid[unconv*(xgrid < -ptxmaxgrid)]=\
+                ptxmaxgrid[unconv*(xgrid < -ptxmaxgrid)]
             unconv[unconv]= numpy.fabs(dta) > self._angle_tol
             newta= _anglea(xgrid[unconv],Egrid[unconv],
-                           self._pot,omegagrid[unconv])
+                           self._pot,omegagrid[unconv],
+                           ptcoeffsgrid[unconv],
+                           ptderivcoeffsgrid[unconv],
+                           xmaxgrid[unconv],ptxmaxgrid[unconv])
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
@@ -189,15 +317,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
             da[da >= 0.]= -numpy.nanmax(numpy.fabs(da))-0.1
             cindx= numpy.nanargmax(da,axis=2)
             tryx_min= (new_xgrid[cindx].T
-                         *numpy.atleast_2d(self._xmaxs).T)[unconv]
-            dx= 2./(2.*self._nta-1)*xmaxgrid # delta of initial x grid above
+                         *numpy.atleast_2d(self._pt_xmaxs).T)[unconv]
+            dx= 2./(2.*self._nta-1)*ptxmaxgrid # delta of initial x grid above
             while True:
                 dx*= 0.5
                 xgrid[unconv]= tryx_min+dx[unconv]
                 newta= (_anglea(xgrid[unconv],Egrid[unconv],
-                                self._pot,omegagrid[unconv])+2.*numpy.pi) \
-                                % (2.*numpy.pi)
-                # BOVY: Shouldn't I store newta in ta? Yes!
+                                self._pot,omegagrid[unconv],
+                                ptcoeffsgrid[unconv],
+                                ptderivcoeffsgrid[unconv],
+                                xmaxgrid[unconv],ptxmaxgrid[unconv])\
+                            +2.*numpy.pi) \
+                            % (2.*numpy.pi)
+                ta[unconv]= newta
                 dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
                 tryx_min[newta < mta[unconv]]=\
                     xgrid[unconv][newta < mta[unconv]]
@@ -222,6 +354,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     Egrid[:,self._nta//4+1:3*self._nta//4],
                     self._pot,
                     omegagrid[:,self._nta//4+1:3*self._nta//4],
+                    ptcoeffsgrid[:,self._nta//4+1:3*self._nta//4],
+                    ptderivcoeffsgrid[:,self._nta//4+1:3*self._nta//4],
+                    xmaxgrid[:,self._nta//4+1:3*self._nta//4],
+                    ptxmaxgrid[:,self._nta//4+1:3*self._nta//4],
                     vsign=-1.)
         self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
         self._mta= mta
@@ -229,6 +365,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # and not just store it...)
         self._Egrid= Egrid
         self._omegagrid= omegagrid
+        self._ptcoeffsgrid= ptcoeffsgrid
+        self._ptderivcoeffsgrid= ptderivcoeffsgrid
+        self._ptderiv2coeffsgrid= ptderiv2coeffsgrid
+        self._ptxmaxgrid= ptxmaxgrid
         self._xmaxgrid= xmaxgrid
         return xgrid
 
@@ -250,10 +390,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         thetaa_out= numpy.empty_like(self._thetaa)
         thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
                                        E,self._pot,
-                                       self._OmegaHO[indx],vsign=1.)
+                                       self._OmegaHO[indx],
+                                       self._pt_coeffs[indx],
+                                       self._pt_deriv_coeffs[indx],
+                                       self._xmaxs[indx],
+                                       self._pt_xmaxs[indx],
+                                       vsign=1.)
         thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
                                   E,self._pot,
-                                  self._OmegaHO[indx],vsign=-1.)
+                                  self._OmegaHO[indx],
+                                  self._pt_coeffs[indx],
+                                  self._pt_deriv_coeffs[indx],
+                                  self._xmaxs[indx],
+                                  self._pt_xmaxs[indx],
+                                  vsign=-1.)
         bovy_plot.bovy_plot(self._thetaa,
                             ((thetaa_out-self._thetaa+numpy.pi) \
                                  % (2.*numpy.pi))-numpy.pi,
@@ -552,7 +702,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
            __call__
 
-        PURPOSE:
+     <   PURPOSE:
 
            evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
 
@@ -607,13 +757,17 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tdSndJ= self._dSndJ[indx]
             tOmegaHO= self._OmegaHO[indx]
             tOmega= self._Omegas[indx]
+            txmax= self._xmaxs[indx]
+            tptxmax= self._pt_xmaxs[indx]
+            tptcoeffs= self._pt_coeffs[indx]
+            tptderivcoeffs= self._pt_deriv_coeffs[indx]
         else:
             tE= self.E(j)
             tnSn= self.nSn(tE)[0]
             tdSndJ= self.dSndJ(tE)[0]
             tOmegaHO= self.OmegaHO(tE)
             tOmega= self.Omega(tE)
-        # First we need to solve for anglea
+        # First we need to solve for a<nglea
         angle= numpy.atleast_1d(angle)
         anglea= copy.copy(angle)
         # Now iterate Newton's method
@@ -684,7 +838,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
                            *numpy.cos(self._nforSn*numpy.atleast_2d(anglea).T),
                            axis=1)
         hoaainv= actionAngleHarmonicInverse(omega=tOmegaHO)
-        return tuple(hoaainv(ja,anglea)+(tOmega,))
+        xa,va= hoaainv(ja,anglea)
+        x= txmax*polynomial.polyval((xa/tptxmax).T,tptcoeffs.T,tensor=False).T
+        v= va*tptxmax/txmax/polynomial.polyval((xa/tptxmax).T,tptderivcoeffs.T,
+                                               tensor=False).T
+        return (x,v,tOmega)
         
     def _Freqs(self,j,**kwargs):
         """
@@ -709,7 +867,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
            2018-04-08 - Written - Bovy (UofT)
 
         """
-        # Find torus
+        # Find t<orus
         if not self._interp:
             indx= numpy.nanargmin(numpy.fabs(j-self._js))
             if numpy.fabs(j-self._js[indx]) > 1e-10:
@@ -720,7 +878,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tOmega= self.Omega(tE)
         return tOmega
 
-def _anglea(x,E,pot,omega,vsign=1.):
+def _anglea(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
     """
     NAME:
        _anglea
@@ -731,41 +889,68 @@ def _anglea(x,E,pot,omega,vsign=1.):
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       xmax - xmax of the true torus
+       ptxmax - xmax of the point-transformed torus
     OUTPUT:
        auxiliary angles
     HISTORY:
        2018-04-13 - Written - Bovy (UofT)
+       2018-11-19 - Added point transformation - Bovy (UofT)
     """
     # Compute v
-    v2= 2.*(E-evaluatelinearPotentials(pot,x))
+    v2= 2.*(E-evaluatelinearPotentials(pot,
+                                       xmax*polynomial.polyval((x/ptxmax).T,
+                                                               ptcoeffs.T,
+                                                               tensor=False).T))
     v2[v2 < 0.]= 0.
-    return numpy.arctan2(omega*x,vsign*numpy.sqrt(v2))
+    return numpy.arctan2(omega*x,xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
+                                                              ptderivcoeffs.T,
+                                                                tensor=False).T\
+                             *vsign*numpy.sqrt(v2))
 
-def _danglea(x,E,pot,omega,vsign=1.):
+def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
+             xmax,ptxmax,vsign=1.):
     """
     NAME:
        _danglea
     PURPOSE:
        Compute the derivative of the auxiliary angle in the harmonic-oscillator for a grid in x and E at constant E
     INPUT:
-       x - position
+       xa - position
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
+       xmax - xmax of the true torus
+       ptxmax - xmax of the point-transformed torus
     OUTPUT:
        d auxiliary angles / d x (2D array)
     HISTORY:
        2018-04-13 - Written - Bovy (UofT)
+       2018-11-22 - Added point transformation - Bovy (UofT)
     """
     # Compute v
+    x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
     v2= 2.*(E-evaluatelinearPotentials(pot,x))
-    v2[v2 < 1e-10]= 2.*(E[v2<1e-10]
-                        -evaluatelinearPotentials(pot,x[v2<1e-10]*(1.-1e-10)))
-    anglea= numpy.arctan2(omega*x,vsign*numpy.sqrt(v2))
-    return omega*numpy.cos(anglea)**2.*v2**-1.5\
-        *(v2-x*evaluatelinearForces(pot,x))
+    v2[v2 < 1e-10]= 2.*(E[v2 < 1e-10]-evaluatelinearPotentials(pot,
+     xmax[v2 < 1e-10]*polynomial.polyval((xa[v2 < 1e-10]/ptxmax[v2 < 1e-10]).T,
+                                                        ptcoeffs[v2 < 1e-10].T,
+                                                              tensor=False).T))
+    piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,ptderivcoeffs.T,
+                                            tensor=False).T
+    anglea= numpy.arctan2(omega*xa,piprime*vsign*numpy.sqrt(v2))
+    return omega*numpy.cos(anglea)**2.*v2**-1.5/piprime\
+        *(v2*(1.
+           -xa*xmax/ptxmax**2./piprime\
+                  *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,
+                                      tensor=False).T)
+          -xa*evaluatelinearForces(pot,x)*piprime)
 
-def _ja(x,E,pot,omega,vsign=1.):
+def _ja(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
     """
     NAME:
        _ja
@@ -781,16 +966,25 @@ def _ja(x,E,pot,omega,vsign=1.):
     HISTORY:
        2018-04-14 - Written - Bovy (UofT)
     """
-    return (E-evaluatelinearPotentials(pot,x))/omega+omega*x**2./2.
+    v2over2= (E-evaluatelinearPotentials(pot,
+                                         xmax*polynomial.polyval((x/ptxmax).T,
+                                                                ptcoeffs.T,
+                                                                tensor=False).T))
+    v2over2[v2over2 < 0.]= 0.
+    return ((xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
+                                            ptderivcoeffs.T,
+                                            tensor=False).T)**2.*v2over2/omega\
+                +omega*x**2./2.)
 
-def _djadj(x,E,pot,omega,vsign=1.):
+def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
+           xmax,ptxmax,vsign=1.):
     """
     NAME:
        _djaj
     PURPOSE:
        Compute the derivative of the auxiliary action in the harmonic-oscillator wrt the action for a grid in x and E
     INPUT:
-       x - position
+       xa - position
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
@@ -799,5 +993,15 @@ def _djadj(x,E,pot,omega,vsign=1.):
     HISTORY:
        2018-04-14 - Written - Bovy (UofT)
     """
-    return 1.+(evaluatelinearForces(pot,x)+omega**2.*x)*x/(2.*(E-evaluatelinearPotentials(pot,x))-x*evaluatelinearForces(pot,x))
-
+    x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
+    v2= 2.*(E-evaluatelinearPotentials(pot,x))
+    piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,ptderivcoeffs.T,
+                                            tensor=False).T
+    piprime2= xmax/ptxmax**2.\
+        *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,tensor=False).T
+    dxAdE= xa/(v2*(1.-piprime2/piprime*xa)
+              -xa*evaluatelinearForces(pot,x)*piprime)
+    return (piprime**2.
+            +(piprime**3.*evaluatelinearForces(pot,x)
+              +omega**2.*xa+piprime*piprime2*v2)*dxAdE)
+              
