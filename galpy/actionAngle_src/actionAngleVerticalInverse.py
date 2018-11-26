@@ -123,8 +123,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSn= numpy.real(numpy.fft.rfft(self._ja
                                              -numpy.atleast_2d(self._js).T,
                                              axis=1))[:,1:]/self._ja.shape[1]
-        self._dSndJ= numpy.real(numpy.fft.rfft(self._djadj-1.,axis=1))[:,1:]\
-                          /self._ja.shape[1]
+        self._dSndJ= numpy.real(numpy.fft.rfft(self._djadj\
+                        /numpy.atleast_2d(numpy.nanmean(self._djadj,axis=1)).T
+                                               -1.,axis=1))[:,1:]\
+                        /self._ja.shape[1]
         # Interpolation of small, noisy coeffs doesn't work, so set to zero
         if setup_interp:
             self._nSn[numpy.fabs(self._nSn) < 1e-16]= 0.
@@ -148,12 +150,22 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def _setup_pointtransform(self,pt_deg,pt_nxa):
         # Setup a point transformation for each torus
+        self._pt_deg= pt_deg
+        self._pt_nxa= pt_nxa
         xamesh= numpy.linspace(-1.,1.,pt_nxa)
         self._pt_coeffs= numpy.empty((self._nE,pt_deg+1))
         self._pt_deriv_coeffs= numpy.empty((self._nE,pt_deg))
         self._pt_deriv2_coeffs= numpy.empty((self._nE,pt_deg-1))
         self._pt_xmaxs= numpy.sqrt(2.*self._js/self._OmegaHO)
         for ii in range(self._nE):
+            if self._Es[ii] < 1e-10: # Just use identity for small E
+                self._pt_coeffs[ii]= 0.
+                self._pt_coeffs[ii,1]= 1.
+                self._pt_deriv_coeffs[ii]= 0.
+                self._pt_deriv2_coeffs[ii]= 0.
+                self._pt_xmaxs[ii]= self._xmaxs[ii]
+                coeffs= self._pt_coeffs[ii] # to start next fit
+                continue
             Ea= self._js[ii]*self._OmegaHO[ii]
             # Function to optimize with least squares: p-p
             def opt_func(coeffs):
@@ -532,6 +544,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._Emin= self._Es[0]
         self._Emax= self._Es[-1]
         self._nnSn= self._nSn.shape[1] # won't be confusing...
+        self._nSnNormalize= numpy.ones(self._nnSn)
         self._nSnFiltered= ndimage.spline_filter(self._nSn,order=3)
         self._dSndJFiltered= ndimage.spline_filter(self._dSndJ,order=3)
         self.J= interpolate.InterpolatedUnivariateSpline(self._Es,self._js,k=3)
@@ -542,6 +555,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self.Omega= interpolate.InterpolatedUnivariateSpline(self._Es,
                                                              self._Omegas,
                                                              k=3)
+        self.xmax= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                            self._xmaxs,
+                                                            k=3)
+        self.ptxmax= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                              self._pt_xmaxs,
+                                                            k=3)
+        self._nptcoeffs= self._pt_coeffs.shape[1]
+        self._ptcoeffsFiltered= ndimage.spline_filter(self._pt_coeffs,order=3)
+        self._ptderivcoeffsFiltered=\
+            ndimage.spline_filter(self._pt_deriv_coeffs,order=3)
         return None
 
     def _coords_for_map_coords(self,E):
@@ -571,16 +594,54 @@ class actionAngleVerticalInverse(actionAngleInverse):
         evalE= numpy.atleast_1d(E)
         indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
         coords= self._coords_for_map_coords(evalE[indxc])
-        out= numpy.empty((len(evalE),coords.shape[1]//len(evalE)))
+        out= numpy.empty((len(evalE),self._nnSn))
         out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
                 self._dSndJFiltered,coords,order=3,prefilter=False),
-                                  (len(evalE),coords.shape[1]//len(evalE)))
+                                  (numpy.sum(indxc),self._nnSn))
+        out[True^indxc]= numpy.nan
+        return out
+
+    def _coords_for_map_coords_pt(self,E,deriv=False):
+        coords= numpy.empty((2,(self._nptcoeffs-deriv)*len(E)))
+        coords[0]= numpy.tile((E-self._Emin)/(self._Emax-self._Emin)\
+                                  *(self._nE-1.),
+                              (self._nptcoeffs-deriv,1)).T.flatten()
+        coords[1]= numpy.tile(numpy.arange(self._nptcoeffs-deriv),
+                              (len(E),1)).flatten()
+        return coords
+
+    def pt_coeffs(self,E):
+        if not self._interp:
+            raise RuntimeError("To evaluate pt_coeffs, interpolation must be activated at instantiation using setup_interp=True")
+        evalE= numpy.atleast_1d(E)
+        indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
+        coords= self._coords_for_map_coords_pt(evalE[indxc],deriv=False)
+        out= numpy.empty((len(evalE),self._nptcoeffs))
+        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+                self._ptcoeffsFiltered,coords,order=3,prefilter=False),
+                                  (numpy.sum(indxc),self._nptcoeffs))
+        out[True^indxc]= numpy.nan
+        return out
+
+    def pt_deriv_coeffs(self,E):
+        if not self._interp:
+            raise RuntimeError("To evaluate pt_deriv_coeffs, interpolation must be activated at instantiation using setup_interp=True")
+        evalE= numpy.atleast_1d(E)
+        indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
+        coords= self._coords_for_map_coords_pt(evalE[indxc],deriv=True)
+        out= numpy.empty((len(evalE),self._nptcoeffs-1))
+        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+                self._ptderivcoeffsFiltered,coords,order=3,prefilter=False),
+                                  (numpy.sum(indxc),self._nptcoeffs-1))
         out[True^indxc]= numpy.nan
         return out
 
     def plot_interp(self,E,symm=True):
         truthaAV= actionAngleVerticalInverse(pot=self._pot,Es=[E],
-                                             nta=self._nta,setup_interp=False)
+                                             nta=self._nta,setup_interp=False,
+                                             use_pointtransform=self._pt_deg>1,
+                                             pt_deg=self._pt_deg,
+                                             pt_nxa=self._pt_nxa)
         # Check whether S_n is matched
         pyplot.subplot(2,3,1)
         y= numpy.fabs(self.nSn(E)[0,symm::symm+1])
@@ -620,7 +681,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             xlabel=r'$n$',
                             ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
         bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            truthaAV._dSndJ[0,symm::symm+1],overplot=True,
+                            numpy.fabs(truthaAV._dSndJ[0,symm::symm+1]),
+                            overplot=True,
                             label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.)
         pyplot.subplot(2,3,5)
@@ -734,6 +796,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tdSndJ= self.dSndJ(tE)[0]
             tOmegaHO= self.OmegaHO(tE)
             tOmega= self.Omega(tE)
+            txmax= self.xmax(tE)
+            tptxmax= self.ptxmax(tE)
+            tptcoeffs= self.pt_coeffs(tE)[0]
+            tptderivcoeffs= self.pt_deriv_coeffs(tE)[0]
         # First we need to solve for a<nglea
         angle= numpy.atleast_1d(angle)
         anglea= copy.copy(angle)
