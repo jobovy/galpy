@@ -81,8 +81,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
                              E-evaluatelinearPotentials(self._pot,0.))),
                            E=E)
         self._js= js
-        #print("FIXING OMEGA")
-        #Omegas= numpy.array([3.37426323, 2.34042556,  0.86533923])
         self._Omegas= Omegas
         self._xmaxs= xmaxs
         # Set harmonic-oscillator frequencies == frequencies
@@ -92,21 +90,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO)
         if use_pointtransform and pt_deg > 1:
             self._setup_pointtransform(pt_deg-(1-pt_deg%2),pt_nxa) # make odd
-            #print("FIXING PT TRANSFORM")
-            """
-            self._pt_coeffs[1]= numpy.array([  0.00000000e+00,   9.37029560e-01,   0.00000000e+00,
-                                               8.11773692e-02,   0.00000000e+00,  -1.83556394e-02,
-                                               0.00000000e+00,   1.48710173e-04])
-            self._pt_deriv_coeffs[1]= numpy.array([ 0.93702956,  0.        ,  0.24353211,  0.        , -0.0917782 ,
-        0.        ,  0.00104097])
-            self._pt_deriv2_coeffs[1]= numpy.array([ 0.        ,  0.48706422,  0.        , -0.36711279,  0.        ,
-                    0.00624583])
-            #self._pt_xmaxs= numpy.array([ 0.13092613,0.55076953,4.29009437])
-
-            tmp= numpy.tile(numpy.array([ 0.13040087,  0.53628544,  4.12768566]),(nta,1)).T
-            tmp2= numpy.tile(numpy.array([ 0.13092613,0.55076953,4.29009437]),(nta,1)).T
-            #self._xmaxs= numpy.array([ 0.13092613,0.55076953,4.29009437])
-            """
         else:
             # Setup identity point transformation
             self._pt_xmaxs= self._xmaxs
@@ -131,6 +114,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Store mean(ja) as probably a better approx. of j
         self._js_orig= copy.copy(self._js)
         self._js= numpy.mean(self._ja,axis=1)
+        # Store better approximation to Omega
+        self._Omegas_orig= copy.copy(self._Omegas)
+        self._Omegas= self._OmegaHO/numpy.nanmean(self._djadj,axis=1)
         # Compute Fourier expansions
         self._nforSn= numpy.arange(self._ja.shape[1]//2+1)
         self._nSn= numpy.real(numpy.fft.rfft(self._ja
@@ -183,11 +169,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                                           xmesh))
                 v2mesh[v2mesh < 0.]= 0.
                 vmesh= numpy.sqrt(v2mesh)
+                # Compute v from va = 2(E-HO) and transform
                 va2mesh= 2.*(Ea-self._OmegaHO[ii]**2.\
                                  *(xamesh*self._pt_xmaxs[ii])**2./2.)
                 va2mesh[va2mesh < 0.]= 0.
                 vamesh= numpy.sqrt(va2mesh)
-                vtildemesh= vamesh/pt.deriv()(xamesh)/self._xmaxs[ii]*self._pt_xmaxs[ii]
+                piprime= pt.deriv()(xamesh)*self._xmaxs[ii]/self._pt_xmaxs[ii]
+                vtildemesh= (vamesh-numpy.sqrt(v2mesh)*(1./piprime-piprime))/piprime
                 return vmesh-vtildemesh
             if ii == 0:
                 # Start from identity mapping
@@ -209,28 +197,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                                           m=1)
             self._pt_deriv2_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
                                                            m=2)
-
-            """
-            from matplotlib import pyplot
-            pt= chebyshev.Chebyshev(coeffs)
-            print("ROOTS")
-            print(chebyshev.chebroots(chebyshev.chebder(coeffs)))
-            xmesh= pt(xamesh)*self._xmaxs[ii]
-            # Compute v from (E,xmesh)
-            v2mesh= 2.*(self._Es[ii]\
-                            -evaluatelinearPotentials(self._pot,
-                                                      xmesh))
-            v2mesh[v2mesh < 0.]= 0.
-            vmesh= numpy.sqrt(v2mesh)
-            va2mesh= 2.*(Ea-self._OmegaHO[ii]**2.\
-                             *(xamesh*self._pt_xmaxs[ii])**2./2.)
-            va2mesh[va2mesh < 0.]= 0.
-            vamesh= numpy.sqrt(va2mesh)
-            vtildemesh= vamesh/pt.deriv()(xamesh)/self._xmaxs[ii]*self._pt_xmaxs[ii]
-            pyplot.plot(xamesh,vmesh)
-            pyplot.plot(xamesh,vamesh)
-            pyplot.plot(xamesh,vtildemesh)
-            """
         return None
 
     def _create_xgrid(self):
@@ -292,13 +258,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ptxmaxgrid[unconv*(xgrid > ptxmaxgrid)]
             xgrid[unconv*(xgrid < -ptxmaxgrid)]=\
                 ptxmaxgrid[unconv*(xgrid < -ptxmaxgrid)]
-            unconv[unconv]= numpy.fabs(dta) > self._angle_tol
             newta= _anglea(xgrid[unconv],Egrid[unconv],
                            self._pot,omegagrid[unconv],
                            ptcoeffsgrid[unconv],
                            ptderivcoeffsgrid[unconv],
                            xmaxgrid[unconv],ptxmaxgrid[unconv])
             ta[unconv]= newta
+            unconv[unconv]= numpy.fabs(dta) > self._angle_tol
             cntr+= 1
             if numpy.sum(unconv) == 0:
                 break
@@ -840,7 +806,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         hoaainv= actionAngleHarmonicInverse(omega=tOmegaHO)
         xa,va= hoaainv(ja,anglea)
         x= txmax*polynomial.polyval((xa/tptxmax).T,tptcoeffs.T,tensor=False).T
-        v= va*tptxmax/txmax/polynomial.polyval((xa/tptxmax).T,tptderivcoeffs.T,
+        v= va/tptxmax*txmax*polynomial.polyval((xa/tptxmax).T,tptderivcoeffs.T,
                                                tensor=False).T
         return (x,v,tOmega)
         
@@ -900,14 +866,17 @@ def _anglea(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
        2018-11-19 - Added point transformation - Bovy (UofT)
     """
     # Compute v
-    v2= 2.*(E-evaluatelinearPotentials(pot,
-                                       xmax*polynomial.polyval((x/ptxmax).T,
-                                                               ptcoeffs.T,
-                                                               tensor=False).T))
-    v2[v2 < 0.]= 0.
-    return numpy.arctan2(omega*x,xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
-                                                              ptderivcoeffs.T,
-                                                                tensor=False).T\
+    v2= 2.*(E-
+            evaluatelinearPotentials(pot,
+                                     xmax*polynomial.polyval((x/ptxmax).T,
+                                                             ptcoeffs.T,
+                                                             tensor=False).T))
+    v2[v2 < 0]= 0.
+    v2[numpy.fabs(x)==ptxmax]= 0.# just in case the pt mapping has small issues
+    return numpy.arctan2(omega*x,
+                         (xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
+                                                         ptderivcoeffs.T,
+                                                         tensor=False).T)**-1.\
                              *vsign*numpy.sqrt(v2))
 
 def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
@@ -936,19 +905,16 @@ def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
     # Compute v
     x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
     v2= 2.*(E-evaluatelinearPotentials(pot,x))
-    v2[v2 < 1e-10]= 2.*(E[v2 < 1e-10]-evaluatelinearPotentials(pot,
-     xmax[v2 < 1e-10]*polynomial.polyval((xa[v2 < 1e-10]/ptxmax[v2 < 1e-10]).T,
-                                                        ptcoeffs[v2 < 1e-10].T,
-                                                              tensor=False).T))
+    v2[v2 < 0.]= 0.
     piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,ptderivcoeffs.T,
                                             tensor=False).T
-    anglea= numpy.arctan2(omega*xa,piprime*vsign*numpy.sqrt(v2))
-    return omega*numpy.cos(anglea)**2.*v2**-1.5/piprime\
-        *(v2*(1.
-           -xa*xmax/ptxmax**2./piprime\
-                  *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,
-                                      tensor=False).T)
-          -xa*evaluatelinearForces(pot,x)*piprime)
+    anglea= numpy.arctan2(omega*xa*piprime,vsign*numpy.sqrt(v2))
+
+    piprime2= xmax/ptxmax**2.\
+        *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,tensor=False).T
+    return omega*numpy.cos(anglea)**2.*v2**-1.5\
+        *(v2*(piprime+xa*piprime2)
+          -xa*evaluatelinearForces(pot,x)*piprime**2.)
 
 def _ja(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
     """
@@ -965,6 +931,7 @@ def _ja(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
        auxiliary actions
     HISTORY:
        2018-04-14 - Written - Bovy (UofT)
+       2018-11-22 - Added point transformation - Bovy (UofT)
     """
     v2over2= (E-evaluatelinearPotentials(pot,
                                          xmax*polynomial.polyval((x/ptxmax).T,
@@ -973,7 +940,7 @@ def _ja(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
     v2over2[v2over2 < 0.]= 0.
     return ((xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
                                             ptderivcoeffs.T,
-                                            tensor=False).T)**2.*v2over2/omega\
+                                            tensor=False).T)**-2.*v2over2/omega\
                 +omega*x**2./2.)
 
 def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
@@ -992,6 +959,7 @@ def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
        d(auxiliary actions)/d(action)
     HISTORY:
        2018-04-14 - Written - Bovy (UofT)
+       2018-11-23 - Added point transformation - Bovy (UofT)
     """
     x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
     v2= 2.*(E-evaluatelinearPotentials(pot,x))
@@ -999,9 +967,9 @@ def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
                                             tensor=False).T
     piprime2= xmax/ptxmax**2.\
         *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,tensor=False).T
-    dxAdE= xa/(v2*(1.-piprime2/piprime*xa)
-              -xa*evaluatelinearForces(pot,x)*piprime)
-    return (piprime**2.
-            +(piprime**3.*evaluatelinearForces(pot,x)
-              +omega**2.*xa+piprime*piprime2*v2)*dxAdE)
+    dxAdE= xa*piprime**2./(v2*(1.+piprime2/piprime*xa)
+                           -xa*evaluatelinearForces(pot,x)*piprime)
+    return (1.
+            +(evaluatelinearForces(pot,x)/piprime
+              +omega**2.*xa-piprime**-3.*piprime2*v2)*dxAdE)
               
