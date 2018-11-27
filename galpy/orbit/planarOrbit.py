@@ -2,6 +2,7 @@ import math as m
 import warnings
 import numpy as nu
 from scipy import integrate
+from galpy.util.leung_dop853 import dop853
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from .OrbitTop import OrbitTop
@@ -506,7 +507,7 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog':
+    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
@@ -589,15 +590,18 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog':
+    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
                              vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                        t,args=(pot,),rtol=10.**-8)
+        if method.lower() == 'leapfrog':
+            tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                            t,args=(pot,),rtol=10.**-8)
+        else:
+            tmp_out= dop853(_rectForce,this_vxvv, t,args=(pot,))
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)

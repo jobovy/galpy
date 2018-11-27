@@ -85,6 +85,7 @@ def test_energy_jacobi_conservation():
     fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -467,6 +468,7 @@ def test_energy_conservation_linear():
     fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -582,6 +584,7 @@ def test_energy_symplec_longterm():
     #Basic parameters for the test
     times= numpy.linspace(0.,10000.,100001) #~360 Gyr at the Solar circle
     integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
+                  'dop853',
                   'symplec4_c','symplec6_c']
     #Only use KeplerPotential
     pots= ['KeplerPotential']
@@ -765,7 +768,7 @@ def test_liouville_planar():
                                      rectIn=True,rectOut=True)
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
-                firstTest= False                    
+                firstTest= False
             if _QUICKTEST and not (('NFW' in p and not ptp.isNonAxi and 'SCF' not in p) \
                                        or ('Burkert' in p and not ptp.hasC)): break
     return None
@@ -777,6 +780,7 @@ def test_eccentricity():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -901,6 +905,7 @@ def test_pericenter():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1024,12 +1029,13 @@ def test_apocenter():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -1148,6 +1154,7 @@ def test_zmax():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1257,6 +1264,7 @@ def test_analytic_ecc_rperi_rap():
     times= numpy.linspace(0.,20.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1577,6 +1585,7 @@ def test_analytic_zmax():
     times= numpy.linspace(0.,20.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1687,7 +1696,7 @@ def test_check_integrate_dt():
         o.integrate(times,lp,dt=(times[1]-times[0])/4.)
     except ValueError:
         raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
-    return None    
+    return None
 
 # Test that fixing the stepsize works, issue #207
 def test_fixedstepsize():
@@ -2254,7 +2263,7 @@ def test_toPlanar():
     except AttributeError:
         pass
     else:
-        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')        
+        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')
     return None
 
 # Check that toLinear works
@@ -2276,7 +2285,7 @@ def test_toLinear():
     except AttributeError:
         pass
     else:
-        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')        
+        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')
     # w/ scales
     ro,vo= 10.,300.
     obs= Orbit([1.,0.1,1.1,0.3,0.,2.],ro=ro,vo=vo)
@@ -2553,9 +2562,9 @@ def test_flip_inplace_integrated():
             assert numpy.abs(o.vz()+of.vz()) < 10.**-10., 'o.flip() did not work as expected'
     return None
 
-# Test reversing an orbit inplace after orbit integration, and after having 
+# Test reversing an orbit inplace after orbit integration, and after having
 # once evaluated the orbit before flipping inplace (#345)
-# only difference wrt previous test is a line that evaluates of before 
+# only difference wrt previous test is a line that evaluates of before
 # flipping
 def test_flip_inplace_integrated_evaluated():
     from galpy.potential import LogarithmicHaloPotential
@@ -2874,7 +2883,7 @@ def test_physical_output_off():
     assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
     return None
 
-# Check that the routines that should return physical coordinates are turned 
+# Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
     from galpy.potential import LogarithmicHaloPotential
@@ -3168,7 +3177,7 @@ def test_time():
     times= numpy.linspace(0.,10.,1001)
     o.integrate(times,potential.MWPotential)
     assert numpy.all((o.time()-times) < 10.**-8.), "Orbit.time after integration does not return the integration times"
-    return None    
+    return None
 
 # Test interpolation with backwards orbit integration
 def test_backinterpolation_issue204():
@@ -3393,7 +3402,7 @@ def test_orbit_obs_Orbit_issue322():
 
 def test_orbit_obs_Orbits_issue322():
     #Further tests of obs= Orbit parameter for orbit output, mainly in relation
-    # to issue #322; specific case where the orbit gets evaluated at multiple 
+    # to issue #322; specific case where the orbit gets evaluated at multiple
     # times
     from galpy.orbit import Orbit
     # Do non-zero Ysun case for planarOrbit
@@ -3502,7 +3511,7 @@ def test_orbit_obsvel_Orbit_issue322():
 
 def test_orbit_obsvel_Orbits_issue322():
     #Further tests of obs= Orbit parameter for orbit output, mainly in relation
-    # to issue #322; specific case where the orbit gets evaluated at multiple 
+    # to issue #322; specific case where the orbit gets evaluated at multiple
     # times; for velocity
     from galpy.orbit import Orbit
     # Do non-zero Ysun case for planarOrbit
@@ -3582,6 +3591,8 @@ def test_orbit_dim_1dPot_2dOrb():
     ts= numpy.linspace(0.,10.,1001)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="dop853")
     return None
 
 # Test whether ro warning is sounded when calling ra etc.
@@ -3963,7 +3974,7 @@ def test_orbitint_dissipativefallback():
         assert raisedWarning, "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
     return None
 
-# Test that the functions that supposedly *always* return output in physical 
+# Test that the functions that supposedly *always* return output in physical
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():
     from galpy.orbit import Orbit
@@ -4012,7 +4023,7 @@ def test_intrinsic_physical_output():
     return None
 
 def test_doublewrapper_2d():
-    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4041,7 +4052,7 @@ def test_doublewrapper_2d():
     return None
 
 def test_doublewrapper_3d():
-    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4073,7 +4084,7 @@ def test_doublewrapper_3d():
 
 def test_wrapper_followedbyanotherpotential_2d():
     # Test that a wrapped potential that gets followed by another potential
-    # gets passed to C correctly, 
+    # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4105,7 +4116,7 @@ def test_wrapper_followedbyanotherpotential_2d():
 
 def test_wrapper_followedbyanotherpotential_3d():
     # Test that a wrapped potential that gets followed by another potential
-    # gets passed to C correctly, 
+    # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4139,7 +4150,7 @@ def test_wrapper_followedbyanotherpotential_3d():
 
 def test_wrapper_complicatedsequence_2d():
     # Test that a complicated combination of potentials and wrapped potentials
-    # gets passed to C correctly, by comparing orbit integrated in C to that 
+    # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4174,7 +4185,7 @@ def test_wrapper_complicatedsequence_2d():
 
 def test_wrapper_complicatedsequence_3d():
     # Test that a complicated combination of potentials and wrapped potentials
-    # gets passed to C correctly, by comparing orbit integrated in C to that 
+    # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -4652,9 +4663,9 @@ def test_rguiding_errors():
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.])
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if henon:
             if axi:
                 o= Orbit([0.1,0.3,0.,])
@@ -4675,9 +4686,9 @@ def setup_orbit_energy(tp,axi=False,henon=False):
 # Setup the orbit for the Liouville test
 def setup_orbit_liouville(tp,axi=False,henon=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.])
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if henon:
             if axi:
                 o= Orbit([0.1,0.3,0.,])
@@ -4698,7 +4709,7 @@ def setup_orbit_liouville(tp,axi=False,henon=False):
 # Setup the orbit for the eccentricity test
 def setup_orbit_eccentricity(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,1.])
         else:
@@ -4713,7 +4724,7 @@ def setup_orbit_eccentricity(tp,axi=False):
 # Setup the orbit for the pericenter test
 def setup_orbit_pericenter(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,1.1])
         else:
@@ -4728,7 +4739,7 @@ def setup_orbit_pericenter(tp,axi=False):
 # Setup the orbit for the apocenter test
 def setup_orbit_apocenter(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,0.9])
         else:
@@ -4752,7 +4763,7 @@ def setup_orbit_zmax(tp,axi=False):
 # Setup the orbit for the apocenter test
 def setup_orbit_analytic(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.1,0.9])
         else:
@@ -4785,7 +4796,7 @@ def setup_orbit_analytic_EREz(tp,axi=False):
 # Setup the orbit for the physical-coordinates test
 def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,1.1,1.1],ro=ro,vo=vo)
         else:
@@ -4800,9 +4811,9 @@ def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
 # Setup the orbit for the energy test
 def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,1.1,1.1],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
         else:
@@ -4817,7 +4828,7 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
     return o
 
 def check_radecetc_roWarning(o,funcName):
-    # Convenience function to check whether the ro-needs-to-be-specified 
+    # Convenience function to check whether the ro-needs-to-be-specified
     # warning is sounded
     with pytest.warns(None) as record:
         if PY2: reset_warning_registry('galpy')
@@ -4831,7 +4842,7 @@ def check_radecetc_roWarning(o,funcName):
     return None
 
 def check_radecetc_voWarning(o,funcName):
-    # Convenience function to check whether the vo-needs-to-be-specified 
+    # Convenience function to check whether the vo-needs-to-be-specified
     # warning is sounded
     with pytest.warns(None) as record:
         if PY2: reset_warning_registry('galpy')
@@ -4852,7 +4863,7 @@ def check_integrate_t_asQuantity_warning(o,funcName):
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
     assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
-    return None  
+    return None
 
 def test_integrate_method_warning():
     """ Test Orbit.integrate raises an error if method is unvalid """

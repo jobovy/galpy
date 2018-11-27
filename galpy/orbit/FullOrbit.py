@@ -16,6 +16,7 @@ from galpy.potential.Potential import _evaluateRforces, _evaluatezforces,\
 from galpy.potential.DissipativeForce import _isDissipative
 from galpy.util import galpyWarning, galpyWarningVerbose
 import galpy.util.bovy_plot as plot
+from galpy.util.leung_dop853 import dop853
 import galpy.util.bovy_symplecticode as symplecticode
 import galpy.util.bovy_coords as coords
 #try:
@@ -78,6 +79,7 @@ class FullOrbit(OrbitTop):
            pot - potential instance or list of instances
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
+                   'dop853' for a dop853 implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
@@ -586,7 +588,7 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
         else:
             method= 'odeint'
         warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog':
+    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
                              vxvv[0]*nu.sin(vxvv[5]),
@@ -595,8 +597,11 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
                              vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
                              vxvv[4]])
         #integrate
-        out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                    t,args=(pot,),rtol=10.**-8)
+        if method.lower() == 'leapfrog':
+            out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                        t,args=(pot,),rtol=10.**-8)
+        else:
+            out= dop853(_rectForce,this_vxvv, t,args=(pot,))
         #go back to the cylindrical frame
         R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
         phi= nu.arccos(out[:,0]/R)

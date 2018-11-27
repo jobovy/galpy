@@ -464,6 +464,7 @@ class Orbit(object):
 
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
+                   'dop853' for a DOP8(5, 3) implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
                    'symplec4_c' for a 4th order symplectic integrator in C
                    'symplec6_c' for a 6th order symplectic integrator in C
@@ -484,7 +485,7 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
-        if method.lower() not in ['odeint', 'leapfrog', 'leapfrog_c',
+        if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
                 'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
                 'dopr54_c']:
             raise ValueError('{:s} is not a valid `method`'.format(method))

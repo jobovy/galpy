@@ -5,6 +5,7 @@ from .OrbitTop import OrbitTop
 from ..potential.linearPotential import \
     _evaluatelinearForces, evaluatelinearPotentials
 from ..potential.Potential import _check_c
+from galpy.util.leung_dop853 import dop853
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util import galpyWarning, galpyWarningVerbose
@@ -162,6 +163,8 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
                                                                          t=t),
                                       nu.array(vxvv),
                                       t,rtol=10.**-8)
+    if method.lower() == 'dop853':
+        return dop853(lambda x,t=t: _evaluatelinearForces(pot,x,  t=t), nu.array(vxvv), t)
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
