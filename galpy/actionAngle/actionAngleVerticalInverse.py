@@ -84,7 +84,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._Omegas= Omegas
         self._xmaxs= xmaxs
         # Set harmonic-oscillator frequencies == frequencies
-        self._OmegaHO= Omegas
+        self._OmegaHO= copy.copy(Omegas)
         # The following work properly for arrays of omega
         self._hoaa= actionAngleHarmonic(omega=self._OmegaHO)
         self._hoaainv= actionAngleHarmonicInverse(omega=self._OmegaHO)
@@ -92,6 +92,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._setup_pointtransform(pt_deg-(1-pt_deg%2),pt_nxa) # make odd
         else:
             # Setup identity point transformation
+            self._pt_deg= 1
+            self._pt_nxa= pt_nxa
             self._pt_xmaxs= self._xmaxs
             self._pt_coeffs= numpy.zeros((self._nE,2))
             self._pt_coeffs[:,1]= 1.
@@ -110,17 +112,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._djadj= _djadj(self._xgrid,self._Egrid,self._pot,self._omegagrid,
                             self._ptcoeffsgrid,self._ptderivcoeffsgrid,
                             self._ptderiv2coeffsgrid,
-                            self._xmaxgrid,self._ptxmaxgrid)
-        # Store mean(ja) as probably a better approx. of j
+                            self._xmaxgrid,self._ptxmaxgrid)\
+               *numpy.atleast_2d(self._Omegas/self._OmegaHO).T # In case not 1!
+        # Store mean(ja), this is only a better approx. of j w/ no PT!
         self._js_orig= copy.copy(self._js)
-        self._js= numpy.mean(self._ja,axis=1)
+        self._js= numpy.nanmean(self._ja,axis=1)
         # Store better approximation to Omega
         self._Omegas_orig= copy.copy(self._Omegas)
-        self._Omegas= self._OmegaHO/numpy.nanmean(self._djadj,axis=1)
+        self._Omegas/= numpy.nanmean(self._djadj,axis=1)
         # Compute Fourier expansions
         self._nforSn= numpy.arange(self._ja.shape[1]//2+1)
         self._nSn= numpy.real(numpy.fft.rfft(self._ja
-                                             -numpy.atleast_2d(self._js).T,
+                          -numpy.atleast_2d(numpy.nanmean(self._ja,axis=1)).T,
                                              axis=1))[:,1:]/self._ja.shape[1]
         self._dSndJ= numpy.real(numpy.fft.rfft(self._djadj\
                         /numpy.atleast_2d(numpy.nanmean(self._djadj,axis=1)).T
@@ -350,95 +353,119 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._xmaxgrid= xmaxgrid
         return xgrid
 
-    def plot_convergence(self,E):
+    def plot_convergence(self,E,overplot=False,return_gridspec=False,
+                         shift_action=None):
+        if shift_action is None: shift_action= self._pt_deg > 1
         # First find the torus for this energy
         indx= numpy.nanargmin(numpy.fabs(E-self._Es))
         if numpy.fabs(E-self._Es[indx]) > 1e-10:
             raise ValueError('Given energy not found; please specify an energy used in the initialization of the instance')
-        gs= gridspec.GridSpec(2,3,height_ratios=[4,1])
+        if not overplot:
+            gs= gridspec.GridSpec(2,3,height_ratios=[4,1])
+        else:
+            gs= overplot # confusingly, we overload the meaning of overplot
         # mapping of thetaa --> x
         pyplot.subplot(gs[0])
         bovy_plot.bovy_plot(self._thetaa,self._xgrid[indx],
-                            color='k',
+                            color='k',ls='--' if overplot else '-',
                             ylabel=r'$x(\theta^A)$',
-                            gcf=True)
-        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        pyplot.subplot(gs[3])
-        negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
-        thetaa_out= numpy.empty_like(self._thetaa)
-        thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
-                                       E,self._pot,
-                                       self._OmegaHO[indx],
-                                       self._pt_coeffs[indx],
-                                       self._pt_deriv_coeffs[indx],
-                                       self._xmaxs[indx],
-                                       self._pt_xmaxs[indx],
-                                       vsign=1.)
-        thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
-                                  E,self._pot,
-                                  self._OmegaHO[indx],
-                                  self._pt_coeffs[indx],
-                                  self._pt_deriv_coeffs[indx],
-                                  self._xmaxs[indx],
-                                  self._pt_xmaxs[indx],
-                                  vsign=-1.)
-        bovy_plot.bovy_plot(self._thetaa,
-                            ((thetaa_out-self._thetaa+numpy.pi) \
-                                 % (2.*numpy.pi))-numpy.pi,
-                            color='k',
-                            gcf=True,
-                            xlabel=r'$\theta^A$',
-                            ylabel=r'$\theta^A[x(\theta^A)]-\theta^A$')
+                            gcf=True,overplot=overplot)
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[3])
+            negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
+            thetaa_out= numpy.empty_like(self._thetaa)
+            thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
+                                           E,self._pot,
+                                           self._OmegaHO[indx],
+                                           self._pt_coeffs[indx],
+                                           self._pt_deriv_coeffs[indx],
+                                           self._xmaxs[indx],
+                                           self._pt_xmaxs[indx],
+                                           vsign=1.)
+            thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
+                                      E,self._pot,
+                                      self._OmegaHO[indx],
+                                      self._pt_coeffs[indx],
+                                      self._pt_deriv_coeffs[indx],
+                                      self._xmaxs[indx],
+                                      self._pt_xmaxs[indx],
+                                      vsign=-1.)
+            bovy_plot.bovy_plot(self._thetaa,
+                                ((thetaa_out-self._thetaa+numpy.pi) \
+                                     % (2.*numpy.pi))-numpy.pi,
+                                color='k',
+                                gcf=True,
+                                xlabel=r'$\theta^A$',
+                                ylabel=r'$\theta^A[x(\theta^A)]-\theta^A$')
         # Recovery of the nSn from J^A(theta^A) behavior
         pyplot.subplot(gs[1])
-        bovy_plot.bovy_plot(self._thetaa,self._ja[indx],
-                            color='k',
-                            ylabel=r'$J^A(\theta^A),J$',gcf=True)
-        pyplot.axhline(self._js[indx],color='k',ls='--')
-        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        pyplot.subplot(gs[4])
         bovy_plot.bovy_plot(self._thetaa,
-                            numpy.array([self._js[indx]
-                                         +2.*numpy.sum(self._nSn[indx]\
+                            self._ja[indx],
+                            color='k',ls='--' if overplot else '-',
+                            ylabel=r'$J^A(\theta^A),J$',gcf=True,
+                            overplot=overplot)
+        pyplot.axhline(self._js[indx]+shift_action*(self._js_orig[indx]
+                                                    -self._js[indx]),
+                       color='k',ls='--')
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[4])
+            bovy_plot.bovy_plot(self._thetaa,
+                                numpy.array([self._js[indx]
+                                             +2.*numpy.sum(self._nSn[indx]\
                                                    *numpy.cos(self._nforSn*x)) 
-                                         for x in self._thetaa])\
+                                             for x in self._thetaa])\
                                 /self._ja[indx]-1.,
-                            color='k',
-                            xlabel=r'$\theta^A$',
-                            ylabel=r'$\delta J^A/J^A$',gcf=True)
+                                color='k',
+                                xlabel=r'$\theta^A$',
+                                ylabel=r'$\delta J^A/J^A$',gcf=True)
         # Recovery of the dSndJ from dJ^A/dJ(theta^A) behavior
         pyplot.subplot(gs[2])
-        bovy_plot.bovy_plot(self._thetaa,self._djadj[indx],
-                            color='k',
+        bovy_plot.bovy_plot(self._thetaa,self._djadj[indx]\
+                                /numpy.nanmean(self._djadj[indx]),
+                            color='k',ls='--' if overplot else '-',
                             ylabel=r'$\mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
-                            gcf=True)
+                            gcf=True,overplot=overplot)
         pyplot.axhline(1.,color='k',ls='--')
-        pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        pyplot.subplot(gs[5])
-        bovy_plot.bovy_plot(self._thetaa,
-                            numpy.array([1.+2.*numpy.sum(self._nforSn\
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[5])
+            bovy_plot.bovy_plot(self._thetaa,
+                                numpy.array([1.+2.*numpy.sum(self._nforSn\
                                                    *self._dSndJ[indx]\
                                                    *numpy.cos(self._nforSn*x)) 
                                          for x in self._thetaa])\
-                                -self._djadj[indx],
-                            color='k',
-                            xlabel=r'$\theta^A$',
-                            ylabel=r'$\delta \mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
-                            gcf=True)
+                                    -self._djadj[indx]\
+                                    /numpy.nanmean(self._djadj[indx]),
+                                color='k',
+                                xlabel=r'$\theta^A$',
+                                ylabel=r'$\delta \mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
+                                gcf=True)
         pyplot.tight_layout()
-        return None
+        if return_gridspec: return gs
+        else: return None
 
-    def plot_power(self,Es,symm=True):
+    def plot_power(self,Es,symm=True,overplot=False,return_gridspec=False):
         Es= numpy.sort(numpy.atleast_1d(Es))
         minn_for_cmap= 4
         if len(Es) < minn_for_cmap:
-            gs= gridspec.GridSpec(1,2)
+            if not overplot:
+                gs= gridspec.GridSpec(1,2)
+            else:
+                gs= overplot # confusingly, we overload the meaning of overplot
         else:
-            outer= gridspec.GridSpec(1,2,width_ratios=[2.,0.05],wspace=0.05)
-            gs= gridspec.GridSpecFromSubplotSpec(1,2,subplot_spec=outer[0],
-                                                 wspace=0.35)
-        overplot= False
-        for E in Es:
+            if not overplot:
+                outer= gridspec.GridSpec(1,2,width_ratios=[2.,0.05],
+                                         wspace=0.05)
+                gs= gridspec.GridSpecFromSubplotSpec(1,2,subplot_spec=outer[0],
+                                                     wspace=0.35)
+            else:
+                raise RuntimeError('plot_power with >= {} energies and overplot=True is not supported'.format(minn_for_cmap))
+        for ii,E in enumerate(Es):
             # First find the torus for this energy
             indx= numpy.nanargmin(numpy.fabs(E-self._Es))
             if numpy.fabs(E-self._Es[indx]) > 1e-10:
@@ -455,13 +482,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymax= numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
                 label= r'$E = {:g}$'.format(E)
-                color= None
+                color= "C{}".format(ii)
             else:
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
             pyplot.subplot(gs[0])
             bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                                 y,yrange=[ymin,ymax],
+                                ls='--' if overplot == gs else '-',
                                 gcf=True,semilogy=True,overplot=overplot,
                                 xrange=[0.,self._nforSn[-1]],
                                 label=label,color=color,
@@ -478,25 +506,27 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymax= numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
                 label= r'$E = {:g}$'.format(E)
-                color= None
+                color= "C{}".format(ii)
             else:
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
             pyplot.subplot(gs[1])
             bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                                 y,yrange=[ymin,ymax],
+                                ls='--' if overplot == gs else '-',
                                 gcf=True,semilogy=True,overplot=overplot,
                                 xrange=[0.,self._nforSn[-1]],
                                 label=label,color=color,
                                 xlabel=r'$n$',
                                 ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
-            overplot= True
+            if not overplot == gs: overplot= True
         if len(Es) < minn_for_cmap:
-            pyplot.subplot(gs[0])
-            pyplot.legend(fontsize=17.)
-            pyplot.subplot(gs[1])
-            pyplot.legend(fontsize=17.)
-            pyplot.tight_layout()
+            if not overplot == gs:
+                pyplot.subplot(gs[0])
+                pyplot.legend(fontsize=17.)
+                pyplot.subplot(gs[1])
+                pyplot.legend(fontsize=17.)
+                pyplot.tight_layout()
         else:
             pyplot.subplot(outer[1])
             sm= pyplot.cm.ScalarMappable(cmap=cm.plasma,
@@ -507,7 +537,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                   format=r'$%g$')
             cbar.set_label(r'$E$')
             outer.tight_layout(pyplot.gcf())
-        return None        
+        if return_gridspec: return gs
+        else: return None        
 
     def plot_orbit(self,E):
         ta= numpy.linspace(0.,2.*numpy.pi,1001)
@@ -971,7 +1002,7 @@ def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
     # Compute v
     x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
     v2= 2.*(E-evaluatelinearPotentials(pot,x))
-    v2[v2 < 0.]= 0.
+    v2[v2 < 1e-15]= 1e-15
     piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,ptderivcoeffs.T,
                                             tensor=False).T
     anglea= numpy.arctan2(omega*xa*piprime,vsign*numpy.sqrt(v2))
