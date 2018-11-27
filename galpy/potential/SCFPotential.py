@@ -5,11 +5,11 @@ if _APY_LOADED:
     from astropy import units
     
 from galpy.util import bovy_coords
-from scipy.misc import eval_gegenbauer, lpmn, gamma
+from scipy.special import eval_gegenbauer, lpmn, gamma
 
 from numpy.polynomial.legendre import leggauss
 
-from scipy.misc import gammaln
+from scipy.special import gammaln
 
 import hashlib
 
