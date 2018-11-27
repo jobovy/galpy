@@ -140,14 +140,7 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
 #else
-    if (SetConsoleCtrlHandler(CtrlHandler, TRUE))
-    {}
-    else
-    {
-        // for whatever reason cant install handler, print to warn
-        printf("\nERROR: Could not set control handler");
-        return 1;
-    }
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)){}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
@@ -267,14 +260,7 @@ void symplec4(void (*func)(double t, double *q, double *a,
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
 #else
-    if (SetConsoleCtrlHandler(CtrlHandler, TRUE))
-    {}
-    else
-    {
-        // for whatever reason cant install handler, print to warn
-        printf("\nERROR: Could not set control handler");
-        return 1;
-    }
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
@@ -429,14 +415,7 @@ void symplec6(void (*func)(double t, double *q, double *a,
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
 #else
-    if (SetConsoleCtrlHandler(CtrlHandler, TRUE))
-    {}
-    else
-    {
-        // for whatever reason cant install handler, print to warn
-        printf("\nERROR: Could not set control handler");
-        return 1;
-    }
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
