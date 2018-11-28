@@ -183,6 +183,9 @@ def custom_sign(a, b):
 
 
 def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
+    """
+    Estimate initial step size
+    """
     sk = atol + rtol * np.fabs(x)
     dnf = np.sum(np.square(f0 / sk), axis=0)
     dny = np.sum(np.square(x / sk), axis=0)
@@ -254,37 +257,11 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     :param pos_neg:
     :return:
     """
-    # nfcn to trace number of times we called func
     # nstep to trace number of step
-    # naccpt to trace number of accepted step
-    # nrejct to trace number of rejected step
-    nfcn = nstep = naccpt = nrejct = 0
+    nstep = 0
 
     # array to store the result
     result = np.zeros((len(t), n))
-
-    # preallocate array
-    xx1 = np.zeros(n, float)
-    k1 = np.zeros(n, float)
-    k2 = np.zeros(n, float)
-    k3 = np.zeros(n, float)
-    k4 = np.zeros(n, float)
-    k5 = np.zeros(n, float)
-    k6 = np.zeros(n, float)
-    k7 = np.zeros(n, float)
-    k8 = np.zeros(n, float)
-    k9 = np.zeros(n, float)
-    k10 = np.zeros(n, float)
-
-    # preallocation dense output array
-    rcont1 = np.zeros(n, float)
-    rcont2 = np.zeros(n, float)
-    rcont3 = np.zeros(n, float)
-    rcont4 = np.zeros(n, float)
-    rcont5 = np.zeros(n, float)
-    rcont6 = np.zeros(n, float)
-    rcont7 = np.zeros(n, float)
-    rcont8 = np.zeros(n, float)
 
     # initial preparations
     facold = 1.0e-4
@@ -299,7 +276,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     if h == 0.0:  # estimate initial time step
         h, k1, k2, k3 = hinit(func, x, t, pos_neg, k1, iord, hmax, rtol, atol, args)
 
-    nfcn += 2
     reject = 0
     t_current = 0.  # store current integration time internally (not the current time wanted by user!!)
     t_old = 0.
@@ -355,7 +331,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         t_current += h
 
         k3 = func(xx1, args, t_current)
-        nfcn += 11
 
         k4 = b1 * k1 + b6 * k6 + b7 * k7 + b8 * k8 + b9 * k9 + b10 * k10 + b11 * k2 + b12 * k3
         k5 = x + h * k4
@@ -385,9 +360,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         if err <= 1.0:
             # step accepted
             facold = np.max([err, 1.0e-4])
-            naccpt += 1
             k4 = func(k5, args, t_current)
-            nfcn += 1
 
             # stnum = np.sum(np.square(k4 - k3))
             # stden = np.sum(np.square(k5 - xx1))
@@ -419,7 +392,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
             xx1 = x + h * (
                     a161 * k1 + a166 * k6 + a167 * k7 + a168 * k8 + a169 * k9 + a1613 * k4 + a1614 * k10 + a1615 * k2)
             k3 = func(xx1, args, t_old + c16 * h)
-            nfcn += 3
 
             # final preparation
             rcont5 = h * (rcont5 + d413 * k4 + d414 * k10 + d415 * k2 + d416 * k3)
@@ -450,8 +422,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
             # step rejected since error too big
             hnew = h / np.min([facc1, fac11 / safe])
             reject = 1
-            if naccpt >= 1:
-                nrejct += 1
 
             # reverse time increment since error rejected
             t_current = np.copy(t_old)
@@ -463,8 +433,11 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
 
 
 def galpy_converter(func):
+    """
+    Convert force evaluation function from galpy to the one dop853 expected
+    """
     def internal(x, args, t):
-        return np.concatenate((x[len(x) // 2:], func(x[:len(x) // 2], *args, t)))
+        return np.concatenate((x[len(x) // 2:], func(x[:len(x) // 2], *args, t=t)))
 
     return internal
 
