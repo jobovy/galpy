@@ -72,6 +72,15 @@ class actionAngleVerticalInverse(actionAngleInverse):
         xmaxs= numpy.empty(self._nE)
         self._Es= numpy.sort(numpy.array(Es))
         for ii,E in enumerate(Es):
+            if (E-evaluatelinearPotentials(self._pot,0.)) < 1e-14:
+                # J=0, should be using vertical freq. from 2nd deriv.
+                tJ,tO= self._aAV.actionsFreqs(0.,\
+                     numpy.sqrt(2.*(E+1e-5
+                                    -evaluatelinearPotentials(self._pot,0.))))
+                js[ii]= 0.
+                Omegas[ii]= tO
+                xmaxs[ii]= 0.
+                continue
             tJ,tO= self._aAV.actionsFreqs(0.,\
                      numpy.sqrt(2.*(E-evaluatelinearPotentials(self._pot,0.))))
             js[ii]= tJ
@@ -114,6 +123,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             self._ptderiv2coeffsgrid,
                             self._xmaxgrid,self._ptxmaxgrid)\
                *numpy.atleast_2d(self._Omegas/self._OmegaHO).T # In case not 1!
+        self._djadj[self._js < 1e-10]= 1. # J = 0 special case
         # Store mean(ja), this is only a better approx. of j w/ no PT!
         self._js_orig= copy.copy(self._js)
         self._js= numpy.nanmean(self._ja,axis=1)
@@ -140,8 +150,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if self._nE > 1:
             self._OmegaHO[self._Es < 1e-10]= self._OmegaHO[1]
             self._Omegas[self._Es < 1e-10]= self._Omegas[1]
-        self._nSn[self._Es < 1e-10]= 0.
-        self._dSndJ[self._Es < 1e-10]= 0.
+        self._nSn[self._js < 1e-10]= 0.
+        self._dSndJ[self._js < 1e-10]= 0.
         # Setup interpolation if requested
         if setup_interp:
             self._interp= True
@@ -160,12 +170,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pt_deriv2_coeffs= numpy.empty((self._nE,pt_deg-1))
         self._pt_xmaxs= numpy.sqrt(2.*self._js/self._OmegaHO)
         for ii in range(self._nE):
-            if self._Es[ii] < 1e-10: # Just use identity for small E
+            if self._js[ii] < 1e-10: # Just use identity for small J
                 self._pt_coeffs[ii]= 0.
                 self._pt_coeffs[ii,1]= 1.
-                self._pt_deriv_coeffs[ii]= 0.
+                self._pt_deriv_coeffs[ii]= 1.
                 self._pt_deriv2_coeffs[ii]= 0.
-                self._pt_xmaxs[ii]= self._xmaxs[ii]
+                self._pt_xmaxs[ii]= self._xmaxs[ii]+1e-10 # avoid /0
                 coeffs= self._pt_coeffs[ii] # to start next fit
                 continue
             Ea= self._js[ii]*self._OmegaHO[ii]
@@ -253,6 +263,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         unconv= numpy.ones(xgrid.shape,dtype='bool')
         # We'll fill in the -v part using the +v, also remove the endpoints
         unconv[:,self._nta//4:3*self._nta//4+1]= False
+        # Also don't bother with J=0 torus
+        unconv[numpy.tile(self._js,(self._nta,1)).T < 1e-10]= False
         dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
         unconv[unconv]= numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
@@ -376,21 +388,23 @@ class actionAngleVerticalInverse(actionAngleInverse):
             pyplot.subplot(gs[3])
             negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
             thetaa_out= numpy.empty_like(self._thetaa)
+            one= numpy.ones(numpy.sum(True^negv))
             thetaa_out[True^negv]= _anglea(self._xgrid[indx][True^negv],
                                            E,self._pot,
                                            self._OmegaHO[indx],
                                            self._pt_coeffs[indx],
-                                           self._pt_deriv_coeffs[indx],
-                                           self._xmaxs[indx],
-                                           self._pt_xmaxs[indx],
+                                           numpy.tile(self._pt_deriv_coeffs[indx],(numpy.sum(True^negv),1)),
+                                           self._xmaxs[indx]*one,
+                                           self._pt_xmaxs[indx]*one,
                                            vsign=1.)
+            one= numpy.ones(numpy.sum(negv))
             thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
                                       E,self._pot,
                                       self._OmegaHO[indx],
-                                      self._pt_coeffs[indx],
-                                      self._pt_deriv_coeffs[indx],
-                                      self._xmaxs[indx],
-                                      self._pt_xmaxs[indx],
+                                      self._pt_coeffs[indx], 
+                                      numpy.tile(self._pt_deriv_coeffs[indx],(numpy.sum(negv),1)),
+                                      self._xmaxs[indx]*one,
+                                      self._pt_xmaxs[indx]*one,
                                       vsign=-1.)
             bovy_plot.bovy_plot(self._thetaa,
                                 ((thetaa_out-self._thetaa+numpy.pi) \
@@ -941,14 +955,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tOmega= self.Omega(tE)
         return tOmega
 
-def _anglea(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
+def _anglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
     """
     NAME:
        _anglea
     PURPOSE:
        Compute the auxiliary angle in the harmonic-oscillator for a grid in x and E
     INPUT:
-       x - position
+       xa - position
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
@@ -956,6 +970,7 @@ def _anglea(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
        ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
        xmax - xmax of the true torus
        ptxmax - xmax of the point-transformed torus
+       vsign= (1.) sign of the velocity
     OUTPUT:
        auxiliary angles
     HISTORY:
@@ -963,18 +978,19 @@ def _anglea(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
        2018-11-19 - Added point transformation - Bovy (UofT)
     """
     # Compute v
-    v2= 2.*(E-
-            evaluatelinearPotentials(pot,
-                                     xmax*polynomial.polyval((x/ptxmax).T,
-                                                             ptcoeffs.T,
-                                                             tensor=False).T))
+    x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
+    v2= 2.*(E-evaluatelinearPotentials(pot,x))
     v2[v2 < 0]= 0.
-    v2[numpy.fabs(x)==ptxmax]= 0.# just in case the pt mapping has small issues
-    return numpy.arctan2(omega*x,
-                         (xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
-                                                         ptderivcoeffs.T,
-                                                         tensor=False).T)**-1.\
-                             *vsign*numpy.sqrt(v2))
+    v2[numpy.fabs(xa)==ptxmax]= 0.#just in case the pt mapping has small issues
+    piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,ptderivcoeffs.T,
+                                            tensor=False).T
+    # J=0 special case:
+    piprime[(xmax==0.)*(ptxmax==xmax+1e-10)]= \
+        polynomial.polyval((xa[(xmax==0.)*(ptxmax==xmax+1e-10)]\
+                                /ptxmax[(xmax==0.)*(ptxmax==xmax+1e-10)]).T,
+                           ptderivcoeffs[(xmax==0.)*(ptxmax==xmax+1e-10)].T,
+                           tensor=False).T
+    return numpy.arctan2(omega*xa,vsign*numpy.sqrt(v2)/piprime)
 
 def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
              xmax,ptxmax,vsign=1.):
@@ -993,6 +1009,7 @@ def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
        ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
        xmax - xmax of the true torus
        ptxmax - xmax of the point-transformed torus
+       vsign= (1.) sign of the velocity
     OUTPUT:
        d auxiliary angles / d x (2D array)
     HISTORY:
@@ -1013,35 +1030,44 @@ def _danglea(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
         *(v2*(piprime+xa*piprime2)
           -xa*evaluatelinearForces(pot,x)*piprime**2.)
 
-def _ja(x,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax,vsign=1.):
+def _ja(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,xmax,ptxmax):
     """
     NAME:
        _ja
     PURPOSE:
        Compute the auxiliary action in the harmonic-oscillator for a grid in x and E
     INPUT:
-       x - position
+       xa - position
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       xmax - xmax of the true torus
+       ptxmax - xmax of the point-transformed torus
+       vsign= (1.) sign of the velocity
     OUTPUT:
        auxiliary actions
     HISTORY:
        2018-04-14 - Written - Bovy (UofT)
        2018-11-22 - Added point transformation - Bovy (UofT)
     """
-    v2over2= (E-evaluatelinearPotentials(pot,
-                                         xmax*polynomial.polyval((x/ptxmax).T,
-                                                                ptcoeffs.T,
-                                                                tensor=False).T))
+    x= xmax*polynomial.polyval((xa/ptxmax).T,ptcoeffs.T,tensor=False).T
+    v2over2= (E-evaluatelinearPotentials(pot,x))
     v2over2[v2over2 < 0.]= 0.
-    return ((xmax/ptxmax*polynomial.polyval((x/ptxmax).T,
+    piprime= xmax/ptxmax*polynomial.polyval((xa/ptxmax).T,
                                             ptderivcoeffs.T,
-                                            tensor=False).T)**-2.*v2over2/omega\
-                +omega*x**2./2.)
+                                            tensor=False).T
+    out= numpy.empty_like(xa)
+    gIndx= True^((xmax==0.)*(ptxmax==xmax+1e-10))
+    out[gIndx]= v2over2[gIndx]/omega[gIndx]/piprime[gIndx]**2.\
+        +omega[gIndx]*xa[gIndx]**2./2.
+    # J=0 special case
+    out[True^gIndx]= 0.
+    return out
 
 def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
-           xmax,ptxmax,vsign=1.):
+           xmax,ptxmax):
     """
     NAME:
        _djaj
@@ -1052,6 +1078,12 @@ def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
        E - Energy
        pot - the potential
        omega - harmonic-oscillator frequencies
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
+       xmax - xmax of the true torus
+       ptxmax - xmax of the point-transformed torus
+       vsign= (1.) sign of the velocity
     OUTPUT:
        d(auxiliary actions)/d(action)
     HISTORY:
@@ -1064,8 +1096,18 @@ def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
                                             tensor=False).T
     piprime2= xmax/ptxmax**2.\
         *polynomial.polyval((xa/ptxmax).T,ptderiv2coeffs.T,tensor=False).T
-    dxAdE= xa*piprime**2./(v2*(1.+piprime2/piprime*xa)
-                           -xa*evaluatelinearForces(pot,x)*piprime)
+    # J=0 special case:
+    piprime[(xmax==0.)*(ptxmax==xmax+1e-10)]= \
+        polynomial.polyval((x[(xmax==0.)*(ptxmax==xmax+1e-10)]\
+                                /ptxmax[(xmax==0.)*(ptxmax==xmax+1e-10)]).T,
+                           ptderivcoeffs[(xmax==0.)*(ptxmax==xmax+1e-10)].T,
+                           tensor=False).T
+    gIndx= True^((xmax==0.)*(ptxmax==xmax+1e-10))
+    dxAdE= numpy.empty_like(xa)
+    dxAdE[gIndx]= xa[gIndx]*piprime[gIndx]**2.\
+        /(v2[gIndx]*(1.+piprime2[gIndx]/piprime[gIndx]*xa[gIndx])
+                  -xa[gIndx]*evaluatelinearForces(pot,x[gIndx])*piprime[gIndx])
+    dxAdE[(xmax==0.)*(ptxmax==xmax+1e-10)]= 1.
     return (1.
             +(evaluatelinearForces(pot,x)/piprime
               +omega**2.*xa-piprime**-3.*piprime2*v2)*dxAdE)
