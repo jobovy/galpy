@@ -584,7 +584,6 @@ def test_energy_symplec_longterm():
     #Basic parameters for the test
     times= numpy.linspace(0.,10000.,100001) #~360 Gyr at the Solar circle
     integrators= ['leapfrog_c', #don't do leapfrog, because it takes too long
-                  'dop853',
                   'symplec4_c','symplec6_c']
     #Only use KeplerPotential
     pots= ['KeplerPotential']
