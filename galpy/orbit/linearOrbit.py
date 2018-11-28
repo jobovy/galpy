@@ -164,7 +164,7 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
                                       nu.array(vxvv),
                                       t,rtol=10.**-8)
     if method.lower() == 'dop853':
-        return dop853(lambda x,t=t: _evaluatelinearForces(pot,x,  t=t), nu.array(vxvv), t)
+        return dop853(func=_linearEOM, x=vxvv, t=t, args=(pot,))
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \

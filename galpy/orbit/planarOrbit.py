@@ -590,18 +590,15 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
+    if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
                              vxvv[0]*nu.sin(vxvv[3]),
                              vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
                              vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        if method.lower() == 'leapfrog':
-            tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                            t,args=(pot,),rtol=10.**-8)
-        else:
-            tmp_out= dop853(_rectForce,this_vxvv, t,args=(pot,))
+        tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                        t,args=(pot,),rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
         phi= nu.arccos(tmp_out[:,0]/R)
@@ -638,11 +635,14 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[3],vphi]
-        intOut= integrate.odeint(_EOM,init,t,args=(pot,),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method == 'dop853':
+            intOut = dop853(_EOM, init, t, args=(pot,))
+        else:
+            intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),4))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]

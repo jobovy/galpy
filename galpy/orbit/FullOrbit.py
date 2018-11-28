@@ -588,7 +588,7 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
         else:
             method= 'odeint'
         warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
+    if method.lower() == 'leapfrog':
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
                              vxvv[0]*nu.sin(vxvv[5]),
@@ -597,11 +597,8 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
                              vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
                              vxvv[4]])
         #integrate
-        if method.lower() == 'leapfrog':
-            out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                        t,args=(pot,),rtol=10.**-8)
-        else:
-            out= dop853(_rectForce,this_vxvv, t,args=(pot,))
+        out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                    t,args=(pot,),rtol=10.**-8)
         #go back to the cylindrical frame
         R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
         phi= nu.arccos(out[:,0]/R)
@@ -643,11 +640,14 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
         out[:,5]= phi
         out[:,3]= tmp_out[:,2]
         out[:,4]= tmp_out[:,5]
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
-        intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method == 'dop853':
+            intOut = dop853(_FullEOM, init, t, args=(pot,))
+        else:
+            intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),6))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]

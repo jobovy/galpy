@@ -1,6 +1,35 @@
 #############################################################################
 # DOP853 integrator
 #############################################################################
+#############################################################################
+# Copyright (c) 2018, Henry Leung
+# All rights reserved.
+# This code is written with reference of tha c-version dop853 here: http://www.unige.ch/~hairer/software.html
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#   Redistributions of source code must retain the above copyright notice,
+#      this list of conditions and the following disclaimer.
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#   The name of the author may not be used to endorse or promote products
+#      derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#############################################################################
 
 import numpy as np
 
@@ -174,9 +203,6 @@ er12 = -0.2235530786388629525884427845e-1
 unsigned_int_max = np.iinfo(np.int32).max
 uround = np.finfo(np.float).eps
 
-# other parameters
-nrds = 0
-
 
 def custom_sign(a, b):
     return np.fabs(a) if b > 0.0 else -np.fabs(a)
@@ -200,7 +226,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
 
     # perform an explicit Euler step
     xx1 = x + h * f0
-    f1 = func(xx1, args, t[0] + h)
+    f1 = np.array(func(xx1, t[0] + h, *args))
 
     # estimate the second derivative of the solution
     der2 = np.sum(np.square((f1 - f0) / sk), axis=0)
@@ -257,9 +283,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     :param pos_neg:
     :return:
     """
-    # nstep to trace number of step
-    nstep = 0
-
     # array to store the result
     result = np.zeros((len(t), n))
 
@@ -269,7 +292,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     facc1 = 1.0 / fac1
     facc2 = 1.0 / fac2
 
-    k1 = func(x, args, t=t[0])
+    k1 = np.array(func(x, t[0], *args))
     hmax = np.fabs(hmax)
     iord = 8
 
@@ -285,43 +308,39 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
 
     # basic integration step
     while finished_user_t_ii < len(t) - 1:  # check if the current computed time indices less than total inices needed
-        if nstep > nmax:
-            raise ValueError("Terminated dop853 integration at t=%f at nmax=%d" % (t[finished_user_t_ii], nmax))
-
-        if np.fabs(h) <= uround:
-            raise SystemError("Terminated dop853 integration at t=%f because step size too small " 
-                              "h=%f, reached this machine precision" % (t[finished_user_t_ii], h))
+        # keep time step not too small
+        h = np.max([np.fabs(h), 1e3 * uround])
 
         # the twelve stages
         xx1 = x + h * a21 * k1
-        k2 = func(xx1, args, t_current + c2 * h)
+        k2 = np.array(func(xx1, t_current + c2 * h, *args))
 
         xx1 = x + h * (a31 * k1 + a32 * k2)
-        k3 = func(xx1, args, t_current + c3 * h)
+        k3 = np.array(func(xx1, t_current + c2 * h, *args))
 
         xx1 = x + h * (a41 * k1 + a43 * k3)
-        k4 = func(xx1, args, t_current + c4 * h)
+        k4 = np.array(func(xx1, t_current + c4 * h, *args))
 
         xx1 = x + h * (a51 * k1 + a53 * k3 + a54 * k4)
-        k5 = func(xx1, args, t_current + c5 * h)
+        k5 = np.array(func(xx1, t_current + c5 * h, *args))
 
         xx1 = x + h * (a61 * k1 + a64 * k4 + a65 * k5)
-        k6 = func(xx1, args, t_current + c6 * h)
+        k6 = np.array(func(xx1, t_current + c6 * h, *args))
 
         xx1 = x + h * (a71 * k1 + a74 * k4 + a75 * k5 + a76 * k6)
-        k7 = func(xx1, args, t_current + c7 * h)
+        k7 = np.array(func(xx1, t_current + c7 * h, *args))
 
         xx1 = x + h * (a81 * k1 + a84 * k4 + a85 * k5 + a86 * k6 + a87 * k7)
-        k8 = func(xx1, args, t_current + c8 * h)
+        k8 = np.array(func(xx1, t_current + c8 * h, *args))
 
         xx1 = x + h * (a91 * k1 + a94 * k4 + a95 * k5 + a96 * k6 + a97 * k7 + a98 * k8)
-        k9 = func(xx1, args, t_current + c9 * h)
+        k9 = np.array(func(xx1, t_current + c9 * h, *args))
 
         xx1 = x + h * (a101 * k1 + a104 * k4 + a105 * k5 + a106 * k6 + a107 * k7 + a108 * k8 + a109 * k9)
-        k10 = func(xx1, args, t_current + c10 * h)
+        k10 = np.array(func(xx1, t_current + c10 * h, *args))
 
         xx1 = x + h * (a111 * k1 + a114 * k4 + a115 * k5 + a116 * k6 + a117 * k7 + a118 * k8 + a119 * k9 + a1110 * k10)
-        k2 = func(xx1, args, t_current + c11 * h)
+        k2 = np.array(func(xx1, t_current + c11 * h, *args))
 
         xx1 = x + h * (
                 a121 * k1 + a124 * k4 + a125 * k5 + a126 * k6 + a127 * k7 + a128 * k8 + a129 * k9 + a1210 * k10 + a1211 * k2)
@@ -330,7 +349,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         t_old = np.copy(t_current)
         t_current += h
 
-        k3 = func(xx1, args, t_current)
+        k3 = np.array(func(xx1, t_current, *args))
 
         k4 = b1 * k1 + b6 * k6 + b7 * k7 + b8 * k8 + b9 * k9 + b10 * k10 + b11 * k2 + b12 * k3
         k5 = x + h * k4
@@ -343,8 +362,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         err = np.sum(np.square(erri / sk), axis=0)
 
         deno = err + 0.01 * err2
-        if deno <= 0.0:
-            deno = 1.0
+        deno = 1.0 if deno <= 0.0 else deno
         err = np.fabs(h) * err * np.sqrt(1.0 / (deno * n))
 
         # computation of hnew
@@ -360,15 +378,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         if err <= 1.0:
             # step accepted
             facold = np.max([err, 1.0e-4])
-            k4 = func(k5, args, t_current)
-
-            # stnum = np.sum(np.square(k4 - k3))
-            # stden = np.sum(np.square(k5 - xx1))
-            # hlamb = 0
-            # if stden > 0.0:
-            #     hlamb = h * np.sqrt(stnum / stden)
-            # if hlamb > 6.1:
-            #     print("stiff warning")
+            k4 = np.array(func(k5, t_current, *args))
 
             # final preparation for dense output
             rcont1 = np.copy(x)
@@ -385,13 +395,13 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
             # the next three function evaluations
             xx1 = x + h * (
                     a141 * k1 + a147 * k7 + a148 * k8 + a149 * k9 + a1410 * k10 + a1411 * k2 + a1412 * k3 + a1413 * k4)
-            k10 = func(xx1, args, t_old + c14 * h)
+            k10 = np.array(func(xx1, t_old + c14 * h, *args))
             xx1 = x + h * (
                     a151 * k1 + a156 * k6 + a157 * k7 + a158 * k8 + a1511 * k2 + a1512 * k3 + a1513 * k4 + a1514 * k10)
-            k2 = func(xx1, args, t_old + c15 * h)
+            k2 = np.array(func(xx1, t_old + c15 * h, *args))
             xx1 = x + h * (
                     a161 * k1 + a166 * k6 + a167 * k7 + a168 * k8 + a169 * k9 + a1613 * k4 + a1614 * k10 + a1615 * k2)
-            k3 = func(xx1, args, t_old + c16 * h)
+            k3 = np.array(func(xx1, t_old + c16 * h, *args))
 
             # final preparation
             rcont5 = h * (rcont5 + d413 * k4 + d414 * k10 + d415 * k2 + d416 * k3)
@@ -416,8 +426,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
                 hnew = pos_neg * np.min([np.fabs(hnew), np.fabs(h)])
 
             reject = 0
-            nstep += 1
-
         else:
             # step rejected since error too big
             hnew = h / np.min([facc1, fac11 / safe])
@@ -430,16 +438,6 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         h = np.copy(hnew)  # current h
 
     return result
-
-
-def galpy_converter(func):
-    """
-    Convert force evaluation function from galpy to the one dop853 expected
-    """
-    def internal(x, args, t):
-        return np.concatenate((x[len(x) // 2:], func(x[:len(x) // 2], *args, t=t)))
-
-    return internal
 
 
 def dop853(func=None,
@@ -494,22 +492,6 @@ def dop853(func=None,
     """
     # initialization
     n = len(x)
-    func = galpy_converter(func)
-
-    # nmax, the maximal number of steps
-    if not nmax:
-        nmax = 100000
-    elif nmax <= 0:
-        raise ValueError("Invalid input, nmax=%d" % nmax)
-
-    if (safe >= 1.0) or (safe <= 1.0e-4):
-        raise ValueError("Safety factor failed, safe=%f" % safe)
-
-    # beta for step control stabilization
-    if beta < 0.0:
-        beta = 0.0
-    elif beta > 0.2:
-        raise ValueError("beta is too big: beta=%f" % beta)
 
     # maximal step size, default a big one
     if hmax == 0.0:
