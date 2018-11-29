@@ -216,10 +216,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
     dnf = np.sum(np.square(f0 / sk), axis=0)
     dny = np.sum(np.square(x / sk), axis=0)
 
-    if (dnf <= 1.0e-10) or (dny <= 1.0e-10):
-        h = 1.0e-6
-    else:
-        h = np.sqrt(dny / dnf) * 0.01
+    h = np.sqrt(dny / dnf) * 0.01
 
     h = np.min([h, hmax])
     h = custom_sign(h, pos_neg)
@@ -234,10 +231,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
 
     # step size is computed such that h ** iord * max_d(norm(f0), norm(der2)) = 0.01
     der12 = np.max([np.fabs(der2), np.sqrt(dnf)])
-    if der12 <= 1.0e-15:
-        h1 = np.max([1.0e-6, np.fabs(h) * 1.0e-3])
-    else:
-        h1 = np.power(0.01 / der12, 1.0 / iord)
+    h1 = np.power(0.01 / der12, 1.0 / iord)
 
     h = np.min([100.0 * np.fabs(h), np.min([h1, hmax])])
 
@@ -246,14 +240,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
 
 def dense_output(t_current, t_old, h_current, rcont):
     """
-    Dense output function, basically extrapolating
-
-    :param ii:
-    :param t_current:
-    :param t_old:
-    :param h_current: current h
-    :param rcont: list of dense reconstruction parameter
-    :return:
+    Dense output function, basically extrapolatin
     """
     # initialization
     s = (t_current - t_old) / h_current
@@ -266,22 +253,6 @@ def dense_output(t_current, t_old, h_current, rcont):
 def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac2, pos_neg, args):
     """
     Core of DOP8(5, 3) integration
-
-    :param n:
-    :param func:
-    :param x:
-    :param t:
-    :param hmax:
-    :param h:
-    :param rtol:
-    :param atol:
-    :param nmax:
-    :param safe:
-    :param beta:
-    :param fac1:
-    :param fac2:
-    :param pos_neg:
-    :return:
     """
     # array to store the result
     result = np.zeros((len(t), n))
