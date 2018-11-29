@@ -287,7 +287,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         k2 = np.array(func(xx1, t_current + c2 * h, *args))
 
         xx1 = x + h * (a31 * k1 + a32 * k2)
-        k3 = np.array(func(xx1, t_current + c2 * h, *args))
+        k3 = np.array(func(xx1, t_current + c3 * h, *args))
 
         xx1 = x + h * (a41 * k1 + a43 * k3)
         k4 = np.array(func(xx1, t_current + c4 * h, *args))
