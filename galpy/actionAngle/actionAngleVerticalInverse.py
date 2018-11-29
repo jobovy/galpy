@@ -463,7 +463,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if return_gridspec: return gs
         else: return None
 
-    def plot_power(self,Es,symm=True,overplot=False,return_gridspec=False):
+    def plot_power(self,Es,symm=True,overplot=False,return_gridspec=False,
+                   ls='-'):
         Es= numpy.sort(numpy.atleast_1d(Es))
         minn_for_cmap= 4
         if len(Es) < minn_for_cmap:
@@ -503,7 +504,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             pyplot.subplot(gs[0])
             bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                                 y,yrange=[ymin,ymax],
-                                ls='--' if overplot == gs else '-',
+                                ls=ls,
                                 gcf=True,semilogy=True,overplot=overplot,
                                 xrange=[0.,self._nforSn[-1]],
                                 label=label,color=color,
@@ -527,7 +528,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             pyplot.subplot(gs[1])
             bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
                                 y,yrange=[ymin,ymax],
-                                ls='--' if overplot == gs else '-',
+                                ls=ls,
                                 gcf=True,semilogy=True,overplot=overplot,
                                 xrange=[0.,self._nforSn[-1]],
                                 label=label,color=color,
@@ -568,6 +569,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # First plot orbit in x,v
         pyplot.subplot(1,2,1)
         bovy_plot.bovy_plot(x,v,xlabel=r'$x$',ylabel=r'$v$',gcf=True,
+                            color='k',
                             xrange=[1.1*numpy.amin(x),1.1*numpy.amax(x)],
                             yrange=[1.1*numpy.amin(v),1.1*numpy.amax(v)])
         # Then plot energy
@@ -577,7 +579,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         bovy_plot.bovy_plot(ta,Eorbit,
                             xrange=[0.,2.*numpy.pi],
                             yrange=[ymin-(ymax-ymin)*3.,ymax+(ymax-ymin)*3.],
-                            gcf=True,
+                            gcf=True,color='k',
                             xlabel=r'$\theta$',
                             ylabel=r'$E/E_{\mathrm{true}}-1$')
         pyplot.tight_layout()
