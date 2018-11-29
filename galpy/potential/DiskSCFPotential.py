@@ -8,9 +8,9 @@ _SCIPY_VERSION= [int(v.split('rc')[0])
                  for v in scipy.__version__.split('.')]
 if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
-elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19:
+elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
     from scipy.misc import logsumexp
-else: #pragma: no cover
+else:
     from scipy.special import logsumexp
 from .Potential import Potential, _APY_LOADED
 from .SCFPotential import SCFPotential, \
