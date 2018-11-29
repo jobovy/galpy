@@ -8,8 +8,10 @@ _SCIPY_VERSION= [int(v.split('rc')[0])
                  for v in scipy.__version__.split('.')]
 if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
-else:
+elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
     from scipy.misc import logsumexp
+else:
+    from scipy.special import logsumexp
 from galpy.orbit import Orbit
 from .df import df, _APY_LOADED
 from galpy.util import bovy_coords, fast_cholesky_invert, \
