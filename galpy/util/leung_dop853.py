@@ -218,7 +218,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
 
     h = np.sqrt(dny / dnf) * 0.01
 
-    h = np.min([h, hmax])
+    h = np.min([h, np.fabs(hmax)])
     h = custom_sign(h, pos_neg)
 
     # perform an explicit Euler step
@@ -233,7 +233,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
     der12 = np.max([np.fabs(der2), np.sqrt(dnf)])
     h1 = np.power(0.01 / der12, 1.0 / iord)
 
-    h = np.min([100.0 * np.fabs(h), np.min([h1, hmax])])
+    h = np.min([100.0 * np.fabs(h), np.min([np.fabs(h1), np.fabs(hmax)])])
 
     return custom_sign(h, pos_neg), f0, f1, xx1
 
@@ -280,7 +280,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     # basic integration step
     while finished_user_t_ii < len(t) - 1:  # check if the current computed time indices less than total inices needed
         # keep time step not too small
-        h = np.max([np.fabs(h), 1e3 * uround])
+        h = pos_neg * np.max([np.fabs(h), 1e3 * uround])
 
         # the twelve stages
         xx1 = x + h * a21 * k1
