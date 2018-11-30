@@ -470,7 +470,8 @@ class Orbit(object):
                    'symplec6_c' for a 6th order symplectic integrator in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+                   'dopr54_c' for a Dormand-Prince 5(4) integrator in C (generally the fastest)
+                   'dop853_c' for a Dormand-Prince 8(5, 3) integrator in C
 
            dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -487,7 +488,7 @@ class Orbit(object):
         """
         if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
                 'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
-                'dopr54_c']:
+                'dopr54_c', 'dop853_c']:
             raise ValueError('{:s} is not a valid `method`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)

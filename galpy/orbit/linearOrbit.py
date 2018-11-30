@@ -168,7 +168,8 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' \
+            or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",
                       galpyWarningVerbose)
         out, msg= integrateLinearOrbit_c(pot,nu.array(vxvv),t,method,dt=dt)

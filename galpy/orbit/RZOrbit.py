@@ -484,7 +484,7 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
     if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' or method.lower() == 'dop853_c':
         #We hack this by upgrading to a FullOrbit
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
