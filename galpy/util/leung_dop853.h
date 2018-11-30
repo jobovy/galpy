@@ -46,6 +46,14 @@ void handle_sigint(int);
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 #endif
 
+#ifndef max
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#endif
+
 /* Function declarations */
 static inline void save_dop853(
 	int dim, 
