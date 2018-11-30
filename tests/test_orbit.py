@@ -779,7 +779,7 @@ def test_eccentricity():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
-                  'dop853',
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -3842,7 +3842,6 @@ def test_orbit_method_inputobs_quantity():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_full():
-    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3856,6 +3855,8 @@ def test_orbit_c_sigint_full():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
+        if WIN32:
+            p.wait()
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
@@ -3874,7 +3875,6 @@ def test_orbit_c_sigint_full():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planar():
-    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'rk4_c','rk6_c',
@@ -3888,6 +3888,8 @@ def test_orbit_c_sigint_planar():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
+        if WIN32:
+            p.wait()
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
@@ -3906,8 +3908,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    if WIN32: return None
-    integrators= ['dopr54_c','rk4_c','rk6_c']
+    integrators= ['dopr54_c','rk4_c','rk6_c', 'dop853_c',]
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
         scriptpath= os.path.join('tests',scriptpath)
@@ -3917,6 +3918,8 @@ def test_orbit_c_sigint_planardxdv():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
+        if WIN32:
+            p.wait()
         time.sleep(4)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
