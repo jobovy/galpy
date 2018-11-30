@@ -507,7 +507,7 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog' or method.lower() == 'dop853':
+    if method.lower() == 'leapfrog':
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
@@ -524,12 +524,15 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
         tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         l= vxvv[0]*vxvv[2]
         l2= l**2.
         init= [vxvv[0],vxvv[1]]
-        intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method.lower() == 'dop853':
+            intOut = dop853(_REOM, init, t, args=(pot, l2))
+        else:
+            intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),3))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]

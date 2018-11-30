@@ -464,7 +464,7 @@ class Orbit(object):
 
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
-                   'dop853' for a DOP8(5, 3) implementation
+                   'dop853' for a Dormand-Prince 8(5,3) implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
                    'symplec4_c' for a 4th order symplectic integrator in C
                    'symplec6_c' for a 6th order symplectic integrator in C

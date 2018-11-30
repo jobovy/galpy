@@ -10,6 +10,7 @@ import galpy.util.bovy_symplecticode as symplecticode
 from .FullOrbit import _integrateFullOrbit
 from .integrateFullOrbit import _ext_loaded as ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
+from galpy.util.leung_dop853 import dop853
 from .OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
@@ -480,7 +481,7 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog' or method.lower() == 'dop853' \
+    if method.lower() == 'leapfrog' \
             or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c':
@@ -490,12 +491,15 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
         tmp_out= _integrateFullOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,6)
         out= tmp_out[:,0:5]
-    elif method.lower() == 'odeint':
+    elif method.lower() == 'odeint' or method.lower() == 'dop853':
         l= vxvv[0]*vxvv[2]
         l2= l**2.
         init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
-        intOut= integrate.odeint(_RZEOM,init,t,args=(pot,l2),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method.lower == "dop853":
+            intOut = dop853(_RZEOM, init, t, args=(pot, l2))
+        else:
+            intOut = integrate.odeint(_RZEOM, init, t, args=(pot, l2),
+                                      rtol=10. ** -8.)  # ,mxstep=100000000)
         out= nu.zeros((len(t),5))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]
