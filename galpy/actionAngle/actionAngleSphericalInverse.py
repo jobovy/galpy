@@ -10,13 +10,14 @@
 import copy
 import numpy
 import warnings
-from scipy import optimize
-from galpy.util import galpyWarning
-from galpy.potential import IsochronePotential, vcirc, dvcircdR, \
+from scipy import optimize, interpolate
+from ..util import galpyWarning
+from ..potential import IsochronePotential, vcirc, dvcircdR, rl, \
     evaluatePotentials, evaluateRforces
+from ..potential.Potential import _evaluatePotentials
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
-from galpy.actionAngle import actionAngleSpherical
+from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import _actionAngleIsochroneHelper
 _APY_LOADED= True
@@ -26,9 +27,11 @@ except ImportError:
     _APY_LOADED= False
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle formalism for spherical potentials"""
-    def __init__(self,pot=None,Es=[0.1,0.3],Ls=[1.,1.2],grid=False,
+    def __init__(self,pot=None,
+                 Es=[0.1,0.3],Ls=[1.,1.2],
+                 setup_interp=False,Rmax=5.,Rinf=25.,nL=31,nE=31,
                  nta=128,
-                 setup_interp=False,maxiter=100,angle_tol=1e-12,bisect=False):
+                 maxiter=100,angle_tol=1e-12,bisect=False):
         """
         NAME:
 
@@ -42,15 +45,27 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
            pot= a Potential or list thereof, should be a spherical potential
 
-           Es= energies of the orbits to map the tori for, will be forcibly sorted when grid=True (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+           Either:
 
-           Ls= angular momenta of the orbits to map the tori for, will be forcibly sorted when grid=True (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+              a)
 
-           grid= (False) if True, make a 2D grid out of provide 1D Es and Ls, to fully map (E,L)
+                 Es= energies of the orbits to map the tori for
+
+                 Ls= angular momenta of the orbits to map the tori for
+
+              b)
+
+                 setup_interp= (False) if True, setup interpolation grids that allow any torus within the grid to be accessed through interpolation
+
+                 Rmax= (5.) maximum radius to consider when building the L grid
+                 
+                 Rinf= (5.) maximum radius to consider when building the E grid
+                 
+                 nE= (31) number of energies to grid
+
+                 nL= (31) number of angular momenta to grid
 
            nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
-
-           setup_interp= (False) if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
 
            maxiter= (100) maximum number of iterations of root-finding algorithms
 
@@ -75,41 +90,71 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._pot= pot
         self._aAS= actionAngleSpherical(pot=self._pot)
         # Determine gridding options
-        self._Es= numpy.atleast_1d(Es)
-        self._Ls= numpy.atleast_1d(Ls)
-        self._nE= len(self._Es)
-        self._nL= len(self._Ls)
-        if not grid and self._nE != self._nL:
-            raise ValueError("When grid=False, len(Es) has to equal len(Ls)")
-        if grid:
-            # Make grid, flatten so we can treat it as regular 1D input
-            self._Es= numpy.sort(self._Es)
-            self._Ls= numpy.sort(self._Ls)
-            self._internal_Es,self._internal_Ls= \
-                numpy.meshgrid(self._Es,self._Ls,indexing='ij')
-            self._internal_Es= self._internal_Es.flatten()
-            self._internal_Ls= self._internal_Ls.flatten()
-        else:
+        if not setup_interp:
+            self._Es= numpy.atleast_1d(Es)
+            self._Ls= numpy.atleast_1d(Ls)
+            self._nE= len(self._Es)
+            self._nL= len(self._Ls)
+            if self._nE != self._nL:
+                raise ValueError("When grid=False, len(Es) has to equal len(Ls)")
             self._internal_Es= copy.copy(self._Es)
             self._internal_Ls= copy.copy(self._Ls)
+        else:
+            # Make grid, flatten so we can treat it as regular 1D input
+            self._Rmax= Rmax
+            self._Rinf= Rinf
+            self._nE= nE
+            self._nL= nL
+            self._Lmin= 0.01
+            self._Ls= numpy.linspace(self._Lmin,
+                                     self._Rmax*vcirc(self._pot,self._Rmax),
+                                     self._nL)
+            self._Lmax= self._Ls[-1]
+            #Calculate ER(vr=0,R=RL)
+            self._RL= numpy.array([rl(self._pot,l) for l in self._Ls])
+            #self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Ls,
+            #                                                     self._RL,k=3)
+            self._ERRL= _evaluatePotentials(self._pot,self._RL,numpy.zeros(self._nL))\
+                +self._Ls**2./2./self._RL**2.
+            #self._ERRLmax= numpy.amax(self._ERRL)+1.
+            #self._ERRLInterp= interpolate.InterpolatedUnivariateSpline(self._Ls,
+            #numpy.log(-(self._ERRL-self._ERRLmax)),k=3)
+            self._ERRa= _evaluatePotentials(self._pot,self._Rinf,0.)\
+                +self._Ls**2./2./self._Rinf**2.
+            #self._ERRamax= numpy.amax(self._ERRa)+1.
+            #self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
+            #                                                           numpy.log(-(self._ERRa-self._ERRamax)),k=3)
+            self._internal_Es= (numpy.tile(numpy.linspace(0.,1.,self._nE),
+                                           (self._nL,1))).flatten()\
+                               *(numpy.tile(self._ERRa-self._ERRL,
+                                            (self._nE,1)).T).flatten()\
+                               +(numpy.tile(self._ERRL,
+                                           (self._nE,1)).T).flatten()
+            self._internal_Ls= (numpy.tile(self._Ls,
+                                           (self._nE,1)).T).flatten()
+            #self._internal_Es,self._internal_Ls= \
+            #    numpy.meshgrid(numpy.linspace(0.,1.,self._nE),
+            #                   self._Ls,indexing='ij')
+            #self._internal_Es= self._internal_Es.flatten()
+            #self._internal_Ls= self._internal_Ls.flatten()
         self._L2= self._internal_Ls**2
         # Compute actions, frequencies, and rperi/rap for each (E,L), to do
         # this, setup orbit at radius of circular orbit for given L
         rls= numpy.array([optimize.newton(lambda x: x*vcirc(self._pot,x)-L,1.,
                                           lambda x: dvcircdR(self._pot,x)+x)
                           for L in self._internal_Ls])
-        self._jr,_,_,self._Omegar,_,self._Omegaz= self._aAS.actionsFreqs(\
-            rls,numpy.sqrt(2.*(self._internal_Es\
+        vrls= numpy.sqrt(2.*(self._internal_Es\
                                   -evaluatePotentials(self._pot,rls,
                                                       numpy.zeros_like(rls)))
-                          -self._L2/rls**2.),
+                          -self._L2/rls**2.)
+        if setup_interp:
+            vrls[::self._nE]= 0.
+        self._jr,_,_,self._Omegar,_,self._Omegaz= self._aAS.actionsFreqs(\
+            rls,vrls,
             self._internal_Ls/rls,numpy.zeros_like(rls),numpy.zeros_like(rls))
         # Also need rperi and rap
         _,_,self._rperi,self._rap= self._aAS.EccZmaxRperiRap(\
-            rls,numpy.sqrt(2.*(self._internal_Es\
-                                  -evaluatePotentials(self._pot,rls,
-                                                      numpy.zeros_like(rls)))
-                          -self._L2/rls**2.),
+            rls,vrls,
             self._internal_Ls/rls,numpy.zeros_like(rls),numpy.zeros_like(rls))
         self._OmegazoverOmegar= self._Omegaz/self._Omegar
         # First need to determine appropriate IsochronePotentials
@@ -176,6 +221,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
                           /self._jra.shape[1]
         self._dSndLish= numpy.real(numpy.fft.rfft(self._djradLish,axis=1))[:,1:]\
                           /self._jra.shape[1]
+        # Interpolation of small, noisy coeffs doesn't work, so set to zero
+        if setup_interp:
+            self._nSn[numpy.fabs(self._nSn) < 1e-16]= 0.
+            self._dSndJr[numpy.fabs(self._dSndJr) < 1e-15]= 0.
+            self._dSndLish[numpy.fabs(self._dSndLish) < 1e-15]= 0.
         self._dSndJr/= numpy.atleast_2d(self._nforSn)[:,1:]
         self._dSndLish/= numpy.atleast_2d(self._nforSn)[:,1:]
         self._nforSn= self._nforSn[1:]
@@ -207,6 +257,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                    -evaluatePotentials(self._pot,rs,numpy.zeros_like(rs)))
             -numpy.tile(self._L2,(rs.shape[1],1)).T/rs**2.,
             numpy.tile(self._internal_Ls,(rs.shape[1],1)).T,reuse=False)
+        from matplotlib import pyplot
+        pyplot.plot(rs[0],rta[0],'.')
         rta[numpy.isnan(rta)]= 0. # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
         cindx= numpy.nanargmin(numpy.fabs(\
@@ -214,6 +266,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                  +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
         rgrid= rgrid[cindx].T*numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T\
             +numpy.atleast_2d(self._rperi+1e-8).T
+        print(rta[:,15])
         Egrid= numpy.tile(self._internal_Es,(self._nta,1)).T
         Lgrid= numpy.tile(self._internal_Ls,(self._nta,1)).T
         L2grid= Lgrid**2
@@ -286,7 +339,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     "Torus mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
                         .format(self._maxiter),galpyWarning)
                 break
-        if False:#self._bisect or cntr > self._maxiter:
+        if self._bisect or cntr > self._maxiter:
             # Reset cntr
             cntr= 0
             # Start from nearest guess from below
@@ -314,6 +367,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     reuse=False)+2.*numpy.pi) \
                                 % (2.*numpy.pi)
                 ta[unconv]= newta
+#                print(mta[unconv],rgrid[unconv],ta[unconv])
                 dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
                 tryr_min[newta < mta[unconv]]=\
                     rgrid[unconv][newta < mta[unconv]]
@@ -352,6 +406,36 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._rperigrid= rperigrid
         self._rapgrid= rapgrid
         return rgrid
+
+    ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
+    def _setup_interp(self):
+        self._nnSn= self._nSn.shape[1] # won't be confusing...
+        #self.Jr= interpolate.RectBivariateSpline(\
+        #    XXX,self._Ls,numpy.reshape(self._jr,(self._nE,self._nL)),
+        #    kx=3,ky=3,s=0.)
+        """
+        self._Emin= self._Es[0]
+        self._Emax= self._Es[-1]
+        self._nSnFiltered= ndimage.spline_filter(self._nSn,order=3)
+        self._dSndJFiltered= ndimage.spline_filter(self._dSndJ,order=3)
+        self.J= interpolate.InterpolatedUnivariateSpline(self._Es,self._js,k=3)
+        self.E= interpolate.InterpolatedUnivariateSpline(self._js,self._Es,k=3)
+        self.OmegaHO= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                               self._OmegaHO,
+                                                               k=3)
+        self.Omega= interpolate.InterpolatedUnivariateSpline(self._Es,
+                                                             self._Omegas,
+                                                             k=3)
+        """
+        return None
+
+    def _coords_for_map_coords(self,E):
+        coords= numpy.empty((2,self._nnSn*len(E)))
+        coords[0]= numpy.tile((E-self._Emin)/(self._Emax-self._Emin)\
+                                  *(self._nE-1.),
+                              (self._nnSn,1)).T.flatten()
+        coords[1]= numpy.tile(self._nforSn-1,(len(E),1)).flatten()
+        return coords
 
     def _evaluate(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
@@ -428,7 +512,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if not self._interp:
             indx= numpy.nanargmin(numpy.fabs(jr-self._jr))
             if numpy.fabs(jr-self._jr[indx]) > 1e-10 \
-                    or numpy.fabs(jz+numpy.fabs(jphi)-self._Ls[indx]) > 1e-10:
+                    or numpy.fabs(jz+numpy.fabs(jphi)
+                                  -self._internal_Ls[indx]) > 1e-10:
                 raise ValueError('Given actions not found, to use interpolation, initialize with setup_interp=True')
             tnSn= self._nSn[indx]
             tdSndJr= self._dSndJr[indx]
