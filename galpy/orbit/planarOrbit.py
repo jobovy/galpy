@@ -716,17 +716,20 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
         raise TypeError('Symplectic integration for phase-space volume is not possible')
     elif ext_loaded and \
             (method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
-            or method.lower() == 'dopr54_c'):
+            or method.lower() == 'dopr54_c' or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or not ext_loaded or method.lower() == 'dop853':
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
         #integrate
-        tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
-                                  rtol=10.**-8.)#,mxstep=100000000)
+        if method.lower() == "dop853":
+            tmp_out = dop853(_EOM_dxdv, init, t, args=(pot,))
+        else:
+            tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
+                                      rtol=10.**-8.)#,mxstep=100000000)
         msg= 0
     else:
         raise NotImplementedError("requested integration method does not exist")

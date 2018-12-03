@@ -495,7 +495,7 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
         l= vxvv[0]*vxvv[2]
         l2= l**2.
         init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
-        if method.lower == "dop853":
+        if method.lower() == "dop853":
             intOut = dop853(_RZEOM, init, t, args=(pot, l2))
         else:
             intOut = integrate.odeint(_RZEOM, init, t, args=(pot, l2),

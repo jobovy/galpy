@@ -291,7 +291,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 		action.sa_handler = handle_sigint;
 		sigaction(SIGINT, &action, NULL);
 	#else
-		if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
+		SetConsoleCtrlHandler(CtrlHandler, TRUE);
 	#endif
 
 	// calculate k1
@@ -459,11 +459,6 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 			// loop for dense output in this time slot
 			while ((finished_user_t_ii < nt - 1) && (fabs(t[finished_user_t_ii + 1]) < fabs(t_current)))
 			{
-				if (interrupted) {
-					*err_ = -10;
-					interrupted = 0; // need to reset, bc library and vars stay in memory
-					break;
-				}
 				s = (t[finished_user_t_ii + 1] - t_old) / h;
 				s1 = 1.0 - s;
 				for (i = 0; i < dim; i++) yy_temp[i] = rcont1[i] + s * (rcont2[i] + s1 * (rcont3[i] + s * (rcont4[i] + s1 * (rcont5[i] + s * (rcont6[i] + s1 * (rcont7[i] + s * rcont8[i]))))));
@@ -472,10 +467,9 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 				finished_user_t_ii++;
 			}
 
-			if (fabs(hnew) > fabs(hmax))
-				hnew = pos_neg * hmax;
+			hnew = (fabs(hnew) > fabs(hmax)) ? pos_neg * hmax : hmax;
 			if (reject)
-				hnew = pos_neg * min(fabs(hnew), fabs(h));
+			    hnew = pos_neg * min(fabs(hnew), fabs(h));
 			reject = 0;
 		}
 		else
