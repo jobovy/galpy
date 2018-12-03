@@ -3842,6 +3842,7 @@ def test_orbit_method_inputobs_quantity():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_full():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'dop853_c',
@@ -3876,6 +3877,7 @@ def test_orbit_c_sigint_full():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planar():
+    if WIN32: return None
     integrators= ['dopr54_c',
                   'leapfrog_c',
                   'dop853_c',
@@ -3910,6 +3912,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
+    if WIN32: return None
     integrators= ['dopr54_c','rk4_c','rk6_c', 'dop853_c',]
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
