@@ -1,5 +1,5 @@
 /*
-C implementations of symplectic integrators
+C implementations of Dormand-Prince 8(5,3)
  */
 /*
 Copyright (c) 2018, Henry Leung
@@ -241,8 +241,8 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 	double *result, 
 	int *err_)
 {
-	rtol = 1e-14;
-	atol = 1e-14;
+	rtol = exp(rtol);
+	atol = exp(atol);
 	// Same initial parameters also used in my python version
 	double safe = 0.9;
 	double beta = 0.0;
@@ -372,12 +372,12 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 		for (i = 0; i < dim; i++) yy1[i] = y0[i] + h * (a111*k1[i] + a114 * k4[i] + a115 * k5[i] + a116 * k6[i] + a117 * k7[i] + a118 * k8[i] + a119 * k9[i] + a1110 * k10[i]);
 		func(t_current + c11 * h, yy1, k2, nargs, potentialArgs);
 
+		for (i = 0; i < dim; i++)
+			yy1[i] = y0[i] + h * (a121*k1[i] + a124 * k4[i] + a125 * k5[i] + a126 * k6[i] + a127 * k7[i] + a128 * k8[i] + a129 * k9[i] + a1210 * k10[i] + a1211 * k2[i]);
+
 		t_old_older = t_old;
 		t_old = t_current;
 		t_current = t_current + h;
-
-		for (i = 0; i < dim; i++)
-			yy1[i] = y0[i] + h * (a121*k1[i] + a124 * k4[i] + a125 * k5[i] + a126 * k6[i] + a127 * k7[i] + a128 * k8[i] + a129 * k9[i] + a1210 * k10[i] + a1211 * k2[i]);
 
 		func(t_current, yy1, k3, nargs, potentialArgs);
 
@@ -464,7 +464,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 					interrupted = 0; // need to reset, bc library and vars stay in memory
 					break;
 				}
-				s = (t_current - t_old) / h;
+				s = (t[finished_user_t_ii + 1] - t_old) / h;
 				s1 = 1.0 - s;
 				for (i = 0; i < dim; i++) yy_temp[i] = rcont1[i] + s * (rcont2[i] + s1 * (rcont3[i] + s * (rcont4[i] + s1 * (rcont5[i] + s * (rcont6[i] + s1 * (rcont7[i] + s * rcont8[i]))))));
 				save_dop853(dim, yy_temp, result);  // save first result

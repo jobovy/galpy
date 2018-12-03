@@ -1,5 +1,5 @@
 /*
-C implementations of symplectic integrators
+C implementations of Dormand-Prince 8(5,3)
  */
 /*
 Copyright (c) 2018, Henry Leung

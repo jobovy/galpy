@@ -478,6 +478,11 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
     dim= 8;
     break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
+    dim= 8;
+    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
