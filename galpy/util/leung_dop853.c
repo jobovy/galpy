@@ -467,7 +467,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 				finished_user_t_ii++;
 			}
 
-			hnew = (fabs(hnew) > fabs(hmax)) ? pos_neg * hmax : hmax;
+			hnew = (fabs(hnew) > fabs(hmax)) ? pos_neg * hmax : hnew;
 			if (reject)
 			    hnew = pos_neg * min(fabs(hnew), fabs(h));
 			reject = 0;

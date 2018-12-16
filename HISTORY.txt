@@ -24,6 +24,9 @@ v1.5 (????-??-??)
 - Allow orbit integrations to be KeyboardInterrupted on Windows as well 
   (#362 by Henry Leung)
 
+- Add Python and C implementation of Dormand-Prince 8(5,3) integrator
+  (#363 by Henry Leung)
+
 v1.4 (2018-09-09)
 =================
 
