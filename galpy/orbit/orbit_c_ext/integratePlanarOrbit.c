@@ -7,6 +7,7 @@
 #include <math.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
+#include <leung_dop853.h>
 //Potentials
 #include <galpy_potentials.h>
 #ifndef M_PI
@@ -420,6 +421,11 @@ EXPORT void integratePlanarOrbit(double *yo,
     odeint_deriv_func= &evalPlanarRectDeriv;
     dim= 4;
     break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalPlanarRectDeriv;
+    dim= 4;
+    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
@@ -469,6 +475,11 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
+    dim= 8;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
     dim= 8;
     break;

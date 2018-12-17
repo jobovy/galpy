@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
+#include <leung_dop853.h>
 #include <bovy_rk.h>
 //Potentials
 #include <galpy_potentials.h>
@@ -428,6 +429,11 @@ EXPORT void integrateFullOrbit(double *yo,
     odeint_deriv_func= &evalRectDeriv;
     dim= 6;
     break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalRectDeriv;
+    dim= 6;
+    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
@@ -491,6 +497,11 @@ void integrateOrbit_dxdv(double *yo,
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalRectDeriv_dxdv;
+    dim= 12;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
     break;
