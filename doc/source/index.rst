@@ -380,6 +380,11 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Subhalo destruction in the Apostle and Auriga simulations*, Jack Richings, Carlos Frenk, Adrian Jenkins, Andrew Robertson (2018) *Mon. Not. Roy. Astron. Soc.*, to be submitted (`arXiv/1811.12437 <http://arxiv.org/abs/1811.12437>`_)
 
+#. *Searching for the GD-1 Stream Progenitor in Gaia DR2 with Direct N-body Simulations*, Jeremy J. Webb & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1811.07022 <http://arxiv.org/abs/1811.07022>`_)
+
+#. *The Origins of Young Stars in the Direction of the Leading Arm of the Magellanic Stream: Abundances, Kinematics, and Orbits*, Lan Zhang, Dana I. Casetti-Dinescu, Christian Moni Bidin, Rene A. Mendez, Terrence M. Girard, Katherine Vieira, Vladimir I. Korchagin, William F. van Altena, & Gang Zhao (2018) *Astrophys. J.*, in press (`arXiv/1812.00198 <http://arxiv.org/abs/1812.00198>`_)
+
+#. *The UTMOST pulsar timing programme I: overview and first results*, F. Jankowski, M. Bailes, W. van Straten, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1812.04038 <http://arxiv.org/abs/1812.04038>`_)
 
 Indices and tables
 ==================
