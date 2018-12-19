@@ -1,6 +1,12 @@
+import warnings
 import numpy
 from .Orbit import Orbit
+from ..util import galpyWarning, galpyWarningVerbose
 from ..util.multi import parallel_map
+from ..potential.Potential import _check_c
+from ..potential.DissipativeForce import _isDissipative
+from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
+ext_loaded= _ext_loaded
 try:
     from astropy.coordinates import SkyCoord
     _APY_LOADED = True
@@ -158,31 +164,64 @@ class Orbits(object):
             2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
 
         """
-        if self._orbits[0].dim() == 1 and not force_map:
-            from .integrateLinearOrbit import integrateLinearOrbit_c
-            vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
-            out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
-            self.orbit= out
-            self.t= t
-            # Also store per-orbit view of the orbit for __getattr__ funcs
+        # Need to add checks done in Orbit.integrate
+
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        self.t= numpy.array(t)
+        self._pot= pot
+
+        # Original implementation with parallel_map
+        if self._orbits[0].dim() != 1 or force_map:
+            # Must return each Orbit for its values to correctly update
+            def integrate(orbit):
+                orbit.integrate(t, pot, method=method, dt=dt)
+                return orbit
+                
+            self._orbits = list(parallel_map(integrate, self._orbits,
+                                             numcores=numcores))
+            # Gather all into single self.orbit array
+            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
+                                     for ii in range(len(self._orbits))])
+            # Re-store as per-orbit view of the orbit for __getattr__ funcs
             for ii in range(len(self._orbits)):
                 self._orbits[ii]._orb.orbit= self.orbit[ii]
                 self._orbits[ii]._orb.t= t
             return None
 
-        # Must return each Orbit for its values to correctly update
-        def integrate(orbit):
-            orbit.integrate(t, pot, method=method, dt=dt)
-            return orbit
+        #First check that the potential has C
+        if '_c' in method:
+            if not ext_loaded or not _check_c(pot):
+                if ('leapfrog' in method or 'symplec' in method):
+                    method= 'leapfrog'
+                else:
+                    method= 'odeint'
+                if not ext_loaded: # pragma: no cover
+                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+                else:
+                    warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+        # Now check that we aren't trying to integrate a dissipative force
+        # with a symplectic integrator
+        if _isDissipative(pot) and ('leapfrog' in method 
+                                    or 'symplec' in method):
+            if '_c' in method:
+                method= 'dopr54_c'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
+        if ext_loaded and \
+           (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+            warnings.warn("Using C implementation to integrate orbits",
+                          galpyWarningVerbose)
+            # 1D
+            vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
+            out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
 
-        self._orbits = list(parallel_map(integrate, self._orbits,
-                                         numcores=numcores))
-        # Gather all into single self.orbit array
-        self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                 for ii in range(len(self._orbits))])
-        self.t= t
-        # Re-store as per-orbit view of the orbit for __getattr__ funcs
+        # Store orbit internally
+        self.orbit= out
+        # Also store per-orbit view of the orbit for __getattr__ funcs
         for ii in range(len(self._orbits)):
             self._orbits[ii]._orb.orbit= self.orbit[ii]
             self._orbits[ii]._orb.t= t
-        
+        return None
