@@ -119,7 +119,7 @@ class Orbits(object):
             return [getattr(orbit, name) for orbit in self.orbits]
 
     def integrate(self, t, pot, method='symplec4_c', dt=None, numcores=1,
-                  force_python=False):
+                  force_map=False):
         """
         NAME:
 
@@ -157,7 +157,7 @@ class Orbits(object):
             2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
 
         """
-        if self._orbits[0].dim() == 1 and not force_python:
+        if self._orbits[0].dim() == 1 and not force_map:
             from .integrateLinearOrbit import integrateLinearOrbit_c
             vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
             out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
