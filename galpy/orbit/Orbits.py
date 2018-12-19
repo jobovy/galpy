@@ -8,10 +8,9 @@ except ImportError:
     SkyCoord = None
     _APY_LOADED = False
 
-
-class Orbits:
+class Orbits(object):
     """
-    Class used to contain multiple Orbit instances.
+    Class representing multiple orbits.
     """
     def __init__(self, vxvv=None, radec=False, uvw=False, lb=False, ro=None,
                  vo=None, zo=None, solarmotion=None):
@@ -70,7 +69,7 @@ class Orbits:
 
         HISTORY:
 
-            XXXX-XX-XX - Written - Mathew Bub (UofT)
+            2018-10-13 - Written - Mathew Bub (UofT)
 
         """
         if vxvv is None:
@@ -108,7 +107,7 @@ class Orbits:
 
         HISTORY:
 
-            XXXX-XX-XX - Written - Mathew Bub (UofT)
+            2018-10-13 - Written - Mathew Bub (UofT)
 
         """
         attribute = getattr(Orbit(), name)
@@ -155,7 +154,7 @@ class Orbits:
 
         HISTORY:
 
-            XXXX-XX-XX - Written - Mathew Bub (UofT)
+            2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
 
         """
         if self._orbits[0].dim() == 1 and not force_python:
