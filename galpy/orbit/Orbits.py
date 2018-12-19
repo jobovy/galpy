@@ -1,3 +1,4 @@
+import numpy
 from .Orbit import Orbit
 from ..util.multi import parallel_map
 try:
@@ -118,7 +119,8 @@ class Orbits:
         else:
             return [getattr(orbit, name) for orbit in self.orbits]
 
-    def integrate(self, t, pot, method='symplec4_c', dt=None, numcores=1):
+    def integrate(self, t, pot, method='symplec4_c', dt=None, numcores=1,
+                  force_python=False):
         """
         NAME:
 
@@ -156,6 +158,18 @@ class Orbits:
             XXXX-XX-XX - Written - Mathew Bub (UofT)
 
         """
+        if self._orbits[0].dim() == 1 and not force_python:
+            from .integrateLinearOrbit import integrateLinearOrbit_c
+            vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
+            out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
+            self.orbit= out
+            self.t= t
+            # Also store per-orbit view of the orbit for __getattr__ funcs
+            for ii in range(len(self._orbits)):
+                self._orbits[ii]._orb.orbit= self.orbit[ii]
+                self._orbits[ii]._orb.t= t
+            return None
+
         # Must return each Orbit for its values to correctly update
         def integrate(orbit):
             orbit.integrate(t, pot, method=method, dt=dt)
@@ -163,3 +177,12 @@ class Orbits:
 
         self._orbits = list(parallel_map(integrate, self._orbits,
                                          numcores=numcores))
+        # Gather all into single self.orbit array
+        self.orbit= numpy.array([self._orbits[ii]._orb.orbit
+                                 for ii in range(len(self._orbits))])
+        self.t= t
+        # Re-store as per-orbit view of the orbit for __getattr__ funcs
+        for ii in range(len(self._orbits)):
+            self._orbits[ii]._orb.orbit= self.orbit[ii]
+            self._orbits[ii]._orb.t= t
+        
