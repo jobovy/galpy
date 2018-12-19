@@ -128,12 +128,13 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (N,len(y0), len(t)) or (len(y0), len(t)) if N=1
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
     HISTORY:
        2018-10-06 - Written - Bovy (UofT)
+       2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
