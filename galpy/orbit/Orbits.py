@@ -3,6 +3,7 @@ import numpy
 from .Orbit import Orbit
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.multi import parallel_map
+from ..util.bovy_plot import _add_ticks
 from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
@@ -224,4 +225,15 @@ class Orbits(object):
         for ii in range(len(self._orbits)):
             self._orbits[ii]._orb.orbit= self.orbit[ii]
             self._orbits[ii]._orb.t= t
+        return None
+
+    def plot(self,*args,**kwargs):
+        """
+        Like Orbit.plot but for Orbits, same exact calling sequence
+        Written - 2018-12-19 - Bovy (UofT)"""
+        for ii in range(len(self._orbits)):
+            line2d= self._orbits[ii].plot(*args,**kwargs)[0]
+            kwargs['overplot']= True
+        line2d.axes.autoscale(enable=True)
+        _add_ticks()
         return None
