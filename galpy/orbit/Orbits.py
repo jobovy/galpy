@@ -142,11 +142,12 @@ class Orbits(object):
                      'symplec6_c' for a 6th order symplectic integrator in C
                      'rk4_c' for a 4th-order Runge-Kutta integrator in C
                      'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                     'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
-            numcores - number of cores to use for multiprocessing; default = 1
+            numcores - number of cores to use for multiprocessing with force_map; default = 1
 
         OUTPUT:
 
