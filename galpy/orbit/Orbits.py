@@ -1,3 +1,4 @@
+import os
 import warnings
 import numpy
 from .Orbit import Orbit
@@ -14,7 +15,12 @@ try:
 except ImportError:
     SkyCoord = None
     _APY_LOADED = False
-
+# Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
+try:
+    _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
+except KeyError:
+    import multiprocessing
+    _NUMCORES= multiprocessing.cpu_count()
 class Orbits(object):
     """
     Class representing multiple orbits.
@@ -125,7 +131,7 @@ class Orbits(object):
         else:
             return [getattr(orbit, name) for orbit in self.orbits]
 
-    def integrate(self, t, pot, method='symplec4_c', dt=None, numcores=1,
+    def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
                   force_map=False):
         """
         NAME:
@@ -171,24 +177,6 @@ class Orbits(object):
         self.t= numpy.array(t)
         self._pot= pot
 
-        # Original implementation with parallel_map
-        if self._orbits[0].dim() != 1 or force_map:
-            # Must return each Orbit for its values to correctly update
-            def integrate(orbit):
-                orbit.integrate(t, pot, method=method, dt=dt)
-                return orbit
-                
-            self._orbits = list(parallel_map(integrate, self._orbits,
-                                             numcores=numcores))
-            # Gather all into single self.orbit array
-            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                     for ii in range(len(self._orbits))])
-            # Re-store as per-orbit view of the orbit for __getattr__ funcs
-            for ii in range(len(self._orbits)):
-                self._orbits[ii]._orb.orbit= self.orbit[ii]
-                self._orbits[ii]._orb.t= t
-            return None
-
         #First check that the potential has C
         if '_c' in method:
             if not ext_loaded or not _check_c(pot):
@@ -209,18 +197,26 @@ class Orbits(object):
             else:
                 method= 'odeint'
             warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
-        if ext_loaded and \
-           (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
-            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+        # Implementation with parallel_map in Python
+        if not '_c' in method or not ext_loaded \
+           or self._orbits[0].dim() != 1 or force_map:
+            # Must return each Orbit for its values to correctly update
+            def integrate_for_map(orbit):
+                orbit.integrate(t, pot, method=method, dt=dt)
+                return orbit
+            self._orbits = list(parallel_map(integrate_for_map, self._orbits,
+                                             numcores=numcores))
+            # Gather all into single self.orbit array
+            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
+                                     for ii in range(len(self._orbits))])
+        else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             # 1D
             vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
             out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
-
-        # Store orbit internally
-        self.orbit= out
+            # Store orbit internally
+            self.orbit= out
         # Also store per-orbit view of the orbit for __getattr__ funcs
         for ii in range(len(self._orbits)):
             self._orbits[ii]._orb.orbit= self.orbit[ii]
@@ -237,3 +233,4 @@ class Orbits(object):
         line2d.axes.autoscale(enable=True)
         _add_ticks()
         return None
+
