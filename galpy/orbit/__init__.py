@@ -1,4 +1,5 @@
-from . import Orbit, Orbits
+from . import Orbit
+from . import Orbits
 
 #
 # Functions
