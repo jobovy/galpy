@@ -8,7 +8,8 @@ from scipy import integrate, interpolate, special
 from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
 from galpy.util import _rotate_to_arbitrary_vector
 from galpy.orbit import Orbit
-from galpy.potential import evaluateRforces, MovingObjectPotential
+from galpy.potential import evaluateRforces, MovingObjectPotential, \
+    PlummerPotential
 from .df import df, _APY_LOADED
 from galpy.util.bovy_conversion import physical_conversion
 from . import streamdf
@@ -1481,7 +1482,8 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     o.integrate(times,galpot,method=integrate_method)
     oplum = o(times[-1]).flip()
     oplum.integrate(dtimes,galpot,method=integrate_method)
-    plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
+    plumpot = MovingObjectPotential(orbit=oplum,
+                                    pot=PlummerPotential(amp=GM,b=rs))
 
     # Now integrate each particle backwards in galaxy potential, forwards in combined potential and backwards again in galaxy and take diff
 

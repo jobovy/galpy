@@ -7,6 +7,7 @@
 #include <math.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
+#include <leung_dop853.h>
 //Potentials
 #include <galpy_potentials.h>
 #include <integrateFullOrbit.h>
@@ -180,6 +181,11 @@ EXPORT void integrateLinearOrbit(int nobj,
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalLinearDeriv;
+    dim= 2;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
     odeint_deriv_func= &evalLinearDeriv;
     dim= 2;
     break;

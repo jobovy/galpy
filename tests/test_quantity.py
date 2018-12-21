@@ -2303,32 +2303,6 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # density at hr should be 
     assert numpy.fabs(pot.dens(6./ro,0.3/ro,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-2.)) < 10.**-3., "MN3ExponentialDiskPotential w/ parameters w/ units does not behave as expected"
-    # MovingObjectPotential
-    from galpy.orbit import Orbit
-    pot= potential.MovingObjectPotential(Orbit([1.1,0.1,1.1,0.1,0.1,0.3]),
-                                         GM=20*units.Msun,
-                                         softening_length=5.*units.kpc,
-                                         ro=ro,vo=vo)
-    pot_nounits= potential.MovingObjectPotential(\
-        Orbit([1.1,0.1,1.1,0.1,0.1,0.3]),
-        GM=(20*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
-        softening_length=5./ro,ro=ro,vo=vo)
-    # Check potential
-    assert numpy.fabs(pot(4.,0.1,t=0.,use_physical=False)-pot_nounits(4.,0.1,t=0.,use_physical=False)) < 10.**-8., "PlummerPotential w/ parameters w/ units does not behave as expected"   
-    # MovingObjectPotential w/ Orbit w/ units
-    from galpy.orbit import Orbit
-    pot= potential.MovingObjectPotential(\
-        Orbit([1.1*ro*units.kpc,0.1*vo*units.km/units.s,1.1*vo*units.km/units.s,
-               0.1*ro*units.kpc,0.1*vo*units.km/units.s,0.3*units.rad]),
-                                         GM=20*units.Msun,
-                                         softening_length=5.*units.kpc,
-                                         ro=ro,vo=vo)
-    pot_nounits= potential.MovingObjectPotential(\
-        Orbit([1.1,0.1,1.1,0.1,0.1,0.3]),
-        GM=(20*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
-        softening_length=5./ro,ro=ro,vo=vo)
-    # Check potential
-    assert numpy.fabs(pot(4.,0.1,t=0.,use_physical=False)-pot_nounits(4.,0.1,t=0.,use_physical=False)) < 10.**-8., "PlummerPotential w/ parameters w/ units does not behave as expected"   
     # PlummerPotential
     pot= potential.PlummerPotential(amp=20*units.Msun,
                                     b=5.*units.kpc,ro=ro,vo=vo)

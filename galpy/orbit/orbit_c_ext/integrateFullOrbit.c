@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
+#include <leung_dop853.h>
 #include <bovy_rk.h>
 //Potentials
 #include <galpy_potentials.h>
@@ -452,6 +453,11 @@ EXPORT void integrateFullOrbit(int nobj,
     odeint_deriv_func= &evalRectDeriv;
     dim= 6;
     break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalRectDeriv;
+    dim= 6;
+    break;
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) 
@@ -520,6 +526,11 @@ void integrateOrbit_dxdv(double *yo,
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalRectDeriv_dxdv;
+    dim= 12;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
     break;
