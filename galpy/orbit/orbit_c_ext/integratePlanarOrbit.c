@@ -451,9 +451,7 @@ EXPORT void integratePlanarOrbit(int nobj,
     dim= 4;
     break;
   }
-  int jj;
-  double R,phi,vRR,vTR;
-#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj,R,phi,vRR,vTR) num_threads(max_threads)
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
     odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
