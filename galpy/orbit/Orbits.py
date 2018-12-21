@@ -9,6 +9,7 @@ from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
 from .integratePlanarOrbit import integratePlanarOrbit_c
+from .integrateFullOrbit import integrateFullOrbit_c
 ext_loaded= _ext_loaded
 try:
     from astropy.coordinates import SkyCoord
@@ -199,8 +200,7 @@ class Orbits(object):
                 method= 'odeint'
             warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
         # Implementation with parallel_map in Python
-        if not '_c' in method or not ext_loaded \
-           or self._orbits[0].dim() == 3 or force_map:
+        if not '_c' in method or not ext_loaded or force_map:
             # Must return each Orbit for its values to correctly update
             def integrate_for_map(orbit):
                 orbit.integrate(t, pot, method=method, dt=dt)
@@ -216,13 +216,13 @@ class Orbits(object):
             if self._orbits[0].dim() == 1:
                 vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
                 out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
-            elif self._orbits[0].dim() == 2:
+            else:
                 if self._orbits[0].phasedim() == 3:
                     #We hack this by putting in a dummy phi=0
                     vxvvs= numpy.array([[o._orb.vxvv[0],0.,
                                          o._orb.vxvv[1],o._orb.vxvv[2]]
                                         for o in self._orbits])
-                else:
+                elif self._orbits[0].phasedim() == 4:
                     vxvvs= numpy.array([[o._orb.vxvv[0]\
                                             *numpy.cos(o._orb.vxvv[3]),
                                          o._orb.vxvv[0]\
@@ -236,18 +236,50 @@ class Orbits(object):
                                           +o._orb.vxvv[1]\
                                             *numpy.sin(o._orb.vxvv[3])]
                                         for o in self._orbits])
-                tmp_out, msg= integratePlanarOrbit_c(pot,vxvvs,t,method,dt=dt)
+                elif self._orbits[0].phasedim() == 5:
+                    #We hack this by putting in a dummy phi=0
+                    vxvvs= numpy.array([[o._orb.vxvv[0],0.,o._orb.vxvv[3],
+                                         o._orb.vxvv[1],o._orb.vxvv[2],
+                                         o._orb.vxvv[4]]
+                                        for o in self._orbits])
+                else:
+                    vxvvs= numpy.array([[o._orb.vxvv[0]\
+                                            *numpy.cos(o._orb.vxvv[5]),
+                                         o._orb.vxvv[0]\
+                                            *numpy.sin(o._orb.vxvv[5]),
+                                         o._orb.vxvv[3],
+                                         o._orb.vxvv[1]\
+                                            *numpy.cos(o._orb.vxvv[5])
+                                          -o._orb.vxvv[2]\
+                                            *numpy.sin(o._orb.vxvv[5]),
+                                         o._orb.vxvv[2]\
+                                            *numpy.cos(o._orb.vxvv[5])
+                                          +o._orb.vxvv[1]\
+                                            *numpy.sin(o._orb.vxvv[5]),
+                                         o._orb.vxvv[4]]
+                                        for o in self._orbits])
+                if self._orbits[0].dim() == 2:
+                    tmp_out, msg= integratePlanarOrbit_c(pot,vxvvs,t,
+                                                         method,dt=dt)
+                else:
+                    tmp_out, msg= integrateFullOrbit_c(pot,vxvvs,t,
+                                                       method,dt=dt)
                 #go back to the cylindrical frame
+                addli= 1 if self._orbits[0].dim() == 3 else 0
                 R= numpy.sqrt(tmp_out[:,:,0]**2.+tmp_out[:,:,1]**2.)
                 phi= numpy.arctan2(tmp_out[:,:,1],tmp_out[:,:,0])
-                vR= (tmp_out[:,:,2]*tmp_out[:,:,0]+tmp_out[:,:,3]*tmp_out[:,:,1])/R
-                vT= (tmp_out[:,:,3]*tmp_out[:,:,0]-tmp_out[:,:,2]*tmp_out[:,:,1])/R
+                vR= (tmp_out[:,:,2+addli]*tmp_out[:,:,0]+tmp_out[:,:,3+addli]*tmp_out[:,:,1])/R
+                vT= (tmp_out[:,:,3+addli]*tmp_out[:,:,0]-tmp_out[:,:,2+addli]*tmp_out[:,:,1])/R
                 out= numpy.empty((len(self._orbits),len(t),
                                   self._orbits[0].phasedim()))
                 out[:,:,0]= R
                 out[:,:,1]= vR
                 out[:,:,2]= vT
                 if self._orbits[0].phasedim() == 4: out[:,:,3]= phi
+                else:
+                    out[:,:,3]= tmp_out[:,:,2]
+                    out[:,:,4]= tmp_out[:,:,5]
+                if self._orbits[0].phasedim() == 6: out[:,:,5]= phi
             # Store orbit internally
             self.orbit= out
         # Also store per-orbit view of the orbit for __getattr__ funcs

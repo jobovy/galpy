@@ -346,7 +346,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        C integrate an ode for a planarOrbit
     INPUT:
        pot - Potential or list of such instances
-       yo - initial condition [q,p], can be [N,2] or [2]
+       yo - initial condition [q,p], can be [N,4] or [4]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
        rtol, atol
