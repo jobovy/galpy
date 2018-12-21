@@ -382,6 +382,31 @@ class Orbit(object):
         elif len(self._orb.vxvv) == 5 or len(self._orb.vxvv) == 6:
             return 3
 
+    def phasedim(self):
+        """
+        NAME:
+
+           phasedim
+
+        PURPOSE:
+
+           return the phase-space dimension of the problem (2 for 1D, 3 for 2D-axi, 4 for 2D, 5 for 3D-axi, 6 for 3D)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           phase-space dimension
+
+        HISTORY:
+
+           2018-12-20 - Written - Bovy (UofT)
+
+        """
+        return len(self._orb.vxvv)
+
     def turn_physical_off(self):
         """
         NAME:
