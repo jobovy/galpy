@@ -169,7 +169,7 @@ def test_orbitIntegrationC():
     for ii in range(5):
         exp3= -1.7
         if   ii == 0: Python, CC, string, exp1, exp2 = o_P.R(ts) , o_C.R(ts) , 'R' , -5., -10.
-        elif ii == 1: Python, CC, string, exp1, exp2 = o_P.z(ts) , o_C.z(ts) , 'z' , -3.25, -4.
+        elif ii == 1: Python, CC, string, exp1, exp2 = o_P.z(ts) , o_C.z(ts) , 'z' , -3.2, -4.
         elif ii == 2: Python, CC, string, exp1, exp2 = o_P.vR(ts), o_C.vR(ts), 'vR', -3., -10.
         elif ii == 3: Python, CC, string, exp1, exp2, exp3 = o_P.vz(ts), o_C.vz(ts), 'vz', -3., -4., -1.3
         elif ii == 4: Python, CC, string, exp1, exp2 = o_P.vT(ts), o_C.vT(ts), 'vT', -5., -10.
