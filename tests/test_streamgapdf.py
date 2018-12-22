@@ -970,10 +970,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     from galpy.df import impulse_deltav_plummer_curvedstream, \
         impulse_deltav_general_fullplummerintegration
     tol= -3.
-    rcurv=10.
-    vp=220.
-    GM=1.5
-    rs=4.
+    rcurv=10./8.
+    vp=1.
+    GM=0.015
+    rs=4./8.
     x0 = numpy.array([rcurv,0.,0.])
     v0 = numpy.array([0.,vp,0.])
     w = numpy.array([1.,numpy.pi/4.*vp,0.])
@@ -989,15 +989,15 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
         'general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight'
     # Same for a bunch of positions
     tol= -2.5
-    GM=numpy.pi
-    rs=numpy.exp(1.)
-    theta = numpy.linspace(-numpy.pi/4.,numpy.pi/4.,10)
+    GM= 0.003
+    rs=numpy.exp(1.)/8.
+    theta = numpy.linspace(-numpy.pi/16.,numpy.pi/16.,4)
     xc,yc = rcurv*numpy.cos(theta),rcurv*numpy.sin(theta)
-    Xc = numpy.zeros((10,3))
+    Xc = numpy.zeros((4,3))
     Xc[:,0]=xc
     Xc[:,1]=yc
     vx,vy = -vp*numpy.sin(theta),vp*numpy.cos(theta)
-    V = numpy.zeros((10,3))
+    V = numpy.zeros((4,3))
     V[:,0]=vx
     V[:,1]=vy
     plummer_kick= impulse_deltav_plummer_curvedstream(\
