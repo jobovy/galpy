@@ -4179,7 +4179,7 @@ def test_wrapper_complicatedsequence_2d():
     # Integrate orbit in C and python
     o= Orbit([1.,0.1,1.1,0.1])
     oc= o()
-    ts= numpy.linspace(0.,20.,1001)
+    ts= numpy.linspace(0.,20.,3001)
     o.integrate(ts,pot,method='leapfrog')
     oc.integrate(ts,pot,method='leapfrog_c')
     # Check that they end up in the same point
@@ -4214,7 +4214,7 @@ def test_wrapper_complicatedsequence_3d():
     # Integrate orbit in C and python
     o= Orbit([1.,0.1,1.1,0.1,-0.03,numpy.pi])
     oc= o()
-    ts= numpy.linspace(0.,20.,1001)
+    ts= numpy.linspace(0.,10.,3001)
     o.integrate(ts,pot,method='leapfrog')
     oc.integrate(ts,pot,method='leapfrog_c')
     # Check that they end up in the same point
