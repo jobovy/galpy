@@ -143,7 +143,7 @@ def leapfrog_cyl(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
     #Estimate necessary step size
     dt= t[1]-t[0] #assumes that the steps are equally spaced
     init_dt= dt
-    dt= _leapfrog_cyl_estimate_step(drift,kick,yo,dt,t[0],args,rtol,atol,
+    dt= _leapfrog_cyl_estimate_step(drift,kick,y,dt,t[0],args,rtol,atol,
                                     meridional)
     dt2= dt/2.
     ndt= int(init_dt/dt)
@@ -179,7 +179,7 @@ def _leapfrog_cyl_estimate_step(drift,kick,yo,dt,to,args,rtol,atol,meridional):
         vscale= nu.sqrt(meridional/yo[0]**2.+yo[1]**2.+yo[3]**2.)
         scale= atol+rtol*nu.array([xscale,vscale,xscale,vscale])
     elif len(yo) == 4:
-        xscale= yo[0]
+        xscale= nu.fabs(yo[0])
         vscale= nu.sqrt((yo[2]/yo[0])**2.+yo[1]**2.)
         scale= atol+rtol*nu.array([xscale,vscale,vscale*xscale,xscale])
     elif meridional and len(yo) == 2:
