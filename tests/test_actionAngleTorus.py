@@ -136,8 +136,8 @@ def test_actionAngleTorus_orbit():
     # Calculate the orbit using actionAngleTorus
     RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0][:,0],RvRom[0][:,1],RvRom[0][:,2],
-                RvRom[0][:,3],RvRom[0][:,4],RvRom[0][:,5]])
+    orb= Orbit([RvRom[0][0,0],RvRom[0][0,1],RvRom[0][0,2],
+                RvRom[0][0,3],RvRom[0][0,4],RvRom[0][0,5]])
     orb.integrate(ts,MWPotential2014)
     # Compare
     tol= -3.
