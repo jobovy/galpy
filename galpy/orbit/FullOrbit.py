@@ -589,28 +589,17 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             method= 'odeint'
         warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
-        #go to the rectangular frame
-        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
-                             vxvv[0]*nu.sin(vxvv[5]),
-                             vxvv[3],
-                             vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5]),
-                             vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
-                             vxvv[4]])
         #integrate
-        out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                    t,args=(pot,),rtol=10.**-8)
-        #go back to the cylindrical frame
-        R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
-        phi= nu.arccos(out[:,0]/R)
-        phi[(out[:,1] < 0.)]= 2.*nu.pi-phi[(out[:,1] < 0.)]
-        vR= out[:,3]*nu.cos(phi)+out[:,4]*nu.sin(phi)
-        vT= out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
-        out[:,3]= out[:,2]
-        out[:,4]= out[:,5]
-        out[:,0]= R
-        out[:,1]= vR
-        out[:,2]= vT
-        out[:,5]= phi
+        out= symplecticode.leapfrog_cyl(\
+            lambda x: nu.array([x[1],0.,0.,x[4],0.,0.]),
+            lambda x,t: nu.array([0.,
+                                  _evaluateRforces(pot,x[0],x[3],phi=x[5],t=t)
+                                  +x[2]**2./x[0]**3.,
+                                  _evaluatephiforces(pot,x[0],x[3],phi=x[5],t=t),
+                                  0.,
+                                  _evaluatezforces(pot,x[0],x[3],phi=x[5],t=t),
+                                  x[2]/x[0]**2]),
+            vxvv,t,rtol=10.**-8)
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
@@ -689,34 +678,6 @@ def _FullEOM(y,t,pot):
             y[5],
             _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
                              v=[y[1],y[0]*y[3],y[5]])]
-
-def _rectForce(x,pot,t=0.):
-    """
-    NAME:
-       _rectForce
-    PURPOSE:
-       returns the force in the rectangular frame
-    INPUT:
-       x - current position
-       t - current time
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       force
-    HISTORY:
-       2011-02-02 - Written - Bovy (NYU)
-    """
-    #x is rectangular so calculate R and phi
-    R= nu.sqrt(x[0]**2.+x[1]**2.)
-    phi= nu.arccos(x[0]/R)
-    sinphi= x[1]/R
-    cosphi= x[0]/R
-    if x[1] < 0.: phi= 2.*nu.pi-phi
-    #calculate forces
-    Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
-    phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
-    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce,
-                     _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                customsky=False,lb_to_customsky=None,

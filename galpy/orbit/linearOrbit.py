@@ -159,10 +159,10 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
-        return symplecticode.leapfrog(lambda x,t=t: _evaluatelinearForces(pot,x,
-                                                                         t=t),
-                                      nu.array(vxvv),
-                                      t,rtol=10.**-8)
+        return symplecticode.leapfrog_cyl(\
+            lambda x: nu.array([x[1],0.]),
+            lambda x,t=t: nu.array([0.,_evaluatelinearForces(pot,x[0],t=t)]),
+            vxvv,t,rtol=10.**-8)
     elif method.lower() == 'dop853':
         return dop853(func=_linearEOM, x=vxvv, t=t, args=(pot,))
     elif ext_loaded and \

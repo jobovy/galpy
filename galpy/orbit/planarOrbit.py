@@ -508,12 +508,17 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
-        #We hack this by putting in a dummy phi
-        this_vxvv= nu.zeros(len(vxvv)+1)
-        this_vxvv[0:len(vxvv)]= vxvv
-        tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
-        #tmp_out is (nt,4)
-        out= tmp_out[:,0:3]
+        Lz2= (vxvv[0]*vxvv[2])**2.
+        tmp_out= symplecticode.leapfrog_cyl(\
+            lambda x: nu.array([x[1],0.]),
+            lambda x,t: nu.array([0.,
+                                  _evaluateplanarRforces(pot,x[0],t=t)
+                                  +Lz2/x[0]**3.]),
+            nu.array(vxvv)[:2],t,rtol=10.**-8,meridional=Lz2)
+        out= nu.empty((len(tmp_out),3))
+        out[:,:2]= tmp_out
+        out[:,2]= vxvv[0]*vxvv[2]/tmp_out[:,0]
+        msg= 0
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
@@ -594,25 +599,15 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
-        #go to the rectangular frame
-        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
-                             vxvv[0]*nu.sin(vxvv[3]),
-                             vxvv[1]*nu.cos(vxvv[3])-vxvv[2]*nu.sin(vxvv[3]),
-                             vxvv[2]*nu.cos(vxvv[3])+vxvv[1]*nu.sin(vxvv[3])])
         #integrate
-        tmp_out= symplecticode.leapfrog(_rectForce,this_vxvv,
-                                        t,args=(pot,),rtol=10.**-8)
-        #go back to the cylindrical frame
-        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
-        phi= nu.arccos(tmp_out[:,0]/R)
-        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-        vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
-        vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
-        out= nu.zeros((len(t),4))
-        out[:,0]= R
-        out[:,1]= vR
-        out[:,2]= vT
-        out[:,3]= phi
+        out= symplecticode.leapfrog_cyl(\
+            lambda x: nu.array([x[1],0.,0.,0.]),
+            lambda x,t: nu.array([0.,
+                                  _evaluateplanarRforces(pot,x[0],phi=x[3],t=t)
+                                  +x[2]**2./x[0]**3.,
+                                  _evaluateplanarphiforces(pot,x[0],phi=x[3],t=t),
+                                  x[2]/x[0]**2]),
+            vxvv,t,rtol=10.**-8)
         msg= 0
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
@@ -839,33 +834,6 @@ def _EOM(y,t,pot):
             y[3],
             1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
-
-def _rectForce(x,pot,t=0.):
-    """
-    NAME:
-       _rectForce
-    PURPOSE:
-       returns the force in the rectangular frame
-    INPUT:
-       x - current position
-       t - current time
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       force
-    HISTORY:
-       2011-02-02 - Written - Bovy (NYU)
-    """
-    #x is rectangular so calculate R and phi
-    R= nu.sqrt(x[0]**2.+x[1]**2.)
-    phi= nu.arccos(x[0]/R)
-    sinphi= x[1]/R
-    cosphi= x[0]/R
-    if x[1] < 0.: phi= 2.*nu.pi-phi
-    #calculate forces
-    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce])
 
 def _parse_warnmessage(msg):
     if msg == 1: #pragma: no cover

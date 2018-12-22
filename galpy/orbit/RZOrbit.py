@@ -11,6 +11,7 @@ from .FullOrbit import _integrateFullOrbit
 from .integrateFullOrbit import _ext_loaded as ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util.leung_dop853 import dop853
+import galpy.util.bovy_symplecticode as symplecticode
 from .OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
@@ -481,8 +482,21 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
                 warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-    if method.lower() == 'leapfrog' \
-            or method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+    if method.lower() == 'leapfrog':
+        #integrate
+        Lz2= (vxvv[0]*vxvv[2])**2.
+        tmp_out= symplecticode.leapfrog_cyl(\
+            lambda x: nu.array([x[1],0.,x[3],0.]),
+            lambda x,t: nu.array([0.,
+                                  _evaluateRforces(pot,x[0],x[2],t=t)
+                                  +Lz2/x[0]**3.,
+                                  0.,
+                                  _evaluatezforces(pot,x[0],x[2],t=t)]),
+            nu.array(vxvv)[[0,1,3,4]],t,rtol=10.**-8,meridional=Lz2)
+        out= nu.empty((len(tmp_out),5))
+        out[:,[0,1,3,4]]= tmp_out
+        out[:,2]= vxvv[0]*vxvv[2]/tmp_out[:,0]
+    elif method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' or method.lower() == 'dop853_c':
         #We hack this by upgrading to a FullOrbit
