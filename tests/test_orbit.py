@@ -4667,6 +4667,57 @@ def test_rguiding_errors():
         o.rguiding(pot=np)
     return None
 
+# Test whether the (deprecated) rectangular leapfrog integrator agrees with the
+# internal cylindrical one
+def test_leapfrog_rect():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import bovy_symplecticode as symplecticode
+    from galpy.potential.Potential import _evaluateRforces, _evaluatezforces,\
+        _evaluatephiforces
+    o= Orbit()
+    o.turn_physical_off()
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    times= numpy.linspace(0.,10.,1001)
+    # Internal, galpy integration (cylindrical leapfrog)
+    o.integrate(times,lp,method='leapfrog')
+    # Now do rectangular leapfrog
+    vxvv= o._orb.vxvv
+    #go to the rectangular frame
+    this_vxvv= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
+                            vxvv[0]*numpy.sin(vxvv[5]),
+                            vxvv[3],
+                             vxvv[1]*numpy.cos(vxvv[5])
+                               -vxvv[2]*numpy.sin(vxvv[5]),
+                             vxvv[2]*numpy.cos(vxvv[5])
+                               +vxvv[1]*numpy.sin(vxvv[5]),
+                             vxvv[4]])
+    # Rectangular force
+    def _rectForce(x,pot,t=0.):
+       #x is rectangular so calculate R and phi
+        R= numpy.sqrt(x[0]**2.+x[1]**2.)
+        phi= numpy.arccos(x[0]/R)
+        sinphi= x[1]/R
+        cosphi= x[0]/R
+        if x[1] < 0.: phi= 2.*numpy.pi-phi
+        #calculate forces
+        Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
+        phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
+        return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
+                            sinphi*Rforce+1./R*cosphi*phiforce,
+                            _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
+    #integrate
+    out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                times,args=(lp,),rtol=10.**-8)
+    # Are they the same? In rectangular
+    assert numpy.amax(numpy.fabs(out[:,0]-o.x(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    assert numpy.amax(numpy.fabs(out[:,1]-o.y(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    assert numpy.amax(numpy.fabs(out[:,2]-o.z(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    assert numpy.amax(numpy.fabs(out[:,3]-o.vx(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    assert numpy.amax(numpy.fabs(out[:,4]-o.vy(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    assert numpy.amax(numpy.fabs(out[:,5]-o.vz(times))) < 1e-5, 'Cylindrical and rectangular leapfrog methods disagree for the orbit of the Sun in MWPotential2014'
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable

@@ -32,12 +32,12 @@
 #############################################################################
 import numpy as nu
 _MAX_DT_REDUCE= 10000.
-def _leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
+def leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
     """
     NAME:
        leapfrog
     PURPOSE:
-       leapfrog integrate an ode
+       leapfrog integrate in rectangular coordinates
     INPUT:
        func - force function of (y,*args)
        yo - initial condition [q,p]
@@ -49,68 +49,24 @@ def _leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
        with the initial value y0 in the first row.
     HISTORY:
        2011-02-02 - Written - Bovy (NYU)
+       2018-12-22 - Re-implemented using general leapfrog integrator
     """
-    #Initialize
-    qo= yo[0:len(yo)//2]
-    po= yo[len(yo)//2:len(yo)]
-    out= nu.zeros((len(t),len(yo)))
-    out[0,:]= yo
-    #Estimate necessary step size
-    dt= t[1]-t[0] #assumes that the steps are equally spaced
-    init_dt= dt
-    dt= _leapfrog_estimate_step(func,qo,po,dt,t[0],args,rtol,atol)
-    ndt= int(init_dt/dt)
-    #Integrate
-    to= t[0]
-    for ii in range(1,len(t)):
-        for jj in range(ndt): #loop over number of sub-intervals
-            #This could be made faster by combining the drifts
-            #drift
-            q12= leapfrog_leapq(qo,po,dt/2.)
-            #kick
-            force= func(q12,*args,t=to+dt/2)
-            po= leapfrog_leapp(po,dt,force)
-            #drift
-            qo= leapfrog_leapq(q12,po,dt/2.)
-            #Get ready for next
-            to+= dt
-        out[ii,0:len(yo)//2]= qo
-        out[ii,len(yo)//2:len(yo)]= po
-    return out
-
-def leapfrog_leapq(q,p,dt):
-    return q+dt*p
-
-def leapfrog_leapp(p,dt,force):
-    return p+dt*force
-
-def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
-    init_dt= dt
-    qmax= nu.amax(nu.fabs(qo))+nu.zeros(len(qo))
-    pmax= nu.amax(nu.fabs(po))+nu.zeros(len(po))
-    scale= atol+rtol*nu.array([qmax,pmax]).flatten()
-    err= 2.
-    dt*= 2.
-    while err > 1. and init_dt/dt < _MAX_DT_REDUCE:
-        #Do one leapfrog step with step dt and one with dt/2.
-        #dt
-        q12= leapfrog_leapq(qo,po,dt/2.)
-        force= func(q12,*args,t=to+dt/2)
-        p11= leapfrog_leapp(po,dt,force)
-        q11= leapfrog_leapq(q12,p11,dt/2.)
-        #dt/2.
-        q12= leapfrog_leapq(qo,po,dt/4.)
-        force= func(q12,*args,t=to+dt/4)
-        ptmp= leapfrog_leapp(po,dt/2.,force)
-        qtmp= leapfrog_leapq(q12,ptmp,dt/2.)#Take full step combining two half
-        force= func(qtmp,*args,t=to+3.*dt/4)
-        p12= leapfrog_leapp(ptmp,dt/2.,force)
-        q12= leapfrog_leapq(qtmp,p12,dt/4.)
-        #Norm
-        delta= nu.array([nu.fabs(q11-q12),nu.fabs(p11-p12)]).flatten()
-        err= nu.sqrt(nu.mean((delta/scale)**2.))
-        dt/= 2.
-    return dt
+    dim= len(yo)//2
+    pdim= len(yo)
+    def drift(x):
+        out= nu.zeros(pdim)
+        out[:dim]= x[dim:]
+        return out
+    def kick(x,*args,t=t):
+        out= nu.zeros(pdim)
+        out[dim:]= func(x[:dim],*args,t=t)
+        return out
+    qmax= nu.amax(nu.fabs(yo[:dim]))+nu.zeros(dim)
+    pmax= nu.amax(nu.fabs(yo[dim:]))+nu.zeros(dim)
+    scaling= nu.array([qmax,pmax]).flatten()
+    return leapfrog_general(drift,kick,yo,t,args=args,
+                            rtol=rtol,atol=atol,
+                            scaling=scaling,metric=lambda x,y: nu.fabs(x-y))
 
 def leapfrog_general(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
                      scaling=None,metric=None,construct_Lz=False):
