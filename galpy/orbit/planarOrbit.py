@@ -508,13 +508,18 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
+        # Scaling of initial condition for stepsize determination
+        xscale= nu.fabs(vxvv[0])
+        vscale= nu.sqrt(vxvv[1]**2.+vxvv[2]**2.)
+        scaling= nu.array([xscale,vscale])
         Lz2= (vxvv[0]*vxvv[2])**2.
-        tmp_out= symplecticode.leapfrog_cyl(\
+        tmp_out= symplecticode.leapfrog_general(\
             lambda x: nu.array([x[1],0.]),
             lambda x,t: nu.array([0.,
                                   _evaluateplanarRforces(pot,x[0],t=t)
                                   +Lz2/x[0]**3.]),
-            nu.array(vxvv)[:2],t,rtol=10.**-8,meridional=Lz2)
+            nu.array(vxvv)[:2],t,rtol=10.**-8,
+            scaling=scaling,metric=lambda x,y: nu.fabs(x-y))
         out= nu.empty((len(tmp_out),3))
         out[:,:2]= tmp_out
         out[:,2]= vxvv[0]*vxvv[2]/tmp_out[:,0]
@@ -599,15 +604,24 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
+        # Scaling of initial condition for stepsize determination
+        xscale= nu.fabs(vxvv[0])
+        vscale= nu.sqrt(vxvv[1]**2.+vxvv[2]**2.)
+        scaling= nu.array([xscale,vscale,vscale*xscale,xscale])
+        def metric(x,y):
+            out= nu.fabs(x-y)
+            out[-1]= x[0]*(x[-1]-y[-1])
+            return out
         #integrate
-        out= symplecticode.leapfrog_cyl(\
+        out= symplecticode.leapfrog_general(\
             lambda x: nu.array([x[1],0.,0.,0.]),
             lambda x,t: nu.array([0.,
                                   _evaluateplanarRforces(pot,x[0],phi=x[3],t=t)
                                   +x[2]**2./x[0]**3.,
                                   _evaluateplanarphiforces(pot,x[0],phi=x[3],t=t),
                                   x[2]/x[0]**2]),
-            vxvv,t,rtol=10.**-8)
+            vxvv,t,rtol=10.**-8,construct_Lz=True,
+            scaling=scaling,metric=metric)
         msg= 0
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \

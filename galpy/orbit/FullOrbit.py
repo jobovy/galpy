@@ -589,8 +589,17 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             method= 'odeint'
         warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
+        # Scaling of initial condition for stepsize determination
+        xscale= nu.sqrt(vxvv[0]**2.+vxvv[3]**2.)
+        vscale= nu.sqrt(vxvv[1]**2.+vxvv[2]**2.+vxvv[4]**2.)
+        scaling= nu.array([xscale,vscale,vscale*xscale,xscale,vscale,xscale])
+        # Metric for comparing solutions with different stepsizes
+        def metric(x,y):
+            out= nu.fabs(x-y)
+            out[-1]= x[0]*(x[-1]-y[-1])
+            return out
         #integrate
-        out= symplecticode.leapfrog_cyl(\
+        out= symplecticode.leapfrog_general(\
             lambda x: nu.array([x[1],0.,0.,x[4],0.,0.]),
             lambda x,t: nu.array([0.,
                                   _evaluateRforces(pot,x[0],x[3],phi=x[5],t=t)
@@ -599,7 +608,8 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
                                   0.,
                                   _evaluatezforces(pot,x[0],x[3],phi=x[5],t=t),
                                   x[2]/x[0]**2]),
-            vxvv,t,rtol=10.**-8)
+            vxvv,t,rtol=10.**-8,construct_Lz=True,
+            scaling=scaling,metric=metric)
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \

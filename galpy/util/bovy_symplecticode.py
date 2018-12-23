@@ -112,20 +112,21 @@ def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
         dt/= 2.
     return dt
 
-def leapfrog_cyl(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
-                 meridional=False):
+def leapfrog_general(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
+                     scaling=None,metric=None,construct_Lz=False):
     """
     NAME:
-       leapfrog_cyl
+       leapfrog_general
     PURPOSE:
-       leapfrog integrate a Hamiltonian ODE in cylindrical coordinates in 2,3,4,5,6 phase-space dimensions
+       leapfrog integrate a Hamiltonian ODE in arbitrary coordinates (primarily used in galpy to integrate in cylindrical coordinates in 2,3,4,5,6 phase-space dimensions)
     INPUT:
-       drift - (+,-)dH/d(p,q) for drift step, function of y
-       kick -  (+,-)dH/d(p,q) for kick step, function of (y,*args,t=)
+       drift - Delta y in drift step, function of y
+       kick -  Delta y in kick step, function of (y,*args,t=)
        yo - initial condition [R,vR,vT,z,vz,phi] or galpy subsets
        t - set of times at which one wants the result
-       rtol, atol
-       meridional= (False) if True, we are integrating in the meridional plane (overloaded as Lz**2)
+       rtol, atol- relative and absolute tolerance parameters
+       scaling- scaling to use in relative/absolute tolerance combination: scale= atol+rtol*scaling
+       construct_Lz= (False) if True, input is in cylindrical galpy coordinates [R,vR,vT...] and we want to transform vT --> Lz
     OUTPUT:
        y : array, shape (len(y0), len(t))
        Array containing the value of y for each desired time in t, \
@@ -135,7 +136,7 @@ def leapfrog_cyl(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
     """
     #Initialize
     y= nu.copy(yo)
-    if not meridional and len(yo) != 2:
+    if construct_Lz:
         # vT --> Lz
         y[2]*= y[0]
     out= nu.zeros((len(t),len(yo)))
@@ -144,7 +145,7 @@ def leapfrog_cyl(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
     dt= t[1]-t[0] #assumes that the steps are equally spaced
     init_dt= dt
     dt= _leapfrog_cyl_estimate_step(drift,kick,y,dt,t[0],args,rtol,atol,
-                                    meridional)
+                                    scaling,metric)
     dt2= dt/2.
     ndt= int(init_dt/dt)
     #Integrate
@@ -162,34 +163,15 @@ def leapfrog_cyl(drift,kick,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12,
         #drift half back to correct overshoot
         y= y12-dt2*drift(y12)
         out[ii,:]= y
-    if not meridional and len(yo) != 2:
+    if construct_Lz:
         # Lz --> vT
         out[:,2]/= out[:,0]
     return out
 
-def _leapfrog_cyl_estimate_step(drift,kick,yo,dt,to,args,rtol,atol,meridional):
+def _leapfrog_cyl_estimate_step(drift,kick,yo,dt,to,args,rtol,atol,
+                                scaling,metric):
     init_dt= dt
-    if len(yo) == 6:
-        xscale= nu.sqrt(yo[0]**2.+yo[3]**2.)
-        vscale= nu.sqrt((yo[2]/yo[0])**2.+yo[1]**2.+yo[4]**2.)
-        scale= atol+rtol*nu.array([xscale,vscale,vscale*xscale,
-                                   xscale,vscale,xscale])
-    elif meridional and len(yo) == 4:
-        xscale= nu.sqrt(yo[0]**2.+yo[2]**2.)
-        vscale= nu.sqrt(meridional/yo[0]**2.+yo[1]**2.+yo[3]**2.)
-        scale= atol+rtol*nu.array([xscale,vscale,xscale,vscale])
-    elif len(yo) == 4:
-        xscale= nu.fabs(yo[0])
-        vscale= nu.sqrt((yo[2]/yo[0])**2.+yo[1]**2.)
-        scale= atol+rtol*nu.array([xscale,vscale,vscale*xscale,xscale])
-    elif meridional and len(yo) == 2:
-        xscale= nu.fabs(yo[0])
-        vscale= nu.sqrt(meridional/yo[0]**2.+yo[1]**2.)
-        scale= atol+rtol*nu.array([xscale,vscale])
-    else: # len(yo) == 2:
-        xscale= nu.fabs(yo[0])
-        vscale= nu.fabs(yo[1])
-        scale= atol+rtol*nu.array([xscale,vscale])
+    scale= atol+rtol*scaling
     err= 2.
     dt*= 2.
     while err > 1. and init_dt/dt < _MAX_DT_REDUCE:
@@ -205,9 +187,7 @@ def _leapfrog_cyl_estimate_step(drift,kick,yo,dt,to,args,rtol,atol,meridional):
         y12+= dt/2.*kick(y12,*args,t=to+3.*dt/4.)
         y12+= dt/4.*drift(y12)
         #Norm
-        delta= nu.fabs(y11-y12)
-        if len(yo) == 6 or (not meridional and len(yo) == 4):
-            delta[-1]= nu.fabs(yo[0]*(y11[-1]-y12[-1]))
+        delta= metric(y11,y12)
         err= nu.sqrt(nu.mean((delta/scale)**2.))
         dt/= 2.
     return dt

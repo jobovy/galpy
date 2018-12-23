@@ -11,7 +11,6 @@ from .FullOrbit import _integrateFullOrbit
 from .integrateFullOrbit import _ext_loaded as ext_loaded
 from galpy.util.bovy_conversion import physical_conversion
 from galpy.util.leung_dop853 import dop853
-import galpy.util.bovy_symplecticode as symplecticode
 from .OrbitTop import OrbitTop
 class RZOrbit(OrbitTop):
     """Class that holds and integrates orbits in axisymetric potentials 
@@ -483,16 +482,22 @@ def _integrateRZOrbit(vxvv,pot,t,method,dt):
             else:
                 warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
     if method.lower() == 'leapfrog':
-        #integrate
+        # Scaling of initial condition for stepsize determination
+        xscale= nu.sqrt(vxvv[0]**2.+vxvv[2]**2.)
+        vscale= nu.sqrt(vxvv[1]**2.+vxvv[2]**2.+vxvv[4]**2.)
+        scaling= nu.array([xscale,vscale,xscale,vscale])
+        scaling= nu.array([xscale,vscale,xscale,vscale]) 
         Lz2= (vxvv[0]*vxvv[2])**2.
-        tmp_out= symplecticode.leapfrog_cyl(\
+        #integrate
+        tmp_out= symplecticode.leapfrog_general(\
             lambda x: nu.array([x[1],0.,x[3],0.]),
             lambda x,t: nu.array([0.,
                                   _evaluateRforces(pot,x[0],x[2],t=t)
                                   +Lz2/x[0]**3.,
                                   0.,
                                   _evaluatezforces(pot,x[0],x[2],t=t)]),
-            nu.array(vxvv)[[0,1,3,4]],t,rtol=10.**-8,meridional=Lz2)
+            nu.array(vxvv)[[0,1,3,4]],t,rtol=10.**-8,
+            scaling=scaling,metric=lambda x,y: nu.fabs(x-y))
         out= nu.empty((len(tmp_out),5))
         out[:,[0,1,3,4]]= tmp_out
         out[:,2]= vxvv[0]*vxvv[2]/tmp_out[:,0]
