@@ -641,20 +641,13 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
         out[:,3]= tmp_out[:,2]
         out[:,4]= tmp_out[:,5]
     elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
-        vphi= vxvv[2]/vxvv[0]
-        init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
+        init= [vxvv[0],vxvv[1],vxvv[0]*vxvv[2],vxvv[3],vxvv[4],vxvv[5]]
         if method == 'dop853':
-            intOut = dop853(_FullEOM, init, t, args=(pot,))
+            out = dop853(_FullEOM, init, t, args=(pot,))
         else:
-            intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
+            out= integrate.odeint(_FullEOM,init,t,args=(pot,),
                                      rtol=10.**-8.)#,mxstep=100000000)
-        out= nu.zeros((len(t),6))
-        out[:,0]= intOut[:,0]
-        out[:,1]= intOut[:,1]
-        out[:,2]= out[:,0]*intOut[:,3]
-        out[:,3]= intOut[:,4]
-        out[:,4]= intOut[:,5]
-        out[:,5]= intOut[:,2]
+        out[:,2]/= out[:,0]
     #post-process to remove negative radii
     neg_radii= (out[:,0] < 0.)
     out[neg_radii,0]= -out[neg_radii,0]
@@ -676,18 +669,17 @@ def _FullEOM(y,t,pot):
        dy/dt
     HISTORY:
        2010-04-16 - Written - Bovy (NYU)
+       2018-12-22 - Changed to Hamilton's equations for cylindrical coordinates - Bovy (UofT)
     """
-    l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t,
-                                         v=[y[1],y[0]*y[3],y[5]]),
-            y[3],
-            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t,
-                                            v=[y[1],y[0]*y[3],y[5]])
-                         -2.*y[0]*y[1]*y[3]),
-            y[5],
-            _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
-                             v=[y[1],y[0]*y[3],y[5]])]
+            y[2]**2./y[0]**3.+_evaluateRforces(pot,y[0],y[3],phi=y[5],t=t,
+                                               v=[y[1],y[2]/y[0],y[4]]),
+            _evaluatephiforces(pot,y[0],y[3],phi=y[5],t=t,
+                               v=[y[1],y[2]/y[0],y[4]]),
+            y[4],
+            _evaluatezforces(pot,y[0],y[3],phi=y[5],t=t,
+                             v=[y[1],y[2]/y[0],y[4]]),
+            y[2]/y[0]**2.]
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
                customsky=False,lb_to_customsky=None,

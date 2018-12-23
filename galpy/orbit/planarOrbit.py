@@ -649,18 +649,13 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
         out[:,2]= vT
         out[:,3]= phi
     elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
-        vphi= vxvv[2]/vxvv[0]
-        init= [vxvv[0],vxvv[1],vxvv[3],vphi]
+        init= [vxvv[0],vxvv[1],vxvv[0]*vxvv[2],vxvv[3]]
         if method == 'dop853':
-            intOut = dop853(_EOM, init, t, args=(pot,))
+            out = dop853(_EOM, init, t, args=(pot,))
         else:
-            intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+            out= integrate.odeint(_EOM,init,t,args=(pot,),
                                      rtol=10.**-8.)#,mxstep=100000000)
-        out= nu.zeros((len(t),4))
-        out[:,0]= intOut[:,0]
-        out[:,1]= intOut[:,1]
-        out[:,3]= intOut[:,2]
-        out[:,2]= out[:,0]*intOut[:,3]
+        out[:,2]/= out[:,0]
         msg= 0
     else:
         raise NotImplementedError("requested integration method does not exist")
@@ -841,13 +836,12 @@ def _EOM(y,t,pot):
        dy/dt
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
+       2018-12-22 - Changed to Hamilton's equations for polar coordinates - Bovy (UofT)
     """
-    l2= (y[0]**2.*y[3])**2.
     return [y[1],
-            l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
-            y[3],
-            1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
-                         2.*y[0]*y[1]*y[3])]
+            y[2]**2./y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[3],t=t),
+            _evaluateplanarphiforces(pot,y[0],phi=y[3],t=t),
+            y[2]/y[0]**2.]
 
 def _parse_warnmessage(msg):
     if msg == 1: #pragma: no cover
