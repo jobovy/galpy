@@ -34,6 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <stdbool.h>
 #include "signal.h"
 #include <galpy_potentials.h>
 /*
@@ -49,19 +50,29 @@ void handle_sigint(int);
 #include "windows.h"
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 #endif
-void leapfrog(void (*func)(double, double *, double *,
+void leapfrog(void (*drift)(double, double *),
+	      void  (*kick)(double, double, double *,
 			   int, struct potentialArg *),
 	      int,
 	      double *,
 	      int, double, double *,
 	      int, struct potentialArg *,
 	      double, double,
+	      void (*tol_scaling)(double *,double *),
+	      void (*metric)(int,double *, double *,double *),
+	      bool,
 	      double *,int *);
-double leapfrog_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
-			      int, double *,double *,
+double leapfrog_estimate_step(void (*drift)(double, double *),
+			      void  (*kick)(double, double, double *,
+					  int,
+					  struct potentialArg *),
+			      int, double *,
 			      double, double *,
 			      int,struct potentialArg *,
-			      double,double);
+			      double,double,
+			      void (*scaling)(double *,double *),
+			      void (*metric)(int,double *, 
+					     double *,double *));
 void symplec4(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,

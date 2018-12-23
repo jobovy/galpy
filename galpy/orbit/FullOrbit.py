@@ -611,7 +611,13 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             vxvv,t,rtol=10.**-8,construct_Lz=True,
             scaling=scaling,metric=metric)
     elif ext_loaded and \
-            (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
+            (method.lower() == 'leapfrog_c'):
+        warnings.warn("Using C implementation to integrate orbits",
+                      galpyWarningVerbose)
+        #integrate
+        out, msg= integrateFullOrbit_c(pot,nu.copy(vxvv),t,method,dt=dt)
+    elif ext_loaded and \
+            (method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' \
             or method.lower() == 'dop853_c'):

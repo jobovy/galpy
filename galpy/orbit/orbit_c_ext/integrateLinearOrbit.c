@@ -30,6 +30,10 @@ void evalLinearForce(double, double *, double *,
 		     int, struct potentialArg *);
 void evalLinearDeriv(double, double *, double *,
 		     int, struct potentialArg *);
+void symplec_drift_1d(double, double *);
+void symplec_kick_1d(double,double,double *,int,struct potentialArg *);
+void tol_scaling_1d(double *,double *);
+void compare_metric_1d(int,double *,double *,double *);
 /*
   Actual functions
 */
@@ -115,65 +119,113 @@ EXPORT void integrateLinearOrbit(double *yo,
 				 int * err,
 				 int odeint_type){
   //Set up the forces, first count
-  int dim;
+  int dim= 2;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Linear(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
-  void (*odeint_func)(void (*func)(double, double *, double *,
-			   int, struct potentialArg *),
-		      int,
-		      double *,
-		      int, double, double *,
-		      int, struct potentialArg *,
-		      double, double,
-		      double *,int *);
-  void (*odeint_deriv_func)(double, double *, double *,
-			    int,struct potentialArg *);
-  switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalLinearForce;
-    dim= 1;
-    break;
-  case 1: //RK4
-    odeint_func= &bovy_rk4;
-    odeint_deriv_func= &evalLinearDeriv;
-    dim= 2;
-    break;
-  case 2: //RK6
-    odeint_func= &bovy_rk6;
-    odeint_deriv_func= &evalLinearDeriv;
-    dim= 2;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalLinearForce;
-    dim= 1;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalLinearForce;
-    dim= 1;
-    break;
-  case 5: //DOPR54
-    odeint_func= &bovy_dopr54;
-    odeint_deriv_func= &evalLinearDeriv;
-    dim= 2;
-    break;
-  case 6: //DOP853
-    odeint_func= &dop853;
-    odeint_deriv_func= &evalLinearDeriv;
-    dim= 2;
-    break;
+  if ( odeint_type == 0 ) { //|| odeint_type == 3 || odeint_type || 4 ) { // symplec
+    void (*odeint_func)(void (*drift)(double, double *),
+			void  (*kick)(double, double, double *,
+				      int, struct potentialArg *),
+			int,
+			double *,
+			int, double, double *,
+			int, struct potentialArg *,
+			double, double,
+			void (*tol_scaling)(double *,double *),
+			void (*metric)(int,double *, double *,double *),
+			bool,
+			double *,int *);
+    void (*odeint_drift_func)(double, double *);
+    odeint_drift_func= &symplec_drift_1d;
+    void (*odeint_kick_func)(double, double, double *,
+			     int,struct potentialArg *);
+    odeint_kick_func= &symplec_kick_1d;
+    // Scaling of initial condition for stepsize determination
+    void (*tol_scaling)(double *yo,double *result);
+    tol_scaling= &tol_scaling_1d;
+    // Metric for comparing solutions with different stepsizes
+    void (*metric)(int dim, double *x, double *y,double *result);
+    metric= &compare_metric_1d;
+    switch ( odeint_type ) {
+    case 0: //leapfrog
+      odeint_func= &leapfrog;
+      break;
+      //case 3: //symplec4
+      //odeint_func= &symplec4;
+      //break;
+      //case 4: //symplec6
+      //odeint_func= &symplec6;
+      //break;
+    }
+    odeint_func(odeint_drift_func,odeint_kick_func,
+		dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		tol_scaling,metric,false,result,err);
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  else { // non-symplec
+    void (*odeint_func)(void (*func)(double, double *, double *,
+				     int, struct potentialArg *),
+			int,
+			double *,
+			int, double, double *,
+			int, struct potentialArg *,
+			double, double,
+			double *,int *);
+    void (*odeint_deriv_func)(double, double *, double *,
+			      int,struct potentialArg *);
+    switch ( odeint_type ) {
+    case 1: //RK4
+      odeint_func= &bovy_rk4;
+      odeint_deriv_func= &evalLinearDeriv;
+      break;
+    case 2: //RK6
+      odeint_func= &bovy_rk6;
+      odeint_deriv_func= &evalLinearDeriv;
+      break;
+    case 3: //symplec4
+      odeint_func= &symplec4;
+      odeint_deriv_func= &evalLinearForce;
+      dim= 1;
+      break;
+    case 4: //symplec6
+      odeint_func= &symplec6;
+      odeint_deriv_func= &evalLinearForce;
+      dim= 1;
+      break;
+    case 5: //DOPR54
+      odeint_func= &bovy_dopr54;
+      odeint_deriv_func= &evalLinearDeriv;
+      break;
+    case 6: //DOP853
+      odeint_func= &dop853;
+      odeint_deriv_func= &evalLinearDeriv;
+      break;
+    }
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		result,err);
+  }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
 
+void symplec_drift_1d(double dt, double *y){
+  *y    += dt * *(y+1);
+}
+void symplec_kick_1d(double dt, double t, double *y,
+		     int nargs, struct potentialArg * potentialArgs){
+  *(y+1)+= dt * calcLinearForce(*y,t,nargs,potentialArgs);
+}
+void tol_scaling_1d(double *yo,double *result){
+  *(result+0)= fabs( *yo );
+  *(result+1)= fabs( *(yo+1) );
+}
+void compare_metric_1d(int dim, double *x, double *y, double *result){
+  int ii;
+  for (ii=0; ii < dim; ii++)
+    *(result+ii)= fabs( *(x+ii) - *(y+ii) );
+}
 void evalLinearForce(double t, double *q, double *a,
 		     int nargs, struct potentialArg * potentialArgs){
   *a= calcLinearForce(*q,t,nargs,potentialArgs);

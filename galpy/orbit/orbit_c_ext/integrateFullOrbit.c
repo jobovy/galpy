@@ -44,6 +44,10 @@ void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+void symplec_drift_3d(double, double *);
+void symplec_kick_3d(double,double,double *,int,struct potentialArg *);
+void tol_scaling_3d(double *,double *);
+void compare_metric_3d(int,double *,double *,double *);
 /*
   Actual functions
 */
@@ -384,59 +388,91 @@ EXPORT void integrateFullOrbit(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
-  int dim;
+  int dim= 6;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
-  void (*odeint_func)(void (*func)(double, double *, double *,
-			   int, struct potentialArg *),
-		      int,
-		      double *,
-		      int, double, double *,
-		      int, struct potentialArg *,
-		      double, double,
-		      double *,int *);
-  void (*odeint_deriv_func)(double, double *, double *,
-			    int,struct potentialArg *);
-  switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalRectForce;
-    dim= 3;
-    break;
-  case 1: //RK4
-    odeint_func= &bovy_rk4;
-    odeint_deriv_func= &evalRectDeriv;
-    dim= 6;
-    break;
-  case 2: //RK6
-    odeint_func= &bovy_rk6;
-    odeint_deriv_func= &evalRectDeriv;
-    dim= 6;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalRectForce;
-    dim= 3;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalRectForce;
-    dim= 3;
-    break;
-  case 5: //DOPR54
-    odeint_func= &bovy_dopr54;
-    odeint_deriv_func= &evalRectDeriv;
-    dim= 6;
-    break;
-  case 6: //DOP853
-    odeint_func= &dop853;
-    odeint_deriv_func= &evalRectDeriv;
-    dim= 6;
-    break;
+  if ( odeint_type == 0 ) { //|| odeint_type == 3 || odeint_type || 4 ) { // symplec
+    void (*odeint_func)(void (*drift)(double, double *),
+			void  (*kick)(double, double, double *,
+				      int, struct potentialArg *),
+			int,
+			double *,
+			int, double, double *,
+			int, struct potentialArg *,
+			double, double,
+			void (*tol_scaling)(double *,double *),
+			void (*metric)(int,double *, double *,double *),
+			bool,
+			double *,int *);
+    void (*odeint_drift_func)(double, double *);
+    odeint_drift_func= &symplec_drift_3d;
+    void (*odeint_kick_func)(double, double, double *,
+			     int,struct potentialArg *);
+    odeint_kick_func= &symplec_kick_3d;
+    // Scaling of initial condition for stepsize determination
+    void (*tol_scaling)(double *yo,double *result);
+    tol_scaling= &tol_scaling_3d;
+    // Metric for comparing solutions with different stepsizes
+    void (*metric)(int dim, double *x, double *y,double *result);
+    metric= &compare_metric_3d;
+    switch ( odeint_type ) {
+    case 0: //leapfrog
+      odeint_func= &leapfrog;
+      break;
+      //case 3: //symplec4
+      //odeint_func= &symplec4;
+      //break;
+      //case 4: //symplec6
+      //odeint_func= &symplec6;
+      //break;
+    }
+    odeint_func(odeint_drift_func,odeint_kick_func,
+		dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		tol_scaling,metric,true,result,err);
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  else { // non-symplec
+    void (*odeint_func)(void (*func)(double, double *, double *,
+				     int, struct potentialArg *),
+			int,
+			double *,
+			int, double, double *,
+			int, struct potentialArg *,
+			double, double,
+			double *,int *);
+    void (*odeint_deriv_func)(double, double *, double *,
+			      int,struct potentialArg *);
+    switch ( odeint_type ) {
+    case 1: //RK4
+      odeint_func= &bovy_rk4;
+      odeint_deriv_func= &evalRectDeriv;
+      break;
+    case 2: //RK6
+      odeint_func= &bovy_rk6;
+      odeint_deriv_func= &evalRectDeriv;
+      break;
+    case 3: //symplec4
+      odeint_func= &symplec4;
+      odeint_deriv_func= &evalRectForce;
+      dim= 3;
+      break;
+    case 4: //symplec6
+      odeint_func= &symplec6;
+      odeint_deriv_func= &evalRectForce;
+      dim= 3;
+      break;
+    case 5: //DOPR54
+      odeint_func= &bovy_dopr54;
+      odeint_deriv_func= &evalRectDeriv;
+      break;
+    case 6: //DOP853
+      odeint_func= &dop853;
+      odeint_deriv_func= &evalRectDeriv;
+      break;
+    }
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		result,err);
+  }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -470,11 +506,6 @@ void integrateOrbit_dxdv(double *yo,
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
   switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalRectDeriv_dxdv;
@@ -484,16 +515,6 @@ void integrateOrbit_dxdv(double *yo,
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
@@ -514,6 +535,35 @@ void integrateOrbit_dxdv(double *yo,
   //Done!
 }
 // LCOV_EXCL_STOP
+void symplec_drift_3d(double dt, double *y){
+  *y    += dt * *(y+1);
+  *(y+3)+= dt * *(y+4);
+}
+void symplec_kick_3d(double dt, double t, double *y,
+		     int nargs, struct potentialArg * potentialArgs){
+  *(y+1)+= dt * ( calcRforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs)	\
+		  + *(y+2) * *(y+2) / *y / *y / *y );
+  *(y+2)+= dt * calcPhiforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs);
+  *(y+4)+= dt * calczforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs);
+  *(y+5)+= dt * *(y+2) / *y / *y;
+}
+void tol_scaling_3d(double *yo,double *result){
+  double xscale, vscale;
+  xscale= sqrt( *yo * *yo + *(yo+3) * *(yo+3) );
+  vscale= sqrt( *(yo+1) * *(yo+1) + *(yo+2) * *(yo+2) + *(yo+4) * *(yo+4) );
+  *(result+0)= xscale;
+  *(result+1)= vscale;
+  *(result+2)= xscale*vscale;
+  *(result+3)= xscale;
+  *(result+4)= vscale;
+  *(result+5)= xscale;
+}
+void compare_metric_3d(int dim, double *x, double *y, double *result){
+  int ii;
+  for (ii=0; ii < dim; ii++)
+    *(result+ii)= fabs( *(x+ii) - *(y+ii) );
+  *(result+5)*= fabs(*x);
+}
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phiforce, z, zforce;

@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 #include <bovy_symplecticode.h>
 #define _MAX_DT_REDUCE 10000.
@@ -76,59 +77,66 @@ static inline void save_qp(int dim, double *qo, double *po, double *result){
   for (ii=0; ii < dim; ii++) *result++= *qo++;
   for (ii=0; ii < dim; ii++) *result++= *po++;
 }
+static inline void save_result(int dim, double *yo, double *result,
+			       bool construct_Lz){
+  int ii;
+  for (ii=0; ii < dim; ii++) *(result+ii)= *(yo+ii);
+  if ( construct_Lz ) 
+    *(result+2) /= *result;
+}
 /*
 Leapfrog integrator
 Usage:
-   Provide the acceleration function func with calling sequence
-       func (t,q,a,nargs,args)
-   where
+   Provide the drift function 'drift' with calling sequence
+       drift(dt,t)
+   and the kick function 'kick' with calling sequence
+       kick(dt,t,*y,nargs,* potentialArgs)
+   that move the system by a set dt where
+       double dt: time step
        double t: time
-       double * q: current position (dimension: dim)
-       double * a: will be set to the derivative
+       double * y: current phase-space position
        int nargs: number of arguments the function takes
        struct potentialArg * potentialArg structure pointer, see header file
   Other arguments are:
        int dim: dimension
-       double *yo: initial value [qo,po], dimension: 2*dim
+       double *yo: initial value, dimension: dim
        int nt: number of times at which the output is wanted
        double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
-       double *args: see above
+       struct potentialArg * potentialArgs: see above
        double rtol, double atol: relative and absolute tolerance levels desired
+       void (*tol_scaling)(double *y,double * result): function that computes the scaling to use in relative/absolute tolerance combination: scale= atol+rtol*scaling
+       void (*metric)(int dim,double *x, double *y,double * result): function that computes the distance between two phase-space positions x and y and stores this in result
+       bool construct_Lz: if true, construct Lz = yo[0] * yo[2] for integration in cylindrical/polar coordinates (output is still vT, not Lz)
   Output:
-       double *result: result (nt blocks of size 2dim)
+       double *result: result (nt blocks of size dim)
        int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
-void leapfrog(void (*func)(double t, double *q, double *a,
+void leapfrog(void (*drift)(double dt, double *y),
+	      void  (*kick)(double dt, double t, double *y,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
+	      void (*tol_scaling)(double *yo,double * result),
+	      void (*metric)(int dim,double *x, double *y,double * result),
+	      bool construct_Lz,
 	      double *result,int * err){
   //Initialize
-  double *qo= (double *) malloc ( dim * sizeof(double) );
-  double *po= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
-  double *p12= (double *) malloc ( dim * sizeof(double) );
-  double *a= (double *) malloc ( dim * sizeof(double) );
-  int ii, jj, kk;
-  for (ii=0; ii < dim; ii++) {
-    *qo++= *(yo+ii);
-    *po++= *(yo+dim+ii);
-  }
-  qo-= dim;
-  po-= dim;
-  save_qp(dim,qo,po,result);
-  result+= 2 * dim;
+  int ii, jj;
+  save_result(dim,yo,result,false);
+  result+= dim;
   *err= 0;
+  if ( construct_Lz ) *(yo+2) *= *yo;
   //Estimate necessary stepsize
   double init_dt= (*(t+1))-(*t);
   if ( dt == -9999.99 ) {
-    dt= leapfrog_estimate_step(*func,dim,qo,po,init_dt,t,nargs,potentialArgs,
-			       rtol,atol);
+    dt= leapfrog_estimate_step(*drift,*kick,dim,yo,init_dt,t,
+			       nargs,potentialArgs,rtol,atol,
+			       tol_scaling,metric);
   }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -149,42 +157,26 @@ void leapfrog(void (*func)(double t, double *q, double *a,
       break;
     }
     //drift half
-    leapfrog_leapq(dim,qo,po,dt/2.,q12);
+    drift(dt/2.,yo);
     //now drift full for a while
     for (jj=0; jj < (ndt-1); jj++){
-      //kick
-      func(to+dt/2.,q12,a,nargs,potentialArgs);
-      leapfrog_leapp(dim,po,dt,a,p12);
-      //drift
-      leapfrog_leapq(dim,q12,p12,dt,qo);
-      //reset
+      kick(dt,to+dt/2.,yo,nargs,potentialArgs);
+      drift(dt,yo);
       to= to+dt;
-      for (kk=0; kk < dim; kk++) {
-	*(q12+kk)= *(qo+kk);
-	*(po+kk)= *(p12+kk);
-      }
     }
-    //end with one last kick and drift
-    //kick
-    func(to+dt/2.,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,dt,a,po);
-    //drift
-    leapfrog_leapq(dim,q12,po,dt/2.,qo);
+    //end with one last kick and half drift
+    kick(dt,to+dt/2.,yo,nargs,potentialArgs);
+    drift(dt/2.,yo);
     to= to+dt;
     //save
-    save_qp(dim,qo,po,result);
-    result+= 2 * dim;
+    save_result(dim,yo,result,construct_Lz);
+    result+= dim;
   }
   // Back to default handler
 #ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
 #endif
-  //Free allocated memory
-  free(qo);
-  free(po);
-  free(q12);
-  free(a);
   //We're done
 }
 
@@ -538,80 +530,65 @@ void symplec6(void (*func)(double t, double *q, double *a,
   //We're done
 }
 
-double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct potentialArg *),
-			      int dim, double *qo,double *po,
+double leapfrog_estimate_step(void (*drift)(double dt, double *y),
+			      void  (*kick)(double dt, double t, double *y,
+					  int nargs,
+					  struct potentialArg * potentialArgs),
+			      int dim, double *yo,
 			      double dt, double *t,
 			      int nargs,struct potentialArg * potentialArgs,
-			      double rtol,double atol){
-  //return dt;
+			      double rtol,double atol,
+			      void (*tol_scaling)(double * yo,double * result),
+			      void (*metric)(int dim,double *x, 
+					     double *y,double * result)){
+  int ii;
   //scalars
   double err= 2.;
-  double max_val_q, max_val_p;
   double to= *t;
   double init_dt= dt;
   //allocate and initialize
-  double *q11= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
-  double *p11= (double *) malloc ( dim * sizeof(double) );
-  double *p12= (double *) malloc ( dim * sizeof(double) );
-  double *qtmp= (double *) malloc ( dim * sizeof(double) );
-  double *ptmp= (double *) malloc ( dim * sizeof(double) );
-  double *a= (double *) malloc ( dim * sizeof(double) );
-  double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
-  int ii;
-  //find maximum values
-  max_val_q= fabs(*qo);
-  for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
-  for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
+  double *y11= (double *) malloc ( dim * sizeof(double) );
+  double *y12= (double *) malloc ( dim * sizeof(double) );
+  double *delta= (double *) malloc ( dim * sizeof(double) );
   //set up scale
-  double c= fmax(atol, rtol * max_val_q);
-  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
-  for (ii=0; ii < dim; ii++) *(scale+ii)= s;
-  c= fmax(atol, rtol * max_val_p);
-  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
-  for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
+  double *scaling= (double *) malloc ( dim * sizeof(double) );
+  double *scale2= (double *) malloc ( dim * sizeof(double) );
+  tol_scaling(yo,scaling);
+  for (ii=0; ii < dim; ii++)
+    *(scale2+ii) = pow ( exp(atol) + exp(rtol) * *(scaling+ii), 2);
   //find good dt
   dt*= 2.;
   while ( err > 1.  && init_dt / dt < _MAX_DT_REDUCE){
     dt/= 2.;
+    // Reset to initial condition
+    for (ii=0; ii < dim; ii++) {
+      *(y11+ii)= *(yo+ii);
+      *(y12+ii)= *(yo+ii);
+    }
     //do one leapfrog step with step dt, and one with step dt/2.
     //dt
-    leapfrog_leapq(dim,qo,po,dt/2.,q12);
-    func(to+dt/2.,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,dt,a,p11);
-    leapfrog_leapq(dim,q12,p11,dt/2.,q11);
+    drift(dt/2.,y11);
+    kick(dt,to+dt/2.,y11,nargs,potentialArgs);
+    drift(dt/2.,y11);
     //dt/2.
-    leapfrog_leapq(dim,qo,po,dt/4.,q12);
-    func(to+dt/4.,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,dt/2.,a,ptmp);
-    leapfrog_leapq(dim,q12,ptmp,dt/2.,qtmp);//Take full step combining two half
-    func(to+3.*dt/4.,qtmp,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,ptmp,dt/2.,a,p12);
-    leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half   
+    drift(dt/4.,y12);
+    kick(dt/2.,to+dt/4.,y12,nargs,potentialArgs);
+    drift(dt/2.,y12);//Take full step combining two half
+    kick(dt/2.,to+3.*dt/4.,y12,nargs,potentialArgs);
+    drift(dt/4.,y12);
     //Norm
+    metric(dim,y11,y12,delta);
     err= 0.;
-    for (ii=0; ii < dim; ii++) {
-      err+= exp(2.*log(fabs(*(q11+ii)-*(q12+ii)))-2.* *(scale+ii));
-      err+= exp(2.*log(fabs(*(p11+ii)-*(p12+ii)))-2.* *(scale+ii+dim));
-    }
-    err= sqrt(err/2./dim);
+    for (ii=0; ii < dim; ii++)
+      err+= *(delta+ii) * *(delta+ii) / *(scale2+ii);
+    err= sqrt(err/dim);
   }
   //free what we allocated
-  free(q11);
-  free(q12);
-  free(p11);
-  free(qtmp);
-  free(ptmp);
-  free(a);
-  free(scale);
-  //return
-  //printf("%f\n",dt);
-  //fflush(stdout);
+  free(y11);
+  free(y12);
+  free(delta);
+  free(scaling);
+  free(scale2);
   return dt;
 }
 
