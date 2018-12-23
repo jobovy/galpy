@@ -57,9 +57,9 @@ def leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
         out= nu.zeros(pdim)
         out[:dim]= x[dim:]
         return out
-    def kick(x,*args,t=t):
+    def kick(x,*args,**kwargs):
         out= nu.zeros(pdim)
-        out[dim:]= func(x[:dim],*args,t=t)
+        out[dim:]= func(x[:dim],*args,**kwargs)
         return out
     qmax= nu.amax(nu.fabs(yo[:dim]))+nu.zeros(dim)
     pmax= nu.amax(nu.fabs(yo[dim:]))+nu.zeros(dim)
