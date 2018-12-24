@@ -42,6 +42,8 @@ void evalRectForce(double, double *, double *,
 		   int, struct potentialArg *);
 void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
+void evalCylDeriv(double, double *, double *,
+		  int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
 void symplec_drift_3d(double, double *);
@@ -388,6 +390,7 @@ EXPORT void integrateFullOrbit(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
+  int ii;
   int dim= 6;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
@@ -442,26 +445,28 @@ EXPORT void integrateFullOrbit(double *yo,
 			double *,int *);
     void (*odeint_deriv_func)(double, double *, double *,
 			      int,struct potentialArg *);
+    odeint_deriv_func= &evalCylDeriv;
+    // vT --> Lz
+    *(yo+2)*= *yo;
     switch ( odeint_type ) {
     case 1: //RK4
       odeint_func= &bovy_rk4;
-      odeint_deriv_func= &evalRectDeriv;
       break;
     case 2: //RK6
       odeint_func= &bovy_rk6;
-      odeint_deriv_func= &evalRectDeriv;
       break;
     case 5: //DOPR54
       odeint_func= &bovy_dopr54;
-      odeint_deriv_func= &evalRectDeriv;
       break;
     case 6: //DOP853
       odeint_func= &dop853;
-      odeint_deriv_func= &evalRectDeriv;
       break;
     }
     odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 		result,err);
+    // Lz --> vT
+    for (ii=0; ii < nt; ii++)
+      *(result+2+ii*6)/= *(result+ii*6);
   }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
@@ -598,6 +603,16 @@ void evalRectDeriv(double t, double *q, double *a,
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
+}
+void evalCylDeriv(double t, double *y, double *a,
+		  int nargs, struct potentialArg * potentialArgs){
+  *a    = *(y+1);
+  *(a+1)= *(y+2) * *(y+2) / *y / *y / *y + \
+    calcRforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs);
+  *(a+2)= calcPhiforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs);
+  *(a+3)= *(y+4);
+  *(a+4)= calczforce(*y,*(y+3),*(y+5),t,nargs,potentialArgs);
+  *(a+5)= *(y+2) / *y / *y;
 }
 
 // LCOV_EXCL_START

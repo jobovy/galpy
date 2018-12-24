@@ -612,41 +612,13 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             scaling=scaling,metric=metric)
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'symplec4_c' \
-             or method.lower() == 'symplec6_c'):
+             or method.lower() == 'symplec6_c' or method.lower() == 'rk4_c' \
+             or method.lower() == 'rk6_c' or method.lower() == 'dopr54_c' \
+             or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",
                       galpyWarningVerbose)
         #integrate
         out, msg= integrateFullOrbit_c(pot,nu.copy(vxvv),t,method,dt=dt)
-    elif ext_loaded and \
-            (method.lower() == 'rk4_c' \
-            or method.lower() == 'rk6_c' \
-            or method.lower() == 'dopr54_c' \
-            or method.lower() == 'dop853_c'):
-        warnings.warn("Using C implementation to integrate orbits",
-                      galpyWarningVerbose)
-        #go to the rectangular frame
-        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
-                             vxvv[0]*nu.sin(vxvv[5]),
-                             vxvv[3],
-                             vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5]),
-                             vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
-                             vxvv[4]])
-        #integrate
-        tmp_out, msg= integrateFullOrbit_c(pot,this_vxvv,
-                                           t,method,dt=dt)
-        #go back to the cylindrical frame
-        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
-        phi= nu.arccos(tmp_out[:,0]/R)
-        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-        vR= tmp_out[:,3]*nu.cos(phi)+tmp_out[:,4]*nu.sin(phi)
-        vT= tmp_out[:,4]*nu.cos(phi)-tmp_out[:,3]*nu.sin(phi)
-        out= nu.zeros((len(t),6))
-        out[:,0]= R
-        out[:,1]= vR
-        out[:,2]= vT
-        out[:,5]= phi
-        out[:,3]= tmp_out[:,2]
-        out[:,4]= tmp_out[:,5]
     elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         init= [vxvv[0],vxvv[1],vxvv[0]*vxvv[2],vxvv[3],vxvv[4],vxvv[5]]
         if method == 'dop853':

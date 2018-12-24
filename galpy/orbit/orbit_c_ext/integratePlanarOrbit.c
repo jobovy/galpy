@@ -29,6 +29,8 @@ void evalPlanarRectForce(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
+void evalPlanarCylDeriv(double, double *, double *,
+			int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
 void symplec_drift_2d(double, double *);
@@ -380,6 +382,7 @@ EXPORT void integratePlanarOrbit(double *yo,
 				 int * err,
 				 int odeint_type){
   //Set up the forces, first count
+  int ii;
   int dim= 4;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
@@ -434,26 +437,28 @@ EXPORT void integratePlanarOrbit(double *yo,
 			double *,int *);
     void (*odeint_deriv_func)(double, double *, double *,
 			      int,struct potentialArg *);
+    odeint_deriv_func= &evalPlanarCylDeriv;
+    // vT --> Lz
+    *(yo+2)*= *yo;
     switch ( odeint_type ) {
     case 1: //RK4
       odeint_func= &bovy_rk4;
-      odeint_deriv_func= &evalPlanarRectDeriv;
       break;
     case 2: //RK6
       odeint_func= &bovy_rk6;
-      odeint_deriv_func= &evalPlanarRectDeriv;
       break;
     case 5: //DOPR54
       odeint_func= &bovy_dopr54;
-      odeint_deriv_func= &evalPlanarRectDeriv;
       break;
     case 6: //DOP853
       odeint_func= &dop853;
-      odeint_deriv_func= &evalPlanarRectDeriv;
       break;
     }
     odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 		result,err);
+    // Lz --> vT
+    for (ii=0; ii < nt; ii++)
+      *(result+2+ii*4)/= *(result+ii*4);
   }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
@@ -579,6 +584,14 @@ void evalPlanarRectDeriv(double t, double *q, double *a,
   phiforce= calcPlanarphiforce(R,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a= sinphi*Rforce+1./R*cosphi*phiforce;
+}
+void evalPlanarCylDeriv(double t, double *y, double *a,
+			int nargs, struct potentialArg * potentialArgs){
+  *a    = *(y+1);
+  *(a+1)= *(y+2) * *(y+2) / *y / *y / *y + \
+    calcPlanarRforce(*y,*(y+3),t,nargs,potentialArgs);
+  *(a+2)= calcPlanarphiforce(*y,*(y+3),t,nargs,potentialArgs);
+  *(a+3)= *(y+2) / *y / *y;
 }
 
 void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,

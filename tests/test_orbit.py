@@ -155,6 +155,7 @@ def test_energy_jacobi_conservation():
     tol= {}
     tol['default']= -10.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    tol['fullyRotatedTriaxialNFWPotential']= -9. #these are more difficult
     jactol= {}
     jactol['default']= -10.
     jactol['RazorThinExponentialDiskPotential']= -9. #these are more difficult
@@ -162,6 +163,7 @@ def test_energy_jacobi_conservation():
     jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
     jactol['mockFlatDehnenSmoothBarPotential']= -8. #these are more difficult
     jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
+    jactol['fullyRotatedTriaxialNFWPotential']= -9. #these are more difficult
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)

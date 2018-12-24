@@ -2,7 +2,7 @@
   C implementations of Runge-Kutta integrators
 */
 /*
-Copyright (c) 2011, Jo Bovy
+Copyright (c) 2011, 2018 Jo Bovy
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without 
@@ -60,7 +60,7 @@ Usage:
        double *args: see above
        double rtol, double atol: relative and absolute tolerance levels desired
   Output:
-       double *result: result (nt blocks of size 2dim)
+       double *result: result (nt blocks of size dim)
        int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
 void bovy_rk4(void (*func)(double t, double *q, double *a,
