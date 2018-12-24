@@ -123,7 +123,7 @@ EXPORT void integrateLinearOrbit(double *yo,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Linear(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
-  if ( odeint_type == 0 || odeint_type == 3 ) { //|| odeint_type || 4 ) { // symplec
+  if ( odeint_type == 0 || odeint_type == 3 || odeint_type == 4 ) { // symplec
     void (*odeint_func)(void (*drift)(double, double *),
 			void  (*kick)(double, double, double *,
 				      int, struct potentialArg *),
@@ -154,9 +154,9 @@ EXPORT void integrateLinearOrbit(double *yo,
       case 3: //symplec4
       odeint_func= &symplec4;
       break;
-      //case 4: //symplec6
-      //odeint_func= &symplec6;
-      //break;
+      case 4: //symplec6
+      odeint_func= &symplec6;
+      break;
     }
     odeint_func(odeint_drift_func,odeint_kick_func,
 		dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
@@ -181,11 +181,6 @@ EXPORT void integrateLinearOrbit(double *yo,
     case 2: //RK6
       odeint_func= &bovy_rk6;
       odeint_deriv_func= &evalLinearDeriv;
-      break;
-    case 4: //symplec6
-      odeint_func= &symplec6;
-      odeint_deriv_func= &evalLinearForce;
-      dim= 1;
       break;
     case 5: //DOPR54
       odeint_func= &bovy_dopr54;

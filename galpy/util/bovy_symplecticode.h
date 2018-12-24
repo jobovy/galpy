@@ -96,19 +96,29 @@ double symplec4_estimate_step(void (*drift)(double, double *),
 			      void (*scaling)(double *,double *),
 			      void (*metric)(int,double *, 
 					     double *,double *));
-void symplec6(void (*func)(double, double *, double *,
+void symplec6(void (*drift)(double, double *),
+	      void  (*kick)(double, double, double *,
 			   int, struct potentialArg *),
 	      int,
 	      double *,
 	      int, double, double *,
 	      int, struct potentialArg *,
 	      double, double,
+	      void (*tol_scaling)(double *,double *),
+	      void (*metric)(int,double *, double *,double *),
+	      bool,
 	      double *,int *);
-double symplec6_estimate_step(void (*func)(double , double *, double *,int, struct potentialArg *),
-			      int, double *,double *,
+double symplec6_estimate_step(void (*drift)(double, double *),
+			      void  (*kick)(double, double, double *,
+					  int,
+					  struct potentialArg *),
+			      int, double *,
 			      double, double *,
 			      int,struct potentialArg *,
-			      double,double);
+			      double,double,
+			      void (*scaling)(double *,double *),
+			      void (*metric)(int,double *, 
+					     double *,double *));
 #ifdef __cplusplus
 }
 #endif
