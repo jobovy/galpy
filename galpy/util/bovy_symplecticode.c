@@ -2,7 +2,7 @@
 C implementations of symplectic integrators
  */
 /*
-Copyright (c) 2011, Jo Bovy
+Copyright (c) 2011, 2018 Jo Bovy
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without 
@@ -183,64 +183,65 @@ void leapfrog(void (*drift)(double dt, double *y),
 /*
 Fourth order symplectic integrator from Kinoshika et al.
 Usage:
-   Provide the acceleration function func with calling sequence
-       func (t,q,a,nargs,args)
-   where
+   Provide the drift function 'drift' with calling sequence
+       drift(dt,t)
+   and the kick function 'kick' with calling sequence
+       kick(dt,t,*y,nargs,* potentialArgs)
+   that move the system by a set dt where
+       double dt: time step
        double t: time
-       double * q: current position (dimension: dim)
-       double * a: will be set to the derivative
+       double * y: current phase-space position
        int nargs: number of arguments the function takes
        struct potentialArg * potentialArg structure pointer, see header file
   Other arguments are:
        int dim: dimension
-       double *yo: initial value [qo,po], dimension: 2*dim
+       double *yo: initial value, dimension: dim
        int nt: number of times at which the output is wanted
        double dt: (optional) stepsize to use, must be an integer divisor of time difference between output steps (NOT CHECKED EXPLICITLY)
        double *t: times at which the output is wanted (EQUALLY SPACED)
        int nargs: see above
-       double *args: see above
+       struct potentialArg * potentialArgs: see above
        double rtol, double atol: relative and absolute tolerance levels desired
+       void (*tol_scaling)(double *y,double * result): function that computes the scaling to use in relative/absolute tolerance combination: scale= atol+rtol*scaling
+       void (*metric)(int dim,double *x, double *y,double * result): function that computes the distance between two phase-space positions x and y and stores this in result
+       bool construct_Lz: if true, construct Lz = yo[0] * yo[2] for integration in cylindrical/polar coordinates (output is still vT, not Lz)
   Output:
-       double *result: result (nt blocks of size 2dim)
+       double *result: result (nt blocks of size dim)
        int *err: error: -10 if interrupted by CTRL-C (SIGINT)
 */
-void symplec4(void (*func)(double t, double *q, double *a,
+void symplec4(void (*drift)(double dt, double *y),
+	      void  (*kick)(double dt, double t, double *y,
 			   int nargs, struct potentialArg * potentialArgs),
 	      int dim,
 	      double * yo,
 	      int nt, double dt, double *t,
 	      int nargs, struct potentialArg * potentialArgs,
 	      double rtol, double atol,
+	      void (*tol_scaling)(double *yo,double * result),
+	      void (*metric)(int dim,double *x, double *y,double * result),
+	      bool construct_Lz,
 	      double *result,int * err){
   //coefficients
   double c1= 0.6756035959798289;
   double c4= c1;
+  double c41= c4+c1;
   double c2= -0.1756035959798288;
   double c3= c2;
   double d1= 1.3512071919596578;
   double d3= d1;
   double d2= -1.7024143839193153; //d4=0
   //Initialize
-  double *qo= (double *) malloc ( dim * sizeof(double) );
-  double *po= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
-  double *p12= (double *) malloc ( dim * sizeof(double) );
-  double *a= (double *) malloc ( dim * sizeof(double) );
-  int ii, jj, kk;
-  for (ii=0; ii < dim; ii++) {
-    *qo++= *(yo+ii);
-    *po++= *(yo+dim+ii);
-  }
-  qo-= dim;
-  po-= dim;
-  save_qp(dim,qo,po,result);
-  result+= 2 * dim;
+  int ii, jj;
+  save_result(dim,yo,result,false);
+  result+= dim;
   *err= 0;
+  if ( construct_Lz ) *(yo+2) *= *yo;
   //Estimate necessary stepsize
   double init_dt= (*(t+1))-(*t);
   if ( dt == -9999.99 ) {
-    dt= symplec4_estimate_step(*func,dim,qo,po,init_dt,t,nargs,potentialArgs,
-			       rtol,atol);
+    dt= symplec4_estimate_step(*drift,*kick,dim,yo,init_dt,t,
+			       nargs,potentialArgs,rtol,atol,
+			       tol_scaling,metric);
   }
   long ndt= (long) (init_dt/dt);
   //Integrate the system
@@ -261,69 +262,40 @@ void symplec4(void (*func)(double t, double *q, double *a,
       break;
     }
     //drift for c1*dt
-    leapfrog_leapq(dim,qo,po,c1*dt,q12);
+    drift(c1*dt,yo);
     to+= c1*dt;
     //steps ignoring q4/p4 when output is not wanted
     for (jj=0; jj < (ndt-1); jj++){
-      //kick for d1*dt
-      func(to,q12,a,nargs,potentialArgs);
-      leapfrog_leapp(dim,po,d1*dt,a,p12);
-      //drift for c2*dt
-      leapfrog_leapq(dim,q12,p12,c2*dt,qo);
-      //kick for d2*dt
+      kick(d1*dt,to,yo,nargs,potentialArgs);
+      drift(c2*dt,yo);
       to+= c2*dt;
-      func(to,qo,a,nargs,potentialArgs);
-      leapfrog_leapp(dim,p12,d2*dt,a,po);
-      //drift for c3*dt
-      leapfrog_leapq(dim,qo,po,c3*dt,q12);
+      kick(d2*dt,to,yo,nargs,potentialArgs);
+      drift(c3*dt,yo);
       to+= c3*dt;
-      //kick for d3*dt
-      func(to,q12,a,nargs,potentialArgs);
-      leapfrog_leapp(dim,po,d3*dt,a,p12);
+      kick(d3*dt,to,yo,nargs,potentialArgs);
       //drift for (c4+c1)*dt
-      leapfrog_leapq(dim,q12,p12,(c4+c1)*dt,qo);
-      to+= (c4+c1)*dt;
-      //reset
-      for (kk=0; kk < dim; kk++) {
-	*(q12+kk)= *(qo+kk);
-	*(po+kk)= *(p12+kk);
-      }
+      drift(c41*dt,yo);
+      to+= c41*dt;
     }
     //steps not ignoring q4/p4 when output is wanted
-    //kick for d1*dt
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,d1*dt,a,p12);
-    //drift for c2*dt
-    leapfrog_leapq(dim,q12,p12,c2*dt,qo);
-    //kick for d2*dt
+    kick(d1*dt,to,yo,nargs,potentialArgs);
+    drift(c2*dt,yo);
     to+= c2*dt;
-    func(to,qo,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,p12,d2*dt,a,po);
-    //drift for c3*dt
-    leapfrog_leapq(dim,qo,po,c3*dt,q12);
+    kick(d2*dt,to,yo,nargs,potentialArgs);
+    drift(c3*dt,yo);
     to+= c3*dt;
-    //kick for d3*dt
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,d3*dt,a,p12);
-    //drift for c4*dt
-    leapfrog_leapq(dim,q12,p12,c4*dt,qo);
+    kick(d3*dt,to,yo,nargs,potentialArgs);
+    drift(c4*dt,yo);
     to+= c4*dt;
-    //p4=p3
-    for (kk=0; kk < dim; kk++) *(po+kk)= *(p12+kk);
     //save
-    save_qp(dim,qo,po,result);
-    result+= 2 * dim;
+    save_result(dim,yo,result,construct_Lz);
+    result+= dim;
   }
   // Back to default handler
 #ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
 #endif
-  //Free allocated memory
-  free(qo);
-  free(po);
-  free(q12);
-  free(a);
   //We're done
 }
 
@@ -592,148 +564,103 @@ double leapfrog_estimate_step(void (*drift)(double dt, double *y),
   return dt;
 }
 
-double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int nargs, struct potentialArg *),
-			      int dim, double *qo,double *po,
+double symplec4_estimate_step(void (*drift)(double dt, double *y),
+			      void  (*kick)(double dt, double t, double *y,
+					  int nargs,
+					  struct potentialArg * potentialArgs),
+			      int dim, double *yo,
 			      double dt, double *t,
 			      int nargs,struct potentialArg * potentialArgs,
-			      double rtol,double atol){
-  //return dt;
+			      double rtol,double atol,
+			      void (*tol_scaling)(double * yo,double * result),
+			      void (*metric)(int dim,double *x, 
+					     double *y,double * result)){
   //coefficients
   double c1= 0.6756035959798289;
   double c4= c1;
+  double c41= c4+c1;
   double c2= -0.1756035959798288;
   double c3= c2;
   double d1= 1.3512071919596578;
   double d3= d1;
   double d2= -1.7024143839193153; //d4=0
   //scalars
-  double err= 2.;
-  double max_val_q, max_val_p;
-  double to= *t;
-  double init_dt= dt;
-  //allocate and initialize
-  double *q11= (double *) malloc ( dim * sizeof(double) );
-  double *q12= (double *) malloc ( dim * sizeof(double) );
-  double *p11= (double *) malloc ( dim * sizeof(double) );
-  double *p12= (double *) malloc ( dim * sizeof(double) );
-  double *qtmp= (double *) malloc ( dim * sizeof(double) );
-  double *ptmp= (double *) malloc ( dim * sizeof(double) );
-  double *a= (double *) malloc ( dim * sizeof(double) );
-  double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
   int ii;
-  //find maximum values
-  max_val_q= fabs(*qo);
-  for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
-  for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
+  double err= 2.;
+  double to;
+  double init_dt= dt;
+  double dt2;
+  //allocate and initialize
+  double *y11= (double *) malloc ( dim * sizeof(double) );
+  double *y12= (double *) malloc ( dim * sizeof(double) );
+  double *delta= (double *) malloc ( dim * sizeof(double) );
   //set up scale
-  double c= fmax(atol, rtol * max_val_q);
-  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
-  for (ii=0; ii < dim; ii++) *(scale+ii)= s;
-  c= fmax(atol, rtol * max_val_p);
-  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
-  for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
+  double *scaling= (double *) malloc ( dim * sizeof(double) );
+  double *scale2= (double *) malloc ( dim * sizeof(double) );
+  tol_scaling(yo,scaling);
+  for (ii=0; ii < dim; ii++)
+    *(scale2+ii) = pow ( exp(atol) + exp(rtol) * *(scaling+ii), 2);
   //find good dt
   dt*= 2.;
   while ( err > 1. && init_dt / dt < _MAX_DT_REDUCE ){
     dt/= 2.;
+    // Reset to initial condition
+    to= *t;
+    for (ii=0; ii < dim; ii++) {
+      *(y11+ii)= *(yo+ii);
+      *(y12+ii)= *(yo+ii);
+    }
     //do one step with step dt, and one with step dt/2.
     /*
       dt
     */
-    //drift for c1*dt
-    leapfrog_leapq(dim,qo,po,c1*dt,q12);
+    drift(c1*dt,y11);
     to+= c1*dt;
-    //kick for d1*dt
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,d1*dt,a,p12);
-    //drift for c2*dt
-    leapfrog_leapq(dim,q12,p12,c2*dt,qtmp);
-    //kick for d2*dt
+    kick(d1*dt,to,y11,nargs,potentialArgs);
+    drift(c2*dt,y11);
     to+= c2*dt;
-    func(to,qtmp,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,p12,d2*dt,a,ptmp);
-    //drift for c3*dt
-    leapfrog_leapq(dim,qtmp,ptmp,c3*dt,q12);
+    kick(d2*dt,to,y11,nargs,potentialArgs);
+    drift(c3*dt,y11);
     to+= c3*dt;
-    //kick for d3*dt
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,ptmp,d3*dt,a,p11);
-    //drift for c4*dt
-    leapfrog_leapq(dim,q12,p11,c4*dt,q11);
-    to+= c4*dt;
-    //p4=p3
+    kick(d3*dt,to,y11,nargs,potentialArgs);
+    drift(c4*dt,y11);
     //reset
     to-= dt;   
     /*
       dt/2
     */
-    //drift for c1*dt/2
-    leapfrog_leapq(dim,qo,po,c1*dt/2.,q12);
-    to+= c1*dt/2.;
-    //kick for d1*dt/2
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,po,d1*dt/2.,a,p12);
-    //drift for c2*dt/2
-    leapfrog_leapq(dim,q12,p12,c2*dt/2.,qtmp);
-    //kick for d2*dt/2
-    to+= c2*dt/2.;
-    func(to,qtmp,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,p12,d2*dt/2.,a,ptmp);
-    //drift for c3*dt/2
-    leapfrog_leapq(dim,qtmp,ptmp,c3*dt/2.,q12);
-    to+= c3*dt/2.;
-    //kick for d3*dt/2
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,ptmp,d3*dt/2.,a,p12);
-    //drift for (c4+c1)*dt/2, skipping q4/p4
-    leapfrog_leapq(dim,q12,p12,(c1+c4)*dt/2.,qtmp);
-    to+= (c1+c4)*dt/2.;
-    //kick for d1*dt/2
-    func(to,qtmp,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,p12,d1*dt/2.,a,ptmp);
-    //drift for c2*dt/2
-    leapfrog_leapq(dim,qtmp,ptmp,c2*dt/2.,q12);
-    //kick for d2*dt/2
-    to+= c2*dt/2.;
-    func(to,q12,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,ptmp,d2*dt/2.,a,p12);
-    //drift for c3*dt/2
-    leapfrog_leapq(dim,q12,p12,c3*dt/2.,qtmp);
-    to+= c3*dt/2.;
-    //kick for d3*dt
-    func(to,qtmp,a,nargs,potentialArgs);
-    leapfrog_leapp(dim,p12,d3*dt/2.,a,ptmp);
-    //drift for c4*dt/2.
-    leapfrog_leapq(dim,qtmp,ptmp,c4*dt/2.,q12);
-    to+= c4*dt/2.;
-    //p4=p3
-    for (ii=0; ii < dim; ii++) *(p12+ii)= *(ptmp+ii);
+    dt2= dt/2.;
+    drift(c1*dt2,y12);
+    to+= c1*dt2;
+    kick(d1*dt2,to,y12,nargs,potentialArgs);
+    drift(c2*dt2,y12);
+    to+= c2*dt2;
+    kick(d2*dt2,to,y12,nargs,potentialArgs);
+    drift(c3*dt2,y12);
+    to+= c3*dt2;
+    kick(d3*dt2,to,y12,nargs,potentialArgs);
+    drift(c41*dt2,y12);
+    to+= c41*dt2;
+    kick(d1*dt2,to,y12,nargs,potentialArgs);
+    drift(c2*dt2,y12);
+    to+= c2*dt2;
+    kick(d2*dt2,to,y12,nargs,potentialArgs);
+    drift(c3*dt2,y12);
+    to+= c3*dt2;
+    kick(d3*dt2,to,y12,nargs,potentialArgs);
+    drift(c4*dt2,y12);
     //Norm
-    err= 0.;
-    for (ii=0; ii < dim; ii++) {
-      err+= exp(2.*log(fabs(*(q11+ii)-*(q12+ii)))-2.* *(scale+ii));
-      err+= exp(2.*log(fabs(*(p11+ii)-*(p12+ii)))-2.* *(scale+ii+dim));
-    }
-    err= sqrt(err/2./dim);
-    //reset
-    to-= dt;
+    metric(dim,y11,y12,delta);
+    for (ii=0; ii < dim; ii++)
+      err+= *(delta+ii) * *(delta+ii) / *(scale2+ii);
+    err= sqrt(err/dim);
   }
   //free what we allocated
-  free(q11);
-  free(q12);
-  free(p11);
-  free(qtmp);
-  free(ptmp);
-  free(a);
-  free(scale);
-  //return
-  //printf("%f\n",dt);
-  //fflush(stdout);
+  free(y11);
+  free(y12);
+  free(delta);
+  free(scaling);
+  free(scale2);
   return dt;
 }
 

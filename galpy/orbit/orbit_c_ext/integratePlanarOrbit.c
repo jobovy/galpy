@@ -384,7 +384,7 @@ EXPORT void integratePlanarOrbit(double *yo,
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
   //Integrate
-  if ( odeint_type == 0 ) { //|| odeint_type == 3 || odeint_type || 4 ) { // symplec
+  if ( odeint_type == 0 || odeint_type == 3 ) { //|| odeint_type || 4 ) { // symplec
     void (*odeint_func)(void (*drift)(double, double *),
 			void  (*kick)(double, double, double *,
 				      int, struct potentialArg *),
@@ -412,9 +412,9 @@ EXPORT void integratePlanarOrbit(double *yo,
     case 0: //leapfrog
       odeint_func= &leapfrog;
       break;
-      //case 3: //symplec4
-      //odeint_func= &symplec4;
-      //break;
+      case 3: //symplec4
+      odeint_func= &symplec4;
+      break;
       //case 4: //symplec6
       //odeint_func= &symplec6;
       //break;
@@ -442,11 +442,6 @@ EXPORT void integratePlanarOrbit(double *yo,
     case 2: //RK6
       odeint_func= &bovy_rk6;
       odeint_deriv_func= &evalPlanarRectDeriv;
-      break;
-    case 3: //symplec4
-      odeint_func= &symplec4;
-      odeint_deriv_func= &evalPlanarRectForce;
-      dim= 2;
       break;
     case 4: //symplec6
       odeint_func= &symplec6;

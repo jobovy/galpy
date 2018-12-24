@@ -171,14 +171,14 @@ def _integrateLinearOrbit(vxvv,pot,t,method,dt):
     elif method.lower() == 'dop853':
         return dop853(func=_linearEOM, x=vxvv, t=t, args=(pot,))
     elif ext_loaded and \
-            (method.lower() == 'leapfrog_c'):
+            (method.lower() == 'leapfrog_c' or method.lower() == 'symplec4_c'):
         warnings.warn("Using C implementation to integrate orbits",
                       galpyWarningVerbose)
         out, msg= integrateLinearOrbit_c(pot,nu.copy(vxvv),t,method,dt=dt)
         return out
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
-            or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
+            or method.lower() == 'rk6_c' \
             or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' \
             or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",
