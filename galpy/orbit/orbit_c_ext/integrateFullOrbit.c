@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <leung_dop853.h>
 #include <bovy_rk.h>
@@ -384,6 +385,7 @@ EXPORT void integrateFullOrbit(double *yo,
 			       int * err,
 			       int odeint_type){
   //Set up the forces, first count
+  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
@@ -435,8 +437,11 @@ EXPORT void integrateFullOrbit(double *yo,
     dim= 6;
     break;
   }
+  cyl_to_rect_galpy(yo);
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
+  for (ii=0; ii < nt; ii++)
+    rect_to_cyl_galpy(result+ii*6);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);

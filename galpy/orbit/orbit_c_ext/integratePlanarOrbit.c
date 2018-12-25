@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
 #include <leung_dop853.h>
@@ -376,6 +377,7 @@ EXPORT void integratePlanarOrbit(double *yo,
 				 int * err,
 				 int odeint_type){
   //Set up the forces, first count
+  int ii;
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
   parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
@@ -427,8 +429,11 @@ EXPORT void integratePlanarOrbit(double *yo,
     dim= 4;
     break;
   }
+  polar_to_rect_galpy(yo);
   odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
 	      result,err);
+  for (ii= 0; ii < nt; ii++)
+    rect_to_polar_galpy(result+ii*4);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
