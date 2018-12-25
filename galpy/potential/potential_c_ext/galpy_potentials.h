@@ -56,8 +56,6 @@ struct potentialArg{
 /*
   Function declarations
 */
-//Utility
-void cyl_to_rect(double,double,double *,double *);
 //Dealing with potentialArg
 void init_potentialArgs(int,struct potentialArg *);
 void free_potentialArgs(int,struct potentialArg *);

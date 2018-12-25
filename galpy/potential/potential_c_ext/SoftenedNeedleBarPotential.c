@@ -1,4 +1,5 @@
 #include <math.h>
+#include <bovy_coords.h>
 #include <galpy_potentials.h>
 //SoftenedNeedleBarPotentials
 static inline void compute_TpTm(double x, double y, double z,

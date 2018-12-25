@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <math.h>
+#include <bovy_coords.h>
 #include <galpy_potentials.h>
 //General routines for EllipsoidalPotentials
 static inline void rotate(double *x, double *y, double *z, double *rot){
