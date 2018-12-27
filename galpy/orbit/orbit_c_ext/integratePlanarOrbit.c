@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
 #include <leung_dop853.h>
@@ -388,8 +389,8 @@ EXPORT void integratePlanarOrbit(int nobj,
 				 int * err,
 				 int odeint_type){
   //Set up the forces, first count
+  int ii,jj;
   int dim;
-  int ii;
   int max_threads;
   int * thread_pot_type;
   double * thread_pot_args;
@@ -451,11 +452,14 @@ EXPORT void integratePlanarOrbit(int nobj,
     dim= 4;
     break;
   }
-#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
+    polar_to_rect_galpy(yo+4*ii);
     odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
 		result+4*nt*ii,err+ii);
+    for (jj= 0; jj < nt; jj++)
+      rect_to_polar_galpy(result+4*jj+4*nt*ii);
   }
   //Free allocated memory
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)

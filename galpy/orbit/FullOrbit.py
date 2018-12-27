@@ -618,29 +618,7 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
             or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",
                       galpyWarningVerbose)
-        #go to the rectangular frame
-        this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
-                             vxvv[0]*nu.sin(vxvv[5]),
-                             vxvv[3],
-                             vxvv[1]*nu.cos(vxvv[5])-vxvv[2]*nu.sin(vxvv[5]),
-                             vxvv[2]*nu.cos(vxvv[5])+vxvv[1]*nu.sin(vxvv[5]),
-                             vxvv[4]])
-        #integrate
-        tmp_out, msg= integrateFullOrbit_c(pot,this_vxvv,
-                                           t,method,dt=dt)
-        #go back to the cylindrical frame
-        R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
-        phi= nu.arccos(tmp_out[:,0]/R)
-        phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-        vR= tmp_out[:,3]*nu.cos(phi)+tmp_out[:,4]*nu.sin(phi)
-        vT= tmp_out[:,4]*nu.cos(phi)-tmp_out[:,3]*nu.sin(phi)
-        out= nu.zeros((len(t),6))
-        out[:,0]= R
-        out[:,1]= vR
-        out[:,2]= vT
-        out[:,5]= phi
-        out[:,3]= tmp_out[:,2]
-        out[:,4]= tmp_out[:,5]
+        out, msg= integrateFullOrbit_c(pot,nu.copy(vxvv),t,method,dt=dt)
     elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
