@@ -215,71 +215,26 @@ class Orbits(object):
                           galpyWarningVerbose)
             if self._orbits[0].dim() == 1:
                 vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
-                out, msg= integrateLinearOrbit_c(pot,vxvvs,t,method,dt=dt)
+                out, msg= integrateLinearOrbit_c(pot,numpy.copy(vxvvs),
+                                                 t,method,dt=dt)
             else:
-                if self._orbits[0].phasedim() == 3:
+                if self._orbits[0].phasedim() == 3 \
+                   or self._orbits[0].phasedim() == 5:
                     #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.array([[o._orb.vxvv[0],0.,
-                                         o._orb.vxvv[1],o._orb.vxvv[2]]
-                                        for o in self._orbits])
-                elif self._orbits[0].phasedim() == 4:
-                    vxvvs= numpy.array([[o._orb.vxvv[0]\
-                                            *numpy.cos(o._orb.vxvv[3]),
-                                         o._orb.vxvv[0]\
-                                            *numpy.sin(o._orb.vxvv[3]),
-                                         o._orb.vxvv[1]\
-                                            *numpy.cos(o._orb.vxvv[3])
-                                          -o._orb.vxvv[2]\
-                                            *numpy.sin(o._orb.vxvv[3]),
-                                         o._orb.vxvv[2]\
-                                            *numpy.cos(o._orb.vxvv[3])
-                                          +o._orb.vxvv[1]\
-                                            *numpy.sin(o._orb.vxvv[3])]
-                                        for o in self._orbits])
-                elif self._orbits[0].phasedim() == 5:
-                    #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.array([[o._orb.vxvv[0],0.,o._orb.vxvv[3],
-                                         o._orb.vxvv[1],o._orb.vxvv[2],
-                                         o._orb.vxvv[4]]
+                    vxvvs= numpy.array([numpy.hstack((o._orb.vxvv,0.))
                                         for o in self._orbits])
                 else:
-                    vxvvs= numpy.array([[o._orb.vxvv[0]\
-                                            *numpy.cos(o._orb.vxvv[5]),
-                                         o._orb.vxvv[0]\
-                                            *numpy.sin(o._orb.vxvv[5]),
-                                         o._orb.vxvv[3],
-                                         o._orb.vxvv[1]\
-                                            *numpy.cos(o._orb.vxvv[5])
-                                          -o._orb.vxvv[2]\
-                                            *numpy.sin(o._orb.vxvv[5]),
-                                         o._orb.vxvv[2]\
-                                            *numpy.cos(o._orb.vxvv[5])
-                                          +o._orb.vxvv[1]\
-                                            *numpy.sin(o._orb.vxvv[5]),
-                                         o._orb.vxvv[4]]
-                                        for o in self._orbits])
+                    vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
                 if self._orbits[0].dim() == 2:
-                    tmp_out, msg= integratePlanarOrbit_c(pot,vxvvs,t,
-                                                         method,dt=dt)
+                    out, msg= integratePlanarOrbit_c(pot,numpy.copy(vxvvs),
+                                                     t,method,dt=dt)
                 else:
-                    tmp_out, msg= integrateFullOrbit_c(pot,vxvvs,t,
-                                                       method,dt=dt)
-                #go back to the cylindrical frame
-                addli= 1 if self._orbits[0].dim() == 3 else 0
-                R= numpy.sqrt(tmp_out[:,:,0]**2.+tmp_out[:,:,1]**2.)
-                phi= numpy.arctan2(tmp_out[:,:,1],tmp_out[:,:,0])
-                vR= (tmp_out[:,:,2+addli]*tmp_out[:,:,0]+tmp_out[:,:,3+addli]*tmp_out[:,:,1])/R
-                vT= (tmp_out[:,:,3+addli]*tmp_out[:,:,0]-tmp_out[:,:,2+addli]*tmp_out[:,:,1])/R
-                out= numpy.empty((len(self._orbits),len(t),
-                                  self._orbits[0].phasedim()))
-                out[:,:,0]= R
-                out[:,:,1]= vR
-                out[:,:,2]= vT
-                if self._orbits[0].phasedim() == 4: out[:,:,3]= phi
-                else:
-                    out[:,:,3]= tmp_out[:,:,2]
-                    out[:,:,4]= tmp_out[:,:,5]
-                if self._orbits[0].phasedim() == 6: out[:,:,5]= phi
+                    out, msg= integrateFullOrbit_c(pot,numpy.copy(vxvvs),
+                                                   t,method,dt=dt)
+
+                if self._orbits[0].phasedim() == 3 \
+                   or self._orbits[0].phasedim() == 5:
+                    out= out[:,:,:-1]
             # Store orbit internally
             self.orbit= out
         # Also store per-orbit view of the orbit for __getattr__ funcs
