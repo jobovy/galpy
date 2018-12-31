@@ -1,4 +1,5 @@
 import os
+import copy
 import warnings
 import numpy
 from .Orbit import Orbit
@@ -135,6 +136,48 @@ class Orbits(object):
             ]
         else:
             return [getattr(orbit, name) for orbit in self.orbits]
+
+    def __getitem__(self,key):
+        """
+        NAME:
+
+            __getitem__
+
+        PURPOSE:
+
+            get a subset of this instance's orbits
+
+        INPUT:
+
+           key - slice
+
+        OUTPUT:
+
+           For single item: Orbit instance, for multiple items: another Orbits instance
+
+        HISTORY:
+
+            2018-12-31 - Written - Bovy (UofT)
+
+        """
+        if isinstance(key,int):
+            if key < 0 : # negative indices
+                key+= len(self)
+            return copy.deepcopy(self._orbits[key])
+        elif isinstance(key,slice):
+            orbits_list= [copy.deepcopy(self._orbits[ii]) 
+                          for ii in range(*key.indices(len(self)))]
+            if hasattr(self,'orbit'):
+                integrated_orbits= copy.deepcopy(self.orbit[key])
+            else: integrated_orbits= None
+            return Orbits._from_slice(orbits_list,integrated_orbits)
+
+    @classmethod
+    def _from_slice(cls,orbits_list,integrated_orbits=None):
+        out= cls(vxvv=orbits_list)
+        if not integrated_orbits is None:
+            out.orbits= integrated_orbits
+        return out
 
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
                   force_map=False):
