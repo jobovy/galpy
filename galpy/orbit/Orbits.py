@@ -97,7 +97,7 @@ class Orbits(object):
             self._orbits = []
             for coord in vxvv:
                 if isinstance(coord, Orbit):
-                    self._orbits.append(coord)
+                    self._orbits.append(copy.deepcopy(coord))
                 else:
                     orbit = Orbit(vxvv=coord, radec=radec, uvw=uvw, lb=lb,
                                   ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
