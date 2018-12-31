@@ -102,6 +102,9 @@ class Orbits(object):
                                   ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
                     self._orbits.append(orbit)
 
+    def __len__(self):
+        return len(self._orbits)
+
     def __getattr__(self, name):
         """
         NAME:
@@ -209,7 +212,7 @@ class Orbits(object):
                                              numcores=numcores))
             # Gather all into single self.orbit array
             self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                     for ii in range(len(self._orbits))])
+                                     for ii in range(len(self))])
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
@@ -238,7 +241,7 @@ class Orbits(object):
             # Store orbit internally
             self.orbit= out
         # Also store per-orbit view of the orbit for __getattr__ funcs
-        for ii in range(len(self._orbits)):
+        for ii in range(len(self)):
             self._orbits[ii]._orb.orbit= self.orbit[ii]
             self._orbits[ii]._orb.t= t
         return None
@@ -247,7 +250,7 @@ class Orbits(object):
         """
         Like Orbit.plot but for Orbits, same exact calling sequence
         Written - 2018-12-19 - Bovy (UofT)"""
-        for ii in range(len(self._orbits)):
+        for ii in range(len(self)):
             line2d= self._orbits[ii].plot(*args,**kwargs)[0]
             kwargs['overplot']= True
         line2d.axes.autoscale(enable=True)
