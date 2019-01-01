@@ -107,6 +107,10 @@ class Orbits(object):
         if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
                           for o in self._orbits]):
             raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
+        # Store all vxvv and make individual ones views
+        self.vxvv= numpy.array([o._orb.vxvv for o in self._orbits])
+        for ii in range(len(self)):
+            self._orbits[ii]._orb.vxvv= self.vxvv[ii]
 
     def __len__(self):
         return len(self._orbits)
@@ -272,24 +276,22 @@ class Orbits(object):
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             if self._orbits[0].dim() == 1:
-                vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
-                out, msg= integrateLinearOrbit_c(self._pot,numpy.copy(vxvvs),
+                out, msg= integrateLinearOrbit_c(self._pot,
+                                                 numpy.copy(self.vxvv),
                                                  t,method,dt=dt)
             else:
                 if self._orbits[0].phasedim() == 3 \
                    or self._orbits[0].phasedim() == 5:
                     #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.array([numpy.hstack((o._orb.vxvv,0.))
-                                        for o in self._orbits])
+                    vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
+                                     'constant',constant_values=0)
                 else:
-                    vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
+                    vxvvs= numpy.copy(self.vxvv)
                 if self._orbits[0].dim() == 2:
-                    out, msg= integratePlanarOrbit_c(self._pot,
-                                                     numpy.copy(vxvvs),
+                    out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
                                                      t,method,dt=dt)
                 else:
-                    out, msg= integrateFullOrbit_c(self._pot,
-                                                   numpy.copy(vxvvs),
+                    out, msg= integrateFullOrbit_c(self._pot,vxvvs,
                                                    t,method,dt=dt)
 
                 if self._orbits[0].phasedim() == 3 \
