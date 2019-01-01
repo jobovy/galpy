@@ -221,3 +221,91 @@ def test_initialize_diffphasedim_error():
     with pytest.raises(RuntimeError) as excinfo:
         Orbits([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
     return None
+
+def test_orbits_consistentro():
+    from galpy.orbit import Orbit, Orbits
+    ro= 7.
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro)]
+    orbits= Orbits(orbits_list)
+    # Check that ro is taken correctly
+    assert numpy.fabs(orbits._ro-orbits_list[0]._ro) < 1e-10, "Orbits' ro not correctly taken from input list of Orbit instances"
+    assert orbits._roSet, "Orbits' ro not correctly taken from input list of Orbit instances"
+    # Check that consistency of ros is enforced
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,ro=6.)
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro*1.2)]
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,ro=ro)
+    return None
+
+def test_orbits_consistentvo():
+    from galpy.orbit import Orbit, Orbits
+    vo= 230.
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo)]
+    orbits= Orbits(orbits_list)
+    # Check that vo is taken correctly
+    assert numpy.fabs(orbits._vo-orbits_list[0]._vo) < 1e-10, "Orbits' vo not correctly taken from input list of Orbit instances"
+    assert orbits._voSet, "Orbits' vo not correctly taken from input list of Orbit instances"
+    # Check that consistency of vos is enforced
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,vo=210.)
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo*1.2)]
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,vo=vo)
+    return None
+
+def test_orbits_consistentzo():
+    from galpy.orbit import Orbit, Orbits
+    zo= 0.015
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
+    orbits= Orbits(orbits_list)
+    # Check that zo is taken correctly
+    assert numpy.fabs(orbits._zo-orbits_list[0]._orb._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
+    # Check that consistency of zos is enforced
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,zo=0.045)
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo*1.2)]
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,zo=zo)
+    return None
+
+def test_orbits_consistentsolarmotion():
+    from galpy.orbit import Orbit, Orbits
+    solarmotion= numpy.array([-10.,20.,30.])
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
+    orbits= Orbits(orbits_list)
+    # Check that solarmotion is taken correctly
+    assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._orb._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
+    # Check that consistency of solarmotions is enforced
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,solarmotion=numpy.array([15.,20.,30]))
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,solarmotion=numpy.array([-10.,25.,30]))
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,solarmotion=numpy.array([-10.,20.,-30]))
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion*1.2)]
+    with pytest.raises(RuntimeError) as excinfo:
+        orbits= Orbits(orbits_list,solarmotion=solarmotion)
+    return None
+
+def test_orbits_stringsolarmotion():
+    from galpy.orbit import Orbit, Orbits
+    solarmotion= 'hogg'
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
+    orbits= Orbits(orbits_list,solarmotion='hogg')
+    assert numpy.all(numpy.fabs(orbits._solarmotion-numpy.array([-10.1,4.0,6.7])) < 1e-10), 'String solarmotion not parsed correcty'
+    return None
+                     

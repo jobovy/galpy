@@ -811,6 +811,46 @@ def test_orbit_inconsistentPotentialUnits_error():
         o.integrate(ts,[pot])
     return None
 
+def test_orbits_setup_roAsQuantity():
+    from galpy.orbit import Orbit, Orbits
+    ro= 7.*units.kpc
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro)]
+    orbits= Orbits(orbits_list,ro=ro)
+    assert numpy.fabs(orbits._ro-7.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbits_setup_voAsQuantity():
+    from galpy.orbit import Orbit, Orbits
+    vo= 230.*units.km/units.s
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo)]
+    orbits= Orbits(orbits_list,vo=vo)
+    assert numpy.fabs(orbits._vo-230.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbits_setup_zoAsQuantity():
+    from galpy.orbit import Orbit, Orbits
+    zo= 23.*units.pc
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
+    orbits= Orbits(orbits_list,zo=zo)
+    assert numpy.fabs(orbits._zo-0.023) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
+    return None
+
+def test_orbits_setup_solarmotionAsQuantity():
+    from galpy.orbit import Orbit, Orbits
+    solarmotion= numpy.array([-10.,20.,30.])*units.kpc/units.Gyr
+    # Initialize Orbits from list of Orbit instances
+    orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
+                  Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
+    orbits= Orbits(orbits_list,solarmotion=solarmotion)
+    assert numpy.all(numpy.fabs(orbits._solarmotion-solarmotion.to(units.km/units.s).value) < 10.**-10.), 'solarmotion in Orbit setup as Quantity does not work as expected'
+    return None
+
 def test_change_ro_config():
     from galpy.orbit import Orbit
     from galpy.util import config

@@ -19,6 +19,8 @@ try:
 except ImportError:
     SkyCoord = None
     _APY_LOADED = False
+if _APY_LOADED:
+    from astropy import units
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
     _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
@@ -29,8 +31,8 @@ class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=None, radec=False, uvw=False, lb=False, ro=None,
-                 vo=None, zo=None, solarmotion=None):
+    def __init__(self, vxvv=[None],radec=False,uvw=False,lb=False,ro=None,
+                 vo=None,zo=None,solarmotion=None):
         """
         NAME:
 
@@ -88,10 +90,9 @@ class Orbits(object):
 
             2018-10-13 - Written - Mathew Bub (UofT)
 
-        """
-        if vxvv is None:
-            vxvv = []
+            2018-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
 
+        """
         if _APY_LOADED and isinstance(vxvv, SkyCoord):
             self._orbits = [Orbit(vxvv=coord) for coord in vxvv.flatten()]
         else:
@@ -100,10 +101,11 @@ class Orbits(object):
                 if isinstance(coord, Orbit):
                     self._orbits.append(copy.deepcopy(coord))
                 else:
-                    orbit = Orbit(vxvv=coord, radec=radec, uvw=uvw, lb=lb,
-                                  ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
+                    orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
+                                  ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
                     self._orbits.append(orbit)
-        # Cross-checks
+        self._setup_unit_coord_parameters(ro,vo,zo,solarmotion)
+        # Cross-checks: phase-space dimension
         if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
                           for o in self._orbits]):
             raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
@@ -111,6 +113,77 @@ class Orbits(object):
         self.vxvv= numpy.array([o._orb.vxvv for o in self._orbits])
         for ii in range(len(self)):
             self._orbits[ii]._orb.vxvv= self.vxvv[ii]
+
+    def _setup_unit_coord_parameters(self,ro,vo,zo,solarmotion):
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if _APY_LOADED and isinstance(zo,units.Quantity):
+            zo= zo.to(units.kpc).value
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if _APY_LOADED and isinstance(solarmotion,units.Quantity):
+            solarmotion= solarmotion.to(units.km/units.s).value
+        # If parameters are not set, grab them from the first orbit (should
+        # be consistent anyway, checked later)
+        if vo is None:
+            self._vo= self._orbits[0]._orb._vo
+            self._voSet= False
+        else:
+            self._vo= vo
+            self._voSet= True
+        if ro is None:
+            self._ro= self._orbits[0]._orb._ro
+            self._roSet= False
+        else:
+            self._ro= ro
+            self._roSet= True
+        if zo is None:
+            self._zo= self._orbits[0]._orb._zo
+        else:
+            self._zo= zo
+        if solarmotion is None:
+            self._solarmotion= self._orbits[0]._orb._solarmotion
+        elif isinstance(solarmotion,str):
+            # Use a dummy orbit to parse this consistently with how it's done
+            # in Orbit
+            dummy_orbit= Orbit([1.,0.1,1.1,0.1,0.2,0.],solarmotion=solarmotion)
+            self._solarmotion= dummy_orbit._orb._solarmotion
+        else:
+            self._solarmotion= numpy.array(solarmotion)
+        # Cross-checks: unit- and coordinate-conversion parameters
+        if not numpy.all([numpy.fabs(o._ro-self._orbits[0]._ro) < 1e-10
+                          for o in self._orbits]):
+            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter")
+        if not numpy.fabs(self._ro-self._orbits[0]._ro) < 1e-10:
+            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter as the main Orbits object")
+        if not numpy.all([numpy.fabs(o._vo-self._orbits[0]._vo) < 1e-10
+                         for o in self._orbits]):
+            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter")
+        if not numpy.fabs(self._vo-self._orbits[0]._vo) < 1e-10:
+            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter as the main Orbits object")
+        if self.dim() > 1:
+            if not self._orbits[0]._orb._zo is None \
+                    and not numpy.all([numpy.fabs(o._orb._zo
+                                            -self._orbits[0]._orb._zo) < 1e-10
+                                       for o in self._orbits]):
+                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset")
+            if not numpy.fabs(self._zo-self._orbits[0]._orb._zo) < 1e-10:
+                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset as the main Orbits object")
+        if self.dim() > 1:
+            if not numpy.all([numpy.fabs(o._orb._solarmotion
+                                    -self._orbits[0]._orb._solarmotion) < 1e-10
+                              for o in self._orbits]):
+                raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion")
+            if not numpy.all(numpy.fabs(self._solarmotion
+                                  -self._orbits[0]._orb._solarmotion) < 1e-10):
+                raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion as the main Orbits object")
+        # If a majority of input orbits have roSet or voSet, set ro/vo for all
+        if numpy.sum([o._roSet for o in self._orbits]) >= len(self)/2. \
+                or numpy.sum([o._voSet for o in self._orbits]) >= len(self)/2.:
+            [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
+            self._roSet= True
+            self._voSet= True
+        return None
 
     def __len__(self):
         return len(self._orbits)
@@ -240,7 +313,6 @@ class Orbits(object):
             thispot= pot
         self.t= numpy.array(t)
         self._pot= thispot
-
         #First check that the potential has C
         if '_c' in method:
             if not ext_loaded or not _check_c(self._pot):
