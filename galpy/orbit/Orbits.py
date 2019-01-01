@@ -6,6 +6,7 @@ from .Orbit import Orbit
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
+from ..potential import toPlanarPotential
 from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
@@ -220,14 +221,17 @@ class Orbits(object):
 
         """
         # Need to add checks done in Orbit.integrate
-
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if self._orbits[0].dim() == 2:
+            thispot= toPlanarPotential(pot)
+        else:
+            thispot= pot
         self.t= numpy.array(t)
-        self._pot= pot
+        self._pot= thispot
 
         #First check that the potential has C
         if '_c' in method:
-            if not ext_loaded or not _check_c(pot):
+            if not ext_loaded or not _check_c(self._pot):
                 if ('leapfrog' in method or 'symplec' in method):
                     method= 'leapfrog'
                 else:
@@ -238,7 +242,7 @@ class Orbits(object):
                     warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
         # Now check that we aren't trying to integrate a dissipative force
         # with a symplectic integrator
-        if _isDissipative(pot) and ('leapfrog' in method 
+        if _isDissipative(self._pot) and ('leapfrog' in method 
                                     or 'symplec' in method):
             if '_c' in method:
                 method= 'dopr54_c'
@@ -249,7 +253,7 @@ class Orbits(object):
         if not '_c' in method or not ext_loaded or force_map:
             # Must return each Orbit for its values to correctly update
             def integrate_for_map(orbit):
-                orbit.integrate(t, pot, method=method, dt=dt)
+                orbit.integrate(t, self._pot, method=method, dt=dt)
                 return orbit
             self._orbits = list(parallel_map(integrate_for_map, self._orbits,
                                              numcores=numcores))
@@ -261,7 +265,7 @@ class Orbits(object):
                           galpyWarningVerbose)
             if self._orbits[0].dim() == 1:
                 vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
-                out, msg= integrateLinearOrbit_c(pot,numpy.copy(vxvvs),
+                out, msg= integrateLinearOrbit_c(self._pot,numpy.copy(vxvvs),
                                                  t,method,dt=dt)
             else:
                 if self._orbits[0].phasedim() == 3 \
@@ -272,10 +276,12 @@ class Orbits(object):
                 else:
                     vxvvs= numpy.array([o._orb.vxvv for o in self._orbits])
                 if self._orbits[0].dim() == 2:
-                    out, msg= integratePlanarOrbit_c(pot,numpy.copy(vxvvs),
+                    out, msg= integratePlanarOrbit_c(self._pot,
+                                                     numpy.copy(vxvvs),
                                                      t,method,dt=dt)
                 else:
-                    out, msg= integrateFullOrbit_c(pot,numpy.copy(vxvvs),
+                    out, msg= integrateFullOrbit_c(self._pot,
+                                                   numpy.copy(vxvvs),
                                                    t,method,dt=dt)
 
                 if self._orbits[0].phasedim() == 3 \
