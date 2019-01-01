@@ -9,7 +9,7 @@ environment:
       ADDL_CONDA_PKGS: 
       COMPILE_NOOPENMP: 
 
-    - TEST_FILES: tests\test_orbit.py
+    - TEST_FILES: tests\test_orbit.py tests\test_orbits.py
       ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: "--no-openmp"
 
