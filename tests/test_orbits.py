@@ -1,5 +1,6 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
 import numpy
+import pytest
 from galpy import potential
 
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
@@ -138,4 +139,39 @@ def test_integration_forcemap_3d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].phi(times)-orbits.phi(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
+# Test that initializing Orbits with orbits with different phase-space
+# dimensions raises an error
+def test_initialize_diffphasedim_error():
+    from galpy.orbit import Orbits
+    # 2D with 3D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1],[1.,0.1,1.]])
+    # 2D with 4D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1],[1.,0.1,1.,0.1]])
+    # 2D with 5D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1],[1.,0.1,1.,0.1,0.2]])
+    # 2D with 6D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1],[1.,0.1,1.,0.1,0.2,3.]])
+    # 3D with 4D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1]])
+    # 3D with 5D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2]])
+    # 3D with 6D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2,6.]])
+    # 4D with 5D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2]])
+    # 4D with 6D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2,6.]])
+    # 5D with 6D
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
+    return None

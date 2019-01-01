@@ -42,7 +42,7 @@ class Orbits(object):
 
         INPUT:
 
-            vxvv - initial conditions; can be either
+            vxvv - initial conditions (must all have the same phase-space dimension); can be either
 
                 a) list of Orbit instances
 
@@ -103,9 +103,17 @@ class Orbits(object):
                     orbit = Orbit(vxvv=coord, radec=radec, uvw=uvw, lb=lb,
                                   ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
                     self._orbits.append(orbit)
+        # Cross-checks
+        if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
+                          for o in self._orbits]):
+            raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
 
     def __len__(self):
         return len(self._orbits)
+    def dim(self):
+        return self._orbits[0].dim()
+    def phasedim(self):
+        return self._orbits[0].phasedim()
 
     def __getattr__(self, name):
         """
