@@ -32,11 +32,11 @@ def test_integration_2d():
                   Orbit([1.2,-0.3,0.7,5.])]
     orbits= Orbits(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
-    orbits.integrate(times,potential.MWPotential2014)
-    orbits.integrate(times,potential.MWPotential2014)
+    orbits.integrate(times,potential.MWPotential)
+    orbits.integrate(times,potential.MWPotential)
     # Integrate as multiple Orbits
     for o in orbits_list:
-        o.integrate(times,potential.MWPotential2014)
+        o.integrate(times,potential.MWPotential)
     # Compare
     for ii in range(len(orbits)):
         assert numpy.amax(numpy.fabs(orbits_list[ii].x(times)-orbits.x(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
@@ -309,3 +309,94 @@ def test_orbits_stringsolarmotion():
     assert numpy.all(numpy.fabs(orbits._solarmotion-numpy.array([-10.1,4.0,6.7])) < 1e-10), 'String solarmotion not parsed correcty'
     return None
                      
+def test_orbits_dim_2dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit (using ~Plevne's example)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit, Orbits
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    ell_p= potential.EllipticalDiskPotential()
+    pota=[b_p,ell_p]
+    o= Orbits([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                     radec=True,ro=8.0,vo=220.0),
+               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                     radec=True,ro=8.0,vo=220.0)])
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="odeint")
+    return None
+
+def test_orbit_dim_1dPot_3dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit, Orbits
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= potential.RZToverticalPotential(b_p,1.1)
+    o= Orbits([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                     radec=True,ro=8.0,vo=220.0),
+               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                     radec=True,ro=8.0,vo=220.0)])
+    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+                       1000,endpoint=True)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="odeint")
+    return None
+
+def test_orbit_dim_1dPot_2dOrb():
+    # Test that orbit integration throws an error when using a potential that
+    # is lower dimensional than the orbit, for a 1D potential
+    from galpy.orbit import Orbit, Orbits
+    b_p= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    pota= [b_p.toVertical(1.1)]
+    o= Orbits([Orbit(vxvv=[1.1,0.1,1.1,0.1]),Orbit(vxvv=[1.1,0.1,1.1,0.1])])
+    ts= numpy.linspace(0.,10.,1001)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="dop853")
+    return None
+
+# Test the error for when explicit stepsize does not divide the output stepsize
+def test_check_integrate_dt():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbits([Orbit([1.,0.1,1.2,0.3,0.2,2.]),
+               Orbit([1.,0.1,1.2,0.3,0.2,2.])])
+    times= numpy.linspace(0.,7.,251)
+    # This shouldn't work
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.*1.1)
+    except ValueError: pass
+    else: raise AssertionError('dt that is not an integer divisor of the output step size does not raise a ValueError')
+    # This should
+    try:
+        o.integrate(times,lp,dt=(times[1]-times[0])/4.)
+    except ValueError:
+        raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
+    return None
+
+# Check plotting routines
+def test_plotting():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import LogarithmicHaloPotential
+    o= Orbits([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
+    times= numpy.linspace(0.,7.,251)
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
+    # Integrate
+    o.integrate(times,lp)
+    # Some plots
+    o.plotE()
+    # Plot the orbit itself
+    o.plot() #defaults
+    o.plot(d1='vR')
+    o.plotR()
+    o.plotvR(d1='vT')
+    o.plotvT(d1='z')
+    o.plotz(d1='vz')
+    return None

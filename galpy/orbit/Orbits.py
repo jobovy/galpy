@@ -2,11 +2,14 @@ import os
 import copy
 import warnings
 import numpy
-from .Orbit import Orbit
+from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
+    _check_consistent_units
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
+from ..util import bovy_conversion
 from ..potential import toPlanarPotential
+from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
@@ -304,9 +307,33 @@ class Orbits(object):
 
             2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
 
+            2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
+
         """
-        # Need to add checks done in Orbit.integrate
+        if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
+                'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
+                'dopr54_c', 'dop853_c']:
+            raise ValueError('{:s} is not a valid `method`'.format(method))
+        pot= flatten_potential(pot)
+        _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            #self._orb._integrate_t_asQuantity= True
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
+            dt= dt.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        from galpy.potential import MWPotential
+        if pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
+        if not _check_integrate_dt(t,dt):
+            raise ValueError('dt input (integrator stepsize) for Orbits.integrate must be an integer divisor of the output stepsize')
+        # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
         if self._orbits[0].dim() == 2:
             thispot= toPlanarPotential(pot)
         else:
@@ -375,6 +402,7 @@ class Orbits(object):
         for ii in range(len(self)):
             self._orbits[ii]._orb.orbit= self.orbit[ii]
             self._orbits[ii]._orb.t= t
+            self._orbits[ii]._orb._pot= pot
         return None
 
     def plot(self,*args,**kwargs):

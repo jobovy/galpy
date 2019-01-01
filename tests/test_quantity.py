@@ -851,6 +851,134 @@ def test_orbits_setup_solarmotionAsQuantity():
     assert numpy.all(numpy.fabs(orbits._solarmotion-solarmotion.to(units.km/units.s).value) < 10.**-10.), 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
+def test_integrate_timeAsQuantity():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential)
+    oc.integrate(ts_nounits,MWPotential)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
+def test_orbits_integrate_timeAsQuantity_Myr():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo),
+               Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo)])
+    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo),
+                Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo)])
+    ts_nounits= numpy.linspace(0.,1000.,1001)
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Myr)
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)*1000.
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential)
+    oc.integrate(ts_nounits,MWPotential)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
+def test_orbits_integrate_dtimeAsQuantity():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential
+    from galpy.util import bovy_conversion
+    import copy
+    ro, vo= 8., 200.
+    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo),
+               Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo)])
+    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo),
+                Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo)])
+    ts_nounits= numpy.linspace(0.,1.,1001)
+    dt_nounits= (ts_nounits[1]-ts_nounits[0])/10.
+    ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
+    dt= dt_nounits*units.Gyr
+    ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    dt_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate(ts,MWPotential,dt=dt)
+    oc.integrate(ts_nounits,MWPotential,dt=dt_nounits)
+    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
+def test_orbits_inconsistentPotentialUnits_error():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import IsochronePotential
+    ro, vo= 9., 220.
+    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      45.*units.deg],ro=ro,vo=vo),
+               Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      45.*units.deg],ro=ro,vo=vo)])
+    ts= numpy.linspace(0.,10.,1001)*units.Gyr
+    # single, ro wrong
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pot)
+    # list, ro wrong
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,[pot])
+    # single, vo wrong
+    pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pot)
+    # list, vo wrong
+    pot= IsochronePotential(normalize=1.,ro=9.,vo=250.)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,[pot])
+    return None
+
 def test_change_ro_config():
     from galpy.orbit import Orbit
     from galpy.util import config
