@@ -851,28 +851,43 @@ def test_orbits_setup_solarmotionAsQuantity():
     assert numpy.all(numpy.fabs(orbits._solarmotion-solarmotion.to(units.km/units.s).value) < 10.**-10.), 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
-def test_integrate_timeAsQuantity():
-    from galpy.orbit import Orbit
+def test_integrate_orbits_timeAsQuantity():
+    from galpy.orbit import Orbit, Orbits
     from galpy.potential import MWPotential
     from galpy.util import bovy_conversion
     import copy
     ro, vo= 8., 200.
-    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
-              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-             ro=ro,vo=vo)
-    oc= o()
+    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo),
+               Orbit([10.*units.kpc,-20.*units.km/units.s,
+                      210.*units.km/units.s,
+                      500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                     ro=ro,vo=vo)])
+    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo),
+                Orbit([10.*units.kpc,-20.*units.km/units.s,
+                       210.*units.km/units.s,
+                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                      ro=ro,vo=vo)])
     ts_nounits= numpy.linspace(0.,1.,1001)
     ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
     ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
     # Integrate both with Quantity time and with unitless time
     o.integrate(ts,MWPotential)
     oc.integrate(ts_nounits,MWPotential)
-    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    # Turn physical units off for ease
+    o.turn_physical_off()
+    oc.turn_physical_off()
+    assert numpy.all(numpy.fabs(numpy.array(o.x(ts))-numpy.array(oc.x(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.y(ts))-numpy.array(oc.y(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.z(ts))-numpy.array(oc.z(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vx(ts))-numpy.array(oc.vx(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vy(ts))-numpy.array(oc.vy(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vz(ts))-numpy.array(oc.vz(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     return None
 
 def test_orbits_integrate_timeAsQuantity_Myr():
@@ -903,12 +918,15 @@ def test_orbits_integrate_timeAsQuantity_Myr():
     # Integrate both with Quantity time and with unitless time
     o.integrate(ts,MWPotential)
     oc.integrate(ts_nounits,MWPotential)
-    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    # Turn physical units off for ease
+    o.turn_physical_off()
+    oc.turn_physical_off()
+    assert numpy.all(numpy.fabs(numpy.array(o.x(ts))-numpy.array(oc.x(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.y(ts))-numpy.array(oc.y(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.z(ts))-numpy.array(oc.z(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vx(ts))-numpy.array(oc.vx(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vy(ts))-numpy.array(oc.vy(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vz(ts))-numpy.array(oc.vz(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     return None
 
 def test_orbits_integrate_dtimeAsQuantity():
@@ -942,12 +960,15 @@ def test_orbits_integrate_dtimeAsQuantity():
     # Integrate both with Quantity time and with unitless time
     o.integrate(ts,MWPotential,dt=dt)
     oc.integrate(ts_nounits,MWPotential,dt=dt_nounits)
-    assert numpy.all(numpy.fabs(o.x(ts)-oc.x(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.y(ts)-oc.y(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.z(ts)-oc.z(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vx(ts)-oc.vx(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vy(ts)-oc.vy(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
-    assert numpy.all(numpy.fabs(o.vz(ts)-oc.vz(ts_nounits)).value < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    # Turn physical units off for ease
+    o.turn_physical_off()
+    oc.turn_physical_off()
+    assert numpy.all(numpy.fabs(numpy.array(o.x(ts))-numpy.array(oc.x(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.y(ts))-numpy.array(oc.y(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.z(ts))-numpy.array(oc.z(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vx(ts))-numpy.array(oc.vx(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vy(ts))-numpy.array(oc.vy(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(numpy.array(o.vz(ts))-numpy.array(oc.vz(ts_nounits))) < 10.**-8.), 'Orbit integrated with times specified as Quantity does not agree with Orbit integrated with time specified as array'
     return None
 
 def test_orbits_inconsistentPotentialUnits_error():
