@@ -3,6 +3,76 @@ import numpy
 import pytest
 from galpy import potential
 
+# Test Orbits initialization
+def test_initialization_vxvv():
+    from galpy.orbit import Orbit, Orbits
+    # 1D
+    vxvvs= [[1.,0.1],[0.1,3.]]
+    orbits= Orbits(vxvvs)
+    assert orbits.dim() == 1, 'Orbit initialization with vxvv in 1D does not work as expected'
+    assert orbits.phasedim() == 2, 'Orbit initialization with vxvv in 1D does not work as expected'
+    assert numpy.fabs(orbits.x()[0]-1.) < 1e-10, 'Orbit initialization with vxvv in 1D does not work as expected'
+    assert numpy.fabs(orbits.x()[1]-0.1) < 1e-10, 'Orbit initialization with vxvv in 1D does not work as expected'
+    assert numpy.fabs(orbits.vx()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv in 1D does not work as expected'
+    assert numpy.fabs(orbits.vx()[1]-3.) < 1e-10, 'Orbit initialization with vxvv in 1D does not work as expected'
+    # 2D, 3 phase-D
+    vxvvs= [[1.,0.1,1.],[0.1,3.,1.1]]
+    orbits= Orbits(vxvvs)
+    assert orbits.dim() == 2, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert orbits.phasedim() == 3, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[1]-0.1) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[1]-3.) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[0]-1.) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[1]-1.1) < 1e-10, 'Orbit initialization with vxvv in 2D, 3 phase-D does not work as expected'
+    # 2D, 4 phase-D
+    vxvvs= [[1.,0.1,1.,1.5],[0.1,3.,1.1,2.]]
+    orbits= Orbits(vxvvs)
+    assert orbits.dim() == 2, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert orbits.phasedim() == 4, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[1]-0.1) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[1]-3.) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[0]-1.) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[1]-1.1) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.phi()[0]-1.5) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    assert numpy.fabs(orbits.phi()[1]-2.) < 1e-10, 'Orbit initialization with vxvv 2D, 4 phase-D does not work as expected'
+    # 3D, 5 phase-D
+    vxvvs= [[1.,0.1,1.,0.1,-0.2],[0.1,3.,1.1,-0.3,0.4]]
+    orbits= Orbits(vxvvs)
+    assert orbits.dim() == 3, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert orbits.phasedim() == 5, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[1]-0.1) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[1]-3.) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[0]-1.) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[1]-1.1) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.z()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.z()[1]+0.3) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vz()[0]+0.2) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vz()[1]-0.4) < 1e-10, 'Orbit initialization with vxvv 3D, 5 phase-D does not work as expected'
+    # 3D, 5 phase-D
+    vxvvs= [[1.,0.1,1.,0.1,-0.2,1.5],[0.1,3.,1.1,-0.3,0.4,2.]]
+    orbits= Orbits(vxvvs)
+    assert orbits.dim() == 3, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert orbits.phasedim() == 6, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.R()[1]-0.1) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vR()[1]-3.) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[0]-1.) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vT()[1]-1.1) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.z()[0]-0.1) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.z()[1]+0.3) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vz()[0]+0.2) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.vz()[1]-0.4) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.phi()[0]-1.5) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits.phi()[1]-2.) < 1e-10, 'Orbit initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    return None
+
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
 # instances
 def test_integration_1d():
