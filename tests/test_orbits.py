@@ -288,6 +288,20 @@ def test_slice_multipleobjects():
                   Orbit([0.6,-0.4,0.4,.25,-0.5,6.]),
                   Orbit([1.1,-0.13,0.17,.35,-0.5,2.])]
     orbits= Orbits(orbits_list)
+    # Pre-integration
+    orbits_slice= orbits[1:4]
+    for ii in range(3):
+        assert numpy.amax(numpy.fabs(orbits_slice.x()[ii]-orbits.x()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.vx()[ii]-orbits.vx()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.y()[ii]-orbits.y()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.vy()[ii]-orbits.vy()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.z()[ii]-orbits.z()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.vz()[ii]-orbits.vz()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.R()[ii]-orbits.R()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.vR()[ii]-orbits.vR()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.vT()[ii]-orbits.vT()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_slice.phi()[ii]-orbits.phi()[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    # After integration
     orbits.integrate(times,potential.MWPotential2014)
     orbits_slice= orbits[1:4]
     for ii in range(3):
