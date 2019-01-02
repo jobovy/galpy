@@ -531,3 +531,13 @@ def test_plotting():
     o.plotvT(d1='z')
     o.plotz(d1='vz')
     return None
+
+def test_integrate_method_warning():
+    """ Test Orbits.integrate raises an error if method is unvalid """
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit, Orbits
+    o = Orbits([Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0]),
+                Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])])
+    t = numpy.arange(0.0, 10.0, 0.001)
+    with pytest.raises(ValueError):
+        o.integrate(t, MWPotential2014, method='rk4')
