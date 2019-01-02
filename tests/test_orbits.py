@@ -585,4 +585,37 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
+@pytest.mark.xfail
+def test_ChandrasekharDynamicalFrictionForce_constLambda():
+    # Test from test_potential for Orbits now! Currently fails because Chandra
+    # can't be pickled for parallel_map...
+    #
+    # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
+    # agrees with analytical solutions for circular orbits:
+    # assuming that a mass remains on a circular orbit in an isothermal halo 
+    # with velocity dispersion sigma and for constant Lambda:
+    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
+    # (e.g., B&T08, p. 648)
+    from galpy.util import bovy_conversion
+    from galpy.orbit import Orbit, Orbits
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    const_lnLambda= 7.
+    r_inits= [2.,2.5]
+    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    # Compute
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,const_lnLambda=const_lnLambda,
+        dens=lp) # don't provide sigmar, so it gets computed using galpy.df.jeans
+    o= Orbits([Orbit([r_inits[0],0.,1.,0.,0.,0.]),
+               Orbit([r_inits[1],0.,1.,0.,0.,0.])])
+    ts= numpy.linspace(0.,dt,1001)
+    o.integrate(ts,[lp,cdfc],method='odeint')
+    r_pred= numpy.sqrt(numpy.array(o.r())**2.
+                       -0.604*const_lnLambda*GMs*numpy.sqrt(2.)*dt)
+    assert numpy.all(numpy.fabs(r_pred-numpy.array(o.r(ts[-1]))) < 0.015), 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
+    return None
+
     
