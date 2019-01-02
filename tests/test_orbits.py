@@ -541,3 +541,48 @@ def test_integrate_method_warning():
     t = numpy.arange(0.0, 10.0, 0.001)
     with pytest.raises(ValueError):
         o.integrate(t, MWPotential2014, method='rk4')
+
+# Test that fallback onto Python integrators works for Orbits
+def test_integrate_Cfallback_symplec():
+    from test_potential import BurkertPotentialNoC
+    from galpy.orbit import Orbit, Orbits
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
+                  Orbit([1.2,-0.3,0.7])]
+    orbits= Orbits(orbits_list)
+    # Integrate as Orbits
+    pot= BurkertPotentialNoC()
+    pot.normalize(1.)
+    orbits.integrate(times,pot,method='symplec4_c')
+    # Integrate as multiple Orbits
+    for o in orbits_list:
+        o.integrate(times,pot,method='symplec4_c')
+    # Compare
+    for ii in range(len(orbits)):
+        assert numpy.amax(numpy.fabs(orbits_list[ii].R(times)-orbits.R(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    return None
+    
+def test_integrate_Cfallback_nonsymplec():
+    from test_potential import BurkertPotentialNoC
+    from galpy.orbit import Orbit, Orbits
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
+                  Orbit([1.2,-0.3,0.7])]
+    orbits= Orbits(orbits_list)
+    # Integrate as Orbits
+    pot= BurkertPotentialNoC()
+    pot.normalize(1.)
+    orbits.integrate(times,pot,method='dop853_c')
+    # Integrate as multiple Orbits
+    for o in orbits_list:
+        o.integrate(times,pot,method='dop853_c')
+    # Compare
+    for ii in range(len(orbits)):
+        assert numpy.amax(numpy.fabs(orbits_list[ii].R(times)-orbits.R(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    return None
+    
+    
