@@ -360,7 +360,7 @@ class Orbit(object):
 
         PURPOSE:
 
-           return the dimension of the problem
+           return the dimension of the Orbit
 
         INPUT:
 

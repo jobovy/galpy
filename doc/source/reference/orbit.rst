@@ -24,6 +24,7 @@ Methods
    animate <orbitanimate.rst>
    bb <orbitbb.rst>
    dec <orbitdec.rst>
+   dim <orbitdim.rst>
    dist <orbitdist.rst>
    E <orbitE.rst>
    e <orbitecc.rst>
