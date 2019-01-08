@@ -75,8 +75,9 @@ install:
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git checkout galpy; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd -; fi
- - if $REQUIRES_ASTROPY; then conda install astropy --no-deps; fi
- - if $REQUIRES_ASTROQUERY; then conda install -c astropy astroquery --no-deps; fi
+ - if [[ $REQUIRES_ASTROPY && $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install astropy --no-deps; fi
+ - if [[ $REQUIRES_ASTROPY && $TRAVIS_PYTHON_VERSION =~ 2.7 ]]; then conda install astropy --no-deps; fi
+ - if $REQUIRES_ASTROQUERY; then conda install -c astropy astroquery; fi
  - python setup.py build_ext --coverage --single_ext --inplace
  - python setup.py develop --single_ext
 # Following tests that we can start from an incomplete configuration file
