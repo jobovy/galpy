@@ -1,7 +1,7 @@
 sudo: false
 language: python
 python:
-  - "3.6"
+  - "3.7"
   - "2.7"
 env: #split tests
   global:
@@ -19,7 +19,7 @@ env: #split tests
     - TEST_FILES='tests/test_streamdf.py'
 matrix: # only run crucial tests for python 3.5
   include:
-    - python: "3.5"
+    - python: "3.6"
       env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
   apt:
@@ -54,7 +54,8 @@ before_install:
  - hash -r
  - conda config --set always_yes yes --set changeps1 no
  - conda update conda
- - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib setuptools pip cython>=0.20 pytest
+ - conda config --add channels conda-forge
+ - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib setuptools pip "cython>=0.20" pytest
  - source activate test-environment
  - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
  - sh -e /etc/init.d/xvfb start $For plotting tests
