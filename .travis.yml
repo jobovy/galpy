@@ -27,6 +27,8 @@ addons:
     packages:
      - libgsl0-dev
 #    - lcov # leave for when they approve its use
+services:
+  - xvfb
 before_install:
  # skip travis build if [skip travis] or [travis skip] in commit message
  - if git show -s HEAD | grep -F -q "[skip travis]" ; then echo "skip travis" && exit 0 ; fi
@@ -58,8 +60,6 @@ before_install:
  - conda config --add channels conda-forge
  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib setuptools pip "cython>=0.20" pytest
  - source activate test-environment
- - export DISPLAY=:99.0 #For plotting tests, courtesy Ryan Varley
- - sh -e /etc/init.d/xvfb start $For plotting tests
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
