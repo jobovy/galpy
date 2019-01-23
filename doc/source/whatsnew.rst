@@ -5,6 +5,61 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.4
++++++
+
+* Added dynamical friction as the `ChandrasekharDynamicalFrictionForce
+  <reference/potentialchandrasekhardynfric.html>`__ class, an
+  implementation of dynamical friction based on the classical
+  Chandrasekhar formula (with recent tweaks from the literature to
+  better represent the results from N-body simulations).
+
+* A general ``EllipsoidalPotential`` superclass for implementing
+  potentials with densities that are constant on ellipsoids (functions
+  of :math:`m^2 = x^2 + y^2/b^2 + z^2/c^2`). Also implemented in
+  C. Implementing new types of ellipsoidal potentials now only
+  requires three simple functions to be defined: the density as a
+  function of m, its derivative with respect to m, and its integral
+  with respect to m^2. Makes implementing any ellipsoidal potential a
+  breeze. See examples in the new-potentials section below.
+
+* New or improved potentials and :ref:`potential wrappers <potwrappers>`:
+
+  * `CorotatingRotationWrapperPotential <reference/potentialcorotwrapper.html>`__: wrapper to make a pattern (e.g., a `SpiralArmsPotential <reference/potentialspiralarms.html>`__) wind up over time such that it is always corotating (see `Hunt et al. (2018) <http://arxiv.org/abs/1806.02832>`_ for an example of this).
+
+  * `GaussianAmplitudeWrapperPotential <reference/potentialgaussampwrapper.html>`__: wrapper to modulate the amplitude of a (list of) ``Potential`` (s) with a Gaussian.
+
+  * `PerfectEllipsoidPotential <reference/potentialperfectellipsoid.html>`__: Potential of a perfect triaxial ellipsoid (`de Zeeuw 1985 <http://adsabs.harvard.edu/abs/1985MNRAS.216..273D>`__).
+
+  * `SphericalShellPotential <reference/potentialsphericalshell.html>`__: Potential of a thin, spherical shell.
+
+  * `RingPotential <reference/potentialring.html>`__: Potential of a circular ring.
+
+  * Re-implemented ``TwoPowerTriaxialPotential``, ``TriaxialHernquistPotential``, ``TriaxialJaffePotential``, and ``TriaxialNFWPotential`` using the general ``EllipsoidalPotential`` class.
+
+* New ``Potential`` methods and functions:
+
+  * Use nested lists of ``Potential`` instances wherever lists of ``Potential`` instances can be used. Allows easy adding of components (e.g., a bar) to previously defined potentials (which may be lists themselves): new_pot= [pot,bar_pot].
+  * `rtide <reference/potentialrtides.html>`__ and `ttensor <reference/potentialttensors.html>`__: compute the tidal radius of an object and the full tidal tensor.
+  * `surfdens <reference/potentialsurfdens.html>`__ method and `evaluateSurfaceDensities <reference/potentialsurfdensities.html>`__ function to evaluate the surface density up to a given z.
+  * `r2deriv <reference/potentialsphr2deriv.html>`__ and `evaluater2derivs <reference/potentialsphr2derivs.html>`__: 2nd derivative wrt spherical radius.
+  * `evaluatephi2derivs <reference/potentialphi2derivs.html>`__: second derivative wrt phi.
+  * `evaluateRphiderivs <reference/potentialrphiderivs.html>`__: mixed (R,phi) derivative.
+
+* New or improved ``galpy.orbit.Orbit`` functionality and methods:
+
+  * `Orbit.from_name <reference/orbitfromname.html>`__ to initialize an ``Orbit`` instance from an object's name. E.g., ``orb= Orbit.from_name('LMC')``.
+  * Orbit initialization without arguments is now the orbit of the Sun.
+  * Orbits can be initialized with a `SkyCoord <http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html>`__.
+  * Default ``solarmotion=`` parameter is now 'schoenrich' for the Solar motion of `Schoenrich et al. (2010) <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`__.
+  * `rguiding <reference/orbitrguiding.html>`__: Guiding-center radius.
+  * `Lz <reference/orbitlz.html>`__: vertical component of the angular momentum.
+  * If astropy version > 3, `Orbit.SkyCoord <reference/orbitskycoord.html>`__ method returns a SkyCoord object that includes the velocity information and the Galactocentric frame used by the Orbit instance.
+
+* ``galpy.df.jeans`` module with tools for Jeans modeling. Currently only contains the functions `sigmar <reference/dfjeanssigmar.html>`__ and `sigmalos <reference/dfjeanssigmalos.html>`__ to calculate the velocity dispersion in the radial or line-of-sight direction using the spherical Jeans equation in a given potential, density profile, and anisotropy profile (anisotropy can be radially varying).
+
+* Support for compilation on Windows with MSVC.
+
 v1.3
 +++++
 

@@ -7,12 +7,15 @@ environment:
   matrix:
     - TEST_FILES: "tests\\ --ignore=tests\\test_actionAngleTorus.py --ignore=tests\\test_snapshotpotential.py --ignore=tests\\test_qdf.py --ignore=tests\\test_pv2qdf.py --ignore=tests\\test_diskdf.py --ignore=tests\\test_orbit.py --ignore=tests\\test_streamdf.py --ignore=tests\\test_streamgapdf.py --ignore=tests\\test_evolveddiskdf.py --ignore=tests\\test_quantity.py --ignore=tests\\test_nemo.py --ignore=tests\\test_coords.py"
       ADDL_CONDA_PKGS: 
+      COMPILE_NOOPENMP: 
 
-    - TEST_FILES: tests\test_orbit.py
-      ADDL_CONDA_PKGS: astropy
+    - TEST_FILES: tests\test_orbit.py tests\test_orbits.py
+      ADDL_CONDA_PKGS: astropy astroquery
+      COMPILE_NOOPENMP: "--no-openmp"
 
     - TEST_FILES: tests\test_quantity.py tests\test_coords.py
       ADDL_CONDA_PKGS: astropy
+      COMPILE_NOOPENMP: "--no-openmp"
 
 platform:
     - x64
@@ -24,7 +27,8 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
+  - conda config --append channels astropy 
+  - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage
   - pip install pytest-cov
@@ -34,7 +38,7 @@ install:
   - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
   - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
-  - python setup.py build_ext --single_ext --inplace --no-openmp
+  - "python setup.py build_ext --single_ext --inplace %COMPILE_NOOPENMP%"
   - python setup.py develop --single_ext
 
 test_script:

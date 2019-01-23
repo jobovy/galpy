@@ -57,23 +57,30 @@ If you want to use a feature that is currently only available in a branch, do::
 
 to, for example, install the ``dev`` branch.
 
-.. _install_tm:
-
 Installing from source on Windows
 ---------------------------------
 
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
 
-	 set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-	 set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-	 set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
 where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
 
-To then compile the code, do::
+To compile with OpenMP on Windows, you have to install Intel OpenMP via::
 
-   python setup.py install --no-openmp
+    conda install -c anaconda intel-openmp
 
+and then to compile the code::
+
+   python setup.py install
+
+If you encounter any issue related to OpenMP during compilation, you can do::
+
+    python setup.py install --no-openmp
+
+.. _install_tm:
 
 Installing the TorusMapper code
 --------------------------------
@@ -92,8 +99,8 @@ To install the TorusMapper code, *before* running the installation of
 galpy, navigate to the top-level galpy directory (which contains the
 ``setup.py`` file) and do::
 
-	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
-	     cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+	     cd galpy/actionAngle/actionAngleTorus_c_ext/torus
 	     git checkout galpy
 	     cd -
 
@@ -192,6 +199,18 @@ depending on your shell type (change the actual path to the include
 and lib directories that have the gsl directory). If you already have
 ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
 to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
+
+If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
+
+   gsl-config --cflags
+   gsl-config --libs
+
+(don't include the ``-lgsl lgslcblas`` portion of the latter output.)
+
+I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This typically happens if you install using ``sudo``, but have defined the ``CFLAGS`` etc. environment variables without using sudo. Try using ``sudo -E`` instead, which propagates your own environment variables to the ``sudo`` user.
 
 I'm having issues with OpenMP
 +++++++++++++++++++++++++++++++

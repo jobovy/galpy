@@ -1,10 +1,12 @@
 from __future__ import print_function, division
 import os
+import sys
 import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
 _TRAVIS= bool(os.getenv('TRAVIS'))
+PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
@@ -106,7 +108,7 @@ def test_actionAngleIsochrone_conserved_actions():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAI,obs,ip,-5.,-5.,-5.)
     else:
@@ -121,7 +123,7 @@ def test_actionAngleIsochrone_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -284,7 +286,7 @@ def test_actionAngleSpherical_conserved_actions():
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101)
     else:
@@ -299,7 +301,7 @@ def test_actionAngleSpherical_conserved_actions_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101,
                                             fixed_quad=True)
@@ -316,7 +318,7 @@ def test_actionAngleSpherical_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -339,7 +341,7 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -921,7 +923,7 @@ def test_actionAngleStaeckel_basic_actions_u0_interppot_c():
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
-    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[0][0]) < 10.**-12., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
@@ -1230,7 +1232,6 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    print("Should be here")
     te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
@@ -1481,10 +1482,11 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1499,7 +1501,8 @@ def test_actionAngleStaeckel_conserved_actions_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -1532,10 +1535,11 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy import potential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
-        mockSmoothedLogarithmicHaloPotential
+        mockSmoothedLogarithmicHaloPotential, \
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
@@ -1552,8 +1556,9 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     scfzp = mockSCFZeeuwPotential(); scfzp.normalize(1.); 
     msoftneedlep= mockSphericalSoftenedNeedleBarPotential()
     msmlp= mockSmoothedLogarithmicHaloPotential()
+    mgasmlp= mockGaussianAmplitudeSmoothedLogarithmicHaloPotential()
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp]
+           msoftneedlep,msmlp,mgasmlp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
@@ -1571,7 +1576,7 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     if not ext_loaded: #odeint is not as accurate as dopr54_c
@@ -1664,10 +1669,11 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1682,7 +1688,8 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -1940,7 +1947,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2018,7 +2025,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2080,7 +2087,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.FullOrbit import ext_loaded
     from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
@@ -2606,6 +2613,7 @@ def test_MWPotential_warning_adiabatic():
         actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -2633,6 +2641,7 @@ def test_MWPotential_warning_staeckel():
         actionAngleStaeckelGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleStaeckel(pot=MWPotential,delta=0.5)
         # Should raise warning bc of MWPotential, might raise others
@@ -2659,6 +2668,7 @@ def test_MWPotential_warning_isochroneapprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleIsochroneApprox(pot=MWPotential,b=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -2667,6 +2677,18 @@ def test_MWPotential_warning_isochroneapprox():
             raisedWarning= (str(wa.message) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
             if raisedWarning: break
         assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
+    return None
+
+# Test of the fix to issue 361
+def test_actionAngleAdiabatic_issue361():
+    from galpy.potential import MWPotential2014
+    from galpy import actionAngle
+    aA_adi = actionAngle.actionAngleAdiabatic(pot=MWPotential2014, c=True) 
+    R = 8.7007/8.
+    vT = 188.5/220.
+    jr_good,_,_= aA_adi(R, -0.1/220., vT, 0, 0)
+    jr_bad,_,_= aA_adi(R, -0.09/220., vT, 0, 0)
+    assert numpy.fabs(jr_good-jr_bad) < 1e-6, 'Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {}, Jr_bad = {}'.format(jr_good,jr_bad)
     return None
 
 #Test that the actions are conserved along an orbit
@@ -2782,4 +2804,18 @@ def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
     assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
     assert numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)) < 10.**tolrap, 'Rap conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)))
     return None
+
+# Python 2 bug: setting simplefilter to 'always' still does not display 
+# warnings that were already displayed using 'once' or 'default', so some
+# warnings tests fail; need to reset the registry
+# Has become an issue at pytest 3.8.0, which seems to have changed the scope of
+# filterwarnings (global one at the start is ignored)
+def reset_warning_registry(pattern=".*"):
+    "clear warning registry for all match modules"
+    import re
+    import sys
+    key = "__warningregistry__"
+    for mod in sys.modules.values():
+        if hasattr(mod, key) and re.match(pattern, mod.__name__):
+            getattr(mod, key).clear()
 

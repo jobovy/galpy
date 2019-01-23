@@ -695,6 +695,10 @@ def potential_physical_input(method):
                 and isinstance(kwargs['t'],units.Quantity):
             kwargs['t']= kwargs['t'].to(units.Gyr).value\
                 /time_in_Gyr(vo,ro)
+        # v kwarg for dissipative forces
+        if 'v' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['v'],units.Quantity):
+            kwargs['v']= kwargs['v'].to(units.km/units.s).value/vo
         # Mass kwarg for rtide
         if 'M' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['M'],units.Quantity):
