@@ -1178,7 +1178,7 @@ class Orbit(object):
            2018-08-29 - Written as thin wrapper around Potential.rl - Bovy (UofT)
 
         """
-        pot= kwargs.get('pot',None)
+        pot= kwargs.get('pot',self._orb.__dict__.get('_pot',None))
         if pot is None:
             raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
         flatten_potential(pot)
