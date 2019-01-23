@@ -2487,7 +2487,7 @@ def get_epoch_angles(epoch=2000.0):
 
 # Get ICRS angles once when astropy is installed
 if _APY_LOADED:
-    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,'icrs')
+    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,frame='icrs')
     c= c.transform_to(apycoords.Galactic)
     theta_icrs= c.l.to(units.rad).value
     c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
