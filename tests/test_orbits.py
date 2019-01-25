@@ -316,7 +316,40 @@ def test_slice_multipleobjects():
         assert numpy.amax(numpy.fabs(orbits_slice.vT(times)[ii]-orbits.vT(times)[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_slice.phi(times)[ii]-orbits.phi(times)[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
+@pytest.mark.xfail(strict=True,raises=ValueError)
+def test_slice_integratedorbit_wrapperpot_367():
+    # Test related to issue 367: slicing orbits with a potential that includes 
+    # a wrapper potential (from Ted Mackereth)
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import DehnenSmoothWrapperPotential, \
+        DehnenBarPotential, LogarithmicHaloPotential
+    #initialise a wrapper potential
+    tform= -10.
+    tsteady= 5. 
+    omega= 1.85 
+    angle=25./180.*numpy.pi 
+    dp= DehnenBarPotential(omegab=omega,rb=3.5/8.,Af=(1./75.),
+                           tform=tform,tsteady=tsteady,barphi=angle)
+    lhp=LogarithmicHaloPotential(normalize=1.)
+    dswp= DehnenSmoothWrapperPotential(pot=dp,tform=-4.*2.*numpy.pi/dp.OmegaP(),
+                                       tsteady=2.*2.*numpy.pi/dp.OmegaP())
+    pot= [lhp,dswp]
+    #initialise 2 random orbits
+    r = numpy.random.randn(2)*0.01+1.
+    z = numpy.random.randn(2)*0.01+0.2
+    phi = numpy.random.randn(2)*0.01+0.
+    vR = numpy.random.randn(2)*0.01+0.
+    vT = numpy.random.randn(2)*0.01+1.
+    vz = numpy.random.randn(2)*0.01+0.02
+    vxvv = numpy.dstack([r,vR,vT,z,vz,phi])[0]
+    os = Orbits(vxvv)
+    times = numpy.linspace(0.,100.,3000)
+    os.integrate(times,pot)
+    # This failed in #367
+    assert not os[0] is None, 'Slicing an integrated Orbits instance with a WrapperPotential does not work'
+    return None
+ 
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
 def test_initialize_diffphasedim_error():
@@ -585,7 +618,7 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True,raises=ValueError)
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # Test from test_potential for Orbits now! Currently fails because Chandra
     # can't be pickled for parallel_map...
@@ -618,4 +651,3 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     assert numpy.all(numpy.fabs(r_pred-numpy.array(o.r(ts[-1]))) < 0.015), 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
     return None
 
-    
