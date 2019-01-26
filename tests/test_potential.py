@@ -2288,6 +2288,21 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_WrapperPotential_serialization():
+    import pickle
+    from galpy.potential.WrapperPotential import WrapperPotential
+    dp= potential.DehnenBarPotential()
+    dwp= potential.DehnenSmoothWrapperPotential(pot=dp)
+    pickled_dwp= pickle.dumps(dwp)
+    unpickled_dwp= pickle.loads(pickled_dwp)
+    assert isinstance(unpickled_dwp,WrapperPotential), 'Deserialized WrapperPotential is not an instance of WrapperPotential'
+    testRs= numpy.linspace(0.1,1,100)
+    testzs= numpy.linspace(-1,1,100)
+    testphis= numpy.linspace(0,2*numpy.pi,100)
+    testts= numpy.linspace(0,1,100)
+    for R,z,phi,t in zip(testRs,testzs,testphis,testts):
+        assert dwp(R,z,phi,t) == unpickled_dwp(R,z,phi,t), 'Deserialized WrapperPotential does not agree with original WrapperPotential'
+
 def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     # Test that dissipative forces are ignored when they are included in lists
     # given to evaluatePotentials, evaluateDensities, and evaluate2ndDerivs
