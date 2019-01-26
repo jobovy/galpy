@@ -2,6 +2,7 @@ import math as m
 import warnings
 import numpy as nu
 from scipy import integrate
+from galpy.util.leung_dop853 import dop853
 import galpy.util.bovy_symplecticode as symplecticode
 from galpy.util.bovy_conversion import physical_conversion
 from .OrbitTop import OrbitTop
@@ -516,19 +517,22 @@ def _integrateROrbit(vxvv,pot,t,method,dt):
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' or method.lower() == 'dop853_c'):
         #We hack this by putting in a dummy phi
         this_vxvv= nu.zeros(len(vxvv)+1)
         this_vxvv[0:len(vxvv)]= vxvv
         tmp_out, msg= _integrateOrbit(this_vxvv,pot,t,method,dt)
         #tmp_out is (nt,4)
         out= tmp_out[:,0:3]
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         l= vxvv[0]*vxvv[2]
         l2= l**2.
         init= [vxvv[0],vxvv[1]]
-        intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method.lower() == 'dop853':
+            intOut = dop853(_REOM, init, t, args=(pot, l2))
+        else:
+            intOut= integrate.odeint(_REOM,init,t,args=(pot,l2),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),3))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]
@@ -613,7 +617,8 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' \
+             or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #go to the rectangular frame
         this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
@@ -634,11 +639,14 @@ def _integrateOrbit(vxvv,pot,t,method,dt):
         out[:,1]= vR
         out[:,2]= vT
         out[:,3]= phi
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[3],vphi]
-        intOut= integrate.odeint(_EOM,init,t,args=(pot,),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method == 'dop853':
+            intOut = dop853(_EOM, init, t, args=(pot,))
+        else:
+            intOut= integrate.odeint(_EOM,init,t,args=(pot,),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),4))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]
@@ -708,17 +716,20 @@ def _integrateOrbit_dxdv(vxvv,dxdv,pot,t,method,rectIn,rectOut):
         raise TypeError('Symplectic integration for phase-space volume is not possible')
     elif ext_loaded and \
             (method.lower() == 'rk4_c' or method.lower() == 'rk6_c' \
-            or method.lower() == 'dopr54_c'):
+            or method.lower() == 'dopr54_c' or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",galpyWarningVerbose)
         #integrate
         tmp_out, msg= integratePlanarOrbit_dxdv_c(pot,this_vxvv,this_dxdv,
                                                   t,method)
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or not ext_loaded or method.lower() == 'dop853':
         init= [this_vxvv[0],this_vxvv[1],this_vxvv[2],this_vxvv[3],
                this_dxdv[0],this_dxdv[1],this_dxdv[2],this_dxdv[3]]
         #integrate
-        tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
-                                  rtol=10.**-8.)#,mxstep=100000000)
+        if method.lower() == "dop853":
+            tmp_out = dop853(_EOM_dxdv, init, t, args=(pot,))
+        else:
+            tmp_out= integrate.odeint(_EOM_dxdv,init,t,args=(pot,),
+                                      rtol=10.**-8.)#,mxstep=100000000)
         msg= 0
     else:
         raise NotImplementedError("requested integration method does not exist")

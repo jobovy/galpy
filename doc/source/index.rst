@@ -372,6 +372,19 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *An Ultra Metal-poor Star Near the Hydrogen-burning Limit*, Kevin C. Schlaufman, Ian B. Thompson, & Andrew R. Casey (2018) *Astrophys. J.*, in press (`arXiv/1811.00549 <http://arxiv.org/abs/1811.00549>`_)
 
+#. *Ages of radio pulsar: long-term magnetic field evolution*, Andrei P. Igoshev (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1810.12922 <http://arxiv.org/abs/1810.12922>`_)
+
+#. *Tracing the formation of the Milky Way through ultra metal-poor stars*, Federico Sestito, Nicolas Longeard, Nicolas F. Martin, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1811.03099 <http://arxiv.org/abs/1811.03099>`_)
+
+#. *GD-1: the relic of an old metal-poor globular cluster*, Guang-Wei Li, Brian Yanny, & Yue Wu (2018) *Astrophys. J.*, submitted (`arXiv/1811.06427 <http://arxiv.org/abs/1811.06427>`_)
+
+#. *Subhalo destruction in the Apostle and Auriga simulations*, Jack Richings, Carlos Frenk, Adrian Jenkins, Andrew Robertson (2018) *Mon. Not. Roy. Astron. Soc.*, to be submitted (`arXiv/1811.12437 <http://arxiv.org/abs/1811.12437>`_)
+
+#. *Searching for the GD-1 Stream Progenitor in Gaia DR2 with Direct N-body Simulations*, Jeremy J. Webb & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1811.07022 <http://arxiv.org/abs/1811.07022>`_)
+
+#. *The Origins of Young Stars in the Direction of the Leading Arm of the Magellanic Stream: Abundances, Kinematics, and Orbits*, Lan Zhang, Dana I. Casetti-Dinescu, Christian Moni Bidin, Rene A. Mendez, Terrence M. Girard, Katherine Vieira, Vladimir I. Korchagin, William F. van Altena, & Gang Zhao (2018) *Astrophys. J.*, in press (`arXiv/1812.00198 <http://arxiv.org/abs/1812.00198>`_)
+
+#. *The UTMOST pulsar timing programme I: overview and first results*, F. Jankowski, M. Bailes, W. van Straten, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1812.04038 <http://arxiv.org/abs/1812.04038>`_)
 
 Indices and tables
 ==================

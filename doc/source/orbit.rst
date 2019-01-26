@@ -562,8 +562,10 @@ The whole orbit can also be obtained using the function ``getOrbit``
 which returns a matrix of phase-space points with dimensions [ntimes,ndim].
 
 
-Fast orbit integration
-------------------------
+.. _fastorbit:
+
+**UPDATED IN v1.5** Fast orbit integration and available integrators
+---------------------------------------------------------------------
 
 The standard orbit integration is done purely in python using standard
 scipy integrators. When fast orbit integration is needed for batch
@@ -582,6 +584,7 @@ the ``orbit.integrate`` method. Currently available integrators are
 * rk4_c
 * rk6_c
 * dopr54_c
+* dop853_c
 
 which are Runge-Kutta and Dormand-Prince methods. There are also a
 number of symplectic integrators available
@@ -591,10 +594,15 @@ number of symplectic integrators available
 * symplec6_c
 
 The higher order symplectic integrators are described in `Yoshida
-(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
+(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_. In pure
+Python, the available integrators are
 
-For most applications I recommend ``symplec4_c``, which is speedy and
-reliable. For example, compare
+* leapfrog
+* odeint
+* dop853
+
+For most applications I recommend ``symplec4_c`` or ``dop853_c``,
+which are speedy and reliable. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
 >>> timeit(o.integrate(ts,mp,method='leapfrog'))
@@ -605,9 +613,20 @@ reliable. For example, compare
 >>> timeit(o.integrate(ts,mp,method='symplec4_c'))
 # galpyWarning: Using C implementation to integrate orbits
 # 9.67 ms ± 48.3 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853_c'))
+# 4.65 ms ± 86.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
-As this example shows, galpy will issue a warning that C is being
-used.
+If the C extensions are unavailable for some reason, I recommend using
+the ``odeint`` pure-Python integrator, as it is the fastest. Using the
+same example as above
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 2.62 s ± 128 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='odeint'))
+# 153 ms ± 2.59 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853'))
+# 1.61 s ± 218 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
 Integration of the phase-space volume
 --------------------------------------
