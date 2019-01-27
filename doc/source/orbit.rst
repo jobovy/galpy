@@ -3,20 +3,20 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-**UPDATED in v1.2**: Orbit initialization
--------------------------------------------
+**UPDATED in v1.4**: Orbit initialization
+-----------------------------------------
 
 Standard initialization
 ***********************
 
-Orbits can be initialized in various coordinate frames. The simplest
-initialization gives the initial conditions directly in the
-Galactocentric cylindrical coordinate frame (or in the rectangular
-coordinate frame in one dimension). ``Orbit()`` automatically figures
-out the dimensionality of the space from the initial conditions in
-this case. In three dimensions initial conditions are given either as
-``vxvv=[R,vR,vT,z,vz,phi]`` or one can choose not to specify the
-azimuth of the orbit and initialize with
+`Orbits <reference/orbitinit.html>`__ can be initialized in various
+coordinate frames. The simplest initialization gives the initial
+conditions directly in the Galactocentric cylindrical coordinate frame
+(or in the rectangular coordinate frame in one dimension). ``Orbit()``
+automatically figures out the dimensionality of the space from the
+initial conditions in this case. In three dimensions initial
+conditions are given either as ``vxvv=[R,vR,vT,z,vz,phi]`` or one can
+choose not to specify the azimuth of the orbit and initialize with
 ``vxvv=[R,vR,vT,z,vz]``. Since potentials in galpy are easily
 initialized to have a circular velocity of one at a radius equal to
 one, initial coordinates are best given as a fraction of the radius at
@@ -86,20 +86,22 @@ Initialization from observed coordinates
 
 For orbit integration and characterization of observed stars or
 clusters, initial conditions can also be specified directly as
-observed quantities when ``radec=True`` is set. In this case a full
-three-dimensional orbit is initialized as ``o=
-Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)`` where RA
-and Dec are expressed in degrees, the distance is expressed in kpc,
-proper motions are expressed in mas/yr (pmra = pmra' * cos[Dec] ), and
-``Vlos`` is the heliocentric line-of-sight velocity given in
-km/s. The observed epoch is currently assumed to be J2000.00. These
-observed coordinates are translated to the Galactocentric cylindrical
-coordinate frame by assuming a Solar motion that can be specified as
-either ``solarmotion=hogg`` (default; `2005ApJ...629..268H
+observed quantities when ``radec=True`` is set (see further down in
+this section on how to use an ``astropy`` `SkyCoord
+<http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord>`__
+instead). In this case a full three-dimensional orbit is initialized
+as ``o= Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)``
+where RA and Dec are expressed in degrees, the distance is expressed
+in kpc, proper motions are expressed in mas/yr (pmra = pmra' *
+cos[Dec] ), and ``Vlos`` is the heliocentric line-of-sight velocity
+given in km/s. The observed epoch is currently assumed to be
+J2000.00. These observed coordinates are translated to the
+Galactocentric cylindrical coordinate frame by assuming a Solar motion
+that can be specified as either ``solarmotion=hogg`` (`2005ApJ...629..268H
 <http://adsabs.harvard.edu/abs/2005ApJ...629..268H>`_),
 ``solarmotion=dehnen`` (`1998MNRAS.298..387D
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
-``solarmotion=schoenrich`` (`2010MNRAS.403.1829S
+``solarmotion=schoenrich`` (default; `2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
 velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
@@ -142,20 +144,100 @@ Galactic coordinates if ``UVW=True`` is set. The input is then
 ``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
 in km/s. U is, as usual, defined as -vR (minus vR).
 
+Finally, orbits can also be initialized using an
+``astropy.coordinates.SkyCoord`` object. For example, the (ra,dec)
+example from above can also be initialized as:
 
-When orbits are initialized using ``radec=True`` or ``lb=True``,
-physical scales ``ro=`` and ``vo=`` are automatically specified
-(because they have defaults of ``ro=8`` and ``vo=220``). Therefore,
-all output quantities will be specified in physical units (see
-above). If you do want to get outputs in galpy's natural coordinates,
-you can turn this behavior off by doing
+>>> from astropy.coordinates import SkyCoord
+>>> import astropy.units as u
+>>> c= SkyCoord(ra=20.*u.deg,dec=30.*u.deg,distance=2.*u.kpc,
+	        pm_ra_cosdec=-10.*u.mas/u.yr,pm_dec=20.*u.mas/u.yr,
+                radial_velocity=50.*u.km/u.s)
+>>> o= Orbit(c)
+
+In this case, you can still specify the properties of the
+transformation to Galactocentric coordinates using the standard
+``ro``, ``vo``, ``zo``, and ``solarmotion`` keywords, or you can use
+the ``SkyCoord`` `Galactocentric frame specification
+<http://docs.astropy.org/en/stable/api/astropy.coordinates.Galactocentric.html#astropy.coordinates.Galactocentric>`__
+and these are propagated to the ``Orbit`` instance. For example,
+
+>>> from astropy.coordinates import CartesianDifferential
+>>> c= SkyCoord(ra=20.*u.deg,dec=30.*u.deg,distance=2.*u.kpc,
+	        pm_ra_cosdec=-10.*u.mas/u.yr,pm_dec=20.*u.mas/u.yr,
+                radial_velocity=50.*u.km/u.s,
+                galcen_distance=8.*u.kpc,z_sun=15.*u.pc,
+                galcen_v_sun=CartesianDifferential([10.0,235.,7.]*u.km/u.s))
+>>> o= Orbit(c)
+
+A subtlety here is that the ``galcen_distance`` and ``ro`` keywords
+are not interchangeable, because the former is the distance between
+the Sun and the Galactic center and ``ro`` is the projection of this
+distance onto the Galactic midplane. Another subtlety is that the
+``astropy`` Galactocentric frame is a right-handed frame, while galpy
+normally uses a left-handed frame, so the sign of the x component of
+``galcen_v_sun`` is the opposite of what it would be in
+``solarmotion``. Because the Galactocentric frame in ``astropy`` does
+not specify the circular velocity, but only the Sun's velocity, you
+still need to specify ``vo`` to use a non-default circular velocity.
+
+When orbits are initialized using ``radec=True``, ``lb=True``, or
+using a ``SkyCoord`` physical scales ``ro=`` and ``vo=`` are
+automatically specified (because they have defaults of ``ro=8`` and
+``vo=220``). Therefore, all output quantities will be specified in
+physical units (see above). If you do want to get outputs in galpy's
+natural coordinates, you can turn this behavior off by doing
 
 >>> o.turn_physical_off()
 
 All outputs will then be specified in galpy's natural coordinates.
 
-**UPDATED in v1.2**: Orbit integration
-----------------------------------------
+.. _orbfromname:
+
+Initialization from an object's name
+****************************************
+
+A convenience method, ``Orbit.from_name``, is also available to initialize
+orbits from the name of an object. For example, for the star `Lacaille 8760 <https://en.wikipedia.org/wiki/Lacaille_8760>`__:
+
+>>> o= Orbit.from_name('Lacaille 8760', ro=8., vo=220.)
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [319.31362023999276, -38.86736390000036, 0.003970940656277758, -3258.5529999996584, -1145.3959999996205, 20.560000000006063]
+
+but this also works for some globular clusters, e.g., to obtain `Omega Cen <https://en.wikipedia.org/wiki/Omega_Centauri>`__'s orbit and current location in the Milky Way do:
+
+>>> o= Orbit.from_name('Omega Cen')
+>>> from galpy.potential import MWPotential2014
+>>> ts= numpy.linspace(0.,100.,2001)
+>>> o.integrate(ts,MWPotential2014)
+>>> o.plot()
+>>> plot([o.R()],[o.z()],'ro')
+
+.. image:: images/mwp14-orbit-integration-omegacen.png
+	:scale: 40 %
+
+We see that Omega Cen is currently close to its maximum distance from both the Galactic center and from the Galactic midplane.
+
+Similarly, you can do:
+
+>>> o= Orbit.from_name('LMC')
+>>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
+# [80.894200000000055, -69.756099999999847, 49.999999999999993, 1.909999999999999, 0.2290000000000037, 262.19999999999993]
+
+The ``Orbit.from_name`` method attempts to resolve the name of the
+object in SIMBAD, and then use the observed coordinates found there to
+generate an ``Orbit`` instance. In order to query SIMBAD,
+``Orbit.from_name`` requires the `astroquery
+<https://astroquery.readthedocs.io/>`_ package to be installed.
+
+.. TIP::
+   Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
+
+.. WARNING::
+   Orbits initialized using ``Orbit.from_name`` have physical output *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
+
+Orbit integration
+------------------
 
 After an orbit is initialized, we can integrate it for a set of times
 ``ts``, given as a numpy array. For example, in a simple logarithmic
@@ -244,15 +326,32 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+Finally, it is also possible to plot arbitrary functions of time with
+``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. This
+is for example useful if you want to display the orbit in a different
+coordinate system. For example, to display the orbital velocity in the
+spherical radial direction (which is currently not a pre-defined
+option), you can do the following
+
+>>> o.plot(d1='r',
+	   d2=lambda t: o.vR(t)*o.R(t)/o.r(t)+o.vz(t)*o.z(t)/o.r(t),
+	   ylabel='v_r')
+
+where ``d2=`` converts the velocity to spherical coordinates. This
+gives the following orbit (which is closed in this projection, because
+we are using a spherical potential):
+
+.. image:: images/lp-orbit-integration-spherrvr.png
+
 .. _orbanim:
 
-**NEW in v1.3**: Animating the orbit
--------------------------------------
+Animating the orbit
+-------------------
 
 .. WARNING::
    Animating orbits is a new, experimental feature at this time that may be changed in later versions. It has only been tested in a limited fashion. If you are having problems with it, please open an `Issue <https://github.com/jobovy/galpy/issues>`__ and list all relevant details about your setup (python version, jupyter version, browser, any error message in full). It may also be helpful to check the javascript console for any errors.
 
-In a `jupyter notebook <http://jupyter.org>`__ you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
+In a `jupyter notebook <http://jupyter.org>`__ or in `jupyterlab <http://jupyterlab.readthedocs.io/en/stable/>`__ (jupyterlab versions >= 0.33) you can also create an animation of an orbit *after* you have integrated it. For example, to do this for the ``op`` orbit from above (but only integrated for 2 Gyr to create a shorter animation as an example here), do
 
 >>> op.animate()
 
@@ -260,6 +359,9 @@ This will create the following animation
 
 .. raw:: html
    :file: orbitanim.html
+
+.. TIP::
+   There is currently no option to save the animation within ``galpy``, but you could use screen capture software (for example, QuickTime's `Screen Recording <https://support.apple.com/kb/ph5882?locale=en_CA>`__ feature) to record your screen while the animation is running and save it as a video.
 
 ``animate`` has options to specify the width and height of the resulting animation, and it can also animate up to three projections of an orbit at the same time. For example, we can look at the orbit in both (x,y) and (R,z) at the same time with
 
@@ -270,6 +372,7 @@ which gives
 .. raw:: html
    :file: orbitanim2proj.html
 
+If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
    
 Orbit characterization
 ------------------------
@@ -280,6 +383,11 @@ its eccentricity, and the maximal height above the plane of the orbit
 
 >>> o.rap(), o.rperi(), o.e(), o.zmax()
 # (1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
+
+These four quantities can also be computed using analytical means (exact or approximations depending on the potential) by specifying ``analytic=True``
+
+>>> o.rap(analytic=True), o.rperi(analytic=True), o.e(analytic=True), o.zmax(analytic=True)
+# (1.2581448917376636,0.97981640959995842,0.12436697719989584,0.11390708640305315)
 
 We can also calculate the energy of the orbit, either in the potential
 that the orbit was integrated in, or in another potential:
@@ -324,6 +432,79 @@ behavior
 
 .. image:: images/lp-orbit-integration-EzJz.png
 
+.. _fastchar:
+
+Fast orbit characterization
+---------------------------
+
+It is also possible to use galpy for the fast estimation of orbit parameters as demonstrated
+in Mackereth & Bovy (2018, in prep.) via the Staeckel approximation (originally used by `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_
+for the appoximation of actions in axisymmetric potentials), without performing any orbit integration. 
+The method uses the geometry of the orbit tori to estimate the orbit parameters. After initialising 
+an ``Orbit`` instance, the method is applied by specifying ``analytic=True`` and 
+selecting ``type='staeckel'``.
+
+>>> o.e(analytic=True, type='staeckel')
+
+if running the above without integrating the orbit, the potential should also be specified
+in the usual way
+
+>>> o.e(analytic=True, type='staeckel', pot=mp)
+
+This interface automatically estimates the necessary delta parameter based on the initial 
+condition of the ``Orbit`` object.
+
+While this is useful and fast for individual ``Orbit`` objects, it is likely that users will
+want to rapidly evaluate the orbit parameters of large numbers of objects. It is possible
+to perform the orbital parameter estimation above through the :ref:`actionAngle <actionangle>` 
+interface. To do this, we need arrays of the phase-space points ``R``, ``vR``, ``vT``, ``z``, ``vz``, and 
+``phi`` for the objects.  The orbit parameters are then calculated by first 
+specifying an ``actionAngleStaeckel`` instance (this requires a single ``delta`` focal-length parameter, see :ref:`the documentation of the actionAngleStaeckel class <actionanglestaeckel>`), then using the 
+``EccZmaxRperiRap`` method with the data points:
+
+>>> aAS = actionAngleStaeckel(pot=mp, delta=0.4)
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi)
+
+Alternatively, you can specify an array for ``delta`` when calling ``aAS.EccZmaxRperiRap``, for example by first estimating good ``delta`` parameters as follows:
+
+>>> from galpy.actionAngle import estimateDeltaStaeckel
+>>> delta = estimateDeltaStaeckel(mp, R, z, no_median=True)
+
+where ``no_median=True`` specifies that the function return the delta parameter at each given point
+rather than the median of the calculated deltas (which is the default option). Then one can compute the eccetrncity etc. using individual delta values as:
+
+>>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi, delta=delta)
+
+Th ``EccZmaxRperiRap`` method also exists for the ``actionAngleIsochrone``, 
+``actionAngleSpherical``, and ``actionAngleAdiabatic`` modules. 
+
+We can test the speed of this method in iPython by finding the parameters at 100000 steps 
+along an orbit in MWPotential2014, like this
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
+>>> ts = numpy.linspace(0,100,100000)
+>>> o.integrate(ts,MWPotential2014)
+>>> aAS = actionAngleStaeckel(pot=MWPotential2014,delta=0.3) 
+>>> R, vR, vT, z, vz, phi = o.getOrbit().T
+>>> delta = estimateDeltaStaeckel(MWPotential2014, R, z, no_median=True)
+>>> %timeit -n 10 es, zms, rps, ras = aAS.EccZmaxRperiRap(R,vR,vT,z,vz,phi,delta=delta)
+#10 loops, best of 3: 899 ms per loop
+
+you can see that in this potential, each phase space point is calculated in roughly 9µs.
+further speed-ups can be gained by using the ``actionAngleStaeckelGrid`` module, which first
+calculates the parameters using a grid-based interpolation
+
+>>> from galpy.actionAngle import actionAngleStaeckelGrid
+>>> aASG= actionAngleStaeckelGrid(pot=mp,delta=0.4,nE=51,npsi=51,nLz=61,c=True,interpecc=True)
+>>> %timeit -n 10 es, zms, rps, ras = aASG.EccZmaxRperiRap(R,vR,vT,z,vz,phi)
+#10 loops, best of 3: 587 ms per loop
+
+where ``interpecc=True`` is required to perform the interpolation of the orbit parameter grid.
+Looking at how the eccentricity estimation varies along the orbit, and comparing to the calculation
+using the orbit integration, we see that the estimation good job
+
+.. image:: images/lp-orbit-integration-et.png
+	:scale: 40 % 
 
 Accessing the raw orbit
 -----------------------
@@ -381,8 +562,10 @@ The whole orbit can also be obtained using the function ``getOrbit``
 which returns a matrix of phase-space points with dimensions [ntimes,ndim].
 
 
-Fast orbit integration
-------------------------
+.. _fastorbit:
+
+**UPDATED IN v1.5** Fast orbit integration and available integrators
+---------------------------------------------------------------------
 
 The standard orbit integration is done purely in python using standard
 scipy integrators. When fast orbit integration is needed for batch
@@ -401,6 +584,7 @@ the ``orbit.integrate`` method. Currently available integrators are
 * rk4_c
 * rk6_c
 * dopr54_c
+* dop853_c
 
 which are Runge-Kutta and Dormand-Prince methods. There are also a
 number of symplectic integrators available
@@ -410,19 +594,39 @@ number of symplectic integrators available
 * symplec6_c
 
 The higher order symplectic integrators are described in `Yoshida
-(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
+(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_. In pure
+Python, the available integrators are
 
-For most applications I recommend ``dopr54_c``. For example, compare
+* leapfrog
+* odeint
+* dop853
+
+For most applications I recommend ``symplec4_c`` or ``dop853_c``,
+which are speedy and reliable. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
->>> timeit(o.integrate(ts,mp))
-# 1 loops, best of 3: 553 ms per loop
->>> timeit(o.integrate(ts,mp,method='dopr54_c'))
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 1.34 s ± 41.8 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='leapfrog_c'))
 # galpyWarning: Using C implementation to integrate orbits
-# 10 loops, best of 3: 25.6 ms per loop
+# 91 ms ± 2.42 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='symplec4_c'))
+# galpyWarning: Using C implementation to integrate orbits
+# 9.67 ms ± 48.3 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853_c'))
+# 4.65 ms ± 86.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
-As this example shows, galpy will issue a warning that C is being
-used. Speed-ups by a factor of 20 are typical.
+If the C extensions are unavailable for some reason, I recommend using
+the ``odeint`` pure-Python integrator, as it is the fastest. Using the
+same example as above
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 2.62 s ± 128 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='odeint'))
+# 153 ms ± 2.59 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853'))
+# 1.61 s ± 218 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
 Integration of the phase-space volume
 --------------------------------------
@@ -481,32 +685,209 @@ a set of thick disk stars. We start by downloading the sample of SDSS
 SEGUE (`2009AJ....137.4377Y
 <http://adsabs.harvard.edu/abs/2009AJ....137.4377Y>`_) thick disk
 stars compiled by Dierickx et al. (`2010arXiv1009.1616D
-<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) at
-
-http://www.mpia-hd.mpg.de/homes/rix/Data/Dierickx-etal-tab2.txt
+<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) from CDS at `this 
+link <http://vizier.cfa.harvard.edu/viz-bin/Cat?cat=J%2FApJ%2F725%2FL186&target=http&>`_.
+Downloading the table and the ReadMe will allow you to read in the data using ``astropy.io.ascii``
+like so
+ 
+>>> from astropy.io import ascii
+>>> dierickx = ascii.read('table2.dat', readme='ReadMe')
+>>> vxvv = numpy.dstack([dierickx['RAdeg'], dierickx['DEdeg'], dierickx['Dist']/1e3, dierickx['pmRA'], dierickx['pmDE'], dierickx['HRV']])[0]
 
 After reading in the data (RA,Dec,distance,pmRA,pmDec,vlos; see above)
 as a vector ``vxvv`` with dimensions [6,ndata] we (a) define the
 potential in which we want to integrate the orbits, and (b) integrate
-each orbit and save its eccentricity (running this for all 30,000-ish
+each orbit and save its eccentricity as calculated analytically following the :ref:`Staeckel 
+approximation method <fastchar>` and by orbit integration (running this for all 30,000-ish
 stars will take about half an hour)
 
+>>> from galpy.actionAngle import UnboundError
+>>> ts= np.linspace(0.,20.,10000)
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> ts= nu.linspace(0.,20.,10000)
->>> mye= nu.zeros(ndata)
->>> for ii in range(len(e)):
-...         o= Orbit(vxvv[ii,:],radec=True,vo=220.,ro=8.) #Initialize
-...         o.integrate(ts,lp) #Integrate
-...         mye[ii]= o.e() #Calculate eccentricity
+>>> e_ana = numpy.zeros(len(vxvv))
+>>> e_int = numpy.zeros(len(vxvv))
+>>> for i in range(len(vxvv)):
+...	#calculate analytic e estimate, catch any 'unbound' orbits
+...     try:
+...         orbit = Orbit(vxvv[i], radec=True, vo=220., ro=8.)
+...         e_ana[i] = orbit.e(analytic=True, pot=lp, c=True)
+...     except UnboundError:
+...         #parameters cannot be estimated analytically
+...         e_ana[i] = np.nan
+...     #integrate the orbit and return the numerical e value
+...     orbit.integrate(ts, lp)
+...     e_int[i] = orbit.e(analytic=False)
 
-We then find the following eccentricity distribution
+We then find the following eccentricity distribution (from the numerical eccentricities)
 
-.. image:: images/dierickx-myehist.png
+.. image:: images/dierickx-integratedehist.png
+	:scale: 40 %
 
-The eccentricity calculated by galpy compare well with those
+The eccentricity calculated by integration in galpy compare well with those
 calculated by Dierickx et al., except for a few objects
 
-.. image:: images/dierickx-myee.png
+.. image:: images/dierickx-integratedee.png
+	:scale: 40 %
 
-The script that calculates and plots everything can be downloaded
-:download:`here <examples/dierickx-edist.py>`.
+and the analytical estimates are equally as good:
+
+.. image:: images/dierickx-analyticee.png
+	:scale: 40 %
+
+In comparing the analytic and integrated eccentricity estimates - one can see that in this case
+the estimation is almost exact, due to the spherical symmetry of the chosen potential:
+
+.. image:: images/dierickx-integratedeanalytice.png
+	:scale: 40 %
+
+A script that calculates and plots everything can be downloaded
+:download:`here <examples/dierickx_eccentricities.py>`. To generate the plots just run::
+
+    python dierickx_eccentricities.py ../path/to/folder
+
+specifiying the location you want to put the plots and data.
+
+Alternatively - one can transform the observed coordinates into spherical coordinates and perform 
+the estimations in one batch using the ``actionAngle`` interface, which takes considerably less time:
+
+>>> from galpy import actionAngle
+>>> deltas = actionAngle.estimateDeltaStaeckel(lp, Rphiz[:,0], Rphiz[:,2], no_median=True)
+>>> aAS = actionAngleStaeckel(pot=lp, delta=0.)
+>>> par = aAS.EccZmaxRperiRap(Rphiz[:,0], vRvTvz[:,0], vRvTvz[:,1], Rphiz[:,2], vRvTvz[:,2], Rphiz[:,1], delta=deltas)
+
+The above code calculates the parameters in roughly 100ms on a single core.
+
+**NEW in v1.4** Example: The orbit of the Large Magellanic Cloud in the presence of dynamical friction
+--------------------------------------------------------------------------------------------------------
+
+As a further example of what you can do with galpy, we investigate the
+Large Magellanic Cloud's (LMC) past and future orbit. Because the LMC
+is a massive satellite of the Milky Way, its orbit is affected by
+dynamical friction, a frictional force of gravitational origin that
+occurs when a massive object travels through a sea of low-mass objects
+(halo stars and dark matter in this case). First we import all the
+necessary packages:
+
+>>> from astropy import units
+>>> from galpy.potential import MWPotential2014, ChandrasekharDynamicalFrictionForce
+>>> from galpy.orbit import Orbit
+
+(also do ``%pylab inline`` if running this in a jupyter notebook or
+turn on the ``pylab`` option in ipython for plotting). We can load the
+current phase-space coordinates for the LMC using the
+``Orbit.from_name`` function described :ref:`above <orbfromname>`:
+
+>>> o= Orbit.from_name('LMC')
+
+We will use ``MWPotential2014`` as our Milky-Way potential
+model. Because the LMC is in fact unbound in ``MWPotential2014``, we
+increase the halo mass by 50% to make it bound (this corresponds to a
+Milky-Way halo mass of :math:`\approx 1.2\,\times 10^{12}\,M_\odot`, a
+not unreasonable value). We can hack this together as
+
+>>> MWPotential2014[2]._amp*= 1.5
+
+(Note that this is *not* a generally recommended route for changing
+the mass of an object, since it relies on editing a private
+attribute). Let us now integrate the orbit backwards in time for 10
+Gyr and plot it:
+
+>>> ts= numpy.linspace(0.,-10.,1001)*units.Gyr
+>>> o.integrate(ts,MWPotential2014)
+>>> o.plot(d1='t',d2='r')
+
+.. image:: images/lmc-mwp14.png
+        :scale: 50 %
+
+We see that the LMC is indeed bound, with an apocenter just over 250
+kpc. Now let's add dynamical friction for the LMC, assuming that its
+mass if :math:`5\times 10^{10}\,M_\odot`. We setup the
+dynamical-friction object:
+
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,rhm=5.*units.kpc,
+					     dens=MWPotential2014)
+
+Dynamical friction depends on the velocity distribution of the halo,
+which is assumed to be an isotropic Gaussian distribution with a
+radially-dependent velocity dispersion. If the velocity dispersion is
+not given (like in the example above), it is computed from the
+spherical Jeans equation. We have set the half-mass radius to 5 kpc
+for definiteness. We now make a copy of the orbit instance above and
+integrate it in the potential that includes dynamical friction:
+
+>>> odf= o()
+>>> odf.integrate(ts,[MWPotential2014,cdf])
+
+(Note that specifying the forces as the list ``[MWPotential2014,cdf]``
+works even though ``MWPotential2014`` is itself a list of potentials,
+because we can use nested lists of potentials or forces wherever a
+list is allowed in ``galpy``). Overlaying the orbits, we can see the
+difference in the evolution:
+
+>>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
+>>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
+>>> ylim(0.,400.)
+>>> legend()
+
+.. image:: images/lmc-mwp14-plusdynfric-51010msun.png
+        :scale: 50 %
+
+We see that dynamical friction removes energy from the LMC's orbit,
+such that its past apocenter is now around 400 kpc rather than 250
+kpc! The period of the orbit is therefore also much longer. Clearly,
+dynamical friction has a big impact on the orbit of the LMC.
+
+Recent observations have suggested that the LMC may be even more
+massive than what we have assumed so far, with masses over
+:math:`10^{11}\,M_\odot` seeming in good agreement with various
+observations. Let's see how a mass of :math:`10^{11}\,M_\odot` changes
+the past orbit of the LMC. We can change the mass of the LMC used in
+the dynamical-friction calculation as
+
+>>> cdf.GMs= 10.**11.*units.Msun
+
+This way of changing the mass is preferred over re-initializing the
+``ChandrasekharDynamicalFrictionForce`` object, because it avoids
+having to solve the Jeans equation again to obtain the velocity
+dispersion. Then we integrate the orbit and overplot it on the
+previous results:
+
+>>> odf2= o()
+>>> odf2.integrate(ts,[MWPotential2014,cdf])
+
+and
+
+>>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
+>>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
+>>> odf2.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=1\times10^{11}\,M_\odot$')
+>>> ylim(0.,740.)
+>>> legend()
+
+which gives
+
+.. image:: images/lmc-mwp14-plusdynfric-1011msun.png
+        :scale: 50 %
+
+Now the apocenter increases to about 600 kpc and the LMC doesn't
+perform a full orbit over the last 10 Gyr.
+
+Finally, let's see what will happen in the future if the LMC is as
+massive as :math:`10^{11}\,M_\odot`. We simply flip the sign of the
+integration times to get the future trajectory:
+
+>>> odf2.integrate(-ts[-ts < 9*units.Gyr],[MWPotential2014,cdf])
+>>> odf2.plot(d1='t',d2='r')
+
+.. image:: images/lmc-mwp14-plusdynfric-1011msun-future.png
+   :scale: 50 %
+
+Because of the large effect of dynamical friction, the LMC will merge
+with the Milky-Way in about 4 Gyr after a few more pericenter
+passages. Note that we have not taken any mass-loss into
+account. Because mass-loss would lead to a smaller dynamical-friction
+force, this would somewhat increase the merging timescale, but
+dynamical friction will inevitably lead to the merger of the LMC with
+the Milky Way.
+
+.. WARNING::
+   When using dynamical friction, if the radius gets very small, the integration sometimes becomes very erroneous, which can lead to a big, unphysical kick (even though we turn off friction at very small radii); this is the reason why we have limited the future integration to 9 Gyr in the example above. When using dynamical friction, inspect the full orbit to make sure to catch whether a merger has happened. 

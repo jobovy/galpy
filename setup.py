@@ -1,11 +1,16 @@
 from setuptools import setup
 from distutils.core import Extension
 import sys
-import sysconfig
+import distutils.sysconfig as sysconfig
+import distutils.ccompiler
+from distutils.errors import DistutilsPlatformError
 import os, os.path
+import platform
 import subprocess
 import glob
 PY3= sys.version > '3'
+WIN32= platform.system() == 'Windows'
+no_compiler = False  # Flag for cases where we are sure there is no compiler exists in user's system
 
 long_description= ''
 previous_line= ''
@@ -26,16 +31,21 @@ with open('README.rst') as dfile:
 # --actionAngle_ext: just compile the actionAngle extension (for use w/ --coverage)
 # --interppotential_ext: just compile the interppotential extension (for use w/ --coverage)
 
-pot_libraries= ['m','gsl','gslcblas','gomp']
+pot_libraries = ['m','gsl','gslcblas','gomp']
+
+if WIN32:  # windows does not need 'gomp' whether compiled with OpenMP or not
+    pot_libraries.remove('gomp')
+
 #Option to forego OpenMP
 try:
     openmp_pos = sys.argv.index('--no-openmp')
 except ValueError:
-    extra_compile_args=["-fopenmp"]
+    extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args= ["-DNO_OMP"]
-    pot_libraries.remove('gomp')
+    if not WIN32:  # Because windows guarantee do not have 'gomp' in the list
+        pot_libraries.remove('gomp')
 
 #Option to track coverage
 try:
@@ -83,15 +93,16 @@ else:
     del sys.argv[interppotential_ext_pos]
     interppotential_ext= True
 
-#code to check the GSL version
+#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+# (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config',
       '--version']
 try:
     if sys.version_info < (2,7): #subprocess.check_output does not exist
-        gsl_version= subprocess.Popen(cmd,
+        gsl_version= subprocess.Popen(cmd,shell=sys.platform.startswith('win'),
                                       stdout=subprocess.PIPE).communicate()[0]
     else:
-        gsl_version= subprocess.check_output(cmd)
+        gsl_version= subprocess.check_output(cmd,shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
     gsl_version= ['0','0']
 else:
@@ -103,55 +114,75 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 #HACK for testing
 #gsl_version= ['0','0']
 
+# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
+if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
+    extra_compile_args.append("-Dinline=__inline")
+    # only msvc compiler can be tested with initialize(), msvc is a default on windows
+    # check for 'msvc' not WIN32, user can use other compiler like 'mingw32', in such case compiler exists for them
+    try:
+        test_compiler = distutils.ccompiler.new_compiler()
+        test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
+    except DistutilsPlatformError:  # this error will be raised if no compiler in the system
+        no_compiler = True
+
+# To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
+if WIN32:
+    extra_compile_args.append("-DGSL_DLL")
+    extra_compile_args.append("-DWIN32")
+
 #Orbit integration C extension
-orbit_int_c_src= ['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c']
-orbit_int_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
-orbit_int_c_src.extend(glob.glob('galpy/orbit_src/orbit_c_ext/*.c'))
+orbit_int_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c']
+orbit_int_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
+orbit_int_c_src.extend(glob.glob('galpy/orbit/orbit_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
 
+# On Windows it's unnecessary and erroneous to include m
+if WIN32:
+    orbit_libraries.remove('m')
+    pot_libraries.remove('m')
+
 orbit_include_dirs= ['galpy/util',
                      'galpy/util/interp_2d',
-                     'galpy/potential_src/potential_c_ext']
+                     'galpy/orbit/orbit_c_ext',
+                     'galpy/potential/potential_c_ext']
 
 #actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
 actionAngleTorus_c_src= \
-    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/*.cc')
+    glob.glob('galpy/actionAngle/actionAngleTorus_c_ext/*.cc')
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/*.cc'))
+    glob.glob('galpy/actionAngle/actionAngleTorus_c_ext/torus/src/*.cc'))
 actionAngleTorus_c_src.extend(\
-    ['galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/CHB.cc',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Err.cc',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
-actionAngleTorus_c_src.append(\
-    'galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
+    ['galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/CHB.cc',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/Err.cc',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/Compress.cc',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/Numerics.cc',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/PJMNum.cc'])
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+    glob.glob('galpy/potential/potential_c_ext/*.c'))
 actionAngleTorus_c_src.extend(\
-    glob.glob('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c'))
+    glob.glob('galpy/orbit/orbit_c_ext/integrateFullOrbit.c'))
 actionAngleTorus_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 actionAngleTorus_c_src.extend(glob.glob('galpy/util/*.c'))
 
 actionAngleTorus_include_dirs= \
-    ['galpy/actionAngle_src/actionAngleTorus_c_ext',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src',
-     'galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src/utils',
-     'galpy/actionAngle_src/actionAngle_c_ext',
+    ['galpy/actionAngle/actionAngleTorus_c_ext',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src',
+     'galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils',
+     'galpy/actionAngle/actionAngle_c_ext',
      'galpy/util/interp_2d',
      'galpy/util',
-     'galpy/orbit_src/orbit_c_ext',
-     'galpy/potential_src/potential_c_ext']
+     'galpy/orbit/orbit_c_ext',
+     'galpy/potential/potential_c_ext']
 
 if single_ext: #add the code and libraries for the other extensions
     #src
-    orbit_int_c_src.extend(glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c'))
-    orbit_int_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
-    if os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
+    orbit_int_c_src.extend(glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c'))
+    orbit_int_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
+    if os.path.exists('galpy/actionAngle/actionAngleTorus_c_ext/torus/src'):
         # Add Torus code
         orbit_int_c_src.extend(actionAngleTorus_c_src)
         orbit_int_c_src= list(set(orbit_int_c_src))
@@ -160,19 +191,20 @@ if single_ext: #add the code and libraries for the other extensions
         if not lib in orbit_libraries:
             orbit_libraries.append(lib)
     #includes
-    orbit_include_dirs.extend(['galpy/actionAngle_src/actionAngle_c_ext',
+    orbit_include_dirs.extend(['galpy/actionAngle/actionAngle_c_ext',
                                'galpy/util/interp_2d',
-                               'galpy/potential_src/potential_c_ext'])
-    orbit_include_dirs.extend(['galpy/potential_src/potential_c_ext',
+                               'galpy/orbit/orbit_c_ext',
+                               'galpy/potential/potential_c_ext'])
+    orbit_include_dirs.extend(['galpy/potential/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
-                               'galpy/actionAngle_src/actionAngle_c_ext',
-                               'galpy/orbit_src/orbit_c_ext',
-                               'galpy/potential_src/interppotential_c_ext'])
+                               'galpy/actionAngle/actionAngle_c_ext',
+                               'galpy/orbit/orbit_c_ext',
+                               'galpy/potential/interppotential_c_ext'])
     # Add Torus code
     orbit_include_dirs.extend(actionAngleTorus_include_dirs)
     orbit_include_dirs= list(set(orbit_include_dirs))
-
+    
 orbit_int_c= Extension('galpy_integrate_c',
                        sources=orbit_int_c_src,
                        libraries=orbit_libraries,
@@ -188,13 +220,16 @@ else:
     orbit_int_c_incl= False
 
 #actionAngle C extension
-actionAngle_c_src= glob.glob('galpy/actionAngle_src/actionAngle_c_ext/*.c')
-actionAngle_c_src.extend(glob.glob('galpy/potential_src/potential_c_ext/*.c'))
+actionAngle_c_src= glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c')
+actionAngle_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
-
-actionAngle_include_dirs= ['galpy/actionAngle_src/actionAngle_c_ext',
+actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c'])
+actionAngle_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
+actionAngle_include_dirs= ['galpy/actionAngle/actionAngle_c_ext',
+                           'galpy/orbit/orbit_c_ext',
+                           'galpy/util/',
                            'galpy/util/interp_2d',
-                           'galpy/potential_src/potential_c_ext']
+                           'galpy/potential/potential_c_ext']
 
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
@@ -215,19 +250,18 @@ else:
     actionAngle_c_incl= False
     
 #interppotential C extension
-interppotential_c_src= glob.glob('galpy/potential_src/potential_c_ext/*.c')
-interppotential_c_src.extend(glob.glob('galpy/potential_src/interppotential_c_ext/*.c'))
-interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c','galpy/util/bovy_rk.c'])
-interppotential_c_src.append('galpy/actionAngle_src/actionAngle_c_ext/actionAngle.c')
-interppotential_c_src.append('galpy/orbit_src/orbit_c_ext/integrateFullOrbit.c')
+interppotential_c_src= glob.glob('galpy/potential/potential_c_ext/*.c')
+interppotential_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
+interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c'])
+interppotential_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
-interppotential_include_dirs= ['galpy/potential_src/potential_c_ext',
+interppotential_include_dirs= ['galpy/potential/potential_c_ext',
                                'galpy/util/interp_2d',
                                'galpy/util/',
-                               'galpy/actionAngle_src/actionAngle_c_ext',
-                               'galpy/orbit_src/orbit_c_ext',
-                               'galpy/potential_src/interppotential_c_ext']
+                               'galpy/actionAngle/actionAngle_c_ext',
+                               'galpy/orbit/orbit_c_ext',
+                               'galpy/potential/interppotential_c_ext']
 
 interppotential_c= Extension('galpy_interppotential_c',
                              sources=interppotential_c_src,
@@ -256,7 +290,7 @@ actionAngleTorus_c= Extension('galpy_actionAngleTorus_c',
                               extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
-        os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src') and \
+        os.path.exists('galpy/actionAngle/actionAngleTorus_c_ext/torus/src') and \
         not orbit_ext and not interppotential_ext and not single_ext:
     actionAngleTorus_c_incl= True
     ext_modules.append(actionAngleTorus_c)
@@ -264,7 +298,7 @@ else:
     actionAngleTorus_c_incl= False
     
 setup(name='galpy',
-      version='1.3.dev',
+      version='1.5.dev',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -272,14 +306,14 @@ setup(name='galpy',
       long_description=long_description,
       url='http://github.com/jobovy/galpy',
       package_dir = {'galpy/': ''},
-      packages=['galpy','galpy/orbit_src','galpy/potential_src',
-                'galpy/df_src','galpy/util','galpy/snapshot_src',
-                'galpy/actionAngle_src'],
-      package_data={'galpy/df_src':['data/*.sav'],
+      packages=['galpy','galpy/orbit','galpy/potential',
+                'galpy/df','galpy/util','galpy/snapshot',
+                'galpy/actionAngle'],
+      package_data={'galpy/df':['data/*.sav'],
                     "": ["README.rst","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
       install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six'],
-      ext_modules=ext_modules,
+      ext_modules=ext_modules if not no_compiler else None,
       classifiers=[
         "Development Status :: 6 - Mature",
         "Intended Audience :: Science/Research",
@@ -290,6 +324,7 @@ setup(name='galpy',
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
@@ -320,7 +355,7 @@ if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print('\033[1m'+'These warning messages about the C code do not mean that the python package was not installed successfully'+'\033[0m')
 print('\033[1m'+'Finished installing galpy'+'\033[0m')
-print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 33 minutes to run)')
+print('You can run the test suite using `pytest -v tests/` to check the installation (but note that the test suite currently takes about 50 minutes to run)')
 
 #if single_ext, symlink the other (non-compiled) extensions to galpy_integrate_c.so (use EXT_SUFFIX for python3 compatibility)
 if PY3:
@@ -335,6 +370,6 @@ if single_ext:
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_interppotential_c%s' % _ext_suffix)
     if not os.path.exists('galpy_actionAngleTorus_c%s' % _ext_suffix) \
-            and os.path.exists('galpy/actionAngle_src/actionAngleTorus_c_ext/torus/src'):
+            and os.path.exists('galpy/actionAngle/actionAngleTorus_c_ext/torus/src'):
         os.symlink('galpy_integrate_c%s' % _ext_suffix,
                    'galpy_actionAngleTorus_c%s' % _ext_suffix)

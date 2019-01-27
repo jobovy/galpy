@@ -19,11 +19,19 @@ Wilma Trick (KuzminKutuzovPotential and various other contributions)
 Anna Juranova (FerrersPotential)
 Semyeong Oh (FerrersPotential)
 Jack Hong (SpiralArmsPotential)
+Ted Mackereth (addition to estimateDeltaStaeckel function, and fast orbit characterisation docs)
+Jeremy Webb (rtide and ttensor Potentials methods/functions)
+Mathew Bub (from_name class method of Orbit)
+Samuel Wong (sampleV_interpolate method of quasiisothermaldf)
+James Lane (General mass distributions in MovingObjectPotential)
+Henry Leung (addition of Python and C implementation of Dormand-Prince 8(5,3) integrator)
 
 General help:
 ==============
 
 Greg Stinson (advice on SnapshotRZPotential tests)
+Matt Craig (added conda build)
+Brigitta Sipocz (help with conda build)
 
 Bug reports:
 ============
@@ -41,3 +49,6 @@ Eduardo Balbinot
 Semyeong Oh
 Jorrit Hagen
 Ruth Angus
+Anthony Brown
+Larry Widrow
+Jean-François Robitaille

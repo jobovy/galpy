@@ -658,28 +658,30 @@ def potential_physical_input(method):
     to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
+        from galpy.potential import flatten as flatten_potential
+        Pot= flatten_potential(args[0])
         ro= kwargs.get('ro',None)
-        if ro is None and hasattr(args[0],'_ro'):
-            ro= args[0]._ro
-        if ro is None and isinstance(args[0],list) \
-                and hasattr(args[0][0],'_ro'):
+        if ro is None and hasattr(Pot,'_ro'):
+            ro= Pot._ro
+        if ro is None and isinstance(Pot,list) \
+                and hasattr(Pot[0],'_ro'):
             # For lists of Potentials
-            ro= args[0][0]._ro
+            ro= Pot[0]._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
             ro= ro.to(units.kpc).value
-        if 't' in kwargs:
+        if 't' in kwargs or 'M' in kwargs:
             vo= kwargs.get('vo',None)
-            if vo is None and hasattr(args[0],'_vo'):
-                vo= args[0]._vo
-            if vo is None and isinstance(args[0],list) \
-                    and hasattr(args[0][0],'_vo'):
+            if vo is None and hasattr(Pot,'_vo'):
+                vo= Pot._vo
+            if vo is None and isinstance(Pot,list) \
+                    and hasattr(Pot[0],'_vo'):
                 # For lists of Potentials
-                vo= args[0][0]._vo
+                vo= Pot[0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
         # Loop through args
-        newargs= ()
-        for ii in range(len(args)):
+        newargs= (Pot,)
+        for ii in range(1,len(args)):
             if _APY_LOADED and isinstance(args[ii],units.Quantity):
                 newargs= newargs+(args[ii].to(units.kpc).value/ro,)
             else:
@@ -693,6 +695,19 @@ def potential_physical_input(method):
                 and isinstance(kwargs['t'],units.Quantity):
             kwargs['t']= kwargs['t'].to(units.Gyr).value\
                 /time_in_Gyr(vo,ro)
+        # v kwarg for dissipative forces
+        if 'v' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['v'],units.Quantity):
+            kwargs['v']= kwargs['v'].to(units.km/units.s).value/vo
+        # Mass kwarg for rtide
+        if 'M' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['M'],units.Quantity):
+            try:
+                kwargs['M']= kwargs['M'].to(units.Msun).value\
+                    /mass_in_msol(vo,ro)
+            except units.UnitConversionError:
+                kwargs['M']= kwargs['M'].to(units.pc*units.km**2/units.s**2)\
+                    .value/mass_in_msol(vo,ro)/_G
         # kwargs that come up in quasiisothermaldf    
         if 'z' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['z'],units.Quantity):
@@ -710,7 +725,7 @@ def potential_physical_input(method):
     return wrapper
 def physical_conversion_actionAngle(quantity,pop=False):
     """Decorator to convert to physical coordinates for the actionAngle methods: 
-    quantity= call, actionsFreqs, or actionsFreqsAngles"""
+    quantity= call, actionsFreqs, or actionsFreqsAngles (or EccZmaxRperiRap for actionAngleStaeckel)"""
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
@@ -730,12 +745,12 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and not vo is None and not ro is None:
-                # Always need the action
-                fac= [ro*vo,ro*vo,ro*vo]
-                if _APY_UNITS:
-                    u= [units.kpc*units.km/units.s,
-                        units.kpc*units.km/units.s,
-                        units.kpc*units.km/units.s]
+                if 'call' in quantity or 'actions' in quantity:
+                    fac= [ro*vo,ro*vo,ro*vo]
+                    if _APY_UNITS:
+                        u= [units.kpc*units.km/units.s,
+                            units.kpc*units.km/units.s,
+                            units.kpc*units.km/units.s]
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
                     fac.extend([FreqsFac,FreqsFac,FreqsFac])
@@ -747,6 +762,13 @@ def physical_conversion_actionAngle(quantity,pop=False):
                     if _APY_UNITS:
                         Freqsu= units.Gyr**-1.
                         u.extend([units.rad,units.rad,units.rad])
+                if 'EccZmaxRperiRap' in quantity:
+                    fac= [1.,ro,ro,ro]
+                    if _APY_UNITS:
+                        u= [1.,
+                            units.kpc,
+                            units.kpc,
+                            units.kpc]
                 out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()

@@ -1,7 +1,25 @@
 Installation
 ==============
 
-galpy can be installed using pip as::
+With conda
+----------
+
+The easiest way to install the latest released version of galpy is using conda::
+
+    conda install galpy -c conda-forge
+
+or::
+
+	conda config --add channels conda-forge
+	conda install galpy
+
+With pip
+--------
+
+galpy can also be installed using pip. Some advanced features require
+the GNU Scientific Library (GSL; :ref:`see below <gsl_install>`). If
+you want to use these, install the GSL first (or install it later and
+re-install using the upgrade command above). Then do::
 
       pip install galpy
 
@@ -9,7 +27,8 @@ or to upgrade without upgrading the dependencies::
 
       pip install -U --no-deps galpy
 
-Some advanced features require the GNU Scientific Library (GSL; see below). If you want to use these, install the GSL first (or install it later and re-install using the upgrade command above).
+Latest version
+--------------
 
 The latest updates in galpy can be installed using::
     
@@ -27,16 +46,44 @@ or::
 
 	python setup.py install --prefix=~/local
 
-for a local installation. A basic installation works with just the
-numpy/scipy/matplotlib stack. Some basic tests can be performed by executing::
+for a local installation.
 
-		       nosetests -v -w nose/
+Installing from a branch
+------------------------
 
+If you want to use a feature that is currently only available in a branch, do::
+
+   pip install -U --no-deps git+git://github.com/jobovy/galpy.git@dev#egg=galpy
+
+to, for example, install the ``dev`` branch.
+
+Installing from source on Windows
+---------------------------------
+
+Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
+
+     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+
+where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
+
+To compile with OpenMP on Windows, you have to install Intel OpenMP via::
+
+    conda install -c anaconda intel-openmp
+
+and then to compile the code::
+
+   python setup.py install
+
+If you encounter any issue related to OpenMP during compilation, you can do::
+
+    python setup.py install --no-openmp
 
 .. _install_tm:
 
-**NEW in v1.2**: Installing the TorusMapper code
--------------------------------------------------
+Installing the TorusMapper code
+--------------------------------
 
 Since v1.2, ``galpy`` contains a basic interface to the TorusMapper
 code of `Binney & McMillan (2016)
@@ -52,8 +99,8 @@ To install the TorusMapper code, *before* running the installation of
 galpy, navigate to the top-level galpy directory (which contains the
 ``setup.py`` file) and do::
 
-	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle_src/actionAngleTorus_c_ext/torus
-	     cd galpy/actionAngle_src/actionAngleTorus_c_ext/torus
+	     git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+	     cd galpy/actionAngle/actionAngleTorus_c_ext/torus
 	     git checkout galpy
 	     cd -
 
@@ -91,17 +138,23 @@ necessary if you want to use
 ``galpy.actionAngle.actionAngleTorus``. See :ref:`above <install_tm>`
 for instructions on how to install the TorusMapper code.
 
+.. _gsl_install:
+
 How do I install the GSL?
 ++++++++++++++++++++++++++
 
 Certain advanced features require the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`_), with action calculations
-requiring version 1.14 or higher. On a Mac, the easiest way to install
+requiring version 1.14 or higher. The easiest way to install this is using its Anaconda build::
+
+	  conda install -c conda-forge gsl
+
+If you do not want to go that route, on a Mac, the next easiest way to install
 the GSL is using `Homebrew <http://brew.sh/>`_ as::
 
 		brew install gsl --universal
 
-You should be able to check your version  using::
+You should be able to check your version using (on Mac/Linux)::
 
    gsl-config --version
 
@@ -129,20 +182,35 @@ or::
 This is typically because the compiler cannot locate the GSL header
 files or the GSL library. You can tell the installation about where
 you've installed the GSL library by defining (for example, when the
-GSL was installed under ``/usr``)::
+GSL was installed under ``/usr``; the ``LD_LIBRARY_PATH`` part of this
+may or may not be necessary depending on your system)::
 
        export CFLAGS=-I/usr/include
        export LDFLAGS=-L/usr/lib
+       export LD_LIBRARY_PATH=-L/usr/lib
 
 or::
 
 	setenv CFLAGS -I/usr/include
 	setenv LDFLAGS -L/usr/lib
+	setenv LD_LIBRARY_PATH -L/usr/lib
 
 depending on your shell type (change the actual path to the include
 and lib directories that have the gsl directory). If you already have
-``CFLAGS`` and ``LDFLAGS`` defined you just have to add the
-``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
+``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
+to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
+
+If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
+
+   gsl-config --cflags
+   gsl-config --libs
+
+(don't include the ``-lgsl lgslcblas`` portion of the latter output.)
+
+I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This typically happens if you install using ``sudo``, but have defined the ``CFLAGS`` etc. environment variables without using sudo. Try using ``sudo -E`` instead, which propagates your own environment variables to the ``sudo`` user.
 
 I'm having issues with OpenMP
 +++++++++++++++++++++++++++++++
@@ -179,25 +247,25 @@ versions, but it still does not support ``OpenMP``.
 
 .. _configfile:
 
-**NEW in v1.2**: Configuration file
-------------------------------------
+Configuration file
+-------------------
 
 Since v1.2, ``galpy`` uses a configuration file to set a small number
 of configuration variables. This configuration file is parsed using
 `ConfigParser
 <https://docs.python.org/2/library/configparser.html>`__/`configparser
 <https://docs.python.org/3/library/configparser.html>`__. It is
-currently used to set a default set of distance and velocity scales
-(``ro`` and ``vo`` throughout galpy) for conversion between physical
-and internal galpy units, to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), to specify whether output from functions or
-methods should be given as an `astropy Quantity
-<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
-with units as much as possible or not, and whether or not to use
-astropy's `coordinate transformations
-<http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these
-are typically somewhat slower than galpy's own coordinate
-transformations, but they are more accurate and more general). The
-current configuration file therefore looks like this::
+currently used:
+
+	  * to set a default set of distance and velocity scales (``ro`` and ``vo`` throughout galpy) for conversion between physical and internal galpy unit
+
+    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), 
+
+	  * to specify whether output from functions or methods should be given as an `astropy Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ with units as much as possible or not, and whether or not to use astropy's `coordinate transformations <http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these are typically somewhat slower than galpy's own coordinate transformations, but they are more accurate and more general)
+
+          * to set the level of verbosity of galpy's warning system (the default ``verbose=False`` turns off non-crucial warnings). 
+
+The current configuration file therefore looks like this::
 
 	  [normalization]
 	  ro = 8.
@@ -209,6 +277,9 @@ current configuration file therefore looks like this::
 	  [astropy]
 	  astropy-units = False
 	  astropy-coords = True
+
+	  [warnings]
+	  verbose = False
 
 where ``ro`` is the distance scale specified in kpc, ``vo`` the
 velocity scale in km/s, and the setting is to *not* return output as a

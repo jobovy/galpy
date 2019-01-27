@@ -3,13 +3,20 @@ from __future__ import print_function, division
 import warnings
 import os, os.path
 import sys
+import platform
+WIN32= platform.system() == 'Windows'
 import time
 import signal
 import subprocess
 import pytest
 import numpy
+import astropy
+PY2= sys.version < '3'
+_APY3= astropy.__version__ > '3'
 from galpy import potential
+from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
+from test_actionAngle import reset_warning_registry
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
     mockFlatEllipticalDiskPotential, \
@@ -48,10 +55,17 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     expwholeDiskSCFPotential, \
     mockFlatDehnenSmoothBarPotential, \
     mockSlowFlatDehnenSmoothBarPotential, \
+    mockSlowFlatDecayingDehnenSmoothBarPotential, \
     mockFlatSolidBodyRotationSpiralArmsPotential, \
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
     triaxialLogarithmicHaloPotential, \
-    testorbitHenonHeilesPotential
+    testorbitHenonHeilesPotential, \
+    mockFlatCorotatingRotationSpiralArmsPotential, \
+    mockFlatTrulyCorotatingRotationSpiralArmsPotential, \
+    mockFlatGaussianAmplitudeBarPotential, \
+    mockFlatTrulyGaussianAmplitudeBarPotential, \
+    testorbitHenonHeilesPotential, \
+    nestedListPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -62,7 +76,7 @@ _NOLONGINTEGRATIONS= False
 warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
-# integrators
+# integrators; tests 3D and 2D orbits, 1D orbits done separately below
 def test_energy_jacobi_conservation():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
@@ -71,14 +85,16 @@ def test_energy_jacobi_conservation():
     fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'FullTo' in p and not 'toPlanar' in p 
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
@@ -94,9 +110,6 @@ def test_energy_jacobi_conservation():
     pots.append('BurkertPotentialNoC')
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
-    pots.append('testlinearMWPotential')
-    pots.append('mockCombLinearPotential')
-    pots.append('mockSimpleLinearPotential')
     pots.append('mockMovingObjectLongIntPotential')
     pots.append('oblateHernquistPotential')
     pots.append('oblateNFWPotential')
@@ -117,15 +130,22 @@ def test_energy_jacobi_conservation():
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential')
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
+    pots.append('mockFlatGaussianAmplitudeBarPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -145,6 +165,7 @@ def test_energy_jacobi_conservation():
     jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
     jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
+    jactol['mockSlowFlatDecayingDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
     firstTest= True
     for p in pots:
         #Setup instance of potential
@@ -156,6 +177,7 @@ def test_energy_jacobi_conservation():
             tclass= getattr(potential,p)
         except AttributeError:
             tclass= getattr(sys.modules[__name__],p)
+        #if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
@@ -178,45 +200,42 @@ def test_energy_jacobi_conservation():
                 o.integrate(ttimes,tp._potlist,method=integrator)
             elif isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
-            elif isinstance(tp,testlinearMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             if not 'Bar' in p and not 'Spiral' in p \
                     and not 'MovingObject' in p and not 'Slow' in p:
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
             #Jacobi
             if 'Elliptical' in p or 'Lopsided' in p \
-                    or 'DehnenSmoothBar' in p  or 'SolidBodyRotation' in p \
+                    or 'DehnenSmoothBar' in p  \
+                    or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p  \
                     or p == 'mockMovingObjectLongIntPotential' \
                     or 'Cosmphi' in p or 'triaxialLog' in p \
                     or 'Henon' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
-            elif isinstance(tp,potential.linearPotential):
-                tJacobis= tEs #hack
             else:
                 tJacobis= o.Jacobi(ttimes)
 #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level" %(p,integrator,(numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
-            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
+            if firstTest or 'testMWPotential' in p:
                 #Some basic checking of the energy and Jacobi functions
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 assert (o.E()-o.E(0.))**2. < 10.**ttol, \
                     "Energy calculated with o.E() and o.E(0.) do not agree"
-                if not isinstance(tp,potential.linearPotential):
-                    assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
-                if not isinstance(tp,potential.linearPotential) \
-                        and not tp.isNonAxi:
+                assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
+                if not tp.isNonAxi:
                     assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                         "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                     assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
@@ -237,8 +256,7 @@ def test_energy_jacobi_conservation():
                         pass
                     else:
                         raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            if isinstance(tp,potential.linearPotential) \
-                    or 'MovingObject' in p:
+            if 'MovingObject' in p:
                 if _QUICKTEST \
                         and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p)
                                  or 'linearMWPotential' in p \
@@ -299,7 +317,7 @@ def test_energy_jacobi_conservation():
                 if isinstance(tp,testMWPotential) \
                         or isinstance(tp,testplanarMWPotential):
                     o.integrate(ttimes,
-                                [tmp.toPlanar() for tmp in tp._potlist],
+                                potential.toPlanarPotential(tp._potlist),
                                 method=integrator)
                 else:
                     o.integrate(ttimes,ptp,method=integrator)
@@ -345,7 +363,7 @@ def test_energy_jacobi_conservation():
             if isinstance(tp,testMWPotential) \
                     or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,
-                            [tmp.toPlanar() for tmp in tp._potlist],
+                            potential.toPlanarPotential(tp._potlist),
                             method=integrator)
             else:
                 o.integrate(ttimes,ptp,method=integrator)
@@ -355,7 +373,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p :
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -405,7 +425,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
                 #Jacobi
-                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
+                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                        or 'CorotatingRotation' in p \
+                        or 'GaussianAmplitudeBar' in p:
                     tJacobis= o.Jacobi(ttimes,pot=tp)
                 else:
                     tJacobis= o.Jacobi(ttimes)
@@ -424,7 +446,9 @@ def test_energy_jacobi_conservation():
                 assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
                     "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p:
+            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
+                    or 'CorotatingRotation' in p \
+                    or 'GaussianAmplitudeBar' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
@@ -433,6 +457,125 @@ def test_energy_jacobi_conservation():
             if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
                                      or ('Burkert' in p and not tp.hasC)): break
     #raise AssertionError
+    return None
+
+# Test whether the energy of 1D orbits is conserved for different integrators
+def test_energy_conservation_linear():
+    if _NOLONGINTEGRATIONS: return None
+    #Basic parameters for the test
+    times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
+    growtimes= numpy.linspace(0.,280.,5001) # for pots that grow slowly
+    fasttimes= numpy.linspace(0.,14.,501) #~0.5 Gyr at the Solar circle
+    integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'odeint', #direct python solver
+                  'dop853', 'dop853_c',
+                  'leapfrog','leapfrog_c',
+                  'rk4_c','rk6_c',
+                  'symplec4_c','symplec6_c']
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p 
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('BurkertPotentialNoC')
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
+    pots.append('mockCombLinearPotential')
+    pots.append('mockSimpleLinearPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('triaxialLogarithmicHaloPotential')   
+    pots.append('nestedListPotential')
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
+    rmpots.append('SoftenedNeedleBarPotential')
+    if False: #_TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    #tolerances in log10
+    tol= {}
+    tol['default']= -10.
+    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
+    firstTest= True
+    for p in pots:
+        #Setup instance of potential
+        if p in list(tol.keys()): ttol= tol[p]
+        else: ttol= tol['default']
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
+        tp= tclass()
+        if hasattr(tp,'toVertical'):
+            if not hasattr(tp,'normalize'): continue #skip these
+            tp.normalize(1.)
+            tp= tp.toVertical(1.2,phi=0.3)
+        elif isinstance(tp,potential.linearPotential):
+            pass
+        else: # not 3D --> 1D or 1D, so skip
+            continue
+        for integrator in integrators:
+            if integrator == 'dopr54_c' \
+                    and ('Spiral' in p or 'Lopsided' in p \
+                             or 'Dehnen' in p or 'Cosmphi' in p):
+                ttimes= growtimes
+            elif integrator == 'dopr54_c' \
+                    and not 'MovingObject' in p \
+                    and not p == 'FerrersPotential': ttimes= times
+            else: ttimes= fasttimes
+            #First track azimuth
+            o= setup_orbit_energy(tp)
+            if isinstance(tp,testMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testplanarMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            elif isinstance(tp,testlinearMWPotential):
+                o.integrate(ttimes,tp._potlist,method=integrator)
+            else:
+                o.integrate(ttimes,tp,method=integrator)
+            tEs= o.E(ttimes)
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            if not 'Bar' in p and not 'Spiral' in p \
+                    and not 'MovingObject' in p and not 'Slow' in p:
+                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
+            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
+                #Some basic checking of the energy function
+                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                    "Energy calculated with o.E() and o.E(0.) do not agree"
+                o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
+                try:
+                    o.E()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+            if _QUICKTEST and not (p == 'NFWPotential' \
+                                  or ('Burkert' in p and not tp.hasC)): break
     return None
 
 # Test some long-term integrations for the symplectic integrators
@@ -481,13 +624,15 @@ def test_liouville_planar():
     #Basic parameters for the test
     times= numpy.linspace(0.,28.,1001) #~1 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
+                  'dop853_c', 'dop853',
                   'odeint', #direct python solver
                   'rk4_c','rk6_c']
     #Grab all of the potentials
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
     pots.append('mockFlatLopsidedDiskPotential')
     pots.append('mockFlatCosmphiDiskPotential')
@@ -511,14 +656,19 @@ def test_liouville_planar():
     #pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
     pots.append('mockSlowFlatDehnenSmoothBarPotential') 
+    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential') 
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('testorbitHenonHeilesPotential')   
+    pots.append('mockFlatTrulyCorotatingRotationSpiralArmsPotential')
+    pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
+    pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
     #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
@@ -531,20 +681,24 @@ def test_liouville_planar():
     rmpots.append('TriaxialJaffePotential')
     rmpots.append('SoftenedNeedleBarPotential')
     rmpots.append('DiskSCFPotential')
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
+    rmpots.append('PerfectEllipsoidPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
     tol= {}
     tol['default']= -8.
     tol['KeplerPotential']= -7. #more difficult
+    tol['NFWPotential']= -6. #more difficult for rk4_c, only one that does this
     tol['TriaxialNFWPotential']= -4. #more difficult
     tol['triaxialLogarithmicHaloPotential']= -7. #more difficult
     tol['FerrersPotential']= -2.
+    tol['mockFlatCosmphiDiskwBreakPotential']= -7. # more difficult
+    tol['mockFlatTrulyCorotatingRotationSpiralArmsPotential']= -5. # more difficult
     firstTest= True
     for p in pots:
         #Setup instance of potential
-        if p in list(tol.keys()): ttol= tol[p]
-        else: ttol= tol['default']
         try:
             tclass= getattr(potential,p)
         except AttributeError:
@@ -552,17 +706,25 @@ def test_liouville_planar():
         tp= tclass()
         if not hasattr(tp,'normalize'): continue #skip these
         tp.normalize(1.)
+        #if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
         if hasattr(tp,'toPlanar'):
             ptp= tp.toPlanar()
         for integrator in integrators:
-            if integrator == 'odeint' or not tp.hasC \
+            if p in list(tol.keys()): ttol= tol[p]
+            else: ttol= tol['default']
+            if isinstance(tp,testMWPotential) \
+                        or isinstance(tp,testplanarMWPotential):
+                thasC= _check_c(tp._potlist)
+            else:
+                thasC= _check_c(tp)
+            if (integrator == 'odeint' or not thasC) \
                 and not p == 'FerrersPotential' : ttol= -4.
             if True: ttimes= times
             o= setup_orbit_liouville(ptp,axi=False,henon='Henon' in p)
             #Calculate the Jacobian d x / d x
             if hasattr(tp,'_potlist'):
                 if isinstance(tp,testMWPotential):
-                    plist= [tmp.toPlanar() for tmp in tp._potlist]
+                    plist= potential.toPlanarPotential(tp._potlist)
                 else:
                     plist= tp._potlist
                 o.integrate_dxdv([1.,0.,0.,0.],ttimes,plist,
@@ -595,7 +757,7 @@ def test_liouville_planar():
                                  rectIn=True,rectOut=True)
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
-#            print(p, integrator, numpy.fabs(tjac-1.))
+            #print(p, integrator, numpy.fabs(tjac-1.),ttol)
             assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
             if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests
@@ -606,7 +768,7 @@ def test_liouville_planar():
                                      rectIn=True,rectOut=True)
                 except TypeError: pass
                 else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
-                firstTest= False                    
+                firstTest= False
             if _QUICKTEST and not (('NFW' in p and not ptp.isNonAxi and 'SCF' not in p) \
                                        or ('Burkert' in p and not ptp.hasC)): break
     return None
@@ -618,6 +780,7 @@ def test_eccentricity():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -625,14 +788,18 @@ def test_eccentricity():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -738,6 +905,7 @@ def test_pericenter():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -745,14 +913,18 @@ def test_pericenter():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -857,21 +1029,26 @@ def test_apocenter():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -977,6 +1154,7 @@ def test_zmax():
     times= numpy.linspace(0.,7.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -984,13 +1162,17 @@ def test_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1082,6 +1264,7 @@ def test_analytic_ecc_rperi_rap():
     times= numpy.linspace(0.,20.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1089,14 +1272,18 @@ def test_analytic_ecc_rperi_rap():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1180,13 +1367,27 @@ def test_analytic_ecc_rperi_rap():
                         o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s, by %g" %(p,integrator,(tecc-tecc_analytic)**2.)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1194,7 +1395,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic)**2.)
@@ -1219,13 +1427,27 @@ def test_analytic_ecc_rperi_rap():
                     o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1233,7 +1455,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s by %g" %(p,integrator,(trap-trap_analytic))
@@ -1258,13 +1487,27 @@ def test_analytic_ecc_rperi_rap():
                     o.integrate(times,ptp,method=integrator)
                 #Eccentricity
                 tecc= o.e()
-                tecc_analytic= o.e(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tecc_analytic= o.e(analytic=True,type='adiabatic')
+                else:
+                    tecc_analytic= o.e(analytic=True)
                 #print p, integrator, tecc, tecc_analytic, (tecc-tecc_analytic)**2.
                 assert (tecc-tecc_analytic)**2. < 10.**ttol, \
                     "Analytically computed eccentricity does not agree with numerical estimate by %g for potential %s and integrator %s" %((tecc-tecc_analytic)**2.,p,integrator)
                 #Pericenter radius
                 trperi= o.rperi()
-                trperi_analytic= o.rperi(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trperi_analytic= o.rperi(analytic=True,type='adiabatic')
+                else:
+                    trperi_analytic= o.rperi(analytic=True)
                 #print p, integrator, trperi, trperi_analytic, (trperi-trperi_analytic)**2.
                 assert (trperi-trperi_analytic)**2. < 10.**ttol, \
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1272,7 +1515,14 @@ def test_analytic_ecc_rperi_rap():
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s" %(p,integrator)
                 #Apocenter radius
                 trap= o.rap()
-                trap_analytic= o.rap(analytic=True)
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    trap_analytic= o.rap(analytic=True,type='adiabatic')
+                else:
+                    trap_analytic= o.rap(analytic=True)
                 #print p, integrator, trap, trap_analytic, (trap-trap_analytic)**2.
                 assert (trap-trap_analytic)**2. < 10.**ttol, \
                     "Analytically computed apocenter radius does not agree with numerical estimate for potential %s and integrator %s" %(p,integrator)
@@ -1283,12 +1533,59 @@ def test_analytic_ecc_rperi_rap():
     #raise AssertionError
     return None
     
+def test_orbit_rguiding():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
+def test_orbit_rguiding_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        TriaxialNFWPotential, rl
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=lp)-rl(lp,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    assert numpy.fabs(o.rguiding(pot=MWPotential2014)-rl(MWPotential2014,Lz)) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl'
+    # For an orbit integrated in a non-axisymmetric potential, such that Lz varies
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    npaxi= TriaxialNFWPotential(amp=20.,c=0.8)
+    R,Lz= 1.2,2.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,np)
+    assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
 # Check that zmax calculated analytically agrees with numerical calculation
 def test_analytic_zmax():
     #Basic parameters for the test
     times= numpy.linspace(0.,20.,251) #~10 Gyr at the Solar circle
     integrators= ['dopr54_c', #first, because we do it for all potentials
                   'odeint', #direct python solver
+                  'dop853', 'dop853_c',
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
@@ -1296,13 +1593,17 @@ def test_analytic_zmax():
     pots= [p for p in dir(potential) 
            if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
                and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p)]
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
     pots.append('testMWPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential']
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    rmpots.append('SphericalShellPotential')
+    rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1310,7 +1611,8 @@ def test_analytic_zmax():
         pots.remove(p)
     #tolerances in log10
     tol= {}
-    tol['default']= -10.
+    tol['default']= -9.
+    tol['IsochronePotential']= -4. #these are more difficult
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -4. #these are more difficult
     tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
@@ -1360,8 +1662,15 @@ def test_analytic_zmax():
                 else:
                     o.integrate(times,tp,method=integrator)
                 tzmax= o.zmax()
-                tzmax_analytic= o.zmax(analytic=True)
-                #print p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.
+                if ii < 2 and (p == 'BurkertPotential'
+                               or 'SCFPotential' in p
+                               or 'FlattenedPower' in p
+                               or 'RazorThinExponential' in p
+                               or 'TwoPowerSpherical' in p): # no Rzderiv currently
+                    tzmax_analytic= o.zmax(analytic=True,type='adiabatic')
+                else:
+                    tzmax_analytic= o.zmax(analytic=True)
+                #print(p, integrator, tzmax, tzmax_analytic, (tzmax-tzmax_analytic)**2.)
                 assert (tzmax-tzmax_analytic)**2. < 10.**ttol, \
                     "Analytically computed zmax does not agree by %g with numerical estimate for potential %s and integrator %s" %(numpy.fabs(tzmax-tzmax_analytic),p,integrator)
                 assert (o.zmax(ro=8.)/8.-tzmax_analytic)**2. < 10.**ttol, \
@@ -1387,7 +1696,7 @@ def test_check_integrate_dt():
         o.integrate(times,lp,dt=(times[1]-times[0])/4.)
     except ValueError:
         raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
-    return None    
+    return None
 
 # Test that fixing the stepsize works, issue #207
 def test_fixedstepsize():
@@ -1427,7 +1736,7 @@ numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],ru
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
 def test_add_linear_planar_orbit():
-    from galpy.orbit_src import FullOrbit, RZOrbit
+    from galpy.orbit import FullOrbit, RZOrbit
     kg= potential.KGPotential()
     ol= setup_orbit_energy(kg)
     #w/ azimuth
@@ -1609,7 +1918,7 @@ def test_orbit_setup_linear():
 
 def test_orbit_setup_planar():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.planarOrbit import planarROrbit
+    from galpy.orbit.planarOrbit import planarROrbit
     o= Orbit([1.,0.1,1.1])
     assert o.dim() == 2, 'planarROrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
@@ -1629,46 +1938,46 @@ def test_orbit_setup_planar():
     #lb, plane w/ default
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
     obs= [8.,0.]
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.,0.,-10.,230.]
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #also check that the ro,vo,solarmotion values are stored and used properly (issue #158 solution)
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.],
              ro=7.5)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.5,0.,-10.,245.]
-    assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.pmbb()-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.pmbb()-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit in the plane
     o= Orbit([120.,2.,0.5,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.,0.,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.,0.,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-5.5, 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     return None
 
 def test_orbit_setup():
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import FullOrbit
+    from galpy.orbit.FullOrbit import FullOrbit
     o= Orbit([1.,0.1,1.1,0.2,0.3])
     assert o.dim() == 3, 'RZOrbitOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
@@ -1745,14 +2054,14 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default
     o= Orbit([120.,60.,2.,0.5,0.4,30.],lb=True)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll()-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vll()-4.74047) < 10.**-13., 'Orbit pmll setup does not agree with o.vll()'
-    assert numpy.fabs(o.pmbb()-0.4) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-13., 'Orbit pmbb setup does not agree with o.vbb()'
-    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-60.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vll()-4.74047) < 10.**-10., 'Orbit pmll setup does not agree with o.vll()'
+    assert numpy.fabs(o.pmbb()-0.4) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-10., 'Orbit pmbb setup does not agree with o.vbb()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default at the Sun
     o= Orbit([120.,60.,0.,10.,20.,30.],uvw=True,lb=True,zo=0.)
     assert numpy.fabs(o.dist()-0.) < 10.**-2., 'Orbit dist setup does not agree with o.dist()' #because of tweak in the code to deal with at the Sun
@@ -1760,50 +2069,163 @@ def test_orbit_setup():
     assert (o.vlos()**2.-10.**2.-20.**2.-30.**2.) < 10.**-10., 'Velocity wrt the Sun when looking at Orbit at the Sun does not agree'
     #lb w/ default and UVW
     o= Orbit([120.,60.,2.,-10.,20.,-25.],lb=True,uvw=True)
-    assert numpy.fabs(o.ll()-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb()-60.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
-    assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
-    assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
+    assert numpy.fabs(o.ll()-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb()-60.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.U()+10.) < 10.**-10., 'Orbit U setup does not agree with o.U()'
+    assert numpy.fabs(o.V()-20.) < 10.**-10., 'Orbit V setup does not agree with o.V()'
+    assert numpy.fabs(o.W()+25.) < 10.**-10., 'Orbit W setup does not agree with o.W()'
     #lb w/ default and UVW, test wrt helioXYZ
     o= Orbit([180.,0.,2.,-10.,20.,-25.],lb=True,uvw=True)
-    assert numpy.fabs(o.helioX()+2.) < 10.**-13., 'Orbit helioX setup does not agree with o.helioX()'
-    assert numpy.fabs(o.helioY()-0.) < 10.**-13., 'Orbit helioY setup does not agree with o.helioY()'
-    assert numpy.fabs(o.helioZ()-0.) < 10.**-13., 'Orbit helioZ setup does not agree with o.helioZ()'
-    assert numpy.fabs(o.U()+10.) < 10.**-13., 'Orbit U setup does not agree with o.U()'
-    assert numpy.fabs(o.V()-20.) < 10.**-13., 'Orbit V setup does not agree with o.V()'
-    assert numpy.fabs(o.W()+25.) < 10.**-13., 'Orbit W setup does not agree with o.W()'
-    #Radec w/ default and obs=Orbit
-    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.])
-    assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
-    assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
-    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-13., 'Orbit pmra setup does not agree with o.vra()'
-    assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-13., 'Orbit pmdec setup does not agree with o.pmdec()'
-    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-13., 'Orbit pmdec setup does not agree with o.vdec()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.helioX()+2.) < 10.**-10., 'Orbit helioX setup does not agree with o.helioX()'
+    assert numpy.fabs(o.helioY()-0.) < 10.**-10., 'Orbit helioY setup does not agree with o.helioY()'
+    assert numpy.fabs(o.helioZ()-0.) < 10.**-10., 'Orbit helioZ setup does not agree with o.helioZ()'
+    assert numpy.fabs(o.U()+10.) < 10.**-10., 'Orbit U setup does not agree with o.U()'
+    assert numpy.fabs(o.V()-20.) < 10.**-10., 'Orbit V setup does not agree with o.V()'
+    assert numpy.fabs(o.W()+25.) < 10.**-10., 'Orbit W setup does not agree with o.W()'
+    #Radec w/ hogg and obs=Orbit
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='hogg')
+    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.],
+               solarmotion='hogg')
+    assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-10., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-10., 'Orbit dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-10., 'Orbit pmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-10., 'Orbit pmra setup does not agree with o.vra()'
+    assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-10., 'Orbit pmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-10., 'Orbit pmdec setup does not agree with o.vdec()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb, plane w/ default
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
     obs= [8.,0.]
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     obs= [8.,0.,-10.,230.]
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb in plane and obs=Orbit
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.1,4.,0.])
-    obs= Orbit([1.,-10.1/220.,224./220,0.])
-    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-13., 'Orbit ll setup does not agree with o.ll()'
-    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-13., 'Orbit bb setup does not agree with o.bb()'
-    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
-    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-13., 'Orbit pmll setup does not agree with o.pmll()'
-    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-13., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
+    obs= Orbit([1.,-10.1/220.,224./220,0.],solarmotion='hogg')
+    assert numpy.fabs(o.ll(obs=obs)-120.) < 10.**-10., 'Orbit ll setup does not agree with o.ll()'
+    assert numpy.fabs(o.bb(obs=obs)-0.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
+    assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
+    assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
+    assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
+    return None
+
+def test_orbit_setup_SkyCoord():
+    # Only run this for astropy>3
+    if not _APY3: return None
+    from galpy.orbit import Orbit
+    import astropy.coordinates as apycoords
+    import astropy.units as u
+    ra= 120.*u.deg
+    dec= 60.*u.deg
+    distance= 2.*u.kpc
+    pmra= 0.5*u.mas/u.yr
+    pmdec= 0.4*u.mas/u.yr
+    vlos= 30.*u.km/u.s
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs')
+    #w/ default
+    o= Orbit(c)
+    # galpy's sky is not exactly aligned with astropy's sky, so celestials are slightly off
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ hogg
+    o= Orbit(c,solarmotion='hogg')
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    #Radec w/ dehnen and diff ro,vo
+    o= Orbit(c,solarmotion='dehnen',vo=240.,ro=7.5,zo=0.01)
+    obs= [7.5,0.,0.01,-10.,245.25,7.17]
+    assert numpy.fabs(o.ra(obs=obs,ro=7.5)-120.) < 10.**-8., 'Orbit SkyCoordra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec(obs=obs,ro=7.5)-60.) < 10.**-8., 'Orbit SkyCoorddec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist(obs=obs,ro=7.5)-2.) < 10.**-13., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra(obs=obs,ro=7.5,vo=240.)-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec(obs=obs,ro=7.5,vo=240.)-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos(obs=obs,ro=7.5,vo=240.)-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o.ra()-120.) < 10.**-8., 'Orbit SkyCoord ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.dec()-60.) < 10.**-8., 'Orbit SkyCoord dec setup does not agree with o.dec()'
+    assert numpy.fabs(o.dist()-2.) < 10.**-14., 'Orbit SkyCoorddist setup does not agree with o.dist()'
+    assert numpy.fabs(o.pmra()-0.5) < 10.**-8., 'Orbit SkyCoordpmra setup does not agree with o.pmra()'
+    assert numpy.fabs(o.pmdec()-0.4) < 10.**-8., 'Orbit SkyCoordpmdec setup does not agree with o.pmdec()'
+    assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
+    # Also test that the coordinate-transformation parameters are properly read
+    assert numpy.fabs(o._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._orb._zo-1.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    assert numpy.all(numpy.fabs(o._orb._solarmotion-numpy.array([[11.1,-5.,3.25]])) < 1e-12), 'Orbit SkyCoord setup does not properly store solarmotion'
+    # If we only specify galcen_distance, but not z_sun, zo --> 0
+    # Now specifying the coordinate conversion parameters in the SkyCoord
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    o= Orbit(c)
+    assert numpy.fabs(o._orb._zo-0.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    # If we specify both z_sun and zo, they need to be consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,zo=0.025)
+    # If ro and galcen_distance are both specified, warn if they are not consistent
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.warns(None) as record:
+        o= Orbit(c,ro=10.)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
+    assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    # If we specify both v_sun and solarmotion, they need to be consistent
+    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    # This should be fine
+    o= Orbit(c,solarmotion=[11.1,-5.,3.25])
+    # This shouldn't be
+    with pytest.raises(ValueError) as excinfo:
+        o= Orbit(c,solarmotion=[11.,-4.,2.25])
+    # Should get error if we give a SkyCoord without velocities
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.raises(TypeError) as excinfo:
+        o= Orbit(c)
     return None
 
 # Check that toPlanar works
@@ -1841,7 +2263,7 @@ def test_toPlanar():
     except AttributeError:
         pass
     else:
-        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')        
+        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')
     return None
 
 # Check that toLinear works
@@ -1863,7 +2285,7 @@ def test_toLinear():
     except AttributeError:
         pass
     else:
-        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')        
+        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')
     # w/ scales
     ro,vo= 10.,300.
     obs= Orbit([1.,0.1,1.1,0.3,0.,2.],ro=ro,vo=vo)
@@ -2115,6 +2537,71 @@ def test_flip_inplace_integrated():
         # Just check one time, allows code duplication!
         o= o(0.5)
         of= of(0.5)
+        #First check that the scales have been propagated properly
+        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        if ii == 4:
+            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        else:
+            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        if ii == 4:
+            assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
+        else:
+            assert numpy.abs(o.R()-of.R()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vR()+of.vR()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vT()+of.vT()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii % 2 == 1:
+            assert numpy.abs(o.phi()-of.phi()) < 10.**-10., 'o.flip() did not work as expected'
+        if ii < 2:
+            assert numpy.abs(o.z()-of.z()) < 10.**-10., 'o.flip() did not work as expected'
+            assert numpy.abs(o.vz()+of.vz()) < 10.**-10., 'o.flip() did not work as expected'
+    return None
+
+# Test reversing an orbit inplace after orbit integration, and after having
+# once evaluated the orbit before flipping inplace (#345)
+# only difference wrt previous test is a line that evaluates of before
+# flipping
+def test_flip_inplace_integrated_evaluated():
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    plp= lp.toPlanar()
+    llp= lp.toVertical(1.)
+    ts= numpy.linspace(0.,1.,11)
+    for ii in range(5):
+        #Scales (not really necessary for this test)
+        ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
+        if ii == 0: #axi, full
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=True)
+        elif ii == 1: #track azimuth, full
+            o= setup_orbit_flip(lp,ro,vo,zo,solarmotion,axi=False)
+        elif ii == 2: #axi, planar
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=True)
+        elif ii == 3: #track azimuth, full
+            o= setup_orbit_flip(plp,ro,vo,zo,solarmotion,axi=False)
+        elif ii == 4: #linear orbit
+            o= setup_orbit_flip(llp,ro,vo,zo,solarmotion,axi=False)
+        of= o()
+        if ii < 2 or ii == 3:
+            o.integrate(ts,lp)
+            of.integrate(ts,lp)
+        elif ii == 2:
+            o.integrate(ts,plp)
+            of.integrate(ts,plp)
+        else:
+            o.integrate(ts,llp)
+            of.integrate(ts,llp)
+        # Evaluate, make sure it is at an interpolated time!
+        dum= of.R(0.52)
+        # Now flip
+        of.flip(inplace=True)
+        # Just check one time, allows code duplication!
+        o= o(0.52)
+        of= of(0.52)
         #First check that the scales have been propagated properly
         assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
@@ -2396,7 +2883,7 @@ def test_physical_output_off():
     assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
     return None
 
-# Check that the routines that should return physical coordinates are turned 
+# Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
     from galpy.potential import LogarithmicHaloPotential
@@ -2627,6 +3114,7 @@ def test_orbitfit_custom():
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
     from galpy.util import bovy_coords
+    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
     bovy_coords._APY_COORDS= False # too slow otherwise
     of.integrate(ts,pot)
     off= of.flip()
@@ -2660,7 +3148,7 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     out= []
     for ii in range(vxvv.shape[0]):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
-    bovy_coords._APY_COORDS= True
+    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
     return numpy.array(out)
 
 def test_MWPotential_warning():
@@ -2668,6 +3156,8 @@ def test_MWPotential_warning():
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
         # Should raise warning bc of MWPotential, might raise others
     raisedWarning= False
@@ -2687,7 +3177,7 @@ def test_time():
     times= numpy.linspace(0.,10.,1001)
     o.integrate(times,potential.MWPotential)
     assert numpy.all((o.time()-times) < 10.**-8.), "Orbit.time after integration does not return the integration times"
-    return None    
+    return None
 
 # Test interpolation with backwards orbit integration
 def test_backinterpolation_issue204():
@@ -2822,6 +3312,7 @@ def test_call_issue256():
 # Test whether the output from the SkyCoord function is correct
 def test_SkyCoord():
     from galpy.orbit import Orbit
+    from astropy import units
     # In ra, dec
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
     assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
@@ -2838,6 +3329,13 @@ def test_SkyCoord():
     assert numpy.all(numpy.fabs(ras-o.ra(times)) < 10.**-13.), 'Orbit SkyCoord ra and direct ra do not agree'
     assert numpy.all(numpy.fabs(decs-o.dec(times)) < 10.**-13.), 'Orbit SkyCoord dec and direct dec do not agree'
     assert numpy.all(numpy.fabs(dists-o.dist(times)) < 10.**-13.), 'Orbit SkyCoord distance and direct distance do not agree'
+    # Check that the GC frame parameters are correctly propagated
+    if not _APY3: return None # not done in python 2
+    o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,ro=10.,zo=1.,
+             solarmotion=[-10.,34.,12.])
+    assert numpy.fabs(o.SkyCoord().galcen_distance.to(units.kpc).value-numpy.sqrt(10.**2.+1.**2.)) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.fabs(o.SkyCoord().z_sun.to(units.kpc).value-1.) < 10.**-13., 'Orbit SkyCoord GC frame attributes are incorrect'
+    assert numpy.all(numpy.fabs(o.SkyCoord().galcen_v_sun.d_xyz.to(units.km/units.s).value-numpy.array([10.,220.+34.,12.])) < 10.**-13.), 'Orbit SkyCoord GC frame attributes are incorrect'
     return None
 
 def test_orbit_obs_list_issue322():
@@ -2846,29 +3344,29 @@ def test_orbit_obs_list_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[1.,0.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=[0.,-1.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=[0.,-1.,0.],ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obs_Orbit_issue322():
@@ -2877,34 +3375,34 @@ def test_orbit_obs_Orbit_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,0.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=Orbit([1.,0.,0.,0.,0.,3.*numpy.pi/2.]),ro=1.)) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obs_Orbits_issue322():
     #Further tests of obs= Orbit parameter for orbit output, mainly in relation
-    # to issue #322; specific case where the orbit gets evaluated at multiple 
+    # to issue #322; specific case where the orbit gets evaluated at multiple
     # times
     from galpy.orbit import Orbit
     # Do non-zero Ysun case for planarOrbit
@@ -2948,29 +3446,29 @@ def test_orbit_obsvel_list_issue322():
     from galpy.orbit import Orbit
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
-    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-5.7, 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
-    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.7) < 10.**-5.5, 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-1.8) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
-    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)-0.9) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=[0.,1.,0.,0.6,0.8,0.],ro=1.,vo=1.)+0.6) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
 
     return None
 
@@ -2981,39 +3479,39 @@ def test_orbit_obsvel_Orbit_issue322():
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     obs= Orbit([1.,0.,0.7,0.,0.,0.],ro=1.,vo=1.)
-    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,3.*numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,3.*numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Full orbit
     # The basic case, for a full orbit
     o= Orbit([0.9,0.1,1.2,0.,0.,0.])
     obs= Orbit([1.,0.,0.7,0.,0.,0.],ro=1.,vo=1.)
-    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.U(obs=obs,ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.V(obs=obs,ro=1.,vo=1.)-0.5) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     # Now use non-zero Ysun
     o= Orbit([0.9,0.1,1.2,0.,0.,3.*numpy.pi/2.])
     obs= Orbit([1.,0.,0.7,0.,0.,3.*numpy.pi/2.],ro=1.,vo=1.)
-    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
-    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-10., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioX(obs=obs,ro=1.)-0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
+    assert numpy.fabs(o.helioY(obs=obs,ro=1.)) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
     return None
 
 def test_orbit_obsvel_Orbits_issue322():
     #Further tests of obs= Orbit parameter for orbit output, mainly in relation
-    # to issue #322; specific case where the orbit gets evaluated at multiple 
+    # to issue #322; specific case where the orbit gets evaluated at multiple
     # times; for velocity
     from galpy.orbit import Orbit
     # Do non-zero Ysun case for planarOrbit
@@ -3093,6 +3591,8 @@ def test_orbit_dim_1dPot_2dOrb():
     ts= numpy.linspace(0.,10.,1001)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="dop853")
     return None
 
 # Test whether ro warning is sounded when calling ra etc.
@@ -3345,6 +3845,7 @@ def test_orbit_method_inputobs_quantity():
 def test_orbit_c_sigint_full():
     integrators= ['dopr54_c',
                   'leapfrog_c',
+                  'dop853_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     scriptpath= 'orbitint4sigint.py'
@@ -3363,6 +3864,9 @@ def test_orbit_c_sigint_full():
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
             cnt+= 1
+
+        if p.poll() == 2 and WIN32: break
+
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3376,6 +3880,7 @@ def test_orbit_c_sigint_full():
 def test_orbit_c_sigint_planar():
     integrators= ['dopr54_c',
                   'leapfrog_c',
+                  'dop853_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     scriptpath= 'orbitint4sigint.py'
@@ -3394,6 +3899,9 @@ def test_orbit_c_sigint_planar():
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
             cnt+= 1
+
+        if p.poll() == 2 and WIN32: break
+
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3405,7 +3913,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    integrators= ['dopr54_c','rk4_c','rk6_c']
+    integrators= ['dopr54_c','rk4_c','rk6_c', 'dop853_c',]
     scriptpath= 'orbitint4sigint.py'
     if not 'tests' in os.getcwd():
         scriptpath= os.path.join('tests',scriptpath)
@@ -3422,6 +3930,9 @@ def test_orbit_c_sigint_planardxdv():
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
             cnt+= 1
+
+        if p.poll() == 2 and WIN32: break
+
         if p.poll() is None or p.poll() != 1:
             if p.poll() is None: msg= -100
             else: msg= p.poll()
@@ -3440,6 +3951,8 @@ def test_orbitint_pythonfallback():
     for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.]),Orbit([1.,0.1,1.1,0.1,0.]),
                 Orbit([1.,0.1,1.1,1.]),Orbit([1.,0.1,1.1])]:
         with pytest.warns(None) as record:
+            if PY2: reset_warning_registry('galpy')
+            warnings.simplefilter("always",galpyWarning)
             #Test w/ dopr54_c
             orb.integrate(ts,bp, method='dopr54_c')
         raisedWarning= False
@@ -3450,53 +3963,75 @@ def test_orbitint_pythonfallback():
         assert raisedWarning, "Orbit integration did not raise fallback warning"
     return None
 
-# Test that the functions that supposedly *always* return output in physical 
+def test_orbitint_dissipativefallback():
+    # Check if a warning is raised when one tries to integrate an orbit
+    # in a dissipative force law with a symplectic integrator
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.01,
+        dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
+    ts= numpy.linspace(0.,1.,101)
+    for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.])]:
+        with pytest.warns(None) as record:
+            orb.integrate(ts,[lp,cdf], method='leapfrog')
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator odeint instead)")
+        assert raisedWarning, "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
+    return None
+
+# Test that the functions that supposedly *always* return output in physical
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():
     from galpy.orbit import Orbit
     from galpy.util import bovy_coords
     o= Orbit([0.9,0.,1.,0.,0.2,0.],ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
+    # 04/2018: not quite anylonger w/ astropy def. of plane, but close
     l_true= 0.
     b_true= 0.
-    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True)
-    assert numpy.fabs(o.ra()-ra_true) < 10.**-8., 'Orbit.ra does not return correct ra in degree'
-    assert numpy.fabs(o.dec()-dec_true) < 10.**-8., 'Orbit.dec does not return correct dec in degree'
-    assert numpy.fabs(o.ll()-l_true) < 10.**-8., 'Orbit.ll does not return correct l in degree'
-    assert numpy.fabs(o.bb()-b_true) < 10.**-8., 'Orbit.bb does not return correct b in degree'
+    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True,
+                                               epoch=None)
+    assert numpy.fabs(o.ra()-ra_true) < 10.**-3.8, 'Orbit.ra does not return correct ra in degree'
+    assert numpy.fabs(o.dec()-dec_true) < 10.**-3.8, 'Orbit.dec does not return correct dec in degree'
+    assert numpy.fabs(o.ll()-l_true) < 10.**-4., 'Orbit.ll does not return correct l in degree'
+    assert numpy.fabs(o.bb()-b_true) < 10.**-4., 'Orbit.bb does not return correct b in degree'
     assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
     pmll_true= -30./0.8/4.74047
     pmbb_true= 4./0.8/4.74047
     pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
                                                              pmbb_true,
                                                              l_true,b_true,
-                                                             degree=True)
-    assert numpy.fabs(o.pmra()-pmra_true) < 10.**-8., 'Orbit.pmra does not return correct pmra in mas/yr'
-    assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-8., 'Orbit.pmdec does not return correct pmdec in mas/yr'
-    assert numpy.fabs(o.pmll()-pmll_true) < 10.**-8., 'Orbit.pmll does not return correct pmll in mas/yr'
-    assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-8., 'Orbit.pmbb does not return correct pmbb in mas/yr'
-    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-8., 'Orbit.vra does not return correct vra in km/s'
-    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-8., 'Orbit.vdec does not return correct vdec in km/s'
-    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.vll does not return correct vll in km/s'
-    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.vbb does not return correct vbb in km/s'
+                                                             degree=True,
+                                                             epoch=None)
+    assert numpy.fabs(o.pmra()-pmra_true) < 10.**-5., 'Orbit.pmra does not return correct pmra in mas/yr'
+    assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-5., 'Orbit.pmdec does not return correct pmdec in mas/yr'
+    assert numpy.fabs(o.pmll()-pmll_true) < 10.**-5., 'Orbit.pmll does not return correct pmll in mas/yr'
+    assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-4.7, 'Orbit.pmbb does not return correct pmbb in mas/yr'
+    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-4.8, 'Orbit.vra does not return correct vra in km/s'
+    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-4.6, 'Orbit.vdec does not return correct vdec in km/s'
+    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-5., 'Orbit.vll does not return correct vll in km/s'
+    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.vbb does not return correct vbb in km/s'
     assert numpy.fabs(o.vlos()+20.) < 10.**-8., 'Orbit.vlos does not return correct vlos in km/s'
-    assert numpy.fabs(o.U()+20.) < 10.**-8., 'Orbit.U does not return correct U in km/s'
-    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-8., 'Orbit.V does not return correct V in km/s'
-    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-8., 'Orbit.W does not return correct W in km/s'
+    assert numpy.fabs(o.U()+20.) < 10.**-4., 'Orbit.U does not return correct U in km/s'
+    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-4.8, 'Orbit.V does not return correct V in km/s'
+    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.W does not return correct W in km/s'
     assert numpy.fabs(o.helioX()-0.8) < 10.**-8., 'Orbit.helioX does not return correct helioX in kpc'
     # For non-trivial helioY and helioZ tests
     o= Orbit([1./numpy.sqrt(2.),0.,1.,0.,0.2,numpy.pi/4.],
              ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
-    assert numpy.fabs(o.helioY()-4.) < 10.**-8., 'Orbit.helioY does not return correct helioY in kpc'
+    assert numpy.fabs(o.helioY()-4.) < 10.**-5., 'Orbit.helioY does not return correct helioY in kpc'
     o= Orbit([0.9,0.,1.,0.3,0.2,numpy.pi/4.],
              ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
-    assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-8., 'Orbit.helioZ does not return correct helioZ in kpc'
+    assert numpy.fabs(o.helioZ()-0.3*8.) < 10.**-4.8, 'Orbit.helioZ does not return correct helioZ in kpc'
     return None
 
 def test_doublewrapper_2d():
-    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3525,7 +4060,7 @@ def test_doublewrapper_2d():
     return None
 
 def test_doublewrapper_3d():
-    # Test that a doubly-wrapped potential gets passed to C correctly, 
+    # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3557,7 +4092,7 @@ def test_doublewrapper_3d():
 
 def test_wrapper_followedbyanotherpotential_2d():
     # Test that a wrapped potential that gets followed by another potential
-    # gets passed to C correctly, 
+    # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3589,7 +4124,7 @@ def test_wrapper_followedbyanotherpotential_2d():
 
 def test_wrapper_followedbyanotherpotential_3d():
     # Test that a wrapped potential that gets followed by another potential
-    # gets passed to C correctly, 
+    # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3623,7 +4158,7 @@ def test_wrapper_followedbyanotherpotential_3d():
 
 def test_wrapper_complicatedsequence_2d():
     # Test that a complicated combination of potentials and wrapped potentials
-    # gets passed to C correctly, by comparing orbit integrated in C to that 
+    # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3658,7 +4193,7 @@ def test_wrapper_complicatedsequence_2d():
 
 def test_wrapper_complicatedsequence_3d():
     # Test that a complicated combination of potentials and wrapped potentials
-    # gets passed to C correctly, by comparing orbit integrated in C to that 
+    # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, \
@@ -3693,9 +4228,18 @@ def test_wrapper_complicatedsequence_3d():
     assert numpy.fabs(o.vz()-oc.vz()) < 10.**-4.,  'Final orbit position between C and Python integration of a doubly-wrapped orbit is too large'
     return None
 
+def test_orbit_sun_setup():
+    # Test that setting up an Orbit with no vxvv returns the Orbit of the Sun
+    from galpy.orbit import Orbit
+    o= Orbit()
+    assert numpy.fabs(o.dist()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero distance'
+    assert numpy.fabs(o.vll()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic longitude direction'
+    assert numpy.fabs(o.vbb()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic latitude direction'
+    assert numpy.fabs(o.vlos()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero line-of-sight velocity'
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.verticalPotential import RZToverticalPotential
+    from galpy.potential.verticalPotential import RZToverticalPotential
     o= Orbit([1.,1.])
     times= numpy.linspace(0.,7.,251)
     from galpy.potential import LogarithmicHaloPotential
@@ -3721,7 +4265,7 @@ def test_linear_plotting():
 # Check plotting routines
 def test_planar_plotting():
     from galpy.orbit import Orbit
-    from galpy.potential_src.planarPotential import RZToplanarPotential
+    from galpy.potential.planarPotential import RZToplanarPotential
     o= Orbit([1.,0.1,1.1,2.])
     oa= Orbit([1.,0.1,1.1])
     times= numpy.linspace(0.,7.,251)
@@ -3932,6 +4476,8 @@ def test_full_plotting():
     o.plot(d1='ERnorm',d2='R')
     o.plot(d1='Jacobi',d2='R')
     o.plot(d1='Jacobinorm',d2='R')
+    # callables
+    o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
     # Test AttributeErrors
     try: oa.plotx()
     except AttributeError: pass
@@ -3990,6 +4536,8 @@ def test_full_plotting():
     o.plot3d(d2='helioY',d1='V',d3='helioZ')
     o.plot3d(d1='helioZ',d2='W',d3='U')
     o.plot3d(d2='helioZ',d1='W',d3='helioX')
+    # callables
+    o.plot3d(d1=lambda t: t,d2=lambda t: o.R(t),d3=lambda t: o.z(t))
     # Test AttributeErrors
     try: o.plot3d(d1='R') #shouldn't work, bc there is no default
     except AttributeError: pass
@@ -4032,13 +4580,100 @@ def test_full_plotting():
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
     return None
 
+def test_from_name_values():
+    from galpy.orbit import Orbit
+
+    # test Vega
+    o = Orbit.from_name('Vega')
+    assert numpy.isclose(o.ra(), 279.23473479), \
+        "RA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), 38.78368896), \
+        "DEC of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/130.23), \
+        "Parallax of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 200.94), \
+        "PMRA of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 286.23), \
+        "PMDec of Vega does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), -20.60), \
+        "radial velocity of Vega does not match SIMBAD value"
+
+    # test Lacaille 8760
+    o = Orbit.from_name('Lacaille 8760')
+    assert numpy.isclose(o.ra(), 319.31362024), \
+        "RA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -38.86736390), \
+        "DEC of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 1/251.8295), \
+        "Parallax of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -3258.553), \
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1145.396), \
+        "PMDec of Lacaille 8760 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 20.56), \
+        "radial velocity of Lacaille 8760 does not match SIMBAD value"
+
+    # test LMC
+    o = Orbit.from_name('LMC')
+    assert numpy.isclose(o.ra(), 80.89416666666666), \
+        "RA of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.dec(), -69.75611111111111), \
+        "DEC of LMC does not match SIMBAD value"
+    # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
+    #assert numpy.isclose(o.dist(), 50.0), \
+    #    "Parallax of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), 1.91), \
+        "PMRA of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), 0.229), \
+        "PMDec of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 262.2), \
+        "radial velocity of LMC does not match SIMBAD value"
+
+def test_from_name_errors():
+    from galpy.orbit import Orbit
+
+    # test GJ 440
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('GJ 440')
+    msg = "failed to find some coordinates for GJ 440 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test with a fake object
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('abc123')
+    msg = "failed to find abc123 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+    # test GRB 090423
+    with pytest.raises(ValueError) as excinfo:
+        Orbit.from_name('GRB 090423')
+    msg = "failed to find some coordinates for GRB 090423 in SIMBAD"
+    assert str(excinfo.value) == msg, \
+        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+def test_rguiding_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rguiding(pot=np)
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.])
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if henon:
             if axi:
                 o= Orbit([0.1,0.3,0.,])
@@ -4059,9 +4694,9 @@ def setup_orbit_energy(tp,axi=False,henon=False):
 # Setup the orbit for the Liouville test
 def setup_orbit_liouville(tp,axi=False,henon=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.])
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if henon:
             if axi:
                 o= Orbit([0.1,0.3,0.,])
@@ -4082,7 +4717,7 @@ def setup_orbit_liouville(tp,axi=False,henon=False):
 # Setup the orbit for the eccentricity test
 def setup_orbit_eccentricity(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,1.])
         else:
@@ -4097,7 +4732,7 @@ def setup_orbit_eccentricity(tp,axi=False):
 # Setup the orbit for the pericenter test
 def setup_orbit_pericenter(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,1.1])
         else:
@@ -4112,7 +4747,7 @@ def setup_orbit_pericenter(tp,axi=False):
 # Setup the orbit for the apocenter test
 def setup_orbit_apocenter(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.,0.9])
         else:
@@ -4136,7 +4771,7 @@ def setup_orbit_zmax(tp,axi=False):
 # Setup the orbit for the apocenter test
 def setup_orbit_analytic(tp,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,0.1,0.9])
         else:
@@ -4169,7 +4804,7 @@ def setup_orbit_analytic_EREz(tp,axi=False):
 # Setup the orbit for the physical-coordinates test
 def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.planarPotential): 
+    if isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,1.1,1.1],ro=ro,vo=vo)
         else:
@@ -4184,9 +4819,9 @@ def setup_orbit_physical(tp,axi=False,ro=None,vo=None):
 # Setup the orbit for the energy test
 def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
     from galpy.orbit import Orbit
-    if isinstance(tp,potential.linearPotential): 
+    if isinstance(tp,potential.linearPotential):
         o= Orbit([1.,1.],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-    elif isinstance(tp,potential.planarPotential): 
+    elif isinstance(tp,potential.planarPotential):
         if axi:
             o= Orbit([1.,1.1,1.1],ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
         else:
@@ -4201,9 +4836,11 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
     return o
 
 def check_radecetc_roWarning(o,funcName):
-    # Convenience function to check whether the ro-needs-to-be-specified 
+    # Convenience function to check whether the ro-needs-to-be-specified
     # warning is sounded
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
     raisedWarning= False
     for rec in record:
@@ -4213,9 +4850,11 @@ def check_radecetc_roWarning(o,funcName):
     return None
 
 def check_radecetc_voWarning(o,funcName):
-    # Convenience function to check whether the vo-needs-to-be-specified 
+    # Convenience function to check whether the vo-needs-to-be-specified
     # warning is sounded
     with pytest.warns(None) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
     raisedWarning= False
     for rec in record:
@@ -4232,4 +4871,13 @@ def check_integrate_t_asQuantity_warning(o,funcName):
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
     assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
-    return None  
+    return None
+
+def test_integrate_method_warning():
+    """ Test Orbit.integrate raises an error if method is unvalid """
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])
+    t = numpy.arange(0.0, 10.0, 0.001)
+    with pytest.raises(ValueError):
+        o.integrate(t, MWPotential2014, method='rk4')

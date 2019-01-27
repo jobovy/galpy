@@ -70,8 +70,8 @@ fit to various dynamical constraints on the Milky Way (see
 
 .. _units:
 
-**UPDATED in v1.2**: Units in galpy
-------------------------------------
+Units in galpy
+---------------
 
 Internal (natural) units
 +++++++++++++++++++++++++
@@ -344,8 +344,8 @@ error remains constant
 Because stars have typically only orbited the center of their galaxy
 tens of times, using symplectic integrators is mostly unnecessary
 (compared to planetary systems which orbits millions or billions of
-times). galpy contains fast integrators written in C, which can be
-accessed through the ``method=`` keyword (e.g.,
+times). galpy contains :ref:`fast integrators <fastorbit>` written in
+C, which can be accessed through the ``method=`` keyword (e.g.,
 ``integrate(...,method='dopr54_c')`` is a fast high-order
 Dormand-Prince method).
 

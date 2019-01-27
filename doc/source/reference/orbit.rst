@@ -11,6 +11,7 @@ Class
    :maxdepth: 2
 
    Orbit <orbitinit.rst>
+   Orbit.from_name <orbitfromname.rst>
 
 Methods
 -------
@@ -23,6 +24,7 @@ Methods
    animate <orbitanimate.rst>
    bb <orbitbb.rst>
    dec <orbitdec.rst>
+   dim <orbitdim.rst>
    dist <orbitdist.rst>
    E <orbitE.rst>
    e <orbitecc.rst>
@@ -43,6 +45,7 @@ Methods
    jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
+   Lz <orbitlz.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>
    Oz <orbitoz.rst>
@@ -72,6 +75,7 @@ Methods
    ra <orbitra.rst>
    rap <orbitrap.rst>
    resetaA <orbitresetaa.rst>
+   rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
    setphi <orbitsetphi.rst>
    SkyCoord <orbitskycoord.rst>

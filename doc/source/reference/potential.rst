@@ -29,13 +29,18 @@ Use as ``Potential-instance.method(...)``
    plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
+   r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
+   rtide <potentialrtide.rst>
+   surfdens <potentialsurfdens.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   ttensor <potentialttensor.rst>
    turn_physical_off <potentialturnphysicaloff.rst>
    turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
@@ -67,12 +72,17 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephi2derivs <potentialphi2derivs.rst>
+   evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>
+   evaluater2derivs <potentialsphr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>
+   evaluateSurfaceDensities <potentialsurfdensities.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
+   flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
    nemo_accname <potentialnemoaccnames.rst>
@@ -83,6 +93,8 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   rtide <potentialrtides.rst>
+   ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
@@ -121,6 +133,7 @@ Spherical potentials
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialpseudoiso.rst
+   potentialsphericalshell.rst
 
 Axisymmetric potentials
 ***********************
@@ -138,24 +151,49 @@ Axisymmetric potentials
    potentialmiyamoto.rst
    potential3mn.rst
    potentialrazorexp.rst
+   potentialring.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial, spiral, and bar potentials
-************************************
+Ellipsoidal triaxial  potentials
+********************************
+
+``galpy`` has very general support for implementing triaxial (or the
+oblate and prolate special cases) of ellipsoidal potentials through
+the general ``EllipsoidalPotential`` class. These potentials have
+densities that are uniform on ellipsoids, thus only functions of
+:math:`m^2 = x^2 + \frac{y^2}{b^2}+\frac{z^2}{c^2}`. New potentials
+of this type can be implemented by inheriting from this class and
+implementing the ``_mdens(self,m)``, ``_psi(self,m)``, and
+``_mdens_deriv`` functions for the density, its integral with respect
+to :math:`m^2`, and its derivative with respect to m,
+respectively. For adding a C implementation, follow similar steps (use
+``PerfectEllipsoidPotential`` as an example to follow).
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialperfectellipsoid.rst
+   potentialdoublepowertriaxial.rst
+   potentialtriaxialjaffe.rst
+   potentialtriaxialhernquist.rst
+   potentialtriaxialnfw.rst
+
+Note that the Ferrers potential listed below is a potential of this
+type, but it is currently not implemented using the
+``EllipsoidalPotential`` class.
+
+Spiral, bar, other triaxial, and miscellaneous potentials
+**********************************************************
 
 .. toctree::
    :maxdepth: 2
 
    potentialdehnenbar.rst
-   potentialdoublepowertriaxial.rst
    potentialferrers.rst
    potentialloghalo.rst
    potentialmovingobj.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
-   potentialtriaxialjaffe.rst
-   potentialtriaxialhernquist.rst
-   potentialtriaxialnfw.rst
 
 All ``galpy`` potentials can also be made to rotate using the ``SolidBodyRotationWrapperPotential`` listed in the section on wrapper potentials :ref:`below <potwrapperapi>`.
 
@@ -167,6 +205,14 @@ General Poisson solvers for disks and halos
 
    potentialdiskscf.rst
    potentialscf.rst
+
+Dissipative forces
+*******************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialchandrasekhardynfric.rst
 
 .. _potential-mw:
 
@@ -189,13 +235,32 @@ done by
 
 >>> from galpy.potential import KeplerPotential
 >>> from galpy.util import bovy_conversion
->>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
+>>> MWPotential2014wBH= [MWPotential2014,KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))]
 
-for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}` (this
+works because a list of Potential instances can contain a nested list
+of Potential instances in versions>=1.4). If you want to take into
+account dynamical friction for, say, an object of mass
+:math:`5\times 10^{10}\,M_\odot` and a half-mass radius of 5 kpc, do
+
+>>> from galpy.potential import ChandrasekharDynamicalFrictionForce
+>>> from astropy import units
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,
+					     rhm=5.*units.kpc,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= [MWPotential2014,cdf]
+
+where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
+
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
+					     rhm=5./8.,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= [MWPotential2014,cdf]
 
 As explained in :ref:`this section <nemopot>`, *without* this black
-hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
-using ``accname=PowSphwCut+MiyamotoNagai+NFW`` and
+hole or dynamical friction, ``MWPotential2014`` can be used with
+Dehnen's gyrfalcON code using ``accname=PowSphwCut+MiyamotoNagai+NFW``
+and
 ``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
 
 An older version ``galpy.potential.MWPotential`` of a similar
@@ -256,6 +321,7 @@ Use as ``method(...)``
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
+   flatten <potentialflatten.rst>
    LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
@@ -317,6 +383,7 @@ Use as ``method(...)``
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
+   flatten <potentialflatten.rst>
    plotlinearPotentials <potential1dplots.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
@@ -335,6 +402,7 @@ One-dimensional potentials can also be derived from 3D axisymmetric potentials a
 .. toctree::
    :maxdepth: 2
 
+   toVerticalPotential (general) <potential1dtolinear.rst>
    RZToverticalPotential <potential1dRZtolinear.rst>
 
 .. _potwrapperapi:
@@ -350,5 +418,8 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
+   potentialgaussampwrapper.rst
    potentialsolidbodyrotationwrapper.rst
+

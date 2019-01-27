@@ -1,5 +1,153 @@
-v1.3 (2017-XX-XX)
+v1.5 (????-??-??)
+=================
+
+- Added support for 1D orbit integration in C (PR #354).
+
+- Added potential.toVerticalPotential to convert any 3D potential to a
+  1D potential at a given (R,phi) [generalizes RZToverticalPotential
+  to non-axi potentials; RZToverticalPotential retained for backwards
+  compatibility].
+
+- Re-wrote potential.MovingObjectPotential to allow general mass
+  distributions for the moving object, implemented now as standard
+  galpy potentials rather than with separate ForceSoftening class,
+  which has now been removed (#355). Initialization keywords for
+  potential.MovingObjectPotential have changed because of this in a
+  non-backwards-compatible manner.
+
+- Added nemo_accname and nemo_accpars for the HernquistPotential,
+  allowing it to be converted to NEMO.
+
+- DehnenSmoothWrapperPotential can now decay rather than grow a
+  potential by setting ``decay=True``.
+  
+- Allow orbit integrations to be KeyboardInterrupted on Windows as well 
+  (#362 by Henry Leung)
+
+- Add Python and C implementation of Dormand-Prince 8(5,3) integrator
+  (#363 by Henry Leung)
+
+v1.4 (2018-09-09)
+=================
+
+- Added ChandrasekharDynamicalFrictionForce, an implementation of
+  dynamical friction based on the classical Chandrasekhar formula
+  (with recent tweaks from the literature to better represent the
+  results from N-body simulations).
+
+- Added galpy.df.jeans with tools for Jeans modeling. Currently only
+  contains the functions sigmar and sigmalos to calculate the velocity
+  dispersion in the radial or line-of-sight direction using the
+  spherical Jeans equation in a given potential, density profile, and
+  anisotropy profile (anisotropy can be radially varying).
+
+- Added CorotatingRotationWrapperPotential to galpy.potential: a
+  wrapper to make a pattern wind up over time such that it is always
+  corotating (for use in simulating corotating spiral structure like
+  that of Grand, Kawata, Baba, et al.)
+
+- Added GaussianAmplitudeWrapperPotential to galpy.potential: a
+  wrapper to modulate the amplitude of any Potential instance with a
+  Gaussian (growing from zero to the full amplitude and dying off
+  again).
+
+- Added a general class EllipsoidalPotential that is a superclass for
+  implementing potentials with densities that are constant on
+  ellipsoids (functions of m^2 = x^2 + y^2/b^2 + z^2/c^2). Also
+  implemented in C. Implementing new types of ellipsoidal potentials
+  now only requires three simple functions to be defined: the density
+  as a function of m, its derivative with respect to m, and its
+  integral with respect to m^2 (#348).
+
+- Added PerfectEllipsoidPotential, the potential of a perfect
+  ellipsoid (de Zeeuw 1985): this is a fully integrable
+  (Staeckel-type), triaxial potential.
+
+- Re-implemented TwoPowerTriaxialPotential and special cases
+  TriaxialHernquistPotential, TriaxialJaffePotential, and
+  TriaxialNFWPotential using the general EllipsoidalPotential class.
+
+- Allow nested lists of Potential instances everywhere where lists of
+  Potential instances were previously allowed; allow easy adding of
+  components (e.g., a bar) to previously defined potentials (which may
+  be lists themselves): new_pot= [pot,bar_pot].
+
+- Add from_name class method of Orbit, which allows Orbit instances to
+  be initialized using the coordinates of a named object found in SIMBAD.
+
+- Add rguiding method of Orbit, to compute the guiding-center radius
+  of an orbit. Also added Lz method to easily obtain the z-component
+  of the angular momentum for different types of orbits.
+
+- Defined Orbit initialization without any arguments (or, more
+  generally, without specifying the vxvv initial phase-space input) to
+  return an Orbit instances representing the Sun. Can therefore setup
+  an Orbit representing the Sun's as o= Orbit().
+
+- Allow Orbit instances to be initialized using a SkyCoord with
+  position and velocity data, with optional Galactocentric frame 
+  specification as part of the SkyCoord that is correctly propagated 
+  to the Orbit instance. Requires astropy>3
+
+- Added rtide and ttensor methods/functions for Potentials: tidal
+  radius and tidal tensor.
+
+- Added surfdens and evaluateSurfaceDensities method and function,
+  respectively, for Potentials for evaluating the surface density up
+  to a given z.
+
+- Added potentials SphericalShellPotential and RingPotential for the
+  potential of a spherical shell and a circular ring,
+  respectively. Useful for talking about Newton's theorems.
+
+- Switched default solarmotion parameter for Orbit initialization to
+  be schoenrich (for the Schoenrich, Binney, & Dehnen 2010 solar
+  motion wrt the LSR).
+
+- Added Potential method r2deriv and function evaluater2derivs to
+  evaluate the second derivative wrt the spherical radius. Also added
+  convenience functions evaluatephi2derivs and evaluateRphiderivs.
+
+- Added quasiisothermaldf method sampleV_interpolate that allows
+  velocities at different positions to be sampled efficiently
+  (quasiisothermaldf.sampleV only works for a single position). See PR
+  #350.
+
+- Add warnings/verbose configuration parameter to set level of
+  verbosity of non-crucial warnings (like: "Using C implementation to
+  integrate orbits").
+
+- If astropy version > 3, Orbit.SkyCoord returns a SkyCoord object
+  that includes the velocity information and the Galactocentric frame
+  used by the Orbit instance.
+
+- Tweaked coordinate-transformations to Galactocentric coordinates to
+  be consistent with astropy's.
+
+- Introduced general Force class of which Potential and
+  DissipativeForce inherit, the former for forces that derive from a
+  potential, the latter for those that do not.
+
+- Introduced DissipativeForce, a superclass for all dissipative
+  forces. ChandrasekharDynamicalFrictionForce is currently the only
+  class that inherits from DissipativeForce.
+
+- Re-arranged the package structure to better comply with the standard
+  layout. All subpackages (e.g., galpy.potential) are now contained in
+  subdirectories of the same name (e.g., galpy/potential/ rather than
+  the old galpy/potential_src/).
+
+- Made the code fully compilable on Windows with MSVC and test Windows
+  builds automatically on appveyor (#333).
+
+v1.3 (2018-02-06)
 ==================
+
+- Added a fast and precise method for approximating an orbit's
+  eccentricity, peri- and apocenter radii, and maximum height above
+  the midplane using the Staeckel approximation (see Mackereth & Bovy
+  2018); available as an actionAngle method EccZmaxRperiRap and for
+  Orbit instances through the e, rperi, rap, and zmax methods.
 
 - Added support for potential wrappers---classes that wrap existing
   potentials to modify their behavior (#307). See the documentation on
@@ -52,10 +200,31 @@ v1.3 (2017-XX-XX)
   which the radial dependence of the potential changes from R^p to
   R^-p; also added C implementation of CosmphiDiskPotential.
 
+- Changed default method for computing actions, frequencies, and
+  angles for Orbit instances to be the Staeckel approximation with an
+  automatically-estimated delta parameter.
+  
+- Added an option to the estimateDeltaStaeckel function to facilitate the
+  return of an estimated delta parameter at every phase space point passed,
+  rather than returning a median of the estimate at each point.
+
+- Generalized actionAngleStaeckel to allow for different focal lengths
+  delta for different phase-space points. Also allowed the order of
+  the Gauss-Legendre integration to be specified (default: 10, which
+  is good enough when using actionAngleStaeckel to compute approximate
+  actions etc. for an axisymmetric potential).
+
 - Allow transformations of (ra,dec) and (pmra,pmdec) to custom
   coordinate systems.
 
 - Allow plotting of the spherical radius in Orbit.plot
+
+- Allow plotting of arbitrary user-supplied functions of time in
+  Orbit.plot, Orbit.plot3d, and Orbit.animate. 
+
+- Added conversion to and from oblate spheroidal coordinates. Also
+  added conversion of velocities to the momenta in oblate or prolate
+  spheroidal coordinates (but not the other way around).
 
 - Made SCFPotential compatible with GSL v2.
 
@@ -84,6 +253,12 @@ v1.3 (2017-XX-XX)
 - streamdf.misalignment return unit switched from deg to rad.
 
 - evolveddiskdf.vertexdev return unit switched from deg to rad.
+
+- In quasiisothermaldf.py, the following prefactors were added
+  to the following functions: [nsigma^2/2] --> pvT(), 
+  [nsigma/2] --> pvRvT(), [nsigma/2] --> pvTvz(), 
+  [vTmax/2] --> pvRvz(). This change was required to correctly 
+  account for the Gauss-Legendre integration limits.
 
 v1.2 (2016-09-06)
 ==================

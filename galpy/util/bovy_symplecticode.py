@@ -31,7 +31,8 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import numpy as nu
-def leapfrog(func,yo,t,args=(),rtol=1.49012e-8,atol=0.):
+_MAX_DT_REDUCE= 10000.
+def leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
     """
     NAME:
        leapfrog
@@ -84,12 +85,13 @@ def leapfrog_leapp(p,dt,force):
     return p+dt*force
 
 def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
+    init_dt= dt
     qmax= nu.amax(nu.fabs(qo))+nu.zeros(len(qo))
     pmax= nu.amax(nu.fabs(po))+nu.zeros(len(po))
     scale= atol+rtol*nu.array([qmax,pmax]).flatten()
     err= 2.
     dt*= 2.
-    while err > 1.:
+    while err > 1. and init_dt/dt < _MAX_DT_REDUCE:
         #Do one leapfrog step with step dt and one with dt/2.
         #dt
         q12= leapfrog_leapq(qo,po,dt/2.)
