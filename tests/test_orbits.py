@@ -1,4 +1,5 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
+import sys
 import numpy
 import pytest
 from galpy import potential
@@ -617,7 +618,8 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
-@pytest.mark.xfail(strict=True,raises=ValueError)
+@pytest.mark.xfail(sys.platform != 'win32',strict=True,raises=ValueError,
+                   reason="Does not fail on Windows...")
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # Test from test_potential for Orbits now! Currently fails because Chandra
     # can't be pickled for parallel_map...
