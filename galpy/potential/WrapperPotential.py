@@ -10,6 +10,11 @@ from .Potential import evaluatePotentials, \
 from .planarPotential import evaluateplanarPotentials, \
     evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
+
+def _new_obj(cls, kwargs, args):
+    """Maps kwargs to cls.__new__"""
+    return cls.__new__(cls, *args, **kwargs)
+
 class parentWrapperPotential(object):
     """'Dummy' class only used to delegate wrappers to either 2D planarWrapperPotential or 3D WrapperPotential based on pot's dimensionality, using a little python object creation magic..."""
     def __new__(cls,*args,**kwargs):
@@ -27,9 +32,12 @@ class parentWrapperPotential(object):
         # Create object from custom class that derives from correct wrapper,
         # make sure to turn off normalization for all wrappers
         kwargs['_init']= True # to break recursion above
+        # __reduce__ method to allow pickling
+        reduce= lambda self: (_new_obj, (cls, kwargs, args), self.__dict__)
         out= type.__new__(type,'_%s' % cls.__name__,
                           (parentWrapperPotential,cls),
-                          {'normalize':property()})(*args,**kwargs)
+                          {'normalize':property(),
+                           '__reduce__':reduce})(*args,**kwargs)
         kwargs.pop('_init',False)
         # This runs init for the subclass (the specific wrapper)
         cls.__init__(out,*args,**kwargs)
