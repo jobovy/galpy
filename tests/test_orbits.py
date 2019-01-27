@@ -317,7 +317,6 @@ def test_slice_multipleobjects():
         assert numpy.amax(numpy.fabs(orbits_slice.phi(times)[ii]-orbits.phi(times)[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
-@pytest.mark.xfail(strict=True,raises=ValueError)
 def test_slice_integratedorbit_wrapperpot_367():
     # Test related to issue 367: slicing orbits with a potential that includes 
     # a wrapper potential (from Ted Mackereth)
