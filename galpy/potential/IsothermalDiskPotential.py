@@ -3,8 +3,7 @@
 #                               self-gravitating isothermal disk
 ###############################################################################
 import numpy
-from galpy.util import bovy_conversion
-from galpy.potential_src.linearPotential import linearPotential, _APY_LOADED
+from .linearPotential import linearPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 class IsothermalDiskPotential(linearPotential):
