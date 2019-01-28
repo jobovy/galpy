@@ -179,6 +179,18 @@ class Force(object):
     def __div__(self,b): return self.__mul__(1./b)
     __truediv__= __div__
 
+    def __add__(self,b):
+        if isinstance(b,list):
+            return [self]+b
+        else:
+            return [self,b]
+    # Define separately to keep order
+    def __radd__(self,b):
+        if isinstance(b,list):
+            return b+[self]
+        else:
+            return [b,self]
+
     def turn_physical_off(self):
         """
         NAME:
