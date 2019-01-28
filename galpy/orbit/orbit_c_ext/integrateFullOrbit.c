@@ -324,6 +324,7 @@ void parse_leapFuncArgs_Full(int npot,
 					    + (int) (*(*pot_args+7) + 20)));
       break;    
       // 31: KGPotential
+      // 32: IsothermalDiskPotential
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

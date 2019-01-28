@@ -46,6 +46,7 @@ class IsothermalDiskPotential(linearPotential):
             sigma= sigma.to(units.km/units.s).value/self._vo
         self._sigma2= sigma**2.
         self._H= sigma/numpy.sqrt(8.*numpy.pi*self._amp)
+        self.hasC= True
         
     def _evaluate(self,x,t=0.):
         return 2.*self._sigma2*numpy.log(numpy.cosh(0.5*x/self._H))
