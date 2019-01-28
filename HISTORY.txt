@@ -15,6 +15,9 @@ v1.5 (????-??-??)
   potential.MovingObjectPotential have changed because of this in a
   non-backwards-compatible manner.
 
+- Added IsothermalDiskPotential, the one-dimensional potential of an
+  isothermal self-gravitating disk (sech^2 profile).
+
 - Added nemo_accname and nemo_accpars for the HernquistPotential,
   allowing it to be converted to NEMO.
 
