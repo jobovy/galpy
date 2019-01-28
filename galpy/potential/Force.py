@@ -3,6 +3,7 @@
 #             not (DissipativeForce)
 #
 ###############################################################################
+import copy
 import numpy
 from galpy.util import config
 from galpy.util import bovy_conversion
@@ -144,6 +145,39 @@ class Force(object):
                 self._roSet= True
                 self._voSet= True
         return None
+
+    def __mul__(self,b):
+        """
+        NAME:
+
+           __mul__
+
+        PURPOSE:
+
+           Multiply a Force or Potential's amplitude by a number
+
+        INPUT:
+
+           b - number
+
+        OUTPUT:
+
+           New instance with amplitude = (old amplitude) x b
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        if not isinstance(b,(int,float)):
+            raise TypeError("Can only multiply a Force or Potential instance with a number")
+        out= copy.deepcopy(self)
+        out._amp*= b
+        return out
+    # Similar functions
+    __rmul__= __mul__
+    def __div__(self,b): return self.__mul__(1./b)
+    __truediv__= __div__
 
     def turn_physical_off(self):
         """
