@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 
 import os, os.path
+import copy
 import pickle
 import numpy as nu
 import galpy.util.bovy_plot as plot
@@ -38,6 +39,51 @@ class linearPotential(object):
             self._vo= vo
             self._voSet= True
         return None
+
+    def __mul__(self,b):
+        """
+        NAME:
+
+           __mul__
+
+        PURPOSE:
+
+           Multiply a planarPotential's amplitude by a number
+
+        INPUT:
+
+           b - number
+
+        OUTPUT:
+
+           New instance with amplitude = (old amplitude) x b
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        if not isinstance(b,(int,float)):
+            raise TypeError("Can only multiply a planarPotential instance with a number")
+        out= copy.deepcopy(self)
+        out._amp*= b
+        return out
+    # Similar functions
+    __rmul__= __mul__
+    def __div__(self,b): return self.__mul__(1./b)
+    __truediv__= __div__
+
+    def __add__(self,b):
+        if isinstance(b,list):
+            return [self]+b
+        else:
+            return [self,b]
+    # Define separately to keep order
+    def __radd__(self,b):
+        if isinstance(b,list):
+            return b+[self]
+        else:
+            return [b,self]
 
     def turn_physical_off(self):
         """
