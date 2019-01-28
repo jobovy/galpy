@@ -2717,6 +2717,14 @@ def test_potential_paramunits_1d():
                                        D=0.2/ro,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
+    # IsothermalDiskPotential
+    pot= potential.IsothermalDiskPotential(amp=1.2,
+                                           sigma=30.*units.km/units.s,
+                                           ro=ro,vo=vo)
+    pot_nounits= potential.IsothermalDiskPotential(amp=1.2,
+                                                   sigma=30./vo,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "IsothermalDiskPotential w/ parameters w/ units does not behave as expected"   
     return None
 
 def test_potential_paramunits_1d_wrongunits():
@@ -2734,6 +2742,10 @@ def test_potential_paramunits_1d_wrongunits():
                               K=40.*units.Msun/units.pc**2,
                               F=0.02*units.Msun/units.pc**2,
                               D=200*units.pc,ro=ro,vo=vo)
+    # IsothermalDiskPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.IsothermalDiskPotential(amp=1.,
+                                          sigma=10*units.kpc,ro=ro,vo=vo)
     return None
 
 def test_potential_method_turnphysicalon():
