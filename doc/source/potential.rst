@@ -270,8 +270,8 @@ potential grown as above would be
 >>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
 # -1.00965326579
 
-.. NOTE
-   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
+.. TIP::
+   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
 
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
