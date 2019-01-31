@@ -13,6 +13,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potentialadd.rst>
+   __mul__ <potentialmul.rst>
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
@@ -285,6 +287,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential2dadd.rst>
+   __mul__ <potential2dmul.rst>
    __call__ <potential2dcall.rst>
    phiforce <potential2dphiforce.rst>
    Rforce <potential2drforce.rst>
@@ -367,6 +371,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential1dadd.rst>
+   __mul__ <potential1dmul.rst>
    __call__ <potential1dcall.rst>
    force <potential1dforce.rst>
    plot <potential1dplot.rst>

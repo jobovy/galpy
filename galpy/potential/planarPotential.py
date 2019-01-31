@@ -79,6 +79,28 @@ class planarPotential(object):
     __truediv__= __div__
 
     def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - planarPotential instance or a list thereof
+
+        OUTPUT:
+
+           List of planarPotential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
         if isinstance(b,list):
             return [self]+b
         else:
