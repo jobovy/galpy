@@ -110,7 +110,7 @@ class planarPotential(object):
         if isinstance(b,list):
             return b+[self]
         else:
-            return [b,self]
+            raise TypeError("Can only add a Force or Potential instance to another instance or to a list of such instances")
 
     def turn_physical_off(self):
         """

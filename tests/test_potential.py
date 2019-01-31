@@ -2710,6 +2710,22 @@ def test_add_potentials():
     assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
     return None
 
+# Test that attempting to multiply or divide a potential by something other than a number raises an error
+def test_add_potentials_error():
+    # 3D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
