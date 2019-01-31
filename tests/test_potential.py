@@ -2681,6 +2681,35 @@ def test_mult_divide_error():
         pot/[1.,2.]
     return None
 
+# Test that arithmetically adding potentials returns lists of potentials
+def test_add_potentials():
+    assert potential.MWPotential2014 == potential.MWPotential2014[0]+potential.MWPotential2014[1]+potential.MWPotential2014[2], 'Potential addition of components of MWPotential2014 does not give MWPotential2014'
+    # 3D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1)
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1)
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    # 2D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1).toPlanar()
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1).toPlanar()
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    # 1D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1).toVertical(1.1)
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1).toVertical(1.1)
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
