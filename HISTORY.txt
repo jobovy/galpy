@@ -21,7 +21,7 @@ v1.5 (????-??-??)
   (pot1,pot2,pot3). Each of these components can be a combined
   potential itself. As before, combined potentials are simply lists of
   potentials, so this is simply an alternative (and perhaps more
-  intuitive) way to create these lists.
+  intuitive) way to create these lists (#369).
 
 - Added support to adjust the amplitude of a Potential instance
   through multiplication of the instance by a number or through
@@ -30,7 +30,7 @@ v1.5 (????-??-??)
   larger. Similarly, pot= pot1/2. decreases the amplitude by a factor
   of two. This is useful, for example, to quickly change the mass of a
   potential. Only works for Potential instances, not for lists of
-  Potential instances.
+  Potential instances (#369).
 
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
