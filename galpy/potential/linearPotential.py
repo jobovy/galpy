@@ -48,7 +48,7 @@ class linearPotential(object):
 
         PURPOSE:
 
-           Multiply a planarPotential's amplitude by a number
+           Multiply a linearPotential's amplitude by a number
 
         INPUT:
 
@@ -74,6 +74,28 @@ class linearPotential(object):
     __truediv__= __div__
 
     def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add linearPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - linearPotential instance or a list thereof
+
+        OUTPUT:
+
+           List of linearPotential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
         if isinstance(b,list):
             return [self]+b
         else:

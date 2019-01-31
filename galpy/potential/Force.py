@@ -180,6 +180,28 @@ class Force(object):
     __truediv__= __div__
 
     def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add Force or Potential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - Force or Potential instance or a list thereof
+
+        OUTPUT:
+
+           List of Force or Potential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
         if isinstance(b,list):
             return [self]+b
         else:
