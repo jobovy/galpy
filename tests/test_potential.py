@@ -2653,6 +2653,34 @@ def test_scf_tupleindexwarning():
         p.Rforce(1.,0.)
     return None   
 
+# Test that attempting to multiply or divide a potential by something other than a number raises an error
+def test_mult_divide_error():
+    # 3D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
