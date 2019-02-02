@@ -5,11 +5,15 @@ import astropy.units as u
 import astropy.coordinates as apycoords
 import pytest
 from galpy import potential
+import astropy
+_APY3= astropy.__version__ > '3'
 
 # Test that initializing an Orbit (not an Orbits) with an array of SkyCoords
 # processes the input correctly into the Orbit._orb.vxvv attribute;
 # The Orbits class depends on this to process arrays SkyCoords itself quickly
 def test_orbit_initialization_SkyCoordarray():
+    # Only run this for astropy>3
+    if not _APY3: return None
     from galpy.orbit import Orbit
     numpy.random.seed(1)
     nrand= 30
@@ -115,6 +119,8 @@ def test_initialization_vxvv():
     return None
 
 def test_initialization_SkyCoord():
+    # Only run this for astropy>3
+    if not _APY3: return None
     from galpy.orbit import Orbit, Orbits
     numpy.random.seed(1)
     nrand= 30
