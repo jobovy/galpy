@@ -96,17 +96,27 @@ class Orbits(object):
             2018-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(vxvv, SkyCoord):
-            self._orbits = [Orbit(vxvv=coord) for coord in vxvv.flatten()]
-        else:
-            self._orbits = []
-            for coord in vxvv:
-                if isinstance(coord, Orbit):
-                    self._orbits.append(copy.deepcopy(coord))
-                else:
-                    orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
-                                  ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-                    self._orbits.append(orbit)
+        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+            # Convert entire SkyCoord to Galactocentric coordinates, then
+            # proceed in regular fashion; makes use of the fact that Orbit
+            # setup does the right processing even for an array of 
+            # SkyCoords
+            tmpo= Orbit(vxvv=vxvv,ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+            vxvv= numpy.array(tmpo._orb.vxvv).T
+            # Grab coordinate-transform params, we know these must be 
+            # consistent with any explicitly given ones at this point, because
+            # Orbit setup would have thrown an error otherwise
+            ro= tmpo._ro
+            zo= tmpo._orb._zo
+            solarmotion= tmpo._orb._solarmotion
+        self._orbits = []
+        for coord in vxvv:
+            if isinstance(coord, Orbit):
+                self._orbits.append(copy.deepcopy(coord))
+            else:
+                orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
+                              ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+                self._orbits.append(orbit)
         self._setup_unit_coord_parameters(ro,vo,zo,solarmotion)
         # Cross-checks: phase-space dimension
         if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
@@ -334,7 +344,7 @@ class Orbits(object):
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
-        if self._orbits[0].dim() == 2:
+        if self.dim() == 2:
             thispot= toPlanarPotential(pot)
         else:
             thispot= pot
@@ -374,27 +384,27 @@ class Orbits(object):
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
-            if self._orbits[0].dim() == 1:
+            if self.dim() == 1:
                 out, msg= integrateLinearOrbit_c(self._pot,
                                                  numpy.copy(self.vxvv),
                                                  t,method,dt=dt)
             else:
-                if self._orbits[0].phasedim() == 3 \
-                   or self._orbits[0].phasedim() == 5:
+                if self.phasedim() == 3 \
+                   or self.phasedim() == 5:
                     #We hack this by putting in a dummy phi=0
                     vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
                                      'constant',constant_values=0)
                 else:
                     vxvvs= numpy.copy(self.vxvv)
-                if self._orbits[0].dim() == 2:
+                if self.dim() == 2:
                     out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
                                                      t,method,dt=dt)
                 else:
                     out, msg= integrateFullOrbit_c(self._pot,vxvvs,
                                                    t,method,dt=dt)
 
-                if self._orbits[0].phasedim() == 3 \
-                   or self._orbits[0].phasedim() == 5:
+                if self.phasedim() == 3 \
+                   or self.phasedim() == 5:
                     out= out[:,:,:-1]
             # Store orbit internally
             self.orbit= out
