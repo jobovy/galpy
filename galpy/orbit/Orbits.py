@@ -5,6 +5,7 @@ import numpy
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
 from ..util import galpyWarning, galpyWarningVerbose
+from ..util.bovy_conversion import physical_conversion
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
 from ..util import bovy_conversion
@@ -205,6 +206,25 @@ class Orbits(object):
     def phasedim(self):
         return self._orbits[0].phasedim()
 
+    # (temporary) solution to the fact that some custom-implemented functions
+    # are not yet completely implemented, so if they aren't complete, fall
+    # back onto Orbit functions; need to make sure that NotImplementedError
+    # is raised at the top-level of the incomplete function, before calling
+    # any other incomplete function... (see R function for instance)
+    def __getattribute__(self,attr):
+        if callable(super(Orbits,self).__getattribute__(attr)) \
+                and not attr == '_pot':
+            def func(*args,**kwargs):
+                try:
+                    out= super(Orbits,self)\
+                        .__getattribute__(attr)(*args,**kwargs)
+                except NotImplementedError:
+                    out= self.__getattr__(attr)(*args,**kwargs)
+                return out
+            return func
+        else:
+            return super(Orbits,self).__getattribute__(attr)
+
     def __getattr__(self, name):
         """
         NAME:
@@ -278,6 +298,7 @@ class Orbits(object):
             out.orbits= integrated_orbits
         return out
 
+############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
                   force_map=False):
         """
@@ -414,6 +435,57 @@ class Orbits(object):
             self._orbits[ii]._orb.t= t
             self._orbits[ii]._orb._pot= pot
         return None
+
+    @physical_conversion('position')
+    def R(self,*args,**kwargs):
+        """
+        NAME:
+
+           R
+
+        PURPOSE:
+
+           return cylindrical radius at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the radius (can be Quantity)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           R(t)
+
+        HISTORY:
+
+           2019-02-01 - Written - Bovy (UofT)
+
+        """
+        if len(args) == 0:
+            return self._call_internal(*args,**kwargs)[0]
+        else:
+            raise NotImplementedError("Function not yet fully custom-implemented for Orbits")
+
+    def _call_internal(self,*args,**kwargs):
+        """
+        NAME:
+           _call_internal
+        PURPOSE:
+           return the orbits vector at time t (like OrbitTop's __call__)
+        INPUT:
+           t - desired time
+        OUTPUT:
+           [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit; shape = [phasedim,nt,norb]
+        HISTORY:
+           2019-02-01 - Started - Bovy (UofT)
+        """
+        if len(args) == 0:
+            return numpy.array(self.vxvv).T
+        else:
+            raise NotImplementedError("Function not yet fully custom-implemented for Orbits")
 
     def plot(self,*args,**kwargs):
         """
