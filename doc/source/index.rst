@@ -386,6 +386,24 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The UTMOST pulsar timing programme I: overview and first results*, F. Jankowski, M. Bailes, W. van Straten, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1812.04038 <http://arxiv.org/abs/1812.04038>`_)
 
+#. *Dynamical Histories of the Crater II and Hercules Dwarf Galaxies*, Sal Wanying Fu, Joshua D. Simon, Alex G. Alarcon Jara (2019) *Astrophys. J.*, submitted (`arXiv/1901.00594 <http://arxiv.org/abs/1901.00594>`_)
+
+#. *Dynamical heating across the Milky Way disc using APOGEE and Gaia*, J. Ted Mackereth, Jo Bovy, Henry W. Leung, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1901.04502 <http://arxiv.org/abs/1901.04502>`_)
+
+#. *Identifying Sagittarius Stream Stars By Their APOGEE Chemical Abundance Signatures*, Sten Hasselquist, Jeffrey L. Carlin, Jon A. Holtzman, et al. (2019) *Astrophys. J.*, in press (`arXiv/1901.04559 <http://arxiv.org/abs/1901.04559>`_)
+
+#. *The GALAH Survey: Chemodynamics of the Solar Neighbourhood*, Michael R. Hayden, Joss Bland-Hawthorn, Sanjib Sharma, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1901.07565 <http://arxiv.org/abs/1901.07565>`_)
+
+#. *The Pristine Dwarf-Galaxy survey - II. In-depth observational study of the faint Milky Way satellite Sagittarius II*, Nicolas Longeard, Nicolas Martin, Else Starkenburg, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.02780 <http://arxiv.org/abs/1902.02780>`_)
+
+#. *Secular dynamics of binaries in stellar clusters I: general formulation and dependence on cluster potential*, Chris Hamilton & Roman R. Rafikov (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.01344 <http://arxiv.org/abs/1902.01344>`_)
+
+#. *Secular dynamics of binaries in stellar clusters II: dynamical evolution*, Chris Hamilton & Roman R. Rafikov (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.01345 <http://arxiv.org/abs/1902.01345>`_)
+
+#. *Discovery of Tidal Tails in Disrupting Open Clusters: Coma Berenices and a Neighbor Stellar Group*, Shih-Yun Tang, Xiaoying Pang, Zhen Yuan, W. P. Chen, Jongsuk Hong, Bertrand Goldman, Andreas Just, Bekdaulet Shukirgaliyev, & Chien-Cheng Lin (2019) *Astrophys. J.*, submitted (`arXiv/1902.01404 <http://arxiv.org/abs/1902.01404>`_)
+
+#. *A class of partly burnt runaway stellar remnants from peculiar thermonuclear supernovae*, R. Raddi, M. A. Hollands, D. Koester, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.05061 <http://arxiv.org/abs/1902.05061>`_)
+
 Indices and tables
 ==================
 
