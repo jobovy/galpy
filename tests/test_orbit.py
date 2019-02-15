@@ -2207,6 +2207,19 @@ def test_orbit_setup_SkyCoord():
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
     assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    # If ro and galcen_distance are both specified, don't warn if they *are* consistent (issue #370)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.warns(None) as record:
+        o= Orbit(c,ro=numpy.sqrt(10.**2.-1.**2.))
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
+    assert not raisedWarning, "Orbit initialization with SkyCoord with galcen_distance compatible with ro shouldn't have raised a warning, but did"
     # If we specify both v_sun and solarmotion, they need to be consistent
     v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
     c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
