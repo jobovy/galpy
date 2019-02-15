@@ -123,7 +123,7 @@ class Orbit(object):
                 ro= nu.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
                             -zo**2.)
             elif not vxvv.galcen_distance is None and \
-                    nu.fabs(ro**2.-vxvv.galcen_distance.to(units.kpc).value**2.-zo**2.) > 1e-14:
+                    nu.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
         if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
