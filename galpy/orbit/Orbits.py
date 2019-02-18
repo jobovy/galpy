@@ -35,8 +35,8 @@ class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=[None],radec=False,uvw=False,lb=False,ro=None,
-                 vo=None,zo=None,solarmotion=None):
+    def __init__(self, vxvv=[None],ro=None,vo=None,zo=None,solarmotion=None,
+                 radec=False,uvw=False,lb=False):
         """
         NAME:
 
@@ -58,25 +58,10 @@ class Orbits(object):
 
                     1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
 
-                    2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities; ICRS frame
+                    2) None: assumed to be the Sun (equivalent to ``[0,0,0,0,0,0]`` and ``radec=True``)
 
-                    3) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities; ICRS frame
-
-                    4) [l,b,d,mu_l,mu_b,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
-
-                    5) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
-
-                    6) None: assumed to be the Sun (equivalent to ``[0,0,0,0,0,0]`` and ``radec=True``)
-
-                4) and 5) also work when leaving out b and mu_b/W
 
         OPTIONAL INPUTS:
-
-            radec - if True, input is 2) or 3) above (note that this turns *on* physical output even if ro and vo are not given)
-
-            uvw - if True, velocities are UVW
-
-            lb - if True, input is 4) or 5) above (note that this turns *on* physical output even if ro and vo are not given)
 
             ro - distance from vantage point to GC (kpc; can be Quantity)
 
@@ -96,7 +81,13 @@ class Orbits(object):
 
             2018-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
 
+            2018-02-01 - Handle array of SkyCoords in a faster way by making use of the fact that array of SkyCoords is processed correctly by Orbit
+
+            2018-02-18 - Don't support radec, lb, or uvw keywords to avoid slow coordinate transformations that would require ugly code to fix - Bovy (UofT)
+
         """
+        if radec or lb or uvw:
+            raise NotImplementedError("Orbits initialization with radec=True, lb=True, and uvw=True is not implemented; please initialize using an array of astropy SkyCoords instead")
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
             # Convert entire SkyCoord to Galactocentric coordinates, then
             # proceed in regular fashion; makes use of the fact that Orbit
