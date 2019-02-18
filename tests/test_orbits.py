@@ -650,6 +650,37 @@ def test_check_integrate_dt():
         raise AssertionError('dt that is an integer divisor of the output step size raises a ValueError')
     return None
 
+# Test that evaluating coordinate functions for integrated orbits works
+def test_coordinate_interpolation():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 20
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 360.*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # Before integration
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R()[ii]-list_os[ii].R()) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    # Test exact times of integration
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R(times)[ii]-list_os[ii].R(times)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    # Test actual interpolated
+    itimes= times[:-2]+(times[1]-times[0])/2.
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R(itimes)[ii]-list_os[ii].R(itimes)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    return None
+
 # Check plotting routines
 def test_plotting():
     from galpy.orbit import Orbit, Orbits
