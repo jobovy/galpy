@@ -167,6 +167,18 @@ def test_initialization_SkyCoord():
         assert numpy.fabs(orbits.phi()[ii]-to.phi()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     return None
 
+# Test that attempting to initialize Orbits with radec, lb, or uvw gives 
+# an error
+def test_initialization_radecetc_error():
+    from galpy.orbit import Orbits
+    with pytest.raises(NotImplementedError) as excinfo:
+        Orbits([[0.,0.,0.,0.,0.,0.,]],radec=True)
+    with pytest.raises(NotImplementedError) as excinfo:
+        Orbits([[0.,0.,0.,0.,0.,0.,]],lb=True)
+    with pytest.raises(NotImplementedError) as excinfo:
+        Orbits([[0.,0.,0.,0.,0.,0.,]],radec=True,uvw=True)
+    return None
+
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
 # instances
 def test_integration_1d():
