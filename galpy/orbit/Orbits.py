@@ -2,6 +2,7 @@ import os
 import copy
 import warnings
 import numpy
+from scipy import interpolate
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
 from ..util import galpyWarning, galpyWarningVerbose
@@ -201,7 +202,8 @@ class Orbits(object):
     # are not yet completely implemented, so if they aren't complete, fall
     # back onto Orbit functions; need to make sure that NotImplementedError
     # is raised at the top-level of the incomplete function, before calling
-    # any other incomplete function... (see R function for instance)
+    # any other incomplete function... (see R function for instance in 
+    # 3cf76f180545acb0606b2556135e9390ce800377)
     def __getattribute__(self,attr):
         if callable(super(Orbits,self).__getattribute__(attr)) \
                 and not attr == '_pot':
@@ -341,7 +343,7 @@ class Orbits(object):
         _check_consistent_units(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
-            #self._orb._integrate_t_asQuantity= True
+            self._orb._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
@@ -448,17 +450,14 @@ class Orbits(object):
 
         OUTPUT:
 
-           R(t)
+           R(t) [norb,nt]
 
         HISTORY:
 
            2019-02-01 - Written - Bovy (UofT)
 
         """
-        if len(args) == 0:
-            return self._call_internal(*args,**kwargs)[0]
-        else:
-            raise NotImplementedError("Function not yet fully custom-implemented for Orbits")
+        return self._call_internal(*args,**kwargs)[0].T
 
     def _call_internal(self,*args,**kwargs):
         """
@@ -472,11 +471,100 @@ class Orbits(object):
            [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit; shape = [phasedim,nt,norb]
         HISTORY:
            2019-02-01 - Started - Bovy (UofT)
+           2019-02-18 - Written interpolation part - Bovy (UofT)
         """
         if len(args) == 0:
             return numpy.array(self.vxvv).T
+        elif not hasattr(self,'t'):
+            raise ValueError("Integrate instance before evaluating it at a specific time")
         else:
-            raise NotImplementedError("Function not yet fully custom-implemented for Orbits")
+            t= args[0]
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        elif hasattr(self,'_integrate_t_asQuantity') \
+                and self._integrate_t_asQuantity \
+                and not numpy.all(t == self.t):
+            warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
+        if isinstance(t,(int,float)) and hasattr(self,'t') \
+                and t in list(self.t):
+            return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
+        else:
+            if isinstance(t,(int,float)): 
+                nt= 1
+                t= [t]
+            else: 
+                nt= len(t)
+            try:
+                self._setupOrbitInterp()
+            except:
+                out= numpy.zeros((self.phasedim(),nt,len(self)))
+                for jj in range(nt):
+                    try:
+                        indx= list(self.t).index(t[jj])
+                    except ValueError:
+                        raise LookupError("Orbit interpolaton failed; integrate on finer grid")
+                    out[:,jj]= self.orbit[:,indx].T
+                return out #should always have nt > 1, bc otherwise covered by above
+            out= numpy.empty((self.phasedim(),nt,len(self)))
+            if self.phasedim() == 4 or self.phasedim() == 6:
+                #Unpack interpolated x and y to R and phi
+                x= self._orbInterp[0](t)
+                y= self._orbInterp[-1](t)
+                out[0]= numpy.sqrt(x*x+y*y)
+                out[-1]= numpy.arctan2(y,x) % (2.*numpy.pi)
+                for ii in range(1,self.phasedim()-1):
+                    out[ii]= self._orbInterp[ii](t)
+            else:
+                for ii in range(self.phasedim()):
+                    out[ii]= self._orbInterp[ii](t)
+            if nt == 1:
+                return out[:,0]
+            else:
+                return out
+
+    def _setupOrbitInterp(self):
+        if hasattr(self,"_orbInterp"): return None
+        # Setup one interpolation / phasedim, for all orbits simultaneously
+        # First check that times increase
+        if hasattr(self,"t"): #Orbit has been integrated
+            if self.t[1] < self.t[0]: #must be backward
+                sindx= numpy.argsort(self.t)
+                # sort
+                self.t= self.t[sindx]
+                self.orbit= self.orbit[:,sindx]
+                usindx= numpy.argsort(sindx) # to later unsort
+        orbInterp= []
+        orb_indx= numpy.arange(len(self))
+        for ii in range(self.phasedim()):
+            if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
+                #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
+                orbInterp.append(\
+                    lambda tx: interpolate.RectBivariateSpline(\
+                        self.t,orb_indx,
+                        (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
+                        ky=1,s=0.)
+                    (tx,orb_indx))
+            elif (self.phasedim() == 4 or self.phasedim() == 6) and \
+                    ii == self.phasedim()-1:
+                orbInterp.append(\
+                    lambda tx: interpolate.RectBivariateSpline(\
+                        self.t,orb_indx,
+                        (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
+                        ky=1,s=0.)
+                    (tx,orb_indx))
+            else:
+                orbInterp.append(\
+                    lambda tx: interpolate.RectBivariateSpline(\
+                        self.t,orb_indx,
+                        self.orbit[:,:,ii].T,ky=1,s=0.)(tx,orb_indx))
+        self._orbInterp= orbInterp
+        try: #unsort
+            self.t= self.t[usindx]
+            self.orbit= self.orbit[:,usindx]
+        except: pass
+        return None
 
     def plot(self,*args,**kwargs):
         """
