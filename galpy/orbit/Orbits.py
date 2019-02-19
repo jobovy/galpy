@@ -279,16 +279,24 @@ class Orbits(object):
         elif isinstance(key,slice):
             orbits_list= [copy.deepcopy(self._orbits[ii]) 
                           for ii in range(*key.indices(len(self)))]
+            # Also transfer all attributes related to integration
             if hasattr(self,'orbit'):
-                integrated_orbits= copy.deepcopy(self.orbit[key])
-            else: integrated_orbits= None
-            return Orbits._from_slice(orbits_list,integrated_orbits)
+                integrate_kwargs= {}
+                integrate_kwargs['t']= self.t
+                integrate_kwargs['_integrate_t_asQuantity']= \
+                    self._integrate_t_asQuantity
+                integrate_kwargs['orbit']= copy.deepcopy(self.orbit[key])
+                integrate_kwargs['_pot']= self._pot
+            else: integrate_kwargs= None
+            return Orbits._from_slice(orbits_list,integrate_kwargs)
 
     @classmethod
-    def _from_slice(cls,orbits_list,integrated_orbits=None):
+    def _from_slice(cls,orbits_list,integrate_kwargs):
         out= cls(vxvv=orbits_list)
-        if not integrated_orbits is None:
-            out.orbits= integrated_orbits
+        # Also transfer all attributes related to integration
+        if not integrate_kwargs is None:
+            for kw in integrate_kwargs:
+                out.__dict__[kw]= integrate_kwargs[kw]
         return out
 
 ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
@@ -343,9 +351,10 @@ class Orbits(object):
         _check_consistent_units(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
-            self._orb._integrate_t_asQuantity= True
+            self._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        else: self._integrate_t_asQuantity= False
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
             dt= dt.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
