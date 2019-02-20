@@ -468,6 +468,362 @@ class Orbits(object):
         """
         return self._call_internal(*args,**kwargs)[0].T
 
+    @physical_conversion('position')
+    def r(self,*args,**kwargs):
+        """
+        NAME:
+
+           r
+
+        PURPOSE:
+
+           return spherical radius at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the radius
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           r(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        return numpy.sqrt(thiso[0]**2.+thiso[3]**2.).T
+
+    @physical_conversion('velocity')
+    def vR(self,*args,**kwargs):
+        """
+        NAME:
+
+           vR
+
+        PURPOSE:
+
+           return radial velocity at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the radial velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vR(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        return self._call_internal(*args,**kwargs)[1].T
+
+    @physical_conversion('velocity')
+    def vT(self,*args,**kwargs):
+        """
+        NAME:
+
+           vT
+
+        PURPOSE:
+
+           return tangential velocity at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the tangential velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vT(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        return self._call_internal(*args,**kwargs)[2].T
+
+    @physical_conversion('position')
+    def z(self,*args,**kwargs):
+        """
+        NAME:
+
+           z
+
+        PURPOSE:
+
+           return vertical height
+
+        INPUT:
+
+           t - (optional) time at which to get the vertical height
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           z(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        if self.dim() < 3:
+            raise AttributeError("linear and planar orbits do not have z()")
+        return self._call_internal(*args,**kwargs)[3].T
+
+    @physical_conversion('velocity')
+    def vz(self,*args,**kwargs):
+        """
+        NAME:
+
+           vz
+
+        PURPOSE:
+
+           return vertical velocity
+
+        INPUT:
+
+           t - (optional) time at which to get the vertical velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vz(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        if self.dim() < 3:
+            raise AttributeError("linear and planar orbits do not have vz()")
+        return self._call_internal(*args,**kwargs)[4].T
+        
+    @physical_conversion('angle')
+    def phi(self,*args,**kwargs):
+        """
+        NAME:
+
+           phi
+
+        PURPOSE:
+
+           return azimuth
+
+        INPUT:
+
+           t - (optional) time at which to get the azimuth
+
+        OUTPUT:
+
+           phi(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        if self.phasedim() != 4 and self.phasedim() != 6:
+            raise AttributeError("Orbits must track azimuth to use phi()")
+        return self._call_internal(*args,**kwargs)[-1].T
+
+    @physical_conversion('position')
+    def x(self,*args,**kwargs):
+        """
+        NAME:
+
+           x
+
+        PURPOSE:
+
+           return x
+
+        INPUT:
+
+           t - (optional) time at which to get x
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           x(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        if self.dim() == 1:
+            return thiso[0].T
+        elif self.phasedim()  != 4 and self.phasedim() != 6:
+            raise AttributeError("Orbits must track azimuth to use x()")
+        else:
+            return (thiso[0]*numpy.cos(thiso[-1,:])).T
+
+    @physical_conversion('position')
+    def y(self,*args,**kwargs):
+        """
+        NAME:
+
+           y
+
+        PURPOSE:
+
+           return y
+
+        INPUT:
+
+           t - (optional) time at which to get y
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           y(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        if self.phasedim()  != 4 and self.phasedim() != 6:
+            raise AttributeError("Orbits must track azimuth to use y()")
+        else:
+            return (thiso[0]*numpy.sin(thiso[-1,:])).T
+
+    @physical_conversion('velocity')
+    def vx(self,*args,**kwargs):
+        """
+        NAME:
+
+           vx
+
+        PURPOSE:
+
+           return x velocity at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vx(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        if self.dim() == 1:
+            return thiso[1].T
+        elif self.phasedim()  != 4 and self.phasedim() != 6:
+            raise AttributeError("Orbits must track azimuth to use vx()")
+        else:
+            return (thiso[1]*numpy.cos(thiso[-1])
+                    -thiso[2]*numpy.sin(thiso[-1])).T
+
+    @physical_conversion('velocity')
+    def vy(self,*args,**kwargs):
+        """
+        NAME:
+
+           vy
+
+        PURPOSE:
+
+           return y velocity at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vy(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        if self.phasedim()  != 4 and self.phasedim() != 6:
+            raise AttributeError("Orbits must track azimuth to use vy()")
+        else:
+            return (thiso[2]*numpy.cos(thiso[-1])
+                    +thiso[1]*numpy.sin(thiso[-1])).T
+
+    @physical_conversion('velocity')
+    def vphi(self,*args,**kwargs):
+        """
+        NAME:
+
+           vphi
+
+        PURPOSE:
+
+           return angular velocity
+
+        INPUT:
+
+           t - (optional) time at which to get the angular velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vphi(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-20 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        return (thiso[2]/thiso[0]).T
+
     def _call_internal(self,*args,**kwargs):
         """
         NAME:
