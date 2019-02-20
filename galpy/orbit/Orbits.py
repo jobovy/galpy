@@ -505,7 +505,7 @@ class Orbits(object):
         else:
             if isinstance(t,(int,float)): 
                 nt= 1
-                t= [t]
+                t= numpy.atleast_1d(t)
             else: 
                 nt= len(t)
             try:
@@ -520,21 +520,26 @@ class Orbits(object):
                     out[:,jj]= self.orbit[:,indx].T
                 return out #should always have nt > 1, bc otherwise covered by above
             out= numpy.empty((self.phasedim(),nt,len(self)))
+            # Evaluating RectBivariateSpline on grid requires sorted arrays
+            sindx= numpy.argsort(t)
+            t= t[sindx]
+            usindx= numpy.argsort(sindx) # to later unsort
             if self.phasedim() == 4 or self.phasedim() == 6:
                 #Unpack interpolated x and y to R and phi
-                x= self._orbInterp[0](t)
-                y= self._orbInterp[-1](t)
+                x= self._orbInterp[0](t,self._orb_indx_4orbInterp)
+                y= self._orbInterp[-1](t,self._orb_indx_4orbInterp)
                 out[0]= numpy.sqrt(x*x+y*y)
                 out[-1]= numpy.arctan2(y,x) % (2.*numpy.pi)
                 for ii in range(1,self.phasedim()-1):
-                    out[ii]= self._orbInterp[ii](t)
+                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
             else:
                 for ii in range(self.phasedim()):
-                    out[ii]= self._orbInterp[ii](t)
+                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
             if nt == 1:
                 return out[:,0]
             else:
-                return out
+                t= t[usindx]
+                return out[:,usindx]
 
     def _setupOrbitInterp(self):
         if hasattr(self,"_orbInterp"): return None
@@ -552,26 +557,21 @@ class Orbits(object):
         for ii in range(self.phasedim()):
             if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
                 #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
-                orbInterp.append(\
-                    lambda tx: interpolate.RectBivariateSpline(\
+                orbInterp.append(interpolate.RectBivariateSpline(\
                         self.t,orb_indx,
                         (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.)
-                    (tx,orb_indx))
+                        ky=1,s=0.))
             elif (self.phasedim() == 4 or self.phasedim() == 6) and \
                     ii == self.phasedim()-1:
-                orbInterp.append(\
-                    lambda tx: interpolate.RectBivariateSpline(\
+                orbInterp.append(interpolate.RectBivariateSpline(\
                         self.t,orb_indx,
                         (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.)
-                    (tx,orb_indx))
+                        ky=1,s=0.))
             else:
-                orbInterp.append(\
-                    lambda tx: interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,
-                        self.orbit[:,:,ii].T,ky=1,s=0.)(tx,orb_indx))
+                orbInterp.append(interpolate.RectBivariateSpline(\
+                        self.t,orb_indx,self.orbit[:,:,ii].T,ky=1,s=0.))
         self._orbInterp= orbInterp
+        self._orb_indx_4orbInterp= orb_indx
         try: #unsort
             self.t= self.t[usindx]
             self.orbit= self.orbit[:,usindx]
