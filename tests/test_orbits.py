@@ -661,7 +661,7 @@ def test_coordinate_interpolation():
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
-    phis= 360.*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
@@ -675,10 +675,102 @@ def test_coordinate_interpolation():
     # Test exact times of integration
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(os.R(times)[ii]-list_os[ii].R(times)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+        # Also a single time in the array ...
+        assert numpy.all(numpy.fabs(os.R(times[1])[ii]-list_os[ii].R(times[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
     # Test actual interpolated
     itimes= times[:-2]+(times[1]-times[0])/2.
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(os.R(itimes)[ii]-list_os[ii].R(itimes)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+        # Also a single time in the array ...
+        assert numpy.all(numpy.fabs(os.R(itimes[1])[ii]-list_os[ii].R(itimes[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    return None
+
+# Test that evaluating coordinate functions for integrated orbits works, 
+# for 5D orbits
+def test_coordinate_interpolation_5d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 20
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs)))
+    list_os= [Orbit([R,vR,vT,z,vz])
+              for R,vR,vT,z,vz in zip(Rs,vRs,vTs,zs,vzs)]
+    # Before integration
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R()[ii]-list_os[ii].R()) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    # Test exact times of integration
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R(times)[ii]-list_os[ii].R(times)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+        # Also a single time in the array ...
+        assert numpy.all(numpy.fabs(os.R(times[1])[ii]-list_os[ii].R(times[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    # Test actual interpolated
+    itimes= times[:-2]+(times[1]-times[0])/2.
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R(itimes)[ii]-list_os[ii].R(itimes)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+        # Also a single time in the array ...
+        assert numpy.all(numpy.fabs(os.R(itimes[1])[ii]-list_os[ii].R(itimes[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    return None
+
+# Test interpolation with backwards orbit integration
+def test_backinterpolation():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 20
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # Integrate all
+    times= numpy.linspace(0.,-10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    # Test actual interpolated
+    itimes= times[:-2]+(times[1]-times[0])/2.
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.R(itimes)[ii]-list_os[ii].R(itimes)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+        # Also a single time in the array ...
+        assert numpy.all(numpy.fabs(os.R(itimes[1])[ii]-list_os[ii].R(itimes[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+    return None
+
+def test_call_issue256():
+    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
+    from galpy.orbit import Orbits
+    o = Orbits(vxvv=[[5.,-1.,0.8, 3, -0.1, 0]])
+    # no integration of the orbit
+    with pytest.raises(ValueError) as excinfo:
+        o.R(30)
+    return None
+
+# Test that we can still get outputs when there aren't enough points for an actual interpolation
+# Test whether Orbits evaluation methods sound warning when called with
+# unitless time when orbit is integrated with unitfull times
+def test_orbits_method_integrate_t_asQuantity_warning():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbits
+    from astropy import units
+    from test_orbit import check_integrate_t_asQuantity_warning
+    # Setup and integrate orbit
+    ts= numpy.linspace(0.,10.,1001)*units.Gyr
+    o= Orbits([[1.1,0.1,1.1,0.1,0.1,0.2],
+               [1.1,0.1,1.1,0.1,0.1,0.2]])
+    o.integrate(ts,MWPotential2014)
+    # Now check
+    check_integrate_t_asQuantity_warning(o,'R')
     return None
 
 # Check plotting routines
