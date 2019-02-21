@@ -5,7 +5,8 @@ import numpy
 from scipy import interpolate
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
-from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec
+from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec, \
+    _XYZvxvyvz, _lbdvrpmllpmbb, _pmrapmdec
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.multi import parallel_map
@@ -1017,6 +1018,216 @@ class Orbits(object):
         thiso= thiso.reshape((thiso_shape[0],-1))
         return _lbd(self,thiso,*args,**kwargs).T[2].reshape(thiso_shape[1:]).T
 
+    @physical_conversion('proper-motion_masyr')
+    def pmra(self,*args,**kwargs):
+        """
+        NAME:
+
+           pmra
+
+        PURPOSE:
+
+           return proper motion in right ascension (in mas/yr)
+
+        INPUT:
+
+           t - (optional) time at which to get pmra
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           pm_ra(t) in mas / yr [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'pmra')
+        _check_voSet(self,kwargs,'pmra')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _pmrapmdec(self,thiso,*args,**kwargs).T[0]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('proper-motion_masyr')
+    def pmdec(self,*args,**kwargs):
+        """
+        NAME:
+
+           pmdec
+
+        PURPOSE:
+
+           return proper motion in declination (in mas/yr)
+
+        INPUT:
+
+           t - (optional) time at which to get pmdec
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           pm_dec(t) in mas/yr [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'pmdec')
+        _check_voSet(self,kwargs,'pmdec')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _pmrapmdec(self,thiso,*args,**kwargs).T[1]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('proper-motion_masyr')
+    def pmll(self,*args,**kwargs):
+        """
+        NAME:
+
+           pmll
+
+        PURPOSE:
+
+           return proper motion in Galactic longitude (in mas/yr)
+
+        INPUT:
+
+           t - (optional) time at which to get pmll
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           pm_l(t) in mas/yr [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'pmll')
+        _check_voSet(self,kwargs,'pmll')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[4]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('proper-motion_masyr')
+    def pmbb(self,*args,**kwargs):
+        """
+        NAME:
+
+           pmbb
+
+        PURPOSE:
+
+           return proper motion in Galactic latitude (in mas/yr)
+
+        INPUT:
+
+           t - (optional) time at which to get pmbb
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           pm_b(t) in mas/yr [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'pmbb')
+        _check_voSet(self,kwargs,'pmbb')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[5]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('velocity_kms')
+    def vlos(self,*args,**kwargs):
+        """
+        NAME:
+
+           vlos
+
+        PURPOSE:
+
+           return the line-of-sight velocity (in km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get vlos
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           vlos(t) in km/s [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'vlos')
+        _check_voSet(self,kwargs,'vlos')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[3]\
+            .reshape(thiso_shape[1:]).T
+
     @physical_conversion('position_kpc')
     def helioX(self,*args,**kwargs):
         """
@@ -1132,6 +1343,132 @@ class Orbits(object):
         thiso_shape= thiso.shape
         thiso= thiso.reshape((thiso_shape[0],-1))
         return _helioXYZ(self,thiso,*args,**kwargs)[2]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('velocity_kms')
+    def U(self,*args,**kwargs):
+        """
+        NAME:
+
+           U
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular x-velocity (aka "U")
+
+        INPUT:
+
+           t - (optional) time at which to get U
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           U(t) in km/s [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'U')
+        _check_voSet(self,kwargs,'U')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _XYZvxvyvz(self,thiso,*args,**kwargs)[3]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('velocity_kms')
+    def V(self,*args,**kwargs):
+        """
+        NAME:
+
+           V
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular y-velocity (aka "V")
+
+        INPUT:
+
+           t - (optional) time at which to get U
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           V(t) in km/s [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'V')
+        _check_voSet(self,kwargs,'V')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _XYZvxvyvz(self,thiso,*args,**kwargs)[4]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('velocity_kms')
+    def W(self,*args,**kwargs):
+        """
+        NAME:
+
+           W
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular z-velocity (aka "W")
+
+        INPUT:
+
+           t - (optional) time at which to get W
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           W(t) in km/s [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'W')
+        _check_voSet(self,kwargs,'W')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _XYZvxvyvz(self,thiso,*args,**kwargs)[5]\
             .reshape(thiso_shape[1:]).T
 
     def _call_internal(self,*args,**kwargs):
