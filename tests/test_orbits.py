@@ -679,6 +679,9 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.vx()[ii]-list_os[ii].vx()) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vy()[ii]-list_os[ii].vy()) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vphi()[ii]-list_os[ii].vphi()) < 1e-10), 'Evaluating Orbits vphi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioX()[ii]-list_os[ii].helioX()) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioY()[ii]-list_os[ii].helioY()) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioZ()[ii]-list_os[ii].helioZ()) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
     # Integrate all
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
@@ -697,6 +700,9 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.vx(times)[ii]-list_os[ii].vx(times)) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vy(times)[ii]-list_os[ii].vy(times)) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vphi(times)[ii]-list_os[ii].vphi(times)) < 1e-10), 'Evaluating Orbits vphi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioX(times)[ii]-list_os[ii].helioX(times)) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioY(times)[ii]-list_os[ii].helioY(times)) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioZ(times)[ii]-list_os[ii].helioZ(times)) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
         # Also a single time in the array ...
         assert numpy.all(numpy.fabs(os.R(times[1])[ii]-list_os[ii].R(times[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(times[1])[ii]-list_os[ii].r(times[1])) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
@@ -710,6 +716,9 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.vx(times[1])[ii]-list_os[ii].vx(times[1])) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vy(times[1])[ii]-list_os[ii].vy(times[1])) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vphi(times[1])[ii]-list_os[ii].vphi(times[1])) < 1e-10), 'Evaluating Orbits vphi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioX(times[1])[ii]-list_os[ii].helioX(times[1])) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioY(times[1])[ii]-list_os[ii].helioY(times[1])) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioZ(times[1])[ii]-list_os[ii].helioZ(times[1])) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
     # Test actual interpolated
     itimes= times[:-2]+(times[1]-times[0])/2.
     for ii in range(nrand):
@@ -725,6 +734,9 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.vx(itimes)[ii]-list_os[ii].vx(itimes)) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vy(itimes)[ii]-list_os[ii].vy(itimes)) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vphi(itimes)[ii]-list_os[ii].vphi(itimes)) < 1e-10), 'Evaluating Orbits vphidoes not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioX(itimes)[ii]-list_os[ii].helioX(itimes)) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioY(itimes)[ii]-list_os[ii].helioY(itimes)) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioZ(itimes)[ii]-list_os[ii].helioZ(itimes)) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
         # Also a single time in the array ...
         assert numpy.all(numpy.fabs(os.R(itimes[1])[ii]-list_os[ii].R(itimes[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(itimes[1])[ii]-list_os[ii].r(itimes[1])) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
@@ -733,6 +745,9 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.z(itimes[1])[ii]-list_os[ii].z(itimes[1])) < 1e-10), 'Evaluating Orbits z does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vz(itimes[1])[ii]-list_os[ii].vz(itimes[1])) < 1e-10), 'Evaluating Orbits vz does not agree with Orbit'
         assert numpy.all(numpy.fabs(((os.phi(itimes[1])[ii]-list_os[ii].phi(itimes[1])+numpy.pi) % (2.*numpy.pi)) - numpy.pi) < 1e-10), 'Evaluating Orbits phi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioX(itimes[1])[ii]-list_os[ii].helioX(itimes[1])) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioY(itimes[1])[ii]-list_os[ii].helioY(itimes[1])) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.helioZ(itimes[1])[ii]-list_os[ii].helioZ(itimes[1])) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
     return None
 
 # Test that evaluating coordinate functions for integrated orbits works, 

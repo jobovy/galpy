@@ -71,7 +71,7 @@ if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
     _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
-_NOLONGINTEGRATIONS= False
+_NOLONGINTEGRATIONS= True
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always",galpyWarning)
 

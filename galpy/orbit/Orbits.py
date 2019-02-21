@@ -5,6 +5,7 @@ import numpy
 from scipy import interpolate
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
+from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.multi import parallel_map
@@ -823,6 +824,123 @@ class Orbits(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[2]/thiso[0]).T
+
+    @physical_conversion('position_kpc')
+    def helioX(self,*args,**kwargs):
+        """
+        NAME:
+
+           helioX
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular x-coordinate (aka "X")
+
+        INPUT:
+
+           t - (optional) time at which to get X
+
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           helioX(t) in kpc [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'helioX')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        X,_,_= _helioXYZ(self,thiso,*args,**kwargs)
+        return X.reshape(thiso_shape[1:]).T
+
+    @physical_conversion('position_kpc')
+    def helioY(self,*args,**kwargs):
+        """
+        NAME:
+
+           helioY
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular y-coordinate (aka "Y")
+
+        INPUT:
+
+           t - (optional) time at which to get Y
+
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           helioY(t) in kpc [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'helioX')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        _,Y,_= _helioXYZ(self,thiso,*args,**kwargs)
+        return Y.reshape(thiso_shape[1:]).T
+
+    @physical_conversion('position_kpc')
+    def helioZ(self,*args,**kwargs):
+        """
+        NAME:
+
+           helioZ
+
+        PURPOSE:
+
+           return Heliocentric Galactic rectangular z-coordinate (aka "Z")
+
+        INPUT:
+
+           t - (optional) time at which to get Z
+
+           obs=[X,Y,Z] - (optional) position and velocity of observer 
+                         (in kpc and km/s) (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           helioZ(t) in kpc [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'helioX')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        _,_,Z= _helioXYZ(self,thiso,*args,**kwargs)
+        return Z.reshape(thiso_shape[1:]).T
 
     def _call_internal(self,*args,**kwargs):
         """
