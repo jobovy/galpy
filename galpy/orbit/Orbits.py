@@ -861,8 +861,8 @@ class Orbits(object):
         thiso= self._call_internal(*args,**kwargs)
         thiso_shape= thiso.shape
         thiso= thiso.reshape((thiso_shape[0],-1))
-        X,_,_= _helioXYZ(self,thiso,*args,**kwargs)
-        return X.reshape(thiso_shape[1:]).T
+        return _helioXYZ(self,thiso,*args,**kwargs)[0]\
+            .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
     def helioY(self,*args,**kwargs):
@@ -896,12 +896,12 @@ class Orbits(object):
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioX')
+        _check_roSet(self,kwargs,'helioY')
         thiso= self._call_internal(*args,**kwargs)
         thiso_shape= thiso.shape
         thiso= thiso.reshape((thiso_shape[0],-1))
-        _,Y,_= _helioXYZ(self,thiso,*args,**kwargs)
-        return Y.reshape(thiso_shape[1:]).T
+        return _helioXYZ(self,thiso,*args,**kwargs)[1]\
+            .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
     def helioZ(self,*args,**kwargs):
@@ -935,12 +935,12 @@ class Orbits(object):
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioX')
+        _check_roSet(self,kwargs,'helioZ')
         thiso= self._call_internal(*args,**kwargs)
         thiso_shape= thiso.shape
         thiso= thiso.reshape((thiso_shape[0],-1))
-        _,_,Z= _helioXYZ(self,thiso,*args,**kwargs)
-        return Z.reshape(thiso_shape[1:]).T
+        return _helioXYZ(self,thiso,*args,**kwargs)[2]\
+            .reshape(thiso_shape[1:]).T
 
     def _call_internal(self,*args,**kwargs):
         """
