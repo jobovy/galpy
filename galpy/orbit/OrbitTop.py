@@ -918,8 +918,7 @@ class OrbitTop(object):
 
     def _radec(self,*args,**kwargs):
         """Calculate ra and dec"""
-        lbd= self._lbd(*args,**kwargs)
-        return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
+        return _radec(self,self(*args,**kwargs),*args,**kwargs)
 
     def _pmrapmdec(self,*args,**kwargs):
         """Calculate pmra and pmdec"""
@@ -932,12 +931,7 @@ class OrbitTop(object):
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
-        obs, ro, vo= _parse_radec_kwargs(self,kwargs,dontpop=True)
-        X,Y,Z= self._helioXYZ(*args,**kwargs)
-        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
-        if True in bad_indx:
-            X[bad_indx]+= ro/10000.
-        return coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        return _lbd(self,self(*args,**kwargs),*args,**kwargs)
 
     def _helioXYZ(self,*args,**kwargs):
         """Calculate heliocentric rectangular coordinates"""
@@ -2804,6 +2798,20 @@ def _helioXYZ(orb,thiso,*args,**kwargs):
                     Zsun=obs.z(*args,**kwargs)).T
             obs.turn_physical_on()
     return (X*ro,Y*ro,Z*ro)
+
+def _lbd(orb,thiso,*args,**kwargs):
+    """Calculate l,b, and d"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z= _helioXYZ(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.XYZ_to_lbd(X,Y,Z,degree=True)
+
+def _radec(orb,thiso,*args,**kwargs):
+    """Calculate ra and dec"""
+    lbd= _lbd(orb,thiso,*args,**kwargs)
+    return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
 
 def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     if 'obs' in kwargs:
