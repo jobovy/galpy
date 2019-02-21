@@ -5,7 +5,7 @@ import numpy
 from scipy import interpolate
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
-from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ
+from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.multi import parallel_map
@@ -824,6 +824,198 @@ class Orbits(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[2]/thiso[0]).T
+
+    @physical_conversion('angle_deg')
+    def ra(self,*args,**kwargs):
+        """
+        NAME:
+
+           ra
+
+        PURPOSE:
+
+           return the right ascension
+
+        INPUT:
+
+           t - (optional) time at which to get ra
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           ra(t) [norb,nt] 
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'ra')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _radec(self,thiso,*args,**kwargs).T[0]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('angle_deg')
+    def dec(self,*args,**kwargs):
+        """
+        NAME:
+
+           dec
+
+        PURPOSE:
+
+           return the declination
+
+        INPUT:
+
+           t - (optional) time at which to get dec
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           dec(t) [norb,nt] 
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'dec')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _radec(self,thiso,*args,**kwargs).T[1]\
+            .reshape(thiso_shape[1:]).T
+
+    @physical_conversion('angle_deg')
+    def ll(self,*args,**kwargs):
+        """
+        NAME:
+
+           ll
+
+        PURPOSE:
+
+           return Galactic longitude
+
+        INPUT:
+
+           t - (optional) time at which to get ll
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           l(t) [norb,nt] 
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'ll')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbd(self,thiso,*args,**kwargs).T[0].reshape(thiso_shape[1:]).T
+
+    @physical_conversion('angle_deg')
+    def bb(self,*args,**kwargs):
+        """
+        NAME:
+
+           bb
+
+        PURPOSE:
+
+           return Galactic latitude
+
+        INPUT:
+
+           t - (optional) time at which to get bb
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           b(t) [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT
+
+        """
+        _check_roSet(self,kwargs,'bb')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbd(self,thiso,*args,**kwargs).T[1].reshape(thiso_shape[1:]).T
+
+    @physical_conversion('position_kpc')
+    def dist(self,*args,**kwargs):
+        """
+        NAME:
+
+           dist
+
+        PURPOSE:
+
+           return distance from the observer in kpc
+
+        INPUT:
+
+           t - (optional) time at which to get dist
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+
+        OUTPUT:
+
+           dist(t) in kpc [norb,nt]
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'dist')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        return _lbd(self,thiso,*args,**kwargs).T[2].reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
     def helioX(self,*args,**kwargs):
