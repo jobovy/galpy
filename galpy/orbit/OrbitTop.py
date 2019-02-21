@@ -932,7 +932,7 @@ class OrbitTop(object):
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
-        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= _parse_radec_kwargs(self,kwargs,dontpop=True)
         X,Y,Z= self._helioXYZ(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -941,57 +941,11 @@ class OrbitTop(object):
 
     def _helioXYZ(self,*args,**kwargs):
         """Calculate heliocentric rectangular coordinates"""
-        obs, ro, vo= self._parse_radec_kwargs(kwargs)
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
-            raise AttributeError("orbit must track azimuth to use radeclbd functions")
-        elif len(thiso[:,0]) == 4: #planarOrbit
-            if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),0.,
-                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
-                    Zsun=obs[2]/ro,_extra_rot=False).T
-            else: #Orbit instance
-                obs.turn_physical_off()
-                if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
-                        nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
-                else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
-                        nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
-                obs.turn_physical_on()
-        else: #FullOrbit
-            if isinstance(obs,(nu.ndarray,list)):
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),
-                    thiso[3,:],
-                    Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
-                    Zsun=obs[2]/ro).T
-            else: #Orbit instance
-                obs.turn_physical_off()
-                if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                        thiso[3,:],
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
-                else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                        thiso[3,:],
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
-                obs.turn_physical_on()
-        return (X*ro,Y*ro,Z*ro)
+        return _helioXYZ(self,self(*args,**kwargs),*args,**kwargs)
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
-        obs, ro, vo= self._parse_radec_kwargs(kwargs,dontpop=True)
+        obs, ro, vo= _parse_radec_kwargs(self,kwargs,dontpop=True)
         X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
         bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
         if True in bad_indx:
@@ -1000,7 +954,7 @@ class OrbitTop(object):
 
     def _XYZvxvyvz(self,*args,**kwargs):
         """Calculate X,Y,Z,U,V,W"""
-        obs, ro, vo= self._parse_radec_kwargs(kwargs,vel=True)
+        obs, ro, vo= _parse_radec_kwargs(self,kwargs,vel=True)
         thiso= self(*args,**kwargs)
         if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
         if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
@@ -1095,47 +1049,6 @@ class OrbitTop(object):
                         Zsun=obs.z(*args,**kwargs)).T
                 obs.turn_physical_on()
         return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
-
-    def _parse_radec_kwargs(self,kwargs,vel=False,dontpop=False):
-        if 'obs' in kwargs:
-            obs= kwargs['obs']
-            if not dontpop:
-                kwargs.pop('obs')
-            if isinstance(obs,(list,nu.ndarray)):
-                if len(obs) == 2:
-                    obs= [obs[0],obs[1],0.]
-                elif len(obs) == 4:
-                    obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
-                for ii in range(len(obs)):
-                    if _APY_LOADED and isinstance(obs[ii],units.Quantity):
-                        if ii < 3:
-                            obs[ii]= obs[ii].to(units.kpc).value
-                        else:
-                            obs[ii]= obs[ii].to(units.km/units.s).value
-        else:
-            if vel:
-                obs= [self._ro,0.,self._zo,
-                      self._solarmotion[0],self._solarmotion[1]+self._vo,
-                      self._solarmotion[2]]
-            else:
-                obs= [self._ro,0.,self._zo]
-        if 'ro' in kwargs:
-            ro= kwargs['ro']
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            if not dontpop:
-                kwargs.pop('ro')
-        else:
-            ro= self._ro
-        if 'vo' in kwargs:
-            vo= kwargs['vo']
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            if not dontpop:
-                kwargs.pop('vo')
-        else:
-            vo= self._vo
-        return (obs,ro,vo)
 
     def Jacobi(self,Omega,t=0.,pot=None):
         """
@@ -2838,3 +2751,98 @@ def _check_voSet(orb,kwargs,funcName):
     if not orb._voSet and kwargs.get('vo',None) is None:
         warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
                       galpyWarning)
+
+# Coordinate transform functions moved outside of Orbit instance such that they
+# can be used by Orbits as well; split out calling-sequence specific part from
+# the object to do this (but otherwise use the fact that Orbit and Orbits are
+# similar)
+def _helioXYZ(orb,thiso,*args,**kwargs):
+    """Calculate heliocentric rectangular coordinates"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbd functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(nu.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),0.,
+                Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(nu.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                thiso[3,:],
+                Xsun=nu.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro)
+
+def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
+    if 'obs' in kwargs:
+        obs= kwargs['obs']
+        if not dontpop:
+            kwargs.pop('obs')
+        if isinstance(obs,(list,nu.ndarray)):
+            if len(obs) == 2:
+                obs= [obs[0],obs[1],0.]
+            elif len(obs) == 4:
+                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+            for ii in range(len(obs)):
+                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                    if ii < 3:
+                        obs[ii]= obs[ii].to(units.kpc).value
+                    else:
+                        obs[ii]= obs[ii].to(units.km/units.s).value
+    else:
+        if vel:
+            obs= [orb._ro,0.,orb._zo,
+                  orb._solarmotion[0],orb._solarmotion[1]+orb._vo,
+                  orb._solarmotion[2]]
+        else:
+            obs= [orb._ro,0.,orb._zo]
+    if 'ro' in kwargs:
+        ro= kwargs['ro']
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if not dontpop:
+            kwargs.pop('ro')
+    else:
+        ro= orb._ro
+    if 'vo' in kwargs:
+        vo= kwargs['vo']
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if not dontpop:
+            kwargs.pop('vo')
+    else:
+        vo= orb._vo
+    return (obs,ro,vo)
+
