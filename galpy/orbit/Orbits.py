@@ -27,7 +27,9 @@ except ImportError:
     SkyCoord = None
     _APY_LOADED = False
 if _APY_LOADED:
-    from astropy import units
+    from astropy import units, coordinates
+    import astropy
+    _APY3= astropy.__version__ > '3'
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
     _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
@@ -1470,6 +1472,75 @@ class Orbits(object):
         thiso= thiso.reshape((thiso_shape[0],-1))
         return _XYZvxvyvz(self,thiso,*args,**kwargs)[5]\
             .reshape(thiso_shape[1:]).T
+
+    def SkyCoord(self,*args,**kwargs):
+        """
+        NAME:
+
+           SkyCoord
+
+        PURPOSE:
+
+           return the positions and velocities as an astropy SkyCoord
+
+        INPUT:
+
+           t - (optional) time at which to get the position
+
+           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+                         (default=Object-wide default)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+
+        OUTPUT:
+
+           SkyCoord(t) [norb,nt] 
+
+        HISTORY:
+
+           2019-02-21 - Written - Bovy (UofT)
+
+        """
+        kwargs.pop('quantity',None) # rm useless keyword to no conflict later
+        _check_roSet(self,kwargs,'SkyCoord')
+        thiso= self._call_internal(*args,**kwargs)
+        thiso_shape= thiso.shape
+        thiso= thiso.reshape((thiso_shape[0],-1))
+        radec= _radec(self,thiso,*args,**kwargs).T\
+            .reshape((2,*thiso_shape[1:]))
+        tdist= self.dist(quantity=False,*args,**kwargs).T
+        if not _APY3: # pragma: no cover
+            return coordinates.SkyCoord(radec[0]*units.degree,
+                                        radec[1]*units.degree,
+                                        distance=tdist*units.kpc,
+                                        frame='icrs').T
+        _check_voSet(self,kwargs,'SkyCoord')
+        pmrapmdec= _pmrapmdec(self,thiso,*args,**kwargs).T\
+            .reshape((2,*thiso_shape[1:]))
+        tvlos= self.vlos(quantity=False,*args,**kwargs).T
+        # Also return the Galactocentric frame used
+        v_sun= coordinates.CartesianDifferential(\
+            numpy.array([-self._solarmotion[0],
+                       self._solarmotion[1]+self._vo,
+                       self._solarmotion[2]])*units.km/units.s)
+        return coordinates.SkyCoord(radec[0]*units.degree,
+                                    radec[1]*units.degree,
+                                    distance=tdist*units.kpc,
+                                    pm_ra_cosdec=pmrapmdec[0]\
+                                        *units.mas/units.yr,
+                                    pm_dec=pmrapmdec[1]*units.mas/units.yr,
+                                    radial_velocity=tvlos*units.km/units.s,
+                                    frame='icrs',
+                                    galcen_distance=\
+                                        numpy.sqrt(self._ro**2.+self._zo**2.)\
+                                        *units.kpc,
+                                    z_sun=self._zo*units.kpc,
+                                    galcen_v_sun=v_sun).T
 
     def _call_internal(self,*args,**kwargs):
         """
