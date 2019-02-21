@@ -698,9 +698,10 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.SkyCoord().ra[ii]-list_os[ii].SkyCoord().ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord().dec[ii]-list_os[ii].SkyCoord().dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord().distance[ii]-list_os[ii].SkyCoord().distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord().pm_ra_cosdec[ii]-list_os[ii].SkyCoord().pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord().pm_dec[ii]-list_os[ii].SkyCoord().pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord().radial_velocity[ii]-list_os[ii].SkyCoord().radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+        if _APY3:
+            assert numpy.all(numpy.fabs(os.SkyCoord().pm_ra_cosdec[ii]-list_os[ii].SkyCoord().pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord().pm_dec[ii]-list_os[ii].SkyCoord().pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord().radial_velocity[ii]-list_os[ii].SkyCoord().radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     # Integrate all
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
@@ -738,9 +739,10 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.SkyCoord(times).ra[ii]-list_os[ii].SkyCoord(times).ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(times).dec[ii]-list_os[ii].SkyCoord(times).dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(times).distance[ii]-list_os[ii].SkyCoord(times).distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(times).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_dec[ii]-list_os[ii].SkyCoord(times).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii]-list_os[ii].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+        if _APY3:
+            assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(times).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_dec[ii]-list_os[ii].SkyCoord(times).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii]-list_os[ii].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         # Also a single time in the array ...
         assert numpy.all(numpy.fabs(os.R(times[1])[ii]-list_os[ii].R(times[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(times[1])[ii]-list_os[ii].r(times[1])) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
@@ -773,9 +775,10 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).ra[ii]-list_os[ii].SkyCoord(times[1]).ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).dec[ii]-list_os[ii].SkyCoord(times[1]).dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).distance[ii]-list_os[ii].SkyCoord(times[1]).distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(times[1]).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).pm_dec[ii]-list_os[ii].SkyCoord(times[1]).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).radial_velocity[ii]-list_os[ii].SkyCoord(times[1]).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+        if _APY3:
+            assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(times[1]).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).pm_dec[ii]-list_os[ii].SkyCoord(times[1]).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(times[1]).radial_velocity[ii]-list_os[ii].SkyCoord(times[1]).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     # Test actual interpolated
     itimes= times[:-2]+(times[1]-times[0])/2.
     for ii in range(nrand):
@@ -810,9 +813,10 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes).ra[ii]-list_os[ii].SkyCoord(itimes).ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes).dec[ii]-list_os[ii].SkyCoord(itimes).dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes).distance[ii]-list_os[ii].SkyCoord(itimes).distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(itimes).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes).pm_dec[ii]-list_os[ii].SkyCoord(itimes).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes).radial_velocity[ii]-list_os[ii].SkyCoord(itimes).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+        if _APY3:
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(itimes).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes).pm_dec[ii]-list_os[ii].SkyCoord(itimes).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes).radial_velocity[ii]-list_os[ii].SkyCoord(itimes).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         # Also a single time in the array ...
         assert numpy.all(numpy.fabs(os.R(itimes[1])[ii]-list_os[ii].R(itimes[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(itimes[1])[ii]-list_os[ii].r(itimes[1])) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
@@ -840,9 +844,10 @@ def test_coordinate_interpolation():
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).ra[ii]-list_os[ii].SkyCoord(itimes[1]).ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).dec[ii]-list_os[ii].SkyCoord(itimes[1]).dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).distance[ii]-list_os[ii].SkyCoord(itimes[1]).distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(itimes[1]).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).pm_dec[ii]-list_os[ii].SkyCoord(itimes[1]).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
-        assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).radial_velocity[ii]-list_os[ii].SkyCoord(itimes[1]).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+        if _APY3:
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).pm_ra_cosdec[ii]-list_os[ii].SkyCoord(itimes[1]).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).pm_dec[ii]-list_os[ii].SkyCoord(itimes[1]).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).radial_velocity[ii]-list_os[ii].SkyCoord(itimes[1]).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     return None
 
 # Test that evaluating coordinate functions for integrated orbits works, 

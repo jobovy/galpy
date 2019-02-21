@@ -1512,7 +1512,7 @@ class Orbits(object):
         thiso_shape= thiso.shape
         thiso= thiso.reshape((thiso_shape[0],-1))
         radec= _radec(self,thiso,*args,**kwargs).T\
-            .reshape((2,*thiso_shape[1:]))
+            .reshape((2,)+thiso_shape[1:])
         tdist= self.dist(quantity=False,*args,**kwargs).T
         if not _APY3: # pragma: no cover
             return coordinates.SkyCoord(radec[0]*units.degree,
@@ -1521,7 +1521,7 @@ class Orbits(object):
                                         frame='icrs').T
         _check_voSet(self,kwargs,'SkyCoord')
         pmrapmdec= _pmrapmdec(self,thiso,*args,**kwargs).T\
-            .reshape((2,*thiso_shape[1:]))
+            .reshape((2,)+thiso_shape[1:])
         tvlos= self.vlos(quantity=False,*args,**kwargs).T
         # Also return the Galactocentric frame used
         v_sun= coordinates.CartesianDifferential(\
