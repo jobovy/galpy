@@ -922,12 +922,7 @@ class OrbitTop(object):
 
     def _pmrapmdec(self,*args,**kwargs):
         """Calculate pmra and pmdec"""
-        lbdvrpmllpmbb= self._lbdvrpmllpmbb(*args,**kwargs)
-        return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
-                                            lbdvrpmllpmbb[:,5],
-                                            lbdvrpmllpmbb[:,0],
-                                            lbdvrpmllpmbb[:,1],degree=True,
-                                            epoch=None)
+        return _pmrapmdec(self,self(*args,**kwargs),*args,**kwargs)
 
     def _lbd(self,*args,**kwargs):
         """Calculate l,b, and d"""
@@ -939,110 +934,11 @@ class OrbitTop(object):
 
     def _lbdvrpmllpmbb(self,*args,**kwargs):
         """Calculate l,b,d,vr,pmll,pmbb"""
-        obs, ro, vo= _parse_radec_kwargs(self,kwargs,dontpop=True)
-        X,Y,Z,vX,vY,vZ= self._XYZvxvyvz(*args,**kwargs)
-        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
-        if True in bad_indx:
-            X[bad_indx]+= ro/10000.
-        return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+        return _lbdvrpmllpmbb(self,self(*args,**kwargs),*args,**kwargs)
 
     def _XYZvxvyvz(self,*args,**kwargs):
         """Calculate X,Y,Z,U,V,W"""
-        obs, ro, vo= _parse_radec_kwargs(self,kwargs,vel=True)
-        thiso= self(*args,**kwargs)
-        if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-        if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
-            raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
-        elif len(thiso[:,0]) == 4: #planarOrbit
-            if isinstance(obs,(nu.ndarray,list)):
-                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),
-                    nu.zeros_like(thiso[0]),
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
-                    thiso[3,:]-nu.arctan2(obs[1],obs[0]),
-                    vsun=nu.array(# have to rotate
-                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
-                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
-                         obs[5]])/vo,
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
-            else: #Orbit instance
-                obs.turn_physical_off()
-                if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
-                        nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
-                        thiso[3,:]-obs.phi(*args,**kwargs),
-                        vsun=nu.array([\
-                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
-                                0.]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
-                else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
-                        nu.zeros_like(thiso[0]),
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                        thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
-                        thiso[3,:]-obs.phi(*args,**kwargs),
-                        vsun=nu.array([\
-                                obs.vR(*args,**kwargs),
-                                obs.vT(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]),
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
-                obs.turn_physical_on()
-        else: #FullOrbit
-            if isinstance(obs,(nu.ndarray,list)):
-                Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),thiso[3,:],
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],thiso[4,:],
-                    thiso[5,:]-nu.arctan2(obs[1],obs[0]),
-                    vsun=nu.array(# have to rotate
-                        [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
-                         -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
-                         obs[5]])/vo,
-                    Xsun=Xsun/ro,Zsun=obs[2]/ro).T
-            else: #Orbit instance
-                obs.turn_physical_off()
-                if obs.dim() == 2:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                        thiso[3,:],
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                        thiso[1,:],thiso[2,:],thiso[4,:],
-                        thiso[5,:]-obs.phi(*args,**kwargs),
-                        vsun=nu.array([\
-                                obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
-                                0.]),
-                        Xsun=obs.R(*args,**kwargs),Zsun=0.).T
-                else:
-                    X,Y,Z = coords.galcencyl_to_XYZ(\
-                        thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                        thiso[3,:],
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
-                    vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                        thiso[1,:],thiso[2,:],thiso[4,:],
-                        thiso[5,:]-obs.phi(*args,**kwargs),
-                        vsun=nu.array([\
-                                obs.vR(*args,**kwargs),
-                                obs.vT(*args,**kwargs),
-                                obs.vz(*args,**kwargs)]),
-                        Xsun=obs.R(*args,**kwargs),
-                        Zsun=obs.z(*args,**kwargs)).T
-                obs.turn_physical_on()
-        return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+        return _XYZvxvyvz(self,self(*args,**kwargs),*args,**kwargs)
 
     def Jacobi(self,Omega,t=0.,pot=None):
         """
@@ -2812,6 +2708,121 @@ def _radec(orb,thiso,*args,**kwargs):
     """Calculate ra and dec"""
     lbd= _lbd(orb,thiso,*args,**kwargs)
     return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
+
+def _XYZvxvyvz(orb,thiso,*args,**kwargs):
+    """Calculate X,Y,Z,U,V,W"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,vel=True)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(nu.ndarray,list)):
+            Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                nu.zeros_like(thiso[0]),
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                thiso[3,:]-nu.arctan2(obs[1],obs[0]),
+                vsun=nu.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=nu.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    nu.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],nu.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=nu.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(nu.ndarray,list)):
+            Xsun= nu.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-nu.arctan2(obs[1],obs[0]),thiso[3,:],
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],thiso[4,:],
+                thiso[5,:]-nu.arctan2(obs[1],obs[0]),
+                vsun=nu.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=nu.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=nu.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
+def _lbdvrpmllpmbb(orb,thiso,*args,**kwargs):
+    """Calculate l,b,d,vr,pmll,pmbb"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z,vX,vY,vZ= _XYZvxvyvz(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+
+def _pmrapmdec(orb,thiso,*args,**kwargs):
+    """Calculate pmra and pmdec"""
+    lbdvrpmllpmbb= _lbdvrpmllpmbb(orb,thiso,*args,**kwargs)
+    return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                        lbdvrpmllpmbb[:,5],
+                                        lbdvrpmllpmbb[:,0],
+                                        lbdvrpmllpmbb[:,1],degree=True,
+                                        epoch=None)
 
 def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     if 'obs' in kwargs:
