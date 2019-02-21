@@ -872,7 +872,7 @@ class OrbitTop(object):
         NAME:
            SkyCoord
         PURPOSE:
-           return the position as an astropy SkyCoord
+           return the position and velocity as an astropy SkyCoord
         INPUT:
            t - (optional) time at which to get the position
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
@@ -881,6 +881,7 @@ class OrbitTop(object):
                          of the observer
                          Y is ignored and always assumed to be zero
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
         OUTPUT:
            SkyCoord(t)
         HISTORY:
@@ -895,6 +896,7 @@ class OrbitTop(object):
                                         radec[:,1]*units.degree,
                                         distance=tdist*units.kpc,
                                         frame='icrs')
+        _check_voSet(self,kwargs,'SkyCoord')
         pmrapmdec= self._pmrapmdec(*args,**kwargs)
         vlos= self._lbdvrpmllpmbb(*args,**kwargs)[:,3]
         # Also return the Galactocentric frame used

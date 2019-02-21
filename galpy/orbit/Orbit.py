@@ -3083,7 +3083,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         PURPOSE:
 
-           return the position as an astropy SkyCoord
+           return the position and velocity as an astropy SkyCoord
 
         INPUT:
 
@@ -3097,6 +3097,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
         OUTPUT:
 
            SkyCoord(t)
@@ -3104,6 +3106,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         HISTORY:
 
            2015-06-02 - Written - Bovy (IAS)
+
+           2018-04-19 - Added velocity output for astropy >= v3 - Bovy (UofT)
 
         """
         return self._orb.SkyCoord(*args,**kwargs)
