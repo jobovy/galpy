@@ -2734,10 +2734,11 @@ def test_newOrbit_b4integration():
 def test_newOrbit_badinterpolation():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.1,0.,0.])
-    ts= numpy.linspace(0.,1.,2) #v. quick orbit integration, w/ not enough points for interpolation
+    ts= numpy.linspace(0.,1.,3) #v. quick orbit integration, w/ not enough points for interpolation
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     o.integrate(ts,lp)
     no= o(ts[-1]) #new orbit
+    print("Done")
     assert no.R() == o.R(ts[-1]), "New orbit formed from calling an old orbit does not have the correct R"
     assert no.vR() == o.vR(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vR"
     assert no.vT() == o.vT(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vT"
@@ -2773,7 +2774,7 @@ def test_newOrbit_badinterpolation():
     assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[1]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Try point in between, shouldn't work
-    try: no= o(0.5)
+    try: no= o(0.6)
     except LookupError: pass
     else: raise AssertionError('Orbit interpolation with not enough points to interpolate should raise LookUpError, but did not')
     return None
