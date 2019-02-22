@@ -47,6 +47,9 @@ v1.5 (????-??-??)
 - Add Python and C implementation of Dormand-Prince 8(5,3) integrator
   (#363 by Henry Leung)
 
+- Improved efficiency of requesting an integrated orbit at the exact
+  times at which it was integrated (~10x faster now).
+
 v1.4 (2018-09-09)
 =================
 
