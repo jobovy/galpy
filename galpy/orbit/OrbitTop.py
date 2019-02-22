@@ -1367,7 +1367,9 @@ class OrbitTop(object):
                     and self._integrate_t_asQuantity \
                     and not nu.all(t == self.t):
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
-        if isinstance(t,(int,float)) and hasattr(self,'t') \
+        if nu.all(t == self.t): # Common case where one wants all integrated times
+            return self.orbit.T
+        elif isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
             return self.orbit[list(self.t).index(t),:]
         else:
