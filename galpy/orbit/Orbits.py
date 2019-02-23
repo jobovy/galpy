@@ -247,11 +247,29 @@ class Orbits(object):
         """
         attribute = getattr(Orbit(), name)
         if callable(attribute):
-            return lambda *args, **kwargs: [
-                getattr(orbit, name)(*args, **kwargs) for orbit in self._orbits
-            ]
+            def __lambda(*args, **kwargs):
+                idx = 0  # use to keep track of indices
+                listt = []
+                for orbit in self._orbits:
+                    try:
+                        listt.append(getattr(orbit, name)(*args, **kwargs))
+                        idx += 1
+                    except Exception as e:
+                        # show informative error on which orbit is problematic
+                        warnings.warn(str(e) + ' at index %s' % idx)
+                return listt
+            return __lambda
         else:
-            return [getattr(orbit, name) for orbit in self.orbits]
+            idx = 0  # use to keep track of indices
+            listt = []
+            for orbit in self.orbits:
+                try:
+                    listt.append(getattr(orbit, name))
+                    idx += 1
+                except Exception as e:
+                    # show informative error on which orbit is problematic
+                    warnings.warn(str(e) + ' at index %s' % idx)
+            return listt
 
     def __getitem__(self,key):
         """

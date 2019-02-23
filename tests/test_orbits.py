@@ -1075,3 +1075,23 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     assert numpy.all(numpy.fabs(r_pred-numpy.array(o.r(ts[-1]))) < 0.015), 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
     return None
 
+def test_error_handling():
+    # Only run this for astropy>3
+    if not _APY3: return None
+    from galpy.orbit import Orbits
+    ras = numpy.array([1., 2., 3.]) * u.deg
+    decs = numpy.array([1., 2., 3.]) * u.deg
+    dists = numpy.array([1., 2., 3.]) * u.kpc
+    pmras = numpy.array([1., 2000., 3.]) * u.mas / u.yr  # second one high velocity unbound orbit
+    pmdecs = numpy.array([1., 2000., 3.]) * u.mas / u.yr  # second one high velocity unbound orbit
+    vloss = numpy.array([1., 2., 3.]) * u.km / u.s
+    # Without any custom coordinate-transformation parameters
+    co = apycoords.SkyCoord(ra=ras, dec=decs, distance=dists,
+                            pm_ra_cosdec=pmras, pm_dec=pmdecs,
+                            radial_velocity=vloss,
+                            frame='icrs')
+    os = Orbits(co)
+
+    e = os.e(analytic=True, type='staeckel', pot=potential.MWPotential2014)
+    # assert all orbits e estimation are finished and the second high velocity one is NaN
+    assert numpy.isnan(e[1])
