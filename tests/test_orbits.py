@@ -1041,6 +1041,109 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
+# Test that the eccentricity, zmax, rperi, and rap calculated numerically by
+# Orbits agrees with that calculated numerically using Orbit
+def test_EccZmaxRperiRap_num_againstorbit_3d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test AttributeError when not integrated
+    with pytest.raises(AttributeError):
+        os.e()
+    with pytest.raises(AttributeError):
+        os.zmax()
+    with pytest.raises(AttributeError):
+        os.rperi()
+    with pytest.raises(AttributeError):
+        os.rap()
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.e()[ii]-list_os[ii].e()) < 1e-10), 'Evaluating Orbits e does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.zmax()[ii]-list_os[ii].zmax()) < 1e-10), 'Evaluating Orbits zmax does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.rperi()[ii]-list_os[ii].rperi()) < 1e-10), 'Evaluating Orbits rperi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.rap()[ii]-list_os[ii].rap()) < 1e-10), 'Evaluating Orbits rap does not agree with Orbit'
+    return None
+
+def test_EccZmaxRperiRap_num_againstorbit_2d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    list_os= [Orbit([R,vR,vT,phi])
+              for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.e()[ii]-list_os[ii].e()) < 1e-10), 'Evaluating Orbits e does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.rperi()[ii]-list_os[ii].rperi()) < 1e-10), 'Evaluating Orbits rperi does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.rap()[ii]-list_os[ii].rap()) < 1e-10), 'Evaluating Orbits rap does not agree with Orbit'
+    return None
+
+# Test that the eccentricity, zmax, rperi, and rap calculated analytically by
+# Orbits agrees with that calculated numerically using Orbit
+def test_EccZmaxRperiRap_analytic_againstorbit_3d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    for type in ['spherical','staeckel','adiabatic']:
+        for ii in range(nrand):
+            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
+        assert numpy.all(numpy.fabs(os.zmax(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].zmax(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits zmax analytically does not agree with Orbit for type={}'.format(type)
+        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rperi analytically does not agree with Orbit for type={}'.format(type)
+        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
+    return None
+
+def test_EccZmaxRperiRap_analytic_againstorbit_2d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    list_os= [Orbit([R,vR,vT,phi])
+              for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
+    # No matter the type, should always be using adiabtic, not specified in 
+    # Orbit
+    for type in ['spherical','staeckel','adiabatic']:
+        for ii in range(nrand):
+            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
+        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rperi analytically does not agree with Orbit for type={}'.format(type)
+        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
+    return None
+
 @pytest.mark.xfail(sys.platform != 'win32',strict=True,raises=ValueError,
                    reason="Does not fail on Windows...")
 def test_ChandrasekharDynamicalFrictionForce_constLambda():

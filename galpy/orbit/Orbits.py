@@ -12,13 +12,14 @@ from ..util.bovy_conversion import physical_conversion
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
 from ..util import bovy_conversion
-from ..potential import toPlanarPotential
+from ..potential import toPlanarPotential, PotentialError
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
 from .integratePlanarOrbit import integratePlanarOrbit_c
 from .integrateFullOrbit import integrateFullOrbit_c
+from .. import actionAngle
 ext_loaded= _ext_loaded
 try:
     from astropy.coordinates import SkyCoord
@@ -210,7 +211,7 @@ class Orbits(object):
     # 3cf76f180545acb0606b2556135e9390ce800377)
     def __getattribute__(self,attr):
         if callable(super(Orbits,self).__getattribute__(attr)) \
-                and not attr == '_pot':
+                and not attr == '_pot' and not attr == '_aA':
             def func(*args,**kwargs):
                 try:
                     out= super(Orbits,self)\
@@ -442,6 +443,309 @@ class Orbits(object):
             self._orbits[ii]._orb._pot= pot
         return None
 
+    def _setupaA(self,pot=None,type='staeckel',**kwargs):
+        """
+        NAME:
+           _setupaA
+        PURPOSE:
+           set up an actionAngle module for this Orbit
+        INPUT:
+           pot - potential
+           type= ('staeckel') type of actionAngle module to use
+              1) 'adiabatic'
+              2) 'staeckel'
+              3) 'isochroneApprox'
+              4) 'spherical'
+        OUTPUT:
+        HISTORY:
+           2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
+        """
+        if self.dim() == 2:
+            # No reason to do Staeckel or isochroneApprox or spherical...
+            type= 'adiabatic'
+        if hasattr(self,'_aA'):
+            if (not pot is None and pot != self._aAPot) \
+                    or (not type is None and type != self._aAType) \
+                    or ('delta' in kwargs and hasattr(self._aA,'_delta') 
+                        and numpy.any(kwargs['delta'] != self._aA._delta)):
+                for attr in list(self.__dict__):
+                    if '_aA' in attr: delattr(self,attr)
+            else:
+                return None
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
+        self._aAPot= pot
+        self._aAType= type
+        #Setup
+        if self._aAType.lower() == 'adiabatic':
+            self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
+                                                       **kwargs)
+        elif self._aAType.lower() == 'staeckel':
+            if self.dim() == 3:
+                # try to make sure this is not 0
+                tz= self.z(use_physical=False)\
+                    +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
+                    * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
+            elif self.dim() == 2:
+                tz= 0
+            else:
+                raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
+            try:
+                delta= \
+                    kwargs.pop('delta',
+                               actionAngle.estimateDeltaStaeckel(\
+                        self._aAPot,self.R(use_physical=False),
+                        tz,no_median=True))
+            except PotentialError as e:
+                if 'deriv' in str(e):
+                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
+                elif 'non-axi' in str(e):
+                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
+                else: #pragma: no cover
+                    raise
+            if numpy.all(delta < 1e-6):
+                self._setupaA(pot=pot,type='spherical')
+            else:
+                self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
+                                                          delta=delta,
+                                                          **kwargs)
+        elif self._aAType.lower() == 'isochroneapprox':
+            from galpy.actionAngle import actionAngleIsochroneApprox
+            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
+                                                 **kwargs)
+        elif self._aAType.lower() == 'spherical':
+            self._aA= actionAngle.actionAngleSpherical(pot=self._aAPot,
+                                                       **kwargs)
+        return None
+
+    def _setup_EccZmaxRperiRap(self,pot=None,**kwargs):
+        """Internal function to compute e,zmax,rperi,rap and cache it for re-use"""
+        self._setupaA(pot=pot,**kwargs)
+        if hasattr(self,'_aA_ecc'): return None
+        if self.dim() == 3:
+            # try to make sure this is not 0
+            tz= self.z(use_physical=False)\
+                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
+                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False)
+        elif self.dim() == 2:
+            tz= numpy.zeros(len(self))
+            tvz= numpy.zeros(len(self))
+        # self.dim() == 1 error caught by _setupaA
+        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap=\
+            self._aA.EccZmaxRperiRap(self.R(use_physical=False),
+                                     self.vR(use_physical=False),
+                                     self.vT(use_physical=False),
+                                     tz,tvz)
+        return None        
+
+    def e(self,analytic=False,pot=None,**kwargs):
+        """
+        NAME:
+
+           e
+
+        PURPOSE:
+
+           calculate the eccentricity, either numerically from the numerical orbit integration or using analytical means
+
+        INPUT:
+
+           analytic(= False) compute this analytically
+
+           pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
+
+        OUTPUT:
+
+           eccentricity [norb]
+
+        HISTORY:
+
+           2019-02-25 - Written - Bovy (UofT)
+
+        """
+        if not pot is None: pot= flatten_potential(pot)
+        _check_consistent_units(self,pot)
+        if analytic:
+            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            return self._aA_ecc
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
+        rs= self.r(self.t,use_physical=False)
+        return (numpy.amax(rs,axis=-1)-numpy.amin(rs,axis=-1))\
+            /(numpy.amax(rs,axis=-1)+numpy.amin(rs,axis=-1))
+
+    @physical_conversion('position')
+    def rap(self,analytic=False,pot=None,**kwargs):
+        """
+        NAME:
+
+           rap
+
+        PURPOSE:
+
+           calculate the apocenter radius, either numerically from the numerical orbit integration or using analytical means
+
+        INPUT:
+
+           analytic(= False) compute this analytically
+
+           pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           R_ap [norb]
+
+        HISTORY:
+
+           2019-02-25 - Written - Bovy (UofT)
+
+        """
+        if not pot is None: pot= flatten_potential(pot)
+        _check_consistent_units(self,pot)
+        if analytic:
+            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            return self._aA_rap
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
+        rs= self.r(self.t,use_physical=False)
+        return numpy.amax(rs,axis=-1)
+
+    @physical_conversion('position')
+    def rperi(self,analytic=False,pot=None,**kwargs):
+        """
+        NAME:
+
+           rperi
+
+        PURPOSE:
+
+           calculate the pericenter radius, either numerically from the numerical orbit integration or using analytical means
+
+        INPUT:
+
+           analytic(= False) compute this analytically
+
+           pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           R_peri [norb]
+
+        HISTORY:
+
+           2019-02-25 - Written - Bovy (UofT)
+
+        """
+        if not pot is None: pot= flatten_potential(pot)
+        _check_consistent_units(self,pot)
+        if analytic:
+            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            return self._aA_rperi
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
+        rs= self.r(self.t,use_physical=False)
+        return numpy.amin(rs,axis=-1)
+
+    @physical_conversion('position')
+    def zmax(self,analytic=False,pot=None,**kwargs):
+        """
+        NAME:
+
+           zmax
+
+        PURPOSE:
+
+           calculate the maximum vertical height, either numerically from the numerical orbit integration or using analytical means
+
+        INPUT:
+
+           analytic(= False) compute this analytically
+
+           pot - potential to use for analytical calculation
+
+           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
+
+              type= ('staeckel') type of actionAngle module to use
+              
+                 1) 'adiabatic': assuming motion splits into R and z
+
+                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
+
+                 3) 'spherical': for spherical potentials, exact
+              
+              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Z_max [norb]
+
+        HISTORY:
+
+           2019-02-25 - Written - Bovy (UofT)
+
+        """
+        if not pot is None: pot= flatten_potential(pot)
+        _check_consistent_units(self,pot)
+        if analytic:
+            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            return self._aA_zmax
+        if not hasattr(self,'orbit'):
+            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
+        return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False)),
+                          axis=-1)
+
     @physical_conversion('position')
     def R(self,*args,**kwargs):
         """
@@ -501,7 +805,10 @@ class Orbits(object):
 
         """
         thiso= self._call_internal(*args,**kwargs)
-        return numpy.sqrt(thiso[0]**2.+thiso[3]**2.).T
+        if self.dim() == 3:
+            return numpy.sqrt(thiso[0]**2.+thiso[3]**2.).T
+        else:
+            return numpy.fabs(thiso[0]).T
 
     @physical_conversion('velocity')
     def vR(self,*args,**kwargs):
