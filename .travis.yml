@@ -51,7 +51,7 @@ before_install:
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LDFLAGS=-L$HOME/usr/lib; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LD_LIBRARY_PATH=$HOME/usr/lib; fi
  #Setup conda for faster installs
- - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+ - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
  - export PATH="$HOME/miniconda/bin:$PATH"
  - hash -r
@@ -60,6 +60,8 @@ before_install:
  - conda config --add channels conda-forge
  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib setuptools pip "cython>=0.20" pytest
  - source activate test-environment
+#Switch to conda defaults python, because conda-forge python has issues with gcc compiler similar to https://github.com/conda/conda/issues/6030
+ - conda install python=$TRAVIS_PYTHON_VERSION -c defaults
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/

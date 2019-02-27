@@ -15,6 +15,23 @@ v1.5 (????-??-??)
   potential.MovingObjectPotential have changed because of this in a
   non-backwards-compatible manner.
 
+- Added support to combine Potential instances or lists thereof
+  through the addition operator. E.g., pot= pot1+pot2+pot3 to create
+  the combined potential of the three component potentials
+  (pot1,pot2,pot3). Each of these components can be a combined
+  potential itself. As before, combined potentials are simply lists of
+  potentials, so this is simply an alternative (and perhaps more
+  intuitive) way to create these lists (#369).
+
+- Added support to adjust the amplitude of a Potential instance
+  through multiplication of the instance by a number or through
+  division by a numer. E.g., pot= 2.*pot1 returns a Potential instance
+  that is the same as pot1, except that the amplitude is twice
+  larger. Similarly, pot= pot1/2. decreases the amplitude by a factor
+  of two. This is useful, for example, to quickly change the mass of a
+  potential. Only works for Potential instances, not for lists of
+  Potential instances (#369).
+
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
 
@@ -29,6 +46,9 @@ v1.5 (????-??-??)
 
 - Add Python and C implementation of Dormand-Prince 8(5,3) integrator
   (#363 by Henry Leung)
+
+- Improved efficiency of requesting an integrated orbit at the exact
+  times at which it was integrated (~10x faster now).
 
 v1.4 (2018-09-09)
 =================

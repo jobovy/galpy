@@ -783,14 +783,12 @@ We will use ``MWPotential2014`` as our Milky-Way potential
 model. Because the LMC is in fact unbound in ``MWPotential2014``, we
 increase the halo mass by 50% to make it bound (this corresponds to a
 Milky-Way halo mass of :math:`\approx 1.2\,\times 10^{12}\,M_\odot`, a
-not unreasonable value). We can hack this together as
+not unreasonable value). We can adjust a galpy Potential's amplitude simply by multiplying the potential by a number, so to increase the mass by 50% we do
 
->>> MWPotential2014[2]._amp*= 1.5
+>>> MWPotential2014[2]*= 1.5
 
-(Note that this is *not* a generally recommended route for changing
-the mass of an object, since it relies on editing a private
-attribute). Let us now integrate the orbit backwards in time for 10
-Gyr and plot it:
+Let us now integrate the orbit backwards in time for 10 Gyr and plot
+it:
 
 >>> ts= numpy.linspace(0.,-10.,1001)*units.Gyr
 >>> o.integrate(ts,MWPotential2014)
@@ -801,7 +799,7 @@ Gyr and plot it:
 
 We see that the LMC is indeed bound, with an apocenter just over 250
 kpc. Now let's add dynamical friction for the LMC, assuming that its
-mass if :math:`5\times 10^{10}\,M_\odot`. We setup the
+mass is :math:`5\times 10^{10}\,M_\odot`. We setup the
 dynamical-friction object:
 
 >>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,rhm=5.*units.kpc,
@@ -816,13 +814,9 @@ for definiteness. We now make a copy of the orbit instance above and
 integrate it in the potential that includes dynamical friction:
 
 >>> odf= o()
->>> odf.integrate(ts,[MWPotential2014,cdf])
+>>> odf.integrate(ts,MWPotential2014+cdf)
 
-(Note that specifying the forces as the list ``[MWPotential2014,cdf]``
-works even though ``MWPotential2014`` is itself a list of potentials,
-because we can use nested lists of potentials or forces wherever a
-list is allowed in ``galpy``). Overlaying the orbits, we can see the
-difference in the evolution:
+Overlaying the orbits, we can see the difference in the evolution:
 
 >>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
 >>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
@@ -853,7 +847,7 @@ dispersion. Then we integrate the orbit and overplot it on the
 previous results:
 
 >>> odf2= o()
->>> odf2.integrate(ts,[MWPotential2014,cdf])
+>>> odf2.integrate(ts,MWPotential2014+cdf)
 
 and
 
@@ -875,7 +869,7 @@ Finally, let's see what will happen in the future if the LMC is as
 massive as :math:`10^{11}\,M_\odot`. We simply flip the sign of the
 integration times to get the future trajectory:
 
->>> odf2.integrate(-ts[-ts < 9*units.Gyr],[MWPotential2014,cdf])
+>>> odf2.integrate(-ts[-ts < 9*units.Gyr],MWPotential2014+cdf)
 >>> odf2.plot(d1='t',d2='r')
 
 .. image:: images/lmc-mwp14-plusdynfric-1011msun-future.png

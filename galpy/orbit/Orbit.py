@@ -8,6 +8,7 @@ except ImportError:
 if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
+    _APY_GE_31= tuple(map(int,(astropy.__version__.split('.')))) > (3,0,5)
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
 _ASTROQUERY_LOADED= True
@@ -123,7 +124,7 @@ class Orbit(object):
                 ro= nu.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
                             -zo**2.)
             elif not vxvv.galcen_distance is None and \
-                    nu.fabs(ro**2.-vxvv.galcen_distance.to(units.kpc).value**2.-zo**2.) > 1e-14:
+                    nu.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
         if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
@@ -167,7 +168,10 @@ class Orbit(object):
                 galcen_distance=nu.sqrt(ro**2.+zo**2.)*units.kpc,
                 z_sun=zo*units.kpc,galcen_v_sun=galcen_v_sun)
             vxvvg= vxvv.transform_to(gc_frame)
-            vxvvg.representation= 'cylindrical'
+            if _APY_GE_31:
+                vxvvg.representation_type= 'cylindrical'
+            else: #pragma: no cover
+                vxvvg.representation= 'cylindrical'
             R= vxvvg.rho.to(units.kpc).value/ro
             phi= nu.pi-vxvvg.phi.to(units.rad).value
             z= vxvvg.z.to(units.kpc).value/ro

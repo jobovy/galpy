@@ -903,6 +903,122 @@ def test_evaluateAndDerivs_potential():
 "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential" % p
     return None
 
+#Test that potentials can be multiplied or divided by a number
+def test_amp_mult_divide():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    pots.append('mockTwoPowerIntegerSphericalPotential')
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerIntegerSphericalPotential')
+    pots.append('JaffeTwoPowerIntegerSphericalPotential')
+    pots.append('NFWTwoPowerIntegerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
+    pots.append('specialPowerSphericalPotential')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('testMWPotential')
+    pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
+    pots.append('mockInterpRZPotential')
+    if _PYNBODY_LOADED:
+        pots.append('mockSnapshotRZPotential')
+        pots.append('mockInterpSnapshotRZPotential')
+    pots.append('mockCosmphiDiskPotentialnegcp')
+    pots.append('mockCosmphiDiskPotentialnegp')
+    pots.append('mockDehnenBarPotentialT1')
+    pots.append('mockDehnenBarPotentialTm1')
+    pots.append('mockDehnenBarPotentialTm5')
+    pots.append('mockEllipticalDiskPotentialT1')
+    pots.append('mockEllipticalDiskPotentialTm1')
+    pots.append('mockEllipticalDiskPotentialTm5')
+    pots.append('mockSteadyLogSpiralPotentialT1')
+    pots.append('mockSteadyLogSpiralPotentialTm1')
+    pots.append('mockSteadyLogSpiralPotentialTm5')
+    pots.append('mockTransientLogSpiralPotential')
+    pots.append('mockFlatEllipticalDiskPotential') #for evaluate w/ nonaxi lists
+    pots.append('mockMovingObjectPotential')
+    pots.append('mockMovingObjectPotentialExplPlummer')
+    pots.append('oblateHernquistPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('oblatenoGLNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential')
+    pots.append('yRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatedTriaxialNFWPotential')
+    pots.append('fullyRotatednoGLTriaxialNFWPotential')
+    pots.append('HernquistTwoPowerTriaxialPotential')
+    pots.append('NFWTwoPowerTriaxialPotential')
+    pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFDensityPotential')
+    pots.append('mockAxisymmetricFerrersPotential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('nonaxiDiskSCFPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('mockDehnenSmoothBarPotentialT1')
+    pots.append('mockDehnenSmoothBarPotentialTm1')
+    pots.append('mockDehnenSmoothBarPotentialTm5')
+    pots.append('mockDehnenSmoothBarPotentialDecay')
+    pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
+    pots.append('nestedListPotential')
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential']
+    if False: #_TRAVIS: #travis CI
+        rmpots.append('DoubleExponentialDiskPotential')
+        rmpots.append('RazorThinExponentialDiskPotential')
+    for p in rmpots:
+        pots.remove(p)
+    R,Z,phi= 0.75,0.2,1.76
+    nums= numpy.random.uniform(size=len(pots)) # random set of amp changes
+    for num,p in zip(nums,pots):
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if hasattr(tp,'normalize'): tp.normalize(1.)
+        if isinstance(tp,potential.linearPotential): 
+            assert numpy.fabs(tp(R)*num-(num*tp)(R)) < 1e-10, "Multiplying a linearPotential with a number does not behave as expected"
+            # Other way...
+            assert numpy.fabs(tp(R)*num-(tp*num)(R)) < 1e-10, "Multiplying a linearPotential with a number does not behave as expected"
+            assert numpy.fabs(tp(R)/num-(tp/num)(R)) < 1e-10, "Dividing a linearPotential with a number does not behave as expected"
+        elif isinstance(tp,potential.planarPotential):
+            assert numpy.fabs(tp(R,phi=phi)*num-(num*tp)(R,phi=phi)) < 1e-10, "Multiplying a planarPotential with a number does not behave as expected"
+            # Other way...
+            assert numpy.fabs(tp(R,phi=phi)*num-(tp*num)(R,phi=phi)) < 1e-10, "Multiplying a planarPotential with a number does not behave as expected"
+            assert numpy.fabs(tp(R,phi=phi)/num-(tp/num)(R,phi=phi)) < 1e-10, "Dividing a planarPotential with a number does not behave as expected"
+        else:
+            assert numpy.fabs(tp(R,Z,phi=phi)*num-(num*tp)(R,Z,phi=phi)) < 1e-10, "Multiplying a Potential with a number does not behave as expected"
+            # Other way...
+            assert numpy.fabs(tp(R,Z,phi=phi)*num-(tp*num)(R,Z,phi=phi)) < 1e-10, "Multiplying a Potential with a number does not behave as expected"
+            assert numpy.fabs(tp(R,Z,phi=phi)/num-(tp/num)(R,Z,phi=phi)) < 1e-10, "Dividing a Potential with a number does not behave as expected"
+    return None
+
 # Test that the amplitude for potentials with a finite mass and amp=mass is 
 # correct through the relation -r^2 F_r =~ GM at large r
 def test_finitemass_amp():
@@ -2536,6 +2652,79 @@ def test_scf_tupleindexwarning():
         p= mockSCFZeeuwPotential()
         p.Rforce(1.,0.)
     return None   
+
+# Test that attempting to multiply or divide a potential by something other than a number raises an error
+def test_mult_divide_error():
+    # 3D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    with pytest.raises(TypeError) as excinfo:
+        pot*[1.,2.]
+    with pytest.raises(TypeError) as excinfo:
+        [1.,2.]*pot
+    with pytest.raises(TypeError) as excinfo:
+        pot/[1.,2.]
+    return None
+
+# Test that arithmetically adding potentials returns lists of potentials
+def test_add_potentials():
+    assert potential.MWPotential2014 == potential.MWPotential2014[0]+potential.MWPotential2014[1]+potential.MWPotential2014[2], 'Potential addition of components of MWPotential2014 does not give MWPotential2014'
+    # 3D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1)
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1)
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    # 2D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1).toPlanar()
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1).toPlanar()
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    # 1D
+    pot1= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    pot2= potential.MiyamotoNagaiPotential(normalize=0.2,a=0.4,b=0.1).toVertical(1.1)
+    pot3= potential.HernquistPotential(normalize=0.4,a=0.1).toVertical(1.1)
+    assert pot1+pot2 == [pot1,pot2]
+    assert pot1+pot2+pot3 == [pot1,pot2,pot3]
+    assert (pot1+pot2)+pot3 == [pot1,pot2,pot3]
+    assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
+    return None
+
+# Test that attempting to multiply or divide a potential by something other than a number raises an error
+def test_add_potentials_error():
+    # 3D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
+    with pytest.raises(TypeError) as excinfo:
+        3+pot
+    return None
 
 def test_plotting():
     import tempfile

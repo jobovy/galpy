@@ -53,7 +53,7 @@ function
 # -1.3733506513947895
 
 .. TIP::
-   Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances.
+   Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances. You can also add potential simply as ``pot= MWPotential2014+DehnenBarPotential()``.
 
 .. WARNING::
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`.
@@ -266,9 +266,12 @@ potential grown as above would be
 
 >>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> pot= [lp,dswp]
+>>> pot= lp+dswp
 >>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
 # -1.00965326579
+
+.. TIP::
+   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
 
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------

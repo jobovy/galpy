@@ -2207,6 +2207,19 @@ def test_orbit_setup_SkyCoord():
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
     assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    # If ro and galcen_distance are both specified, don't warn if they *are* consistent (issue #370)
+    c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
+                          pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
+                          frame='icrs',
+                          galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
+                          galcen_v_sun=v_sun)
+    with pytest.warns(None) as record:
+        o= Orbit(c,ro=numpy.sqrt(10.**2.-1.**2.))
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
+    assert not raisedWarning, "Orbit initialization with SkyCoord with galcen_distance compatible with ro shouldn't have raised a warning, but did"
     # If we specify both v_sun and solarmotion, they need to be consistent
     v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
     c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
@@ -2721,10 +2734,11 @@ def test_newOrbit_b4integration():
 def test_newOrbit_badinterpolation():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.1,0.,0.])
-    ts= numpy.linspace(0.,1.,2) #v. quick orbit integration, w/ not enough points for interpolation
+    ts= numpy.linspace(0.,1.,3) #v. quick orbit integration, w/ not enough points for interpolation
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     o.integrate(ts,lp)
     no= o(ts[-1]) #new orbit
+    print("Done")
     assert no.R() == o.R(ts[-1]), "New orbit formed from calling an old orbit does not have the correct R"
     assert no.vR() == o.vR(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vR"
     assert no.vT() == o.vT(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vT"
@@ -2760,7 +2774,7 @@ def test_newOrbit_badinterpolation():
     assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[1]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Try point in between, shouldn't work
-    try: no= o(0.5)
+    try: no= o(0.6)
     except LookupError: pass
     else: raise AssertionError('Orbit interpolation with not enough points to interpolate should raise LookUpError, but did not')
     return None
