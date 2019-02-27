@@ -464,6 +464,8 @@ class Orbits(object):
         if self.dim() == 2:
             # No reason to do Staeckel or isochroneApprox or spherical...
             type= 'adiabatic'
+        elif self.dim() == 1:
+            raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
         if hasattr(self,'_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
@@ -486,15 +488,10 @@ class Orbits(object):
             self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
                                                        **kwargs)
         elif self._aAType.lower() == 'staeckel':
-            if self.dim() == 3:
-                # try to make sure this is not 0
-                tz= self.z(use_physical=False)\
-                    +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                    * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            elif self.dim() == 2:
-                tz= 0
-            else:
-                raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
+            # try to make sure this is not 0
+            tz= self.z(use_physical=False)\
+                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
+                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
             try:
                 delta= \
                     kwargs.pop('delta',

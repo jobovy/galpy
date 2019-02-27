@@ -1115,6 +1115,15 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
     os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test AttributeError when no potential and not integrated
+    with pytest.raises(AttributeError):
+        os.e(analytic=True)
+    with pytest.raises(AttributeError):
+        os.zmax(analytic=True)
+    with pytest.raises(AttributeError):
+        os.rperi(analytic=True)
+    with pytest.raises(AttributeError):
+        os.rap(analytic=True)
     for type in ['spherical','staeckel','adiabatic']:
         for ii in range(nrand):
             assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
@@ -1160,6 +1169,33 @@ def test_actionsFreqsAngles_againstorbit_3d():
     os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test AttributeError when no potential and not integrated
+    with pytest.raises(AttributeError):
+        os.jr(analytic=True)
+    with pytest.raises(AttributeError):
+        os.jp(analytic=True)
+    with pytest.raises(AttributeError):
+        os.jz(analytic=True)
+    with pytest.raises(AttributeError):
+        os.wr(analytic=True)
+    with pytest.raises(AttributeError):
+        os.wp(analytic=True)
+    with pytest.raises(AttributeError):
+        os.wz(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Or(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Op(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Oz(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Tr(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Tp(analytic=True)
+    with pytest.raises(AttributeError):
+        os.TrTp(analytic=True)
+    with pytest.raises(AttributeError):
+        os.Tz(analytic=True)
     # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
     # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
     # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
@@ -1187,6 +1223,13 @@ def test_actionsFreqsAngles_againstorbit_3d():
             assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
             assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
             if type == 'isochroneApprox': break # otherwise takes too long
+    return None
+
+def test_actionsFreqsAngles_RuntimeError_1d():
+    from galpy.orbit import Orbits
+    os= Orbits([[1.,0.1],[0.2,0.3]])
+    with pytest.raises(RuntimeError):
+        os.jz(analytic=True)
     return None
 
 @pytest.mark.xfail(sys.platform != 'win32',strict=True,raises=ValueError,
