@@ -1225,6 +1225,26 @@ def test_actionsFreqsAngles_againstorbit_3d():
             if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
+# Test that the delta parameter is properly dealt with when using the staeckel
+# approximation: when it changes, need to re-do the aA calcs.
+def test_actionsFreqsAngles_staeckeldelta():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbits
+    os= Orbits([None,None]) # Just twice the Sun!
+    # First with delta
+    jr= os.jr(delta=0.4,pot=MWPotential2014)
+    # Now without, should be different
+    jrn= os.jr(pot=MWPotential2014)
+    assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it'
+    # Again, now the other way around
+    os= Orbits([None,None]) # Just twice the Sun!
+    # First without delta
+    jrn= os.jr(pot=MWPotential2014)
+    # Now with, should be different
+    jr= os.jr(delta=0.4,pot=MWPotential2014)
+    assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it'
+    return None
+
 def test_actionsFreqsAngles_RuntimeError_1d():
     from galpy.orbit import Orbits
     os= Orbits([[1.,0.1],[0.2,0.3]])

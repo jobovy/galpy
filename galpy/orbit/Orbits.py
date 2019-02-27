@@ -470,7 +470,10 @@ class Orbits(object):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
                     or ('delta' in kwargs and hasattr(self._aA,'_delta') 
-                        and numpy.any(kwargs['delta'] != self._aA._delta)):
+                        and numpy.any(kwargs['delta'] != self._aA._delta)) \
+                    or (not 'delta' in kwargs 
+                        and hasattr(self,'_aA_delta_automagic')
+                        and not self._aA_delta_automagic):
                 for attr in list(self.__dict__):
                     if '_aA' in attr: delattr(self,attr)
             else:
@@ -492,19 +495,21 @@ class Orbits(object):
             tz= self.z(use_physical=False)\
                 +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
                 * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            try:
-                delta= \
-                    kwargs.pop('delta',
-                               actionAngle.estimateDeltaStaeckel(\
+            delta= kwargs.pop('delta',None)
+            self._aA_delta_automagic= False
+            if delta is None:
+                self._aA_delta_automagic= True
+                try:
+                    delta= actionAngle.estimateDeltaStaeckel(\
                         self._aAPot,self.R(use_physical=False),
-                        tz,no_median=True))
-            except PotentialError as e:
-                if 'deriv' in str(e):
-                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
-                elif 'non-axi' in str(e):
-                    raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
-                else: #pragma: no cover
-                    raise
+                        tz,no_median=True)
+                except PotentialError as e:
+                    if 'deriv' in str(e):
+                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
+                    elif 'non-axi' in str(e):
+                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
+                    else: #pragma: no cover
+                        raise
             if numpy.all(delta < 1e-6):
                 self._setupaA(pot=pot,type='spherical')
             else:
