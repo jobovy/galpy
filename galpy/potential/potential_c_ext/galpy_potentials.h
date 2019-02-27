@@ -414,10 +414,17 @@ double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialPlanarRphideriv(double, double, double,
                             struct potentialArg*);
+
 //PerfectEllipsoid: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double PerfectEllipsoidPotentialpsi(double,double *);
 double PerfectEllipsoidPotentialmdens(double,double *);
 double PerfectEllipsoidPotentialmdensDeriv(double,double *);
+
+//KGPotential
+double KGPotentialLinearForce(double,double,struct potentialArg *);
+
+//IsothermalDiskPotential
+double IsothermalDiskPotentialLinearForce(double,double,struct potentialArg *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
@@ -514,8 +521,6 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
-//KGPotential
-double KGPotentialLinearForce(double,double,struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

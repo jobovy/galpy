@@ -102,6 +102,9 @@ def _parse_pot(pot):
         elif isinstance(p,potential.KGPotential):
             pot_type.append(31)
             pot_args.extend([p._amp,p._K,p._D2,2.*p._F]) 
+        elif isinstance(p,potential.IsothermalDiskPotential):
+            pot_type.append(32)
+            pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H]) 
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p,verticalPotential):
             _,pt,pa= _parse_pot_full(p._Pot)

@@ -321,6 +321,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 					    + (int) (*(*pot_args+7) + 20)));
       break;    
       // 31: KGPotential
+      // 32: IsothermalDiskPotential
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

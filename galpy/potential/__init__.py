@@ -44,6 +44,7 @@ from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
 from . import RingPotential
 from . import PerfectEllipsoidPotential
+from . import IsothermalDiskPotential
 #
 # Functions
 #
@@ -153,6 +154,7 @@ ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.Chandra
 SphericalShellPotential= SphericalShellPotential.SphericalShellPotential
 RingPotential= RingPotential.RingPotential
 PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
+IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential

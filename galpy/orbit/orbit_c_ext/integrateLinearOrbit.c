@@ -58,6 +58,10 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
       potentialArgs->linearForce= &KGPotentialLinearForce;
       potentialArgs->nargs= 4;
       break; 
+    case 32: // IsothermalDiskPotential
+      potentialArgs->linearForce= &IsothermalDiskPotentialLinearForce;
+      potentialArgs->nargs= 2;
+      break; 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
       // NOT CURRENTLY SUPPORTED
       /*
