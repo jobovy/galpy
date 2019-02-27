@@ -460,6 +460,7 @@ class Orbits(object):
         HISTORY:
            2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
         """
+        if not pot is None: pot= flatten_potential(pot)
         if self.dim() == 2:
             # No reason to do Staeckel or isochroneApprox or spherical...
             type= 'adiabatic'
@@ -472,6 +473,7 @@ class Orbits(object):
                     if '_aA' in attr: delattr(self,attr)
             else:
                 return None
+        _check_consistent_units(self,pot)
         if pot is None:
             try:
                 pot= self._pot
@@ -539,8 +541,34 @@ class Orbits(object):
             self._aA.EccZmaxRperiRap(self.R(use_physical=False),
                                      self.vR(use_physical=False),
                                      self.vT(use_physical=False),
-                                     tz,tvz)
+                                     tz,tvz,
+                                     use_physical=False)
         return None        
+
+    def _setup_actionsFreqsAngles(self,pot=None,**kwargs):
+        """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
+        self._setupaA(pot=pot,**kwargs)
+        if hasattr(self,'_aA_jr'): return None
+        if self.dim() == 3:
+            # try to make sure this is not 0
+            tz= self.z(use_physical=False)\
+                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
+                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False)
+        elif self.dim() == 2:
+            tz= numpy.zeros(len(self))
+            tvz= numpy.zeros(len(self))
+        # self.dim() == 1 error caught by _setupaA
+        self._aA_jr, self._aA_jp, self._aA_jz, \
+            self._aA_Or, self._aA_Op, self._aA_Oz, \
+            self._aA_wr, self._aA_wp, self._aA_wz= \
+               self._aA.actionsFreqsAngles(self.R(use_physical=False),
+                                           self.vR(use_physical=False),
+                                           self.vT(use_physical=False),
+                                           tz,tvz,
+                                           self.phi(use_physical=False),
+                                           use_physical=False)
+        return None
 
     def e(self,analytic=False,pot=None,**kwargs):
         """
@@ -579,8 +607,6 @@ class Orbits(object):
            2019-02-25 - Written - Bovy (UofT)
 
         """
-        if not pot is None: pot= flatten_potential(pot)
-        _check_consistent_units(self,pot)
         if analytic:
             self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
             return self._aA_ecc
@@ -632,8 +658,6 @@ class Orbits(object):
            2019-02-25 - Written - Bovy (UofT)
 
         """
-        if not pot is None: pot= flatten_potential(pot)
-        _check_consistent_units(self,pot)
         if analytic:
             self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
             return self._aA_rap
@@ -684,8 +708,6 @@ class Orbits(object):
            2019-02-25 - Written - Bovy (UofT)
 
         """
-        if not pot is None: pot= flatten_potential(pot)
-        _check_consistent_units(self,pot)
         if analytic:
             self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
             return self._aA_rperi
@@ -736,8 +758,6 @@ class Orbits(object):
            2019-02-25 - Written - Bovy (UofT)
 
         """
-        if not pot is None: pot= flatten_potential(pot)
-        _check_consistent_units(self,pot)
         if analytic:
             self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
             return self._aA_zmax
@@ -745,6 +765,566 @@ class Orbits(object):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
         return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False)),
                           axis=-1)
+
+    @physical_conversion('action')
+    def jr(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           jr
+
+        PURPOSE:
+
+           calculate the radial action
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           jr [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_jr
+
+    @physical_conversion('action')
+    def jp(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           jp
+
+        PURPOSE:
+
+           calculate the azimuthal action
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           jp [norb]
+
+        HISTORY:
+
+           2019-02-26 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_jp
+
+    @physical_conversion('action')
+    def jz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           jz
+
+        PURPOSE:
+
+           calculate the vertical action
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           jz [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_jz
+
+    @physical_conversion('angle')
+    def wr(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           wr
+
+        PURPOSE:
+
+           calculate the radial angle
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           wr [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_wr
+
+    @physical_conversion('angle')
+    def wp(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           wp
+
+        PURPOSE:
+
+           calculate the azimuthal angle
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           wp [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_wp
+
+    @physical_conversion('angle')
+    def wz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           wz
+
+        PURPOSE:
+
+           calculate the vertical angle
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           wz [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_wz
+
+    @physical_conversion('time')
+    def Tr(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Tr
+
+        PURPOSE:
+
+           calculate the radial period
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Tr [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return 2.*numpy.pi/self._aA_Or
+
+    @physical_conversion('time')
+    def Tp(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Tp
+
+        PURPOSE:
+
+           calculate the azimuthal period
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Tp [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return 2.*numpy.pi/self._aA_Op
+
+    def TrTp(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           TrTp
+
+        PURPOSE:
+
+           the 'ratio' between the radial and azimuthal period Tr/Tphi*pi
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+        OUTPUT:
+
+           Tr/Tp*pi [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_Op/self._aA_Or*numpy.pi
+ 
+    @physical_conversion('time')
+    def Tz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Tz
+
+        PURPOSE:
+
+           calculate the vertical period
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Tz [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return 2.*numpy.pi/self._aA_Oz
+
+    @physical_conversion('frequency')
+    def Or(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Or
+
+        PURPOSE:
+
+           calculate the radial frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Or [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_Or
+
+    @physical_conversion('frequency')
+    def Op(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Op
+
+        PURPOSE:
+
+           calculate the azimuthal frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Op [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_Op
+
+    @physical_conversion('frequency')
+    def Oz(self,pot=None,**kwargs):
+        """
+        NAME:
+
+           Oz
+
+        PURPOSE:
+
+           calculate the vertical frequency
+
+        INPUT:
+
+           pot - potential
+
+           type= ('staeckel') type of actionAngle module to use
+
+              1) 'adiabatic'
+
+              2) 'staeckel'
+
+              3) 'isochroneApprox'
+
+              4) 'spherical'
+              
+           +actionAngle module setup kwargs
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Oz [norb]
+
+        HISTORY:
+
+           2019-02-27 - Written - Bovy (UofT)
+
+        """
+        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        return self._aA_Oz
 
     @physical_conversion('position')
     def R(self,*args,**kwargs):
