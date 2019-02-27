@@ -1100,7 +1100,7 @@ def test_EccZmaxRperiRap_num_againstorbit_2d():
     return None
 
 # Test that the eccentricity, zmax, rperi, and rap calculated analytically by
-# Orbits agrees with that calculated numerically using Orbit
+# Orbits agrees with that calculated analytically using Orbit
 def test_EccZmaxRperiRap_analytic_againstorbit_3d():
     from galpy.orbit import Orbit, Orbits
     from galpy.potential import MWPotential2014
@@ -1142,6 +1142,51 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
             assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
         assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rperi analytically does not agree with Orbit for type={}'.format(type)
         assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
+    return None
+
+# Test that the actions, frequencies/periods, and angles calculated 
+# analytically by Orbits agrees with that calculated analytically using Orbit
+def test_actionsFreqsAngles_againstorbit_3d():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
+    # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
+    # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
+    tol= {}
+    tol['spherical']= -12.
+    tol['staeckel']=-12.
+    tol['adiabatic']= -12.
+    tol['isochroneApprox']= -2.
+    # For now we skip adiabatic here, because frequencies and angles not 
+    # implemented yet
+#    for type in ['spherical','staeckel','adiabatic']:
+    for type in ['spherical','staeckel','isochroneApprox']:
+        for ii in range(nrand):
+            assert numpy.all(numpy.fabs(os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jr analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jp analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jz analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wr analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Or analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Op analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Oz analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tr analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tp analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
+            if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
 @pytest.mark.xfail(sys.platform != 'win32',strict=True,raises=ValueError,
