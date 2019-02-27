@@ -151,7 +151,7 @@ def test_actionAngleTorus_orbit():
         'Integrated orbit does not agree with torus orbit in z'
     assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in vz'
-    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+    assert numpy.all(numpy.fabs((orb.phi(ts)-RvR[5]+numpy.pi) % (2.*numpy.pi) -numpy.pi) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
