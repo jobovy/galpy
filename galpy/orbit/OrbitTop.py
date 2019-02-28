@@ -1653,7 +1653,7 @@ class OrbitTop(object):
         except AttributeError: pass
         try:
             import numexpr
-        except ImportError:
+        except ImportError: #pragma: no cover
             raise ImportError('Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first')
         # Figure out the variables in the expression to be computed to plot
         try:

@@ -4498,6 +4498,9 @@ def test_full_plotting():
                .format(o.Op(quantity=False)-o.Or(quantity=False)/2),
            d2='R*sin(phi-{:f}*t)'\
                .format(o.Op(quantity=False)-o.Or(quantity=False)/2))
+    with pytest.raises(TypeError) as excinfo:
+        # Unparseable expression gives TypeError
+        o.plot(d1='t',d2='r^2')
     # Test AttributeErrors
     try: oa.plotx()
     except AttributeError: pass
