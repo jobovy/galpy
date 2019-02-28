@@ -58,7 +58,7 @@ before_install:
  - conda config --set always_yes yes --set changeps1 no
  - conda update conda
  - conda config --add channels conda-forge
- - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib setuptools pip "cython>=0.20" pytest
+ - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib numexpr setuptools pip "cython>=0.20" pytest
  - source activate test-environment
 #Switch to conda defaults python, because conda-forge python has issues with gcc compiler similar to https://github.com/conda/conda/issues/6030
  - conda install python=$TRAVIS_PYTHON_VERSION -c defaults
