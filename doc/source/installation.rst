@@ -1,6 +1,23 @@
 Installation
 ==============
 
+Dependencies
+------------
+
+galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
+these must be installed or the code will not be able to be imported.
+
+Optional dependencies are: ``astropy`` for `Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+support (used throughout galpy when installed), ``astroquery`` for the
+``Orbit.from_name`` initialization method (to initialize using a
+celestial object's name), and ``numexpr`` for plotting arbitrary
+expressions of ``Orbit`` quantities.
+
+To be able to use the fast C extensions for orbit integration and
+action-angle calculations, the GNU Scientific Library (GSL) needs to
+be installed (:ref:`see below <gsl_install>`).
+
 With conda
 ----------
 
@@ -12,6 +29,10 @@ or::
 
 	conda config --add channels conda-forge
 	conda install galpy
+
+Installing with conda will automatically install the required
+dependencies (``numpy``, ``scipy``, and ``matplotlib``) and the GSL,
+but not the optional dependencies.
 
 With pip
 --------
@@ -26,6 +47,11 @@ re-install using the upgrade command above). Then do::
 or to upgrade without upgrading the dependencies::
 
       pip install -U --no-deps galpy
+
+Installing with pip will automatically install the required
+dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
+optional dependencies or the GSL (which needs to be installed *before*
+the pip installation of galpy).
 
 Latest version
 --------------
