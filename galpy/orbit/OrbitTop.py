@@ -1316,157 +1316,8 @@ class OrbitTop(object):
         else:
             d1= kwargs.pop('d1')
             d2= kwargs.pop('d2')
-        #Get x and y
-        if callable(d1):
-            x= d1(self.t)
-        elif d1 == 't':
-            x= self.time(self.t,**kwargs)
-        elif d1 == 'R':
-            x= self.R(self.t,**kwargs)
-        elif d1 == 'r':
-            x= nu.sqrt(self.R(self.t,**kwargs)**2.
-                       +self.z(self.t,**kwargs)**2.)
-        elif d1 == 'z':
-            x= self.z(self.t,**kwargs)
-        elif d1 == 'vz':
-            x= self.vz(self.t,**kwargs)
-        elif d1 == 'vR':
-            x= self.vR(self.t,**kwargs)
-        elif d1 == 'vT':
-            x= self.vT(self.t,**kwargs)
-        elif d1 == 'x':
-            x= self.x(self.t,**kwargs)
-        elif d1 == 'y':
-            x= self.y(self.t,**kwargs)
-        elif d1 == 'vx':
-            x= self.vx(self.t,**kwargs)
-        elif d1 == 'vy':
-            x= self.vy(self.t,**kwargs)
-        elif d1 == 'phi':
-            x= self.phi(self.t,**kwargs)
-        elif d1.lower() == 'ra':
-            x= self.ra(self.t,**kwargs)
-        elif d1.lower() == 'dec':
-            x= self.dec(self.t,**kwargs)
-        elif d1 == 'll':
-            x= self.ll(self.t,**kwargs)
-        elif d1 == 'bb':
-            x= self.bb(self.t,**kwargs)
-        elif d1 == 'dist':
-            x= self.dist(self.t,**kwargs)
-        elif d1 == 'pmra':
-            x= self.pmra(self.t,**kwargs)
-        elif d1 == 'pmdec':
-            x= self.pmdec(self.t,**kwargs)
-        elif d1 == 'pmll':
-            x= self.pmll(self.t,**kwargs)
-        elif d1 == 'pmbb':
-            x= self.pmbb(self.t,**kwargs)
-        elif d1 == 'vlos':
-            x= self.vlos(self.t,**kwargs)
-        elif d1 == 'helioX':
-            x= self.helioX(self.t,**kwargs)
-        elif d1 == 'helioY':
-            x= self.helioY(self.t,**kwargs)
-        elif d1 == 'helioZ':
-            x= self.helioZ(self.t,**kwargs)
-        elif d1 == 'U':
-            x= self.U(self.t,**kwargs)
-        elif d1 == 'V':
-            x= self.V(self.t,**kwargs)
-        elif d1 == 'W':
-            x= self.W(self.t,**kwargs)
-        elif d1 == 'E':
-            x= self.E(self.t,**kwargs)
-        elif d1 == 'Enorm':
-            x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
-        elif d1 == 'Ez':
-            x= self.Ez(self.t,**kwargs)
-        elif d1 == 'Eznorm':
-            x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
-        elif d1 == 'ER':
-            x= self.ER(self.t,**kwargs)
-        elif d1 == 'ERnorm':
-            x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
-        elif d1 == 'Jacobi':
-            x= self.Jacobi(self.t,**kwargs)
-        elif d1 == 'Jacobinorm':
-            x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-        if callable(d2):
-            y= d2(self.t)
-        elif d2 == 't':
-            y= self.time(self.t,**kwargs)
-        elif d2 == 'R':
-            y= self.R(self.t,**kwargs)
-        elif d2 == 'r':
-            y= nu.sqrt(self.R(self.t,**kwargs)**2.
-                       +self.z(self.t,**kwargs)**2.)
-        elif d2 == 'z':
-            y= self.z(self.t,**kwargs)
-        elif d2 == 'vz':
-            y= self.vz(self.t,**kwargs)
-        elif d2 == 'vR':
-            y= self.vR(self.t,**kwargs)
-        elif d2 == 'vT':
-            y= self.vT(self.t,**kwargs)
-        elif d2 == 'x':
-            y= self.x(self.t,**kwargs)
-        elif d2 == 'y':
-            y= self.y(self.t,**kwargs)
-        elif d2 == 'vx':
-            y= self.vx(self.t,**kwargs)
-        elif d2 == 'vy':
-            y= self.vy(self.t,**kwargs)
-        elif d2 == 'phi':
-            y= self.phi(self.t,**kwargs)
-        elif d2.lower() == 'ra':
-            y= self.ra(self.t,**kwargs)
-        elif d2.lower() == 'dec':
-            y= self.dec(self.t,**kwargs)
-        elif d2 == 'll':
-            y= self.ll(self.t,**kwargs)
-        elif d2 == 'bb':
-            y= self.bb(self.t,**kwargs)
-        elif d2 == 'dist':
-            y= self.dist(self.t,**kwargs)
-        elif d2 == 'pmra':
-            y= self.pmra(self.t,**kwargs)
-        elif d2 == 'pmdec':
-            y= self.pmdec(self.t,**kwargs)
-        elif d2 == 'pmll':
-            y= self.pmll(self.t,**kwargs)
-        elif d2 == 'pmbb':
-            y= self.pmbb(self.t,**kwargs)
-        elif d2 == 'vlos':
-            y= self.vlos(self.t,**kwargs)
-        elif d2 == 'helioX':
-            y= self.helioX(self.t,**kwargs)
-        elif d2 == 'helioY':
-            y= self.helioY(self.t,**kwargs)
-        elif d2 == 'helioZ':
-            y= self.helioZ(self.t,**kwargs)
-        elif d2 == 'U':
-            y= self.U(self.t,**kwargs)
-        elif d2 == 'V':
-            y= self.V(self.t,**kwargs)
-        elif d2 == 'W':
-            y= self.W(self.t,**kwargs)
-        elif d2 == 'E':
-            y= self.E(self.t,**kwargs)
-        elif d2 == 'Enorm':
-            y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
-        elif d2 == 'Ez':
-            y= self.Ez(self.t,**kwargs)
-        elif d2 == 'Eznorm':
-            y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
-        elif d2 == 'ER':
-            y= self.ER(self.t,**kwargs)
-        elif d2 == 'ERnorm':
-            y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
-        elif d2 == 'Jacobi':
-            y= self.Jacobi(self.t,**kwargs)
-        elif d2 == 'Jacobinorm':
-            y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+        x= self._parse_plot_quantity(d1,**kwargs)
+        y= self._parse_plot_quantity(d2,**kwargs)
         kwargs.pop('ro',None)
         kwargs.pop('vo',None)
         kwargs.pop('obs',None)
@@ -1565,184 +1416,9 @@ class OrbitTop(object):
             d1= kwargs.pop('d1')
             d2= kwargs.pop('d2')
             d3= kwargs.pop('d3')
-        #Get x, y, and z
-        if callable(d1):
-            x= d1(self.t)
-        elif d1 == 't':
-            x= self.time(self.t,**kwargs)
-        elif d1 == 'R':
-            x= self.R(self.t,**kwargs)
-        elif d1 == 'r':
-            x= nu.sqrt(self.R(self.t,**kwargs)**2.
-                       +self.z(self.t,**kwargs)**2.)
-        elif d1 == 'z':
-            x= self.z(self.t,**kwargs)
-        elif d1 == 'vz':
-            x= self.vz(self.t,**kwargs)
-        elif d1 == 'vR':
-            x= self.vR(self.t,**kwargs)
-        elif d1 == 'vT':
-            x= self.vT(self.t,**kwargs)
-        elif d1 == 'x':
-            x= self.x(self.t,**kwargs)
-        elif d1 == 'y':
-            x= self.y(self.t,**kwargs)
-        elif d1 == 'vx':
-            x= self.vx(self.t,**kwargs)
-        elif d1 == 'vy':
-            x= self.vy(self.t,**kwargs)
-        elif d1 == 'phi':
-            x= self.phi(self.t,**kwargs)
-        elif d1.lower() == 'ra':
-            x= self.ra(self.t,**kwargs)
-        elif d1.lower() == 'dec':
-            x= self.dec(self.t,**kwargs)
-        elif d1 == 'll':
-            x= self.ll(self.t,**kwargs)
-        elif d1 == 'bb':
-            x= self.bb(self.t,**kwargs)
-        elif d1 == 'dist':
-            x= self.dist(self.t,**kwargs)
-        elif d1 == 'pmra':
-            x= self.pmra(self.t,**kwargs)
-        elif d1 == 'pmdec':
-            x= self.pmdec(self.t,**kwargs)
-        elif d1 == 'pmll':
-            x= self.pmll(self.t,**kwargs)
-        elif d1 == 'pmbb':
-            x= self.pmbb(self.t,**kwargs)
-        elif d1 == 'vlos':
-            x= self.vlos(self.t,**kwargs)
-        elif d1 == 'helioX':
-            x= self.helioX(self.t,**kwargs)
-        elif d1 == 'helioY':
-            x= self.helioY(self.t,**kwargs)
-        elif d1 == 'helioZ':
-            x= self.helioZ(self.t,**kwargs)
-        elif d1 == 'U':
-            x= self.U(self.t,**kwargs)
-        elif d1 == 'V':
-            x= self.V(self.t,**kwargs)
-        elif d1 == 'W':
-            x= self.W(self.t,**kwargs)
-        if callable(d2):
-            y= d2(self.t)
-        elif d2 == 't':
-            y= self.time(self.t,**kwargs)
-        elif d2 == 'R':
-            y= self.R(self.t,**kwargs)
-        elif d2 == 'r':
-            y= nu.sqrt(self.R(self.t,**kwargs)**2.
-                       +self.z(self.t,**kwargs)**2.)
-        elif d2 == 'z':
-            y= self.z(self.t,**kwargs)
-        elif d2 == 'vz':
-            y= self.vz(self.t,**kwargs)
-        elif d2 == 'vR':
-            y= self.vR(self.t,**kwargs)
-        elif d2 == 'vT':
-            y= self.vT(self.t,**kwargs)
-        elif d2 == 'x':
-            y= self.x(self.t,**kwargs)
-        elif d2 == 'y':
-            y= self.y(self.t,**kwargs)
-        elif d2 == 'vx':
-            y= self.vx(self.t,**kwargs)
-        elif d2 == 'vy':
-            y= self.vy(self.t,**kwargs)
-        elif d2 == 'phi':
-            y= self.phi(self.t,**kwargs)
-        elif d2.lower() == 'ra':
-            y= self.ra(self.t,**kwargs)
-        elif d2.lower() == 'dec':
-            y= self.dec(self.t,**kwargs)
-        elif d2 == 'll':
-            y= self.ll(self.t,**kwargs)
-        elif d2 == 'bb':
-            y= self.bb(self.t,**kwargs)
-        elif d2 == 'dist':
-            y= self.dist(self.t,**kwargs)
-        elif d2 == 'pmra':
-            y= self.pmra(self.t,**kwargs)
-        elif d2 == 'pmdec':
-            y= self.pmdec(self.t,**kwargs)
-        elif d2 == 'pmll':
-            y= self.pmll(self.t,**kwargs)
-        elif d2 == 'pmbb':
-            y= self.pmbb(self.t,**kwargs)
-        elif d2 == 'vlos':
-            y= self.vlos(self.t,**kwargs)
-        elif d2 == 'helioX':
-            y= self.helioX(self.t,**kwargs)
-        elif d2 == 'helioY':
-            y= self.helioY(self.t,**kwargs)
-        elif d2 == 'helioZ':
-            y= self.helioZ(self.t,**kwargs)
-        elif d2 == 'U':
-            y= self.U(self.t,**kwargs)
-        elif d2 == 'V':
-            y= self.V(self.t,**kwargs)
-        elif d2 == 'W':
-            y= self.W(self.t,**kwargs)
-        if callable(d3):
-            z= d3(self.t)
-        elif d3 == 't':
-            z= self.time(self.t,**kwargs)
-        elif d3 == 'R':
-            z= self.R(self.t,**kwargs)
-        elif d3 == 'r':
-            z= nu.sqrt(self.R(self.t,**kwargs)**2.
-                       +self.z(self.t,**kwargs)**2.)
-        elif d3 == 'z':
-            z= self.z(self.t,**kwargs)
-        elif d3 == 'vz':
-            z= self.vz(self.t,**kwargs)
-        elif d3 == 'vR':
-            z= self.vR(self.t,**kwargs)
-        elif d3 == 'vT':
-            z= self.vT(self.t,**kwargs)
-        elif d3 == 'x':
-            z= self.x(self.t,**kwargs)
-        elif d3 == 'y':
-            z= self.y(self.t,**kwargs)
-        elif d3 == 'vx':
-            z= self.vx(self.t,**kwargs)
-        elif d3 == 'vy':
-            z= self.vy(self.t,**kwargs)
-        elif d3 == 'phi':
-            z= self.phi(self.t,**kwargs)
-        elif d3.lower() == 'ra':
-            z= self.ra(self.t,**kwargs)
-        elif d3.lower() == 'dec':
-            z= self.dec(self.t,**kwargs)
-        elif d3 == 'll':
-            z= self.ll(self.t,**kwargs)
-        elif d3 == 'bb':
-            z= self.bb(self.t,**kwargs)
-        elif d3 == 'dist':
-            z= self.dist(self.t,**kwargs)
-        elif d3 == 'pmra':
-            z= self.pmra(self.t,**kwargs)
-        elif d3 == 'pmdec':
-            z= self.pmdec(self.t,**kwargs)
-        elif d3 == 'pmll':
-            z= self.pmll(self.t,**kwargs)
-        elif d3 == 'pmbb':
-            z= self.pmbb(self.t,**kwargs)
-        elif d3 == 'vlos':
-            z= self.vlos(self.t,**kwargs)
-        elif d3 == 'helioX':
-            z= self.helioX(self.t,**kwargs)
-        elif d3 == 'helioY':
-            z= self.helioY(self.t,**kwargs)
-        elif d3 == 'helioZ':
-            z= self.helioZ(self.t,**kwargs)
-        elif d3 == 'U':
-            z= self.U(self.t,**kwargs)
-        elif d3 == 'V':
-            z= self.V(self.t,**kwargs)
-        elif d3 == 'W':
-            z= self.W(self.t,**kwargs)
+        x= self._parse_plot_quantity(d1,**kwargs)
+        y= self._parse_plot_quantity(d2,**kwargs)
+        z= self._parse_plot_quantity(d3,**kwargs)
         kwargs.pop('ro',None)
         kwargs.pop('vo',None)
         kwargs.pop('obs',None)
@@ -1756,6 +1432,44 @@ class OrbitTop(object):
         if not 'zlabel' in kwargs:
             kwargs['zlabel']= labeldict.get(d3,'\mathrm{No\ zlabel\ specified}')
         return plot.bovy_plot3d(x,y,z,*args,**kwargs)
+
+    def _parse_plot_quantity(self,quant,**kwargs):
+        """Internal function to parse a quantity to be plotted based on input data"""
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        if callable(quant):
+            return quant(self.t)
+        def _eval(q):
+            # Check those that don't have the exact name of the function
+            if q == 't':
+                return self.time(self.t,**kwargs)
+            elif q == 'Enorm':
+                return self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+            elif q == 'Eznorm':
+                return self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+            elif q == 'ERnorm':
+                return self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+            elif q == 'Jacobinorm':
+                return self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+            else: # these are exact, e.g., 'x' for self.x
+                return self.__getattribute__(q)(self.t,**kwargs)
+        try:
+            return _eval(quant)
+        except AttributeError: pass
+        try:
+            import numexpr
+        except ImportError: #pragma: no cover
+            raise ImportError('Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first')
+        # Figure out the variables in the expression to be computed to plot
+        try:
+            vars= numexpr.NumExpr(quant).input_names
+        except TypeError as err:
+            raise TypeError('Parsing the expression {} failed, with error message:\n"{}"'.format(quant,err))
+        # Construct dictionary of necessary parameters
+        vars_dict= {}
+        for var in vars:
+            vars_dict[var]= _eval(var)
+        return numexpr.evaluate(quant,local_dict=vars_dict)
 
     def plotR(self,*args,**kwargs):
         """
@@ -2114,156 +1828,8 @@ class OrbitTop(object):
         all_ylabel= kwargs.get('ylabel',[None for d in d2])
         for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
            #Get x and y for each subplot
-            if callable(d1):
-                x= d1(self.t)
-            elif d1 == 't':
-                x= self.time(self.t,**kwargs)
-            elif d1 == 'R':
-                x= self.R(self.t,**kwargs)
-            elif d1 == 'r':
-                x= nu.sqrt(self.R(self.t,**kwargs)**2.
-                           +self.z(self.t,**kwargs)**2.)
-            elif d1 == 'z':
-                x= self.z(self.t,**kwargs)
-            elif d1 == 'vz':
-                x= self.vz(self.t,**kwargs)
-            elif d1 == 'vR':
-                x= self.vR(self.t,**kwargs)
-            elif d1 == 'vT':
-                x= self.vT(self.t,**kwargs)
-            elif d1 == 'x':
-                x= self.x(self.t,**kwargs)
-            elif d1 == 'y':
-                x= self.y(self.t,**kwargs)
-            elif d1 == 'vx':
-                x= self.vx(self.t,**kwargs)
-            elif d1 == 'vy':
-                x= self.vy(self.t,**kwargs)
-            elif d1 == 'phi':
-                x= self.phi(self.t,**kwargs)
-            elif d1.lower() == 'ra':
-                x= self.ra(self.t,**kwargs)
-            elif d1.lower() == 'dec':
-                x= self.dec(self.t,**kwargs)
-            elif d1 == 'll':
-                x= self.ll(self.t,**kwargs)
-            elif d1 == 'bb':
-                x= self.bb(self.t,**kwargs)
-            elif d1 == 'dist':
-                x= self.dist(self.t,**kwargs)
-            elif d1 == 'pmra':
-                x= self.pmra(self.t,**kwargs)
-            elif d1 == 'pmdec':
-                x= self.pmdec(self.t,**kwargs)
-            elif d1 == 'pmll':
-                x= self.pmll(self.t,**kwargs)
-            elif d1 == 'pmbb':
-                x= self.pmbb(self.t,**kwargs)
-            elif d1 == 'vlos':
-                x= self.vlos(self.t,**kwargs)
-            elif d1 == 'helioX':
-                x= self.helioX(self.t,**kwargs)
-            elif d1 == 'helioY':
-                x= self.helioY(self.t,**kwargs)
-            elif d1 == 'helioZ':
-                x= self.helioZ(self.t,**kwargs)
-            elif d1 == 'U':
-                x= self.U(self.t,**kwargs)
-            elif d1 == 'V':
-                x= self.V(self.t,**kwargs)
-            elif d1 == 'W':
-                x= self.W(self.t,**kwargs)
-            elif d1 == 'E':
-                x= self.E(self.t,**kwargs)
-            elif d1 == 'Enorm':
-                x= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
-            elif d1 == 'Ez':
-                x= self.Ez(self.t,**kwargs)
-            elif d1 == 'Eznorm':
-                x= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
-            elif d1 == 'ER':
-                x= self.ER(self.t,**kwargs)
-            elif d1 == 'ERnorm':
-                x= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
-            elif d1 == 'Jacobi':
-                x= self.Jacobi(self.t,**kwargs)
-            elif d1 == 'Jacobinorm':
-                x= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
-            if callable(d2):
-                y= d2(self.t)
-            elif d2 == 't':
-                y= self.time(self.t,**kwargs)
-            elif d2 == 'R':
-                y= self.R(self.t,**kwargs)
-            elif d2 == 'r':
-                y= nu.sqrt(self.R(self.t,**kwargs)**2.
-                           +self.z(self.t,**kwargs)**2.)
-            elif d2 == 'z':
-                y= self.z(self.t,**kwargs)
-            elif d2 == 'vz':
-                y= self.vz(self.t,**kwargs)
-            elif d2 == 'vR':
-                y= self.vR(self.t,**kwargs)
-            elif d2 == 'vT':
-                y= self.vT(self.t,**kwargs)
-            elif d2 == 'x':
-                y= self.x(self.t,**kwargs)
-            elif d2 == 'y':
-                y= self.y(self.t,**kwargs)
-            elif d2 == 'vx':
-                y= self.vx(self.t,**kwargs)
-            elif d2 == 'vy':
-                y= self.vy(self.t,**kwargs)
-            elif d2 == 'phi':
-                y= self.phi(self.t,**kwargs)
-            elif d2.lower() == 'ra':
-                y= self.ra(self.t,**kwargs)
-            elif d2.lower() == 'dec':
-                y= self.dec(self.t,**kwargs)
-            elif d2 == 'll':
-                y= self.ll(self.t,**kwargs)
-            elif d2 == 'bb':
-                y= self.bb(self.t,**kwargs)
-            elif d2 == 'dist':
-                y= self.dist(self.t,**kwargs)
-            elif d2 == 'pmra':
-                y= self.pmra(self.t,**kwargs)
-            elif d2 == 'pmdec':
-                y= self.pmdec(self.t,**kwargs)
-            elif d2 == 'pmll':
-                y= self.pmll(self.t,**kwargs)
-            elif d2 == 'pmbb':
-                y= self.pmbb(self.t,**kwargs)
-            elif d2 == 'vlos':
-                y= self.vlos(self.t,**kwargs)
-            elif d2 == 'helioX':
-                y= self.helioX(self.t,**kwargs)
-            elif d2 == 'helioY':
-                y= self.helioY(self.t,**kwargs)
-            elif d2 == 'helioZ':
-                y= self.helioZ(self.t,**kwargs)
-            elif d2 == 'U':
-                y= self.U(self.t,**kwargs)
-            elif d2 == 'V':
-                y= self.V(self.t,**kwargs)
-            elif d2 == 'W':
-                y= self.W(self.t,**kwargs)
-            elif d2 == 'E':
-                y= self.E(self.t,**kwargs)
-            elif d2 == 'Enorm':
-                y= self.E(self.t,**kwargs)/self.E(0.,**kwargs)
-            elif d2 == 'Ez':
-                y= self.Ez(self.t,**kwargs)
-            elif d2 == 'Eznorm':
-                y= self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
-            elif d2 == 'ER':
-                y= self.ER(self.t,**kwargs)
-            elif d2 == 'ERnorm':
-                y= self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
-            elif d2 == 'Jacobi':
-                y= self.Jacobi(self.t,**kwargs)
-            elif d2 == 'Jacobinorm':
-                y= self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+            x= self._parse_plot_quantity(d1,**kwargs)
+            y= self._parse_plot_quantity(d2,**kwargs)
             xs.append(x)
             ys.append(y)
             if xlabel is None:

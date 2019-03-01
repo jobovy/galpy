@@ -32,6 +32,10 @@ v1.5 (????-??-??)
   potential. Only works for Potential instances, not for lists of
   Potential instances (#369).
 
+- Added support to plot arbitrary combinations of the basic Orbit
+  attributes by giving them as an expresion (e.g.,
+  orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
+
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
 

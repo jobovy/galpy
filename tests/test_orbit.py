@@ -4492,6 +4492,15 @@ def test_full_plotting():
     o.plot(d1='Jacobinorm',d2='R')
     # callables
     o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
+    # Expressions
+    o.plot(d1='t',d2='r*R/vR')
+    o.plot(d1='R*cos(phi-{:f}*t)'\
+               .format(o.Op(quantity=False)-o.Or(quantity=False)/2),
+           d2='R*sin(phi-{:f}*t)'\
+               .format(o.Op(quantity=False)-o.Or(quantity=False)/2))
+    with pytest.raises(TypeError) as excinfo:
+        # Unparseable expression gives TypeError
+        o.plot(d1='t',d2='r^2')
     # Test AttributeErrors
     try: oa.plotx()
     except AttributeError: pass

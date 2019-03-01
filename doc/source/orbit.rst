@@ -326,22 +326,53 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+It is also possible to plot quantities computed from the basic Orbit
+outputs like ``o.x()``, ``o.r()``, etc. For this to work, the `numexpr
+<https://github.com/pydata/numexpr>`__ module needs to be installed;
+this can be done using ``pip`` or ``conda``. Then you can ask for
+plots like
+
+>>> o.plot(d1='r',d2='vR*R/r+vz*z/r')
+
+where ``d2=`` converts the velocity to spherical coordinates (this is
+currently not a pre-defined option). This gives the following orbit
+(which is closed in this projection, because we are using a spherical
+potential):
+
+.. image:: images/lp-orbit-integration-spherrvr.png
+
+You can also do  more complex things like
+
+>>> o.plot(d1='x',d2='y')
+>>> o.plot(d1='R*cos(phi-{:f}*t)'.format(o.Op(quantity=False)),
+           d2='R*sin(phi-{:f}*t)'.format(o.Op(quantity=False)),
+          overplot=True)
+
+which shows the orbit in the regular ``(x,y)`` frame as well as in a
+``(x,y)`` frame that is rotating at the angular frequency of the
+orbit. When doing more complex calculations like this, you need to
+make sure that you are getting the units right: parameters ``param``
+in the expression you provide are directly evaluated as ``o.param()``,
+which depending on how you setup the object may or may not return
+output in physical units. The expression above is safe, because
+``o.Op`` evaluated like this will be in a consistent unit system with
+the rest of the expression. Expressions cannot contain astropy
+Quantities (these cannot be parsed by the parser), which is why
+``quantity=False`` is specified; this is also used internally.
+
 Finally, it is also possible to plot arbitrary functions of time with
-``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. This
-is for example useful if you want to display the orbit in a different
-coordinate system. For example, to display the orbital velocity in the
-spherical radial direction (which is currently not a pre-defined
-option), you can do the following
+``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. For
+example, to display the orbital velocity in the spherical radial
+direction, which we also did with the expression above, you can do the
+following
 
 >>> o.plot(d1='r',
 	   d2=lambda t: o.vR(t)*o.R(t)/o.r(t)+o.vz(t)*o.z(t)/o.r(t),
 	   ylabel='v_r')
 
-where ``d2=`` converts the velocity to spherical coordinates. This
-gives the following orbit (which is closed in this projection, because
-we are using a spherical potential):
-
-.. image:: images/lp-orbit-integration-spherrvr.png
+For a function like this, just specifying it as the expression
+``d2='vR*R/r+vz*z/r'`` is much more convenient, but expressions that
+cannot be parsed automatically could be directly given as a function.
 
 .. _orbanim:
 
