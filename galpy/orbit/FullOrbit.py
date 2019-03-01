@@ -551,6 +551,10 @@ class FullOrbit(OrbitTop):
             return plot.bovy_plot(self.orbit[:,4],
                                   nu.array(self.EzJz)/self.EzJz[0],
                                   *args,**kwargs)
+        elif d1 == 'phi':
+            return plot.bovy_plot(self.orbit[:,5],
+                                  nu.array(self.EzJz)/self.EzJz[0],
+                                  *args,**kwargs)
 
 def _integrateFullOrbit(vxvv,pot,t,method,dt):
     """

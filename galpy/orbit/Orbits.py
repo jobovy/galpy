@@ -248,7 +248,22 @@ class Orbits(object):
 
             2018-10-13 - Written - Mathew Bub (UofT)
 
+            2019-02-28 - Implement all plotting function - Bovy (UofT)
+
         """
+        # Catch all plotting functions
+        if 'plot' in name:
+            def _plot(*args,**kwargs):
+                for ii in range(len(self)):
+                    line2d= \
+                     self._orbits[ii].__getattribute__(name)(*args,**kwargs)[0]
+                    kwargs['overplot']= True
+                line2d.axes.autoscale(enable=True)
+                _add_ticks()
+                return None
+            # Assign documentation
+            _plot.__doc__= self._orbits[0].__getattribute__(name).__doc__
+            return _plot
         attribute = getattr(Orbit(), name)
         if callable(attribute):
             return lambda *args, **kwargs: [
@@ -2760,15 +2775,3 @@ class Orbits(object):
             self.orbit= self.orbit[:,usindx]
         except: pass
         return None
-
-    def plot(self,*args,**kwargs):
-        """
-        Like Orbit.plot but for Orbits, same exact calling sequence
-        Written - 2018-12-19 - Bovy (UofT)"""
-        for ii in range(len(self)):
-            line2d= self._orbits[ii].plot(*args,**kwargs)[0]
-            kwargs['overplot']= True
-        line2d.axes.autoscale(enable=True)
-        _add_ticks()
-        return None
-
