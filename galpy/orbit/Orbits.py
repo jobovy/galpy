@@ -9,6 +9,7 @@ from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec, \
     _XYZvxvyvz, _lbdvrpmllpmbb, _pmrapmdec
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
+from ..util.bovy_coords import _K
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
 from ..util import bovy_conversion
@@ -31,6 +32,8 @@ if _APY_LOADED:
     from astropy import units, coordinates
     import astropy
     _APY3= astropy.__version__ > '3'
+from galpy.util import config
+_APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
     _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
@@ -2118,6 +2121,186 @@ class Orbits(object):
         thiso= thiso.reshape((thiso_shape[0],-1))
         return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[3]\
             .reshape(thiso_shape[1:]).T
+
+    def vra(self,*args,**kwargs):
+        """
+        NAME:
+
+           vra
+
+        PURPOSE:
+
+           return velocity in right ascension (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get vra (can be Quantity)
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+        OUTPUT:
+
+           v_ra(t) in km/s [norb]
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'vra')
+        _check_voSet(self,kwargs,'vra')
+        dist= self.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self.pmra(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self.pmra(*args,**kwargs)
+
+    def vdec(self,*args,**kwargs):
+        """
+        NAME:
+
+           vdec
+
+        PURPOSE:
+
+           return velocity in declination (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get vdec (can be Quantity)
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+        OUTPUT:
+
+           v_dec(t) in km/s [norb]
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'vdec')
+        _check_voSet(self,kwargs,'vdec')
+        dist= self.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self.pmdec(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self.pmdec(*args,**kwargs)
+
+    def vll(self,*args,**kwargs):
+        """
+        NAME:
+
+           vll
+
+        PURPOSE:
+
+           return the velocity in Galactic longitude (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get vll (can be Quantity)
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+        OUTPUT:
+
+           v_l(t) in km/s [norb]
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'vll')
+        _check_voSet(self,kwargs,'vll')
+        dist= self.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self.pmll(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self.pmll(*args,**kwargs)
+        
+    def vbb(self,*args,**kwargs):
+        """
+        NAME:
+
+           vbb
+
+        PURPOSE:
+
+            return velocity in Galactic latitude (km/s)
+
+        INPUT:
+
+           t - (optional) time at which to get vbb (can be Quantity)
+
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                         in the Galactocentric frame
+                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         OR Orbit object that corresponds to the orbit
+                         of the observer
+                         Y is ignored and always assumed to be zero
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+        OUTPUT:
+
+           v_b(t) in km/s [norb]
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        _check_roSet(self,kwargs,'vbb')
+        _check_voSet(self,kwargs,'vbb')
+        dist= self.dist(*args,**kwargs)
+        if _APY_UNITS and isinstance(dist,units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value*_K*
+                                  self.pmbb(*args,**kwargs)\
+                                      .to(units.mas/units.yr).value,
+                                  unit=units.km/units.s)
+        else:
+            return dist*_K*self.pmbb(*args,**kwargs)
 
     @physical_conversion('position_kpc')
     def helioX(self,*args,**kwargs):

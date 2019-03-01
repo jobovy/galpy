@@ -29,7 +29,7 @@ from .planarOrbit import planarOrbit, planarROrbit, \
 from .linearOrbit import linearOrbit
 from galpy.potential import flatten as flatten_potential
 from galpy.potential import rl, _isNonAxi
-_K=4.74047
+from ..util.bovy_coords import _K
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
                  units.kpc,units.km/units.s,units.rad]
