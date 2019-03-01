@@ -323,6 +323,72 @@ class Orbits(object):
         return out
 
 ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
+    def turn_physical_off(self):
+        """
+        NAME:
+
+           turn_physical_off
+
+        PURPOSE:
+
+           turn off automatic returning of outputs in physical units
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        self._roSet= False
+        self._voSet= False
+        [o.turn_physical_off() for o in self._orbits]
+        return None
+
+    def turn_physical_on(self,ro=None,vo=None):
+        """
+        NAME:
+
+           turn_physical_on
+
+        PURPOSE:
+
+           turn on automatic returning of outputs in physical units
+
+        INPUT:
+
+           ro= reference distance (kpc; can be Quantity)
+
+           vo= reference velocity (km/s; can be Quantity)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        self._roSet= True
+        self._voSet= True
+        if not ro is None:
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
+            self._ro= ro
+        if not vo is None:
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+            self._vo= vo
+        [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
+        return None
+
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
                   force_map=False):
         """
