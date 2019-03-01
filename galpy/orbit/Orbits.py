@@ -1331,6 +1331,43 @@ class Orbits(object):
         self._setup_actionsFreqsAngles(pot=pot,**kwargs)
         return self._aA_Oz
 
+    @physical_conversion('time')
+    def time(self,*args,**kwargs):
+        """
+        NAME:
+
+           time
+
+        PURPOSE:
+
+           return the times at which the orbit is sampled
+
+        INPUT:
+
+           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
+
+           ro= (Object-wide default) physical scale for distances to use to convert
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           t(t)
+
+        HISTORY:
+
+           2019-02-28 - Written - Bovy (UofT)
+
+        """
+        if len(args) == 0:
+            try:
+                return self.t
+            except AttributeError:
+                return 0.
+        else: return args[0]
+
     @physical_conversion('position')
     def R(self,*args,**kwargs):
         """

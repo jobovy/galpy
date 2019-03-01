@@ -667,6 +667,8 @@ def test_coordinate_interpolation():
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # Before integration
     for ii in range(nrand):
+        # .time is special, just a single array
+        assert numpy.all(numpy.fabs(os.time()-list_os[ii].time()) < 1e-10), 'Evaluating Orbits time does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.R()[ii]-list_os[ii].R()) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r()[ii]-list_os[ii].r()) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vR()[ii]-list_os[ii].vR()) < 1e-10), 'Evaluating Orbits vR does not agree with Orbit'
@@ -712,6 +714,8 @@ def test_coordinate_interpolation():
     [o.integrate(times,MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
+        # .time is special, just a single array
+        assert numpy.all(numpy.fabs(os.time(times)-list_os[ii].time(times)) < 1e-10), 'Evaluating Orbits time does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.R(times)[ii]-list_os[ii].R(times)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(times)[ii]-list_os[ii].r(times)) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vR(times)[ii]-list_os[ii].vR(times)) < 1e-10), 'Evaluating Orbits vR does not agree with Orbit'
@@ -752,6 +756,8 @@ def test_coordinate_interpolation():
             assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_dec[ii]-list_os[ii].SkyCoord(times).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
             assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii]-list_os[ii].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
         # Also a single time in the array ...
+        # .time is special, just a single array
+        assert numpy.all(numpy.fabs(os.time(times[1])-list_os[ii].time(times[1])) < 1e-10), 'Evaluating Orbits time does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.R(times[1])[ii]-list_os[ii].R(times[1])) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.r(times[1])[ii]-list_os[ii].r(times[1])) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
         assert numpy.all(numpy.fabs(os.vR(times[1])[ii]-list_os[ii].vR(times[1])) < 1e-10), 'Evaluating Orbits vR does not agree with Orbit'
