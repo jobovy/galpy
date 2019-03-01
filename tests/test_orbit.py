@@ -16,6 +16,7 @@ _APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
+from galpy.util.bovy_coords import _K
 from test_actionAngle import reset_warning_registry
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -2058,9 +2059,9 @@ def test_orbit_setup():
     assert numpy.fabs(o.bb()-60.) < 10.**-10., 'Orbit bb setup does not agree with o.bb()'
     assert numpy.fabs(o.dist()-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmll()-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vll()-4.74047) < 10.**-10., 'Orbit pmll setup does not agree with o.vll()'
+    assert numpy.fabs(o.vll()-_K) < 10.**-10., 'Orbit pmll setup does not agree with o.vll()'
     assert numpy.fabs(o.pmbb()-0.4) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
-    assert numpy.fabs(o.vbb()-0.8*4.74047) < 10.**-10., 'Orbit pmbb setup does not agree with o.vbb()'
+    assert numpy.fabs(o.vbb()-0.8*_K) < 10.**-10., 'Orbit pmbb setup does not agree with o.vbb()'
     assert numpy.fabs(o.vlos()-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb w/ default at the Sun
     o= Orbit([120.,60.,0.,10.,20.,30.],uvw=True,lb=True,zo=0.)
@@ -2091,9 +2092,9 @@ def test_orbit_setup():
     assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-10., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist(obs=obs)-2.) < 10.**-10., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmra(obs=obs)-0.5) < 10.**-10., 'Orbit pmra setup does not agree with o.pmra()'
-    assert numpy.fabs(o.vra(obs=obs)-4.74047) < 10.**-10., 'Orbit pmra setup does not agree with o.vra()'
+    assert numpy.fabs(o.vra(obs=obs)-_K) < 10.**-10., 'Orbit pmra setup does not agree with o.vra()'
     assert numpy.fabs(o.pmdec(obs=obs)-0.4) < 10.**-10., 'Orbit pmdec setup does not agree with o.pmdec()'
-    assert numpy.fabs(o.vdec(obs=obs)-0.8*4.74047) < 10.**-10., 'Orbit pmdec setup does not agree with o.vdec()'
+    assert numpy.fabs(o.vdec(obs=obs)-0.8*_K) < 10.**-10., 'Orbit pmdec setup does not agree with o.vdec()'
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
     #lb, plane w/ default
     o= Orbit([120.,0.,2.,0.5,0.,30.],lb=True,zo=0.,solarmotion=[-10.,10.,0.])
@@ -4013,8 +4014,8 @@ def test_intrinsic_physical_output():
     assert numpy.fabs(o.ll()-l_true) < 10.**-4., 'Orbit.ll does not return correct l in degree'
     assert numpy.fabs(o.bb()-b_true) < 10.**-4., 'Orbit.bb does not return correct b in degree'
     assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
-    pmll_true= -30./0.8/4.74047
-    pmbb_true= 4./0.8/4.74047
+    pmll_true= -30./0.8/_K
+    pmbb_true= 4./0.8/_K
     pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
                                                              pmbb_true,
                                                              l_true,b_true,
@@ -4024,14 +4025,14 @@ def test_intrinsic_physical_output():
     assert numpy.fabs(o.pmdec()-pmdec_true) < 10.**-5., 'Orbit.pmdec does not return correct pmdec in mas/yr'
     assert numpy.fabs(o.pmll()-pmll_true) < 10.**-5., 'Orbit.pmll does not return correct pmll in mas/yr'
     assert numpy.fabs(o.pmbb()-pmbb_true) < 10.**-4.7, 'Orbit.pmbb does not return correct pmbb in mas/yr'
-    assert numpy.fabs(o.vra()-pmra_true*0.8*4.74047) < 10.**-4.8, 'Orbit.vra does not return correct vra in km/s'
-    assert numpy.fabs(o.vdec()-pmdec_true*0.8*4.74047) < 10.**-4.6, 'Orbit.vdec does not return correct vdec in km/s'
-    assert numpy.fabs(o.vll()-pmll_true*0.8*4.74047) < 10.**-5., 'Orbit.vll does not return correct vll in km/s'
-    assert numpy.fabs(o.vbb()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.vbb does not return correct vbb in km/s'
+    assert numpy.fabs(o.vra()-pmra_true*0.8*_K) < 10.**-4.8, 'Orbit.vra does not return correct vra in km/s'
+    assert numpy.fabs(o.vdec()-pmdec_true*0.8*_K) < 10.**-4.6, 'Orbit.vdec does not return correct vdec in km/s'
+    assert numpy.fabs(o.vll()-pmll_true*0.8*_K) < 10.**-5., 'Orbit.vll does not return correct vll in km/s'
+    assert numpy.fabs(o.vbb()-pmbb_true*0.8*_K) < 10.**-4., 'Orbit.vbb does not return correct vbb in km/s'
     assert numpy.fabs(o.vlos()+20.) < 10.**-8., 'Orbit.vlos does not return correct vlos in km/s'
     assert numpy.fabs(o.U()+20.) < 10.**-4., 'Orbit.U does not return correct U in km/s'
-    assert numpy.fabs(o.V()-pmll_true*0.8*4.74047) < 10.**-4.8, 'Orbit.V does not return correct V in km/s'
-    assert numpy.fabs(o.W()-pmbb_true*0.8*4.74047) < 10.**-4., 'Orbit.W does not return correct W in km/s'
+    assert numpy.fabs(o.V()-pmll_true*0.8*_K) < 10.**-4.8, 'Orbit.V does not return correct V in km/s'
+    assert numpy.fabs(o.W()-pmbb_true*0.8*_K) < 10.**-4., 'Orbit.W does not return correct W in km/s'
     assert numpy.fabs(o.helioX()-0.8) < 10.**-8., 'Orbit.helioX does not return correct helioX in kpc'
     # For non-trivial helioY and helioZ tests
     o= Orbit([1./numpy.sqrt(2.),0.,1.,0.,0.2,numpy.pi/4.],
