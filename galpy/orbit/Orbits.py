@@ -769,10 +769,16 @@ class Orbits(object):
            2019-03-01 - Written - Bovy (UofT)
 
         """
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         kwargs['_z']= 0.*self.z(*args,**kwargs).T
         kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
-        return self.E(*args,**kwargs)
+        out= self.E(*args,**kwargs)
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
 
     @physical_conversion('energy')
     def Ez(self,*args,**kwargs):
@@ -804,11 +810,91 @@ class Orbits(object):
            2019-03-01 - Written - Bovy (UofT)
 
         """
+        old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         tE= self.E(*args,**kwargs)
         kwargs['_z']= 0.*self.z(*args,**kwargs).T
         kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
-        return tE-self.E(*args,**kwargs)
+        out= tE-self.E(*args,**kwargs)
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
+
+    @physical_conversion('energy')
+    def Jacobi(self,*args,**kwargs):
+        """
+        NAME:
+
+           Jacobi
+
+        PURPOSE:
+
+           calculate the Jacobi integral E - Omega L
+
+        INPUT:
+
+           t - (optional) time at which to get the Jacobi integral (can be Quantity)
+
+           OmegaP= pattern speed (can be Quantity)
+           
+           pot= potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           Jacobi integral [norb,nt]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
+        _check_consistent_units(self,kwargs.get('pot',None))
+        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
+            OmegaP= 0.
+            if not 'pot' in kwargs or kwargs['pot'] is None:
+                try:
+                    pot= self._pot
+                except AttributeError:
+                    raise AttributeError("Integrate orbit or specify pot=")
+            else:
+                pot= kwargs['pot']
+            if isinstance(pot,list):
+                for p in pot:
+                    if hasattr(p,'OmegaP'):
+                        OmegaP= p.OmegaP()
+                        break
+            else:
+                if hasattr(pot,'OmegaP'):
+                    OmegaP= pot.OmegaP()
+            kwargs.pop('OmegaP',None)
+        else:
+            OmegaP= kwargs.pop('OmegaP')
+        if _APY_LOADED:
+            if isinstance(OmegaP,units.Quantity):
+                OmegaP = OmegaP.to(units.km/units.s/units.kpc).value \
+                    /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+        #Make sure you are not using physical coordinates
+        old_physical= kwargs.get('use_physical',None)
+        kwargs['use_physical']= False
+        if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
+            if isinstance(OmegaP,list): thisOmegaP= numpy.array(OmegaP)
+            else: thisOmegaP= OmegaP
+            out= self.E(*args,**kwargs)-numpy.einsum('i,jki->jk',thisOmegaP,
+                                                     self.L(*args,**kwargs))
+        else:
+            out= self.E(*args,**kwargs)-OmegaP*self.Lz(*args,**kwargs)
+        if not old_physical is None:
+            kwargs['use_physical']= old_physical
+        else:
+            kwargs.pop('use_physical')
+        return out
 
     def _setupaA(self,pot=None,type='staeckel',**kwargs):
         """
