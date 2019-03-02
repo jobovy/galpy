@@ -977,6 +977,118 @@ def test_call_issue256():
         o.R(30)
     return None
 
+# Test that the energy, angular momentum, and Jacobi functions work as expected
+def test_energy_jacobi_angmom():
+    from galpy.orbit import Orbit, Orbits
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    # 6D
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    _check_energy_jacobi_angmom(os,list_os)
+    # 5D
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs)))
+    list_os= [Orbit([R,vR,vT,z,vz])
+              for R,vR,vT,z,vz in zip(Rs,vRs,vTs,zs,vzs)]
+    _check_energy_jacobi_angmom(os,list_os)
+    # 4D
+    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    list_os= [Orbit([R,vR,vT,phi])
+              for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
+    _check_energy_jacobi_angmom(os,list_os)
+    # 3D
+    os= Orbits(list(zip(Rs,vRs,vTs)))
+    list_os= [Orbit([R,vR,vT])
+              for R,vR,vT in zip(Rs,vRs,vTs)]
+    _check_energy_jacobi_angmom(os,list_os)
+    # 2D
+    os= Orbits(list(zip(zs,vzs)))
+    list_os= [Orbit([z,vz])
+              for z,vz in zip(zs,vzs)]
+    _check_energy_jacobi_angmom(os,list_os)
+    return None
+
+def _check_energy_jacobi_angmom(os,list_os):
+    nrand= len(os)
+    from galpy.potential import MWPotential2014, SpiralArmsPotential, \
+        DehnenBarPotential, LogarithmicHaloPotential
+    sp= SpiralArmsPotential()
+    dp= DehnenBarPotential()
+    lp= LogarithmicHaloPotential(normalize=1.)
+    if os.dim() == 1:
+        from galpy.potential import toVerticalPotential
+        MWPotential2014= toVerticalPotential(MWPotential2014,1.)
+        lp= toVerticalPotential(lp,1.)
+    # Before integration
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.E(pot=MWPotential2014)[ii]/list_os[ii].E(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
+        if os.dim() == 3:
+            assert numpy.all(numpy.fabs(os.ER(pot=MWPotential2014)[ii]/list_os[ii].ER(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Ez(pot=MWPotential2014)[ii]/list_os[ii].Ez(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.L()[ii]/list_os[ii].L()-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
+        if os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Lz()[ii]/list_os[ii].Lz()-1.) < 10.**-10.), 'Evaluating Orbits Lz does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014)[ii]/list_os[ii].Jacobi(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            # Also explicitly set OmegaP
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=MWPotential2014,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+    # Potential for which array evaluation definitely works
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.E(pot=lp)[ii]/list_os[ii].E(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
+        if os.dim() == 3:
+            assert numpy.all(numpy.fabs(os.ER(pot=lp)[ii]/list_os[ii].ER(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Ez(pot=lp)[ii]/list_os[ii].Ez(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.L()[ii]/list_os[ii].L()-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
+        if os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Lz()[ii]/list_os[ii].Lz()-1.) < 10.**-10.), 'Evaluating Orbits Lz does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=lp)[ii]/list_os[ii].Jacobi(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            # Also explicitly set OmegaP
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=lp,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=lp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    [o.integrate(times,MWPotential2014) for o in list_os]
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.E(times,pot=MWPotential2014)[ii]/list_os[ii].E(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
+        if os.dim() == 3:
+            assert numpy.all(numpy.fabs(os.ER(times,pot=MWPotential2014)[ii]/list_os[ii].ER(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Ez(times,pot=MWPotential2014)[ii]/list_os[ii].Ez(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.L(times)[ii]/list_os[ii].L(times)-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
+        if os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Lz(times)[ii]/list_os[ii].Lz(times)-1.) < 10.**-10.), 'Evaluating Orbits Lz does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Jacobi(times,pot=MWPotential2014)[ii]/list_os[ii].Jacobi(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            # Also explicitly set OmegaP
+            assert numpy.all(numpy.fabs(os.Jacobi(times,pot=MWPotential2014,OmegaP=0.6)[ii]/list_os[ii].Jacobi(times,pot=MWPotential2014,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+    # Don't do non-axi for odd-D Orbits or 1D
+    if os.phasedim() % 2 == 1 or os.dim() == 1: return None
+    # Add bar and spiral
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.E(pot=MWPotential2014+dp+sp)[ii]/list_os[ii].E(pot=MWPotential2014+dp+sp)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
+        if os.dim() == 3:
+            assert numpy.all(numpy.fabs(os.ER(pot=MWPotential2014+dp+sp)[ii]/list_os[ii].ER(pot=MWPotential2014+dp+sp)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Ez(pot=MWPotential2014+dp+sp)[ii]/list_os[ii].Ez(pot=MWPotential2014+dp+sp)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.L()[ii]/list_os[ii].L()-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
+        if os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Lz()[ii]/list_os[ii].Lz()-1.) < 10.**-10.), 'Evaluating Orbits Lz does not agree with Orbit'
+        if os.phasedim() % 2 == 0 and os.dim() != 1:
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014+dp+sp)[ii]/list_os[ii].Jacobi(pot=MWPotential2014+dp+sp)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            # Also explicitly set OmegaP
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014+dp+sp,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=MWPotential2014+dp+sp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+    return None
+
 # Test that we can still get outputs when there aren't enough points for an actual interpolation
 # Test whether Orbits evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
