@@ -13,7 +13,8 @@ from ..util.bovy_coords import _K
 from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
 from ..util import bovy_conversion
-from ..potential import toPlanarPotential, PotentialError
+from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
+    evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
 from ..potential.DissipativeForce import _isDissipative
@@ -526,6 +527,130 @@ class Orbits(object):
             self._orbits[ii]._orb.t= t
             self._orbits[ii]._orb._pot= pot
         return None
+
+    @physical_conversion('energy')
+    def E(self,*args,**kwargs):
+        """
+        NAME:
+
+           E
+
+        PURPOSE:
+
+           calculate the energy
+
+        INPUT:
+
+           t - (optional) time at which to get the energy (can be Quantity)
+
+           pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           energy [norb,nt]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
+        _check_consistent_units(self,kwargs.get('pot',None))
+        if not 'pot' in kwargs or kwargs['pot'] is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbits or specify pot=")
+            if 'pot' in kwargs and kwargs['pot'] is None:
+                kwargs.pop('pot')          
+        else:
+            pot= kwargs.pop('pot')
+        if len(args) > 0:
+            t= args[0]
+        else:
+            t= 0.
+        #Get orbit
+        thiso= self._call_internal(*args,**kwargs)
+        onet= (len(thiso.shape) == 2)
+        if onet:
+            thiso= thiso[:,numpy.newaxis,:]
+            t= numpy.atleast_1d(t)
+        if self.phasedim() == 2:
+            try:
+                out= (evaluatelinearPotentials(pot,thiso[0],t=t,
+                                               use_physical=False)\
+                          +thiso[1]**2./2.).T
+            except (ValueError,TypeError):
+                out= (numpy.array([[evaluatelinearPotentials(\
+                                    pot,thiso[0][ii][jj],t=t[ii],
+                                    use_physical=False)
+                                    for ii in range(len(thiso[0]))]
+                                   for jj in range(len(self))])\
+                          +(thiso[1]**2./2.).T)
+        elif self.phasedim() == 3:
+            try:
+                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
+                                               use_physical=False)\
+                          +thiso[1]**2./2.+thiso[2]**2./2.).T
+            except (ValueError,TypeError):
+                out= (numpy.array([[evaluateplanarPotentials(\
+                                    pot,thiso[0][ii][jj],t=t[ii],
+                                    use_physical=False)
+                                    for ii in range(len(thiso[0]))]
+                                   for jj in range(len(self))])
+                      +(thiso[1]**2./2.+thiso[2]**2./2.).T)
+        elif self.phasedim() == 4:
+            try:
+                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
+                                               phi=thiso[-1],
+                                               use_physical=False)\
+                          +thiso[1]**2./2.+thiso[2]**2./2.).T
+            except (ValueError,TypeError):
+                out= (numpy.array([[evaluateplanarPotentials(\
+                                    pot,thiso[0][ii][jj],t=t[ii],
+                                    phi=thiso[-1][ii][jj],
+                                    use_physical=False)
+                                    for ii in range(len(thiso[0]))]
+                                   for jj in range(len(self))])
+                                  +(thiso[1]**2./2.+thiso[2]**2./2.).T)
+        elif self.phasedim() == 5:
+            try:
+                out= (evaluatePotentials(pot,thiso[0],thiso[3],t=t,
+                                         use_physical=False)\
+                          +thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T
+            except (ValueError,TypeError):
+                out= (numpy.array([[evaluatePotentials(\
+                                    pot,thiso[0][ii][jj],
+                                    thiso[3][ii][jj],
+                                    t=t[ii],
+                                    use_physical=False)
+                                    for ii in range(len(thiso[0]))]
+                                   for jj in range(len(self))])
+                      +(thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T)
+        elif self.phasedim() == 6:
+            try:
+                out= (evaluatePotentials(pot,thiso[0],t=t,
+                                         phi=thiso[-1],
+                                         use_physical=False)\
+                          +thiso[1]**2./2.).T
+            except (ValueError,TypeError):
+                out= (numpy.array([[evaluatePotentials(\
+                                    pot,thiso[0][ii][jj],
+                                    thiso[3][ii][jj],
+                                    t=t[ii],
+                                    phi=thiso[-1][ii][jj],
+                                    use_physical=False)
+                                    for ii in range(len(thiso[0]))]
+                                   for jj in range(len(self))])
+                      +(thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T)
+        if onet:
+            return out[:,0]
+        else:
+            return out
 
     def _setupaA(self,pot=None,type='staeckel',**kwargs):
         """
