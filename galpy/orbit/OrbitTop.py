@@ -1020,11 +1020,8 @@ class OrbitTop(object):
         HISTORY:
            2018-08-29 - Written - Bovy (UofT)
         """
-        tL= self.L(*args,use_physical=False)
-        if len(tL.shape) == 2: # 3D orbit
-            return tL[:,2]
-        else: # 2D orbit
-            return tL
+        thiso= self(*args,**kwargs)
+        return thiso[0]*thiso[2]
 
     def _resetaA(self,pot=None,type=None):
         """
