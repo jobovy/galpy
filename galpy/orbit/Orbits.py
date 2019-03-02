@@ -569,6 +569,8 @@ class Orbits(object):
                 kwargs.pop('pot')          
         else:
             pot= kwargs.pop('pot')
+        if self.dim() == 2:
+            pot= toPlanarPotential(pot)
         if len(args) > 0:
             t= args[0]
         else:
@@ -618,11 +620,12 @@ class Orbits(object):
                                    for jj in range(len(self))])
                                   +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 5:
-            z= kwargs.get('_z',thiso[3]) # For ER and Ez
+            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
+            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
                 out= (evaluatePotentials(pot,thiso[0],z,t=t,
                                          use_physical=False)\
-                          +thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T
+                          +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError):
                 out= (numpy.array([[evaluatePotentials(\
                                     pot,thiso[0][ii][jj],
@@ -631,10 +634,10 @@ class Orbits(object):
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
-                      +(thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T)
+                      +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         elif self.phasedim() == 6:
-            z= kwargs.get('_z',thiso[3]) # For ER and Ez
-            vz= kwargs.get('_vz',thiso[4]) # For ER and Ez
+            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
+            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
                 out= (evaluatePotentials(pot,thiso[0],z,t=t,
                                          phi=thiso[-1],
@@ -771,8 +774,8 @@ class Orbits(object):
         """
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
-        kwargs['_z']= 0.*self.z(*args,**kwargs).T
-        kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
+        kwargs['_z']= 0.
+        kwargs['_vz']= 0.
         out= self.E(*args,**kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
@@ -813,8 +816,8 @@ class Orbits(object):
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
         tE= self.E(*args,**kwargs)
-        kwargs['_z']= 0.*self.z(*args,**kwargs).T
-        kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
+        kwargs['_z']= 0.
+        kwargs['_vz']= 0.
         out= tE-self.E(*args,**kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
@@ -857,7 +860,7 @@ class Orbits(object):
         if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
         _check_consistent_units(self,kwargs.get('pot',None))
         if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
-            OmegaP= 0.
+            OmegaP= 1.
             if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
                     pot= self._pot
