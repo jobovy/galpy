@@ -652,6 +652,90 @@ class Orbits(object):
         else:
             return out
 
+    @physical_conversion('action')
+    def L(self,*args,**kwargs):
+        """
+        NAME:
+
+           L
+
+        PURPOSE:
+
+           calculate the angular momentum at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the angular momentum (can be Quantity)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           angular momentum [norb,nt,3]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        if self.dim() == 1:
+            raise AttributeError("'linear Orbits have no angular momentum")
+        #Get orbit
+        thiso= self._call_internal(*args,**kwargs)
+        if self.dim() == 2:
+            return (thiso[0]*thiso[2]).T
+        elif self.phasedim() == 5:
+            raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
+        else: # phasedim == 6
+            vx= self.vx(*args,**kwargs)
+            vy= self.vy(*args,**kwargs)
+            vz= self.vz(*args,**kwargs)
+            x= self.x(*args,**kwargs)
+            y= self.y(*args,**kwargs)
+            z= self.z(*args,**kwargs)
+            out= numpy.zeros(x.shape+(3,))
+            out[...,0]= y*vz-z*vy
+            out[...,1]= z*vx-x*vz
+            out[...,2]= x*vy-y*vx
+            return out
+        
+    @physical_conversion('action')
+    def Lz(self,*args,**kwargs):
+        """
+        NAME:
+
+           Lz
+
+        PURPOSE:
+
+           calculate the z-component of the angular momentum at time t
+
+        INPUT:
+
+           t - (optional) time at which to get the angular momentum (can be Quantity)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           z-component of the angular momentum [norb,nt]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        thiso= self._call_internal(*args,**kwargs)
+        return (thiso[0]*thiso[2]).T
+
     def _setupaA(self,pot=None,type='staeckel',**kwargs):
         """
         NAME:
