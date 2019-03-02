@@ -1189,7 +1189,7 @@ class Orbit(object):
         if _isNonAxi(pot):
             raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
         _check_consistent_units(self,pot)
-        Lz= self.Lz(*args,use_physical=False)
+        Lz= nu.atleast_1d(self.Lz(*args,use_physical=False))
         return nu.array([rl(pot,lz,use_physical=False) for lz in Lz])
 
     def zmax(self,analytic=False,pot=None,**kwargs):
