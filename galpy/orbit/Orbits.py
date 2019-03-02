@@ -618,35 +618,38 @@ class Orbits(object):
                                    for jj in range(len(self))])
                                   +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 5:
+            z= kwargs.get('_z',thiso[3]) # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],thiso[3],t=t,
+                out= (evaluatePotentials(pot,thiso[0],z,t=t,
                                          use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T
             except (ValueError,TypeError):
                 out= (numpy.array([[evaluatePotentials(\
                                     pot,thiso[0][ii][jj],
-                                    thiso[3][ii][jj],
+                                    z[ii][jj],
                                     t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
                       +(thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T)
         elif self.phasedim() == 6:
+            z= kwargs.get('_z',thiso[3]) # For ER and Ez
+            vz= kwargs.get('_vz',thiso[4]) # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],t=t,
+                out= (evaluatePotentials(pot,thiso[0],z,t=t,
                                          phi=thiso[-1],
                                          use_physical=False)\
-                          +thiso[1]**2./2.).T
+                          +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError):
                 out= (numpy.array([[evaluatePotentials(\
                                     pot,thiso[0][ii][jj],
-                                    thiso[3][ii][jj],
+                                    z[ii][jj],
                                     t=t[ii],
                                     phi=thiso[-1][ii][jj],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
-                      +(thiso[1]**2./2.+thiso[2]**2./2.+thiso[4]**2./2.).T)
+                      +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         if onet:
             return out[:,0]
         else:
@@ -735,6 +738,77 @@ class Orbits(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[0]*thiso[2]).T
+
+    @physical_conversion('energy')
+    def ER(self,*args,**kwargs):
+        """
+        NAME:
+
+           ER
+
+        PURPOSE:
+
+           calculate the radial energy
+
+        INPUT:
+
+           t - (optional) time at which to get the radial energy (can be Quantity)
+
+           pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
+
+        OUTPUT:
+
+           radial energy [norb,nt]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        kwargs['use_physical']= False
+        kwargs['_z']= 0.*self.z(*args,**kwargs).T
+        kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
+        return self.E(*args,**kwargs)
+
+    @physical_conversion('energy')
+    def Ez(self,*args,**kwargs):
+        """
+        NAME:
+
+           Ez
+
+        PURPOSE:
+
+           calculate the vertical energy
+
+        INPUT:
+
+           t - (optional) time at which to get the vertical energy (can be Quantity)
+
+           pot= Potential instance or list of such instances
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
+
+        OUTPUT:
+
+           vertical energy [norb,nt]
+
+        HISTORY:
+
+           2019-03-01 - Written - Bovy (UofT)
+
+        """
+        kwargs['use_physical']= False
+        tE= self.E(*args,**kwargs)
+        kwargs['_z']= 0.*self.z(*args,**kwargs).T
+        kwargs['_vz']= 0.*self.vz(*args,**kwargs).T
+        return tE-self.E(*args,**kwargs)
 
     def _setupaA(self,pot=None,type='staeckel',**kwargs):
         """
