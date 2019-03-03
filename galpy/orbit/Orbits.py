@@ -529,6 +529,73 @@ class Orbits(object):
             self._orbits[ii]._orb._pot= pot
         return None
 
+    def flip(self,inplace=False):
+        """
+        NAME:
+
+           flip
+
+        PURPOSE:
+
+           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration; returns a new Orbit instance
+
+        INPUT:
+
+           inplace= (False) if True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists)
+
+        OUTPUT:
+
+           Orbits instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
+
+        HISTORY:
+
+           2019-03-02 - Written - Bovy (UofT)
+
+        """
+        if inplace:
+            self.vxvv[...,1]= -self.vxvv[...,1]
+            if self.phasedim() > 2:
+                self.vxvv[...,2]= -self.vxvv[...,2]
+            if self.phasedim() > 4:
+                self.vxvv[...,4]= -self.vxvv[...,4]
+            if hasattr(self,'orbit'):
+                self.orbit[...,1]= -self.orbit[...,1]
+                if self.phasedim() > 2:
+                    self.orbit[...,2]= -self.orbit[...,2]
+                if self.phasedim() > 4:
+                    self.orbit[...,4]= -self.orbit[...,4]
+                if hasattr(self,"_orbInterp"):
+                    delattr(self,"_orbInterp")
+            return None
+        orbSetupKwargs= {'ro':self._ro,
+                         'vo':self._vo,
+                         'zo':self._zo,
+                         'solarmotion':self._solarmotion}
+        if self.phasedim() == 2:
+            orbSetupKwargs.pop('zo',None)
+            orbSetupKwargs.pop('solarmotion',None)
+            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1]]).T,
+                        **orbSetupKwargs)
+        elif self.phasedim() == 3:
+            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+                                    -self.vxvv[...,2]]).T,**orbSetupKwargs)
+        elif self.phasedim() == 4:
+            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+                                    -self.vxvv[...,2],self.vxvv[...,3]]).T,
+                         **orbSetupKwargs)
+        elif self.phasedim() == 5:
+            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+                                    -self.vxvv[...,2],self.vxvv[...,3],
+                                    -self.vxvv[...,4]]).T,**orbSetupKwargs)
+        elif self.phasedim() == 6:
+            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+                                    -self.vxvv[...,2],self.vxvv[...,3],
+                                    -self.vxvv[...,4],self.vxvv[...,5]]).T,
+                         **orbSetupKwargs)
+        out._roSet= self._roSet
+        out._voSet= self._voSet
+        return out
+        
     def getOrbit(self):
         """
 
