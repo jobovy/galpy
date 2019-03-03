@@ -17,6 +17,7 @@ from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
+from ..potential import rl, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
 from .integratePlanarOrbit import integratePlanarOrbit_c
@@ -1173,6 +1174,60 @@ class Orbits(object):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
         rs= self.r(self.t,use_physical=False)
         return numpy.amin(rs,axis=-1)
+
+    @physical_conversion('position')
+    def rguiding(self,*args,**kwargs):
+        """
+        NAME:
+
+           rguiding
+
+        PURPOSE:
+
+           calculate the guiding-center radius (the radius of a circular orbit with the same angular momentum)
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           R_guiding [norb,nt]
+
+        HISTORY:
+
+           2019-03-02 - Written as thin wrapper around Potential.rl - Bovy (UofT)
+
+        """
+        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False))
+        Lz_shape= Lz.shape
+        Lz= Lz.flatten()
+        if len(Lz) > 500:
+            # Build interpolation grid, 500 ~ 1s
+            precomputergLzgrid= numpy.linspace(numpy.nanmin(Lz),
+                                               numpy.nanmax(Lz),
+                                               500)
+            rls= numpy.array([rl(pot,lz,use_physical=False)
+                              for lz in precomputergLzgrid])
+            #Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(\
+                precomputergLzgrid,rls,k=3)(Lz).reshape(Lz_shape)
+        else:
+            return numpy.array([rl(pot,lz,use_physical=False)
+                                for lz in Lz]).reshape(Lz_shape)
 
     @physical_conversion('position')
     def zmax(self,analytic=False,pot=None,**kwargs):

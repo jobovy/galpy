@@ -1396,6 +1396,42 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
         assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
     return None
 
+def test_rguiding():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.rguiding()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.rguiding(pot=MWPotential2014)[ii]/list_os[ii].rguiding(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rguiding analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.rguiding(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rguiding(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rguiding analytically does not agree with Orbit'
+    return None
+
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
