@@ -3258,6 +3258,78 @@ class Orbits(object):
                 t= t[usindx]
                 return out[:,usindx]
 
+    def toPlanar(self):
+        """
+        NAME:
+
+           toPlanar
+
+        PURPOSE:
+
+           convert 3D orbits into 2D orbits
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           planar Orbits instance
+
+        HISTORY:
+
+           2019-03-02 - Written - Bovy (UofT)
+
+        """
+        orbSetupKwargs= {'ro':self._ro,
+                         'vo':self._vo,
+                         'zo':self._zo,
+                         'solarmotion':self._solarmotion}
+        if self.phasedim() == 6:
+            vxvv= self.vxvv[:,[0,1,2,5]]
+        elif self.phasedim() == 5:
+            vxvv= self.vxvv[:,[0,1,2]]
+        else:
+            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
+        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
+        out._roSet= self._roSet
+        out._voSet= self._voSet
+        return out
+
+    def toLinear(self):
+        """
+        NAME:
+
+           toLinear
+
+        PURPOSE:
+
+           convert 3D orbits into 1D orbits (z)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           linear Orbits instance
+
+        HISTORY:
+
+           2019-03-02 - Written - Bovy (UofT)
+
+        """
+        orbSetupKwargs= {'ro':self._ro,
+                         'vo':self._vo}
+        if self.dim() == 3:
+            vxvv= self.vxvv[:,[3,4]]
+        else:
+            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
+        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
+        out._roSet= self._roSet
+        out._voSet= self._voSet
+        return out
+
     def _setupOrbitInterp(self):
         if hasattr(self,"_orbInterp"): return None
         # Setup one interpolation / phasedim, for all orbits simultaneously

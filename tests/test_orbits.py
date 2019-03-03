@@ -1595,3 +1595,84 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     assert numpy.all(numpy.fabs(r_pred-numpy.array(o.r(ts[-1]))) < 0.015), 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
     return None
 
+# Check that toPlanar works
+def test_toPlanar():
+    from galpy.orbit import Orbits
+    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+                [1.,-0.2,1.3,-0.3,0.,5.]])
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for FullOrbit'
+    assert numpy.all(obsp.R() == obs.R()), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert numpy.all(obsp.vR() == obs.vR()), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert numpy.all(obsp.vT() == obs.vT()), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    assert numpy.all(obsp.phi() == obs.phi()), 'Planar orbit generated w/ toPlanar does not have the correct phi'
+    obs= Orbits([[1.,0.1,1.1,0.3,0.],
+                [1.,-0.2,1.3,-0.3,0.]])
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for RZOrbit'
+    assert numpy.all(obsp.R() == obs.R()), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert numpy.all(obsp.vR() == obs.vR()), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert numpy.all(obsp.vT() == obs.vT()), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
+    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+                [1.,-0.2,1.3,-0.3,0.,5.]],
+                ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+    obsp= obs.toPlanar()
+    assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for RZOrbit'
+    assert numpy.all(obsp.R() == obs.R()), 'Planar orbit generated w/ toPlanar does not have the correct R'
+    assert numpy.all(obsp.vR() == obs.vR()), 'Planar orbit generated w/ toPlanar does not have the correct vR'
+    assert numpy.all(obsp.vT() == obs.vT()), 'Planar orbit generated w/ toPlanar does not have the correct vT'
+    assert numpy.fabs(obs._ro-obsp._ro) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._vo-obsp._vo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._zo-obsp._zo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.all(numpy.fabs(obs._solarmotion-obsp._solarmotion) < 10.**-15.), 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._roSet == obsp._roSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._voSet == obsp._voSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    obs= Orbits([[1.,0.1,1.1,0.3],
+                 [1.,-0.2,1.3,-0.3]])
+    try:
+        obs.toPlanar()
+    except AttributeError:
+        pass
+    else:
+        raise AttributeError('toPlanar() applied to a planar Orbit did not raise an AttributeError')
+    return None
+
+# Check that toLinear works
+def test_toLinear():
+    from galpy.orbit import Orbits
+    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+                 [1.,-0.2,1.3,-0.3,0.,5.]])
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert numpy.all(obsl.x() == obs.z()), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert numpy.all(obsl.vx() == obs.vz()), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    obs= Orbits([[1.,0.1,1.1,0.3,0.],
+                 [1.,-0.2,1.3,-0.3,0.]])
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert numpy.all(obsl.x() == obs.z()), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert numpy.all(obsl.vx() == obs.vz()), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    obs= Orbits([[1.,0.1,1.1,0.3],
+                 [1.,-0.2,1.3,-0.3]])
+    try:
+        obs.toLinear()
+    except AttributeError:
+        pass
+    else:
+        raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')
+    # w/ scales
+    ro,vo= 10.,300.
+    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+                 [1.,-0.2,1.3,-0.3,0.,5.]],ro=ro,vo=vo)
+    obsl= obs.toLinear()
+    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert numpy.all(obsl.x() == obs.z()), 'Linear orbit generated w/ toLinear does not have the correct z'
+    assert numpy.all(obsl.vx() == obs.vz()), 'Linear orbit generated w/ toLinear does not have the correct vx'
+    assert numpy.fabs(obs._ro-obsl._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._vo-obsl._vo) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert (obsl._zo is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert (obsl._solarmotion is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._roSet == obsl._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._voSet == obsl._voSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    return None
