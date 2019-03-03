@@ -1284,6 +1284,36 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
+# test getOrbit
+def test_getOrbit():
+    from galpy.orbit import Orbits
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    o= Orbits([[1.,0.1,1.2,0.3,0.2,2.],
+               [1.,-0.1,1.1,-0.3,0.2,5.]])
+    times= numpy.linspace(0.,7.,251)
+    o.integrate(times,lp)
+    Rs= o.R(times)
+    vRs= o.vR(times)
+    vTs= o.vT(times)
+    zs= o.z(times)
+    vzs= o.vz(times)
+    phis= o.phi(times)
+    orbarray= o.getOrbit()
+    assert numpy.all(numpy.fabs(Rs-orbarray[...,0])) < 10.**-16., \
+        'getOrbit does not work as expected for R'
+    assert numpy.all(numpy.fabs(vRs-orbarray[...,1])) < 10.**-16., \
+        'getOrbit does not work as expected for vR'
+    assert numpy.all(numpy.fabs(vTs-orbarray[...,2])) < 10.**-16., \
+        'getOrbit does not work as expected for vT'
+    assert numpy.all(numpy.fabs(zs-orbarray[...,3])) < 10.**-16., \
+        'getOrbit does not work as expected for z'
+    assert numpy.all(numpy.fabs(vzs-orbarray[...,4])) < 10.**-16., \
+        'getOrbit does not work as expected for vz'
+    assert numpy.all(numpy.fabs(phis-orbarray[...,5])) < 10.**-16., \
+        'getOrbit does not work as expected for phi'
+    return None
+
 # Test that the eccentricity, zmax, rperi, and rap calculated numerically by
 # Orbits agrees with that calculated numerically using Orbit
 def test_EccZmaxRperiRap_num_againstorbit_3d():

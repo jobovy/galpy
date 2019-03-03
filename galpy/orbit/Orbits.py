@@ -529,6 +529,32 @@ class Orbits(object):
             self._orbits[ii]._orb._pot= pot
         return None
 
+    def getOrbit(self):
+        """
+
+        NAME:
+
+           getOrbit
+
+        PURPOSE:
+
+           return previously calculated orbits
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           array orbit[norb,nt,nphasedim]
+
+        HISTORY:
+
+           2019-03-02 - Written - Bovy (UofT)
+
+        """
+        return self.orbit
+
     @physical_conversion('energy')
     def E(self,*args,**kwargs):
         """
