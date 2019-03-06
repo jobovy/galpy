@@ -1849,6 +1849,28 @@ def test_actionsFreqsAngles_staeckeldelta():
     assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it'
     return None
 
+# Test that the b / ip parameters are properly dealt with when using the 
+# isochroneapprox approximation: when they change, need to re-do the aA calcs.
+def test_actionsFreqsAngles_isochroneapproxb():
+    from galpy.potential import MWPotential2014, IsochronePotential
+    from galpy.orbit import Orbits
+    os= Orbits([None,None]) # Just twice the Sun!
+    # First with one b
+    jr= os.jr(type='isochroneapprox',b=0.8,pot=MWPotential2014)
+    # Now with another b, should be different
+    jrn= os.jr(type='isochroneapprox',b=1.8,pot=MWPotential2014)
+    assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying b to not specifying it'
+    # Again, now specifying ip
+    os= Orbits([None,None]) # Just twice the Sun!
+    # First with one
+    jrn= os.jr(pot=MWPotential2014,type='isochroneapprox',
+               ip=IsochronePotential(normalize=1.1,b=0.8))
+    # Now with another one, should be different
+    jr= os.jr(pot=MWPotential2014,type='isochroneapprox',
+               ip=IsochronePotential(normalize=0.99,b=1.8))
+    assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying delta to not specifying it'
+    return None
+
 def test_actionsFreqsAngles_RuntimeError_1d():
     from galpy.orbit import Orbits
     os= Orbits([[1.,0.1],[0.2,0.3]])

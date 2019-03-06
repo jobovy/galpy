@@ -1023,7 +1023,12 @@ class Orbits(object):
                         and numpy.any(kwargs['delta'] != self._aA._delta)) \
                     or (not 'delta' in kwargs 
                         and hasattr(self,'_aA_delta_automagic')
-                        and not self._aA_delta_automagic):
+                        and not self._aA_delta_automagic) \
+                    or ('b' in kwargs and hasattr(self._aA,'_aAI') 
+                        and numpy.any(kwargs['b'] != self._aA._aAI.b)) \
+                    or ('ip' in kwargs and hasattr(self._aA,'_aAI') 
+                        and (numpy.any(kwargs['ip'].b != self._aA._aAI.b) \
+                        or numpy.any(kwargs['ip']._amp != self._aA._aAI.amp))):
                 for attr in list(self.__dict__):
                     if '_aA' in attr: delattr(self,attr)
             else:
