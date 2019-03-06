@@ -1,6 +1,5 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
 import sys
-import copy
 import numpy
 import astropy.units as u
 import astropy.coordinates as apycoords
@@ -1426,7 +1425,7 @@ def test_flip_inplace():
             o= setup_orbits_flip(plp,ro,vo,zo,solarmotion,axi=False)
         elif ii == 4: #linear orbit
             o= setup_orbits_flip(llp,ro,vo,None,None,axi=False)
-        of= copy.deepcopy(o)
+        of= o()
         of.flip(inplace=True)
         #First check that the scales have been propagated properly
         assert numpy.fabs(o._ro-of._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
@@ -1454,7 +1453,6 @@ def test_flip_inplace():
     return None
 
 # Test flippingg an orbit inplace after orbit integration
-@pytest.mark.xfail(strict=True,raises=TypeError)
 def test_flip_inplace_integrated():
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -1474,7 +1472,7 @@ def test_flip_inplace_integrated():
             o= setup_orbits_flip(plp,ro,vo,zo,solarmotion,axi=False)
         elif ii == 4: #linear orbit
             o= setup_orbits_flip(llp,ro,vo,None,None,axi=False)
-        of= copy.deepcopy(o)
+        of= o()
         if ii < 2 or ii == 3:
             o.integrate(ts,lp)
             of.integrate(ts,lp)
@@ -1517,7 +1515,6 @@ def test_flip_inplace_integrated():
 # once evaluated the orbit before flipping inplace (#345)
 # only difference wrt previous test is a line that evaluates of before
 # flipping
-@pytest.mark.xfail(strict=True,raises=TypeError)
 def test_flip_inplace_integrated_evaluated():
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -1537,7 +1534,7 @@ def test_flip_inplace_integrated_evaluated():
             o= setup_orbits_flip(plp,ro,vo,zo,solarmotion,axi=False)
         elif ii == 4: #linear orbit
             o= setup_orbits_flip(llp,ro,vo,None,None,axi=False)
-        of= copy.deepcopy(o)
+        of= o()
         if ii < 2 or ii == 3:
             o.integrate(ts,lp)
             of.integrate(ts,lp)
