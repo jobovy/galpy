@@ -3130,8 +3130,6 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            t - desired time (can be Quantity)
 
-           rect - if true, return rectangular coordinates
-
         OUTPUT:
 
            an Orbit instance with initial condition set to the 

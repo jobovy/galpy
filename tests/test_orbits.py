@@ -1107,6 +1107,61 @@ def test_orbits_method_integrate_t_asQuantity_warning():
     check_integrate_t_asQuantity_warning(o,'R')
     return None
 
+# Test new orbits formed from __call__
+def test_newOrbits():
+    from galpy.orbit import Orbits
+    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+               [1.1,0.3,0.9,-0.2,0.3,2.]])
+    ts= numpy.linspace(0.,1.,21) #v. quick orbit integration
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o.integrate(ts,lp)
+    no= o(ts[-1]) #new Orbits
+    assert numpy.all(no.R() == o.R(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct R"
+    assert numpy.all(no.vR() == o.vR(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(no.vT() == o.vT(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(no.z() == o.z(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct z"
+    assert numpy.all(no.vz() == o.vz(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(no.phi() == o.phi(ts[-1])), "New Orbits formed from calling an old orbit does not have the correct phi"
+    assert not no._roSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    #Also test this for multiple time outputs
+    nos= o(ts[-2:]) #new orbits
+    #First t
+    assert numpy.all(numpy.fabs(nos[0].R()-o.R(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(nos[0].vR()-o.vR(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(nos[0].vT()-o.vT(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(nos[0].z()-o.z(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct phi"
+    assert not nos[0]._roSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._voSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    #Second t
+    assert numpy.all(numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(nos[1].vT()-o.vT(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(nos[1].z()-o.z(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct phi"
+    assert not nos[1]._roSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._voSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    return None
+
+# Test new orbits formed from __call__, before integration
+def test_newOrbit_b4integration():
+    from galpy.orbit import Orbits
+    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+               [1.1,0.3,0.9,-0.2,0.3,2.]])
+    no= o() #New Orbits formed before integration
+    assert numpy.all(numpy.fabs(no.R()-o.R()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(no.vR()-o.vR()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(no.vT()-o.vT()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(no.z()-o.z()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(no.vz()-o.vz()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(no.phi()-o.phi()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct phi"
+    assert not no._roSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    return None
+
 # Check plotting routines
 def test_plotting():
     from galpy.orbit import Orbit, Orbits

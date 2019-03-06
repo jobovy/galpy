@@ -3252,6 +3252,48 @@ class Orbits(object):
                                     z_sun=self._zo*units.kpc,
                                     galcen_v_sun=v_sun).T
 
+
+    def __call__(self,*args,**kwargs):
+        """
+        NAME:
+ 
+          __call__
+
+        PURPOSE:
+
+           return the orbits at time t
+
+        INPUT:
+
+           t - desired time (can be Quantity)
+
+        OUTPUT:
+
+           an Orbits instance with initial conditions set to the 
+           phase-space at time t or list of Orbit instances if multiple 
+           times are given
+
+        HISTORY:
+
+           2019-03-05 - Written - Bovy (UofT)
+
+        """
+        orbSetupKwargs= {'ro':self._ro,
+                         'vo':self._vo,
+                         'zo':self._zo,
+                         'solarmotion':self._solarmotion}
+        thiso= self._call_internal(*args,**kwargs)
+        if len(thiso.shape) == 2:
+            out= Orbits(vxvv=thiso.T,**orbSetupKwargs)
+            out._roSet= self._roSet
+            out._voSet= self._voSet
+        else:
+            out= [Orbits(vxvv=thiso[:,ii].T,
+                        **orbSetupKwargs) for ii in range(thiso.shape[1])]
+            if not self._roSet or not self._voSet:
+                [o.turn_physical_off() for o in out]
+        return out
+
     def _call_internal(self,*args,**kwargs):
         """
         NAME:
