@@ -368,6 +368,41 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The AMBRE Project: searching for the closest solar siblings*, V. Adibekyan, P. de Laverny, A. Recio-Blanco, et al. (2018) *Astron. & Astrophys.*, in press (`arXiv/1810.01813 <http://arxiv.org/abs/1810.01813>`_)
 
+#. *SB 796: a high-velocity RRc star*, Roy Gomel, Sahar Shahaf, Tsevi Mazeh, Simchon Faigler, Lisa A. Crause, Ramotholo Sefako, Damien Segransan, Pierre F.L. Maxted, & Igor Soszynski (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1810.09501 <http://arxiv.org/abs/1810.09501>`_)
+
+#. *An Ultra Metal-poor Star Near the Hydrogen-burning Limit*, Kevin C. Schlaufman, Ian B. Thompson, & Andrew R. Casey (2018) *Astrophys. J.*, in press (`arXiv/1811.00549 <http://arxiv.org/abs/1811.00549>`_)
+
+#. *Ages of radio pulsar: long-term magnetic field evolution*, Andrei P. Igoshev (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1810.12922 <http://arxiv.org/abs/1810.12922>`_)
+
+#. *Tracing the formation of the Milky Way through ultra metal-poor stars*, Federico Sestito, Nicolas Longeard, Nicolas F. Martin, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1811.03099 <http://arxiv.org/abs/1811.03099>`_)
+
+#. *GD-1: the relic of an old metal-poor globular cluster*, Guang-Wei Li, Brian Yanny, & Yue Wu (2018) *Astrophys. J.*, submitted (`arXiv/1811.06427 <http://arxiv.org/abs/1811.06427>`_)
+
+#. *Subhalo destruction in the Apostle and Auriga simulations*, Jack Richings, Carlos Frenk, Adrian Jenkins, Andrew Robertson (2018) *Mon. Not. Roy. Astron. Soc.*, to be submitted (`arXiv/1811.12437 <http://arxiv.org/abs/1811.12437>`_)
+
+#. *Searching for the GD-1 Stream Progenitor in Gaia DR2 with Direct N-body Simulations*, Jeremy J. Webb & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1811.07022 <http://arxiv.org/abs/1811.07022>`_)
+
+#. *The Origins of Young Stars in the Direction of the Leading Arm of the Magellanic Stream: Abundances, Kinematics, and Orbits*, Lan Zhang, Dana I. Casetti-Dinescu, Christian Moni Bidin, Rene A. Mendez, Terrence M. Girard, Katherine Vieira, Vladimir I. Korchagin, William F. van Altena, & Gang Zhao (2018) *Astrophys. J.*, in press (`arXiv/1812.00198 <http://arxiv.org/abs/1812.00198>`_)
+
+#. *The UTMOST pulsar timing programme I: overview and first results*, F. Jankowski, M. Bailes, W. van Straten, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1812.04038 <http://arxiv.org/abs/1812.04038>`_)
+
+#. *Dynamical Histories of the Crater II and Hercules Dwarf Galaxies*, Sal Wanying Fu, Joshua D. Simon, Alex G. Alarcon Jara (2019) *Astrophys. J.*, submitted (`arXiv/1901.00594 <http://arxiv.org/abs/1901.00594>`_)
+
+#. *Dynamical heating across the Milky Way disc using APOGEE and Gaia*, J. Ted Mackereth, Jo Bovy, Henry W. Leung, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1901.04502 <http://arxiv.org/abs/1901.04502>`_)
+
+#. *Identifying Sagittarius Stream Stars By Their APOGEE Chemical Abundance Signatures*, Sten Hasselquist, Jeffrey L. Carlin, Jon A. Holtzman, et al. (2019) *Astrophys. J.*, in press (`arXiv/1901.04559 <http://arxiv.org/abs/1901.04559>`_)
+
+#. *The GALAH Survey: Chemodynamics of the Solar Neighbourhood*, Michael R. Hayden, Joss Bland-Hawthorn, Sanjib Sharma, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1901.07565 <http://arxiv.org/abs/1901.07565>`_)
+
+#. *The Pristine Dwarf-Galaxy survey - II. In-depth observational study of the faint Milky Way satellite Sagittarius II*, Nicolas Longeard, Nicolas Martin, Else Starkenburg, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.02780 <http://arxiv.org/abs/1902.02780>`_)
+
+#. *Secular dynamics of binaries in stellar clusters I: general formulation and dependence on cluster potential*, Chris Hamilton & Roman R. Rafikov (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.01344 <http://arxiv.org/abs/1902.01344>`_)
+
+#. *Secular dynamics of binaries in stellar clusters II: dynamical evolution*, Chris Hamilton & Roman R. Rafikov (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.01345 <http://arxiv.org/abs/1902.01345>`_)
+
+#. *Discovery of Tidal Tails in Disrupting Open Clusters: Coma Berenices and a Neighbor Stellar Group*, Shih-Yun Tang, Xiaoying Pang, Zhen Yuan, W. P. Chen, Jongsuk Hong, Bertrand Goldman, Andreas Just, Bekdaulet Shukirgaliyev, & Chien-Cheng Lin (2019) *Astrophys. J.*, submitted (`arXiv/1902.01404 <http://arxiv.org/abs/1902.01404>`_)
+
+#. *A class of partly burnt runaway stellar remnants from peculiar thermonuclear supernovae*, R. Raddi, M. A. Hollands, D. Koester, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.05061 <http://arxiv.org/abs/1902.05061>`_)
 
 Indices and tables
 ==================

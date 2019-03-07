@@ -39,12 +39,14 @@ rotation curve
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> from galpy.potential import plotRotcurve
->>> plotRotcurve([hp,mp,np],Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
+>>> plotRotcurve(hp+mp+np,Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
 
 Note that the ``normalize`` values add up to 1. such that the circular
-velocity will be 1 at R=1. The resulting rotation curve is
-approximately flat. To show the rotation curves of the three
-components do
+velocity will be 1 at R=1. Potentials can be combined into a composite
+potential either by combining them in a list as ``[hp,mp,np]`` or by
+adding them up ``hp+mp+np`` (the latter simply returns the list
+``[hp,mp,np]``). The resulting rotation curve is approximately
+flat. To show the rotation curves of the three components do
 
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
 >>> hp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
@@ -344,8 +346,8 @@ error remains constant
 Because stars have typically only orbited the center of their galaxy
 tens of times, using symplectic integrators is mostly unnecessary
 (compared to planetary systems which orbits millions or billions of
-times). galpy contains fast integrators written in C, which can be
-accessed through the ``method=`` keyword (e.g.,
+times). galpy contains :ref:`fast integrators <fastorbit>` written in
+C, which can be accessed through the ``method=`` keyword (e.g.,
 ``integrate(...,method='dopr54_c')`` is a fast high-order
 Dormand-Prince method).
 
@@ -361,7 +363,7 @@ torus (this could take a minute)
 As before, we can also integrate orbits in combinations of potentials. Assuming ``mp, np,`` and ``hp`` were defined as above, we can
 
 >>> ts= numpy.linspace(0,100,10000)
->>> o.integrate(ts,[mp,hp,np])
+>>> o.integrate(ts,mp+hp+np)
 >>> o.plot()
 
 .. image:: images/mphpnp-orbit-integration.png
@@ -387,7 +389,7 @@ above
 or of the combination of potentials defined above
 
 >>> from galpy.potential import plotEscapecurve
->>> plotEscapecurve([mp,hp,np],Rrange=[0.01,10.],grid=1001)
+>>> plotEscapecurve(mp+hp+np,Rrange=[0.01,10.],grid=1001)
 
 .. image:: images/esc-comb.png
 

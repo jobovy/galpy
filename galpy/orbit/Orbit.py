@@ -8,6 +8,7 @@ except ImportError:
 if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
+    _APY_GE_31= tuple(map(int,(astropy.__version__.split('.')))) > (3,0,5)
     from astropy.coordinates import SkyCoord, Galactocentric, \
         CartesianDifferential
 _ASTROQUERY_LOADED= True
@@ -123,7 +124,7 @@ class Orbit(object):
                 ro= nu.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
                             -zo**2.)
             elif not vxvv.galcen_distance is None and \
-                    nu.fabs(ro**2.-vxvv.galcen_distance.to(units.kpc).value**2.-zo**2.) > 1e-14:
+                    nu.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
         if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
@@ -167,7 +168,10 @@ class Orbit(object):
                 galcen_distance=nu.sqrt(ro**2.+zo**2.)*units.kpc,
                 z_sun=zo*units.kpc,galcen_v_sun=galcen_v_sun)
             vxvvg= vxvv.transform_to(gc_frame)
-            vxvvg.representation= 'cylindrical'
+            if _APY_GE_31:
+                vxvvg.representation_type= 'cylindrical'
+            else: #pragma: no cover
+                vxvvg.representation= 'cylindrical'
             R= vxvvg.rho.to(units.kpc).value/ro
             phi= nu.pi-vxvvg.phi.to(units.rad).value
             z= vxvvg.z.to(units.kpc).value/ro
@@ -360,7 +364,7 @@ class Orbit(object):
 
         PURPOSE:
 
-           return the dimension of the problem
+           return the dimension of the Orbit
 
         INPUT:
 
@@ -464,12 +468,14 @@ class Orbit(object):
 
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
+                   'dop853' for a Dormand-Prince 8(5,3) implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
                    'symplec4_c' for a 4th order symplectic integrator in C
                    'symplec6_c' for a 6th order symplectic integrator in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                   'dopr54_c' for a Dormand-Prince integrator in C (generally the fastest)
+                   'dopr54_c' for a Dormand-Prince 5(4) integrator in C (generally the fastest)
+                   'dop853_c' for a Dormand-Prince 8(5, 3) integrator in C
 
            dt= (None) if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -484,6 +490,10 @@ class Orbit(object):
            2015-06-28 - Added dt keyword - Bovy (IAS)
 
         """
+        if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
+                'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
+                'dopr54_c', 'dop853_c']:
+            raise ValueError('{:s} is not a valid `method`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
@@ -1147,7 +1157,7 @@ class Orbit(object):
            2018-08-29 - Written as thin wrapper around Potential.rl - Bovy (UofT)
 
         """
-        pot= kwargs.get('pot',None)
+        pot= kwargs.get('pot',self._orb.__dict__.get('_pot',None))
         if pot is None:
             raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
         flatten_potential(pot)

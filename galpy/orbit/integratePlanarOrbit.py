@@ -320,6 +320,8 @@ def _parse_integrator(int_method):
         int_method_c= 4
     elif int_method.lower() == 'dopr54_c':
         int_method_c= 5
+    elif int_method.lower() == 'dop853_c':
+        int_method_c= 6
     else:
         int_method_c= 0
     return int_method_c

@@ -7,13 +7,16 @@ _SCIPY_VERSION= [int(v.split('rc')[0])
                  for v in scipy.__version__.split('.')]
 if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
     from scipy.maxentropy import logsumexp
-else:
+elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
     from scipy.misc import logsumexp
+else:
+    from scipy.special import logsumexp
 from galpy.potential.Potential import _evaluateRforces, _evaluatezforces,\
     evaluatePotentials, _evaluatephiforces, evaluateDensities, _check_c
 from galpy.potential.DissipativeForce import _isDissipative
 from galpy.util import galpyWarning, galpyWarningVerbose
 import galpy.util.bovy_plot as plot
+from galpy.util.leung_dop853 import dop853
 import galpy.util.bovy_symplecticode as symplecticode
 import galpy.util.bovy_coords as coords
 #try:
@@ -76,6 +79,7 @@ class FullOrbit(OrbitTop):
            pot - potential instance or list of instances
            method= 'odeint' for scipy's odeint
                    'leapfrog' for a simple leapfrog implementation
+                   'dop853' for a dop853 implementation
                    'leapfrog_c' for a simple leapfrog implementation in C
                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
@@ -610,7 +614,8 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
     elif ext_loaded and \
             (method.lower() == 'leapfrog_c' or method.lower() == 'rk4_c' \
             or method.lower() == 'rk6_c' or method.lower() == 'symplec4_c' \
-            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c'):
+            or method.lower() == 'symplec6_c' or method.lower() == 'dopr54_c' \
+            or method.lower() == 'dop853_c'):
         warnings.warn("Using C implementation to integrate orbits",
                       galpyWarningVerbose)
         #go to the rectangular frame
@@ -636,11 +641,14 @@ def _integrateFullOrbit(vxvv,pot,t,method,dt):
         out[:,5]= phi
         out[:,3]= tmp_out[:,2]
         out[:,4]= tmp_out[:,5]
-    elif method.lower() == 'odeint' or not ext_loaded:
+    elif method.lower() == 'odeint' or method.lower() == 'dop853' or not ext_loaded:
         vphi= vxvv[2]/vxvv[0]
         init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
-        intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
-                                 rtol=10.**-8.)#,mxstep=100000000)
+        if method == 'dop853':
+            intOut = dop853(_FullEOM, init, t, args=(pot,))
+        else:
+            intOut= integrate.odeint(_FullEOM,init,t,args=(pot,),
+                                     rtol=10.**-8.)#,mxstep=100000000)
         out= nu.zeros((len(t),6))
         out[:,0]= intOut[:,0]
         out[:,1]= intOut[:,1]

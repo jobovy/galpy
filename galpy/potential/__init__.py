@@ -18,7 +18,6 @@ from . import DehnenBarPotential
 from . import SteadyLogSpiralPotential
 from . import TransientLogSpiralPotential
 from . import MovingObjectPotential
-from . import ForceSoftening
 from . import EllipticalDiskPotential
 from . import CosmphiDiskPotential
 from . import RazorThinExponentialDiskPotential
@@ -45,6 +44,7 @@ from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
 from . import RingPotential
 from . import PerfectEllipsoidPotential
+from . import IsothermalDiskPotential
 #
 # Functions
 #
@@ -154,13 +154,12 @@ ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.Chandra
 SphericalShellPotential= SphericalShellPotential.SphericalShellPotential
 RingPotential= RingPotential.RingPotential
 PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
+IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
-#Softenings
-PlummerSoftening= ForceSoftening.PlummerSoftening
 
 #
 # Constants

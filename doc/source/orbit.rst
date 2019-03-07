@@ -326,22 +326,53 @@ See the documentation of the o.plot function and the o.ra(), o.ll(),
 etc. functions on how to provide the necessary parameters for the
 coordinate transformations.
 
+It is also possible to plot quantities computed from the basic Orbit
+outputs like ``o.x()``, ``o.r()``, etc. For this to work, the `numexpr
+<https://github.com/pydata/numexpr>`__ module needs to be installed;
+this can be done using ``pip`` or ``conda``. Then you can ask for
+plots like
+
+>>> o.plot(d1='r',d2='vR*R/r+vz*z/r')
+
+where ``d2=`` converts the velocity to spherical coordinates (this is
+currently not a pre-defined option). This gives the following orbit
+(which is closed in this projection, because we are using a spherical
+potential):
+
+.. image:: images/lp-orbit-integration-spherrvr.png
+
+You can also do  more complex things like
+
+>>> o.plot(d1='x',d2='y')
+>>> o.plot(d1='R*cos(phi-{:f}*t)'.format(o.Op(quantity=False)),
+           d2='R*sin(phi-{:f}*t)'.format(o.Op(quantity=False)),
+          overplot=True)
+
+which shows the orbit in the regular ``(x,y)`` frame as well as in a
+``(x,y)`` frame that is rotating at the angular frequency of the
+orbit. When doing more complex calculations like this, you need to
+make sure that you are getting the units right: parameters ``param``
+in the expression you provide are directly evaluated as ``o.param()``,
+which depending on how you setup the object may or may not return
+output in physical units. The expression above is safe, because
+``o.Op`` evaluated like this will be in a consistent unit system with
+the rest of the expression. Expressions cannot contain astropy
+Quantities (these cannot be parsed by the parser), which is why
+``quantity=False`` is specified; this is also used internally.
+
 Finally, it is also possible to plot arbitrary functions of time with
-``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. This
-is for example useful if you want to display the orbit in a different
-coordinate system. For example, to display the orbital velocity in the
-spherical radial direction (which is currently not a pre-defined
-option), you can do the following
+``Orbit.plot``, by specifying ``d1=`` or ``d2=`` as a function. For
+example, to display the orbital velocity in the spherical radial
+direction, which we also did with the expression above, you can do the
+following
 
 >>> o.plot(d1='r',
 	   d2=lambda t: o.vR(t)*o.R(t)/o.r(t)+o.vz(t)*o.z(t)/o.r(t),
 	   ylabel='v_r')
 
-where ``d2=`` converts the velocity to spherical coordinates. This
-gives the following orbit (which is closed in this projection, because
-we are using a spherical potential):
-
-.. image:: images/lp-orbit-integration-spherrvr.png
+For a function like this, just specifying it as the expression
+``d2='vR*R/r+vz*z/r'`` is much more convenient, but expressions that
+cannot be parsed automatically could be directly given as a function.
 
 .. _orbanim:
 
@@ -562,8 +593,10 @@ The whole orbit can also be obtained using the function ``getOrbit``
 which returns a matrix of phase-space points with dimensions [ntimes,ndim].
 
 
-Fast orbit integration
-------------------------
+.. _fastorbit:
+
+**UPDATED IN v1.5** Fast orbit integration and available integrators
+---------------------------------------------------------------------
 
 The standard orbit integration is done purely in python using standard
 scipy integrators. When fast orbit integration is needed for batch
@@ -582,6 +615,7 @@ the ``orbit.integrate`` method. Currently available integrators are
 * rk4_c
 * rk6_c
 * dopr54_c
+* dop853_c
 
 which are Runge-Kutta and Dormand-Prince methods. There are also a
 number of symplectic integrators available
@@ -591,10 +625,15 @@ number of symplectic integrators available
 * symplec6_c
 
 The higher order symplectic integrators are described in `Yoshida
-(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_.
+(1993) <http://adsabs.harvard.edu/abs/1993CeMDA..56...27Y>`_. In pure
+Python, the available integrators are
 
-For most applications I recommend ``symplec4_c``, which is speedy and
-reliable. For example, compare
+* leapfrog
+* odeint
+* dop853
+
+For most applications I recommend ``symplec4_c`` or ``dop853_c``,
+which are speedy and reliable. For example, compare
 
 >>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
 >>> timeit(o.integrate(ts,mp,method='leapfrog'))
@@ -605,9 +644,20 @@ reliable. For example, compare
 >>> timeit(o.integrate(ts,mp,method='symplec4_c'))
 # galpyWarning: Using C implementation to integrate orbits
 # 9.67 ms ± 48.3 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853_c'))
+# 4.65 ms ± 86.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
-As this example shows, galpy will issue a warning that C is being
-used.
+If the C extensions are unavailable for some reason, I recommend using
+the ``odeint`` pure-Python integrator, as it is the fastest. Using the
+same example as above
+
+>>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> timeit(o.integrate(ts,mp,method='leapfrog'))
+# 2.62 s ± 128 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+>>> timeit(o.integrate(ts,mp,method='odeint'))
+# 153 ms ± 2.59 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+>>> timeit(o.integrate(ts,mp,method='dop853'))
+# 1.61 s ± 218 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
 Integration of the phase-space volume
 --------------------------------------
@@ -764,14 +814,12 @@ We will use ``MWPotential2014`` as our Milky-Way potential
 model. Because the LMC is in fact unbound in ``MWPotential2014``, we
 increase the halo mass by 50% to make it bound (this corresponds to a
 Milky-Way halo mass of :math:`\approx 1.2\,\times 10^{12}\,M_\odot`, a
-not unreasonable value). We can hack this together as
+not unreasonable value). We can adjust a galpy Potential's amplitude simply by multiplying the potential by a number, so to increase the mass by 50% we do
 
->>> MWPotential2014[2]._amp*= 1.5
+>>> MWPotential2014[2]*= 1.5
 
-(Note that this is *not* a generally recommended route for changing
-the mass of an object, since it relies on editing a private
-attribute). Let us now integrate the orbit backwards in time for 10
-Gyr and plot it:
+Let us now integrate the orbit backwards in time for 10 Gyr and plot
+it:
 
 >>> ts= numpy.linspace(0.,-10.,1001)*units.Gyr
 >>> o.integrate(ts,MWPotential2014)
@@ -782,7 +830,7 @@ Gyr and plot it:
 
 We see that the LMC is indeed bound, with an apocenter just over 250
 kpc. Now let's add dynamical friction for the LMC, assuming that its
-mass if :math:`5\times 10^{10}\,M_\odot`. We setup the
+mass is :math:`5\times 10^{10}\,M_\odot`. We setup the
 dynamical-friction object:
 
 >>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,rhm=5.*units.kpc,
@@ -797,13 +845,9 @@ for definiteness. We now make a copy of the orbit instance above and
 integrate it in the potential that includes dynamical friction:
 
 >>> odf= o()
->>> odf.integrate(ts,[MWPotential2014,cdf])
+>>> odf.integrate(ts,MWPotential2014+cdf)
 
-(Note that specifying the forces as the list ``[MWPotential2014,cdf]``
-works even though ``MWPotential2014`` is itself a list of potentials,
-because we can use nested lists of potentials or forces wherever a
-list is allowed in ``galpy``). Overlaying the orbits, we can see the
-difference in the evolution:
+Overlaying the orbits, we can see the difference in the evolution:
 
 >>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
 >>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
@@ -834,7 +878,7 @@ dispersion. Then we integrate the orbit and overplot it on the
 previous results:
 
 >>> odf2= o()
->>> odf2.integrate(ts,[MWPotential2014,cdf])
+>>> odf2.integrate(ts,MWPotential2014+cdf)
 
 and
 
@@ -856,7 +900,7 @@ Finally, let's see what will happen in the future if the LMC is as
 massive as :math:`10^{11}\,M_\odot`. We simply flip the sign of the
 integration times to get the future trajectory:
 
->>> odf2.integrate(-ts[-ts < 9*units.Gyr],[MWPotential2014,cdf])
+>>> odf2.integrate(-ts[-ts < 9*units.Gyr],MWPotential2014+cdf)
 >>> odf2.plot(d1='t',d2='r')
 
 .. image:: images/lmc-mwp14-plusdynfric-1011msun-future.png

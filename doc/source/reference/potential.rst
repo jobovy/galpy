@@ -13,6 +13,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potentialadd.rst>
+   __mul__ <potentialmul.rst>
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
@@ -227,35 +229,42 @@ potential was fit. This potential is defined as
 >>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
 >>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
 >>> np= NFWPotential(a=16/8.,normalize=.35)
->>> MWPotential2014= [bp,mp,np]
+>>> MWPotential2014= bp+mp+np
 
-and can thus be used like any list of ``Potentials``. If one wants to
-add the supermassive black hole at the Galactic center, this can be
-done by
+and can thus be used like any list of ``Potentials``. The mass of the
+dark-matter halo in ``MWPotential2014`` is on the low side of
+estimates of the Milky Way's halo mass; if you want to adjust it, for
+example making it 50% larger, you can simply multiply the halo part of
+``MWPotential2014`` by 1.5 as (this type of multiplication works for
+*any* potential in galpy)
+
+>>> MWPotential2014[2]*= 1.5
+
+If one wants to add the supermassive black hole at the Galactic
+center, this can be done by
 
 >>> from galpy.potential import KeplerPotential
 >>> from galpy.util import bovy_conversion
->>> MWPotential2014wBH= [MWPotential2014,KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))]
+>>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))
 
-for a black hole with a mass of :math:`4\times10^6\,M_{\odot}` (this
-works because a list of Potential instances can contain a nested list
-of Potential instances in versions>=1.4). If you want to take into
-account dynamical friction for, say, an object of mass
-:math:`5\times 10^{10}\,M_\odot` and a half-mass radius of 5 kpc, do
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`. If you
+want to take into account dynamical friction for, say, an object of
+mass :math:`5\times 10^{10}\,M_\odot` and a half-mass radius of 5 kpc,
+do
 
 >>> from galpy.potential import ChandrasekharDynamicalFrictionForce
 >>> from astropy import units
 >>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,
 					     rhm=5.*units.kpc,
 					     dens=MWPotential2014)
->>> MWPotential2014wDF= [MWPotential2014,cdf]
+>>> MWPotential2014wDF= MWPotential2014+cdf
 
 where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
 
 >>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
 					     rhm=5./8.,
 					     dens=MWPotential2014)
->>> MWPotential2014wDF= [MWPotential2014,cdf]
+>>> MWPotential2014wDF= MWPotential2014+cdf
 
 As explained in :ref:`this section <nemopot>`, *without* this black
 hole or dynamical friction, ``MWPotential2014`` can be used with
@@ -269,7 +278,7 @@ potential that was *not* fit to data on the Milky Way is defined as
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
->>> MWPotential= [mp,np,hp]
+>>> MWPotential= mp+np+hp
 
 ``galpy.potential.MWPotential2014`` supersedes
 ``galpy.potential.MWPotential``.
@@ -285,6 +294,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential2dadd.rst>
+   __mul__ <potential2dmul.rst>
    __call__ <potential2dcall.rst>
    phiforce <potential2dphiforce.rst>
    Rforce <potential2drforce.rst>
@@ -367,6 +378,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential1dadd.rst>
+   __mul__ <potential1dmul.rst>
    __call__ <potential1dcall.rst>
    force <potential1dforce.rst>
    plot <potential1dplot.rst>
@@ -394,6 +407,7 @@ Specific potentials
 .. toctree::
    :maxdepth: 2
 
+   IsothermalDiskPotential <potentialisodisk.rst>
    KGPotential <potentialkg.rst>
 
 One-dimensional potentials can also be derived from 3D axisymmetric potentials as the vertical potential at a certain Galactocentric radius

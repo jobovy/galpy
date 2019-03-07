@@ -34,16 +34,31 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 #include <bovy_symplecticode.h>
 #define _MAX_DT_REDUCE 10000.
-//CTRL-C only works on UNIX systems with signal library
-#ifndef _WIN32
 #include "signal.h"
 volatile sig_atomic_t interrupted= 0;
+
+// handle CTRL-C differently on UNIX systems and Windows
+#ifndef _WIN32
 void handle_sigint(int signum)
 {
   interrupted= 1;
 }
 #else
-int interrupted= 0;
+#include <windows.h>
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+    switch (fdwCtrlType)
+    {
+    // Handle the CTRL-C signal.
+    case CTRL_C_EVENT:
+        interrupted= 1;
+        // needed to avoid other control handlers like python from being called before us
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 #endif
 static inline void leapfrog_leapq(int dim, double *q,double *p,double dt,
 				  double *qn){
@@ -124,6 +139,8 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)){}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
@@ -242,6 +259,8 @@ void symplec4(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
@@ -395,6 +414,8 @@ void symplec6(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
