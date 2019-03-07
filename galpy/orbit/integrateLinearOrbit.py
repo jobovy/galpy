@@ -124,20 +124,25 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        C integrate an ode for a LinearOrbit
     INPUT:
        pot - Potential or list of such instances
-       yo - initial condition [q,p]
+       yo - initial condition [q,p], can be [N,2] or [2]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (N,len(y0), len(t)) or (len(y0), len(t)) if N=1
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
     HISTORY:
        2018-10-06 - Written - Bovy (UofT)
+       2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
     """
+    if len(yo.shape) == 1: single_obj= True
+    else: single_obj= False
+    yo= nu.atleast_2d(yo)
+    nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
@@ -145,13 +150,14 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
         dt= -9999.99
 
     #Set up result array
-    result= nu.empty((len(t),2))
-    err= ctypes.c_int(0)
+    result= nu.empty((nobj,len(t),2))
+    err= nu.zeros(nobj,dtype=nu.int32)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateLinearOrbit
-    integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+    integrationFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,
@@ -161,7 +167,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ctypes.POINTER(ctypes.c_int),
+                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ctypes.c_int]
 
     #Array requirements, first store old order
@@ -170,9 +176,11 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
     result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
+    err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
 
     #Run the C code
-    integrationFunc(yo,
+    integrationFunc(ctypes.c_int(nobj),
+                    yo,
                     ctypes.c_int(len(t)),
                     t,
                     ctypes.c_int(npot),
@@ -181,15 +189,16 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
-                    ctypes.byref(err),
+                    err,
                     ctypes.c_int(int_method_c))
     
-    if int(err.value) == -10: #pragma: no cover
+    if nu.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
 
-    return (result,err.value)
+    if single_obj: return (result[0],err[0])
+    else: return (result,err)
 

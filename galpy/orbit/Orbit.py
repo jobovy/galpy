@@ -29,7 +29,7 @@ from .planarOrbit import planarOrbit, planarROrbit, \
 from .linearOrbit import linearOrbit
 from galpy.potential import flatten as flatten_potential
 from galpy.potential import rl, _isNonAxi
-_K=4.74047
+from ..util.bovy_coords import _K
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
                  units.kpc,units.km/units.s,units.rad]
@@ -385,6 +385,31 @@ class Orbit(object):
             return 2
         elif len(self._orb.vxvv) == 5 or len(self._orb.vxvv) == 6:
             return 3
+
+    def phasedim(self):
+        """
+        NAME:
+
+           phasedim
+
+        PURPOSE:
+
+           return the phase-space dimension of the problem (2 for 1D, 3 for 2D-axi, 4 for 2D, 5 for 3D-axi, 6 for 3D)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           phase-space dimension
+
+        HISTORY:
+
+           2018-12-20 - Written - Bovy (UofT)
+
+        """
+        return len(self._orb.vxvv)
 
     def turn_physical_off(self):
         """
@@ -1164,7 +1189,7 @@ class Orbit(object):
         if _isNonAxi(pot):
             raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
         _check_consistent_units(self,pot)
-        Lz= self.Lz(*args,use_physical=False)
+        Lz= nu.atleast_1d(self.Lz(*args,use_physical=False))
         return nu.array([rl(pot,lz,use_physical=False) for lz in Lz])
 
     def zmax(self,analytic=False,pot=None,**kwargs):
@@ -3062,7 +3087,7 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         PURPOSE:
 
-           return the position as an astropy SkyCoord
+           return the position and velocity as an astropy SkyCoord
 
         INPUT:
 
@@ -3076,6 +3101,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
         OUTPUT:
 
            SkyCoord(t)
@@ -3083,6 +3110,8 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         HISTORY:
 
            2015-06-02 - Written - Bovy (IAS)
+
+           2018-04-19 - Added velocity output for astropy >= v3 - Bovy (UofT)
 
         """
         return self._orb.SkyCoord(*args,**kwargs)
@@ -3100,8 +3129,6 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
         INPUT:
 
            t - desired time (can be Quantity)
-
-           rect - if true, return rectangular coordinates
 
         OUTPUT:
 
@@ -3951,7 +3978,7 @@ def _check_integrate_dt(t,dt):
 def _check_potential_dim(orb,pot):
     from galpy.potential import _dim
     # Don't deal with pot=None here, just dimensionality
-    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toLinear' % (orb.dim(),_dim(pot),orb.dim())
+    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
 
 def _check_consistent_units(orb,pot):
     if pot is None: return None

@@ -49,6 +49,7 @@ Methods
    Op <orbitop.rst>
    Or <orbitor.rst>
    Oz <orbitoz.rst>
+   phasedim <orbitphasedim.rst>
    phi <orbitphi.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>

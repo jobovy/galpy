@@ -14,6 +14,17 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+//OpenMP
+#if defined(_OPENMP)
+#include <omp.h>
+#else
+typedef int omp_int_t;
+inline omp_int_t omp_get_thread_num() { return 0;}
+inline omp_int_t omp_get_max_threads() { return 1;}
+#endif
+#ifndef ORBITS_CHUNKSIZE
+#define ORBITS_CHUNKSIZE 1
+#endif
 //Macros to export functions in DLL on different OS
 #if defined(_WIN32)
 #define EXPORT __declspec(dllexport)
@@ -106,7 +117,8 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
   }
   potentialArgs-= npot;
 }
-EXPORT void integrateLinearOrbit(double *yo,
+EXPORT void integrateLinearOrbit(int nobj,
+				 double *yo,
 				 int nt, 
 				 double *t,
 				 int npot,
@@ -120,8 +132,20 @@ EXPORT void integrateLinearOrbit(double *yo,
 				 int odeint_type){
   //Set up the forces, first count
   int dim;
-  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Linear(npot,potentialArgs,&pot_type,&pot_args);
+  int ii;
+  int max_threads;
+  int * thread_pot_type;
+  double * thread_pot_args;
+  max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
+  // Because potentialArgs may cache, safest to have one / thread
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+  for (ii=0; ii < max_threads; ii++) {
+    thread_pot_type= pot_type; // need to make thread-private pointers, bc
+    thread_pot_args= pot_args; // these pointers are changed in parse_...
+    parse_leapFuncArgs_Linear(npot,potentialArgs+ii*npot,
+			      &thread_pot_type,&thread_pot_args);
+  }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -170,10 +194,15 @@ EXPORT void integrateLinearOrbit(double *yo,
     dim= 2;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
+  for (ii=0; ii < nobj; ii++) 
+    odeint_func(odeint_deriv_func,dim,yo+2*ii,nt,dt,t,
+		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
+		result+2*nt*ii,err+ii);
   //Free allocated memory
-  free_potentialArgs(npot,potentialArgs);
+#pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++)
+    free_potentialArgs(npot,potentialArgs+ii*npot);
   free(potentialArgs);
   //Done!
 }
