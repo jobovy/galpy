@@ -1040,6 +1040,33 @@ def test_coordinate_interpolation_oneorbit():
         assert numpy.all(numpy.fabs(((os.phi(itimes[1])[ii]-list_os[ii].phi(itimes[1])+numpy.pi) % (2.*numpy.pi)) - numpy.pi) < 1e-10), 'Evaluating Orbits phi does not agree with Orbit'
     return None
 
+# Test that an error is raised when evaluating an orbit outside of the 
+# integration range
+def test_interpolate_outsiderange():
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 3
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    # Integrate all                                                            
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    with pytest.raises(ValueError) as excinfo:
+        os.R(11.)
+    with pytest.raises(ValueError) as excinfo:
+        os.R(-1.)
+    # Also for arrays that partially overlap
+    with pytest.raises(ValueError) as excinfo:
+        os.R(numpy.linspace(5.,11.,1001))
+    with pytest.raises(ValueError) as excinfo:
+        os.R(numpy.linspace(-5.,5.,1001))
+
 def test_call_issue256():
     # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
     from galpy.orbit import Orbits

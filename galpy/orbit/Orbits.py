@@ -3339,6 +3339,9 @@ class Orbits(object):
                 t= numpy.atleast_1d(t)
             else: 
                 nt= len(t)
+            if numpy.any(t > numpy.nanmax(self.t)) \
+                    or numpy.any(t < numpy.nanmin(self.t)):
+                raise ValueError('Found time value not in the integration time domain')
             try:
                 self._setupOrbitInterp()
             except:
