@@ -3460,19 +3460,32 @@ class Orbits(object):
         for ii in range(self.phasedim()):
             if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
                 #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,
-                        (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.))
+                if len(self) == 1:
+                    orbInterp.append(_1DInterp(\
+                          self.t,
+                          self.orbit[0,:,0]*numpy.cos(self.orbit[0,:,-1])))
+                else:
+                    orbInterp.append(interpolate.RectBivariateSpline(\
+                          self.t,orb_indx,
+                          (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
+                          ky=1,s=0.))
             elif (self.phasedim() == 4 or self.phasedim() == 6) and \
                     ii == self.phasedim()-1:
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,
-                        (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.))
+                if len(self) == 1:
+                    orbInterp.append(_1DInterp(\
+                          self.t,
+                          self.orbit[0,:,0]*numpy.sin(self.orbit[0,:,-1])))
+                else:
+                    orbInterp.append(interpolate.RectBivariateSpline(\
+                          self.t,orb_indx,
+                          (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
+                          ky=1,s=0.))
             else:
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,self.orbit[:,:,ii].T,ky=1,s=0.))
+                if len(self) == 1:
+                    orbInterp.append(_1DInterp(self.t,self.orbit[0,:,ii]))
+                else:
+                    orbInterp.append(interpolate.RectBivariateSpline(\
+                            self.t,orb_indx,self.orbit[:,:,ii].T,ky=1,s=0.))
         self._orbInterp= orbInterp
         self._orb_indx_4orbInterp= orb_indx
         try: #unsort
@@ -3480,3 +3493,10 @@ class Orbits(object):
             self.orbit= self.orbit[:,usindx]
         except: pass
         return None
+
+class _1DInterp(object): 
+    """Class to simulate 2D interpolation when using a single orbit"""
+    def __init__(self,t,y,k=3):
+        self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
+    def __call__(self,t,indx):
+        return self._ip(t)[:,None]
