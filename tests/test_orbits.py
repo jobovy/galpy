@@ -1156,6 +1156,8 @@ def _check_energy_jacobi_angmom(os,list_os):
     # o.E before integration gives AttributeError
     with pytest.raises(AttributeError):
         os.E()
+    with pytest.raises(AttributeError):
+        os.Jacobi()
     # Integrate all
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
@@ -1171,7 +1173,7 @@ def _check_energy_jacobi_angmom(os,list_os):
         if os.dim() != 1:
             assert numpy.all(numpy.fabs(os.Lz(times)[ii]/list_os[ii].Lz(times)-1.) < 10.**-10.), 'Evaluating Orbits Lz does not agree with Orbit'
         if os.phasedim() % 2 == 0 and os.dim() != 1:
-            assert numpy.all(numpy.fabs(os.Jacobi(times,pot=MWPotential2014)[ii]/list_os[ii].Jacobi(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Jacobi(times)[ii]/list_os[ii].Jacobi(times)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
             # Also explicitly set OmegaP
             assert numpy.all(numpy.fabs(os.Jacobi(times,pot=MWPotential2014,OmegaP=0.6)[ii]/list_os[ii].Jacobi(times,pot=MWPotential2014,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
     # Don't do non-axi for odd-D Orbits or 1D
