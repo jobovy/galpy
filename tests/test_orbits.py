@@ -1117,10 +1117,10 @@ def test_energy_jacobi_angmom():
 def _check_energy_jacobi_angmom(os,list_os):
     nrand= len(os)
     from galpy.potential import MWPotential2014, SpiralArmsPotential, \
-        DehnenBarPotential, LogarithmicHaloPotential
+        DehnenBarPotential, DoubleExponentialDiskPotential
     sp= SpiralArmsPotential()
     dp= DehnenBarPotential()
-    lp= LogarithmicHaloPotential(normalize=1.)
+    lp= DoubleExponentialDiskPotential(normalize=1.)
     if os.dim() == 1:
         from galpy.potential import toVerticalPotential
         MWPotential2014= toVerticalPotential(MWPotential2014,1.)
@@ -1139,7 +1139,7 @@ def _check_energy_jacobi_angmom(os,list_os):
             assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014)[ii]/list_os[ii].Jacobi(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
             # Also explicitly set OmegaP
             assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=MWPotential2014,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
-    # Potential for which array evaluation definitely works
+    # Potential for which array evaluation definitely does not work
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(os.E(pot=lp)[ii]/list_os[ii].E(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
         if os.dim() == 3:
@@ -1153,15 +1153,19 @@ def _check_energy_jacobi_angmom(os,list_os):
             assert numpy.all(numpy.fabs(os.Jacobi(pot=lp)[ii]/list_os[ii].Jacobi(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
             # Also explicitly set OmegaP
             assert numpy.all(numpy.fabs(os.Jacobi(pot=lp,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=lp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+    # o.E before integration gives AttributeError
+    with pytest.raises(AttributeError):
+        os.E()
     # Integrate all
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
     [o.integrate(times,MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.E(times,pot=MWPotential2014)[ii]/list_os[ii].E(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
+        # Don't have to specify the potential
+        assert numpy.all(numpy.fabs(os.E(times)[ii]/list_os[ii].E(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
         if os.dim() == 3:
-            assert numpy.all(numpy.fabs(os.ER(times,pot=MWPotential2014)[ii]/list_os[ii].ER(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
-            assert numpy.all(numpy.fabs(os.Ez(times,pot=MWPotential2014)[ii]/list_os[ii].Ez(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.ER(times)[ii]/list_os[ii].ER(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Ez(times)[ii]/list_os[ii].Ez(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(numpy.fabs(os.L(times)[ii]/list_os[ii].L(times)-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
         if os.dim() != 1:
