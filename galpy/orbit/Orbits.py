@@ -681,7 +681,7 @@ class Orbits(object):
                 out= (evaluatelinearPotentials(pot,thiso[0],t=t,
                                                use_physical=False)\
                           +thiso[1]**2./2.).T
-            except (ValueError,TypeError):
+            except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatelinearPotentials(\
                                     pot,thiso[0][ii][jj],t=t[ii],
                                     use_physical=False)
@@ -693,7 +693,7 @@ class Orbits(object):
                 out= (evaluateplanarPotentials(pot,thiso[0],t=t,
                                                use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError):
+            except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
                                     pot,thiso[0][ii][jj],t=t[ii],
                                     use_physical=False)
@@ -706,7 +706,7 @@ class Orbits(object):
                                                phi=thiso[-1],
                                                use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError):
+            except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
                                     pot,thiso[0][ii][jj],t=t[ii],
                                     phi=thiso[-1][ii][jj],
@@ -721,7 +721,7 @@ class Orbits(object):
                 out= (evaluatePotentials(pot,thiso[0],z,t=t,
                                          use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError):
+            except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
                                     pot,thiso[0][ii][jj],
                                     z[ii][jj],
@@ -738,7 +738,7 @@ class Orbits(object):
                                          phi=thiso[-1],
                                          use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError):
+            except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
                                     pot,thiso[0][ii][jj],
                                     z[ii][jj],
