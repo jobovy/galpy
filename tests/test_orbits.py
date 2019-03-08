@@ -1871,31 +1871,31 @@ def test_actionsFreqsAngles_againstorbit_3d():
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test AttributeError when no potential and not integrated
     with pytest.raises(AttributeError):
-        os.jr(analytic=True)
+        os.jr()
     with pytest.raises(AttributeError):
-        os.jp(analytic=True)
+        os.jp()
     with pytest.raises(AttributeError):
-        os.jz(analytic=True)
+        os.jz()
     with pytest.raises(AttributeError):
-        os.wr(analytic=True)
+        os.wr()
     with pytest.raises(AttributeError):
-        os.wp(analytic=True)
+        os.wp()
     with pytest.raises(AttributeError):
-        os.wz(analytic=True)
+        os.wz()
     with pytest.raises(AttributeError):
-        os.Or(analytic=True)
+        os.Or()
     with pytest.raises(AttributeError):
-        os.Op(analytic=True)
+        os.Op()
     with pytest.raises(AttributeError):
-        os.Oz(analytic=True)
+        os.Oz()
     with pytest.raises(AttributeError):
-        os.Tr(analytic=True)
+        os.Tr()
     with pytest.raises(AttributeError):
-        os.Tp(analytic=True)
+        os.Tp()
     with pytest.raises(AttributeError):
-        os.TrTp(analytic=True)
+        os.TrTp()
     with pytest.raises(AttributeError):
-        os.Tz(analytic=True)
+        os.Tz()
     # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
     # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
     # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
