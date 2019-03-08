@@ -2089,3 +2089,101 @@ def test_toLinear():
     assert obs._roSet == obsl._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert obs._voSet == obsl._voSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     return None
+
+# Check that the routines that should return physical coordinates are turned off by turn_physical_off
+def test_physical_output_off():
+    from galpy.orbit import Orbits
+    from galpy.potential import LogarithmicHaloPotential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    o= Orbits()
+    ro= o._ro
+    vo= o._vo
+    #turn off
+    o.turn_physical_off()
+    #Test positions
+    assert numpy.fabs(o.R()-o.R(use_physical=False)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected when turned off'
+    assert numpy.fabs(o.x()-o.x(use_physical=False)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected when turned off'
+    assert numpy.fabs(o.y()-o.y(use_physical=False)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected when turned off'
+    assert numpy.fabs(o.z()-o.z(use_physical=False)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected when turned off'
+    assert numpy.fabs(o.r()-o.r(use_physical=False)) < 10.**-10., 'o.r() output for Orbit setup with ro= does not work as expected when turned off'
+    #Test velocities
+    assert numpy.fabs(o.vR()-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.vT()-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
+    assert numpy.fabs(o.vphi()-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.vx()-o.vx(use_physical=False)) < 10.**-10., 'o.vx() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.vy()-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.vz()-o.vz(use_physical=False)) < 10.**-10., 'o.vz() output for Orbit setup with vo= does not work as expected when turned off'
+    #Test energies
+    assert numpy.fabs(o.E(pot=lp)-o.E(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.Jacobi(pot=lp)-o.Jacobi(pot=lp,use_physical=False)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.ER(pot=lp)-o.ER(pot=lp,use_physical=False)) < 10.**-10., 'o.ER() output for Orbit setup with vo= does not work as expected when turned off'
+    assert numpy.fabs(o.Ez(pot=lp)-o.Ez(pot=lp,use_physical=False)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected when turned off'
+    #Test angular momentun
+    assert numpy.all(numpy.fabs(o.L()-o.L(use_physical=False)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off'
+    # Test action-angle functions
+    assert numpy.fabs(o.jr(pot=lp,type='staeckel',delta=0.5)-o.jr(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jr() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.jp(pot=lp,type='staeckel',delta=0.5)-o.jp(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jp() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.jz(pot=lp,type='staeckel',delta=0.5)-o.jz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jz() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Tr(pot=lp,type='staeckel',delta=0.5)-o.Tr(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tr() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Tp(pot=lp,type='staeckel',delta=0.5)-o.Tp(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tp() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Tz(pot=lp,type='staeckel',delta=0.5)-o.Tz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tz() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Or(pot=lp,type='staeckel',delta=0.5)-o.Or(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Or() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
+    assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
+    #Also test the times
+    assert numpy.fabs((o.time(1.)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    return None
+
+# Check that the routines that should return physical coordinates are turned
+# back on by turn_physical_on
+def test_physical_output_on():
+    from galpy.orbit import Orbits
+    from galpy.potential import LogarithmicHaloPotential
+    from astropy import units
+    lp= LogarithmicHaloPotential(normalize=1.)
+    o= Orbits()
+    ro= o._ro
+    vo= o._vo
+    o_orig= o()
+    #turn off and on
+    o.turn_physical_off()
+    for ii in range(3):
+        if ii == 0:
+            o.turn_physical_on(ro=ro,vo=vo)
+        elif ii == 1:
+            o.turn_physical_on(ro=ro*units.kpc,vo=vo*units.km/units.s)
+        else:
+            o.turn_physical_on()
+        #Test positions
+        assert numpy.fabs(o.R()-o_orig.R(use_physical=True)) < 10.**-10., 'o.R() output for Orbit setup with ro= does not work as expected when turned back on'
+        assert numpy.fabs(o.x()-o_orig.x(use_physical=True)) < 10.**-10., 'o.x() output for Orbit setup with ro= does not work as expected when turned back on'
+        assert numpy.fabs(o.y()-o_orig.y(use_physical=True)) < 10.**-10., 'o.y() output for Orbit setup with ro= does not work as expected when turned back on'
+        assert numpy.fabs(o.z()-o_orig.z(use_physical=True)) < 10.**-10., 'o.z() output for Orbit setup with ro= does not work as expected when turned back on'
+        #Test velocities
+        assert numpy.fabs(o.vR()-o_orig.vR(use_physical=True)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.vT()-o_orig.vT(use_physical=True)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.vphi()-o_orig.vphi(use_physical=True)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.vx()-o_orig.vx(use_physical=True)) < 10.**-10., 'o.vx() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.vy()-o_orig.vy(use_physical=True)) < 10.**-10., 'o.vy() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.vz()-o_orig.vz(use_physical=True)) < 10.**-10., 'o.vz() output for Orbit setup with vo= does not work as expected when turned back on'
+        #Test energies
+        assert numpy.fabs(o.E(pot=lp)-o_orig.E(pot=lp,use_physical=True)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.Jacobi(pot=lp)-o_orig.Jacobi(pot=lp,use_physical=True)) < 10.**-10., 'o.E() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.ER(pot=lp)-o_orig.ER(pot=lp,use_physical=True)) < 10.**-10., 'o.ER() output for Orbit setup with vo= does not work as expected when turned back on'
+        assert numpy.fabs(o.Ez(pot=lp)-o_orig.Ez(pot=lp,use_physical=True)) < 10.**-10., 'o.Ez() output for Orbit setup with vo= does not work as expected when turned back on'
+        #Test angular momentun
+        assert numpy.all(numpy.fabs(o.L()-o_orig.L(use_physical=True)) < 10.**-10.), 'o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on'
+        # Test action-angle functions
+        assert numpy.fabs(o.jr(pot=lp,type='staeckel',delta=0.5)-o_orig.jr(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.jr() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.jp(pot=lp,type='staeckel',delta=0.5)-o_orig.jp(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.jp() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.jz(pot=lp,type='staeckel',delta=0.5)-o_orig.jz(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.jz() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Tr(pot=lp,type='staeckel',delta=0.5)-o_orig.Tr(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Tr() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Tp(pot=lp,type='staeckel',delta=0.5)-o_orig.Tp(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Tp() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Tz(pot=lp,type='staeckel',delta=0.5)-o_orig.Tz(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Tz() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Or(pot=lp,type='staeckel',delta=0.5)-o_orig.Or(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Or() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o_orig.Op(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
+        assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o_orig.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
+    #Also test the times
+    assert numpy.fabs((o.time(1.)-o_orig.time(1.,use_physical=True))) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
+    return None
