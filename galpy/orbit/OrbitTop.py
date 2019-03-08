@@ -228,9 +228,10 @@ class OrbitTop(object):
            2016-04-19 - Written - Bovy (UofT)
         """
         thiso= self(*args,**kwargs)
-        onet= (len(thiso.shape) == 1)
-        if onet: return nu.sqrt(thiso[0]**2.+thiso[3]**2.)
-        else: return nu.sqrt(thiso[0,:]**2.+thiso[3,:]**2.)
+        if len(thiso) > 4:
+            return nu.sqrt(thiso[0]**2.+thiso[3]**2.)
+        else:
+            return nu.fabs(thiso[0])
 
     @physical_conversion('velocity')
     def vR(self,*args,**kwargs):
