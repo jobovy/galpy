@@ -1192,6 +1192,17 @@ def _check_energy_jacobi_angmom(os,list_os):
             assert numpy.all(numpy.fabs(os.Jacobi(pot=MWPotential2014+dp+sp,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=MWPotential2014+dp+sp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
     return None
 
+# Test that L cannot be computed for (a) linearOrbits and (b) 5D orbits
+def test_angmom_errors():
+    from galpy.orbit import Orbits
+    o= Orbits([[1.,0.1]])
+    with pytest.raises(AttributeError):
+        o.L()
+    o= Orbits([[1.,0.1,1.1,0.1,-0.2]])
+    with pytest.raises(AttributeError):
+        o.L()
+    return None
+
 # Test that we can still get outputs when there aren't enough points for an actual interpolation
 # Test whether Orbits evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
