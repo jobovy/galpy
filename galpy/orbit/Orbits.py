@@ -216,7 +216,8 @@ class Orbits(object):
     # 3cf76f180545acb0606b2556135e9390ce800377)
     def __getattribute__(self,attr):
         if callable(super(Orbits,self).__getattribute__(attr)) \
-                and not attr == '_pot' and not attr == '_aA':
+                and not attr == '_pot' and not attr == '_aA' \
+                and not attr == '_aAPot' and not attr == '_aAType':
             def func(*args,**kwargs):
                 try:
                     out= super(Orbits,self)\
