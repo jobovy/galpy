@@ -6,7 +6,7 @@ import math as m
 import numpy as nu
 import scipy
 from scipy import interpolate
-_APY_LOADED= True
+_APY_LOADED = True
 try:
     from astropy import units, coordinates
 except ImportError:

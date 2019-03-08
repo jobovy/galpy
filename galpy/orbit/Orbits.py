@@ -1,7 +1,7 @@
 import os
 import copy
 import warnings
-import numpy
+import numpy as np
 from scipy import interpolate
 from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
     _check_consistent_units
@@ -23,7 +23,7 @@ from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
 from .integratePlanarOrbit import integratePlanarOrbit_c
 from .integrateFullOrbit import integrateFullOrbit_c
 from .. import actionAngle
-ext_loaded= _ext_loaded
+ext_loaded = _ext_loaded
 try:
     from astropy.coordinates import SkyCoord
     _APY_LOADED = True
@@ -33,21 +33,31 @@ except ImportError:
 if _APY_LOADED:
     from astropy import units, coordinates
     import astropy
-    _APY3= astropy.__version__ > '3'
+    _APY3 = astropy.__version__ > '3'
+
 from galpy.util import config
-_APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
+_APY_UNITS = config.__config__.getboolean('astropy', 'astropy-units')
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
-    _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
+    _NUMCORES = int(os.environ['OMP_NUM_THREADS'])
 except KeyError:
     import multiprocessing
-    _NUMCORES= multiprocessing.cpu_count()
+    _NUMCORES = multiprocessing.cpu_count()
+
+
+_EMconvparam = ("All individual orbits in an Orbits class must "
+                "have the same {} unit-conversion parameter")
+_EMconvobj = ("All individual orbits in an Orbits class must have the same "
+              "{} unit-conversion parameter as the main Orbits object")
+
+
 class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=[None],ro=None,vo=None,zo=None,solarmotion=None,
-                 radec=False,uvw=False,lb=False):
+
+    def __init__(self, vxvv=[None], ro=None, vo=None, zo=None, solarmotion=None,
+                 radec=False, uvw=False, lb=False):
         """
         NAME:
 
@@ -67,9 +77,9 @@ class Orbits(object):
 
                 c) list of initial conditions for individual Orbit instances; elements can be either
 
-                    1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
+                    1) in Galactocentric cylindrical coordinates [R, vR, vT(, z, vz, phi)]; can be Quantities
 
-                    2) None: assumed to be the Sun (equivalent to ``[0,0,0,0,0,0]`` and ``radec=True``)
+                    2) None: assumed to be the Sun (equivalent to ``[0, 0, 0, 0, 0, 0]`` and ``radec=True``)
 
 
         OPTIONAL INPUTS:
@@ -80,7 +90,7 @@ class Orbits(object):
 
             zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
 
-            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U, V,W]; can be Quantity
 
         OUTPUT:
 
@@ -99,106 +109,107 @@ class Orbits(object):
         """
         if radec or lb or uvw:
             raise NotImplementedError("Orbits initialization with radec=True, lb=True, and uvw=True is not implemented; please initialize using an array of astropy SkyCoords instead")
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_LOADED and isinstance(vxvv, SkyCoord):
             # Convert entire SkyCoord to Galactocentric coordinates, then
             # proceed in regular fashion; makes use of the fact that Orbit
             # setup does the right processing even for an array of 
             # SkyCoords
-            tmpo= Orbit(vxvv=vxvv,ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-            vxvv= numpy.array(tmpo._orb.vxvv).T
+            tmpo = Orbit(vxvv=vxvv, ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
+            vxvv = np.array(tmpo._orb.vxvv).T
             # Grab coordinate-transform params, we know these must be 
             # consistent with any explicitly given ones at this point, because
             # Orbit setup would have thrown an error otherwise
-            ro= tmpo._ro
-            zo= tmpo._orb._zo
-            solarmotion= tmpo._orb._solarmotion
+            ro = tmpo._ro
+            zo = tmpo._orb._zo
+            solarmotion = tmpo._orb._solarmotion
         self._orbits = []
         for coord in vxvv:
             if isinstance(coord, Orbit):
                 self._orbits.append(copy.deepcopy(coord))
             else:
-                orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
-                              ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+                orbit = Orbit(vxvv=coord, radec=radec, uvw=uvw, lb=lb,
+                              ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
                 self._orbits.append(orbit)
-        self._setup_unit_coord_parameters(ro,vo,zo,solarmotion)
+        self._setup_unit_coord_parameters(ro, vo, zo, solarmotion)
         # Cross-checks: phase-space dimension
-        if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
+        if not np.all([o.phasedim() == self._orbits[0].phasedim()
                           for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
+            raise RuntimeError(("All individual orbits in an Orbits class  must "
+                                "have the same phase-space dimensionality"))
         # Store all vxvv and make individual ones views
-        self.vxvv= numpy.array([o._orb.vxvv for o in self._orbits])
+        self.vxvv = np.array([o._orb.vxvv for o in self._orbits])
         for ii in range(len(self)):
-            self._orbits[ii]._orb.vxvv= self.vxvv[ii]
+            self._orbits[ii]._orb.vxvv = self.vxvv[ii]
 
-    def _setup_unit_coord_parameters(self,ro,vo,zo,solarmotion):
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
-        if _APY_LOADED and isinstance(zo,units.Quantity):
-            zo= zo.to(units.kpc).value
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
-        if _APY_LOADED and isinstance(solarmotion,units.Quantity):
-            solarmotion= solarmotion.to(units.km/units.s).value
+    def _setup_unit_coord_parameters(self, ro, vo, zo, solarmotion):
+        if _APY_LOADED and isinstance(ro, units.Quantity):
+            ro = ro.to(units.kpc).value
+        if _APY_LOADED and isinstance(zo, units.Quantity):
+            zo = zo.to(units.kpc).value
+        if _APY_LOADED and isinstance(vo, units.Quantity):
+            vo = vo.to(units.km / units.s).value
+        if _APY_LOADED and isinstance(solarmotion, units.Quantity):
+            solarmotion = solarmotion.to(units.km / units.s).value
         # If parameters are not set, grab them from the first orbit (should
         # be consistent anyway, checked later)
         if vo is None:
-            self._vo= self._orbits[0]._orb._vo
-            self._voSet= False
+            self._vo = self._orbits[0]._orb._vo
+            self._voSet = False
         else:
-            self._vo= vo
-            self._voSet= True
+            self._vo = vo
+            self._voSet = True
         if ro is None:
-            self._ro= self._orbits[0]._orb._ro
-            self._roSet= False
+            self._ro = self._orbits[0]._orb._ro
+            self._roSet = False
         else:
-            self._ro= ro
-            self._roSet= True
+            self._ro = ro
+            self._roSet = True
         if zo is None:
-            self._zo= self._orbits[0]._orb._zo
+            self._zo = self._orbits[0]._orb._zo
         else:
-            self._zo= zo
+            self._zo = zo
         if solarmotion is None:
-            self._solarmotion= self._orbits[0]._orb._solarmotion
-        elif isinstance(solarmotion,str):
+            self._solarmotion = self._orbits[0]._orb._solarmotion
+        elif isinstance(solarmotion, str):
             # Use a dummy orbit to parse this consistently with how it's done
             # in Orbit
-            dummy_orbit= Orbit([1.,0.1,1.1,0.1,0.2,0.],solarmotion=solarmotion)
-            self._solarmotion= dummy_orbit._orb._solarmotion
+            dummy_orbit = Orbit([1., 0.1, 1.1, 0.1, 0.2, 0.], solarmotion=solarmotion)
+            self._solarmotion = dummy_orbit._orb._solarmotion
         else:
-            self._solarmotion= numpy.array(solarmotion)
+            self._solarmotion = np.array(solarmotion)
         # Cross-checks: unit- and coordinate-conversion parameters
-        if not numpy.all([numpy.fabs(o._ro-self._orbits[0]._ro) < 1e-10
+        if not np.all([np.fabs(o._ro - self._orbits[0]._ro) < 1e-10
                           for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter")
-        if not numpy.fabs(self._ro-self._orbits[0]._ro) < 1e-10:
-            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter as the main Orbits object")
-        if not numpy.all([numpy.fabs(o._vo-self._orbits[0]._vo) < 1e-10
+            raise RuntimeError(_EMconvparam.format('ro'))
+        if not np.fabs(self._ro - self._orbits[0]._ro) < 1e-10:
+            raise RuntimeError(_EMconvobj.format('ro'))
+        if not np.all([np.fabs(o._vo-self._orbits[0]._vo) < 1e-10
                          for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter")
-        if not numpy.fabs(self._vo-self._orbits[0]._vo) < 1e-10:
-            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter as the main Orbits object")
+            raise RuntimeError(_EMconvparam.format('vo'))
+        if not np.fabs(self._vo-self._orbits[0]._vo) < 1e-10:
+            raise RuntimeError(_EMconvobj.format('vo'))
         if self.dim() > 1:
             if not self._orbits[0]._orb._zo is None \
-                    and not numpy.all([numpy.fabs(o._orb._zo
+                    and not np.all([np.fabs(o._orb._zo
                                             -self._orbits[0]._orb._zo) < 1e-10
                                        for o in self._orbits]):
-                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset")
-            if not numpy.fabs(self._zo-self._orbits[0]._orb._zo) < 1e-10:
-                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset as the main Orbits object")
+                raise RuntimeError(_EMconvparam.format('zo'))
+            if not np.fabs(self._zo-self._orbits[0]._orb._zo) < 1e-10:
+                raise RuntimeError(_EMconvobj.format('zo'))
         if self.dim() > 1:
-            if not numpy.all([numpy.fabs(o._orb._solarmotion
-                                    -self._orbits[0]._orb._solarmotion) < 1e-10
+            if not np.all([np.fabs(o._orb._solarmotion
+                                         - self._orbits[0]._orb._solarmotion) < 1e-10
                               for o in self._orbits]):
                 raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion")
-            if not numpy.all(numpy.fabs(self._solarmotion
+            if not np.all(np.fabs(self._solarmotion
                                   -self._orbits[0]._orb._solarmotion) < 1e-10):
                 raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion as the main Orbits object")
         # If a majority of input orbits have roSet or voSet, set ro/vo for all
-        if numpy.sum([o._roSet for o in self._orbits]) >= len(self)/2. \
-                or numpy.sum([o._voSet for o in self._orbits]) >= len(self)/2.:
-            [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
-            self._roSet= True
-            self._voSet= True
+        if np.sum([o._roSet for o in self._orbits]) >= len(self) / 2. \
+                or np.sum([o._voSet for o in self._orbits]) >= len(self) / 2.:
+            [o.turn_physical_on(vo=self._vo, ro=self._ro) for o in self._orbits]
+            self._roSet = True
+            self._voSet = True
         return None
 
     def __len__(self):
@@ -214,19 +225,19 @@ class Orbits(object):
     # is raised at the top-level of the incomplete function, before calling
     # any other incomplete function... (see R function for instance in 
     # 3cf76f180545acb0606b2556135e9390ce800377)
-    def __getattribute__(self,attr):
-        if callable(super(Orbits,self).__getattribute__(attr)) \
+    def __getattribute__(self, attr):
+        if callable(super(Orbits, self).__getattribute__(attr)) \
                 and not attr == '_pot' and not attr == '_aA':
-            def func(*args,**kwargs):
+            def func(*args, **kwargs):
                 try:
-                    out= super(Orbits,self)\
-                        .__getattribute__(attr)(*args,**kwargs)
+                    out = super(Orbits, self)\
+                        .__getattribute__(attr)(*args, **kwargs)
                 except NotImplementedError:
-                    out= self.__getattr__(attr)(*args,**kwargs)
+                    out = self.__getattr__(attr)(*args, **kwargs)
                 return out
             return func
         else:
-            return super(Orbits,self).__getattribute__(attr)
+            return super(Orbits, self).__getattribute__(attr)
 
     def __getattr__(self, name):
         """
@@ -255,26 +266,30 @@ class Orbits(object):
         """
         # Catch all plotting functions
         if 'plot' in name:
-            def _plot(*args,**kwargs):
+            def _plot(*args, **kwargs):
                 for ii in range(len(self)):
-                    line2d= \
-                     self._orbits[ii].__getattribute__(name)(*args,**kwargs)[0]
+                    line2d = \
+                     self._orbits[ii].__getattribute__(name)(*args, **kwargs)[0]
                     kwargs['overplot']= True
                 line2d.axes.autoscale(enable=True)
                 _add_ticks()
                 return None
             # Assign documentation
-            _plot.__doc__= self._orbits[0].__getattribute__(name).__doc__
+            _plot.__doc__ = self._orbits[0].__getattribute__(name).__doc__
             return _plot
         attribute = getattr(Orbit(), name)
         if callable(attribute):
-            return lambda *args, **kwargs: [
-                getattr(orbit, name)(*args, **kwargs) for orbit in self._orbits
-            ]
+            def returnfunc(*args, **kw):
+                res = [
+                    getattr(orbit, name)(*args, **kwargs) for orbit in self._orbits
+                ]
+                return res
+            # assign documentation
+            returnfunc.__doc__ = attribute.__doc__
         else:
             return [getattr(orbit, name) for orbit in self.orbits]
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         """
         NAME:
 
@@ -290,41 +305,42 @@ class Orbits(object):
 
         OUTPUT:
 
-           For single item: Orbit instance, for multiple items: another Orbits instance
+           For single item: Orbit instance,
+           for multiple items: another Orbits instance
 
         HISTORY:
 
             2018-12-31 - Written - Bovy (UofT)
 
         """
-        if isinstance(key,int):
-            if key < 0 : # negative indices
+        if isinstance(key, int):
+            if key < 0 :  # negative indices
                 key+= len(self)
             return copy.deepcopy(self._orbits[key])
-        elif isinstance(key,slice):
-            orbits_list= [copy.deepcopy(self._orbits[ii]) 
+        elif isinstance(key, slice):
+            orbits_list = [copy.deepcopy(self._orbits[ii]) 
                           for ii in range(*key.indices(len(self)))]
             # Also transfer all attributes related to integration
-            if hasattr(self,'orbit'):
-                integrate_kwargs= {}
+            if hasattr(self, 'orbit'):
+                integrate_kwargs = {}
                 integrate_kwargs['t']= self.t
                 integrate_kwargs['_integrate_t_asQuantity']= \
                     self._integrate_t_asQuantity
                 integrate_kwargs['orbit']= copy.deepcopy(self.orbit[key])
                 integrate_kwargs['_pot']= self._pot
-            else: integrate_kwargs= None
-            return Orbits._from_slice(orbits_list,integrate_kwargs)
+            else: integrate_kwargs = None
+            return Orbits._from_slice(orbits_list, integrate_kwargs)
 
     @classmethod
-    def _from_slice(cls,orbits_list,integrate_kwargs):
-        out= cls(vxvv=orbits_list)
+    def _from_slice(cls, orbits_list, integrate_kwargs):
+        out = cls(vxvv=orbits_list)
         # Also transfer all attributes related to integration
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
                 out.__dict__[kw]= integrate_kwargs[kw]
         return out
 
-############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
+    ######################## CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
     def turn_physical_off(self):
         """
         NAME:
@@ -348,12 +364,12 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        self._roSet= False
-        self._voSet= False
+        self._roSet = False
+        self._voSet = False
         [o.turn_physical_off() for o in self._orbits]
         return None
 
-    def turn_physical_on(self,ro=None,vo=None):
+    def turn_physical_on(self, ro=None, vo=None):
         """
         NAME:
 
@@ -365,9 +381,9 @@ class Orbits(object):
 
         INPUT:
 
-           ro= reference distance (kpc; can be Quantity)
+           ro = reference distance (kpc; can be Quantity)
 
-           vo= reference velocity (km/s; can be Quantity)
+           vo = reference velocity (km/s; can be Quantity)
 
         OUTPUT:
 
@@ -378,20 +394,20 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
-        if not vo is None:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
-        [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
+        self._roSet = True
+        self._voSet = True
+        if ro is not None:
+            if _APY_LOADED and isinstance(ro, units.Quantity):
+                ro = ro.to(units.kpc).value
+            self._ro = ro
+        if vo is not None:
+            if _APY_LOADED and isinstance(vo, units.Quantity):
+                vo = vo.to(units.km / units.s).value
+            self._vo = vo
+        [o.turn_physical_on(vo=self._vo, ro=self._ro) for o in self._orbits]
         return None
 
-    def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
+    def integrate(self, t, pot,method='symplec4_c',dt=None, numcores=_NUMCORES,
                   force_map=False):
         """
         NAME:
@@ -436,19 +452,20 @@ class Orbits(object):
         if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
                 'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
                 'dopr54_c', 'dop853_c']:
-            raise ValueError('{:s} is not a valid `method`'.format(method))
-        pot= flatten_potential(pot)
-        _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+            raise ValueError('{: s} is not a valid `method`'.format(method))
+        pot = flatten_potential(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         # Parse t
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-        else: self._integrate_t_asQuantity= False
-        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(t,  units.Quantity):
+            self._integrate_t_asQuantity = True
+            t = t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo, self._ro)
+        else:
+            self._integrate_t_asQuantity = False
+        if _APY_LOADED and not dt is None and isinstance(dt, units.Quantity):
+            dt = dt.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo, self._ro)
         from galpy.potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -456,22 +473,24 @@ class Orbits(object):
         if not _check_integrate_dt(t,dt):
             raise ValueError('dt input (integrator stepsize) for Orbits.integrate must be an integer divisor of the output stepsize')
         # Delete attributes for interpolation and rperi etc. determination
-        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
-        if hasattr(self,'rs'): delattr(self,'rs')
+        if hasattr(self, '_orbInterp'):
+            delattr(self, '_orbInterp')
+        if hasattr(self, 'rs'):
+            delattr(self, 'rs')
         if self.dim() == 2:
-            thispot= toPlanarPotential(pot)
+            thispot = toPlanarPotential(pot)
         else:
-            thispot= pot
-        self.t= numpy.array(t)
-        self._pot= thispot
+            thispot = pot
+        self.t = np.array(t)
+        self._pot = thispot
         #First check that the potential has C
         if '_c' in method:
             if not ext_loaded or not _check_c(self._pot):
                 if ('leapfrog' in method or 'symplec' in method):
-                    method= 'leapfrog'
+                    method = 'leapfrog'
                 else:
-                    method= 'odeint'
-                if not ext_loaded: # pragma: no cover
+                    method = 'odeint'
+                if not ext_loaded:  # pragma: no cover
                     warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
                 else:
                     warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
@@ -480,9 +499,9 @@ class Orbits(object):
         if _isDissipative(self._pot) and ('leapfrog' in method 
                                     or 'symplec' in method):
             if '_c' in method:
-                method= 'dopr54_c'
+                method = 'dopr54_c'
             else:
-                method= 'odeint'
+                method = 'odeint'
             warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
@@ -493,43 +512,43 @@ class Orbits(object):
             self._orbits = list(parallel_map(integrate_for_map, self._orbits,
                                              numcores=numcores))
             # Gather all into single self.orbit array
-            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
+            self.orbit = np.array([self._orbits[ii]._orb.orbit
                                      for ii in range(len(self))])
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             if self.dim() == 1:
                 out, msg= integrateLinearOrbit_c(self._pot,
-                                                 numpy.copy(self.vxvv),
+                                                 np.copy(self.vxvv),
                                                  t,method,dt=dt)
             else:
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
                     #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
+                    vxvvs = np.pad(self.vxvv, ((0, 0), (0, 1)),
                                      'constant',constant_values=0)
                 else:
-                    vxvvs= numpy.copy(self.vxvv)
+                    vxvvs = np.copy(self.vxvv)
                 if self.dim() == 2:
-                    out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
+                    out, msg= integratePlanarOrbit_c(self._pot, vxvvs,
                                                      t,method,dt=dt)
                 else:
-                    out, msg= integrateFullOrbit_c(self._pot,vxvvs,
+                    out, msg= integrateFullOrbit_c(self._pot, vxvvs,
                                                    t,method,dt=dt)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
-                    out= out[:,:,:-1]
+                    out = out[:, :, :-1]
             # Store orbit internally
-            self.orbit= out
+            self.orbit = out
         # Also store per-orbit view of the orbit for __getattr__ funcs
         for ii in range(len(self)):
-            self._orbits[ii]._orb.orbit= self.orbit[ii]
-            self._orbits[ii]._orb.t= t
-            self._orbits[ii]._orb._pot= pot
+            self._orbits[ii]._orb.orbit = self.orbit[ii]
+            self._orbits[ii]._orb.t = t
+            self._orbits[ii]._orb._pot = pot
         return None
 
-    def flip(self,inplace=False):
+    def flip(self, inplace =False):
         """
         NAME:
 
@@ -541,11 +560,11 @@ class Orbits(object):
 
         INPUT:
 
-           inplace= (False) if True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists)
+           inplace = (False) if True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists)
 
         OUTPUT:
 
-           Orbits instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
+           Orbits instance that has the velocities of the current orbit flipped (inplace =False) or just flips all velocities of current instance (inplace =True)
 
         HISTORY:
 
@@ -553,47 +572,47 @@ class Orbits(object):
 
         """
         if inplace:
-            self.vxvv[...,1]= -self.vxvv[...,1]
+            self.vxvv[..., 1]= -self.vxvv[..., 1]
             if self.phasedim() > 2:
                 self.vxvv[...,2]= -self.vxvv[...,2]
             if self.phasedim() > 4:
                 self.vxvv[...,4]= -self.vxvv[...,4]
-            if hasattr(self,'orbit'):
-                self.orbit[...,1]= -self.orbit[...,1]
+            if hasattr(self, 'orbit'):
+                self.orbit[..., 1]= -self.orbit[..., 1]
                 if self.phasedim() > 2:
                     self.orbit[...,2]= -self.orbit[...,2]
                 if self.phasedim() > 4:
                     self.orbit[...,4]= -self.orbit[...,4]
-                if hasattr(self,"_orbInterp"):
-                    delattr(self,"_orbInterp")
+                if hasattr(self, "_orbInterp"):
+                    delattr(self, "_orbInterp")
             return None
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
+        orbSetupKwargs = {'ro': self._ro,
+                         'vo': self._vo,
+                         'zo': self._zo,
+                         'solarmotion': self._solarmotion}
         if self.phasedim() == 2:
-            orbSetupKwargs.pop('zo',None)
-            orbSetupKwargs.pop('solarmotion',None)
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1]]).T,
+            orbSetupKwargs.pop('zo', None)
+            orbSetupKwargs.pop('solarmotion', None)
+            out = Orbits(np.array([self.vxvv[..., 0], -self.vxvv[..., 1]]).T,
                         **orbSetupKwargs)
         elif self.phasedim() == 3:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2]]).T,**orbSetupKwargs)
+            out = Orbits(np.array([self.vxvv[..., 0], -self.vxvv[..., 1],
+                                    -self.vxvv[...,2]]).T, **orbSetupKwargs)
         elif self.phasedim() == 4:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3]]).T,
+            out = Orbits(np.array([self.vxvv[..., 0], -self.vxvv[..., 1],
+                                    -self.vxvv[...,2], self.vxvv[...,3]]).T,
                          **orbSetupKwargs)
         elif self.phasedim() == 5:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3],
-                                    -self.vxvv[...,4]]).T,**orbSetupKwargs)
+            out = Orbits(np.array([self.vxvv[..., 0], -self.vxvv[..., 1],
+                                    -self.vxvv[...,2], self.vxvv[...,3],
+                                    -self.vxvv[...,4]]).T, **orbSetupKwargs)
         elif self.phasedim() == 6:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3],
-                                    -self.vxvv[...,4],self.vxvv[...,5]]).T,
+            out = Orbits(np.array([self.vxvv[..., 0], -self.vxvv[..., 1],
+                                    -self.vxvv[...,2], self.vxvv[...,3],
+                                    -self.vxvv[...,4], self.vxvv[...,5]]).T,
                          **orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
         
     def getOrbit(self):
@@ -613,7 +632,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           array orbit[norb,nt,nphasedim]
+           array orbit[norb, nt, nphasedim]
 
         HISTORY:
 
@@ -623,7 +642,7 @@ class Orbits(object):
         return self.orbit
 
     @physical_conversion('energy')
-    def E(self,*args,**kwargs):
+    def E(self, *args, **kwargs):
         """
         NAME:
 
@@ -637,123 +656,123 @@ class Orbits(object):
 
            t - (optional) time at which to get the energy (can be Quantity)
 
-           pot= Potential instance or list of such instances
+           pot = Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           energy [norb,nt]
+           energy [norb, nt]
 
         HISTORY:
 
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
+        if not kwargs.get('pot', None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
+        _check_consistent_units(self, kwargs.get('pot', None))
         if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
-                pot= self._pot
+                pot = self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbits or specify pot=")
             if 'pot' in kwargs and kwargs['pot'] is None:
                 kwargs.pop('pot')          
         else:
-            pot= kwargs.pop('pot')
+            pot = kwargs.pop('pot')
         if self.dim() == 2:
-            pot= toPlanarPotential(pot)
+            pot = toPlanarPotential(pot)
         if len(args) > 0:
-            t= args[0]
+            t = args[0]
         else:
-            t= 0.
+            t = 0.
         #Get orbit
-        thiso= self._call_internal(*args,**kwargs)
-        onet= (len(thiso.shape) == 2)
+        thiso = self._call_internal(*args, **kwargs)
+        onet = (len(thiso.shape) == 2)
         if onet:
-            thiso= thiso[:,numpy.newaxis,:]
-            t= numpy.atleast_1d(t)
+            thiso = thiso[:, np.newaxis, :]
+            t = np.atleast_1d(t)
         if self.phasedim() == 2:
             try:
-                out= (evaluatelinearPotentials(pot,thiso[0],t=t,
+                out = (evaluatelinearPotentials(pot, thiso[0], t=t,
                                                use_physical=False)\
                           +thiso[1]**2./2.).T
-            except (ValueError,TypeError):
-                out= (numpy.array([[evaluatelinearPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
+            except (ValueError, TypeError):
+                out = (np.array([[evaluatelinearPotentials(\
+                                    pot, thiso[0][ii][jj], t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])\
                           +(thiso[1]**2./2.).T)
         elif self.phasedim() == 3:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
+                out = (evaluateplanarPotentials(pot, thiso[0], t=t,
                                                use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError):
-                out= (numpy.array([[evaluateplanarPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
+            except (ValueError, TypeError):
+                out = (np.array([[evaluateplanarPotentials(\
+                                    pot, thiso[0][ii][jj], t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
                       +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 4:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
+                out = (evaluateplanarPotentials(pot, thiso[0], t=t,
                                                phi=thiso[-1],
                                                use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError):
-                out= (numpy.array([[evaluateplanarPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
+            except (ValueError, TypeError):
+                out = (np.array([[evaluateplanarPotentials(\
+                                    pot, thiso[0][ii][jj], t=t[ii],
                                     phi=thiso[-1][ii][jj],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
                                   +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 5:
-            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
-            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
+            z = kwargs.get('_z', 1.)*thiso[3] # For ER and Ez
+            vz = kwargs.get('_vz', 1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
+                out = (evaluatePotentials(pot, thiso[0], z, t=t,
                                          use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError):
-                out= (numpy.array([[evaluatePotentials(\
-                                    pot,thiso[0][ii][jj],
+            except (ValueError, TypeError):
+                out = (np.array([[evaluatePotentials(\
+                                    pot, thiso[0][ii][jj],
                                     z[ii][jj],
-                                    t=t[ii],
+                                    t =t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
                       +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         elif self.phasedim() == 6:
-            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
-            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
+            z = kwargs.get('_z', 1.)*thiso[3] # For ER and Ez
+            vz = kwargs.get('_vz', 1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
+                out = (evaluatePotentials(pot, thiso[0], z, t=t,
                                          phi=thiso[-1],
                                          use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError):
-                out= (numpy.array([[evaluatePotentials(\
-                                    pot,thiso[0][ii][jj],
+            except (ValueError, TypeError):
+                out = (np.array([[evaluatePotentials(\
+                                    pot, thiso[0][ii][jj],
                                     z[ii][jj],
-                                    t=t[ii],
+                                    t =t[ii],
                                     phi=thiso[-1][ii][jj],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
                                    for jj in range(len(self))])
                       +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         if onet:
-            return out[:,0]
+            return out[:, 0]
         else:
             return out
 
     @physical_conversion('action')
-    def L(self,*args,**kwargs):
+    def L(self, *args, **kwargs):
         """
         NAME:
 
@@ -767,15 +786,15 @@ class Orbits(object):
 
            t - (optional) time at which to get the angular momentum (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           angular momentum [norb,nt,3]
+           angular momentum [norb, nt,3]
 
         HISTORY:
 
@@ -785,26 +804,26 @@ class Orbits(object):
         if self.dim() == 1:
             raise AttributeError("'linear Orbits have no angular momentum")
         #Get orbit
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 2:
             return (thiso[0]*thiso[2]).T
         elif self.phasedim() == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
-        else: # phasedim == 6
-            vx= self.vx(*args,**kwargs)
-            vy= self.vy(*args,**kwargs)
-            vz= self.vz(*args,**kwargs)
-            x= self.x(*args,**kwargs)
-            y= self.y(*args,**kwargs)
-            z= self.z(*args,**kwargs)
-            out= numpy.zeros(x.shape+(3,))
-            out[...,0]= y*vz-z*vy
-            out[...,1]= z*vx-x*vz
+        else:  # phasedim == 6
+            vx = self.vx(*args, **kwargs)
+            vy = self.vy(*args, **kwargs)
+            vz = self.vz(*args, **kwargs)
+            x = self.x(*args, **kwargs)
+            y = self.y(*args, **kwargs)
+            z = self.z(*args, **kwargs)
+            out = np.zeros(x.shape+(3,))
+            out[..., 0]= y*vz-z*vy
+            out[..., 1]= z*vx-x*vz
             out[...,2]= x*vy-y*vx
             return out
         
     @physical_conversion('action')
-    def Lz(self,*args,**kwargs):
+    def Lz(self, *args, **kwargs):
         """
         NAME:
 
@@ -818,26 +837,26 @@ class Orbits(object):
 
            t - (optional) time at which to get the angular momentum (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           z-component of the angular momentum [norb,nt]
+           z-component of the angular momentum [norb, nt]
 
         HISTORY:
 
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         return (thiso[0]*thiso[2]).T
 
     @physical_conversion('energy')
-    def ER(self,*args,**kwargs):
+    def ER(self, *args, **kwargs):
         """
         NAME:
 
@@ -851,26 +870,26 @@ class Orbits(object):
 
            t - (optional) time at which to get the radial energy (can be Quantity)
 
-           pot= Potential instance or list of such instances
+           pot = Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
 
         OUTPUT:
 
-           radial energy [norb,nt]
+           radial energy [norb, nt]
 
         HISTORY:
 
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        old_physical= kwargs.get('use_physical',None)
+        old_physical= kwargs.get('use_physical', None)
         kwargs['use_physical']= False
         kwargs['_z']= 0.
         kwargs['_vz']= 0.
-        out= self.E(*args,**kwargs)
+        out = self.E(*args, **kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
         else:
@@ -878,7 +897,7 @@ class Orbits(object):
         return out
 
     @physical_conversion('energy')
-    def Ez(self,*args,**kwargs):
+    def Ez(self, *args, **kwargs):
         """
         NAME:
 
@@ -892,27 +911,27 @@ class Orbits(object):
 
            t - (optional) time at which to get the vertical energy (can be Quantity)
 
-           pot= Potential instance or list of such instances
+           pot = Potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
 
         OUTPUT:
 
-           vertical energy [norb,nt]
+           vertical energy [norb, nt]
 
         HISTORY:
 
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        old_physical= kwargs.get('use_physical',None)
+        old_physical= kwargs.get('use_physical', None)
         kwargs['use_physical']= False
-        tE= self.E(*args,**kwargs)
+        tE = self.E(*args, **kwargs)
         kwargs['_z']= 0.
         kwargs['_vz']= 0.
-        out= tE-self.E(*args,**kwargs)
+        out = tE-self.E(*args, **kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
         else:
@@ -920,7 +939,7 @@ class Orbits(object):
         return out
 
     @physical_conversion('energy')
-    def Jacobi(self,*args,**kwargs):
+    def Jacobi(self, *args, **kwargs):
         """
         NAME:
 
@@ -934,66 +953,66 @@ class Orbits(object):
 
            t - (optional) time at which to get the Jacobi integral (can be Quantity)
 
-           OmegaP= pattern speed (can be Quantity)
+           OmegaP = pattern speed (can be Quantity)
            
-           pot= potential instance or list of such instances
+           pot = potential instance or list of such instances
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           Jacobi integral [norb,nt]
+           Jacobi integral [norb, nt]
 
         HISTORY:
 
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
+        if not kwargs.get('pot', None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
+        _check_consistent_units(self, kwargs.get('pot', None))
         if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
-            OmegaP= 1.
+            OmegaP = 1.
             if not 'pot' in kwargs or kwargs['pot'] is None:
                 try:
-                    pot= self._pot
+                    pot = self._pot
                 except AttributeError:
                     raise AttributeError("Integrate orbit or specify pot=")
             else:
-                pot= kwargs['pot']
-            if isinstance(pot,list):
+                pot = kwargs['pot']
+            if isinstance(pot, list):
                 for p in pot:
-                    if hasattr(p,'OmegaP'):
-                        OmegaP= p.OmegaP()
+                    if hasattr(p, 'OmegaP'):
+                        OmegaP = p.OmegaP()
                         break
             else:
-                if hasattr(pot,'OmegaP'):
-                    OmegaP= pot.OmegaP()
-            kwargs.pop('OmegaP',None)
+                if hasattr(pot, 'OmegaP'):
+                    OmegaP = pot.OmegaP()
+            kwargs.pop('OmegaP', None)
         else:
-            OmegaP= kwargs.pop('OmegaP')
+            OmegaP = kwargs.pop('OmegaP')
         if _APY_LOADED:
-            if isinstance(OmegaP,units.Quantity):
-                OmegaP = OmegaP.to(units.km/units.s/units.kpc).value \
-                    /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+            if isinstance(OmegaP, units.Quantity):
+                OmegaP = OmegaP.to(units.km / units.s/units.kpc).value \
+                    /bovy_conversion.freq_in_kmskpc(self._vo, self._ro)
         #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',None)
+        old_physical= kwargs.get('use_physical', None)
         kwargs['use_physical']= False
-        if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
-            if isinstance(OmegaP,list): thisOmegaP= numpy.array(OmegaP)
-            else: thisOmegaP= OmegaP
-            out= self.E(*args,**kwargs)-numpy.einsum('i,jki->jk',thisOmegaP,
-                                                     self.L(*args,**kwargs))
+        if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
+            if isinstance(OmegaP, list): thisOmegaP = np.array(OmegaP)
+            else: thisOmegaP = OmegaP
+            out = self.E(*args, **kwargs)-np.einsum('i,jki->jk', thisOmegaP,
+                                                     self.L(*args, **kwargs))
         else:
-            out= self.E(*args,**kwargs)-OmegaP*self.Lz(*args,**kwargs)
+            out = self.E(*args, **kwargs)-OmegaP*self.Lz(*args, **kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
         else:
             kwargs.pop('use_physical')
         return out
 
-    def _setupaA(self,pot=None,type='staeckel',**kwargs):
+    def _setupaA(self, pot=None, type ='staeckel', **kwargs):
         """
         NAME:
            _setupaA
@@ -1001,7 +1020,7 @@ class Orbits(object):
            set up an actionAngle module for this Orbit
         INPUT:
            pot - potential
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
               1) 'adiabatic'
               2) 'staeckel'
               3) 'isochroneApprox'
@@ -1010,63 +1029,63 @@ class Orbits(object):
         HISTORY:
            2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
         """
-        if not pot is None: pot= flatten_potential(pot)
+        if not pot is None: pot = flatten_potential(pot)
         if self.dim() == 2:
             # No reason to do Staeckel or isochroneApprox or spherical...
-            type= 'adiabatic'
+            type = 'adiabatic'
         elif self.dim() == 1:
             raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
-        if hasattr(self,'_aA'):
+        if hasattr(self, '_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
-                    or ('delta' in kwargs and hasattr(self._aA,'_delta') 
-                        and numpy.any(kwargs['delta'] != self._aA._delta)) \
+                    or ('delta' in kwargs and hasattr(self._aA, '_delta') 
+                        and np.any(kwargs['delta'] != self._aA._delta)) \
                     or (not 'delta' in kwargs 
-                        and hasattr(self,'_aA_delta_automagic')
+                        and hasattr(self, '_aA_delta_automagic')
                         and not self._aA_delta_automagic) \
-                    or ('b' in kwargs and hasattr(self._aA,'_aAI') 
-                        and numpy.any(kwargs['b'] != self._aA._aAI.b)) \
-                    or ('ip' in kwargs and hasattr(self._aA,'_aAI') 
-                        and (numpy.any(kwargs['ip'].b != self._aA._aAI.b) \
-                        or numpy.any(kwargs['ip']._amp != self._aA._aAI.amp))):
+                    or ('b' in kwargs and hasattr(self._aA, '_aAI') 
+                        and np.any(kwargs['b'] != self._aA._aAI.b)) \
+                    or ('ip' in kwargs and hasattr(self._aA, '_aAI') 
+                        and (np.any(kwargs['ip'].b != self._aA._aAI.b) \
+                        or np.any(kwargs['ip']._amp != self._aA._aAI.amp))):
                 for attr in list(self.__dict__):
-                    if '_aA' in attr: delattr(self,attr)
+                    if '_aA' in attr: delattr(self, attr)
             else:
                 return None
-        _check_consistent_units(self,pot)
+        _check_consistent_units(self, pot)
         if pot is None:
             try:
-                pot= self._pot
+                pot = self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        self._aAPot= pot
-        self._aAType= type
+        self._aAPot = pot
+        self._aAType = type
         #Setup
         if self._aAType.lower() == 'adiabatic':
             self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
                                                        **kwargs)
         elif self._aAType.lower() == 'staeckel':
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
+            tz = self.z(use_physical=False)\
+                +(np.fabs(self.z(use_physical=False)) < 1e-8) \
                 * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            delta= kwargs.pop('delta',None)
+            delta= kwargs.pop('delta', None)
             self._aA_delta_automagic= False
             if delta is None:
                 self._aA_delta_automagic= True
                 try:
                     delta= actionAngle.estimateDeltaStaeckel(\
-                        self._aAPot,self.R(use_physical=False),
-                        tz,no_median=True)
+                        self._aAPot, self.R(use_physical=False),
+                        tz, no_median=True)
                 except PotentialError as e:
                     if 'deriv' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
                     elif 'non-axi' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
-                    else: #pragma: no cover
+                    else:  #pragma: no cover
                         raise
-            if numpy.all(delta < 1e-6):
-                self._setupaA(pot=pot,type='spherical')
+            if np.all(delta < 1e-6):
+                self._setupaA(pot=pot, type ='spherical')
             else:
                 self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
                                                           delta=delta,
@@ -1080,54 +1099,55 @@ class Orbits(object):
                                                        **kwargs)
         return None
 
-    def _setup_EccZmaxRperiRap(self,pot=None,**kwargs):
-        """Internal function to compute e,zmax,rperi,rap and cache it for re-use"""
-        self._setupaA(pot=pot,**kwargs)
-        if hasattr(self,'_aA_ecc'): return None
+    def _setup_EccZmaxRperiRap(self, pot=None, **kwargs):
+        """Internal function to compute e, zmax, rperi, rap and cache it for re-use"""
+        self._setupaA(pot=pot, **kwargs)
+        if hasattr(self, '_aA_ecc'):
+            return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False)
+            tz = self.z(use_physical=False)\
+                + (np.fabs(self.z(use_physical=False)) < 1e-8) \
+                * (2. * (self.z(use_physical=False) >= 0) - 1.) * 1e-10
+            tvz = self.vz(use_physical=False)
         elif self.dim() == 2:
-            tz= numpy.zeros(len(self))
-            tvz= numpy.zeros(len(self))
+            tz = np.zeros(len(self))
+            tvz = np.zeros(len(self))
         # self.dim() == 1 error caught by _setupaA
-        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap=\
+        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap =\
             self._aA.EccZmaxRperiRap(self.R(use_physical=False),
                                      self.vR(use_physical=False),
                                      self.vT(use_physical=False),
-                                     tz,tvz,
+                                     tz, tvz,
                                      use_physical=False)
         return None        
 
-    def _setup_actionsFreqsAngles(self,pot=None,**kwargs):
+    def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
         """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
-        self._setupaA(pot=pot,**kwargs)
-        if hasattr(self,'_aA_jr'): return None
+        self._setupaA(pot=pot, **kwargs)
+        if hasattr(self, '_aA_jr'): return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False)
+            tz = self.z(use_physical=False)\
+                + (np.fabs(self.z(use_physical=False)) < 1e-8) \
+                * (2.*(self.z(use_physical=False) >= 0) - 1.) * 1e-10
+            tvz = self.vz(use_physical=False)
         elif self.dim() == 2:
-            tz= numpy.zeros(len(self))
-            tvz= numpy.zeros(len(self))
+            tz = np.zeros(len(self))
+            tvz = np.zeros(len(self))
         # self.dim() == 1 error caught by _setupaA
         self._aA_jr, self._aA_jp, self._aA_jz, \
             self._aA_Or, self._aA_Op, self._aA_Oz, \
-            self._aA_wr, self._aA_wp, self._aA_wz= \
+            self._aA_wr, self._aA_wp, self._aA_wz = \
                self._aA.actionsFreqsAngles(self.R(use_physical=False),
                                            self.vR(use_physical=False),
                                            self.vT(use_physical=False),
-                                           tz,tvz,
+                                           tz, tvz,
                                            self.phi(use_physical=False),
                                            use_physical=False)
         return None
 
-    def e(self,analytic=False,pot=None,**kwargs):
+    def e(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -1145,7 +1165,7 @@ class Orbits(object):
 
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
-              type= ('staeckel') type of actionAngle module to use
+              type = ('staeckel') type of actionAngle module to use
               
                  1) 'adiabatic': assuming motion splits into R and z
 
@@ -1165,16 +1185,16 @@ class Orbits(object):
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_ecc
-        if not hasattr(self,'orbit'):
+        if not hasattr(self, 'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
-        return (numpy.amax(rs,axis=-1)-numpy.amin(rs,axis=-1))\
-            /(numpy.amax(rs,axis=-1)+numpy.amin(rs,axis=-1))
+        rs = self.r(self.t, use_physical=False)
+        return (np.amax(rs, axis=-1)-np.amin(rs, axis=-1))\
+            /(np.amax(rs, axis=-1)+np.amin(rs, axis=-1))
 
     @physical_conversion('position')
-    def rap(self,analytic=False,pot=None,**kwargs):
+    def rap(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -1192,7 +1212,7 @@ class Orbits(object):
 
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
-              type= ('staeckel') type of actionAngle module to use
+              type = ('staeckel') type of actionAngle module to use
               
                  1) 'adiabatic': assuming motion splits into R and z
 
@@ -1202,7 +1222,7 @@ class Orbits(object):
               
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1216,15 +1236,15 @@ class Orbits(object):
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_rap
-        if not hasattr(self,'orbit'):
+        if not hasattr(self, 'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
-        return numpy.amax(rs,axis=-1)
+        rs = self.r(self.t, use_physical=False)
+        return np.amax(rs, axis=-1)
 
     @physical_conversion('position')
-    def rperi(self,analytic=False,pot=None,**kwargs):
+    def rperi(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -1242,7 +1262,7 @@ class Orbits(object):
 
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
-              type= ('staeckel') type of actionAngle module to use
+              type = ('staeckel') type of actionAngle module to use
               
                  1) 'adiabatic': assuming motion splits into R and z
 
@@ -1252,7 +1272,7 @@ class Orbits(object):
               
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1266,15 +1286,15 @@ class Orbits(object):
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_rperi
-        if not hasattr(self,'orbit'):
+        if not hasattr(self, 'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
-        return numpy.amin(rs,axis=-1)
+        rs = self.r(self.t, use_physical=False)
+        return np.amin(rs, axis=-1)
 
     @physical_conversion('position')
-    def rguiding(self,*args,**kwargs):
+    def rguiding(self, *args, **kwargs):
         """
         NAME:
 
@@ -1286,49 +1306,49 @@ class Orbits(object):
 
         INPUT:
 
-           pot= potential instance or list of such instances
+           pot = potential instance or list of such instances
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           R_guiding [norb,nt]
+           R_guiding [norb, nt]
 
         HISTORY:
 
            2019-03-02 - Written as thin wrapper around Potential.rl - Bovy (UofT)
 
         """
-        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        pot = kwargs.get('pot', self.__dict__.get('_pot', None))
         if pot is None:
-            raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
+            raise RuntimeError("You need to specify the potential as pot = to compute the guiding-center radius")
         flatten_potential(pot)
         if _isNonAxi(pot):
             raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
-        _check_consistent_units(self,pot)
-        Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False))
-        Lz_shape= Lz.shape
-        Lz= Lz.flatten()
+        _check_consistent_units(self, pot)
+        Lz = np.atleast_1d(self.Lz(*args, use_physical=False))
+        Lz_shape = Lz.shape
+        Lz = Lz.flatten()
         if len(Lz) > 500:
             # Build interpolation grid, 500 ~ 1s
-            precomputergLzgrid= numpy.linspace(numpy.nanmin(Lz),
-                                               numpy.nanmax(Lz),
-                                               500)
-            rls= numpy.array([rl(pot,lz,use_physical=False)
-                              for lz in precomputergLzgrid])
+            precomputergLzgrid = np.linspace(np.nanmin(Lz),
+                                                np.nanmax(Lz),
+                                                500)
+            rls = np.array([rl(pot, lz, use_physical=False)
+                               for lz in precomputergLzgrid])
             #Spline interpolate
             return interpolate.InterpolatedUnivariateSpline(\
-                precomputergLzgrid,rls,k=3)(Lz).reshape(Lz_shape)
+                precomputergLzgrid, rls, k=3)(Lz).reshape(Lz_shape)
         else:
-            return numpy.array([rl(pot,lz,use_physical=False)
+            return np.array([rl(pot, lz, use_physical=False)
                                 for lz in Lz]).reshape(Lz_shape)
 
     @physical_conversion('position')
-    def zmax(self,analytic=False,pot=None,**kwargs):
+    def zmax(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -1346,7 +1366,7 @@ class Orbits(object):
 
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
-              type= ('staeckel') type of actionAngle module to use
+              type = ('staeckel') type of actionAngle module to use
               
                  1) 'adiabatic': assuming motion splits into R and z
 
@@ -1356,7 +1376,7 @@ class Orbits(object):
               
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1370,15 +1390,15 @@ class Orbits(object):
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_zmax
-        if not hasattr(self,'orbit'):
+        if not hasattr(self, 'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False)),
+        return np.amax(np.fabs(self.z(self.t, use_physical=False)),
                           axis=-1)
 
     @physical_conversion('action')
-    def jr(self,pot=None,**kwargs):
+    def jr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1392,7 +1412,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1404,9 +1424,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1419,11 +1439,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jr
 
     @physical_conversion('action')
-    def jp(self,pot=None,**kwargs):
+    def jp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1437,7 +1457,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1449,9 +1469,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1464,11 +1484,11 @@ class Orbits(object):
            2019-02-26 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jp
 
     @physical_conversion('action')
-    def jz(self,pot=None,**kwargs):
+    def jz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1482,7 +1502,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1494,9 +1514,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1509,11 +1529,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jz
 
     @physical_conversion('angle')
-    def wr(self,pot=None,**kwargs):
+    def wr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1527,7 +1547,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1548,11 +1568,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wr
 
     @physical_conversion('angle')
-    def wp(self,pot=None,**kwargs):
+    def wp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1566,7 +1586,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1587,11 +1607,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wp
 
     @physical_conversion('angle')
-    def wz(self,pot=None,**kwargs):
+    def wz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1605,7 +1625,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1626,11 +1646,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wz
 
     @physical_conversion('time')
-    def Tr(self,pot=None,**kwargs):
+    def Tr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1644,7 +1664,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1656,9 +1676,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1671,11 +1691,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Or
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2.*np.pi/self._aA_Or
 
     @physical_conversion('time')
-    def Tp(self,pot=None,**kwargs):
+    def Tp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1689,7 +1709,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1701,9 +1721,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1716,10 +1736,10 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Op
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2.*np.pi/self._aA_Op
 
-    def TrTp(self,pot=None,**kwargs):
+    def TrTp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1733,7 +1753,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1754,11 +1774,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return self._aA_Op/self._aA_Or*numpy.pi
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return self._aA_Op/self._aA_Or*np.pi
  
     @physical_conversion('time')
-    def Tz(self,pot=None,**kwargs):
+    def Tz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1772,7 +1792,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1784,9 +1804,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1799,11 +1819,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Oz
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2. * np.pi / self._aA_Oz
 
     @physical_conversion('frequency')
-    def Or(self,pot=None,**kwargs):
+    def Or(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1817,7 +1837,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1829,9 +1849,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1844,11 +1864,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Or
 
     @physical_conversion('frequency')
-    def Op(self,pot=None,**kwargs):
+    def Op(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1862,7 +1882,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1874,9 +1894,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1889,11 +1909,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Op
 
     @physical_conversion('frequency')
-    def Oz(self,pot=None,**kwargs):
+    def Oz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -1907,7 +1927,7 @@ class Orbits(object):
 
            pot - potential
 
-           type= ('staeckel') type of actionAngle module to use
+           type = ('staeckel') type of actionAngle module to use
 
               1) 'adiabatic'
 
@@ -1919,9 +1939,9 @@ class Orbits(object):
               
            +actionAngle module setup kwargs
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1934,11 +1954,11 @@ class Orbits(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Oz
 
     @physical_conversion('time')
-    def time(self,*args,**kwargs):
+    def time(self, *args, **kwargs):
         """
         NAME:
 
@@ -1952,9 +1972,9 @@ class Orbits(object):
 
            t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro = (Object-wide default) physical scale for distances to use to convert
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
@@ -1975,7 +1995,7 @@ class Orbits(object):
         else: return args[0]
 
     @physical_conversion('position')
-    def R(self,*args,**kwargs):
+    def R(self, *args, **kwargs):
         """
         NAME:
 
@@ -1989,23 +2009,23 @@ class Orbits(object):
 
            t - (optional) time at which to get the radius (can be Quantity)
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           R(t) [norb,nt]
+           R(t) [norb, nt]
 
         HISTORY:
 
            2019-02-01 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[0].T
+        return self._call_internal(*args, **kwargs)[0].T
 
     @physical_conversion('position')
-    def r(self,*args,**kwargs):
+    def r(self, *args, **kwargs):
         """
         NAME:
 
@@ -2019,27 +2039,27 @@ class Orbits(object):
 
            t - (optional) time at which to get the radius
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro = (Object-wide default) physical scale for distances to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           r(t) [norb,nt]
+           r(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 3:
-            return numpy.sqrt(thiso[0]**2.+thiso[3]**2.).T
+            return np.sqrt(thiso[0]**2.+thiso[3]**2.).T
         else:
-            return numpy.fabs(thiso[0]).T
+            return np.fabs(thiso[0]).T
 
     @physical_conversion('velocity')
-    def vR(self,*args,**kwargs):
+    def vR(self, *args, **kwargs):
         """
         NAME:
 
@@ -2053,23 +2073,23 @@ class Orbits(object):
 
            t - (optional) time at which to get the radial velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vR(t) [norb,nt]
+           vR(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[1].T
+        return self._call_internal(*args, **kwargs)[1].T
 
     @physical_conversion('velocity')
-    def vT(self,*args,**kwargs):
+    def vT(self, *args, **kwargs):
         """
         NAME:
 
@@ -2083,23 +2103,23 @@ class Orbits(object):
 
            t - (optional) time at which to get the tangential velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vT(t) [norb,nt]
+           vT(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[2].T
+        return self._call_internal(*args, **kwargs)[2].T
 
     @physical_conversion('position')
-    def z(self,*args,**kwargs):
+    def z(self, *args, **kwargs):
         """
         NAME:
 
@@ -2113,13 +2133,13 @@ class Orbits(object):
 
            t - (optional) time at which to get the vertical height
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro = (Object-wide default) physical scale for distances to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           z(t) [norb,nt]
+           z(t) [norb, nt]
 
         HISTORY:
 
@@ -2128,10 +2148,10 @@ class Orbits(object):
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return self._call_internal(*args,**kwargs)[3].T
+        return self._call_internal(*args, **kwargs)[3].T
 
     @physical_conversion('velocity')
-    def vz(self,*args,**kwargs):
+    def vz(self, *args, **kwargs):
         """
         NAME:
 
@@ -2145,13 +2165,13 @@ class Orbits(object):
 
            t - (optional) time at which to get the vertical velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vz(t) [norb,nt]
+           vz(t) [norb, nt]
 
         HISTORY:
 
@@ -2160,10 +2180,10 @@ class Orbits(object):
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return self._call_internal(*args,**kwargs)[4].T
-        
+        return self._call_internal(*args, **kwargs)[4].T
+
     @physical_conversion('angle')
-    def phi(self,*args,**kwargs):
+    def phi(self, *args, **kwargs):
         """
         NAME:
 
@@ -2179,7 +2199,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           phi(t) [norb,nt]
+           phi(t) [norb, nt]
 
         HISTORY:
 
@@ -2188,10 +2208,10 @@ class Orbits(object):
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbits must track azimuth to use phi()")
-        return self._call_internal(*args,**kwargs)[-1].T
+        return self._call_internal(*args, **kwargs)[-1].T
 
     @physical_conversion('position')
-    def x(self,*args,**kwargs):
+    def x(self, *args, **kwargs):
         """
         NAME:
 
@@ -2205,29 +2225,29 @@ class Orbits(object):
 
            t - (optional) time at which to get x
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro = (Object-wide default) physical scale for distances to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           x(t) [norb,nt]
+           x(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 1:
             return thiso[0].T
         elif self.phasedim()  != 4 and self.phasedim() != 6:
             raise AttributeError("Orbits must track azimuth to use x()")
         else:
-            return (thiso[0]*numpy.cos(thiso[-1,:])).T
+            return (thiso[0] * np.cos(thiso[-1, :])).T
 
     @physical_conversion('position')
-    def y(self,*args,**kwargs):
+    def y(self, *args, **kwargs):
         """
         NAME:
 
@@ -2241,27 +2261,27 @@ class Orbits(object):
 
            t - (optional) time at which to get y
 
-           ro= (Object-wide default) physical scale for distances to use to convert
+           ro = (Object-wide default) physical scale for distances to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           y(t) [norb,nt]
+           y(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
-        if self.phasedim()  != 4 and self.phasedim() != 6:
+        thiso = self._call_internal(*args, **kwargs)
+        if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbits must track azimuth to use y()")
         else:
-            return (thiso[0]*numpy.sin(thiso[-1,:])).T
+            return (thiso[0] * np.sin(thiso[-1, :])).T
 
     @physical_conversion('velocity')
-    def vx(self,*args,**kwargs):
+    def vx(self, *args, **kwargs):
         """
         NAME:
 
@@ -2275,30 +2295,30 @@ class Orbits(object):
 
            t - (optional) time at which to get the velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vx(t) [norb,nt]
+           vx(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 1:
             return thiso[1].T
         elif self.phasedim()  != 4 and self.phasedim() != 6:
             raise AttributeError("Orbits must track azimuth to use vx()")
         else:
-            return (thiso[1]*numpy.cos(thiso[-1])
-                    -thiso[2]*numpy.sin(thiso[-1])).T
+            return (thiso[1]*np.cos(thiso[-1])
+                    -thiso[2]*np.sin(thiso[-1])).T
 
     @physical_conversion('velocity')
-    def vy(self,*args,**kwargs):
+    def vy(self, *args, **kwargs):
         """
         NAME:
 
@@ -2312,28 +2332,28 @@ class Orbits(object):
 
            t - (optional) time at which to get the velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vy(t) [norb,nt]
+           vy(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.phasedim()  != 4 and self.phasedim() != 6:
             raise AttributeError("Orbits must track azimuth to use vy()")
         else:
-            return (thiso[2]*numpy.cos(thiso[-1])
-                    +thiso[1]*numpy.sin(thiso[-1])).T
+            return (thiso[2]*np.cos(thiso[-1])
+                    +thiso[1]*np.sin(thiso[-1])).T
 
     @physical_conversion('velocity')
-    def vphi(self,*args,**kwargs):
+    def vphi(self, *args, **kwargs):
         """
         NAME:
 
@@ -2347,24 +2367,24 @@ class Orbits(object):
 
            t - (optional) time at which to get the angular velocity
 
-           vo= (Object-wide default) physical scale for velocities to use to convert
+           vo = (Object-wide default) physical scale for velocities to use to convert
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
         OUTPUT:
 
-           vphi(t) [norb,nt]
+           vphi(t) [norb, nt]
 
         HISTORY:
 
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         return (thiso[2]/thiso[0]).T
 
     @physical_conversion('angle_deg')
-    def ra(self,*args,**kwargs):
+    def ra(self, *args, **kwargs):
         """
         NAME:
 
@@ -2378,32 +2398,32 @@ class Orbits(object):
 
            t - (optional) time at which to get ra
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
-           ra(t) [norb,nt] 
+           ra(t) [norb, nt] 
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'ra')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _radec(self,thiso,*args,**kwargs).T[0]\
+        _check_roSet(self, kwargs, 'ra')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _radec(self, thiso, *args, **kwargs).T[0]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
-    def dec(self,*args,**kwargs):
+    def dec(self, *args, **kwargs):
         """
         NAME:
 
@@ -2417,32 +2437,32 @@ class Orbits(object):
 
            t - (optional) time at which to get dec
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
-           dec(t) [norb,nt] 
+           dec(t) [norb, nt] 
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'dec')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _radec(self,thiso,*args,**kwargs).T[1]\
+        _check_roSet(self, kwargs, 'dec')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _radec(self, thiso, *args, **kwargs).T[1]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
-    def ll(self,*args,**kwargs):
+    def ll(self, *args, **kwargs):
         """
         NAME:
 
@@ -2456,31 +2476,31 @@ class Orbits(object):
 
            t - (optional) time at which to get ll
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           l(t) [norb,nt] 
+           l(t) [norb, nt] 
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'ll')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[0].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, 'll')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[0].reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
-    def bb(self,*args,**kwargs):
+    def bb(self, *args, **kwargs):
         """
         NAME:
 
@@ -2494,31 +2514,31 @@ class Orbits(object):
 
            t - (optional) time at which to get bb
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           b(t) [norb,nt]
+           b(t) [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT
 
         """
-        _check_roSet(self,kwargs,'bb')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[1].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, 'bb')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
-    def dist(self,*args,**kwargs):
+    def dist(self, *args, **kwargs):
         """
         NAME:
 
@@ -2532,31 +2552,31 @@ class Orbits(object):
 
            t - (optional) time at which to get dist
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           dist(t) in kpc [norb,nt]
+           dist(t) in kpc [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'dist')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[2].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, 'dist')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[2].reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
-    def pmra(self,*args,**kwargs):
+    def pmra(self, *args, **kwargs):
         """
         NAME:
 
@@ -2570,35 +2590,35 @@ class Orbits(object):
 
            t - (optional) time at which to get pmra
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)    
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           pm_ra(t) in mas / yr [norb,nt]
+           pm_ra(t) in mas / yr [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmra')
-        _check_voSet(self,kwargs,'pmra')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _pmrapmdec(self,thiso,*args,**kwargs).T[0]\
+        _check_roSet(self, kwargs, 'pmra')
+        _check_voSet(self, kwargs, 'pmra')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _pmrapmdec(self, thiso, *args, **kwargs).T[0]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
-    def pmdec(self,*args,**kwargs):
+    def pmdec(self, *args, **kwargs):
         """
         NAME:
 
@@ -2612,35 +2632,35 @@ class Orbits(object):
 
            t - (optional) time at which to get pmdec
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           pm_dec(t) in mas/yr [norb,nt]
+           pm_dec(t) in mas/yr [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmdec')
-        _check_voSet(self,kwargs,'pmdec')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _pmrapmdec(self,thiso,*args,**kwargs).T[1]\
+        _check_roSet(self, kwargs, 'pmdec')
+        _check_voSet(self, kwargs, 'pmdec')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _pmrapmdec(self, thiso, *args, **kwargs).T[1]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
-    def pmll(self,*args,**kwargs):
+    def pmll(self, *args, **kwargs):
         """
         NAME:
 
@@ -2654,35 +2674,35 @@ class Orbits(object):
 
            t - (optional) time at which to get pmll
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           pm_l(t) in mas/yr [norb,nt]
+           pm_l(t) in mas/yr [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmll')
-        _check_voSet(self,kwargs,'pmll')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[4]\
+        _check_roSet(self, kwargs, 'pmll')
+        _check_voSet(self, kwargs, 'pmll')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[4]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
-    def pmbb(self,*args,**kwargs):
+    def pmbb(self, *args, **kwargs):
         """
         NAME:
 
@@ -2696,35 +2716,35 @@ class Orbits(object):
 
            t - (optional) time at which to get pmbb
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           pm_b(t) in mas/yr [norb,nt]
+           pm_b(t) in mas/yr [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmbb')
-        _check_voSet(self,kwargs,'pmbb')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[5]\
+        _check_roSet(self, kwargs, 'pmbb')
+        _check_voSet(self, kwargs, 'pmbb')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[5]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
-    def vlos(self,*args,**kwargs):
+    def vlos(self, *args, **kwargs):
         """
         NAME:
 
@@ -2738,34 +2758,34 @@ class Orbits(object):
 
            t - (optional) time at which to get vlos
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           vlos(t) in km/s [norb,nt]
+           vlos(t) in km/s [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vlos')
-        _check_voSet(self,kwargs,'vlos')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[3]\
+        _check_roSet(self, kwargs, 'vlos')
+        _check_voSet(self, kwargs, 'vlos')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[3]\
             .reshape(thiso_shape[1:]).T
 
-    def vra(self,*args,**kwargs):
+    def vra(self, *args, **kwargs):
         """
         NAME:
 
@@ -2779,16 +2799,16 @@ class Orbits(object):
 
            t - (optional) time at which to get vra (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         (in kpc and km/s) (default=[8.0, 0., 0., 0.,220., 0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2799,18 +2819,18 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vra')
-        _check_voSet(self,kwargs,'vra')
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        _check_roSet(self, kwargs, 'vra')
+        _check_voSet(self, kwargs, 'vra')
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmra(*args,**kwargs)\
+                                  self.pmra(*args, **kwargs)\
                                       .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+                                  unit=units.km / units.s)
         else:
-            return dist*_K*self.pmra(*args,**kwargs)
+            return dist*_K*self.pmra(*args, **kwargs)
 
-    def vdec(self,*args,**kwargs):
+    def vdec(self, *args, **kwargs):
         """
         NAME:
 
@@ -2824,16 +2844,16 @@ class Orbits(object):
 
            t - (optional) time at which to get vdec (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         (in kpc and km/s) (default=[8.0, 0., 0., 0.,220., 0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2844,18 +2864,18 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vdec')
-        _check_voSet(self,kwargs,'vdec')
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        _check_roSet(self, kwargs, 'vdec')
+        _check_voSet(self, kwargs, 'vdec')
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmdec(*args,**kwargs)\
+                                  self.pmdec(*args, **kwargs)\
                                       .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+                                  unit=units.km / units.s)
         else:
-            return dist*_K*self.pmdec(*args,**kwargs)
+            return dist*_K*self.pmdec(*args, **kwargs)
 
-    def vll(self,*args,**kwargs):
+    def vll(self, *args, **kwargs):
         """
         NAME:
 
@@ -2869,16 +2889,16 @@ class Orbits(object):
 
            t - (optional) time at which to get vll (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         (in kpc and km/s) (default=[8.0, 0., 0., 0.,220., 0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2889,18 +2909,18 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vll')
-        _check_voSet(self,kwargs,'vll')
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        _check_roSet(self, kwargs, 'vll')
+        _check_voSet(self, kwargs, 'vll')
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
             return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmll(*args,**kwargs)\
+                                  self.pmll(*args, **kwargs)\
                                       .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+                                  unit=units.km / units.s)
         else:
-            return dist*_K*self.pmll(*args,**kwargs)
+            return dist * _K * self.pmll(*args, **kwargs)
         
-    def vbb(self,*args,**kwargs):
+    def vbb(self, *args, **kwargs):
         """
         NAME:
 
@@ -2914,16 +2934,16 @@ class Orbits(object):
 
            t - (optional) time at which to get vbb (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
+                         (in kpc and km/s) (default=[8.0, 0., 0., 0.,220., 0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+           ro = (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+           vo = (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
         OUTPUT:
 
@@ -2934,19 +2954,18 @@ class Orbits(object):
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vbb')
-        _check_voSet(self,kwargs,'vbb')
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmbb(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+        _check_roSet(self, kwargs, 'vbb')
+        _check_voSet(self, kwargs, 'vbb')
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
+            return units.Quantity(dist.to(units.kpc).value *_K *
+                                  self.pmbb(*args, **kwargs).to(units.mas / units.yr).value,
+                                  unit=units.km / units.s)
         else:
-            return dist*_K*self.pmbb(*args,**kwargs)
+            return dist * _K * self.pmbb(*args, **kwargs)
 
     @physical_conversion('position_kpc')
-    def helioX(self,*args,**kwargs):
+    def helioX(self, *args, **kwargs):
         """
         NAME:
 
@@ -2960,32 +2979,32 @@ class Orbits(object):
 
            t - (optional) time at which to get X
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y, Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           helioX(t) in kpc [norb,nt]
+           helioX(t) in kpc [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioX')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[0]\
+        _check_roSet(self, kwargs, 'helioX')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[0]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
-    def helioY(self,*args,**kwargs):
+    def helioY(self, *args, **kwargs):
         """
         NAME:
 
@@ -2999,32 +3018,32 @@ class Orbits(object):
 
            t - (optional) time at which to get Y
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y, Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           helioY(t) in kpc [norb,nt]
+           helioY(t) in kpc [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioY')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[1]\
+        _check_roSet(self, kwargs, 'helioY')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[1]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
-    def helioZ(self,*args,**kwargs):
+    def helioZ(self, *args, **kwargs):
         """
         NAME:
 
@@ -3038,32 +3057,32 @@ class Orbits(object):
 
            t - (optional) time at which to get Z
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y, Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
         OUTPUT:
 
-           helioZ(t) in kpc [norb,nt]
+           helioZ(t) in kpc [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioZ')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[2]\
+        _check_roSet(self, kwargs, 'helioZ')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[2]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
-    def U(self,*args,**kwargs):
+    def U(self, *args, **kwargs):
         """
         NAME:
 
@@ -3077,35 +3096,35 @@ class Orbits(object):
 
            t - (optional) time at which to get U
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           U(t) in km/s [norb,nt]
+           U(t) in km/s [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'U')
-        _check_voSet(self,kwargs,'U')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[3]\
+        _check_roSet(self, kwargs, 'U')
+        _check_voSet(self, kwargs, 'U')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[3]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
-    def V(self,*args,**kwargs):
+    def V(self, *args, **kwargs):
         """
         NAME:
 
@@ -3119,35 +3138,35 @@ class Orbits(object):
 
            t - (optional) time at which to get U
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           V(t) in km/s [norb,nt]
+           V(t) in km/s [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'V')
-        _check_voSet(self,kwargs,'V')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[4]\
+        _check_roSet(self, kwargs, 'V')
+        _check_voSet(self, kwargs, 'V')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[4]\
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
-    def W(self,*args,**kwargs):
+    def W(self, *args, **kwargs):
         """
         NAME:
 
@@ -3161,34 +3180,34 @@ class Orbits(object):
 
            t - (optional) time at which to get W
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y, Z, vx, vy, vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)         
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           W(t) in km/s [norb,nt]
+           W(t) in km/s [norb, nt]
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'W')
-        _check_voSet(self,kwargs,'W')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[5]\
+        _check_roSet(self, kwargs, 'W')
+        _check_voSet(self, kwargs, 'W')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[5]\
             .reshape(thiso_shape[1:]).T
 
-    def SkyCoord(self,*args,**kwargs):
+    def SkyCoord(self, *args, **kwargs):
         """
         NAME:
 
@@ -3202,63 +3221,63 @@ class Orbits(object):
 
            t - (optional) time at which to get the position
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y, Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer
                          Y is ignored and always assumed to be zero
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
+           ro = distance in kpc corresponding to R=1. (default=Object-wide default)
 
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
+           vo = velocity in km/s corresponding to v=1. (default=Object-wide default)
 
         OUTPUT:
 
-           SkyCoord(t) [norb,nt] 
+           SkyCoord(t) [norb, nt] 
 
         HISTORY:
 
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        kwargs.pop('quantity',None) # rm useless keyword to no conflict later
-        _check_roSet(self,kwargs,'SkyCoord')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        radec= _radec(self,thiso,*args,**kwargs).T\
-            .reshape((2,)+thiso_shape[1:])
-        tdist= self.dist(quantity=False,*args,**kwargs).T
-        if not _APY3: # pragma: no cover
+        kwargs.pop('quantity', None)  # rm useless keyword to no conflict later
+        _check_roSet(self, kwargs, 'SkyCoord')
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs).T\
+            .reshape((2,) + thiso_shape[1:])
+        tdist = self.dist(quantity=False, *args, **kwargs).T
+        if not _APY3:  # pragma: no cover
             return coordinates.SkyCoord(radec[0]*units.degree,
                                         radec[1]*units.degree,
-                                        distance=tdist*units.kpc,
-                                        frame='icrs').T
-        _check_voSet(self,kwargs,'SkyCoord')
-        pmrapmdec= _pmrapmdec(self,thiso,*args,**kwargs).T\
+                                        distance =tdist*units.kpc,
+                                        frame ='icrs').T
+        _check_voSet(self, kwargs, 'SkyCoord')
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs).T\
             .reshape((2,)+thiso_shape[1:])
-        tvlos= self.vlos(quantity=False,*args,**kwargs).T
+        tvlos = self.vlos(quantity=False, *args, **kwargs).T
         # Also return the Galactocentric frame used
-        v_sun= coordinates.CartesianDifferential(\
-            numpy.array([-self._solarmotion[0],
+        v_sun = coordinates.CartesianDifferential(\
+            np.array([-self._solarmotion[0],
                        self._solarmotion[1]+self._vo,
-                       self._solarmotion[2]])*units.km/units.s)
+                       self._solarmotion[2]])*units.km / units.s)
         return coordinates.SkyCoord(radec[0]*units.degree,
                                     radec[1]*units.degree,
-                                    distance=tdist*units.kpc,
+                                    distance =tdist*units.kpc,
                                     pm_ra_cosdec=pmrapmdec[0]\
                                         *units.mas/units.yr,
                                     pm_dec=pmrapmdec[1]*units.mas/units.yr,
-                                    radial_velocity=tvlos*units.km/units.s,
-                                    frame='icrs',
-                                    galcen_distance=\
-                                        numpy.sqrt(self._ro**2.+self._zo**2.)\
+                                    radial_velocity=tvlos*units.km / units.s,
+                                    frame ='icrs',
+                                    galcen_distance =\
+                                        np.sqrt(self._ro**2.+self._zo**2.)\
                                         *units.kpc,
                                     z_sun=self._zo*units.kpc,
                                     galcen_v_sun=v_sun).T
 
 
-    def __call__(self,*args,**kwargs):
+    def __call__(self, *args, **kwargs):
         """
         NAME:
  
@@ -3283,23 +3302,23 @@ class Orbits(object):
            2019-03-05 - Written - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
-        thiso= self._call_internal(*args,**kwargs)
+        orbSetupKwargs = {'ro': self._ro,
+                         'vo': self._vo,
+                         'zo': self._zo,
+                         'solarmotion': self._solarmotion}
+        thiso = self._call_internal(*args, **kwargs)
         if len(thiso.shape) == 2:
-            out= Orbits(vxvv=thiso.T,**orbSetupKwargs)
-            out._roSet= self._roSet
-            out._voSet= self._voSet
+            out = Orbits(vxvv=thiso.T, **orbSetupKwargs)
+            out._roSet = self._roSet
+            out._voSet = self._voSet
         else:
-            out= [Orbits(vxvv=thiso[:,ii].T,
+            out = [Orbits(vxvv=thiso[:, ii].T,
                         **orbSetupKwargs) for ii in range(thiso.shape[1])]
             if not self._roSet or not self._voSet:
                 [o.turn_physical_off() for o in out]
         return out
 
-    def _call_internal(self,*args,**kwargs):
+    def _call_internal(self, *args, **kwargs):
         """
         NAME:
            _call_internal
@@ -3308,69 +3327,74 @@ class Orbits(object):
         INPUT:
            t - desired time
         OUTPUT:
-           [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit; shape = [phasedim,nt,norb]
+           [R, vR, vT, z, vz(, phi)] or [R, vR, vT(, phi)] depending on the orbit; shape = [phasedim, nt, norb]
         HISTORY:
            2019-02-01 - Started - Bovy (UofT)
            2019-02-18 - Written interpolation part - Bovy (UofT)
         """
         if len(args) == 0:
-            return numpy.array(self.vxvv).T
-        elif not hasattr(self,'t'):
+            return np.array(self.vxvv).T
+        elif not hasattr(self, 't'):
             raise ValueError("Integrate instance before evaluating it at a specific time")
+        elif isinstance(args[0], str):
+            if args[0] == 'all':  # shortcut for t = self.t
+                return self.orbit.T
+            else:
+                raise ValueError("time is not in ('all',)")
         else:
-            t= args[0]
+            t = args[0]
         # Parse t
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            t = t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo, self._ro)
         elif '_integrate_t_asQuantity' in self.__dict__ \
                 and self._integrate_t_asQuantity \
-                and not numpy.all(t == self.t):
+                and not np.all(t == self.t):
             # Not doing hasattr in above elif, bc currently slow due to overwrite of __getattribute__
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
-        if numpy.all(t == self.t): # Common case where one wants all integrated times
+        if np.all(t == self.t):  # Common case where one wants all integrated times
             return self.orbit.T
-        elif isinstance(t,(int,float)) and hasattr(self,'t') \
+        elif isinstance(t, (int, float)) and hasattr(self, 't') \
                 and t in list(self.t):
-            return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
+            return np.array(self.orbit[:, list(self.t).index(t), :]).T
         else:
-            if isinstance(t,(int,float)): 
-                nt= 1
-                t= numpy.atleast_1d(t)
+            if isinstance(t, (int, float)):
+                nt = 1
+                t = np.atleast_1d(t)
             else: 
-                nt= len(t)
+                nt = len(t)
             try:
                 self._setupOrbitInterp()
             except:
-                out= numpy.zeros((self.phasedim(),nt,len(self)))
+                out = np.zeros((self.phasedim(), nt, len(self)))
                 for jj in range(nt):
                     try:
-                        indx= list(self.t).index(t[jj])
+                        indx = list(self.t).index(t[jj])
                     except ValueError:
                         raise LookupError("Orbit interpolaton failed; integrate on finer grid")
-                    out[:,jj]= self.orbit[:,indx].T
+                    out[:,jj]= self.orbit[:, indx].T
                 return out #should always have nt > 1, bc otherwise covered by above
-            out= numpy.empty((self.phasedim(),nt,len(self)))
+            out = np.empty((self.phasedim(), nt, len(self)))
             # Evaluating RectBivariateSpline on grid requires sorted arrays
-            sindx= numpy.argsort(t)
-            t= t[sindx]
-            usindx= numpy.argsort(sindx) # to later unsort
+            sindx = np.argsort(t)
+            t = t[sindx]
+            usindx = np.argsort(sindx)  # to later unsort
             if self.phasedim() == 4 or self.phasedim() == 6:
                 #Unpack interpolated x and y to R and phi
-                x= self._orbInterp[0](t,self._orb_indx_4orbInterp)
-                y= self._orbInterp[-1](t,self._orb_indx_4orbInterp)
-                out[0]= numpy.sqrt(x*x+y*y)
-                out[-1]= numpy.arctan2(y,x) % (2.*numpy.pi)
-                for ii in range(1,self.phasedim()-1):
-                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
+                x = self._orbInterp[0](t, self._orb_indx_4orbInterp)
+                y = self._orbInterp[-1](t, self._orb_indx_4orbInterp)
+                out[0]= np.sqrt(x*x+y*y)
+                out[-1]= np.arctan2(y,x) % (2.*np.pi)
+                for ii in range(1, self.phasedim()-1):
+                    out[ii]= self._orbInterp[ii](t, self._orb_indx_4orbInterp)
             else:
                 for ii in range(self.phasedim()):
-                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
+                    out[ii]= self._orbInterp[ii](t, self._orb_indx_4orbInterp)
             if nt == 1:
-                return out[:,0]
+                return out[:, 0]
             else:
-                t= t[usindx]
-                return out[:,usindx]
+                t = t[usindx]
+                return out[:, usindx]
 
     def toPlanar(self):
         """
@@ -3395,19 +3419,19 @@ class Orbits(object):
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
+        orbSetupKwargs = {'ro': self._ro,
+                         'vo': self._vo,
+                         'zo': self._zo,
+                         'solarmotion': self._solarmotion}
         if self.phasedim() == 6:
-            vxvv= self.vxvv[:,[0,1,2,5]]
+            vxvv = self.vxvv[:,[0, 1,2,5]]
         elif self.phasedim() == 5:
-            vxvv= self.vxvv[:,[0,1,2]]
+            vxvv = self.vxvv[:,[0, 1,2]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+        out = Orbits(vxvv=vxvv, **orbSetupKwargs)
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
 
     def toLinear(self):
@@ -3433,50 +3457,60 @@ class Orbits(object):
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo}
+        orbSetupKwargs = {'ro': self._ro,
+                         'vo': self._vo}
         if self.dim() == 3:
-            vxvv= self.vxvv[:,[3,4]]
+            vxvv = self.vxvv[:,[3,4]]
         else:
             raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+        out = Orbits(vxvv=vxvv, **orbSetupKwargs)
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
 
     def _setupOrbitInterp(self):
-        if hasattr(self,"_orbInterp"): return None
+        if hasattr(self, "_orbInterp"): return None
         # Setup one interpolation / phasedim, for all orbits simultaneously
         # First check that times increase
-        if hasattr(self,"t"): #Orbit has been integrated
-            if self.t[1] < self.t[0]: #must be backward
-                sindx= numpy.argsort(self.t)
+        if hasattr(self, "t"):  #Orbit has been integrated
+            if self.t[1] < self.t[0]:  #must be backward
+                sindx = np.argsort(self.t)
                 # sort
-                self.t= self.t[sindx]
-                self.orbit= self.orbit[:,sindx]
-                usindx= numpy.argsort(sindx) # to later unsort
-        orbInterp= []
-        orb_indx= numpy.arange(len(self))
+                self.t = self.t[sindx]
+                self.orbit = self.orbit[:, sindx]
+                usindx = np.argsort(sindx)  # to later unsort
+        orbInterp = []
+        orb_indx = np.arange(len(self))
         for ii in range(self.phasedim()):
             if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
                 #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,
-                        (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.))
+                orbInterp.append(
+                    interpolate.RectBivariateSpline(
+                        self.t, orb_indx,
+                        (self.orbit[:, :, 0] * np.cos(self.orbit[:, :, -1])).T,
+                        ky=1, s=0.
+                    )
+                )
             elif (self.phasedim() == 4 or self.phasedim() == 6) and \
-                    ii == self.phasedim()-1:
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,
-                        (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
-                        ky=1,s=0.))
+                    ii == self.phasedim() - 1:
+                orbInterp.append(
+                    interpolate.RectBivariateSpline(
+                        self.t, orb_indx,
+                        (self.orbit[:, :, 0] * np.sin(self.orbit[:, :, -1])).T,
+                        ky=1, s=0.
+                    )
+                )
             else:
-                orbInterp.append(interpolate.RectBivariateSpline(\
-                        self.t,orb_indx,self.orbit[:,:,ii].T,ky=1,s=0.))
-        self._orbInterp= orbInterp
-        self._orb_indx_4orbInterp= orb_indx
-        try: #unsort
-            self.t= self.t[usindx]
-            self.orbit= self.orbit[:,usindx]
+                orbInterp.append(
+                    interpolate.RectBivariateSpline(
+                        self.t, orb_indx, self.orbit[:, :, ii].T,
+                        ky=1, s=0.
+                    )
+                )
+        self._orbInterp = orbInterp
+        self._orb_indx_4orbInterp = orb_indx
+        try:  #unsort
+            self.t = self.t[usindx]
+            self.orbit = self.orbit[:, usindx]
         except: pass
         return None
