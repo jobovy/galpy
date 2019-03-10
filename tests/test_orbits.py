@@ -2157,11 +2157,8 @@ def test_actionsFreqsAngles_RuntimeError_1d():
         os.jz(analytic=True)
     return None
 
-@pytest.mark.xfail(sys.platform != 'win32',strict=True,raises=ValueError,
-                   reason="Does not fail on Windows...")
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
-    # Test from test_potential for Orbits now! Currently fails because Chandra
-    # can't be pickled for parallel_map...
+    # Test from test_potential for Orbits now!
     #
     # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
     # agrees with analytical solutions for circular orbits:
@@ -2185,7 +2182,7 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     o= Orbits([Orbit([r_inits[0],0.,1.,0.,0.,0.]),
                Orbit([r_inits[1],0.,1.,0.,0.,0.])])
     ts= numpy.linspace(0.,dt,1001)
-    o.integrate(ts,[lp,cdfc],method='odeint')
+    o.integrate(ts,[lp,cdfc],method='leapfrog') # also tests fallback onto odeint
     r_pred= numpy.sqrt(numpy.array(o.r())**2.
                        -0.604*const_lnLambda*GMs*numpy.sqrt(2.)*dt)
     assert numpy.all(numpy.fabs(r_pred-numpy.array(o.r(ts[-1]))) < 0.015), 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
