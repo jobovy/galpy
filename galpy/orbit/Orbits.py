@@ -208,27 +208,6 @@ class Orbits(object):
     def phasedim(self):
         return self._orbits[0].phasedim()
 
-    # (temporary) solution to the fact that some custom-implemented functions
-    # are not yet completely implemented, so if they aren't complete, fall
-    # back onto Orbit functions; need to make sure that NotImplementedError
-    # is raised at the top-level of the incomplete function, before calling
-    # any other incomplete function... (see R function for instance in 
-    # 3cf76f180545acb0606b2556135e9390ce800377)
-    def __getattribute__(self,attr):
-        if callable(super(Orbits,self).__getattribute__(attr)) \
-                and not attr == '_pot' and not attr == '_aA' \
-                and not attr == '_aAPot' and not attr == '_aAType':
-            def func(*args,**kwargs):
-                try:
-                    out= super(Orbits,self)\
-                        .__getattribute__(attr)(*args,**kwargs)
-                except NotImplementedError:
-                    out= self.__getattr__(attr)(*args,**kwargs)
-                return out
-            return func
-        else:
-            return super(Orbits,self).__getattribute__(attr)
-
     def __getattr__(self, name):
         """
         NAME:
