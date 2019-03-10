@@ -1329,10 +1329,10 @@ def _check_energy_jacobi_angmom(os,list_os):
     os.integrate(times,MWPotential2014)
     [o.integrate(times,MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        # Don't have to specify the potential
+        # Don't have to specify the potential or set to None
         assert numpy.all(numpy.fabs(os.E(times)[ii]/list_os[ii].E(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits E does not agree with Orbit'
         if os.dim() == 3:
-            assert numpy.all(numpy.fabs(os.ER(times)[ii]/list_os[ii].ER(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.ER(times,pot=None)[ii]/list_os[ii].ER(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits ER does not agree with Orbit'
             assert numpy.all(numpy.fabs(os.Ez(times)[ii]/list_os[ii].Ez(times,pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits Ez does not agree with Orbit'
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(numpy.fabs(os.L(times)[ii]/list_os[ii].L(times)-1.) < 10.**-10.), 'Evaluating Orbits L does not agree with Orbit'
@@ -1441,6 +1441,48 @@ def test_newOrbit_b4integration():
     assert numpy.all(numpy.fabs(no.phi()-o.phi()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct phi"
     assert not no._roSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
     assert not no._voSet, "New Orbits formed from calling an old orbit does not have the correct roSet"
+    return None
+
+# Test that we can still get outputs when there aren't enough points for an actual interpolation
+def test_badinterpolation():
+    from galpy.orbit import Orbits
+    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+               [1.1,0.3,0.9,-0.2,0.3,2.]])
+    ts= numpy.linspace(0.,1.,3) #v. quick orbit integration, w/ not enough points for interpolation
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    o.integrate(ts,lp)
+    no= o(ts[-1]) #new orbit
+    assert numpy.all(no.R() == o.R(ts[-1])), "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.all(no.vR() == o.vR(ts[-1])), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(no.vT() == o.vT(ts[-1])), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(no.z() == o.z(ts[-1])), "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.all(no.vz() == o.vz(ts[-1])), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(no.phi() == o.phi(ts[-1])), "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    #Also test this for multiple time outputs
+    nos= o(ts[-2:]) #new orbits
+    #First t
+    assert numpy.all(numpy.fabs(nos[0].R()-o.R(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(nos[0].vR()-o.vR(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(nos[0].vT()-o.vT(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(nos[0].z()-o.z(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    #Second t
+    assert numpy.all(numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(nos[1].vT()-o.vT(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(nos[1].z()-o.z(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    #Try point in between, shouldn't work
+    with pytest.raises(LookupError) as exc_info:
+        no= o(0.6)
     return None
 
 # Check plotting routines
@@ -2034,6 +2076,9 @@ def test_rguiding():
     rgs= os.rguiding(pot=MWPotential2014)
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rguiding(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rguiding analytically does not agree with Orbit'
+    # rguiding for non-axi potential fails
+    with pytest.raises(RuntimeError) as exc_info:
+        os.rguiding(MWPotential2014+potential.DehnenBarPotential())
     return None
 
 # Test that the actions, frequencies/periods, and angles calculated 
@@ -2126,6 +2171,24 @@ def test_actionsFreqsAngles_staeckeldelta():
     # Now with, should be different
     jr= os.jr(delta=0.4,pot=MWPotential2014)
     assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it'
+    return None
+
+# Test that actionAngleStaeckel for a spherical potential is the same
+# as actionAngleSpherical
+def test_actionsFreqsAngles_staeckeldeltaequalzero():
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.orbit import Orbits
+    os= Orbits([None,None]) # Just twice the Sun!
+    lp= LogarithmicHaloPotential(normalize=1.)
+    assert numpy.all(numpy.fabs(os.jr(pot=lp,type='staeckel')-os.jr(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.jp(pot=lp,type='staeckel')-os.jp(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.jz(pot=lp,type='staeckel')-os.jz(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.wr(pot=lp,type='staeckel')-os.wr(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.wp(pot=lp,type='staeckel')-os.wp(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.wz(pot=lp,type='staeckel')-os.wz(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.Tr(pot=lp,type='staeckel')-os.Tr(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.Tp(pot=lp,type='staeckel')-os.Tp(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
+    assert numpy.all(numpy.fabs(os.Tz(pot=lp,type='staeckel')-os.Tz(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
     return None
 
 # Test that the b / ip parameters are properly dealt with when using the 
