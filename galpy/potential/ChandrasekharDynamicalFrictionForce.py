@@ -2,6 +2,7 @@
 #   ChandrasekharDynamicalFrictionForce: Class that implements the 
 #                                        Chandrasekhar dynamical friction
 ###############################################################################
+import copy
 import hashlib
 import numpy
 from scipy import special, interpolate
@@ -55,7 +56,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            dens - Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)]
 
-           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy
+           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function)
 
            cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
 
@@ -95,6 +96,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._rhm= rhm
         self._minr= minr
         self._maxr= maxr
+        self._dens_kwarg= dens # for pickling
+        self._sigmar_kwarg= sigmar # for pickling
         # Parse density
         if dens is None:
             from .LogarithmicHaloPotential import LogarithmicHaloPotential
@@ -263,3 +266,31 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         if new_hash != self._force_hash:
             self._calc_force(R,phi,z,v,t)
         return self._cached_force*v[2]
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict= copy.copy(self.__dict__)
+        # rm lambda function
+        del pdict['_dens']
+        if self._sigmar_kwarg is None:
+            # because an object set up with sigmar = user-provided function
+            # cannot typically be picked, disallow this explicitly
+            # (so if it can, everything should be fine; if not, pickling error)
+            del pdict['sigmar_orig']
+        return pdict
+
+    def __setstate__(self,pdict):
+        self.__dict__= pdict
+        # Re-setup _dens
+        self._dens=\
+            lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
+                                                      R,z,phi=phi,t=t,
+                                                      use_physical=False)
+        # Re-setup sigmar_orig
+        if self._dens_kwarg is None and self._sigmar_kwarg is None:
+            self.sigmar_orig= lambda x: _INVSQRTTWO
+        else:
+            from galpy.df import jeans
+            self.sigmar_orig= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
+                                                     use_physical=False)
+        return None
