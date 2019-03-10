@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import os
 import sys
+PY3= sys.version > '3'
 import pytest
 import numpy
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
@@ -2579,8 +2580,12 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
         GMs=GMs,rhm=0.125,
         dens=potential.MWPotential2014,sigmar=sigmar,
         minr=0.5,maxr=2.)
-    with pytest.raises(AttributeError) as excinfo:
-        pickled= pickle.dumps(cdf)
+    if PY3:
+        with pytest.raises(AttributeError) as excinfo:
+            pickled= pickle.dumps(cdf)
+    else:
+        with pytest.raises(pickle.PicklingError) as excinfo:
+            pickled= pickle.dumps(cdf)
     return None
 
 def test_RingPotential_correctPotentialIntegral():
