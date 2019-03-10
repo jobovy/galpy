@@ -1015,7 +1015,7 @@ class Orbits(object):
                     or (not type is None and type != self._aAType) \
                     or (not delta is None and hasattr(self._aA,'_delta') 
                         and numpy.any(delta != self._aA._delta)) \
-                    or (not delta is None
+                    or (delta is None
                         and hasattr(self,'_aA_delta_automagic')
                         and not self._aA_delta_automagic) \
                     or (not b is None and hasattr(self._aA,'_aAI') 
