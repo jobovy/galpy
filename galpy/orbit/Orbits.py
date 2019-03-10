@@ -786,12 +786,14 @@ class Orbits(object):
         if self.dim() == 1:
             raise AttributeError("'linear Orbits have no angular momentum")
         #Get orbit
-        thiso= self._call_internal(*args,**kwargs)
         if self.dim() == 2:
+            thiso= self._call_internal(*args,**kwargs)
             return (thiso[0]*thiso[2]).T
         elif self.phasedim() == 5:
             raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
         else: # phasedim == 6
+            old_physical= kwargs.get('use_physical',None)
+            kwargs['use_physical']= False
             vx= self.vx(*args,**kwargs)
             vy= self.vy(*args,**kwargs)
             vz= self.vz(*args,**kwargs)
@@ -802,6 +804,10 @@ class Orbits(object):
             out[...,0]= y*vz-z*vy
             out[...,1]= z*vx-x*vz
             out[...,2]= x*vy-y*vx
+            if not old_physical is None:
+                kwargs['use_physical']= old_physical
+            else:
+                kwargs.pop('use_physical')
             return out
         
     @physical_conversion('action')
@@ -1017,16 +1023,24 @@ class Orbits(object):
             type= 'adiabatic'
         elif self.dim() == 1:
             raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
+        delta= kwargs.pop('delta',None)
+        if _APY_LOADED and not delta is None \
+                and isinstance(delta,units.Quantity):
+            delta= delta.to(units.kpc).value/self._ro
+        b= kwargs.pop('b',None)
+        if _APY_LOADED and not b is None \
+                and isinstance(b,units.Quantity):
+            b= b.to(units.kpc).value/self._ro
         if hasattr(self,'_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
-                    or ('delta' in kwargs and hasattr(self._aA,'_delta') 
-                        and numpy.any(kwargs['delta'] != self._aA._delta)) \
-                    or (not 'delta' in kwargs 
+                    or (not delta is None and hasattr(self._aA,'_delta') 
+                        and numpy.any(delta != self._aA._delta)) \
+                    or (not delta is None
                         and hasattr(self,'_aA_delta_automagic')
                         and not self._aA_delta_automagic) \
-                    or ('b' in kwargs and hasattr(self._aA,'_aAI') 
-                        and numpy.any(kwargs['b'] != self._aA._aAI.b)) \
+                    or (not b is None and hasattr(self._aA,'_aAI') 
+                        and numpy.any(b != self._aA._aAI.b)) \
                     or ('ip' in kwargs and hasattr(self._aA,'_aAI') 
                         and (numpy.any(kwargs['ip'].b != self._aA._aAI.b) \
                         or numpy.any(kwargs['ip']._amp != self._aA._aAI.amp))):
@@ -1051,7 +1065,6 @@ class Orbits(object):
             tz= self.z(use_physical=False)\
                 +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
                 * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            delta= kwargs.pop('delta',None)
             self._aA_delta_automagic= False
             if delta is None:
                 self._aA_delta_automagic= True
@@ -1074,7 +1087,7 @@ class Orbits(object):
                                                           **kwargs)
         elif self._aAType.lower() == 'isochroneapprox':
             from galpy.actionAngle import actionAngleIsochroneApprox
-            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,
+            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,b=b,
                                                  **kwargs)
         elif self._aAType.lower() == 'spherical':
             self._aA= actionAngle.actionAngleSpherical(pot=self._aAPot,
