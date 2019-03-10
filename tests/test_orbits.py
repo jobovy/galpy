@@ -2367,3 +2367,29 @@ def test_physical_output_on():
     #Also test the times
     assert numpy.fabs((o.time(1.)-o_orig.time(1.,use_physical=True))) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
     return None
+
+# Test that Orbits can be pickled
+def test_pickling():
+    import pickle
+    from galpy.orbit import Orbits
+    # Just test most common setup: 3D, 6 phase-D
+    vxvvs= [[1.,0.1,1.,0.1,-0.2,1.5],[0.1,3.,1.1,-0.3,0.4,2.]]
+    orbits= Orbits(vxvvs)
+    pickled= pickle.dumps(orbits)
+    orbits_unpickled= pickle.loads(pickled)
+    # Tests
+    assert orbits_unpickled.dim() == 3, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert orbits_unpickled.phasedim() == 6, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.R()[0]-1.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.R()[1]-0.1) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vR()[0]-0.1) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vR()[1]-3.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vT()[0]-1.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vT()[1]-1.1) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.z()[0]-0.1) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.z()[1]+0.3) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vz()[0]+0.2) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.vz()[1]-0.4) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.phi()[0]-1.5) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    assert numpy.fabs(orbits_unpickled.phi()[1]-2.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    return None
