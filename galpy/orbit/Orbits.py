@@ -1,5 +1,8 @@
 import os
 import copy
+import json
+from random import choice
+from string import ascii_lowercase
 import warnings
 import numpy
 from scipy import interpolate
@@ -3494,6 +3497,625 @@ class Orbits(object):
             self.orbit= self.orbit[:,usindx]
         except: pass
         return None
+
+    def _parse_plot_quantity(self,quant,**kwargs):
+        """Internal function to parse a quantity to be plotted based on input data"""
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        if callable(quant):
+            return quant(self.t)
+        def _eval(q):
+            # Check those that don't have the exact name of the function
+            if q == 't':
+                # Typically expect this to have same shape as other quantities
+                return numpy.tile(self.time(self.t,**kwargs),
+                                  (len(self),1))
+            elif q == 'Enorm':
+                return self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+            elif q == 'Eznorm':
+                return self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+            elif q == 'ERnorm':
+                return self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+            elif q == 'Jacobinorm':
+                return self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+            else: # these are exact, e.g., 'x' for self.x
+                return self.__getattribute__(q)(self.t,**kwargs)
+        try:
+            return _eval(quant)
+        except AttributeError: pass
+        try:
+            import numexpr
+        except ImportError: #pragma: no cover
+            raise ImportError('Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first')
+        # Figure out the variables in the expression to be computed to plot
+        try:
+            vars= numexpr.NumExpr(quant).input_names
+        except TypeError as err:
+            raise TypeError('Parsing the expression {} failed, with error message:\n"{}"'.format(quant,err))
+        # Construct dictionary of necessary parameters
+        vars_dict= {}
+        for var in vars:
+            vars_dict[var]= _eval(var)
+        return numexpr.evaluate(quant,local_dict=vars_dict)
+
+    def animate(self,*args,**kwargs): #pragma: no cover
+        """
+        NAME:
+
+           animate
+
+        PURPOSE:
+
+           animate a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot; can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           width= (600) width of output div in px
+
+           height= (400) height of output div in px
+
+           xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+           ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+
+        HISTORY:
+
+           2017-09-17-24 - Written - Bovy (UofT)
+
+           2019-03-11 - Adapted for multiple orbits - Bovy (UofT)
+
+        """
+        try:
+            from IPython.display import HTML
+        except ImportError:
+            raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':'t (Gyr)',
+                        'R':'R (kpc)',
+                        'vR':'v_R (km/s)',
+                        'vT':'v_T (km/s)',
+                        'z':'z (kpc)',
+                        'vz':'v_z (km/s)',
+                        'phi':'azimuthal angle',
+                        'r':'r (kpc)',
+                        'x':'x (kpc)',
+                        'y':'y (kpc)',
+                        'vx':'v_x (km/s)',
+                        'vy':'v_y (km/s)',
+                        'E':'E (km^2/s^2)',
+                        'Ez':'E_z (km^2/s^2)',
+                        'ER':'E_R (km^2/s^2)',
+                        'Enorm':'E(t)/E(0.)',
+                        'Eznorm':'E_z(t)/E_z(0.)',
+                        'ERnorm':'E_R(t)/E_R(0.)',
+                        'Jacobi':'E-Omega_p L (km^2/s^2)',
+                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        else:
+            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
+                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
+                        'r':'r',
+                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
+                        'E':'E','Enorm':'E(t)/E(0.)',
+                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
+                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
+                        'Jacobi':r'E-Omega_p L',
+                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        labeldict.update({'ra':'RA (deg)',
+                          'dec':'Dec (deg)',
+                          'll':'Galactic lon (deg)',
+                          'bb':'Galactic lat (deg)',
+                          'dist':'distance (kpc)',
+                          'pmra':'pmRA (mas/yr)',
+                          'pmdec':'pmDec (mas/yr)',
+                          'pmll':'pmGlon (mas/yr)',
+                          'pmbb':'pmGlat (mas/yr)',
+                          'vlos':'line-of-sight vel (km/s)',
+                          'helioX':'X (kpc)',
+                          'helioY':'Y (kpc)',
+                          'helioZ':'Z (kpc)',
+                          'U':'U (km/s)',
+                          'V':'V (km/s)',
+                          'W':'W (km/s)'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+            elif self.phasedim() == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif self.dim() == 3:
+                d1= 'R'
+                d2= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+        xs= []
+        ys= []
+        xlabels= []
+        ylabels= []
+        if isinstance(d1,str) or callable(d1):
+            d1s= [d1]
+            d2s= [d2]
+        else:
+            d1s= d1
+            d2s= d2
+        if len(d1s) > 3:
+            raise ValueError('Orbit.animate only works for up to three subplots')
+        all_xlabel= kwargs.get('xlabel',[None for d in d1])
+        all_ylabel= kwargs.get('ylabel',[None for d in d2])
+        for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
+           #Get x and y for each subplot
+            x= self._parse_plot_quantity(d1,**kwargs)
+            y= self._parse_plot_quantity(d2,**kwargs)
+            xs.append(x)
+            ys.append(y)
+            if xlabel is None:
+                xlabels.append(labeldict.get(d1,'\mathrm{No\ xlabel\ specified}'))
+            else:
+                xlabels.append(xlabel)
+            if ylabel is None:
+                ylabels.append(labeldict.get(d2,'\mathrm{No\ ylabel\ specified}'))
+            else:
+                ylabels.append(ylabel)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        width= kwargs.pop('width',600)
+        height= kwargs.pop('height',400)
+        load_jslibs= kwargs.pop('load_jslibs',True)
+        if load_jslibs:
+            load_jslibs_code= """</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+"""
+        else:
+            load_jslibs_code= ""
+        # Dump data to HTML
+        nplots= len(xs)
+        jsonDict= {}
+        for ii in range(nplots):
+            for jj in range(len(self)):
+                jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
+                jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
+        json_filename= kwargs.pop('json_filename',None)
+        if json_filename is None:
+            jd= json.dumps(jsonDict)
+            json_code= """  let data= JSON.parse('{jd}');""".format(jd=jd)
+            close_json_code= ""
+        else:
+            with open(json_filename,'w') as jfile:
+                json.dump(jsonDict,jfile)
+            json_code= """Plotly.d3.json('{jfilename}',function(data){{""".format(jfilename=json_filename)
+            close_json_code= "});"
+        self.divid= 'galpy-'\
+            +''.join(choice(ascii_lowercase) for i in range(24))
+        button_width= 419.51+4.*10.
+        button_margin_left= int(numpy.round((width-button_width)/2.))
+        if button_margin_left < 0: button_margin_left= 0
+        # Layout for multiple plots
+        if len(d1s) == 1:
+            xmin= [0,0,0]
+            xmax= [1,1,1]
+        elif len(d1s) == 2:
+            xmin= [0,0.55,0]
+            xmax= [0.45,1,1]
+        elif len(d1s) == 3:
+            xmin= [0,0.365,0.73]
+            xmax= [0.27,0.635,1]
+        # Colors
+        line_colors= ['#1f77b4', # muted blue
+                      '#ff7f0e', # safety orange
+                      '#2ca02c', # cooked asparagus green
+                      '#d62728', # brick red
+                      '#9467bd', # muted purple
+                      '#8c564b', # chestnut brown
+                      '#e377c2', # raspberry yogurt pink
+                      '#7f7f7f', # middle gray
+                      '#bcbd22', # curry yellow-green
+                      '#17becf'] # blue-teal
+        # When there are more than these # of colors needed, make up randoms
+        if len(self) > len(line_colors):
+            line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
+                                for ii in range(len(self)-len(line_colors))])
+        layout= """{{
+  xaxis: {{
+    title: '{xlabel}',
+    domain: [{xmin},{xmax}],
+}},
+  yaxis: {{title: '{ylabel}'}},
+  margin: {{t: 20}},
+  hovermode: 'closest',
+  showlegend: false,
+""".format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
+
+        for ii in range(1,nplots):
+            layout+= """  xaxis{idx}: {{
+    title: '{xlabel}',
+    anchor: 'y{idx}',
+    domain: [{xmin},{xmax}],
+}},
+  yaxis{idx}: {{
+    title: '{ylabel}',
+    anchor: 'x{idx}',
+}},
+""".format(idx=ii+1,xlabel=xlabels[ii],ylabel=ylabels[ii],
+           xmin=xmin[ii],xmax=xmax[ii])
+        layout+="""}"""
+        # First plot
+        setup_trace1= """
+    let trace1= {{
+      x: data.x1_0.slice(0,numPerFrame), 
+      y: data.y1_0.slice(0,numPerFrame),
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+       }},
+    }};
+
+    let trace2= {{
+      x: data.x1_0.slice(0,numPerFrame), 
+      y: data.y1_0.slice(0,numPerFrame),
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+    }};
+""".format(line_color=line_colors[0])
+        traces_cumul= """trace1,trace2"""
+        for ii in range(1,len(self)):
+            setup_trace1+= """            
+    let trace{trace_num_1}= {{
+      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+       }},
+    }};
+
+    let trace{trace_num_2}= {{
+      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+    }};
+""".format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
+           line_color=line_colors[ii])
+            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2))
+
+        update_trace12= """
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
+      }}, [0]);
+      trace_slice_begin-= trace_slice_len;
+      trace2= {{
+        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
+      }};
+      Plotly.restyle('{divid}',trace2,[1]);
+""".format(divid=self.divid)
+        for ii in range(1,len(self)):
+            update_trace12+= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }}, [{trace_num_10}]);
+      trace_slice_begin-= trace_slice_len;
+      trace{trace_num_2}= {{
+        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }};
+      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
+""".format(divid=self.divid,trace_indx=str(ii),trace_num_1=str(2*ii+1),
+           trace_num_2=str(2*ii+2),trace_num_10=str(2*ii+1-1),
+           trace_num_20=str(2*ii+2-1))
+        delete_trace2= ""
+        delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+        for ii in range(len(self)-1,0,-1):
+            delete_trace2+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*ii+2-1))
+            delete_trace1+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+        delete_trace2+= """\n        Plotly.deleteTraces('{divid}',1);""".format(divid=self.divid)
+        # Additional traces for additional plots
+        if len(d1s) > 1:
+            setup_trace2= """
+    let trace3= {{
+      x: data.x2_0.slice(0,numPerFrame),
+      y: data.y2_0.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+      }},
+    }};
+
+    let trace4= {{
+      x: data.x2_0.slice(0,numPerFrame), 
+      y: data.y2_0.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+      }},
+    }};
+""".format(line_color=line_colors[0]) # not used!
+
+
+            delete_trace4= """Plotly.deleteTraces('{divid}',3);""".format(divid=self.divid)
+            delete_trace3= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+            update_trace34= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
+      }}, [2]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace4= {{
+        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace4,[3]);
+""".format(divid=self.divid)
+        else: # else for "if there is a 2nd panel"
+            setup_trace2= """
+    let traces= [{traces_cumul}];
+""".format(traces_cumul=traces_cumul)
+            delete_trace4= ""
+            delete_trace3= ""
+            update_trace34= ""
+
+
+        if len(d1s) > 2:
+            setup_trace3= """
+    let trace5= {{
+      x: data.x3_0.slice(0,numPerFrame),
+      y: data.y3_0.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+      }},
+    }};
+
+    let trace6= {{
+      x: data.x3_0.slice(0,numPerFrame), 
+      y: data.y3_0.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+      }},
+    }};
+
+    let traces= [trace1,trace2,trace3,trace4,trace5,trace6];
+""".format(line_color=line_colors[0])
+
+            delete_trace6= """Plotly.deleteTraces('{divid}',5);""".format(divid=self.divid)
+            delete_trace5= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+            update_trace56= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
+      }}, [4]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace6= {{
+        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace6,[5]);
+""".format(divid=self.divid)
+        elif len(d1s) > 1: # elif for "if there is a 3rd panel
+            setup_trace3= """
+    let traces= [trace1,trace2,trace3,trace4];
+"""
+            delete_trace5= ""
+            delete_trace6= ""
+            update_trace56= ""
+        else: # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
+            setup_trace3= ""
+            delete_trace5= ""
+            delete_trace6= ""
+            update_trace56= ""
+
+        return HTML("""
+<style>
+.galpybutton {{
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #1f77b4;
+    display:inline-block;
+    cursor:pointer;
+    color:#1f77b4;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+}}
+.galpybutton:hover {{
+    background-color:#ffffff;
+}}
+.galpybutton:active {{
+    position:relative;
+    top:1px;
+}}
+.galpybutton:focus{{
+    outline:0;
+}}
+</style>
+
+<div id='{divid}' style='width:{width}px;height:{height}px;'></div>
+<div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
+<button class="galpybutton">Play</button></div>
+<div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Pause</button></div>
+<div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
+<div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
+<button class="galpybutton">Replay</button></div>
+
+<script>
+require.config({{
+  paths: {{
+    Plotly: 'https://cdn.plot.ly/plotly-latest.min',
+  }}
+}});
+{load_jslibs_code}
+require(['Plotly'], function (Plotly) {{
+{json_code}
+  let layout = {layout};
+  let numPerFrame= 5;    
+  let cnt= 1;
+  let interval;
+  let trace_slice_len;
+  let trace_slice_begin;
+  let trace_slice_end;
+
+  setup_trace();
+  
+  $('.controlbutton button').click(function() {{
+    let button_type= this.parentNode.id;
+    if ( button_type === '{divid}-play' ) {{
+      clearInterval(interval);
+      interval= animate_trace();
+    }}
+    else if ( button_type === '{divid}-pause' )
+      clearInterval(interval);
+    else if ( button_type === '{divid}-timestwo' ) {{
+      cnt/= 2;
+      numPerFrame*= 2;
+    }}
+    else if ( button_type === '{divid}-timeshalf' ) {{
+      cnt*= 2;
+      numPerFrame/= 2;
+    }}
+    else if ( button_type === '{divid}-replay' ) {{
+      cnt= 1;
+      try {{ // doesn't exist if animation has already ended
+        {delete_trace6}
+        {delete_trace4}
+        {delete_trace2}
+      }}
+      catch (err) {{
+      }}
+      {delete_trace1}
+      {delete_trace3}
+      {delete_trace5}
+      clearInterval(interval);
+      setup_trace();
+      interval= animate_trace();
+    }}
+  }});
+    
+  function setup_trace() {{
+    {setup_trace1}
+
+    {setup_trace2}
+
+    {setup_trace3}
+
+    Plotly.plot('{divid}',traces,layout);
+  }}
+
+  function animate_trace() {{
+    return setInterval(function() {{
+      // Make sure narrow and thick trace end in the same 
+      // and the highlighted length has constant length
+      trace_slice_len= Math.floor(numPerFrame);
+      if ( trace_slice_len < 1) trace_slice_len= 1;
+      trace_slice_begin= Math.floor(cnt*numPerFrame);
+      trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
+      {update_trace12}
+      {update_trace34}
+      {update_trace56}
+      cnt+= 1;
+      if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
+          clearInterval(interval);
+          {delete_trace6}
+          {delete_trace4}
+          {delete_trace2}
+      }}
+    }}, 30);
+    }}
+{close_json_code}}});
+</script>""".format(json_code=json_code,close_json_code=close_json_code,
+                    divid=self.divid,width=width,height=height,
+                    button_margin_left=button_margin_left,
+                    layout=layout,load_jslibs_code=load_jslibs_code,
+                    setup_trace1=setup_trace1,setup_trace2=setup_trace2,
+                    setup_trace3=setup_trace3,delete_trace2=delete_trace2,
+                    delete_trace4=delete_trace4,delete_trace6=delete_trace6,
+                    delete_trace1=delete_trace1,delete_trace3=delete_trace3,
+                    delete_trace5=delete_trace5,
+                    update_trace12=update_trace12,
+                    update_trace34=update_trace34,
+                    update_trace56=update_trace56))
 
 class _1DInterp(object): 
     """Class to simulate 2D interpolation when using a single orbit"""
