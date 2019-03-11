@@ -969,8 +969,13 @@ class Orbits(object):
         if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
             if isinstance(OmegaP,list): thisOmegaP= numpy.array(OmegaP)
             else: thisOmegaP= OmegaP
-            out= self.E(*args,**kwargs)-numpy.einsum('i,jki->jk',thisOmegaP,
-                                                     self.L(*args,**kwargs))
+            tL= self.L(*args,**kwargs)
+            if len(tL.shape) == 2: # 1 time
+                out= self.E(*args,**kwargs)-numpy.einsum('i,ji->j',
+                                                         thisOmegaP,tL)
+            else:
+                out= self.E(*args,**kwargs)-numpy.einsum('i,jki->jk',
+                                                         thisOmegaP,tL)
         else:
             out= self.E(*args,**kwargs)-OmegaP*self.Lz(*args,**kwargs)
         if not old_physical is None:
