@@ -1002,9 +1002,9 @@ class Orbits(object):
            2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
         """
         if not pot is None: pot= flatten_potential(pot)
-        if self.dim() == 2:
-            # No reason to do Staeckel or isochroneApprox or spherical...
-            type= 'adiabatic'
+        if self.dim() == 2 and (type == 'staeckel' or type == 'adiabatic'):
+            # No reason to do Staeckel or adiabatic...
+            type= 'spherical'
         elif self.dim() == 1:
             raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
         delta= kwargs.pop('delta',None)

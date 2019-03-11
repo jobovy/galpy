@@ -1066,6 +1066,10 @@ class OrbitTop(object):
         """
         if hasattr(self,'_aA'):
             if not self._resetaA(pot=pot,type=type): return None
+        if (len(self.vxvv) == 3 or len(self.vxvv) == 4) \
+                and (type == 'staeckel' or type == 'adiabatic'):
+            # No reason to do Staeckel or adiabatic...
+            type= 'spherical'
         if pot is None:
             try:
                 pot= self._pot
