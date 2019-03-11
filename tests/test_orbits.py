@@ -1,5 +1,4 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
-import sys
 import numpy
 import astropy.units as u
 import astropy.coordinates as apycoords
@@ -1319,6 +1318,9 @@ def _check_energy_jacobi_angmom(os,list_os):
             assert numpy.all(numpy.fabs(os.Jacobi(pot=lp)[ii]/list_os[ii].Jacobi(pot=lp)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
             # Also explicitly set OmegaP
             assert numpy.all(numpy.fabs(os.Jacobi(pot=lp,OmegaP=0.6)[ii]/list_os[ii].Jacobi(pot=lp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            # Also in 3D
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=lp,OmegaP=[0.,0.,0.6])[ii]/list_os[ii].Jacobi(pot=lp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
+            assert numpy.all(numpy.fabs(os.Jacobi(pot=lp,OmegaP=numpy.array([0.,0.,0.6]))[ii]/list_os[ii].Jacobi(pot=lp,OmegaP=0.6)-1.) < 10.**-10.), 'Evaluating Orbits Jacobi does not agree with Orbit'
     # o.E before integration gives AttributeError
     with pytest.raises(AttributeError):
         os.E()
