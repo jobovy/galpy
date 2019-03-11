@@ -2084,8 +2084,8 @@ def test_rguiding():
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rguiding(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rguiding analytically does not agree with Orbit'
     # rguiding for non-axi potential fails
-    with pytest.raises(RuntimeError) as exc_info:
-        os.rguiding(MWPotential2014+potential.DehnenBarPotential())
+    with pytest.raises(RuntimeError,match="Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential") as exc_info:
+        os.rguiding(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
 # Test that the actions, frequencies/periods, and angles calculated 
