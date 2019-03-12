@@ -3828,7 +3828,6 @@ class Orbits(object):
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
            line_color=line_colors[ii])
             traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2))
-
         update_trace12= """
       Plotly.extendTraces('{divid}', {{
         x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)],
@@ -3866,7 +3865,7 @@ class Orbits(object):
         # Additional traces for additional plots
         if len(d1s) > 1:
             setup_trace2= """
-    let trace3= {{
+    let trace{trace_num_1}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
       xaxis: 'x2',
@@ -3879,7 +3878,7 @@ class Orbits(object):
       }},
     }};
 
-    let trace4= {{
+    let trace{trace_num_2}= {{
       x: data.x2_0.slice(0,numPerFrame), 
       y: data.y2_0.slice(0,numPerFrame),
       xaxis: 'x2',
@@ -3891,25 +3890,80 @@ class Orbits(object):
         color: '{line_color}',
       }},
     }};
-""".format(line_color=line_colors[0]) # not used!
+""".format(line_color=line_colors[0],trace_num_1=str(2*len(self)+1),
+           trace_num_2=str(2*len(self)+2))
+            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*len(self)+1),trace_num_2=str(2*len(self)+2))
+            for ii in range(1,len(self)):
+                setup_trace2+= """
+    let trace{trace_num_1}= {{
+      x: data.x2_{trace_indx}.slice(0,numPerFrame),
+      y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+      }},
+    }};
 
-
-            delete_trace4= """Plotly.deleteTraces('{divid}',3);""".format(divid=self.divid)
-            delete_trace3= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+    let trace{trace_num_2}= {{
+      x: data.x2_{trace_indx}.slice(0,numPerFrame), 
+      y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      xaxis: 'x2',
+      yaxis: 'y2',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+      }},
+    }};
+""".format(line_color=line_colors[ii],trace_indx=str(ii),
+           trace_num_1=str(2*len(self)+2*ii+1),
+           trace_num_2=str(2*len(self)+2*ii+2))
+                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*len(self)+2*ii+1),trace_num_2=str(2*len(self)+2*ii+2))
             update_trace34= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
         x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)],
         y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [2]);
+      }}, [{trace_num_10}]);
 
       trace_slice_begin-= trace_slice_len;
-      trace4= {{
+      trace{trace_num_2}= {{
         x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)], 
         y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
       }},
-      Plotly.restyle('{divid}',trace4,[3]);
-""".format(divid=self.divid)
+      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
+""".format(divid=self.divid,trace_num_2=str(2*len(self)+2),
+           trace_num_10=str(2*len(self)+1-1),
+           trace_num_20=str(2*len(self)+2-1))
+            for ii in range(1,len(self)):
+                update_trace34+= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }}, [{trace_num_10}]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace{trace_num_2}= {{
+        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
+""".format(divid=self.divid,trace_indx=str(ii),
+           trace_num_1=str(2*len(self)+2*ii+1),
+           trace_num_2=str(2*len(self)+2*ii+2),
+           trace_num_10=str(2*len(self)+2*ii+1-1),
+           trace_num_20=str(2*len(self)+2*ii+2-1))
+            delete_trace4= ""
+            delete_trace3= ""
+            for ii in range(len(self)-1,-1,-1):
+                delete_trace4+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*len(self)+2*ii+2-1))
+                delete_trace3+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
     let traces= [{traces_cumul}];
@@ -3919,9 +3973,11 @@ class Orbits(object):
             update_trace34= ""
 
 
+
+
         if len(d1s) > 2:
             setup_trace3= """
-    let trace5= {{
+    let trace{trace_num_1}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
       xaxis: 'x3',
@@ -3934,7 +3990,7 @@ class Orbits(object):
       }},
     }};
 
-    let trace6= {{
+    let trace{trace_num_2}= {{
       x: data.x3_0.slice(0,numPerFrame), 
       y: data.y3_0.slice(0,numPerFrame),
       xaxis: 'x3',
@@ -3946,30 +4002,88 @@ class Orbits(object):
         color: '{line_color}',
       }},
     }};
+""".format(line_color=line_colors[0],trace_num_1=str(4*len(self)+1),
+           trace_num_2=str(4*len(self)+2))
+            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*len(self)+1),trace_num_2=str(4*len(self)+2))
+            for ii in range(1,len(self)):
+                setup_trace3+= """
+    let trace{trace_num_1}= {{
+      x: data.x3_{trace_indx}.slice(0,numPerFrame),
+      y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 0.8,
+        color: '{line_color}',
+      }},
+    }};
 
-    let traces= [trace1,trace2,trace3,trace4,trace5,trace6];
-""".format(line_color=line_colors[0])
-
-            delete_trace6= """Plotly.deleteTraces('{divid}',5);""".format(divid=self.divid)
-            delete_trace5= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+    let trace{trace_num_2}= {{
+      x: data.x3_{trace_indx}.slice(0,numPerFrame), 
+      y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      xaxis: 'x3',
+      yaxis: 'y3',
+      mode: 'lines',
+      line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+      }},
+    }};
+""".format(line_color=line_colors[ii],trace_indx=str(ii),
+           trace_num_1=str(4*len(self)+2*ii+1),
+           trace_num_2=str(4*len(self)+2*ii+2),
+           trace_num_10=str(4*len(self)+2*ii+1-1),
+           trace_num_20=str(4*len(self)+2*ii+2-1))
+                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*len(self)+2*ii+1),trace_num_2=str(4*len(self)+2*ii+2))
+            setup_trace3+= """
+    let traces= [{traces_cumul}];
+""".format(traces_cumul=traces_cumul)
             update_trace56= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
         x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)],
         y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [4]);
+      }}, [{trace_num_10}]);
 
       trace_slice_begin-= trace_slice_len;
-      trace6= {{
+      trace{trace_num_2}= {{
         x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)], 
         y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
       }},
-      Plotly.restyle('{divid}',trace6,[5]);
-""".format(divid=self.divid)
+      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
+""".format(divid=self.divid,trace_num_2=str(4*len(self)+2),
+           trace_num_10=str(4*len(self)+1-1),
+           trace_num_20=str(4*len(self)+2-1))
+            for ii in range(1,len(self)):
+                update_trace56+= """
+      trace_slice_begin+= trace_slice_len;
+      Plotly.extendTraces('{divid}', {{
+        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }}, [{trace_num_10}]);
+
+      trace_slice_begin-= trace_slice_len;
+      trace{trace_num_2}= {{
+        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
+        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
+      }},
+      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
+""".format(divid=self.divid,trace_indx=str(ii),
+           trace_num_2=str(4*len(self)+2*ii+2),
+           trace_num_10=str(4*len(self)+2*ii+1-1),
+           trace_num_20=str(4*len(self)+2*ii+2-1))
+            delete_trace6= ""
+            delete_trace5= ""
+            for ii in range(len(self)-1,-1,-1):
+                delete_trace6+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(4*len(self)+2*ii+2-1))
+                delete_trace5+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         elif len(d1s) > 1: # elif for "if there is a 3rd panel
             setup_trace3= """
-    let traces= [trace1,trace2,trace3,trace4];
-"""
+    let traces= [{traces_cumul}];
+""".format(traces_cumul=traces_cumul)
             delete_trace5= ""
             delete_trace6= ""
             update_trace56= ""
