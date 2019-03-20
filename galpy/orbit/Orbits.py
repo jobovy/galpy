@@ -56,7 +56,7 @@ def shapeDecorator(func):
         if dontreshape:
             return result
         else:
-            return numpy.reshape(result,args[0]._input_shape+result.shape[1:])
+            return numpy.reshape(result,args[0].shape+result.shape[1:])
     return shape_wrapper
 class Orbits(object):
     """
@@ -138,8 +138,7 @@ class Orbits(object):
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
         elif isinstance(vxvv,list):
             input_shape= (len(vxvv),)
-        self._input_shape= input_shape
-        self.shape= self._input_shape
+        self.shape= input_shape
         self._orbits = []
         for coord in vxvv:
             if isinstance(coord,Orbit):
@@ -305,7 +304,7 @@ class Orbits(object):
            2018-12-31 - Written - Bovy (UofT)
 
         """
-        indx_array= numpy.arange(len(self)).reshape(self._input_shape)
+        indx_array= numpy.arange(len(self)).reshape(self.shape)
         indx_array= indx_array[key]
         flat_indx_array= indx_array.flatten()
         orbits_list= [copy.deepcopy(self._orbits[ii]) 
@@ -315,7 +314,7 @@ class Orbits(object):
         else: # Return new Orbits instance
             # Transfer new shape
             shape_kwargs= {}
-            shape_kwargs['_input_shape']= indx_array.shape
+            shape_kwargs['shape']= indx_array.shape
             # Also transfer all attributes related to integration
             if hasattr(self,'orbit'):
                 integrate_kwargs= {}
@@ -333,8 +332,7 @@ class Orbits(object):
     def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs):
         out= cls(vxvv=orbits_list)
         # Set shape
-        out._input_shape= shape_kwargs['_input_shape']
-        out.shape= out._input_shape
+        out.shape= shape_kwargs['shape']
         # Also transfer all attributes related to integration
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
@@ -365,15 +363,14 @@ class Orbits(object):
 
         """
         # We reshape a dummy numpy array to use numpy.reshape's parsing
-        dummy= numpy.empty(self._input_shape)
+        dummy= numpy.empty(self.shape)
         try:
             dummy= dummy.reshape(newshape)
         except ValueError:
             # Eventually should just be raise ValueError from None (Python 3)
             raise_from(ValueError('cannot reshape Orbits of shape %s into shape %s'
-                                  % (self._input_shape,newshape)),None)
-        self._input_shape= dummy.shape
-        self.shape= self._input_shape
+                                  % (self.shape,newshape)),None)
+        self.shape= dummy.shape
         return None
 
 ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
