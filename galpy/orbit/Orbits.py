@@ -286,11 +286,11 @@ class Orbits(object):
         """
         NAME:
 
-            __getitem__
+           __getitem__
 
         PURPOSE:
 
-            get a subset of this instance's orbits
+           get a subset of this instance's orbits
 
         INPUT:
 
@@ -302,30 +302,39 @@ class Orbits(object):
 
         HISTORY:
 
-            2018-12-31 - Written - Bovy (UofT)
+           2018-12-31 - Written - Bovy (UofT)
 
         """
-        if isinstance(key,int):
-            if key < 0 : # negative indices
-                key+= len(self)
-            return copy.deepcopy(self._orbits[key])
-        elif isinstance(key,slice):
-            orbits_list= [copy.deepcopy(self._orbits[ii]) 
-                          for ii in range(*key.indices(len(self)))]
+        indx_array= numpy.arange(len(self)).reshape(self._input_shape)
+        indx_array= indx_array[key]
+        flat_indx_array= indx_array.flatten()
+        orbits_list= [copy.deepcopy(self._orbits[ii]) 
+                      for ii in flat_indx_array]
+        if len(orbits_list) == 1: # single item, return orbit
+            return copy.deepcopy(orbits_list[0])
+        else: # Return new Orbits instance
+            # Transfer new shape
+            shape_kwargs= {}
+            shape_kwargs['_input_shape']= indx_array.shape
             # Also transfer all attributes related to integration
             if hasattr(self,'orbit'):
                 integrate_kwargs= {}
                 integrate_kwargs['t']= self.t
                 integrate_kwargs['_integrate_t_asQuantity']= \
                     self._integrate_t_asQuantity
-                integrate_kwargs['orbit']= copy.deepcopy(self.orbit[key])
+                integrate_kwargs['orbit']= \
+                    copy.deepcopy(self.orbit[flat_indx_array])
                 integrate_kwargs['_pot']= self._pot
             else: integrate_kwargs= None
-            return Orbits._from_slice(orbits_list,integrate_kwargs)
+            return Orbits._from_slice(orbits_list,integrate_kwargs,
+                                      shape_kwargs)
 
     @classmethod
-    def _from_slice(cls,orbits_list,integrate_kwargs):
+    def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs):
         out= cls(vxvv=orbits_list)
+        # Set shape
+        out._input_shape= shape_kwargs['_input_shape']
+        out.shape= out._input_shape
         # Also transfer all attributes related to integration
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
