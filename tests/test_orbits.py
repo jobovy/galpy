@@ -1232,6 +1232,124 @@ def test_interpolate_outsiderange():
     with pytest.raises(ValueError) as excinfo:
         os.R(numpy.linspace(-5.,5.,1001))
 
+def test_output_shape():
+    # Test that the output shape is correct and that the shaped output is correct
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= (3,1,2)
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
+    os= Orbits(vxvv)
+    list_os= [[[Orbit([Rs[ii,jj,kk],vRs[ii,jj,kk],vTs[ii,jj,kk],
+                       zs[ii,jj,kk],vzs[ii,jj,kk],phis[ii,jj,kk]])
+                for kk in range(nrand[2])]
+               for jj in range(nrand[1])]
+              for ii in range(nrand[0])]
+    # Before integration
+    for ii in range(nrand[0]):
+        for jj in range(nrand[1]):
+            for kk in range(nrand[2]):
+                # .time is special, just a single array
+                assert numpy.all(numpy.fabs(os.time()-list_os[ii][jj][kk].time()) < 1e-10), 'Evaluating Orbits time does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.R()[ii,jj,kk]-list_os[ii][jj][kk].R()) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.r()[ii,jj,kk]-list_os[ii][jj][kk].r()) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vR()[ii,jj,kk]-list_os[ii][jj][kk].vR()) < 1e-10), 'Evaluating Orbits vR does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vT()[ii,jj,kk]-list_os[ii][jj][kk].vT()) < 1e-10), 'Evaluating Orbits vT does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.z()[ii,jj,kk]-list_os[ii][jj][kk].z()) < 1e-10), 'Evaluating Orbits z does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vz()[ii,jj,kk]-list_os[ii][jj][kk].vz()) < 1e-10), 'Evaluating Orbits vz does not agree with Orbit'
+                assert numpy.all(numpy.fabs(((os.phi()[ii,jj,kk]-list_os[ii][jj][kk].phi()+numpy.pi) % (2.*numpy.pi)) - numpy.pi) < 1e-10), 'Evaluating Orbits phi does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.x()[ii,jj,kk]-list_os[ii][jj][kk].x()) < 1e-10), 'Evaluating Orbits x does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.y()[ii,jj,kk]-list_os[ii][jj][kk].y()) < 1e-10), 'Evaluating Orbits y does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vx()[ii,jj,kk]-list_os[ii][jj][kk].vx()) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vy()[ii,jj,kk]-list_os[ii][jj][kk].vy()) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vphi()[ii,jj,kk]-list_os[ii][jj][kk].vphi()) < 1e-10), 'Evaluating Orbits vphi does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.ra()[ii,jj,kk]-list_os[ii][jj][kk].ra()) < 1e-10), 'Evaluating Orbits ra  does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.dec()[ii,jj,kk]-list_os[ii][jj][kk].dec()) < 1e-10), 'Evaluating Orbits dec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.dist()[ii,jj,kk]-list_os[ii][jj][kk].dist()) < 1e-10), 'Evaluating Orbits dist does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.ll()[ii,jj,kk]-list_os[ii][jj][kk].ll()) < 1e-10), 'Evaluating Orbits ll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.bb()[ii,jj,kk]-list_os[ii][jj][kk].bb()) < 1e-10), 'Evaluating Orbits bb  does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmra()[ii,jj,kk]-list_os[ii][jj][kk].pmra()) < 1e-10), 'Evaluating Orbits pmra does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmdec()[ii,jj,kk]-list_os[ii][jj][kk].pmdec()) < 1e-10), 'Evaluating Orbits pmdec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmll()[ii,jj,kk]-list_os[ii][jj][kk].pmll()) < 1e-10), 'Evaluating Orbits pmll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmbb()[ii,jj,kk]-list_os[ii][jj][kk].pmbb()) < 1e-10), 'Evaluating Orbits pmbb does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vra()[ii,jj,kk]-list_os[ii][jj][kk].vra()) < 1e-10), 'Evaluating Orbits vra does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vdec()[ii,jj,kk]-list_os[ii][jj][kk].vdec()) < 1e-10), 'Evaluating Orbits vdec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vll()[ii,jj,kk]-list_os[ii][jj][kk].vll()) < 1e-10), 'Evaluating Orbits vll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vbb()[ii,jj,kk]-list_os[ii][jj][kk].vbb()) < 1e-10), 'Evaluating Orbits vbb does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vlos()[ii,jj,kk]-list_os[ii][jj][kk].vlos()) < 1e-10), 'Evaluating Orbits vlos does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioX()[ii,jj,kk]-list_os[ii][jj][kk].helioX()) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioY()[ii,jj,kk]-list_os[ii][jj][kk].helioY()) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioZ()[ii,jj,kk]-list_os[ii][jj][kk].helioZ()) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.U()[ii,jj,kk]-list_os[ii][jj][kk].U()) < 1e-10), 'Evaluating Orbits U does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.V()[ii,jj,kk]-list_os[ii][jj][kk].V()) < 1e-10), 'Evaluating Orbits V does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.W()[ii,jj,kk]-list_os[ii][jj][kk].W()) < 1e-10), 'Evaluating Orbits W does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord().ra[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord().dec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord().distance[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                if _APY3:
+                    assert numpy.all(numpy.fabs(os.SkyCoord().pm_ra_cosdec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                    assert numpy.all(numpy.fabs(os.SkyCoord().pm_dec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                    assert numpy.all(numpy.fabs(os.SkyCoord().radial_velocity[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord().radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+    # Integrate all
+    times= numpy.linspace(0.,10.,1001)
+    os.integrate(times,MWPotential2014)
+    for ii in range(nrand[0]):
+        for jj in range(nrand[1]):
+            for kk in range(nrand[2]):
+                list_os[ii][jj][kk].integrate(times,MWPotential2014)
+    # Test exact times of integration
+    for ii in range(nrand[0]):
+        for jj in range(nrand[1]):
+            for kk in range(nrand[2]):
+                # .time is special, just a single array
+                assert numpy.all(numpy.fabs(os.time(times)-list_os[ii][jj][kk].time(times)) < 1e-10), 'Evaluating Orbits time does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.R(times)[ii,jj,kk]-list_os[ii][jj][kk].R(times)) < 1e-10), 'Evaluating Orbits R does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.r(times)[ii,jj,kk]-list_os[ii][jj][kk].r(times)) < 1e-10), 'Evaluating Orbits r does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vR(times)[ii,jj,kk]-list_os[ii][jj][kk].vR(times)) < 1e-10), 'Evaluating Orbits vR does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vT(times)[ii,jj,kk]-list_os[ii][jj][kk].vT(times)) < 1e-10), 'Evaluating Orbits vT does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.z(times)[ii,jj,kk]-list_os[ii][jj][kk].z(times)) < 1e-10), 'Evaluating Orbits z does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vz(times)[ii,jj,kk]-list_os[ii][jj][kk].vz(times)) < 1e-10), 'Evaluating Orbits vz does not agree with Orbit'
+                assert numpy.all(numpy.fabs(((os.phi(times)[ii,jj,kk]-list_os[ii][jj][kk].phi(times)+numpy.pi) % (2.*numpy.pi)) - numpy.pi) < 1e-10), 'Evaluating Orbits phi does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.x(times)[ii,jj,kk]-list_os[ii][jj][kk].x(times)) < 1e-10), 'Evaluating Orbits x does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.y(times)[ii,jj,kk]-list_os[ii][jj][kk].y(times)) < 1e-10), 'Evaluating Orbits y does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vx(times)[ii,jj,kk]-list_os[ii][jj][kk].vx(times)) < 1e-10), 'Evaluating Orbits vx does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vy(times)[ii,jj,kk]-list_os[ii][jj][kk].vy(times)) < 1e-10), 'Evaluating Orbits vy does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vphi(times)[ii,jj,kk]-list_os[ii][jj][kk].vphi(times)) < 1e-10), 'Evaluating Orbits vphi does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.ra(times)[ii,jj,kk]-list_os[ii][jj][kk].ra(times)) < 1e-10), 'Evaluating Orbits ra  does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.dec(times)[ii,jj,kk]-list_os[ii][jj][kk].dec(times)) < 1e-10), 'Evaluating Orbits dec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.dist(times)[ii,jj,kk]-list_os[ii][jj][kk].dist(times)) < 1e-10), 'Evaluating Orbits dist does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.ll(times)[ii,jj,kk]-list_os[ii][jj][kk].ll(times)) < 1e-10), 'Evaluating Orbits ll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.bb(times)[ii,jj,kk]-list_os[ii][jj][kk].bb(times)) < 1e-10), 'Evaluating Orbits bb  does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmra(times)[ii,jj,kk]-list_os[ii][jj][kk].pmra(times)) < 1e-10), 'Evaluating Orbits pmra does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmdec(times)[ii,jj,kk]-list_os[ii][jj][kk].pmdec(times)) < 1e-10), 'Evaluating Orbits pmdec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmll(times)[ii,jj,kk]-list_os[ii][jj][kk].pmll(times)) < 1e-10), 'Evaluating Orbits pmll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.pmbb(times)[ii,jj,kk]-list_os[ii][jj][kk].pmbb(times)) < 1e-10), 'Evaluating Orbits pmbb does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vra(times)[ii,jj,kk]-list_os[ii][jj][kk].vra(times)) < 1e-10), 'Evaluating Orbits vra does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vdec(times)[ii,jj,kk]-list_os[ii][jj][kk].vdec(times)) < 1e-10), 'Evaluating Orbits vdec does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vll(times)[ii,jj,kk]-list_os[ii][jj][kk].vll(times)) < 1e-10), 'Evaluating Orbits vll does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vbb(times)[ii,jj,kk]-list_os[ii][jj][kk].vbb(times)) < 1e-10), 'Evaluating Orbits vbb does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.vlos(times)[ii,jj,kk]-list_os[ii][jj][kk].vlos(times)) < 1e-9), 'Evaluating Orbits vlos does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioX(times)[ii,jj,kk]-list_os[ii][jj][kk].helioX(times)) < 1e-10), 'Evaluating Orbits helioX does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioY(times)[ii,jj,kk]-list_os[ii][jj][kk].helioY(times)) < 1e-10), 'Evaluating Orbits helioY does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.helioZ(times)[ii,jj,kk]-list_os[ii][jj][kk].helioZ(times)) < 1e-10), 'Evaluating Orbits helioZ does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.U(times)[ii,jj,kk]-list_os[ii][jj][kk].U(times)) < 1e-10), 'Evaluating Orbits U does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.V(times)[ii,jj,kk]-list_os[ii][jj][kk].V(times)) < 1e-10), 'Evaluating Orbits V does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.W(times)[ii,jj,kk]-list_os[ii][jj][kk].W(times)) < 1e-10), 'Evaluating Orbits W does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord(times).ra[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).ra).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord(times).dec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).dec).to(u.deg).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                assert numpy.all(numpy.fabs(os.SkyCoord(times).distance[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).distance).to(u.kpc).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                if _APY3:
+                    assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_ra_cosdec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).pm_ra_cosdec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                    assert numpy.all(numpy.fabs(os.SkyCoord(times).pm_dec[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).pm_dec).to(u.mas/u.yr).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+                    assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
+    return None
+
 def test_call_issue256():
     # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
     from galpy.orbit import Orbits
@@ -2231,6 +2349,70 @@ def test_actionsFreqsAngles_againstorbit_2d():
                 assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
                 assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
             if type == 'isochroneApprox': break # otherwise takes too long
+    return None
+
+def test_actionsFreqsAngles_output_shape():
+    # Test that the output shape is correct and that the shaped output is correct for actionAngle methods
+    from galpy.orbit import Orbit, Orbits
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= (3,1,2)
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
+    os= Orbits(vxvv)
+    list_os= [[[Orbit([Rs[ii,jj,kk],vRs[ii,jj,kk],vTs[ii,jj,kk],
+                       zs[ii,jj,kk],vzs[ii,jj,kk],phis[ii,jj,kk]])
+                for kk in range(nrand[2])]
+               for jj in range(nrand[1])]
+              for ii in range(nrand[0])]
+    # Tolerance for jr, jp, jz, diff. for isochroneApprox, because currently
+    # not implemented in exactly the same way in Orbit and Orbits (Orbit uses
+    # __call__ for the actions, Orbits uses actionsFreqsAngles, which is diff.)
+    tol= {}
+    tol['spherical']= -12.
+    tol['staeckel']=-12.
+    tol['adiabatic']= -12.
+    tol['isochroneApprox']= -2.
+    # For now we skip adiabatic here, because frequencies and angles not 
+    # implemented yet
+#    for type in ['spherical','staeckel','adiabatic']:
+    for type in ['spherical','staeckel','isochroneApprox']:
+        # Evaluate Orbits once to not be too slow...
+        tjr= os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tjp= os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tjz= os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        twr= os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        twp= os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        twz= os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tOr= os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tOp= os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tOz= os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tTr= os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tTp= os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tTrTp= os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        tTz= os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)
+        for ii in range(nrand[0]):
+            for jj in range(nrand[1]):
+                for kk in range(nrand[2]):
+                    assert numpy.all(numpy.fabs(tjr[ii,jj,kk]/list_os[ii][jj][kk].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jr analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tjp[ii,jj,kk]/list_os[ii][jj][kk].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jp analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tjz[ii,jj,kk]/list_os[ii][jj][kk].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jz analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(twr[ii,jj,kk]/list_os[ii][jj][kk].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wr analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(twp[ii,jj,kk]/list_os[ii][jj][kk].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(twz[ii,jj,kk]/list_os[ii][jj][kk].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tOr[ii,jj,kk]/list_os[ii][jj][kk].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Or analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tOp[ii,jj,kk]/list_os[ii][jj][kk].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Op analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tOz[ii,jj,kk]/list_os[ii][jj][kk].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Oz analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tTr[ii,jj,kk]/list_os[ii][jj][kk].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tr analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tTp[ii,jj,kk]/list_os[ii][jj][kk].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tp analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tTrTp[ii,jj,kk]/list_os[ii][jj][kk].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tTz[ii,jj,kk]/list_os[ii][jj][kk].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
+                    if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
 # Test that the delta parameter is properly dealt with when using the staeckel
