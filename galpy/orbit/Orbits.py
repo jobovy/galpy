@@ -1,3 +1,4 @@
+from six import raise_from
 import os
 import copy
 import json
@@ -330,6 +331,41 @@ class Orbits(object):
             for kw in integrate_kwargs:
                 out.__dict__[kw]= integrate_kwargs[kw]
         return out
+
+    def reshape(self,newshape):
+        """
+        NAME:
+        
+           reshape
+
+        PURPOSE:
+
+           Change the shape of the Orbits instance
+
+        INPUT:
+
+           newshape - new shape (int or tuple of ints; see numpy.reshape)
+
+        OUTPUT:
+
+           (none; re-shaping is done in-place)
+
+        HISTORY:
+
+           2019-03-20 - Written - Bovy (UofT)
+
+        """
+        # We reshape a dummy numpy array to use numpy.reshape's parsing
+        dummy= numpy.empty(self._input_shape)
+        try:
+            dummy= dummy.reshape(newshape)
+        except ValueError:
+            # Eventually should just be raise ValueError from None (Python 3)
+            raise_from(ValueError('cannot reshape Orbits of shape %s into shape %s'
+                                  % (self._input_shape,newshape)),None)
+        self._input_shape= dummy.shape
+        self.shape= self._input_shape
+        return None
 
 ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
     def turn_physical_off(self):
