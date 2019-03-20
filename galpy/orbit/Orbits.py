@@ -1,6 +1,7 @@
 import os
 import copy
 import json
+from functools import wraps
 from random import choice
 from string import ascii_lowercase
 import warnings
@@ -45,6 +46,17 @@ try:
 except KeyError:
     import multiprocessing
     _NUMCORES= multiprocessing.cpu_count()
+def shapeDecorator(func):
+    """Decorator to return Orbits outputs with the correct shape"""
+    @wraps(func)
+    def shape_wrapper(*args,**kwargs):
+        dontreshape= kwargs.get('dontreshape',False)
+        result= func(*args,**kwargs)
+        if dontreshape:
+            return result
+        else:
+            return numpy.reshape(result,args[0]._input_shape+result.shape[1:])
+    return shape_wrapper
 class Orbits(object):
     """
     Class representing multiple orbits.
@@ -66,14 +78,15 @@ class Orbits(object):
 
                 a) list of Orbit instances
 
-                b) astropy (>v3.0) SkyCoord including velocities (note that this turns *on* physical output even if ro and vo are not given)
+                b) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
 
-                c) list of initial conditions for individual Orbit instances; elements can be either
+                c) array of arbitrary shape or list of initial conditions for individual Orbit instances; elements can be either
 
                     1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
 
-                    2) None: assumed to be the Sun (equivalent to ``[0,0,0,0,0,0]`` and ``radec=True``)
-
+                    2) None: (only works for lists) assumed to be the Sun
+                    
+              Shape information is retained and used in outputs
 
         OPTIONAL INPUTS:
 
@@ -93,11 +106,13 @@ class Orbits(object):
 
             2018-10-13 - Written - Mathew Bub (UofT)
 
-            2018-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
+            2019-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
 
-            2018-02-01 - Handle array of SkyCoords in a faster way by making use of the fact that array of SkyCoords is processed correctly by Orbit
+            2019-02-01 - Handle array of SkyCoords in a faster way by making use of the fact that array of SkyCoords is processed correctly by Orbit
 
-            2018-02-18 - Don't support radec, lb, or uvw keywords to avoid slow coordinate transformations that would require ugly code to fix - Bovy (UofT)
+            2019-02-18 - Don't support radec, lb, or uvw keywords to avoid slow coordinate transformations that would require ugly code to fix - Bovy (UofT)
+
+            2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
 
         """
         if radec or lb or uvw:
@@ -107,7 +122,9 @@ class Orbits(object):
             # proceed in regular fashion; makes use of the fact that Orbit
             # setup does the right processing even for an array of 
             # SkyCoords
-            tmpo= Orbit(vxvv=vxvv,ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+            input_shape= vxvv.shape
+            tmpo= Orbit(vxvv=vxvv.flatten(),
+                        ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
             vxvv= numpy.array(tmpo._orb.vxvv).T
             # Grab coordinate-transform params, we know these must be 
             # consistent with any explicitly given ones at this point, because
@@ -115,9 +132,16 @@ class Orbits(object):
             ro= tmpo._ro
             zo= tmpo._orb._zo
             solarmotion= tmpo._orb._solarmotion
+        elif isinstance(vxvv,numpy.ndarray):
+            input_shape= vxvv.shape[:-1]
+            vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
+        elif isinstance(vxvv,list):
+            input_shape= (len(vxvv),)
+        self._input_shape= input_shape
+        self.shape= self._input_shape
         self._orbits = []
         for coord in vxvv:
-            if isinstance(coord, Orbit):
+            if isinstance(coord,Orbit):
                 self._orbits.append(copy.deepcopy(coord))
             else:
                 orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
@@ -579,6 +603,7 @@ class Orbits(object):
         out._voSet= self._voSet
         return out
         
+    @shapeDecorator
     def getOrbit(self):
         """
 
@@ -596,7 +621,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           array orbit[norb,nt,nphasedim]
+           array orbit[*input_shape,nt,nphasedim]
 
         HISTORY:
 
@@ -606,6 +631,7 @@ class Orbits(object):
         return self.orbit
 
     @physical_conversion('energy')
+    @shapeDecorator
     def E(self,*args,**kwargs):
         """
         NAME:
@@ -628,7 +654,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           energy [norb,nt]
+           energy [*input_shape,nt]
 
         HISTORY:
 
@@ -736,6 +762,7 @@ class Orbits(object):
             return out
 
     @physical_conversion('action')
+    @shapeDecorator
     def L(self,*args,**kwargs):
         """
         NAME:
@@ -758,7 +785,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           angular momentum [norb,nt,3]
+           angular momentum [*input_shape,nt,3]
 
         HISTORY:
 
@@ -776,6 +803,7 @@ class Orbits(object):
         else: # phasedim == 6
             old_physical= kwargs.get('use_physical',None)
             kwargs['use_physical']= False
+            kwargs['dontreshape']= True
             vx= self.vx(*args,**kwargs)
             vy= self.vy(*args,**kwargs)
             vz= self.vz(*args,**kwargs)
@@ -790,9 +818,11 @@ class Orbits(object):
                 kwargs['use_physical']= old_physical
             else:
                 kwargs.pop('use_physical')
+            kwargs.pop('dontreshape')
             return out
         
     @physical_conversion('action')
+    @shapeDecorator
     def Lz(self,*args,**kwargs):
         """
         NAME:
@@ -815,7 +845,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           z-component of the angular momentum [norb,nt]
+           z-component of the angular momentum [*input_shape,nt]
 
         HISTORY:
 
@@ -826,6 +856,7 @@ class Orbits(object):
         return (thiso[0]*thiso[2]).T
 
     @physical_conversion('energy')
+    @shapeDecorator
     def ER(self,*args,**kwargs):
         """
         NAME:
@@ -848,7 +879,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           radial energy [norb,nt]
+           radial energy [*input_shape,nt]
 
         HISTORY:
 
@@ -859,14 +890,19 @@ class Orbits(object):
         kwargs['use_physical']= False
         kwargs['_z']= 0.
         kwargs['_vz']= 0.
+        kwargs['dontreshape']= True
         out= self.E(*args,**kwargs)
         if not old_physical is None:
             kwargs['use_physical']= old_physical
         else:
             kwargs.pop('use_physical')
+        kwargs.pop('_z')
+        kwargs.pop('_vz')
+        kwargs.pop('dontreshape')
         return out
 
     @physical_conversion('energy')
+    @shapeDecorator
     def Ez(self,*args,**kwargs):
         """
         NAME:
@@ -889,7 +925,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vertical energy [norb,nt]
+           vertical energy [*input_shape,nt]
 
         HISTORY:
 
@@ -898,6 +934,7 @@ class Orbits(object):
         """
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
+        kwargs['dontreshape']= True
         tE= self.E(*args,**kwargs)
         kwargs['_z']= 0.
         kwargs['_vz']= 0.
@@ -906,9 +943,13 @@ class Orbits(object):
             kwargs['use_physical']= old_physical
         else:
             kwargs.pop('use_physical')
+        kwargs.pop('_z')
+        kwargs.pop('_vz')
+        kwargs.pop('dontreshape')
         return out
 
     @physical_conversion('energy')
+    @shapeDecorator
     def Jacobi(self,*args,**kwargs):
         """
         NAME:
@@ -933,7 +974,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Jacobi integral [norb,nt]
+           Jacobi integral [*input_shape,nt]
 
         HISTORY:
 
@@ -969,6 +1010,7 @@ class Orbits(object):
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
+        kwargs['dontreshape']= True
         if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
             if isinstance(OmegaP,list): thisOmegaP= numpy.array(OmegaP)
             else: thisOmegaP= OmegaP
@@ -985,6 +1027,7 @@ class Orbits(object):
             kwargs['use_physical']= old_physical
         else:
             kwargs.pop('use_physical')
+        kwargs.pop('dontreshape')
         return out
 
     def _setupaA(self,pot=None,type='staeckel',**kwargs):
@@ -1049,15 +1092,18 @@ class Orbits(object):
                                                        **kwargs)
         elif self._aAType.lower() == 'staeckel':
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
+            tz= self.z(use_physical=False,dontreshape=True)\
+                +(numpy.fabs(self.z(use_physical=False,
+                                    dontreshape=True)) < 1e-8) \
+                * (2.*(self.z(use_physical=False,
+                              dontreshape=True) >= 0)-1.)*1e-10
             self._aA_delta_automagic= False
             if delta is None:
                 self._aA_delta_automagic= True
                 try:
                     delta= actionAngle.estimateDeltaStaeckel(\
-                        self._aAPot,self.R(use_physical=False),
+                        self._aAPot,
+                        self.R(use_physical=False,dontreshape=True),
                         tz,no_median=True)
                 except PotentialError as e:
                     if 'deriv' in str(e):
@@ -1087,18 +1133,23 @@ class Orbits(object):
         if hasattr(self,'_aA_ecc'): return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False)
+            tz= self.z(use_physical=False,dontreshape=True)\
+                +(numpy.fabs(self.z(use_physical=False,
+                                    dontreshape=True)) < 1e-8) \
+                * (2.*(self.z(use_physical=False,
+                              dontreshape=True) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False,dontreshape=True)
         elif self.dim() == 2:
             tz= numpy.zeros(len(self))
             tvz= numpy.zeros(len(self))
         # self.dim() == 1 error caught by _setupaA
         self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap=\
-            self._aA.EccZmaxRperiRap(self.R(use_physical=False),
-                                     self.vR(use_physical=False),
-                                     self.vT(use_physical=False),
+            self._aA.EccZmaxRperiRap(self.R(use_physical=False,
+                                            dontreshape=True),
+                                     self.vR(use_physical=False,
+                                             dontreshape=True),
+                                     self.vT(use_physical=False,
+                                             dontreshape=True),
                                      tz,tvz,
                                      use_physical=False)
         return None        
@@ -1109,10 +1160,12 @@ class Orbits(object):
         if hasattr(self,'_aA_jr'): return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False)\
-                +(numpy.fabs(self.z(use_physical=False)) < 1e-8) \
-                * (2.*(self.z(use_physical=False) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False)
+            tz= self.z(use_physical=False,dontreshape=True)\
+                +(numpy.fabs(self.z(use_physical=False,
+                                    dontreshape=True)) < 1e-8) \
+                * (2.*(self.z(use_physical=False,
+                              dontreshape=True) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False,dontreshape=True)
         elif self.dim() == 2:
             tz= numpy.zeros(len(self))
             tvz= numpy.zeros(len(self))
@@ -1120,14 +1173,16 @@ class Orbits(object):
         self._aA_jr, self._aA_jp, self._aA_jz, \
             self._aA_Or, self._aA_Op, self._aA_Oz, \
             self._aA_wr, self._aA_wp, self._aA_wz= \
-               self._aA.actionsFreqsAngles(self.R(use_physical=False),
-                                           self.vR(use_physical=False),
-                                           self.vT(use_physical=False),
-                                           tz,tvz,
-                                           self.phi(use_physical=False),
-                                           use_physical=False)
+               self._aA.actionsFreqsAngles(\
+                  self.R(use_physical=False,dontreshape=True),
+                  self.vR(use_physical=False,dontreshape=True),
+                  self.vT(use_physical=False,dontreshape=True),
+                  tz,tvz,
+                  self.phi(use_physical=False,dontreshape=True),
+                  use_physical=False)
         return None
 
+    @shapeDecorator
     def e(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -1158,7 +1213,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           eccentricity [norb]
+           eccentricity [*input_shape]
 
         HISTORY:
 
@@ -1170,11 +1225,12 @@ class Orbits(object):
             return self._aA_ecc
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
+        rs= self.r(self.t,use_physical=False,dontreshape=True)
         return (numpy.amax(rs,axis=-1)-numpy.amin(rs,axis=-1))\
             /(numpy.amax(rs,axis=-1)+numpy.amin(rs,axis=-1))
 
     @physical_conversion('position')
+    @shapeDecorator
     def rap(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -1209,7 +1265,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           R_ap [norb]
+           R_ap [*input_shape]
 
         HISTORY:
 
@@ -1221,10 +1277,11 @@ class Orbits(object):
             return self._aA_rap
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
+        rs= self.r(self.t,use_physical=False,dontreshape=True)
         return numpy.amax(rs,axis=-1)
 
     @physical_conversion('position')
+    @shapeDecorator
     def rperi(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -1259,7 +1316,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           R_peri [norb]
+           R_peri [*input_shape]
 
         HISTORY:
 
@@ -1271,10 +1328,11 @@ class Orbits(object):
             return self._aA_rperi
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False)
+        rs= self.r(self.t,use_physical=False,dontreshape=True)
         return numpy.amin(rs,axis=-1)
 
     @physical_conversion('position')
+    @shapeDecorator
     def rguiding(self,*args,**kwargs):
         """
         NAME:
@@ -1297,7 +1355,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           R_guiding [norb,nt]
+           R_guiding [*input_shape,nt]
 
         HISTORY:
 
@@ -1311,7 +1369,8 @@ class Orbits(object):
         if _isNonAxi(pot):
             raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
         _check_consistent_units(self,pot)
-        Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False))
+        Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False,
+                                      dontreshape=True))
         Lz_shape= Lz.shape
         Lz= Lz.flatten()
         if len(Lz) > 500:
@@ -1329,6 +1388,7 @@ class Orbits(object):
                                 for lz in Lz]).reshape(Lz_shape)
 
     @physical_conversion('position')
+    @shapeDecorator
     def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -1363,7 +1423,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Z_max [norb]
+           Z_max [*input_shape]
 
         HISTORY:
 
@@ -1375,10 +1435,12 @@ class Orbits(object):
             return self._aA_zmax
         if not hasattr(self,'orbit'):
             raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False)),
+        return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False,
+                                            dontreshape=True)),
                           axis=-1)
 
     @physical_conversion('action')
+    @shapeDecorator
     def jr(self,pot=None,**kwargs):
         """
         NAME:
@@ -1413,7 +1475,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           jr [norb]
+           jr [*input_shape]
 
         HISTORY:
 
@@ -1424,6 +1486,7 @@ class Orbits(object):
         return self._aA_jr
 
     @physical_conversion('action')
+    @shapeDecorator
     def jp(self,pot=None,**kwargs):
         """
         NAME:
@@ -1458,7 +1521,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           jp [norb]
+           jp [*input_shape]
 
         HISTORY:
 
@@ -1469,6 +1532,7 @@ class Orbits(object):
         return self._aA_jp
 
     @physical_conversion('action')
+    @shapeDecorator
     def jz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1503,7 +1567,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           jz [norb]
+           jz [*input_shape]
 
         HISTORY:
 
@@ -1514,6 +1578,7 @@ class Orbits(object):
         return self._aA_jz
 
     @physical_conversion('angle')
+    @shapeDecorator
     def wr(self,pot=None,**kwargs):
         """
         NAME:
@@ -1542,7 +1607,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           wr [norb]
+           wr [*input_shape]
 
         HISTORY:
 
@@ -1553,6 +1618,7 @@ class Orbits(object):
         return self._aA_wr
 
     @physical_conversion('angle')
+    @shapeDecorator
     def wp(self,pot=None,**kwargs):
         """
         NAME:
@@ -1581,7 +1647,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           wp [norb]
+           wp [*input_shape]
 
         HISTORY:
 
@@ -1592,6 +1658,7 @@ class Orbits(object):
         return self._aA_wp
 
     @physical_conversion('angle')
+    @shapeDecorator
     def wz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1620,7 +1687,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           wz [norb]
+           wz [*input_shape]
 
         HISTORY:
 
@@ -1631,6 +1698,7 @@ class Orbits(object):
         return self._aA_wz
 
     @physical_conversion('time')
+    @shapeDecorator
     def Tr(self,pot=None,**kwargs):
         """
         NAME:
@@ -1665,7 +1733,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Tr [norb]
+           Tr [*input_shape]
 
         HISTORY:
 
@@ -1676,6 +1744,7 @@ class Orbits(object):
         return 2.*numpy.pi/self._aA_Or
 
     @physical_conversion('time')
+    @shapeDecorator
     def Tp(self,pot=None,**kwargs):
         """
         NAME:
@@ -1710,7 +1779,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Tp [norb]
+           Tp [*input_shape]
 
         HISTORY:
 
@@ -1720,6 +1789,7 @@ class Orbits(object):
         self._setup_actionsFreqsAngles(pot=pot,**kwargs)
         return 2.*numpy.pi/self._aA_Op
 
+    @shapeDecorator
     def TrTp(self,pot=None,**kwargs):
         """
         NAME:
@@ -1748,7 +1818,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Tr/Tp*pi [norb]
+           Tr/Tp*pi [*input_shape]
 
         HISTORY:
 
@@ -1759,6 +1829,7 @@ class Orbits(object):
         return self._aA_Op/self._aA_Or*numpy.pi
  
     @physical_conversion('time')
+    @shapeDecorator
     def Tz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1793,7 +1864,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Tz [norb]
+           Tz [*input_shape]
 
         HISTORY:
 
@@ -1804,6 +1875,7 @@ class Orbits(object):
         return 2.*numpy.pi/self._aA_Oz
 
     @physical_conversion('frequency')
+    @shapeDecorator
     def Or(self,pot=None,**kwargs):
         """
         NAME:
@@ -1838,7 +1910,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Or [norb]
+           Or [*input_shape]
 
         HISTORY:
 
@@ -1849,6 +1921,7 @@ class Orbits(object):
         return self._aA_Or
 
     @physical_conversion('frequency')
+    @shapeDecorator
     def Op(self,pot=None,**kwargs):
         """
         NAME:
@@ -1883,7 +1956,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Op [norb]
+           Op [*input_shape]
 
         HISTORY:
 
@@ -1894,6 +1967,7 @@ class Orbits(object):
         return self._aA_Op
 
     @physical_conversion('frequency')
+    @shapeDecorator
     def Oz(self,pot=None,**kwargs):
         """
         NAME:
@@ -1928,7 +2002,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Oz [norb]
+           Oz [*input_shape]
 
         HISTORY:
 
@@ -1976,6 +2050,7 @@ class Orbits(object):
         else: return args[0]
 
     @physical_conversion('position')
+    @shapeDecorator
     def R(self,*args,**kwargs):
         """
         NAME:
@@ -1996,7 +2071,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           R(t) [norb,nt]
+           R(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2006,6 +2081,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[0].T
 
     @physical_conversion('position')
+    @shapeDecorator
     def r(self,*args,**kwargs):
         """
         NAME:
@@ -2026,7 +2102,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           r(t) [norb,nt]
+           r(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2040,6 +2116,7 @@ class Orbits(object):
             return numpy.fabs(thiso[0]).T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vR(self,*args,**kwargs):
         """
         NAME:
@@ -2060,7 +2137,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vR(t) [norb,nt]
+           vR(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2070,6 +2147,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[1].T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vT(self,*args,**kwargs):
         """
         NAME:
@@ -2090,7 +2168,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vT(t) [norb,nt]
+           vT(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2100,6 +2178,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[2].T
 
     @physical_conversion('position')
+    @shapeDecorator
     def z(self,*args,**kwargs):
         """
         NAME:
@@ -2120,7 +2199,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           z(t) [norb,nt]
+           z(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2132,6 +2211,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[3].T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vz(self,*args,**kwargs):
         """
         NAME:
@@ -2152,7 +2232,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vz(t) [norb,nt]
+           vz(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2164,6 +2244,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[4].T
         
     @physical_conversion('angle')
+    @shapeDecorator
     def phi(self,*args,**kwargs):
         """
         NAME:
@@ -2180,7 +2261,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           phi(t) [norb,nt]
+           phi(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2192,6 +2273,7 @@ class Orbits(object):
         return self._call_internal(*args,**kwargs)[-1].T
 
     @physical_conversion('position')
+    @shapeDecorator
     def x(self,*args,**kwargs):
         """
         NAME:
@@ -2212,7 +2294,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           x(t) [norb,nt]
+           x(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2228,6 +2310,7 @@ class Orbits(object):
             return (thiso[0]*numpy.cos(thiso[-1,:])).T
 
     @physical_conversion('position')
+    @shapeDecorator
     def y(self,*args,**kwargs):
         """
         NAME:
@@ -2248,7 +2331,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           y(t) [norb,nt]
+           y(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2262,6 +2345,7 @@ class Orbits(object):
             return (thiso[0]*numpy.sin(thiso[-1,:])).T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vx(self,*args,**kwargs):
         """
         NAME:
@@ -2282,7 +2366,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vx(t) [norb,nt]
+           vx(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2299,6 +2383,7 @@ class Orbits(object):
                     -thiso[2]*numpy.sin(thiso[-1])).T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vy(self,*args,**kwargs):
         """
         NAME:
@@ -2319,7 +2404,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vy(t) [norb,nt]
+           vy(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2334,6 +2419,7 @@ class Orbits(object):
                     +thiso[1]*numpy.sin(thiso[-1])).T
 
     @physical_conversion('velocity')
+    @shapeDecorator
     def vphi(self,*args,**kwargs):
         """
         NAME:
@@ -2354,7 +2440,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vphi(t) [norb,nt]
+           vphi(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2365,6 +2451,7 @@ class Orbits(object):
         return (thiso[2]/thiso[0]).T
 
     @physical_conversion('angle_deg')
+    @shapeDecorator
     def ra(self,*args,**kwargs):
         """
         NAME:
@@ -2389,7 +2476,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           ra(t) [norb,nt] 
+           ra(t) [*input_shape,nt] 
 
         HISTORY:
 
@@ -2404,6 +2491,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
+    @shapeDecorator
     def dec(self,*args,**kwargs):
         """
         NAME:
@@ -2428,7 +2516,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           dec(t) [norb,nt] 
+           dec(t) [*input_shape,nt] 
 
         HISTORY:
 
@@ -2443,6 +2531,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
+    @shapeDecorator
     def ll(self,*args,**kwargs):
         """
         NAME:
@@ -2467,7 +2556,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           l(t) [norb,nt] 
+           l(t) [*input_shape,nt] 
 
         HISTORY:
 
@@ -2481,6 +2570,7 @@ class Orbits(object):
         return _lbd(self,thiso,*args,**kwargs).T[0].reshape(thiso_shape[1:]).T
 
     @physical_conversion('angle_deg')
+    @shapeDecorator
     def bb(self,*args,**kwargs):
         """
         NAME:
@@ -2505,7 +2595,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           b(t) [norb,nt]
+           b(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -2519,6 +2609,7 @@ class Orbits(object):
         return _lbd(self,thiso,*args,**kwargs).T[1].reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
+    @shapeDecorator
     def dist(self,*args,**kwargs):
         """
         NAME:
@@ -2543,7 +2634,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           dist(t) in kpc [norb,nt]
+           dist(t) in kpc [*input_shape,nt]
 
         HISTORY:
 
@@ -2557,6 +2648,7 @@ class Orbits(object):
         return _lbd(self,thiso,*args,**kwargs).T[2].reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
+    @shapeDecorator
     def pmra(self,*args,**kwargs):
         """
         NAME:
@@ -2583,7 +2675,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           pm_ra(t) in mas / yr [norb,nt]
+           pm_ra(t) in mas / yr [*input_shape,nt]
 
         HISTORY:
 
@@ -2599,6 +2691,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
+    @shapeDecorator
     def pmdec(self,*args,**kwargs):
         """
         NAME:
@@ -2625,7 +2718,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           pm_dec(t) in mas/yr [norb,nt]
+           pm_dec(t) in mas/yr [*input_shape,nt]
 
         HISTORY:
 
@@ -2641,6 +2734,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
+    @shapeDecorator
     def pmll(self,*args,**kwargs):
         """
         NAME:
@@ -2667,7 +2761,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           pm_l(t) in mas/yr [norb,nt]
+           pm_l(t) in mas/yr [*input_shape,nt]
 
         HISTORY:
 
@@ -2683,6 +2777,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('proper-motion_masyr')
+    @shapeDecorator
     def pmbb(self,*args,**kwargs):
         """
         NAME:
@@ -2709,7 +2804,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           pm_b(t) in mas/yr [norb,nt]
+           pm_b(t) in mas/yr [*input_shape,nt]
 
         HISTORY:
 
@@ -2725,6 +2820,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
+    @shapeDecorator
     def vlos(self,*args,**kwargs):
         """
         NAME:
@@ -2751,7 +2847,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           vlos(t) in km/s [norb,nt]
+           vlos(t) in km/s [*input_shape,nt]
 
         HISTORY:
 
@@ -2766,6 +2862,7 @@ class Orbits(object):
         return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[3]\
             .reshape(thiso_shape[1:]).T
 
+    @shapeDecorator
     def vra(self,*args,**kwargs):
         """
         NAME:
@@ -2793,7 +2890,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           v_ra(t) in km/s [norb]
+           v_ra(t) in km/s [*input_shape]
 
         HISTORY:
 
@@ -2802,15 +2899,19 @@ class Orbits(object):
         """
         _check_roSet(self,kwargs,'vra')
         _check_voSet(self,kwargs,'vra')
+        kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmra(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            result= units.Quantity(dist.to(units.kpc).value*_K*
+                                   self.pmra(*args,**kwargs)\
+                                       .to(units.mas/units.yr).value,
+                                   unit=units.km/units.s)
         else:
-            return dist*_K*self.pmra(*args,**kwargs)
+            result= dist*_K*self.pmra(*args,**kwargs)
+        kwargs.pop('dontreshape')
+        return result
 
+    @shapeDecorator
     def vdec(self,*args,**kwargs):
         """
         NAME:
@@ -2838,7 +2939,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           v_dec(t) in km/s [norb]
+           v_dec(t) in km/s [*input_shape]
 
         HISTORY:
 
@@ -2847,15 +2948,19 @@ class Orbits(object):
         """
         _check_roSet(self,kwargs,'vdec')
         _check_voSet(self,kwargs,'vdec')
+        kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmdec(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            result= units.Quantity(dist.to(units.kpc).value*_K*
+                                   self.pmdec(*args,**kwargs)\
+                                       .to(units.mas/units.yr).value,
+                                   unit=units.km/units.s)
         else:
-            return dist*_K*self.pmdec(*args,**kwargs)
+            result= dist*_K*self.pmdec(*args,**kwargs)
+        kwargs.pop('dontreshape')
+        return result
 
+    @shapeDecorator
     def vll(self,*args,**kwargs):
         """
         NAME:
@@ -2883,7 +2988,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           v_l(t) in km/s [norb]
+           v_l(t) in km/s [*input_shape]
 
         HISTORY:
 
@@ -2892,15 +2997,19 @@ class Orbits(object):
         """
         _check_roSet(self,kwargs,'vll')
         _check_voSet(self,kwargs,'vll')
+        kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmll(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            result= units.Quantity(dist.to(units.kpc).value*_K*
+                                   self.pmll(*args,**kwargs)\
+                                       .to(units.mas/units.yr).value,
+                                   unit=units.km/units.s)
         else:
-            return dist*_K*self.pmll(*args,**kwargs)
+            result= dist*_K*self.pmll(*args,**kwargs)
+        kwargs.pop('dontreshape')
+        return result
         
+    @shapeDecorator
     def vbb(self,*args,**kwargs):
         """
         NAME:
@@ -2928,7 +3037,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           v_b(t) in km/s [norb]
+           v_b(t) in km/s [*input_shape]
 
         HISTORY:
 
@@ -2937,16 +3046,20 @@ class Orbits(object):
         """
         _check_roSet(self,kwargs,'vbb')
         _check_voSet(self,kwargs,'vbb')
+        kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            return units.Quantity(dist.to(units.kpc).value*_K*
-                                  self.pmbb(*args,**kwargs)\
-                                      .to(units.mas/units.yr).value,
-                                  unit=units.km/units.s)
+            result= units.Quantity(dist.to(units.kpc).value*_K*
+                                   self.pmbb(*args,**kwargs)\
+                                       .to(units.mas/units.yr).value,
+                                   unit=units.km/units.s)
         else:
-            return dist*_K*self.pmbb(*args,**kwargs)
+            result= dist*_K*self.pmbb(*args,**kwargs)
+        kwargs.pop('dontreshape')
+        return result
 
     @physical_conversion('position_kpc')
+    @shapeDecorator
     def helioX(self,*args,**kwargs):
         """
         NAME:
@@ -2971,7 +3084,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           helioX(t) in kpc [norb,nt]
+           helioX(t) in kpc [*input_shape,nt]
 
         HISTORY:
 
@@ -2986,6 +3099,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
+    @shapeDecorator
     def helioY(self,*args,**kwargs):
         """
         NAME:
@@ -3010,7 +3124,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           helioY(t) in kpc [norb,nt]
+           helioY(t) in kpc [*input_shape,nt]
 
         HISTORY:
 
@@ -3025,6 +3139,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('position_kpc')
+    @shapeDecorator
     def helioZ(self,*args,**kwargs):
         """
         NAME:
@@ -3049,7 +3164,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           helioZ(t) in kpc [norb,nt]
+           helioZ(t) in kpc [*input_shape,nt]
 
         HISTORY:
 
@@ -3064,6 +3179,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
+    @shapeDecorator
     def U(self,*args,**kwargs):
         """
         NAME:
@@ -3090,7 +3206,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           U(t) in km/s [norb,nt]
+           U(t) in km/s [*input_shape,nt]
 
         HISTORY:
 
@@ -3106,6 +3222,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
+    @shapeDecorator
     def V(self,*args,**kwargs):
         """
         NAME:
@@ -3132,7 +3249,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           V(t) in km/s [norb,nt]
+           V(t) in km/s [*input_shape,nt]
 
         HISTORY:
 
@@ -3148,6 +3265,7 @@ class Orbits(object):
             .reshape(thiso_shape[1:]).T
 
     @physical_conversion('velocity_kms')
+    @shapeDecorator
     def W(self,*args,**kwargs):
         """
         NAME:
@@ -3174,7 +3292,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           W(t) in km/s [norb,nt]
+           W(t) in km/s [*input_shape,nt]
 
         HISTORY:
 
@@ -3189,6 +3307,7 @@ class Orbits(object):
         return _XYZvxvyvz(self,thiso,*args,**kwargs)[5]\
             .reshape(thiso_shape[1:]).T
 
+    @shapeDecorator
     def SkyCoord(self,*args,**kwargs):
         """
         NAME:
@@ -3215,7 +3334,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           SkyCoord(t) [norb,nt] 
+           SkyCoord(t) [*input_shape,nt] 
 
         HISTORY:
 
@@ -3223,6 +3342,7 @@ class Orbits(object):
 
         """
         kwargs.pop('quantity',None) # rm useless keyword to no conflict later
+        kwargs['dontreshape']= True
         _check_roSet(self,kwargs,'SkyCoord')
         thiso= self._call_internal(*args,**kwargs)
         thiso_shape= thiso.shape
@@ -3231,6 +3351,7 @@ class Orbits(object):
             .reshape((2,)+thiso_shape[1:])
         tdist= self.dist(quantity=False,*args,**kwargs).T
         if not _APY3: # pragma: no cover
+            kwargs.pop('dontreshape')
             return coordinates.SkyCoord(radec[0]*units.degree,
                                         radec[1]*units.degree,
                                         distance=tdist*units.kpc,
@@ -3239,6 +3360,7 @@ class Orbits(object):
         pmrapmdec= _pmrapmdec(self,thiso,*args,**kwargs).T\
             .reshape((2,)+thiso_shape[1:])
         tvlos= self.vlos(quantity=False,*args,**kwargs).T
+        kwargs.pop('dontreshape')
         # Also return the Galactocentric frame used
         v_sun= coordinates.CartesianDifferential(\
             numpy.array([-self._solarmotion[0],
