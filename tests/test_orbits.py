@@ -422,6 +422,82 @@ def test_slice_multipleobjects():
         assert numpy.amax(numpy.fabs(orbits_slice.phi(times)[ii]-orbits.phi(times)[ii+1])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
+# Test slicing of orbits with non-trivial shapes
+def test_slice_singleobject_multidim():
+    from galpy.orbit import Orbits
+    numpy.random.seed(1)
+    nrand= (5,1,3)
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
+    orbits= Orbits(vxvv)
+    times= numpy.linspace(0.,10.,1001)
+    orbits.integrate(times,potential.MWPotential2014)
+    indices= [(0,0,0),(1,0,2),(-1,0,1)]
+    for ii in indices:
+        assert numpy.amax(numpy.fabs(orbits[ii].x(times)-orbits.x(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vx(times)-orbits.vx(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].y(times)-orbits.y(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vy(times)-orbits.vy(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].z(times)-orbits.z(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vz(times)-orbits.vz(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].R(times)-orbits.R(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs((((orbits[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    return None
+    
+# Test slicing of orbits with non-trivial shapes
+def test_slice_multipleobjects_multidim():
+    from galpy.orbit import Orbits
+    numpy.random.seed(1)
+    nrand= (5,1,3)
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
+    orbits= Orbits(vxvv)
+    times= numpy.linspace(0.,10.,1001)
+    # Pre-integration
+    orbits_slice= orbits[1:4,0,:2]
+    for ii in range(3):
+        for jj in range(1):
+            for kk in range(2):
+                assert numpy.amax(numpy.fabs(orbits_slice.x()[ii,kk]-orbits.x()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vx()[ii,kk]-orbits.vx()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.y()[ii,kk]-orbits.y()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vy()[ii,kk]-orbits.vy()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.z()[ii,kk]-orbits.z()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vz()[ii,kk]-orbits.vz()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.R()[ii,kk]-orbits.R()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vR()[ii,kk]-orbits.vR()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vT()[ii,kk]-orbits.vT()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.phi()[ii,kk]-orbits.phi()[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    # After integration
+    orbits.integrate(times,potential.MWPotential2014)
+    orbits_slice= orbits[1:4,0,:2]
+    for ii in range(3):
+        for jj in range(1):
+            for kk in range(2):
+                assert numpy.amax(numpy.fabs(orbits_slice.x(times)[ii,kk]-orbits.x(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vx(times)[ii,kk]-orbits.vx(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.y(times)[ii,kk]-orbits.y(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vy(times)[ii,kk]-orbits.vy(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.z(times)[ii,kk]-orbits.z(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vz(times)[ii,kk]-orbits.vz(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.R(times)[ii,kk]-orbits.R(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vR(times)[ii,kk]-orbits.vR(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.vT(times)[ii,kk]-orbits.vT(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+                assert numpy.amax(numpy.fabs(orbits_slice.phi(times)[ii,kk]-orbits.phi(times)[ii+1,jj,kk])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    return None
+
 def test_slice_integratedorbit_wrapperpot_367():
     # Test related to issue 367: slicing orbits with a potential that includes 
     # a wrapper potential (from Ted Mackereth)
