@@ -1785,25 +1785,16 @@ def test_badinterpolation():
     assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Also test this for multiple time outputs
-    nos= o(ts[-2:]) #new orbits
+    nos= o(ts[-2:]) #new Orbits
     #First t
-    assert numpy.all(numpy.fabs(nos[0].R()-o.R(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct R"
-    assert numpy.all(numpy.fabs(nos[0].vR()-o.vR(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(numpy.fabs(nos[0].vT()-o.vT(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(numpy.fabs(nos[0].z()-o.z(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct z"
-    assert numpy.all(numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    #Second t
-    assert numpy.all(numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct R"
-    assert numpy.all(numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(numpy.fabs(nos[1].vT()-o.vT(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(numpy.fabs(nos[1].z()-o.z(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct z"
-    assert numpy.all(numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(numpy.fabs(nos.R()-o.R(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct R"
+    assert numpy.all(numpy.fabs(nos.vR()-o.vR(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vR"
+    assert numpy.all(numpy.fabs(nos.vT()-o.vT(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vT"
+    assert numpy.all(numpy.fabs(nos.z()-o.z(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct z"
+    assert numpy.all(numpy.fabs(nos.vz()-o.vz(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct vz"
+    assert numpy.all(numpy.fabs(nos.phi()-o.phi(ts[-2:])) < 10.**-10.), "New orbit formed from calling an old orbit does not have the correct phi"
+    assert not nos._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Try point in between, shouldn't work
     with pytest.raises(LookupError) as exc_info:
         no= o(0.6)
