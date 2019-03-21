@@ -81,9 +81,9 @@ class Orbits(object):
 
                 b) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
 
-                c) array of arbitrary shape or list of initial conditions for individual Orbit instances; elements can be either
+                c) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit) or list of initial conditions for individual Orbit instances; elements can be either
 
-                    1) in Galactocentric cylindrical coordinates [R,vR,vT(,z,vz,phi)]; can be Quantities
+                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; can be Quantities
 
                     2) None: (only works for lists) assumed to be the Sun
                     
@@ -3440,12 +3440,13 @@ class Orbits(object):
         OUTPUT:
 
            an Orbits instance with initial conditions set to the 
-           phase-space at time t or list of Orbit instances if multiple 
-           times are given
+           phase-space at time t; shape of new Orbits is (shape_old,nt)
 
         HISTORY:
 
            2019-03-05 - Written - Bovy (UofT)
+
+           2019-03-20 - Implemented multiple times --> Orbits - Bovy (UofT)
 
         """
         orbSetupKwargs= {'ro':self._ro,
@@ -3453,15 +3454,10 @@ class Orbits(object):
                          'zo':self._zo,
                          'solarmotion':self._solarmotion}
         thiso= self._call_internal(*args,**kwargs)
-        if len(thiso.shape) == 2:
-            out= Orbits(vxvv=thiso.T,**orbSetupKwargs)
-            out._roSet= self._roSet
-            out._voSet= self._voSet
-        else:
-            out= [Orbits(vxvv=thiso[:,ii].T,
-                        **orbSetupKwargs) for ii in range(thiso.shape[1])]
-            if not self._roSet or not self._voSet:
-                [o.turn_physical_off() for o in out]
+        out= Orbits(vxvv=numpy.reshape(thiso.T,self.shape+thiso.T.shape[1:]),
+                    **orbSetupKwargs)
+        out._roSet= self._roSet
+        out._voSet= self._voSet
         return out
 
     def _call_internal(self,*args,**kwargs):
