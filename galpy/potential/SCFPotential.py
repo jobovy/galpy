@@ -433,7 +433,7 @@ class SCFPotential(Potential):
         li = _cartesian(shape)
 
         for i in range(li.shape[0]):
-            j = nu.split(li[i], li.shape[1])
+            j = tuple(nu.split(li[i], li.shape[1]))
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R[j][0],z[j][0],phi[j][0])
             force[j] = dr_dx[j][0]*dPhi_dr + dtheta_dx[j][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[j][0]
