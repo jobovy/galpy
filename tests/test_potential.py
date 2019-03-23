@@ -2699,6 +2699,11 @@ def test_scf_tupleindexwarning():
         warnings.simplefilter("error",FutureWarning)
         p= mockSCFZeeuwPotential()
         p.Rforce(1.,0.)
+    # another one reported by Nil, now problem is with array input
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("error",FutureWarning)
+        p= mockSCFZeeuwPotential()
+        p.Rforce(numpy.atleast_1d(1.),numpy.atleast_1d(0.))
     return None   
 
 # Test that attempting to multiply or divide a potential by something other than a number raises an error
