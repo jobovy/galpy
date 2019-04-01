@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import os
 import sys
+PY3= sys.version > '3'
 import pytest
 import numpy
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
@@ -2540,6 +2541,53 @@ def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
     assert numpy.fabs(cdf.zforce(3.,0.,v=v)-cdf2.zforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
     return None
 
+def test_ChandrasekharDynamicalFrictionForce_pickling():
+    # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be 
+    # pickled as expected
+    import pickle
+    from galpy.util import bovy_conversion
+    ro,vo= 8.,220.
+    # Parameters
+    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    # sigmar internally computed, should be able to be pickled
+    # Compute evolution with variable ln Lambda
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,
+        minr=0.5,maxr=2.)
+    pickled= pickle.dumps(cdf)
+    cdfu= pickle.loads(pickled)
+    # Test a few values
+    assert numpy.fabs(cdf.Rforce(1.,0.2,v=[1.,1.,0.])\
+                          -cdfu.Rforce(1.,0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
+    assert numpy.fabs(cdf.zforce(2.,-0.2,v=[1.,1.,0.])\
+                          -cdfu.zforce(2.,-0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
+    # Not providing dens = Logarithmic should also work
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        minr=0.5,maxr=2.)
+    pickled= pickle.dumps(cdf)
+    cdfu= pickle.loads(pickled)
+    # Test a few values
+    assert numpy.fabs(cdf.Rforce(1.,0.2,v=[1.,1.,0.])\
+                          -cdfu.Rforce(1.,0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
+    assert numpy.fabs(cdf.zforce(2.,-0.2,v=[1.,1.,0.])\
+                          -cdfu.zforce(2.,-0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
+
+    # Providing sigmar as a lambda function gives AttributeError
+    sigmar= lambda r: 1./r
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=GMs,rhm=0.125,
+        dens=potential.MWPotential2014,sigmar=sigmar,
+        minr=0.5,maxr=2.)
+    if PY3:
+        with pytest.raises(AttributeError) as excinfo:
+            pickled= pickle.dumps(cdf)
+    else:
+        with pytest.raises(pickle.PicklingError) as excinfo:
+            pickled= pickle.dumps(cdf)
+    return None
+
 def test_RingPotential_correctPotentialIntegral():
     # Test that the RingPotential's potential is correct, by comparing it to a 
     # direct integral solution of the Poisson equation
@@ -2651,6 +2699,11 @@ def test_scf_tupleindexwarning():
         warnings.simplefilter("error",FutureWarning)
         p= mockSCFZeeuwPotential()
         p.Rforce(1.,0.)
+    # another one reported by Nil, now problem is with array input
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("error",FutureWarning)
+        p= mockSCFZeeuwPotential()
+        p.Rforce(numpy.atleast_1d(1.),numpy.atleast_1d(0.))
     return None   
 
 # Test that attempting to multiply or divide a potential by something other than a number raises an error

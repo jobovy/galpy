@@ -348,6 +348,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Interstellar magnetic cannon targeting the Galactic halo : A young bubble at the origin of the Ophiuchus and Lupus molecular complexes*, J.-F. Robitaille, A. M. M. Scaife, E. Carretti, M. Haverkorn, R. M. Crocker, M. J. Kesteven, S. Poppi, & L. Staveley-Smith (2018) *Astron. & Astrophys.*, submitted (`arXiv/1807.04054 <http://arxiv.org/abs/1807.04054>`_)
 
+#. *The GALAH survey: a catalogue of carbon-enhanced stars and CEMP candidates*, Klemen Čotar, Tomaž Zwitter, Janez Kos, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1807.07977 <http://arxiv.org/abs/1807.07977>`_)
+
 #. *Emergence of the Gaia Phase Space Spirals from Bending Waves*, Keir Darling & Lawrence M. Widrow (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1807.11516 <http://arxiv.org/abs/1807.11516>`_)
 
 #. *Pristine Dwarf-Galaxy Survey I: A detailed photometric and spectroscopic study of the very metal-poor Draco II satellite*, Nicolas Longeard, Nicolas Martin, Else Starkenburg, et al. (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1807.10655 <http://arxiv.org/abs/1807.10655>`_)
@@ -403,6 +405,19 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Discovery of Tidal Tails in Disrupting Open Clusters: Coma Berenices and a Neighbor Stellar Group*, Shih-Yun Tang, Xiaoying Pang, Zhen Yuan, W. P. Chen, Jongsuk Hong, Bertrand Goldman, Andreas Just, Bekdaulet Shukirgaliyev, & Chien-Cheng Lin (2019) *Astrophys. J.*, submitted (`arXiv/1902.01404 <http://arxiv.org/abs/1902.01404>`_)
 
 #. *A class of partly burnt runaway stellar remnants from peculiar thermonuclear supernovae*, R. Raddi, M. A. Hollands, D. Koester, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.05061 <http://arxiv.org/abs/1902.05061>`_)
+
+#. *Extended stellar systems in the solar neighborhood - III. Like ships in the night: the Coma Berenices neighbor moving group*, Verena Fürnkranz, Stefan Meingast, João Alves (2019) *Astron. & Astrophys.*, submitted (`arXiv/1902.07216 <http://arxiv.org/abs/1902.07216>`_)
+
+#. *Chronostar: a novel Bayesian method for kinematic age determination. I. Derivation and application to the β Pictoris Moving Group*, Timothy D. Crundall, Michael J. Ireland, Mark R. Krumholz, Christoph Federrath, Maruša Žerjal, Jonah T. Hansen (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.07732 <http://arxiv.org/abs/1902.07732>`_)
+
+#. *The GALAH survey and Gaia DR2: Linking ridges, arches and vertical waves in the kinematics of the Milky Way*, Shourya Khanna, Sanjib Sharma, Thor Tepper-Garcia, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1902.10113 <http://arxiv.org/abs/1902.10113>`_)
+
+#. *A Near-coplanar Stellar Flyby of the Planet Host Star HD 106906*, Robert J. De Rosa & Paul Kalas (2019) *Astron. J.*, in press (`arXiv/1902.10220 <http://arxiv.org/abs/1902.10220>`_)
+
+#. *High- and Low-α Disk Stars Separate Dynamically at all Ages*, Suroor S Gandhi & Melissa K Ness (2019) *Astrophys. J.*, submitted (`arXiv/1903.04030 <http://arxiv.org/abs/1903.04030>`_)
+
+#. *The Journey Counts: The Importance of Including Orbits when Simulating Ram Pressure Stripping*, Stephanie Tonnesen (2019) *Astrophys. J.*, in press (`arXiv/1903.08178 <http://arxiv.org/abs/1903.08178>`_)
+
 
 Indices and tables
 ==================
