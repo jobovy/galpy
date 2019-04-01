@@ -2260,6 +2260,67 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
     return (nu.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
                 *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
+
+@scalarDecorator
+@degreeDecorator([0, 1], [0, 1])
+def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
+    """
+    NAME:
+
+        custom_to_radec
+
+    PURPOSE:
+
+       rotate a custom set of sky coordinates (phi1, phi2) to (ra, dec)
+       given the transpose of the rotation matrix (ra, dec) -> (phi1, phi2)
+
+    INPUT:
+
+        phi1 - custom sky coord
+
+        phi2 - custom sky coord
+
+        dist - distance
+
+        T - matrix defining the transformation (phi1, phi2) to ICRS (ra,dec)
+          if (ra, dec) to (phi1, phi2) then input T.T
+
+        degree - default: False, if True, phi1 and phi2 in degrees
+
+        epoch - default: 2000.
+
+    OUTPUT:
+
+        (ra, dec) for vector inputs [:, 2]
+
+    HISTORY:
+
+        2018-10-23 - Written - Nathaniel (Toronto)
+    """
+
+    if T is None:
+        raise ValueError("Must set T= for custom_to_radec")
+
+    # convert to cartesian
+    customXYZ = nu.array([nu.cos(phi2) * nu.cos(phi1),
+                          nu.cos(phi2) * nu.sin(phi1),
+                          nu.sin(phi2)])
+
+    # transform to icrs
+    icrsXYZ = nu.matmul(T, customXYZ)
+
+    # convert to spherical coords
+    ra = nu.arctan2(icrsXYZ[1], icrsXYZ[0])
+    dec = nu.arctan2(icrsXYZ[2], nu.sqrt(icrsXYZ[0]**2 + icrsXYZ[1]**2))
+
+    # assert branch cut
+    ra[ra < 0.] += 2 * nu.pi
+
+    # return result
+    out = nu.array([ra, dec])
+    return out.T
+
+
 def get_epoch_angles(epoch=2000.0):
     """
     NAME:
