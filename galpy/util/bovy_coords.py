@@ -7,6 +7,8 @@
 #      Main included functions:
 #            radec_to_lb
 #            lb_to_radec
+#            radec_to_custom
+#            custom_to_radec
 #            lbd_to_XYZ
 #            XYZ_to_lbd
 #            rectgal_to_sphergal
@@ -15,6 +17,8 @@
 #            vxvyvz_to_vrpmllpmbb
 #            pmrapmdec_to_pmllpmbb
 #            pmllpmbb_to_pmrapmdec
+#            pmrapmdec_to_custom
+#            custom_to_pmrapmdec
 #            cov_pmrapmdec_to_pmllpmbb
 #            cov_dvrpmllbb_to_vxyz
 #            XYZ_to_galcenrect
@@ -120,26 +124,44 @@ def scalarDecorator(func):
         else:
             return result
     return scalar_wrapper
-def degreeDecorator(inDegrees,outDegrees):
-    """Decorator to transform angles from and to degrees if necessary"""
+
+
+def degreeDecorator(inDegrees, outDegrees):
+    """Decorator to transform angles from and to degrees if necessary
+
+    Arguments
+    ---------
+    inDegrees: list
+        list specifitying indices of angle arguments
+        ex: [index, index, ...]
+        can also include domain information with the index
+            (index, lower, upper), where upper > lower
+            domain must be in radians
+        ex: [index, (index, lower, upper), ...]
+    outDegrees: list
+        same as inDegrees, but for function return
+
+    HISTORY:
+
+       ____-__-__ - Written - Bovy
+       2019-03-02 - speedup - Nathaniel Starkman (UofT)
+    """
+    # (modified) old degree decorator
     def wrapper(func):
         @wraps(func)
-        def wrapped(*args,**kwargs):
-            if kwargs.get('degree',False):
-                newargs= ()
-                for ii in range(len(args)):
-                    if ii in inDegrees:
-                        newargs= newargs+(args[ii]*nu.pi/180.,)
-                    else:
-                        newargs= newargs+(args[ii],)
-                args= newargs
-            out= func(*args,**kwargs)
-            if kwargs.get('degree',False):
-                for indx in outDegrees:
-                    out[:,indx]/= nu.pi/180.
+        def wrapped(*args, **kwargs):
+            isdeg = kwargs.get('degree', False)
+            if isdeg:
+                args = [arg * nu.pi / 180 if i in inDegrees else arg
+                        for i, arg in enumerate(args)]
+            out = func(*args, **kwargs)
+            if isdeg:
+                for i in outDegrees:
+                    out[:, i] *= 180. / nu.pi
             return out
         return wrapped
-    return wrapper            
+    return wrapper
+
 
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
@@ -2154,9 +2176,10 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         else:                         z2        = 0.
     return (nu.sqrt(r2),nu.sqrt(z2))
 
+
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
-def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
+def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0, ):
     """
     NAME:
 
@@ -2188,6 +2211,8 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
+       2019-03-02 - Re-written for domain stability - Nathaniel (UofT)
+
     """
     if T is None: raise ValueError("Must set T= for radec_to_custom")
     #Whether to use degrees and scalar input is handled by decorators
@@ -2195,10 +2220,14 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0):
                    nu.cos(dec)*nu.sin(ra),
                    nu.sin(dec)])
     galXYZ= nu.dot(T,XYZ)
-    b= nu.arcsin(galXYZ[2])
-    l= nu.arctan2(galXYZ[1]/sc.cos(b),galXYZ[0]/sc.cos(b))
+    b= nu.arcsin(galXYZ[2])  # [-pi/2, pi/2]
+    # l= nu.arctan2(galXYZ[1]/nu.cos(b), galXYZ[0]/nu.cos(b))
+    l= nu.arctan2(galXYZ[1], galXYZ[0])
+    l[l<0] += 2 * nu.pi  # fix range to [0, 2 pi]
+
     out= nu.array([l,b])
-    return out.T   
+    return out.T
+
 
 @scalarDecorator
 @degreeDecorator([2,3],[])
@@ -2261,8 +2290,6 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
                 *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
 
-@scalarDecorator
-@degreeDecorator([0, 1], [0, 1])
 def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
     """
     NAME:
@@ -2272,7 +2299,7 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
     PURPOSE:
 
        rotate a custom set of sky coordinates (phi1, phi2) to (ra, dec)
-       given the transpose of the rotation matrix (ra, dec) -> (phi1, phi2)
+       given the rotation matrix (ra, dec) -> (phi1, phi2)
 
     INPUT:
 
@@ -2282,8 +2309,8 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
 
         dist - distance
 
-        T - matrix defining the transformation (phi1, phi2) to ICRS (ra,dec)
-          if (ra, dec) to (phi1, phi2) then input T.T
+        T - matrix defining the transformation (ra, dec) -> (phi1, phi2)
+          if (phi1, phi2) -> (ra, dec) then input T.T
 
         degree - default: False, if True, phi1 and phi2 in degrees
 
@@ -2295,30 +2322,58 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
 
     HISTORY:
 
-        2018-10-23 - Written - Nathaniel (Toronto)
+        2018-10-23 - Written - Nathaniel (UofT)
     """
+    if T is None: raise ValueError("Must set T= for custom_to_radec")
 
-    if T is None:
-        raise ValueError("Must set T= for custom_to_radec")
+    return radec_to_custom(phi1, phi2,
+                           T=nu.transpose(T),  # transpose = inverse transformation
+                           degree=degree, epoch=epoch)
 
-    # convert to cartesian
-    customXYZ = nu.array([nu.cos(phi2) * nu.cos(phi1),
-                          nu.cos(phi2) * nu.sin(phi1),
-                          nu.sin(phi2)])
 
-    # transform to icrs
-    icrsXYZ = nu.matmul(T, customXYZ)
+def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2,
+                        T=None, degree=False, epoch=2000.0):
+    """
+    NAME:
 
-    # convert to spherical coords
-    ra = nu.arctan2(icrsXYZ[1], icrsXYZ[0])
-    dec = nu.arctan2(icrsXYZ[2], nu.sqrt(icrsXYZ[0]**2 + icrsXYZ[1]**2))
+       custom_to_pmrapmdec
 
-    # assert branch cut
-    ra[ra < 0.] += 2 * nu.pi
+    PURPOSE:
 
-    # return result
-    out = nu.array([ra, dec])
-    return out.T
+       rotate proper motions in a custom set of sky coordinates (phi1,phi2) to ICRS (ra,dec)
+
+    INPUT:
+
+       pmphi1 - proper motion in custom (multplied with cos(phi2)) [mas/yr]
+
+       pmphi2 - proper motion in phi2 [mas/yr]
+
+       phi1 - custom longitude
+
+       phi2 - custom latitude
+
+       T= matrix defining the transformation in cartesian coordinates:
+          new_rect = T dot old_rect
+          where old_rect = [cos(dec)cos(ra), cos(dec)sin(ra), sin(dec)] and similar for new_rect
+          if T takes (phi1, phi2) -> (ra, dec) then input T.T
+
+       degree= (False) if True, phi1 and phi2 are given in degrees (default=False)
+
+       epoch= (2000.) epoch of phi1,phi2 (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
+
+    OUTPUT:
+
+       (pmra x cos(dec), dec) for vector inputs [:,2]
+
+    HISTORY:
+
+       2019-03-02 - Written - Nathaniel Starkman (UofT)
+
+    """
+    if T is None: raise ValueError("Must set T= for radec_to_custom")
+    return pmrapmdec_to_custom(pmphi1, pmphi2, phi1, phi2,
+                               T=nu.transpose(T),  # transpose = inverse transformation
+                               degree=degree, epoch=epoch)
 
 
 def get_epoch_angles(epoch=2000.0):
