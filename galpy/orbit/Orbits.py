@@ -84,25 +84,33 @@ class Orbits(object):
 
             vxvv - initial conditions (must all have the same phase-space dimension); can be either
 
-                a) list of Orbit instances
+                a) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
 
-                b) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
+                b) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit); shape information is retained and used in outputs; elements can be either
 
-                c) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit) or list of initial conditions for individual Orbit instances; shape information is retained and used in outputs; elements can be either
+                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; needs to be in internal units (for Quantity input; see 'list' option below)
 
-                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; can be Quantities
+                    2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); (for Quantity input, see 'list' option below); ICRS frame
 
-                    2) None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*
+                    4) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below); ICRS frame
 
-                    3) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); can be Quantities; ICRS frame
+                    5) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); (for Quantity input; see 'list' option below)
 
-                    4) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities; ICRS frame
-
-                    5) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); can be Quantities
-
-                    6) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; can be Quantities
+                    6) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below)
 
                     5) and 6) also work when leaving out b and mu_b/W
+
+                d) lists of initial conditions, entries can be
+
+                    1) individual Orbit instances
+
+                    2) Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+
+                    3) list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
+
+                    4) None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists (2 and 3 above)
+
+                    5) lists of scalar phase-space coordinates arranged as in c) (so things like [R,vR,...] where R,vR are scalars in internal units
 
         OPTIONAL INPUTS:
 
@@ -157,11 +165,36 @@ class Orbits(object):
         elif isinstance(vxvv,list):
             if isinstance(vxvv[0],Orbit):
                 vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
+                input_shape= (len(vxvv),)
+                vxvv= numpy.array(vxvv)
+            elif _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+                # Case where vxvv= [R,vR,...] or [ra,dec,...] with Quantities
+                input_shape= vxvv[0].shape
+                vxvv= [s.flatten() for s in vxvv]
+                # Keep as list, is fine later...
+            elif _APY_LOADED and isinstance(vxvv[0],list) \
+                    and isinstance(vxvv[0][0],units.Quantity):
+                # Case where vxvv= [[R1,vR1,...],[R2,vR2,...]]
+                # or [[ra1,dec1,...],[ra2,dec2,...]] with Quantities
+                input_shape= (len(vxvv),)
+                pdim= len(vxvv[0])
+                stack= []
+                for pp in range(pdim):
+                    stack.append(\
+                        numpy.array([tvxvv[pp].to(vxvv[0][pp].unit).value
+                                     for tvxvv in vxvv])\
+                            *vxvv[0][pp].unit)
+                vxvv= stack
+                # Keep as list, is fine later...
             elif numpy.ndim(vxvv[0]) == 0: # Scalar, so assume single object
                 vxvv= [vxvv]
-            input_shape= (len(vxvv),)
-            vxvv= numpy.array(vxvv)
-            if vxvv.dtype == 'object': # if diff. phasedim, object array is created
+                input_shape= (len(vxvv),)
+                vxvv= numpy.array(vxvv)
+            else:
+                input_shape= (len(vxvv),)
+                vxvv= numpy.array(vxvv)
+            if isinstance(vxvv,numpy.ndarray) and vxvv.dtype == 'object':
+                # if diff. phasedim, object array is created
                 raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
         self.shape= input_shape
         self._setup_parse_vxvv(vxvv,radec,lb,uvw)
@@ -318,7 +351,7 @@ class Orbits(object):
                     equivalencies=units.dimensionless_angles()).value/self._vo
             vz= vxvvg.d_z.to(units.km/units.s).value/self._vo
             vxvv= numpy.array([R,vR,vT,z,vz,phi])
-        else:
+        elif not isinstance(vxvv,list):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
         if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
@@ -416,7 +449,7 @@ class Orbits(object):
                 new_vxvv.append(vxvv[4].to(vxvv_units[4]).value/self._vo)
                 if len(vxvv) == 6:
                     new_vxvv.append(vxvv[5].to(vxvv_units[5]).value)
-            vxvv= new_vxvv
+            vxvv= numpy.array(new_vxvv)
         # (phasedim,norb) --> (norb,phasedim) again and store
         self.vxvv= vxvv.T
         return None
