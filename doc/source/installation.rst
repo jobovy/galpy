@@ -86,15 +86,14 @@ to, for example, install the ``dev`` branch.
 Installing from source on Windows
 ---------------------------------
 
-Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
-
-For CMD::
+Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 
     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
-For PowerShell which newer Anaconda prompt might be set as default::
+If you are using the Windows PowerShell (which newer versions of the
+Anaconda prompt might set as the default), do::
 
     $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
     $env:LIB="$env:CONDA_PREFIX\Library\lib"
