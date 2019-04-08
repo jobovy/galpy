@@ -25,7 +25,8 @@ from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
 from ..potential import rl, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
-from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
+from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
+    integrateLinearOrbit
 from .integratePlanarOrbit import integratePlanarOrbit_c
 from .integrateFullOrbit import integrateFullOrbit_c
 from .. import actionAngle
@@ -807,15 +808,20 @@ class Orbits(object):
             warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
-            # Must return each Orbit for its values to correctly update
-            def integrate_for_map(orbit):
-                orbit.integrate(t, self._pot, method=method, dt=dt)
-                return orbit
-            self._orbits = list(parallel_map(integrate_for_map, self._orbits,
-                                             numcores=numcores))
-            # Gather all into single self.orbit array
-            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                     for ii in range(len(self))])
+            if self.dim() == 1:
+                out, msg= integrateLinearOrbit(self._pot,
+                                               self.vxvv,
+                                               t,method,numcores=numcores)
+            else:
+                # Must return each Orbit for its values to correctly update
+                def integrate_for_map(orbit):
+                    orbit.integrate(t, self._pot, method=method, dt=dt)
+                    return orbit
+                self._orbits = list(parallel_map(integrate_for_map, self._orbits,
+                                                 numcores=numcores))
+                # Gather all into single self.orbit array
+                self.orbit= numpy.array([self._orbits[ii]._orb.orbit
+                                         for ii in range(len(self))])
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
@@ -841,8 +847,8 @@ class Orbits(object):
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
                     out= out[:,:,:-1]
-            # Store orbit internally
-            self.orbit= out
+        # Store orbit internally
+        self.orbit= out
         return None
 
     def flip(self,inplace=False):

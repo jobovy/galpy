@@ -2,16 +2,21 @@ import sys
 import distutils.sysconfig as sysconfig
 import warnings
 import numpy as nu
+from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
 from galpy.util import galpyWarning
+from ..util.multi import parallel_map
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
+from ..potential.linearPotential import _evaluatelinearForces
 from galpy.potential.verticalPotential import verticalPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
+from ..util.leung_dop853 import dop853
+from ..util import bovy_symplecticode as symplecticode
 #Find and load the library
 _lib= None
 outerr= None
@@ -202,3 +207,64 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     if single_obj: return (result[0],err[0])
     else: return (result,err)
 
+# Python integration functions
+def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
+    """
+    NAME:
+       integrateLinearOrbit
+    PURPOSE:
+       Integrate an ode for a LinearOrbit
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,2]
+       t - set of times at which one wants the result
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(y0), len(t))
+       Array containing the value of y for each desired time in t, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2010-07-13- Written - Bovy (NYU)
+       2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
+    """
+    if int_method.lower() == 'leapfrog':
+        def integrate_for_map(vxvv):
+            return symplecticode.leapfrog(lambda x,t=t: \
+                                              _evaluatelinearForces(pot,x,t=t),
+                                          nu.array(vxvv),
+                                          t,rtol=rtol)
+    elif int_method.lower() == 'dop853':
+        def integrate_for_map(vxvv):
+            return dop853(func=_linearEOM,x=vxvv,t=t,args=(pot,))
+    elif int_method.lower() == 'odeint':
+        def integrate_for_map(vxvv):
+            return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=rtol)
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv):
+            return integrateLinearOrbit_c(pot,nu.copy(vxvv),t,int_method)[0]
+    if len(yo) == 1: # Can't map a single value...
+        return integrate_for_map(yo), 0
+    else:
+        return (nu.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
+                nu.zeros(len(yo)))
+
+def _linearEOM(y,t,pot):
+    """
+    NAME:
+       linearEOM
+    PURPOSE:
+       the one-dimensional equation-of-motion
+    INPUT:
+       y - current phase-space position
+       t - current time
+       pot - (list of) linearPotential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2010-07-13 - Bovy (NYU)
+    """
+    return [y[1],_evaluatelinearForces(pot,y[0],t=t)]

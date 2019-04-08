@@ -281,8 +281,7 @@ def test_integration_p5d():
     return None
     
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
-# instances when using parallel_map Python paralleliization
-@pytest.mark.xfail(strict=True,raises=AttributeError)
+# instances when using parallel_map Python parallelization
 def test_integration_forcemap_1d():
     from galpy.orbit import Orbit, Orbits
     times= numpy.linspace(0.,10.,1001)
