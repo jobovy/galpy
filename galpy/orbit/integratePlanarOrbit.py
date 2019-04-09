@@ -361,7 +361,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (len(y0),len(t),4)
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
@@ -449,7 +449,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (len(y0),len(t),3/4)
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators

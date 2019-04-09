@@ -136,7 +136,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (N,len(y0), len(t)) or (len(y0), len(t)) if N=1
+       y : array, shape (N,len(t),2) or (len(y0),len(t)) if N=1
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
@@ -223,7 +223,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
        numcores= (1) number of cores to use for multi-processing
     OUTPUT:
        (y,err)
-       y : array, shape (N,len(y0), len(t))
+       y : array, shape (N,len(t),2)
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, always zero for now
