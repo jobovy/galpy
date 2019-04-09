@@ -1,6 +1,9 @@
 v1.5 (????-??-??)
 =================
 
+- Allow transformations of custom coordinate systems (positions
+  and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
+
 - Added support for 1D orbit integration in C (PR #354).
 
 - Added potential.toVerticalPotential to convert any 3D potential to a
