@@ -126,21 +126,27 @@ def scalarDecorator(func):
     return scalar_wrapper
 
 
-def degreeDecorator(inDegrees, outDegrees):
-    """Decorator to transform angles from and to degrees if necessary
+def degreeDecorator(inDegrees,outDegrees):
+    """
+    NAME:
 
-    Arguments
-    ---------
-    inDegrees: list
-        list specifiying indices of angle arguments
-        ex: [index, index, ...]
-    outDegrees: list
-        same as inDegrees, but for function return
+       degreeDecorator
+
+    PURPOSE:
+
+       Decorator to transform angles from and to degrees if necessary
+
+    INPUT:
+
+       inDegrees - list specifiying indices of angle arguments (e.g., [0,1])
+       outDegrees - list, same as inDegrees, but for function return
 
     HISTORY:
 
        ____-__-__ - Written - Bovy
+
        2019-03-02 - speedup - Nathaniel Starkman (UofT)
+
     """
     # (modified) old degree decorator
     def wrapper(func):
@@ -2256,6 +2262,7 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
     HISTORY:
 
        2016-10-24 - Written - Bovy (UofT/CCA)
+
        2019-03-09 - uses custom_to_radec - Nathaniel Starkman (UofT)
 
     """
@@ -2279,7 +2286,7 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
                 *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
 
-def custom_to_radec(phi1, phi2, T=None, degree=False):
+def custom_to_radec(phi1,phi2,T=None,degree=False):
     """
     NAME:
 
@@ -2314,7 +2321,7 @@ def custom_to_radec(phi1, phi2, T=None, degree=False):
                            degree=degree)
 
 
-def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
+def custom_to_pmrapmdec(pmphi1,pmphi2,phi1,phi2,T=None,degree=False):
     """
     NAME:
 
