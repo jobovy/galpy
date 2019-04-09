@@ -132,12 +132,8 @@ def degreeDecorator(inDegrees, outDegrees):
     Arguments
     ---------
     inDegrees: list
-        list specifitying indices of angle arguments
+        list specifiying indices of angle arguments
         ex: [index, index, ...]
-        can also include domain information with the index
-            (index, lower, upper), where upper > lower
-            domain must be in radians
-        ex: [index, (index, lower, upper), ...]
     outDegrees: list
         same as inDegrees, but for function return
 
@@ -2179,7 +2175,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
 
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
-def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0, ):
+def radec_to_custom(ra,dec,T=None,degree=False):
     """
     NAME:
 
@@ -2211,7 +2207,7 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0, ):
 
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
-       2019-03-02 - Re-written for domain stability - Nathaniel (UofT)
+       2019-03-02 - adjusted angle ranges - Nathaniel (UofT)
 
     """
     if T is None: raise ValueError("Must set T= for radec_to_custom")
@@ -2221,17 +2217,15 @@ def radec_to_custom(ra,dec,T=None,degree=False,epoch=2000.0, ):
                    nu.sin(dec)])
     galXYZ= nu.dot(T,XYZ)
     b= nu.arcsin(galXYZ[2])  # [-pi/2, pi/2]
-    # l= nu.arctan2(galXYZ[1]/nu.cos(b), galXYZ[0]/nu.cos(b))
     l= nu.arctan2(galXYZ[1], galXYZ[0])
     l[l<0] += 2 * nu.pi  # fix range to [0, 2 pi]
-
     out= nu.array([l,b])
     return out.T
 
 
 @scalarDecorator
 @degreeDecorator([2,3],[])
-def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
+def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
     """
     NAME:
 
@@ -2255,8 +2249,6 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
 
        degree= (False) if True, ra and dec are given in degrees (default=False)
 
-       epoch= (2000.) epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
     OUTPUT:
 
        (pmphi1 x cos(phi2),pmph2) for vector inputs [:,2]
@@ -2264,15 +2256,12 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
     HISTORY:
 
        2016-10-24 - Written - Bovy (UofT/CCA)
+       2019-03-09 - uses custom_to_radec - Nathaniel Starkman (UofT)
 
     """
-    if T is None: raise ValueError("Must set T= for radec_to_custom")
+    if T is None: raise ValueError("Must set T= for pmrapmdec_to_custom")
     # Need to figure out ra_ngp and dec_ngp for this custom set of sky coords
-    # Should replace this eventually with custom_to_radec
-    customXYZ= nu.dot(T.T,nu.array([0.,0.,1.]))
-    dec_ngp= nu.arcsin(customXYZ[2])
-    ra_ngp= nu.arctan2(customXYZ[1]/sc.cos(dec_ngp),
-                       customXYZ[0]/sc.cos(dec_ngp))
+    ra_ngp, dec_ngp= custom_to_radec(0., nu.pi/2, T=T)
     #Whether to use degrees and scalar input is handled by decorators
     dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
     sindec_ngp= nu.sin(dec_ngp)
@@ -2290,7 +2279,7 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False,epoch=2000.0):
                 *nu.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
 
 
-def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
+def custom_to_radec(phi1, phi2, T=None, degree=False):
     """
     NAME:
 
@@ -2299,7 +2288,7 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
     PURPOSE:
 
        rotate a custom set of sky coordinates (phi1, phi2) to (ra, dec)
-       given the rotation matrix (ra, dec) -> (phi1, phi2)
+       given the rotation matrix T for (ra, dec) -> (phi1, phi2)
 
     INPUT:
 
@@ -2307,14 +2296,9 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
 
         phi2 - custom sky coord
 
-        dist - distance
-
         T - matrix defining the transformation (ra, dec) -> (phi1, phi2)
-          if (phi1, phi2) -> (ra, dec) then input T.T
 
-        degree - default: False, if True, phi1 and phi2 in degrees
-
-        epoch - default: 2000.
+        degree - default: False. If True, phi1 and phi2 in degrees
 
     OUTPUT:
 
@@ -2325,14 +2309,12 @@ def custom_to_radec(phi1, phi2, T=None, degree=False, epoch=2000.0):
         2018-10-23 - Written - Nathaniel (UofT)
     """
     if T is None: raise ValueError("Must set T= for custom_to_radec")
-
     return radec_to_custom(phi1, phi2,
-                           T=nu.transpose(T),  # transpose = inverse transformation
-                           degree=degree, epoch=epoch)
+                           T=nu.transpose(T),  # T.T = inv(T)
+                           degree=degree)
 
 
-def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2,
-                        T=None, degree=False, epoch=2000.0):
+def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     """
     NAME:
 
@@ -2355,11 +2337,8 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2,
        T= matrix defining the transformation in cartesian coordinates:
           new_rect = T dot old_rect
           where old_rect = [cos(dec)cos(ra), cos(dec)sin(ra), sin(dec)] and similar for new_rect
-          if T takes (phi1, phi2) -> (ra, dec) then input T.T
 
        degree= (False) if True, phi1 and phi2 are given in degrees (default=False)
-
-       epoch= (2000.) epoch of phi1,phi2 (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
     OUTPUT:
 
@@ -2370,10 +2349,10 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2,
        2019-03-02 - Written - Nathaniel Starkman (UofT)
 
     """
-    if T is None: raise ValueError("Must set T= for radec_to_custom")
+    if T is None: raise ValueError("Must set T= for custom_to_pmrapmdec")
     return pmrapmdec_to_custom(pmphi1, pmphi2, phi1, phi2,
-                               T=nu.transpose(T),  # transpose = inverse transformation
-                               degree=degree, epoch=epoch)
+                               T=nu.transpose(T),  # T.T = inv(T)
+                               degree=degree)
 
 
 def get_epoch_angles(epoch=2000.0):
