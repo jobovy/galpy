@@ -324,7 +324,6 @@ def test_integration_forcemap_2d():
         assert numpy.amax(numpy.fabs((((orbits_list[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
     
-@pytest.mark.xfail(strict=True,raises=AttributeError)
 def test_integration_forcemap_3d():
     from galpy.orbit import Orbit, Orbits
     times= numpy.linspace(0.,10.,1001)
@@ -2662,7 +2661,6 @@ def test_actionsFreqsAngles_RuntimeError_1d():
         os.jz(analytic=True)
     return None
 
-@pytest.mark.xfail(strict=True,raises=AttributeError)
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # Test from test_potential for Orbits now!
     #

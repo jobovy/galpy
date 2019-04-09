@@ -28,7 +28,7 @@ from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
 from .integratePlanarOrbit import integratePlanarOrbit_c, integratePlanarOrbit
-from .integrateFullOrbit import integrateFullOrbit_c
+from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 from .. import actionAngle
 ext_loaded= _ext_loaded
 _APY_LOADED= True
@@ -815,15 +815,8 @@ class Orbits(object):
                 out, msg= integratePlanarOrbit(self._pot,self.vxvv,
                                                t,method,numcores=numcores)
             else:
-                # Must return each Orbit for its values to correctly update
-                def integrate_for_map(orbit):
-                    orbit.integrate(t, self._pot, method=method, dt=dt)
-                    return orbit
-                self._orbits = list(parallel_map(integrate_for_map, self._orbits,
-                                                 numcores=numcores))
-                # Gather all into single self.orbit array
-                self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                         for ii in range(len(self))])
+                out, msg= integrateFullOrbit(self._pot,self.vxvv,
+                                             t,method,numcores=numcores)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)

@@ -527,13 +527,13 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
        numcores= (1) number of cores to use for multi-processing
     OUTPUT:
        (y,err)
-       y : array, shape (N,3/4,,len(t))
+       y : array, shape (N,len(t),3/4)
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, always zero for now
     HISTORY:
-       2011-10-03 - Written - Bovy (IAS)
-       2018-12-20 - Adapted to allow multiple objects - Bovy (UofT)
+       2010-07-20 - Written - Bovy (NYU)
+       2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':
