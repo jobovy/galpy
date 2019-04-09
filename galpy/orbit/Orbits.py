@@ -27,7 +27,7 @@ from ..potential import rl, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
-from .integratePlanarOrbit import integratePlanarOrbit_c
+from .integratePlanarOrbit import integratePlanarOrbit_c, integratePlanarOrbit
 from .integrateFullOrbit import integrateFullOrbit_c
 from .. import actionAngle
 ext_loaded= _ext_loaded
@@ -809,8 +809,10 @@ class Orbits(object):
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
             if self.dim() == 1:
-                out, msg= integrateLinearOrbit(self._pot,
-                                               self.vxvv,
+                out, msg= integrateLinearOrbit(self._pot,self.vxvv,
+                                               t,method,numcores=numcores)
+            elif self.dim() == 2:
+                out, msg= integratePlanarOrbit(self._pot,self.vxvv,
                                                t,method,numcores=numcores)
             else:
                 # Must return each Orbit for its values to correctly update
