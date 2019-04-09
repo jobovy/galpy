@@ -16,7 +16,6 @@ from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
-from ..util.multi import parallel_map
 from ..util.bovy_plot import _add_ticks
 from ..util import bovy_conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
