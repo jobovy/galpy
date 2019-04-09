@@ -12,6 +12,8 @@ self-explanatory names:
 
    cov_dvrpmllbb_to_vxyz <coordscovdvrpmllbbtovxyz.rst>
    cov_pmrapmdec_to_pmllpmbb <coordscovpmrapmdectopmllpmbb.rst>
+   custom_to_pmrapmdec <coordscustomtopmrapmdec.rst>
+   custom_to_radec <coordscustomtoradec.rst>
    cyl_to_rect <coordscyltorect.rst>
    cyl_to_rect_vec <coordscyltorectvec.rst>
    dl_to_rphi_2d <coordsdltorphi2d.rst>

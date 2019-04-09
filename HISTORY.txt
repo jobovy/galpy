@@ -45,6 +45,9 @@ v1.5 (????-??-??)
 - DehnenSmoothWrapperPotential can now decay rather than grow a
   potential by setting ``decay=True``.
   
+- Allow transformations of custom coordinate systems (positions
+  and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
+
 - Allow orbit integrations to be KeyboardInterrupted on Windows as well 
   (#362 by Henry Leung)
 
