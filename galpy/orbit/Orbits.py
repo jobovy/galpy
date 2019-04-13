@@ -325,7 +325,7 @@ class Orbits(object):
                     copy.deepcopy(self.orbit[flat_indx_array])
                 integrate_kwargs['_pot']= self._pot
             else: integrate_kwargs= None
-            return Orbits._from_slice(orbits_list,integrate_kwargs,
+            return self._from_slice(orbits_list,integrate_kwargs,
                                       shape_kwargs)
 
     @classmethod
