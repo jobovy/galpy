@@ -56,7 +56,6 @@ Methods
    plotE <orbitplote.rst>
    plotER <orbitplotER.rst>
    plotEz <orbitplotEz.rst>
-   plotEzJz <orbitplotEzJz.rst>
    plotphi <orbitplotphi.rst>
    plotR <orbitplotr.rst>
    plotvR <orbitplotvr.rst>

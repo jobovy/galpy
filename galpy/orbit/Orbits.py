@@ -541,15 +541,51 @@ class Orbits(object):
         # Catch all plotting functions
         if 'plot' in name:
             def _plot(*args,**kwargs):
-                for ii in range(len(self)):
-                    line2d= \
-                     self._orbits[ii].__getattribute__(name)(*args,**kwargs)[0]
-                    kwargs['overplot']= True
-                line2d.axes.autoscale(enable=True)
-                plot._add_ticks()
-                return None
+                kwargs['d1']= kwargs.get('d1','t')
+                kwargs['d2']= name.split('plot')[1]
+                if ('E' in kwargs['d2'] or kwargs['d2'] == 'Jacobi') \
+                        and kwargs.pop('normed',False):
+                    kwargs['d2']+= 'norm'
+                return self.plot(*args,**kwargs)
             # Assign documentation
-            _plot.__doc__= self._orbits[0].__getattribute__(name).__doc__
+            if 'E' in name or 'Jacobi' in name:
+                Estring= """pot= Potential instance or list of instances in which the orbit was integrated
+
+           normed= if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
+
+           """.format(quant=name.split('plot')[1])
+            else:
+                Estring= ''
+            _plot.__doc__= """
+        NAME:
+
+           plot{quant}
+
+        PURPOSE:
+
+           plot {quant}(t) along the orbit
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           {Estring}ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           matplotlib.plot inputs+bovy_plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2019-04-13 - Written - Bovy (UofT)
+
+        """.format(quant=name.split('plot')[1],Estring=Estring)
             return _plot
         attribute = getattr(Orbit(), name)
         if callable(attribute):
@@ -3938,13 +3974,13 @@ class Orbits(object):
                 return numpy.tile(self.time(self.t,**kwargs),
                                   (len(self),1))
             elif q == 'Enorm':
-                return self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+                return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
             elif q == 'Eznorm':
-                return self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+                return (self.Ez(self.t,**kwargs).T/self.Ez(0.,**kwargs)).T
             elif q == 'ERnorm':
-                return self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+                return (self.ER(self.t,**kwargs).T/self.ER(0.,**kwargs)).T
             elif q == 'Jacobinorm':
-                return self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+                return (self.Jacobi(self.t,**kwargs).T/self.Jacobi(0.,**kwargs)).T
             else: # these are exact, e.g., 'x' for self.x
                 return self.__getattribute__(q)(self.t,**kwargs)
         try:

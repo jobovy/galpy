@@ -1789,7 +1789,6 @@ def test_badinterpolation():
     return None
 
 # Check plotting routines
-@pytest.mark.xfail(strict=True,raises=AttributeError)
 def test_plotting():
     from galpy.orbit import Orbit, Orbits
     from galpy.potential import LogarithmicHaloPotential
@@ -1838,20 +1837,6 @@ def test_plotting():
     # Radial energy
     oa.plotER()
     oa.plotER(normed=True)
-    # EzJz
-    o.plotEzJz()
-    o.plotEzJz(pot=lp,d1='R')
-    o.plotEzJz(pot=lp,d1='vR')
-    o.plotEzJz(pot=lp,d1='vT')
-    o.plotEzJz(pot=lp,d1='z')
-    o.plotEzJz(pot=lp,d1='vz')
-    o.plotEzJz(pot=lp,d1='phi')
-    oa.plotEzJz()
-    oa.plotEzJz(pot=lp,d1='R')
-    oa.plotEzJz(pot=lp,d1='vR')
-    oa.plotEzJz(pot=lp,d1='vT')
-    oa.plotEzJz(pot=lp,d1='z')
-    oa.plotEzJz(pot=lp,d1='vz')
     # Jacobi
     o.plotJacobi()
     o.plotJacobi(normed=True)

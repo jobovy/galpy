@@ -4356,9 +4356,6 @@ def test_full_plotting():
     try: o.plotEz()
     except AttributeError: pass
     else: raise AssertionError('o.plotEz() before the orbit was integrated did not raise AttributeError for planarOrbit')
-    try: o.plotEzJz()
-    except AttributeError: pass
-    else: raise AssertionError('o.plotJzEz() before the orbit was integrated did not raise AttributeError for planarOrbit')
     try: o.plotJacobi()
     except AttributeError: pass
     else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarOrbit')
@@ -4368,9 +4365,6 @@ def test_full_plotting():
     try: oa.plotEz()
     except AttributeError: pass
     else: raise AssertionError('o.plotEz() before the orbit was integrated did not raise AttributeError for planarROrbit')
-    try: oa.plotEzJz()
-    except AttributeError: pass
-    else: raise AssertionError('o.plotEzJz() before the orbit was integrated did not raise AttributeError for planarROrbit')
     try: oa.plotJacobi()
     except AttributeError: pass
     else: raise AssertionError('o.plotJacobi() before the orbit was integrated did not raise AttributeError for planarROrbit')
@@ -4418,22 +4412,6 @@ def test_full_plotting():
     # Radial energy
     oa.plotER()
     oa.plotER(normed=True)
-    # EzJz
-    o.plotEzJz()
-    o.plotEzJz(pot=lp,d1='R')
-    o.plotEzJz(pot=lp,d1='vR')
-    o.plotEzJz(pot=lp,d1='vT')
-    o.plotEzJz(pot=lp,d1='z')
-    o.plotEzJz(pot=lp,d1='vz')
-    o.plotEzJz(pot=lp,d1='phi')
-    if True: #not _TRAVIS:
-        o.plotEzJz(pot=dp,d1='phi')
-    oa.plotEzJz()
-    oa.plotEzJz(pot=lp,d1='R')
-    oa.plotEzJz(pot=lp,d1='vR')
-    oa.plotEzJz(pot=lp,d1='vT')
-    oa.plotEzJz(pot=lp,d1='z')
-    oa.plotEzJz(pot=lp,d1='vz')
     # Jacobi
     o.plotJacobi()
     o.plotJacobi(normed=True)
