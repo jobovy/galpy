@@ -4224,21 +4224,21 @@ class Orbits(object):
         kwargs['quantity']= False
         #Defaults
         if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
-            if len(self.vxvv) == 3:
+            if self.phasedim() == 3:
                 d1= 'R'
                 d2= 'vR'
                 d3= 'vT'
-            elif len(self.vxvv) == 4:
+            elif self.phasedim() == 4:
                 d1= 'x'
                 d2= 'y'
                 d3= 'vR'
-            elif len(self.vxvv) == 2:
+            elif self.phasedim() == 2:
                 raise AttributeError("Cannot plot 3D aspects of 1D orbits")
-            elif len(self.vxvv) == 5:
+            elif self.phasedim() == 5:
                 d1= 'R'
                 d2= 'vR'
                 d3= 'z'
-            elif len(self.vxvv) == 6:
+            elif self.phasedim() == 6:
                 d1= 'x'
                 d2= 'y'
                 d3= 'z'
