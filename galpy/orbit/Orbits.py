@@ -3995,7 +3995,15 @@ class Orbits(object):
 
         HISTORY:
 
-           2010-07-10 - Written - Bovy (NYU)
+           2010-07-26 - Written - Bovy (NYU)
+
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
 
            2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
 
@@ -4094,6 +4102,139 @@ class Orbits(object):
         line2d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line2d]
+
+    def plot3d(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot3d
+
+        PURPOSE:
+
+           plot 3D aspects of an Orbit
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot
+
+           d3= third dimension to plot
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           bovy_plot3d args and kwargs
+
+        OUTPUT:
+
+           plot
+
+        HISTORY:
+
+           2010-07-26 - Written - Bovy (NYU)
+
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+
+           2010-01-08 - Adapted to 3D - Bovy (NYU)
+
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+
+           2019-04-13 - Adapated for multiple orbits - Bovy (UofT)
+
+        """
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$','x':r'$x$','y':r'$y$',
+                        'vx':r'$v_x$','vy':r'$v_y$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+            if len(self.vxvv) == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif len(self.vxvv) == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif len(self.vxvv) == 2:
+                raise AttributeError("Cannot plot 3D aspects of 1D orbits")
+            elif len(self.vxvv) == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif len(self.vxvv) == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not ('d1' in kwargs and 'd2' in kwargs and 'd3' in kwargs):
+            raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+            d3= kwargs.pop('d3')
+        kwargs['dontreshape']= True
+        x= self._parse_plot_quantity(d1,**kwargs)
+        y= self._parse_plot_quantity(d2,**kwargs)
+        z= self._parse_plot_quantity(d3,**kwargs)
+        kwargs.pop('dontreshape')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('quantity',None)
+        #Plot
+        if not 'xlabel' in kwargs:
+            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+        if not 'ylabel' in kwargs:
+            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+        if not 'zlabel' in kwargs:
+            kwargs['zlabel']= labeldict.get(d3,r'${}$'.format(d3))
+        for tx,ty,tz in zip(x,y,z):
+            line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
+            kwargs['overplot']= True
+        line3d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line3d]
 
     def animate(self,*args,**kwargs): #pragma: no cover
         """
@@ -4233,8 +4374,10 @@ class Orbits(object):
         all_ylabel= kwargs.get('ylabel',[None for d in d2])
         for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
            #Get x and y for each subplot
+            kwargs['dontreshape']= True
             x= self._parse_plot_quantity(d1,**kwargs)
             y= self._parse_plot_quantity(d2,**kwargs)
+            kwargs.pop('dontreshape')
             xs.append(x)
             ys.append(y)
             if xlabel is None:
