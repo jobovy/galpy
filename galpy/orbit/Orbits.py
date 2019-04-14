@@ -16,7 +16,7 @@ from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
-from ..util.bovy_plot import _add_ticks
+import galpy.util.bovy_plot as plot
 from ..util import bovy_conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
@@ -546,7 +546,7 @@ class Orbits(object):
                      self._orbits[ii].__getattribute__(name)(*args,**kwargs)[0]
                     kwargs['overplot']= True
                 line2d.axes.autoscale(enable=True)
-                _add_ticks()
+                plot._add_ticks()
                 return None
             # Assign documentation
             _plot.__doc__= self._orbits[0].__getattribute__(name).__doc__
@@ -3964,6 +3964,136 @@ class Orbits(object):
         for var in vars:
             vars_dict[var]= _eval(var)
         return numexpr.evaluate(quant,local_dict=vars_dict)
+
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot
+
+        PURPOSE:
+
+           plot a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a  user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot; can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           matplotlib.plot inputs+bovy_plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2010-07-10 - Written - Bovy (NYU)
+
+           2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
+
+        """
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
+                        'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Enorm':r'$E(t)/E(0.)$',
+                        'Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$',
+                        'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
+                        'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+            elif self.phasedim() == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif self.phasedim() == 5 or self.phasedim() == 6:
+                d1= 'R'
+                d2= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+        kwargs['dontreshape']= True
+        x= self._parse_plot_quantity(d1,**kwargs)
+        y= self._parse_plot_quantity(d2,**kwargs)
+        kwargs.pop('dontreshape')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        #Plot
+        if not 'xlabel' in kwargs:
+            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+        if not 'ylabel' in kwargs:
+            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+        for tx,ty in zip(x,y):
+            line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
+            kwargs['overplot']= True
+        line2d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line2d]
 
     def animate(self,*args,**kwargs): #pragma: no cover
         """
