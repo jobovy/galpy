@@ -76,7 +76,8 @@ PYTHON VERSIONS AND DEPENDENCIES
 Python 2.7 and Python 3.6 and 3.7. It should also work on earlier
 Python 3.* versions, but this is not extensively tested on an ongoing
 basis. Travis CI builds regularly check support for Python 2.7 and 3.7
-(and of 3.6 using a more limited, core set of tests).
+(and of 3.6 using a more limited, core set of tests) and Appveyor
+builds regularly check support for Python 3.7 on Windows.
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
 <http://www.scipy.org/>`__, and `Matplotlib
