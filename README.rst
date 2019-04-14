@@ -73,10 +73,10 @@ PYTHON VERSIONS AND DEPENDENCIES
 ---------------------------------
 
 ``galpy`` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.5 and 3.6. It may also work on earlier Python
-3.* versions, but this has not been extensively tested. Travis CI
-builds regularly check support for Python 2.7 and 3.6 (and of 3.5
-using a limited set of tests).
+Python 2.7 and Python 3.6 and 3.7. It should also work on earlier
+Python 3.* versions, but this is not extensively tested on an ongoing
+basis. Travis CI builds regularly check support for Python 2.7 and 3.7
+(and of 3.6 using a more limited, core set of tests).
 
 This package requires `Numpy <http://numpy.scipy.org/>`__, `Scipy
 <http://www.scipy.org/>`__, and `Matplotlib
