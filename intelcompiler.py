@@ -23,10 +23,8 @@ class Intel64CCompiler(UnixCCompiler):
     def __init__(self, verbose=0, dry_run=0, force=0):
         UnixCCompiler.__init__(self, verbose, dry_run, force)
 
-        v = self.get_version()
-        mpopt = 'openmp' if v and v < '15' else 'qopenmp'
         self.cc_exe = ('icc -m64 -fPIC -fp-model strict -O3 '
-                       '-fomit-frame-pointer -{}').format(mpopt)
+                       '-fomit-frame-pointer -qopenmp')
         compiler = self.cc_exe
 
         if platform.system() == 'Darwin':
@@ -40,6 +38,7 @@ class Intel64CCompiler(UnixCCompiler):
                              linker_exe=compiler + ' -shared-intel',
                              linker_so=compiler + ' ' + shared_flag +
                              ' -shared-intel')
+
 
 if platform.system() == 'Windows':
     class Intel64CompilerW(MSVCCompiler):
@@ -68,7 +67,6 @@ compiler_class['intel64'] = ('intelcompiler', 'Intel64CCompiler',
 
 compiler_class['intel64w'] = ('intelcompiler', 'Intel64CompilerW',
                               "Intel C Compiler for 64-bit applications on Windows")
-
 
 ccompiler._default_compilers += (('linux.*', 'intel64'),
                                  ('nt', 'intel64w'))
