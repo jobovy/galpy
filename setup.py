@@ -10,7 +10,7 @@ import subprocess
 import glob
 
 # not using the module but use it as a way to inject intel compiler configuration to distutils
-import numpy.distutils.intelccompiler
+import intelcompiler
 
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'

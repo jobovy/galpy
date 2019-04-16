@@ -121,15 +121,15 @@ Installing from source with Intel Compiler
 -------------------------------------------
 
 To compile galpy with Intel Compiler in Intel Parallel Studio XE for significant out of the box performance
-improvement on Intel CPUs. Moreover students can obtain a free copy of Intel Compiler at https://software.intel.com/en-us/qualify-for-free-software/student
+improvement on Intel CPUs with 64bit system. Moreover students can obtain a free copy of Intel Compiler at https://software.intel.com/en-us/qualify-for-free-software/student
 
-To compile galpy C extension with Intel Compiler on Windows::
+To compile galpy C extension with Intel Compiler on 64bit Windows::
 
-    python setup.py build_ext --inplace --compiler=intelemw
+    python setup.py build_ext --inplace --compiler=intel64w
 
-or on MaxOS/Linux::
+or on 64bit MaxOS/Linux::
 
-    python setup.py build_ext --inplace --compiler=intelem
+    python setup.py build_ext --inplace --compiler=intel64
 
 and then you can simply install or build your own wheels with::
 
