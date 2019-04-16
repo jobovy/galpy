@@ -7,8 +7,9 @@ import platform
 from distutils import ccompiler
 from distutils.ccompiler import *
 from distutils.unixccompiler import UnixCCompiler
-from distutils._msvccompiler import _find_exe
-from distutils._msvccompiler import MSVCCompiler
+if platform == 'Windows':  # to prevent linux import error
+    from distutils._msvccompiler import _find_exe
+    from distutils._msvccompiler import MSVCCompiler
 
 
 class Intel64CCompiler(UnixCCompiler):
@@ -40,26 +41,26 @@ class Intel64CCompiler(UnixCCompiler):
                              linker_so=compiler + ' ' + shared_flag +
                              ' -shared-intel')
 
+if platform == 'Windows':
+    class Intel64CompilerW(MSVCCompiler):
+        """
+        A modified Intel compiler compatible with an MSVC-built Python.
+        """
+        compiler_type = 'intel64w'
+        compiler_cxx = 'icl'
 
-class Intel64CompilerW(MSVCCompiler):
-    """
-    A modified Intel compiler compatible with an MSVC-built Python.
-    """
-    compiler_type = 'intel64w'
-    compiler_cxx = 'icl'
+        def __init__(self, verbose=0, dry_run=0, force=0):
+            MSVCCompiler.__init__(self, verbose, dry_run, force)
 
-    def __init__(self, verbose=0, dry_run=0, force=0):
-        MSVCCompiler.__init__(self, verbose, dry_run, force)
-
-    def initialize(self, plat_name=None):
-        MSVCCompiler.initialize(self)
-        self.cc = _find_exe("icl.exe")
-        self.lib = _find_exe("xilib.exe")
-        self.linker = _find_exe("xilink.exe")
-        self.compile_options = ['/nologo', '/O3', '/MD', '/W3',
-                                '/Qstd=c99']
-        self.compile_options_debug = ['/nologo', '/Od', '/MDd', '/W3',
-                                      '/Qstd=c99', '/Z7', '/D_DEBUG']
+        def initialize(self, plat_name=None):
+            MSVCCompiler.initialize(self)
+            self.cc = _find_exe("icl.exe")
+            self.lib = _find_exe("xilib.exe")
+            self.linker = _find_exe("xilink.exe")
+            self.compile_options = ['/nologo', '/O3', '/MD', '/W3',
+                                    '/Qstd=c99']
+            self.compile_options_debug = ['/nologo', '/Od', '/MDd', '/W3',
+                                          '/Qstd=c99', '/Z7', '/D_DEBUG']
 
 
 compiler_class['intel64'] = ('intelcompiler', 'Intel64CCompiler',
