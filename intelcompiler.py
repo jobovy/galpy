@@ -7,7 +7,7 @@ import platform
 from distutils import ccompiler
 from distutils.ccompiler import *
 from distutils.unixccompiler import UnixCCompiler
-if platform == 'Windows':  # to prevent linux import error
+if platform.system() == 'Windows':  # to prevent linux import error
     from distutils._msvccompiler import _find_exe
     from distutils._msvccompiler import MSVCCompiler
 
@@ -41,7 +41,7 @@ class Intel64CCompiler(UnixCCompiler):
                              linker_so=compiler + ' ' + shared_flag +
                              ' -shared-intel')
 
-if platform == 'Windows':
+if platform.system() == 'Windows':
     class Intel64CompilerW(MSVCCompiler):
         """
         A modified Intel compiler compatible with an MSVC-built Python.
