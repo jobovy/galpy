@@ -418,6 +418,19 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The Journey Counts: The Importance of Including Orbits when Simulating Ram Pressure Stripping*, Stephanie Tonnesen (2019) *Astrophys. J.*, in press (`arXiv/1903.08178 <http://arxiv.org/abs/1903.08178>`_)
 
+#. *The moving groups as the origin of the vertical phase space spiral*, Tatiana A. Michtchenko, Douglas A. Barros, Angeles Pérez-Villegas, & Jacques R. D. Lépine (2019) *Astrophys. J.*, in press (`arXiv/1903.08325 <http://arxiv.org/abs/1903.08325>`_)
+
+#. *Origin of the excess of high-energy retrograde stars in the Galactic halo*, Tadafumi Matsuno, Wako Aoki, & Takuma Suda (2019) *Astrophys. J. Lett.*, in press (`arXiv/1903.09456 <http://arxiv.org/abs/1903.09456>`_)
+
+#. *Gaia DR2 orbital properties for field stars with globular cluster-like CN band strengths*, A. Savino & L. Posti (2019) *Astron. & Astrophys. Lett.*, in press (`arXiv/1904.01021 <http://arxiv.org/abs/1904.01021>`_)
+
+#. *Dissecting the Phase Space Snail Shell*, Zhao-Yu Li & Juntai Shen (2019) *Astrophys. J.*, submitted (`arXiv/1904.03314 <http://arxiv.org/abs/1904.03314>`_)
+
+#. *Exploring the age dependent properties of M and L dwarfs using Gaia and SDSS*, Rocio Kiman, Sarah J. Schmidt, Ruth Angus, Kelle L. Cruz, Jacqueline K. Faherty, Emily Rice (2019) *Astron. J.*, in press (`arXiv/1904.05911 <http://arxiv.org/abs/1904.05911>`_)
+
+#. *Signatures of resonance and phase mixing in the Galactic disc*, Jason A. S. Hunt, Mathew W. Bub, Jo Bovy, J. Ted Mackereth, Wilma H. Trick, & Daisuke Kawata (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1904.10968 <http://arxiv.org/abs/1904.10968>`_)
+
+
 
 Indices and tables
 ==================
