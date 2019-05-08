@@ -6,39 +6,9 @@ import platform
 
 from distutils import ccompiler
 from distutils.ccompiler import *
-from distutils.unixccompiler import UnixCCompiler
 if platform.system() == 'Windows':  # to prevent linux import error
     from distutils._msvccompiler import _find_exe
     from distutils._msvccompiler import MSVCCompiler
-
-
-class Intel64CCompiler(UnixCCompiler):
-    """
-    A modified Intel x86_64 compiler compatible with a 64bit GCC-built Python.
-    """
-    compiler_type = 'intel64'
-    cc_exe = 'icc -m64'
-    cc_args = '-fPIC'
-
-    def __init__(self, verbose=0, dry_run=0, force=0):
-        UnixCCompiler.__init__(self, verbose, dry_run, force)
-
-        self.cc_exe = ('icc -m64 -fPIC -fp-model strict -O3 '
-                       '-fomit-frame-pointer -qopenmp')
-        compiler = self.cc_exe
-
-        if platform.system() == 'Darwin':
-            shared_flag = '-Wl,-undefined,dynamic_lookup'
-        else:
-            shared_flag = '-shared'
-        self.set_executables(compiler=compiler,
-                             compiler_so=compiler,
-                             compiler_cxx=compiler,
-                             archiver='xiar' + ' cru',
-                             linker_exe=compiler + ' -shared-intel',
-                             linker_so=compiler + ' ' + shared_flag +
-                             ' -shared-intel')
-
 
 if platform.system() == 'Windows':
     class Intel64CompilerW(MSVCCompiler):
@@ -61,15 +31,10 @@ if platform.system() == 'Windows':
             self.compile_options_debug = ['/nologo', '/Od', '/MDd', '/W3',
                                           '/Qstd=c99', '/Z7', '/D_DEBUG']
 
-
-compiler_class['intel64'] = ('intelcompiler', 'Intel64CCompiler',
-                             "Intel C Compiler for 64-bit applications")
-
 compiler_class['intel64w'] = ('intelcompiler', 'Intel64CompilerW',
                               "Intel C Compiler for 64-bit applications on Windows")
 
-ccompiler._default_compilers += (('linux.*', 'intel64'),
-                                 ('nt', 'intel64w'))
+ccompiler._default_compilers += ('nt', 'intel64w')
 
 _distutils_new_compiler = new_compiler
 
