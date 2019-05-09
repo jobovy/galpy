@@ -9,27 +9,30 @@ from distutils.ccompiler import *
 if platform.system() == 'Windows':  # to prevent linux import error
     from distutils._msvccompiler import _find_exe
     from distutils._msvccompiler import MSVCCompiler
+else:
+    raise OSError("You are not using Windows, so you should not import this file")
 
-if platform.system() == 'Windows':
-    class Intel64CompilerW(MSVCCompiler):
-        """
-        A modified Intel compiler compatible with an MSVC-built Python.
-        """
-        compiler_type = 'intel64w'
-        compiler_cxx = 'icl'
 
-        def __init__(self, verbose=0, dry_run=0, force=0):
-            MSVCCompiler.__init__(self, verbose, dry_run, force)
+class Intel64CompilerW(MSVCCompiler):
+    """
+    A modified Intel compiler compatible with an MSVC-built Python.
+    """
+    compiler_type = 'intel64w'
+    compiler_cxx = 'icl'
 
-        def initialize(self, plat_name=None):
-            MSVCCompiler.initialize(self)
-            self.cc = _find_exe("icl.exe")
-            self.lib = _find_exe("xilib.exe")
-            self.linker = _find_exe("xilink.exe")
-            self.compile_options = ['/nologo', '/O3', '/MD', '/W3',
-                                    '/Qstd=c99']
-            self.compile_options_debug = ['/nologo', '/Od', '/MDd', '/W3',
-                                          '/Qstd=c99', '/Z7', '/D_DEBUG']
+    def __init__(self, verbose=0, dry_run=0, force=0):
+        MSVCCompiler.__init__(self, verbose, dry_run, force)
+
+    def initialize(self, plat_name=None):
+        MSVCCompiler.initialize(self)
+        self.cc = _find_exe("icl.exe")
+        self.lib = _find_exe("xilib.exe")
+        self.linker = _find_exe("xilink.exe")
+        self.compile_options = ['/nologo', '/O3', '/MD', '/W3',
+                                '/Qstd=c99']
+        self.compile_options_debug = ['/nologo', '/Od', '/MDd', '/W3',
+                                      '/Qstd=c99', '/Z7', '/D_DEBUG']
+
 
 compiler_class['intel64w'] = ('intelcompiler', 'Intel64CompilerW',
                               "Intel C Compiler for 64-bit applications on Windows")
