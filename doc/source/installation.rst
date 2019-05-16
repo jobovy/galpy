@@ -117,6 +117,33 @@ If you encounter any issue related to OpenMP during compilation, you can do::
 
 .. _install_tm:
 
+Installing from source with Intel Compiler
+-------------------------------------------
+
+To compile galpy with Intel Compiler in Intel Parallel Studio XE for significant out of the box performance
+improvement on Intel CPUs with 64bit system. Moreover students can obtain a free copy of Intel Compiler at https://software.intel.com/en-us/qualify-for-free-software/student
+
+To compile galpy C extension with Intel Compiler on 64bit MaxOS/Linux, add the following line at the beginning of ``setup.py``::
+
+    import numpy.distutils.intelccompiler
+
+and then in terminal type::
+
+    python setup.py build_ext --inplace --compiler=intelem
+
+To compile galpy C extension with Intel Compiler on 64bit Windows, add the following line at the beginning of ``setup.py``::
+
+    import __intelcompiler
+
+and then in terminal type::
+
+    python setup.py build_ext --inplace --compiler=intel64w
+
+and then you can simply install or build your own wheels with::
+
+    python setup.py sdist bdist_wheel
+
+
 Installing the TorusMapper code
 --------------------------------
 

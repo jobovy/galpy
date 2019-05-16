@@ -8,6 +8,8 @@ import os, os.path
 import platform
 import subprocess
 import glob
+
+
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'
 no_compiler = False  # Flag for cases where we are sure there is no compiler exists in user's system
