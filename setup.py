@@ -95,6 +95,20 @@ else:
     del sys.argv[interppotential_ext_pos]
     interppotential_ext= True
 
+#Option to use Intel compilers
+try:
+    compiler_option_pos = ['--compiler=' in opt for opt in sys.argv]\
+        .index(True)
+except ValueError:
+    use_intel_compiler= False
+else:
+    use_intel_compiler= 'intel' in sys.argv[compiler_option_pos].split('=')[1]
+
+if use_intel_compiler and not WIN32:
+    import numpy.distutils.intelccompiler
+elif use_intel_compiler and WIN32:
+    import __intelcompiler
+
 #code to check the GSL version; list cmd w/ shell=True only works on Windows 
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config',
