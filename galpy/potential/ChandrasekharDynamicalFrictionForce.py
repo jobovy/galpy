@@ -2,6 +2,7 @@
 #   ChandrasekharDynamicalFrictionForce: Class that implements the 
 #                                        Chandrasekhar dynamical friction
 ###############################################################################
+import warnings
 import copy
 import hashlib
 import numpy
@@ -184,6 +185,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def _calc_force(self,R,phi,z,v,t):
         r= numpy.sqrt(R**2.+z**2.)
         if r < self._minr:
+            warnings.warn("Dynamical friction is turned off, as r < minr", RuntimeWarning)
             self._cached_force= 0.
         else:
             vs= numpy.sqrt(v[0]**2.+v[1]**2.+v[2]**2.)
