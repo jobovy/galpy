@@ -7,7 +7,7 @@ import copy
 import hashlib
 import numpy
 from scipy import special, interpolate
-from galpy.util import bovy_conversion
+from galpy.util import bovy_conversion, galpyWarning
 from .DissipativeForce import DissipativeForce
 from .Potential import _APY_LOADED, evaluateDensities
 from .Potential import flatten as flatten_pot
@@ -185,7 +185,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def _calc_force(self,R,phi,z,v,t):
         r= numpy.sqrt(R**2.+z**2.)
         if r < self._minr:
-            warnings.warn("Dynamical friction is turned off, as r < minr", RuntimeWarning)
+            warnings.warn("Dynamical friction is turned off, as r < minr", galpyWarning)
             self._cached_force= 0.
         else:
             vs= numpy.sqrt(v[0]**2.+v[1]**2.+v[2]**2.)
