@@ -1449,7 +1449,7 @@ class Orbits(object):
                     delta= actionAngle.estimateDeltaStaeckel(\
                         self._aAPot,
                         self.R(use_physical=False,dontreshape=True),
-                        tz,no_median=True)
+                        tz,no_median=True,use_physical=False)
                 except PotentialError as e:
                     if 'deriv' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
