@@ -1628,28 +1628,29 @@ def test_output_specialshapes():
     os= Orbits(numpy.array([1.,0.1,1.,0.1,0.,0.1]))
     assert os.shape == (), 'Shape of Orbits with array of [R,vR,...] input is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with array of [R,vR,...] input does not return scalar'
-    # vxvv= single SkyCoord should be shape == () and scalar output
-    co= apycoords.SkyCoord(ra=1.*u.deg,dec=0.5*u.rad,distance=2.*u.kpc,
-                           pm_ra_cosdec=-0.1*u.mas/u.yr,
-                           pm_dec=10.*u.mas/u.yr,
-                           radial_velocity=10.*u.km/u.s,
-                           frame='icrs')
-    os= Orbits(co)
-    assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
-    # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
-    s= numpy.ones(1)
-    co= apycoords.SkyCoord(ra=s*1.*u.deg,dec=s*0.5*u.rad,
-                           distance=s*2.*u.kpc,
-                           pm_ra_cosdec=-0.1*u.mas/u.yr*s,
-                           pm_dec=10.*u.mas/u.yr*s,
-                           radial_velocity=10.*u.km/u.s*s,
-                           frame='icrs')
-    os= Orbits(co)
-    assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
-    # vxvv= None should be shape == (1,) and array output
-    os= Orbits()
-    assert os.shape == (), 'Shape of Orbits with vxvv=None input is not empty'
-    assert numpy.ndim(os.R()) == 0, 'Orbits with with vxvv=None input does not return scalar'
+    if _APY3:
+        # vxvv= single SkyCoord should be shape == () and scalar output
+        co= apycoords.SkyCoord(ra=1.*u.deg,dec=0.5*u.rad,distance=2.*u.kpc,
+                               pm_ra_cosdec=-0.1*u.mas/u.yr,
+                               pm_dec=10.*u.mas/u.yr,
+                               radial_velocity=10.*u.km/u.s,
+                               frame='icrs')
+        os= Orbits(co)
+        assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+        # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
+        s= numpy.ones(1)
+        co= apycoords.SkyCoord(ra=s*1.*u.deg,dec=s*0.5*u.rad,
+                               distance=s*2.*u.kpc,
+                               pm_ra_cosdec=-0.1*u.mas/u.yr*s,
+                               pm_dec=10.*u.mas/u.yr*s,
+                               radial_velocity=10.*u.km/u.s*s,
+                               frame='icrs')
+        os= Orbits(co)
+        assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+        # vxvv= None should be shape == (1,) and array output
+        os= Orbits()
+        assert os.shape == (), 'Shape of Orbits with vxvv=None input is not empty'
+        assert numpy.ndim(os.R()) == 0, 'Orbits with with vxvv=None input does not return scalar'
     return None
 
 def test_call_issue256():
