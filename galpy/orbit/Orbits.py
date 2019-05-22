@@ -42,6 +42,11 @@ if _APY_LOADED:
     import astropy
     _APY3= astropy.__version__ > '3'
     _APY_GE_31= tuple(map(int,(astropy.__version__.split('.')))) > (3,0,5)
+_ASTROQUERY_LOADED= True
+try:
+    from astroquery.simbad import Simbad
+except ImportError:
+    _ASTROQUERY_LOADED= False
 from galpy.util import config
 _APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
 if _APY_LOADED:
@@ -455,6 +460,60 @@ class Orbits(object):
         self.vxvv= vxvv.T
         return None
 
+    @classmethod
+    def from_name(cls,name,vo=None,ro=None,zo=None,solarmotion=None):
+        """
+        NAME:
+
+            from_name
+
+        PURPOSE:
+
+            given the name of an object or a list of names, retrieve coordinate information for that object from SIMBAD and return a corresponding orbit
+
+        INPUT:
+
+            name - the name of the object or list of names
+
+            +standard Orbit initialization keywords:
+
+                ro= distance from vantage point to GC (kpc; can be Quantity)
+
+                vo= circular velocity at ro (km/s; can be Quantity)
+
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+
+        OUTPUT:
+
+            orbit containing the phase space coordinates of the named object
+
+        HISTORY:
+
+            2018-07-15 - Written - Mathew Bub (UofT)
+
+            2019-05-21 - Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
+
+        """
+        if not _APY_LOADED: # pragma: no cover
+            raise ImportError('astropy needs to be installed to use '
+                              'Orbit.from_name')
+        if not _ASTROQUERY_LOADED: # pragma: no cover
+            raise ImportError('astroquery needs to be installed to use '
+                              'Orbit.from_name')
+        if isinstance(name,str):
+            out= cls(vxvv=_from_name_oneobject(name),radec=True,
+                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        else: # assume list
+            all_vxvv= []
+            for tname in name:
+                all_vxvv.append(_from_name_oneobject(tname))
+            out= cls(vxvv=all_vxvv,radec=True,
+                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        out.name= name
+        return out
+           
     def __len__(self):
         return len(self.vxvv)
 
@@ -5100,3 +5159,45 @@ class _1DInterp(object):
         self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
     def __call__(self,t,indx):
         return self._ip(t)[:,None]
+
+def _from_name_oneobject(name):
+    """
+    NAME:
+       _from_name_oneobject
+    PURPOSE:
+       Query Simbad for the phase-space coordinates of one object
+    INPUT:
+       name - name of the object
+    OUTPUT:
+       [ra,dec,dist,pmra,pmdec,vlos]
+    HISTORY:
+       2018-07-15 - Written - Mathew Bub (UofT)
+    """
+    # setup a SIMBAD query with the appropriate fields
+    simbad= Simbad()
+    simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
+                              'rv_value', 'plx', 'distance')
+    simbad.remove_votable_fields('main_id', 'coordinates')
+    # query SIMBAD for the named object
+    try:
+        simbad_table= simbad.query_object(name)
+    except OSError: # pragma: no cover
+        raise OSError('failed to connect to SIMBAD')
+    if not simbad_table:
+        raise ValueError('failed to find {} in SIMBAD'.format(name))
+    # check that the necessary coordinates have been found
+    missing= simbad_table.mask
+    if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
+        all(missing['PLX_VALUE', 'Distance_distance'][0])):
+        raise ValueError('failed to find some coordinates for {} in '
+                         'SIMBAD'.format(name))
+    ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
+                                             'PMDEC', 'RV_VALUE'][0]
+    # get a distance value
+    if not missing['PLX_VALUE'][0]:
+        dist= 1./simbad_table['PLX_VALUE'][0]
+    else:
+        dist_str= str(simbad_table['Distance_distance'][0]) + \
+            simbad_table['Distance_unit'][0]
+        dist= units.Quantity(dist_str).to(units.kpc).value
+    return [ra,dec,dist,pmra,pmdec,vlos]
