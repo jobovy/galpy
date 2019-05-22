@@ -68,6 +68,8 @@ def shapeDecorator(func):
         result= func(*args,**kwargs)
         if dontreshape:
             return result
+        elif args[0].shape == ():
+            return result[0]
         else:
             return numpy.reshape(result,args[0].shape+result.shape[1:])
     return shape_wrapper
@@ -75,7 +77,7 @@ class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=[None],ro=None,vo=None,zo=None,solarmotion=None,
+    def __init__(self, vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
                  radec=False,uvw=False,lb=False):
         """
         NAME:
@@ -194,7 +196,7 @@ class Orbits(object):
                 # Keep as list, is fine later...
             elif numpy.ndim(vxvv[0]) == 0: # Scalar, so assume single object
                 vxvv= [vxvv]
-                input_shape= (len(vxvv),)
+                input_shape= ()
                 vxvv= numpy.array(vxvv)
             else:
                 input_shape= (len(vxvv),)
