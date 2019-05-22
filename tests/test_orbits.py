@@ -1601,6 +1601,57 @@ def test_output_reshape():
                     assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     return None
 
+def test_output_specialshapes():
+    # Test that the output shape is correct and that the shaped output is correct, for 'special' inputs (single objects, ...)
+    from galpy.orbit import Orbits
+    # vxvv= list of [R,vR,vT,z,...] should be shape == () and scalar output
+    os= Orbits([1.,0.1,1.,0.1,0.,0.1])
+    assert os.shape == (), 'Shape of Orbits with list of [R,vR,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [R,vR,...] input does not return scalar'
+    # Similar for list [ra,dec,...]
+    os= Orbits([1.,0.1,1.,0.1,0.,0.1],radec=True)
+    assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] input does not return scalar'
+    # Also with units
+    os= Orbits([1.*u.deg,0.1*u.rad,1.*u.pc,0.1*u.mas/u.yr,0.*u.arcsec/u.yr,0.1*u.pc/u.Myr],radec=True)
+    assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] w/units input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] w/units input does not return scalar'
+    # Also from_name
+    os= Orbits.from_name('LMC')
+    assert os.shape == (), 'Shape of Orbits with from_name single object is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with from_name single object does not return scalar'
+    # vxvv= list of list of [R,vR,vT,z,...] should be shape == (1,) and array output
+    os= Orbits([[1.,0.1,1.,0.1,0.,0.1]])
+    assert os.shape == (1,), 'Shape of Orbits with list of list of [R,vR,...] input is not (1,)'
+    assert numpy.ndim(os.R()) == 1, 'Orbits with list of list of [R,vR,...] input does not return array'
+    # vxvv= array of [R,vR,vT,z,...] should be shape == () and scalar output
+    os= Orbits(numpy.array([1.,0.1,1.,0.1,0.,0.1]))
+    assert os.shape == (), 'Shape of Orbits with array of [R,vR,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with array of [R,vR,...] input does not return scalar'
+    # vxvv= single SkyCoord should be shape == () and scalar output
+    co= apycoords.SkyCoord(ra=1.*u.deg,dec=0.5*u.rad,distance=2.*u.kpc,
+                           pm_ra_cosdec=-0.1*u.mas/u.yr,
+                           pm_dec=10.*u.mas/u.yr,
+                           radial_velocity=10.*u.km/u.s,
+                           frame='icrs')
+    os= Orbits(co)
+    assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+    # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
+    s= numpy.ones(1)
+    co= apycoords.SkyCoord(ra=s*1.*u.deg,dec=s*0.5*u.rad,
+                           distance=s*2.*u.kpc,
+                           pm_ra_cosdec=-0.1*u.mas/u.yr*s,
+                           pm_dec=10.*u.mas/u.yr*s,
+                           radial_velocity=10.*u.km/u.s*s,
+                           frame='icrs')
+    os= Orbits(co)
+    assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+    # vxvv= None should be shape == (1,) and array output
+    os= Orbits()
+    assert os.shape == (), 'Shape of Orbits with vxvv=None input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with with vxvv=None input does not return scalar'
+    return None
+
 def test_call_issue256():
     # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
     from galpy.orbit import Orbits
