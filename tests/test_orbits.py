@@ -357,7 +357,7 @@ def test_integration_dxdv_2d():
                   Orbit([1.2,-0.3,0.7,5.])]
     orbits= Orbits(orbits_list)
     numpy.random.seed(1)
-    dxdv= (2.*numpy.random.uniform(size=(*orbits.shape,4))-1)/10.
+    dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
     # Default, C integration
     integrator= 'dopr54_c'
     orbits.integrate_dxdv(dxdv,times,lp,method=integrator)
@@ -382,7 +382,7 @@ def test_integration_dxdv_2d_rectInOut():
                   Orbit([1.2,-0.3,0.7,5.])]
     orbits= Orbits(orbits_list)
     numpy.random.seed(1)
-    dxdv= (2.*numpy.random.uniform(size=(*orbits.shape,4))-1)/10.
+    dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
     # Default, C integration
     integrator= 'dopr54_c'
     orbits.integrate_dxdv(dxdv,times,lp,method=integrator,
