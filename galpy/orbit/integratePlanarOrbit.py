@@ -11,7 +11,7 @@ from galpy import potential
 from galpy.potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
 from ..potential.planarPotential import _evaluateplanarRforces,\
-    _evaluateplanarphiforces
+    _evaluateplanarphiforces, _evaluateplanarPotentials
 from galpy.potential.WrapperPotential import parentWrapperPotential
 from galpy.util import galpyWarning
 from ..util.multi import parallel_map
@@ -357,9 +357,9 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        yo - initial condition [q,p], can be [N,4] or [4]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
-       rtol, atol
+       rtol, atol 
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
-    OUTPUT:
+   OUTPUT:
        (y,err)
        y : array, shape (len(y0),len(t),4)
        Array containing the value of y for each desired time in t, \
@@ -449,7 +449,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
        dt= (None) force integrator to use this stepsize (default is to automatically determine one))
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0),len(t),3/4)
+       y,dy : array, shape (len(y0),len(t),8)
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
@@ -591,7 +591,8 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
             def integrate_for_map(vxvv):
                 vphi= vxvv[2]/vxvv[0]
                 init= [vxvv[0],vxvv[1],vxvv[3],vphi]
-                intOut= integrator(_planarEOM,init,t=t,args=(pot,))
+                intOut= integrator(_planarEOM,init,t=t,args=(pot,),
+                                   **extra_kwargs)
                 out= nu.zeros((len(t),4))
                 out[:,0]= intOut[:,0]
                 out[:,1]= intOut[:,1]
@@ -611,6 +612,105 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
         out= nu.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
     if nophi:
         out= out[:,:,:3]
+    return out, nu.zeros(len(yo))
+
+def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
+                              rectIn,rectOut,
+                              rtol=1e-8,atol=None,
+                              dt=None,numcores=1):
+    """
+    NAME:
+       integratePlanarOrbit_dxdv
+    PURPOSE:
+       Integrate an ode for a planarOrbit+phase space volume dxdv
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,4]
+       dyo - initial condition [dq,dp], shape [N,4]
+       t - set of times at which one wants the result
+       int_method= 'odeint', 'dop853', 'dopr54_c', 'rk4_c', 'rk6_c'
+       rectIn= (False) if True, input dyo is in rectangular coordinates
+       rectOut= (False) if True, output dyo is in rectangular coordinates
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(t),8)
+       Array containing the value of y for each desired time in t, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2011-10-17 - Written - Bovy (IAS)
+       2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+    """
+    #go to the rectangular frame
+    this_yo= nu.array([yo[:,0]*nu.cos(yo[:,3]),
+                         yo[:,0]*nu.sin(yo[:,3]),
+                         yo[:,1]*nu.cos(yo[:,3])
+                           -yo[:,2]*nu.sin(yo[:,3]),
+                         yo[:,2]*nu.cos(yo[:,3])
+                           +yo[:,1]*nu.sin(yo[:,3])]).T
+    if not rectIn:
+        this_dyo= nu.array([nu.cos(yo[:,3])*dyo[:,0]
+                              -yo[:,0]*nu.sin(yo[:,3])*dyo[:,3],
+                            nu.sin(yo[:,3])*dyo[:,0]
+                              +yo[:,0]*nu.cos(yo[:,3])*dyo[:,3],
+                            -(yo[:,1]*nu.sin(yo[:,3])
+                              +yo[:,2]*nu.cos(yo[:,3]))*dyo[:,3]
+                              +nu.cos(yo[:,3])*dyo[:,1]
+                              -nu.sin(yo[:,3])*dyo[:,2],
+                            (yo[:,1]*nu.cos(yo[:,3])
+                              -yo[:,2]*nu.sin(yo[:,3]))*dyo[:,3]
+                              +nu.sin(yo[:,3])*dyo[:,1]
+                              +nu.cos(yo[:,3])*dyo[:,2]]).T
+    else:
+        this_dyo= dyo
+    this_yo= nu.hstack((this_yo,this_dyo))
+    if int_method.lower() == 'dop853' or int_method.lower() == 'odeint':
+        if int_method.lower() == 'dop853':
+            integrator= dop853
+            extra_kwargs= {}
+        else:
+            integrator= integrate.odeint
+            extra_kwargs= {'rtol':rtol}
+        def integrate_for_map(vxvv):
+            return integrator(_planarEOM_dxdv,vxvv,t=t,args=(pot,),
+                              **extra_kwargs)
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv):
+            return integratePlanarOrbit_dxdv_c(pot,nu.copy(vxvv[:4]),
+                                               nu.copy(vxvv[4:]),
+                                               t,int_method,
+                                               rtol=rtol,atol=atol)[0]
+    if len(this_yo) == 1: # Can't map a single value...
+        out= integrate_for_map(this_yo)
+    else:
+        out= nu.array((parallel_map(integrate_for_map,this_yo,
+                                    numcores=numcores)))
+    #go back to the cylindrical frame
+    R= nu.sqrt(out[...,0]**2.+out[...,1]**2.)
+    phi= nu.arccos(out[...,0]/R)
+    phi[(out[...,1] < 0.)]= 2.*nu.pi-phi[(out[...,1] < 0.)]
+    vR= out[...,2]*nu.cos(phi)+out[...,3]*nu.sin(phi)
+    vT= out[...,3]*nu.cos(phi)-out[...,2]*nu.sin(phi)
+    cp= nu.cos(phi)
+    sp= nu.sin(phi)
+    out[...,0]= R
+    out[...,1]= vR
+    out[...,2]= vT
+    out[...,3]= phi
+    if rectOut:
+        out[...,4:]= out[...,4:]
+    else:
+        dR= cp*out[...,4]+sp*out[...,5]
+        dphi= (cp*out[...,5]-sp*out[...,4])/R
+        dvR= cp*out[...,6]+sp*out[...,7]+vT*dphi
+        dvT= cp*out[...,7]-sp*out[...,6]-vR*dphi
+        out[...,4]= dR
+        out[...,7]= dphi
+        out[...,5]= dvR
+        out[...,6]= dvT
     return out, nu.zeros(len(yo))
 
 def _planarREOM(y,t,pot,l2):
@@ -656,6 +756,62 @@ def _planarEOM(y,t,pot):
             y[3],
             1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
+
+def _planarEOM_dxdv(x,t,pot):
+    """
+    NAME:
+       _planarEOM_dxdv
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential 
+       equation, for integrating phase space differences, rectangular
+    INPUT:
+       x - current phase-space position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2011-10-18 - Written - Bovy (IAS)
+    """
+    #x is rectangular so calculate R and phi
+    R= nu.sqrt(x[0]**2.+x[1]**2.)
+    phi= nu.arccos(x[0]/R)
+    sinphi= x[1]/R
+    cosphi= x[0]/R
+    if x[1] < 0.: phi= 2.*nu.pi-phi
+    #calculate forces
+    Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
+    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
+    R2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
+    phi2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
+    Rphideriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
+    #Calculate derivatives and derivatives+time derivatives
+    dFxdx= -cosphi**2.*R2deriv\
+           +2.*cosphi*sinphi/R**2.*phiforce\
+           +sinphi**2./R*Rforce\
+           +2.*sinphi*cosphi/R*Rphideriv\
+           -sinphi**2./R**2.*phi2deriv
+    dFxdy= -sinphi*cosphi*R2deriv\
+           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           -cosphi*sinphi/R*Rforce\
+           -(cosphi**2.-sinphi**2.)/R*Rphideriv\
+           +cosphi*sinphi/R**2.*phi2deriv
+    dFydx= -cosphi*sinphi*R2deriv\
+           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R*Rphideriv\
+           -sinphi*cosphi/R*Rforce\
+           +sinphi*cosphi/R**2.*phi2deriv
+    dFydy= -sinphi**2.*R2deriv\
+           -2.*sinphi*cosphi/R**2.*phiforce\
+           -2.*sinphi*cosphi/R*Rphideriv\
+           +cosphi**2./R*Rforce\
+           -cosphi**2./R**2.*phi2deriv
+    return nu.array([x[2],x[3],
+                     cosphi*Rforce-1./R*sinphi*phiforce,
+                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     x[6],x[7],
+                     dFxdx*x[4]+dFxdy*x[5],
+                     dFydx*x[4]+dFydy*x[5]])
 
 def _planarRectForce(x,pot,t=0.):
     """

@@ -388,7 +388,7 @@ class planarOrbit(planarOrbitTop):
         OUTPUT:
            (none) (get the actual orbit using getOrbit_dxdv()
         HISTORY:
-           2010-10-17 - Written - Bovy (IAS)
+           2010-10-17 - Written - Bovy (NYU)
            2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         """
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')

@@ -26,7 +26,8 @@ from ..potential import rl, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
-from .integratePlanarOrbit import integratePlanarOrbit_c, integratePlanarOrbit
+from .integratePlanarOrbit import integratePlanarOrbit_c, \
+    integratePlanarOrbit, integratePlanarOrbit_dxdv
 from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 from .. import actionAngle
 ext_loaded= _ext_loaded
@@ -883,6 +884,97 @@ class Orbits(object):
         self.orbit= out
         return None
 
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       numcores=_NUMCORES,force_map=False,
+                       rectIn=False,rectOut=False):
+        """
+        NAME:
+
+           integrate_dxdv
+
+        PURPOSE:
+
+           integrate the orbit and a small area of phase space
+
+        INPUT:
+
+           dxdv - [dR,dvR,dvT,dphi], shape=(*input_shape,4)
+
+           t - list of times at which to output (0 has to be in this!) (can be Quantity)
+
+           pot - potential instance or list of instances
+
+            method = 'odeint' for scipy's odeint
+                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                     'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
+
+            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+
+        OUTPUT:
+
+           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!)
+
+        HISTORY:
+
+           2011-10-17 - Written - Bovy (IAS)
+
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
+
+           2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
+
+        """
+        if not self.phasedim() == 4:
+            raise AttributeError('integrate_dxdv is only implemented for 4D (planar) orbits')
+        if method.lower() not in ['odeint', 'dop853', 'rk4_c', 'rk6_c',
+                                  'dopr54_c', 'dop853_c']:
+            raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
+        pot= flatten_potential(pot)
+        _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            self._integrate_t_asQuantity= True
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        # Parse dxdv
+        dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
+        if self.dim() == 2:
+            thispot= toPlanarPotential(pot)
+        self.t= numpy.array(t)
+        self._pot_dxdv= thispot
+        self._pot= thispot
+        #First check that the potential has C
+        if '_c' in method:
+            allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
+            if not ext_loaded or \
+                    (not allHasC and not 'leapfrog' in method and not 'symplec' in method):
+                method= 'odeint'
+                if not ext_loaded: # pragma: no cover
+                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+                else:
+                    warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
+        # Implementation with parallel_map in Python
+        if True or not '_c' in method or not ext_loaded or force_map:
+            if self.dim() == 2:
+                out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
+                                                    t,method,rectIn,rectOut,
+                                                    numcores=numcores)
+        # Store orbit internally
+        self.orbit_dxdv= out
+        self.orbit= self.orbit_dxdv[...,:4]
+        return None
+
     def flip(self,inplace=False):
         """
         NAME:
@@ -976,6 +1068,33 @@ class Orbits(object):
 
         """
         return self.orbit
+
+    @shapeDecorator
+    def getOrbit_dxdv(self):
+        """
+
+        NAME:
+
+           getOrbit_dxdv
+
+        PURPOSE:
+
+           return a previously calculated integration of a small phase-space volume (with integrate_dxdv)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           array orbit[*input_shape,nt,nphasedim]
+
+        HISTORY:
+
+           2019-05-21 - Written - Bovy (UofT)
+
+        """
+        return self.orbit_dxdv[...,4:]
 
     @physical_conversion('energy')
     @shapeDecorator
