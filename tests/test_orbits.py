@@ -349,6 +349,60 @@ def test_integration_forcemap_3d():
         assert numpy.amax(numpy.fabs((((orbits_list[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
+def test_integration_dxdv_2d():
+    from galpy.orbit import Orbit, Orbits
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
+                  Orbit([1.2,-0.3,0.7,5.])]
+    orbits= Orbits(orbits_list)
+    numpy.random.seed(1)
+    dxdv= (2.*numpy.random.uniform(size=(*orbits.shape,4))-1)/10.
+    # Default, C integration
+    integrator= 'dopr54_c'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    # Python integration
+    integrator= 'odeint'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    return None
+    
+def test_integration_dxdv_2d_rectInOut():
+    from galpy.orbit import Orbit, Orbits
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
+                  Orbit([1.2,-0.3,0.7,5.])]
+    orbits= Orbits(orbits_list)
+    numpy.random.seed(1)
+    dxdv= (2.*numpy.random.uniform(size=(*orbits.shape,4))-1)/10.
+    # Default, C integration
+    integrator= 'dopr54_c'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator,
+                          rectIn=True,rectOut=True)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator,
+                         rectIn=True,rectOut=True)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    # Python integration
+    integrator= 'odeint'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator,
+                          rectIn=True,rectOut=True)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator,
+                         rectIn=True,rectOut=True)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    return None
+    
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit, Orbits
