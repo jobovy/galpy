@@ -777,7 +777,9 @@ class Orbits(object):
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
-            numcores - number of cores to use for multiprocessing with force_map; default = 1
+            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
 
         OUTPUT:
 
