@@ -133,7 +133,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
        y : array, shape (N,len(t),2) or (len(y0),len(t)) if N=1
@@ -208,7 +208,8 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     else: return (result,err)
 
 # Python integration functions
-def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
+def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
+                         dt=None):
     """
     NAME:
        integrateLinearOrbit
@@ -221,6 +222,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
        y : array, shape (N,len(t),2)
@@ -245,7 +247,8 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
             return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=rtol)
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integrateLinearOrbit_c(pot,nu.copy(vxvv),t,int_method)[0]
+            return integrateLinearOrbit_c(pot,nu.copy(vxvv),
+                                          t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
         return integrate_for_map(yo), 0
     else:

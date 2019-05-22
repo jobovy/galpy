@@ -358,7 +358,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
        rtol, atol 
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one)
    OUTPUT:
        (y,err)
        y : array, shape (len(y0),len(t),4)
@@ -512,7 +512,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
 
     return (result,err.value)
 
-def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
+def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
+                         dt=None):
     """
     NAME:
        integratePlanarOrbit
@@ -525,6 +526,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators!)
     OUTPUT:
        (y,err)
        y : array, shape (N,len(t),3/4)
@@ -605,7 +607,8 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1):
                 return out
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integratePlanarOrbit_c(pot,nu.copy(vxvv),t,int_method)[0]
+            return integratePlanarOrbit_c(pot,nu.copy(vxvv),
+                                          t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
         out= integrate_for_map(yo)
     else:
@@ -633,7 +636,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
        rectOut= (False) if True, output dyo is in rectangular coordinates
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
        y : array, shape (N,len(t),8)
@@ -681,7 +684,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
         def integrate_for_map(vxvv):
             return integratePlanarOrbit_dxdv_c(pot,nu.copy(vxvv[:4]),
                                                nu.copy(vxvv[4:]),
-                                               t,int_method,
+                                               t,int_method,dt=dt,
                                                rtol=rtol,atol=atol)[0]
     if len(this_yo) == 1: # Can't map a single value...
         out= integrate_for_map(this_yo)

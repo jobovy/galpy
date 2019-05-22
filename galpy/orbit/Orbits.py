@@ -847,14 +847,14 @@ class Orbits(object):
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
             if self.dim() == 1:
-                out, msg= integrateLinearOrbit(self._pot,self.vxvv,
-                                               t,method,numcores=numcores)
+                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,
+                                               method,numcores=numcores,dt=dt)
             elif self.dim() == 2:
-                out, msg= integratePlanarOrbit(self._pot,self.vxvv,
-                                               t,method,numcores=numcores)
+                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,
+                                               method,numcores=numcores,dt=dt)
             else:
-                out, msg= integrateFullOrbit(self._pot,self.vxvv,
-                                             t,method,numcores=numcores)
+                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,
+                                             method,numcores=numcores,dt=dt)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
@@ -884,7 +884,7 @@ class Orbits(object):
         self.orbit= out
         return None
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
                        numcores=_NUMCORES,force_map=False,
                        rectIn=False,rectOut=False):
         """
@@ -904,19 +904,21 @@ class Orbits(object):
 
            pot - potential instance or list of instances
 
-            method = 'odeint' for scipy's odeint
-                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
+           dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
+
+           method = 'odeint' for scipy's odeint
+                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                    'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                    'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
 
            rectIn= (False) if True, input dxdv is in rectangular coordinates
 
            rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
 
-            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+           numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
 
-            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+           force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
 
         OUTPUT:
 
@@ -944,6 +946,10 @@ class Orbits(object):
             self._integrate_t_asQuantity= True
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        else: self._integrate_t_asQuantity= False
+        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
+            dt= dt.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         # Parse dxdv
         dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
         # Delete attributes for interpolation and rperi etc. determination
@@ -969,7 +975,7 @@ class Orbits(object):
             if self.dim() == 2:
                 out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
                                                     t,method,rectIn,rectOut,
-                                                    numcores=numcores)
+                                                    numcores=numcores,dt=dt)
         # Store orbit internally
         self.orbit_dxdv= out
         self.orbit= self.orbit_dxdv[...,:4]
