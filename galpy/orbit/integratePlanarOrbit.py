@@ -610,7 +610,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
             return integratePlanarOrbit_c(pot,nu.copy(vxvv),
                                           t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= integrate_for_map(yo)
+        out= nu.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
         out= nu.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
     if nophi:
@@ -687,7 +687,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
                                                t,int_method,dt=dt,
                                                rtol=rtol,atol=atol)[0]
     if len(this_yo) == 1: # Can't map a single value...
-        out= integrate_for_map(this_yo)
+        out= nu.atleast_3d(integrate_for_map(this_yo[0]).T).T
     else:
         out= nu.array((parallel_map(integrate_for_map,this_yo,
                                     numcores=numcores)))

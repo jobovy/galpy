@@ -250,7 +250,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
             return integrateLinearOrbit_c(pot,nu.copy(vxvv),
                                           t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
-        return integrate_for_map(yo), 0
+        return nu.atleast_3d(integrate_for_map(yo[0]).T).T, 0
     else:
         return (nu.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
                 nu.zeros(len(yo)))
