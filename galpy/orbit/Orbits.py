@@ -4105,7 +4105,7 @@ class Orbits(object):
            2019-02-01 - Started - Bovy (UofT)
            2019-02-18 - Written interpolation part - Bovy (UofT)
         """
-        if len(args) == 0:
+        if len(args) == 0 or (not hasattr(self,'t') and args[0] == 0. ):
             return numpy.array(self.vxvv).T
         elif not hasattr(self,'t'):
             raise ValueError("Integrate instance before evaluating it at a specific time")
