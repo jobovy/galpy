@@ -3010,10 +3010,9 @@ def test_orbitfit():
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
-    vxvv= o.orbit[::100,:]
-    #now fit, using another orbit instance
-    of= o()
-    of.fit(vxvv,pot=lp,tintJ=1.5)
+    vxvv= o.getOrbit()[::100,:]
+    #now fit
+    of= Orbit.from_fit(o.vxvv[0],vxvv,pot=lp,tintJ=1.5)
     assert numpy.all(comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp) < 10.**-7.), 'Orbit fit in configuration space does not work'
     return None
 
@@ -3024,16 +3023,15 @@ def test_orbitfit_potinput():
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
-    vxvv= o.orbit[::100,:]
+    vxvv= o.getOrbit()[::100,:]
     #now fit, using another orbit instance, without potential, should error
     of= o()
     try:
-        of.fit(vxvv,pot=None,tintJ=1.5)
+        Orbit.from_fit(o.vxvv[0],vxvv,pot=None,tintJ=1.5)
     except AttributeError: pass
     else: raise AssertionError('Orbit fit w/o potential does not raise AttributeError')
     #Now give a potential to of
-    of._pot= lp
-    of.fit(vxvv,pot=lp,tintJ=1.5)
+    of= Orbit.from_fit(o.vxvv[0],vxvv,pot=lp,tintJ=1.5)
     assert numpy.all(comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp) < 10.**-7.), 'Orbit fit in configuration space does not work'
     return None
 
@@ -3050,9 +3048,10 @@ def test_orbitfit_lb():
         vxvv.append([o.ll(ii/10.),o.bb(ii/10.),o.dist(ii/10.),
                      o.pmll(ii/10.),o.pmbb(ii/10.),o.vlos(ii/10.)])
     vxvv= numpy.array(vxvv)
-    #now fit, using another orbit instance
-    of= o()
-    of.fit(vxvv,pot=lp,tintJ=1.5,lb=True,vxvv_err=0.01*numpy.ones_like(vxvv))
+    #now fit
+    of= Orbit.from_fit([o.ll(),o.bb(),o.dist(),o.pmll(),o.pmbb(),o.vlos()],
+                       vxvv,pot=lp,tintJ=1.5,lb=True,
+                       vxvv_err=0.01*numpy.ones_like(vxvv))
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=True)
     assert numpy.all(compf < 10.**-4.), 'Orbit fit in lb space does not work'
     return None
@@ -3061,20 +3060,20 @@ def test_orbitfit_lb():
 def test_orbitfit_radec():
     from galpy.orbit import Orbit
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
-    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ro, vo= 9., 230.
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.],ro=ro,vo=vo)
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
     vxvv= []
-    ro, vo= 9., 230.
     for ii in range(10):
-        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo),o.dec(ii/10.,ro=ro,vo=vo),
-                     o.dist(ii/10.,ro=ro,vo=vo),o.pmra(ii/10.,ro=ro,vo=vo),
-                     o.pmdec(ii/10.,ro=ro,vo=vo),o.vlos(ii/10.,ro=ro,vo=vo)])
+        vxvv.append([o.ra(ii/10.),o.dec(ii/10.),
+                     o.dist(ii/10.),o.pmra(ii/10.),
+                     o.pmdec(ii/10.),o.vlos(ii/10.)])
     vxvv= numpy.array(vxvv)
-    #now fit, using another orbit instance
-    of= o()
-    of.fit(vxvv,pot=lp,tintJ=1.5,radec=True,ro=ro,vo=vo)
+    #now fit
+    of= Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
+                       vxvv,pot=lp,tintJ=1.5,radec=True,ro=ro,vo=vo)
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
                        ro=ro,vo=vo)
     assert numpy.all(compf < 10.**-4.), 'Orbit fit in radec space does not work'
@@ -3085,28 +3084,30 @@ def test_orbitfit_custom():
     from galpy.orbit import Orbit
     from galpy.util import bovy_coords
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
-    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.])
+    ro, vo= 9., 230.
+    o= Orbit([0.8,0.3,1.3,0.4,0.2,2.],ro=ro,vo=vo)
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
     vxvv= []
-    ro, vo= 9., 230.
     for ii in range(10):
-        vxvv.append([o.ra(ii/10.,ro=ro,vo=vo),o.dec(ii/10.,ro=ro,vo=vo),
-                     o.dist(ii/10.,ro=ro,vo=vo),o.pmra(ii/10.,ro=ro,vo=vo),
-                     o.pmdec(ii/10.,ro=ro,vo=vo),o.vlos(ii/10.,ro=ro,vo=vo)])
+        vxvv.append([o.ra(ii/10.),o.dec(ii/10.),
+                     o.dist(ii/10.),o.pmra(ii/10.),
+                     o.pmdec(ii/10.),o.vlos(ii/10.)])
     vxvv= numpy.array(vxvv)
-    #now fit, using another orbit instance
-    of= o()
+    #now fit
     #First test the exception
     try:
-        of.fit(vxvv,pot=lp,tintJ=1.5,customsky=True,
-               ro=ro,vo=vo)
+        Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
+                       vxvv,pot=lp,tintJ=1.5,customsky=True,
+                       ro=ro,vo=vo)
     except IOError: pass
     else: raise AssertionError('Orbit fit with custom sky coordinates but without the necessary coordinate-transformation functions did not raise an exception')
-    of.fit(vxvv,pot=lp,tintJ=1.5,customsky=True,
-           lb_to_customsky=bovy_coords.lb_to_radec,
-           pmllpmbb_to_customsky=bovy_coords.pmllpmbb_to_pmrapmdec,ro=ro,vo=vo)
+    of= Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
+                       vxvv,pot=lp,tintJ=1.5,customsky=True,
+                       lb_to_customsky=bovy_coords.lb_to_radec,
+                       pmllpmbb_to_customsky=bovy_coords.pmllpmbb_to_pmrapmdec,
+                       ro=ro,vo=vo)
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
                        ro=ro,vo=vo)
     assert numpy.all(compf < 10.**-4.), 'Orbit fit in radec space does not work'
@@ -3121,9 +3122,9 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     off= of.flip()
     off.integrate(ts,pot)
     #Flip velocities again
-    off.vxvv[1]*= -1.
-    off.vxvv[2]*= -1.
-    off.vxvv[4]*= -1.
+    off.vxvv[...,1]*= -1.
+    off.vxvv[...,2]*= -1.
+    off.vxvv[...,4]*= -1.
     if lb:
         allvxvv= []
         for ii in range(len(ts)):

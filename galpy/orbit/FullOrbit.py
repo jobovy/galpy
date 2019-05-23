@@ -429,7 +429,7 @@ class FullOrbit(OrbitTop):
             except AttributeError:
                 raise AttributeError("Integrate orbit first or specify pot=")
         if radec or lb or customsky:
-            from .OrbitTop import _parse_radec_kwargs
+            from .Orbits import _parse_radec_kwargs
             obs, ro, vo= _parse_radec_kwargs(self,kwargs,vel=True,dontpop=True)
         else:
             obs, ro, vo= None, None, None

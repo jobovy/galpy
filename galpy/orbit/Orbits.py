@@ -609,9 +609,9 @@ class Orbits(object):
         _check_potential_dim(init_orbit,pot)
         _check_consistent_units(init_orbit,pot)
         if radec or lb or customsky:
-            from .OrbitTop import _parse_radec_kwargs
             obs, ro, vo= _parse_radec_kwargs(init_orbit,
-                                             {'ro':ro,'vo':vo},
+                                             {'ro':init_orbit._ro,
+                                              'vo':init_orbit._vo},
                                              vel=True,dontpop=True)
         else:
             obs, ro, vo= None, None, None
