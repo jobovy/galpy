@@ -1834,19 +1834,22 @@ def test_angularmomentum():
         raise AssertionError('Orbit.L() for RZOrbit did not raise AttributeError')
     # For a planarROrbit, should return Lz
     o= Orbit([1.,0.1,1.1])
-    assert len(o.L()) == 1, "planarOrbit's angular momentum isn't 1D"
+    assert numpy.ndim(o.L()) == 0, "planarOrbit's angular momentum isn't 1D"
     assert o.L() == 1.1, "planarOrbit's angular momentum isn't correct"
-    # If Omega is given, then it should be subtracted
-    times= numpy.linspace(0.,2.,51)
-    from galpy.potential import MWPotential
-    o.integrate(times,MWPotential)
-    assert numpy.fabs(o.L(t=1.,Omega=1.)-0.1) < 10.**-16., 'o.L() w/ Omega does not work'
+    if False: 
+        #JB 5/23/2019 isn'tn sure why he ever implemented the Omega
+        # keyword for L, so decided not to support this in new Orbits
+        # If Omega is given, then it should be subtracted
+        times= numpy.linspace(0.,2.,51)
+        from galpy.potential import MWPotential
+        o.integrate(times,MWPotential)
+        assert numpy.fabs(o.L(t=1.,Omega=1.)-0.1) < 10.**-16., 'o.L() w/ Omega does not work'
     # For a FullOrbit, angular momentum should be 3D
     o= Orbit([1.,0.1,1.1,0.1,0.,numpy.pi/2.])
-    assert o.L().shape[1] == 3, "FullOrbit's angular momentum is not 3D"
-    assert numpy.fabs(o.L()[0,2]-1.1) < 10.**-16., "FullOrbit's Lz is not correct"
-    assert numpy.fabs(o.L()[0,0]+0.01) < 10.**-16., "FullOrbit's Lx is not correct"
-    assert numpy.fabs(o.L()[0,1]+0.11) < 10.**-16., "FullOrbit's Ly is not correct"
+    assert o.L().shape[0] == 3, "FullOrbit's angular momentum is not 3D"
+    assert numpy.fabs(o.L()[2]-1.1) < 10.**-16., "FullOrbit's Lz is not correct"
+    assert numpy.fabs(o.L()[0]+0.01) < 10.**-16., "FullOrbit's Lx is not correct"
+    assert numpy.fabs(o.L()[1]+0.11) < 10.**-16., "FullOrbit's Ly is not correct"
     return None
 
 # Check that ER + Ez = E and that ER and EZ are separately conserved for orbits that stay close to the plane for the MWPotential
