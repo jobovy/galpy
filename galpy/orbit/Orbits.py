@@ -1112,7 +1112,10 @@ class Orbits(object):
             raise AttributeError('integrate_dxdv is only implemented for 4D (planar) orbits')
         if method.lower() not in ['odeint', 'dop853', 'rk4_c', 'rk6_c',
                                   'dopr54_c', 'dop853_c']:
-            raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
+            if 'leapfrog' in method.lower() or 'symplec' in method.lower():
+                raise ValueError('{:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`'.format(method))
+            else:
+                raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
