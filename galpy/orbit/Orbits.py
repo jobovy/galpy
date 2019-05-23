@@ -176,7 +176,7 @@ class Orbits(object):
             vxvv= numpy.atleast_2d(vxvv)
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
         elif isinstance(vxvv,list):
-            if isinstance(vxvv[0],Orbit):
+            if isinstance(vxvv[0],Orbits):
                 vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
                 input_shape= (len(vxvv),)
                 vxvv= numpy.array(vxvv)
@@ -296,14 +296,17 @@ class Orbits(object):
         return None
 
     def _setup_parse_listofOrbits(self,vxvv,ro,vo,zo,solarmotion):
+        # Only implement lists of scalar Orbits for now
+        if not numpy.all([o.shape == () for o in vxvv]):
+            raise RuntimeError("Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances")
         # Need to check that coordinate-transformation parameters are 
         # consistent between given orbits and between this instance's
         # initialization and the given orbits; if not explicitly given
         # for this instance, fall back onto list's parameters
-        ros= numpy.array([o._orb._ro for o in vxvv])
-        vos= numpy.array([o._orb._vo for o in vxvv])
-        zos= numpy.array([o._orb._zo for o in vxvv])
-        solarmotions= numpy.array([o._orb._solarmotion for o in vxvv])
+        ros= numpy.array([o._ro for o in vxvv])
+        vos= numpy.array([o._vo for o in vxvv])
+        zos= numpy.array([o._zo for o in vxvv])
+        solarmotions= numpy.array([o._solarmotion for o in vxvv])
         if numpy.any(numpy.fabs(ros-ros[0]) > 1e-10):
             raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter")
         if numpy.any(numpy.fabs(vos-vos[0]) > 1e-10):
@@ -317,25 +320,26 @@ class Orbits(object):
             if numpy.fabs(ros[0]-self._ro) > 1e-10:
                 raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter as used in the initialization call")
         else:
-            self._ro= vxvv[0]._orb._ro
-            self._roSet= vxvv[0]._orb._roSet
+            self._ro= vxvv[0]._ro
+            self._roSet= vxvv[0]._roSet
         if self._voSet:
             if numpy.fabs(vos[0]-self._vo) > 1e-10:
                 raise RuntimeError("All individual orbits given to an Orbits class must have the same vo unit-conversion parameter as used in the initialization call")
         else:
-            self._vo= vxvv[0]._orb._vo
-            self._voSet= vxvv[0]._orb._voSet
+            self._vo= vxvv[0]._vo
+            self._voSet= vxvv[0]._voSet
         if not zo is None:
             if numpy.fabs(zos[0]-self._zo) > 1e-10:
                 raise RuntimeError("All individual orbits given to an Orbits class must have the same zo solar offset parameter as used in the initialization call")
         else:
-            self._zo= vxvv[0]._orb._zo
+            self._zo= vxvv[0]._zo
         if not solarmotion is None:
             if numpy.any(numpy.fabs(solarmotions[0]-self._solarmotion) > 1e-10):
                 raise RuntimeError("All individual orbits given to an Orbits class must have the same solar motion as used in the initialization call")
         else:
-            self._solarmotion= vxvv[0]._orb._solarmotion
-        return [o._orb.vxvv for o in vxvv]
+            self._solarmotion= vxvv[0]._solarmotion
+        # shape of o.vxvv is (1,phasedim) due to internal storage
+        return [list(o.vxvv[0]) for o in vxvv]
                 
     def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
