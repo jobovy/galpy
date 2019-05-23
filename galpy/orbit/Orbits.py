@@ -1107,6 +1107,8 @@ class Orbits(object):
                          **orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
+        # Make sure the output has the same shape as the original Orbit
+        out.reshape(self.shape)
         return out
         
     @shapeDecorator
