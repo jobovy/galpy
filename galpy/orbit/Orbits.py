@@ -692,7 +692,7 @@ class Orbits(object):
         """
         return self.vxvv.shape[-1]
 
-    def __getattr__(self, name):
+    def __getattr__(self,name):
         """
         NAME:
 
@@ -766,13 +766,10 @@ class Orbits(object):
 
         """.format(quant=name.split('plot')[1],Estring=Estring)
             return _plot
-        attribute = getattr(Orbit(), name)
-        if callable(attribute):
-            return lambda *args, **kwargs: [
-                getattr(orbit, name)(*args, **kwargs) for orbit in self._orbits
-            ]
         else:
-            return [getattr(orbit, name) for orbit in self.orbits]
+            raise AttributeError("'{}' object has no attribute '{}'"\
+                                     .format(self.__class__.__name__,
+                                             name))
 
     def __getitem__(self,key):
         """
