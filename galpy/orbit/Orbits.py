@@ -1126,6 +1126,7 @@ class Orbits(object):
             dt= dt.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         # Parse dxdv
+        dxdv= numpy.array(dxdv)
         if dxdv.ndim > 1:
             dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
         else:
