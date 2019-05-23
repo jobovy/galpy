@@ -2980,7 +2980,7 @@ def test_interpolation_issue187():
     from scipy import interpolate
     pot = potential.IsochronePotential(b=1./7.,normalize=True)
     R, vR, vT, z, vz, phi = 1.,0.0,0.8,0.,0.,0.
-    orb = Orbit(vxvv=(R, vR, vT, z, vz, phi))
+    orb = Orbit(vxvv=[R, vR, vT, z, vz, phi])
     ts = numpy.linspace(0.,10.,1000)
     orb.integrate(ts, pot)
     orbpts = orb.getOrbit()
