@@ -601,30 +601,30 @@ class actionAngleIsochroneApprox(actionAngle):
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if os[0].phasedim() == 3 or os.phasedim() == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if os[0].phasedim() == 3 or os.phasedim() == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
-                        o.vxvv[1]= -o.vxvv[1]
-                        o.vxvv[2]= -o.vxvv[2]
-                        o.vxvv[4]= -o.vxvv[4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method,
                              dt=self._integrate_dt) for o in os]
                 if _firstFlip:
                     for o in os:
-                        o.vxvv[1]= -o.vxvv[1]
-                        o.vxvv[2]= -o.vxvv[2]
-                        o.vxvv[4]= -o.vxvv[4]
-                        o.orbit[:,1]= -o.orbit[:,1]
-                        o.orbit[:,2]= -o.orbit[:,2]
-                        o.orbit[:,4]= -o.orbit[:,4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
+                        o.orbit[...,1]= -o.orbit[...,1]
+                        o.orbit[...,2]= -o.orbit[...,2]
+                        o.orbit[...,4]= -o.orbit[...,4]
                 integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)
