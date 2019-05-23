@@ -2340,10 +2340,17 @@ def test_orbit_interface_spherical():
     from galpy.actionAngle import actionAngleSpherical
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     obs= Orbit([1., 0.2, 1.5, 0.3,0.1,2.])
-    assert not obs.resetaA(), 'obs.resetaA() does not return False when called before having set up an actionAngle instance'
+    # resetaA has been deprecated
+    #assert not obs.resetaA(), 'obs.resetaA() does not return False when called before having set up an actionAngle instance'
     aAS= actionAngleSpherical(pot=lp)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'spherical'
+    try:
+        obs.jr(type=type)
+    except AttributeError:
+        pass #should raise this, as we have not specified a potential
+    else:
+        raise AssertionError('obs.jr w/o pot= does not raise AttributeError before the orbit was integrated')
     acfso= numpy.array([obs.jr(pot=lp,type=type),
                         obs.jp(pot=lp,type=type),
                         obs.jz(pot=lp,type=type),
@@ -2368,13 +2375,8 @@ def test_orbit_interface_spherical():
     aAS= actionAngleSpherical(pot=np)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'spherical'
-    assert obs.resetaA(pot=np), 'obs.resetaA() does not return True after having set up an actionAngle instance'
-    try:
-        obs.jr(type=type)
-    except AttributeError:
-        pass #should raise this, as we have not specified a potential
-    else:
-        raise AssertionError('obs.jr w/o pot= does not raise AttributeError before the orbit was integrated')
+    # resetaA has been deprecated
+    #assert obs.resetaA(pot=np), 'obs.resetaA() does not return True after having set up an actionAngle instance'
     obs.integrate(numpy.linspace(0.,1.,11),np) #to test that not specifying the potential works
     acfso= numpy.array([obs.jr(type=type),
                         obs.jp(type=type),
@@ -2387,8 +2389,8 @@ def test_orbit_interface_spherical():
                         obs.wz(type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface'   
-    #Directly test _resetaA
-    assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
+    #Directly test _resetaA --> deprecated
+    #assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
     #Test that unit conversions to physical units are handled correctly
     ro, vo=8., 220.
     obs= Orbit([1., 0.2, 1.5, 0.3,0.1,2.],ro=ro,vo=vo)
@@ -2454,7 +2456,7 @@ def test_orbit_interface_staeckel_defaultdelta():
     est_delta= estimateDeltaStaeckel(MWPotential2014,obs.R(),obs.z())
     # Just need to trigger delta estimation in orbit
     jr_orb= obs.jr(pot=MWPotential2014,type='staeckel')
-    assert numpy.fabs(est_delta-obs._orb._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
+    assert numpy.fabs(est_delta-obs._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
     aAS= actionAngleStaeckel(pot=MWPotential2014,delta=est_delta)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'staeckel'
