@@ -1126,7 +1126,10 @@ class Orbits(object):
             dt= dt.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         # Parse dxdv
-        dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
+        if dxdv.ndim > 1:
+            dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
+        else:
+            dxdv= numpy.atleast_2d(dxdv)
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
