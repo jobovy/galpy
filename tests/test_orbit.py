@@ -767,8 +767,8 @@ def test_liouville_planar():
                     o.integrate_dxdv([0.,0.,0.,1.],ttimes,ptp,
                                      method='leapfrog',
                                      rectIn=True,rectOut=True)
-                except TypeError: pass
-                else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised TypeError, but didn't")
+                except ValueError: pass
+                else: raise AssertionError("integrate_dxdv with symplectic integrator should have raised ValueError, but didn't")
                 firstTest= False
             if _QUICKTEST and not (('NFW' in p and not ptp.isNonAxi and 'SCF' not in p) \
                                        or ('Burkert' in p and not ptp.hasC)): break
