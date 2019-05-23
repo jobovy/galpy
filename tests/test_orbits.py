@@ -7,46 +7,6 @@ from galpy import potential
 import astropy
 _APY3= astropy.__version__ > '3'
 
-# Test that initializing an Orbit (not an Orbits) with an array of SkyCoords
-# processes the input correctly into the Orbit._orb.vxvv attribute;
-# The Orbits class depends on this to process arrays SkyCoords itself quickly
-def test_orbit_initialization_SkyCoordarray():
-    # Only run this for astropy>3
-    if not _APY3: return None
-    from galpy.orbit import Orbit
-    numpy.random.seed(1)
-    nrand= 30
-    ras= numpy.random.uniform(size=nrand)*360.*u.deg
-    decs= 90.*(2.*numpy.random.uniform(size=nrand)-1.)*u.deg
-    dists= numpy.random.uniform(size=nrand)*10.*u.kpc
-    pmras= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
-    pmdecs= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
-    vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
-    # Without any custom coordinate-transformation parameters
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
-                           pm_ra_cosdec=pmras,pm_dec=pmdecs,
-                           radial_velocity=vloss,
-                           frame='icrs')
-    os= Orbit(co)
-    vxvv= numpy.array(os._orb.vxvv).T
-    for ii in range(nrand):
-        to= Orbit(co[ii])
-        assert numpy.all(numpy.fabs(numpy.array(to._orb.vxvv)-vxvv[ii]) < 1e-10), 'Orbit initialization with an array of SkyCoords does not give the same result as processing each SkyCoord individually'
-    # With custom coordinate-transformation parameters
-    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
-                           pm_ra_cosdec=pmras,pm_dec=pmdecs,
-                           radial_velocity=vloss,
-                           frame='icrs',
-                           galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
-                           galcen_v_sun=v_sun)
-    os= Orbit(co)
-    vxvv= numpy.array(os._orb.vxvv).T
-    for ii in range(nrand):
-        to= Orbit(co[ii])
-        assert numpy.all(numpy.fabs(numpy.array(to._orb.vxvv)-vxvv[ii]) < 1e-10), 'Orbit initialization with an array of SkyCoords does not give the same result as processing each SkyCoord individually'
-    return None
-
 # Test Orbits initialization
 def test_initialization_vxvv():
     from galpy.orbit import Orbit, Orbits
