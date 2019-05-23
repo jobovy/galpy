@@ -9,30 +9,14 @@
 ###############################################################################
 
 from __future__ import division
-from functools import wraps
-from .Potential import Potential, _APY_LOADED
+from .Potential import Potential, _APY_LOADED, \
+    check_potential_inputs_not_arrays
 from galpy.util import bovy_conversion
 import numpy as np
 
 if _APY_LOADED:
     from astropy import units
 
-
-def check_inputs_not_arrays(func):
-    """
-    Decorator to check inputs and throw TypeError if any of the inputs are arrays.
-    Methods potentially return with silent errors if inputs are not checked.
-    """
-    @wraps(func)
-    def func_wrapper(self, R, z, phi, t):
-        if (hasattr(R, '__len__') and len(R) > 1) \
-                or (hasattr(z, '__len__') and len(z) > 1) \
-                or (hasattr(phi, '__len__') and len(phi) > 1) \
-                or (hasattr(t, '__len__') and len(t) > 1):
-            raise TypeError('Methods in SpiralArmsPotential do not accept array inputs. Please input scalars.')
-        return func(self, R, z, phi, t)
-
-    return func_wrapper
 
 
 class SpiralArmsPotential(Potential):
@@ -124,7 +108,7 @@ class SpiralArmsPotential(Potential):
         self.hasC = True       # Potential has C implementation to speed up orbit integrations
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -148,7 +132,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
                * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs)
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -192,7 +176,7 @@ class SpiralArmsPotential(Potential):
                                                                         + dDs_dR / Ds / Ks))
                                                            + cos_ng / Ks / self._Rs))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -218,7 +202,7 @@ class SpiralArmsPotential(Potential):
                * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t))
                         * np.tanh(zK_B) / np.cosh(zK_B)**Bs)
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _phiforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -244,7 +228,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
                * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -334,7 +318,7 @@ class SpiralArmsPotential(Potential):
                                                                      + log_sechzKB * dBs_dR))
                                                        + sin_ng * self._ns * dg_dR))))))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -363,7 +347,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
                * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs)
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -390,7 +374,7 @@ class SpiralArmsPotential(Potential):
         return self._H * np.exp(-(R-self._r_ref) / self._Rs) \
                * np.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
         NAME:
@@ -442,7 +426,7 @@ class SpiralArmsPotential(Potential):
                                                                         + dBs_dR / Bs * tanhzKB)
                                                                        - tanhzKB / Rs)))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0,t=0):
         """
         NAME:
@@ -488,7 +472,7 @@ class SpiralArmsPotential(Potential):
                                                     + dDs_dR / Ds
                                                     + 1 / self._Rs))))
 
-    @check_inputs_not_arrays
+    @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0, t=0):
         """
         NAME:

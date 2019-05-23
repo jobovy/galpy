@@ -11,7 +11,7 @@
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
 import numpy
-from scipy import integrate, special
+from scipy import special
 from .Potential import _APY_LOADED
 from .EllipsoidalPotential import EllipsoidalPotential
 if _APY_LOADED:
