@@ -1734,6 +1734,11 @@ class Orbits(object):
         if _APY_LOADED and not b is None \
                 and isinstance(b,units.Quantity):
             b= b.to(units.kpc).value/self._ro
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
         if hasattr(self,'_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
@@ -1752,11 +1757,6 @@ class Orbits(object):
             else:
                 return None
         _check_consistent_units(self,pot)
-        if pot is None:
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit or specify pot=")
         self._aAPot= pot
         self._aAType= type
         #Setup
