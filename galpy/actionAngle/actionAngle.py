@@ -191,10 +191,10 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             if not kwargs.get('_noOrbUnitsCheck',False):
                 self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
-                vxvv= args[0](args[1])._orb.vxvv
+                vxvv= args[0](args[1]).vxvv
             else:
                 try:
-                    vxvv= args[0]._orb.vxvv
+                    vxvv= args[0].vxvv
                 except AttributeError: #if we're given an OrbitTop instance
                     vxvv= args[0].vxvv
             self._eval_R= vxvv[0]
