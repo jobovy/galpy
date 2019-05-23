@@ -208,7 +208,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     else: return (result,err)
 
 # Python integration functions
-def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
+def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                          dt=None):
     """
     NAME:
@@ -234,15 +234,18 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
        2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
     """
     if int_method.lower() == 'leapfrog':
+        if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             return symplecticode.leapfrog(lambda x,t=t: \
                                               _evaluatelinearForces(pot,x,t=t),
                                           nu.array(vxvv),
                                           t,rtol=rtol)
     elif int_method.lower() == 'dop853':
+        if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             return dop853(func=_linearEOM,x=vxvv,t=t,args=(pot,))
     elif int_method.lower() == 'odeint':
+        if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=rtol)
     else: # Assume we are forcing parallel_mapping of a C integrator...

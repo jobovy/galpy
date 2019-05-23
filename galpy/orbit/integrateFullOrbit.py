@@ -435,7 +435,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
 
     return (result,err.value)
 
-def integrateFullOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
+def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                        dt=None):
     """
     NAME:
@@ -467,6 +467,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
             #We hack this by putting in a dummy phi=0
             yo= nu.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
     if int_method.lower() == 'leapfrog':
+        if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             #go to the rectangular frame
             this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
@@ -494,6 +495,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=1e-8,atol=None,numcores=1,
             out[:,5]= phi
             return out
     elif int_method.lower() == 'dop853' or int_method.lower() == 'odeint':
+        if rtol is None: rtol= 1e-8
         if int_method.lower() == 'dop853':
             integrator= dop853
             extra_kwargs= {}
