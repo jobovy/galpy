@@ -22,6 +22,8 @@ from galpy.util import galpyWarning
 from galpy.util import bovy_conversion
 from galpy.util import config
 _APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
+from .Orbits import _check_integrate_dt, _check_potential_dim, \
+    _check_consistent_units
 from .FullOrbit import FullOrbit
 from .RZOrbit import RZOrbit
 from .planarOrbit import planarOrbit, planarROrbit, \
@@ -3964,32 +3966,3 @@ v           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
 
         return cls(vxvv=[ra,dec,dist,pmra,pmdec,vlos], radec=True, ro=ro, vo=vo,
                    zo=zo, solarmotion=solarmotion)
-
-def _check_integrate_dt(t,dt):
-    """Check that the stepszie in t is an integer x dt"""
-    if dt is None:
-        return True
-    mult= round((t[1]-t[0])/dt)
-    if nu.fabs(mult*dt-t[1]+t[0]) < 10.**-10.:
-        return True
-    else:
-        return False
-
-def _check_potential_dim(orb,pot):
-    from galpy.potential import _dim
-    # Don't deal with pot=None here, just dimensionality
-    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
-
-def _check_consistent_units(orb,pot):
-    if pot is None: return None
-    if isinstance(pot,list):
-        if orb._roSet and pot[0]._roSet:
-            assert nu.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot[0]._voSet:
-            assert nu.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    else:
-        if orb._roSet and pot._roSet:
-            assert nu.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot._voSet:
-            assert nu.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    return None

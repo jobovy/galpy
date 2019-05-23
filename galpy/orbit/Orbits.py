@@ -17,10 +17,6 @@ elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
-    _check_consistent_units
-from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec, \
-    _XYZvxvyvz, _lbdvrpmllpmbb, _pmrapmdec
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.bovy_coords import _K
@@ -5440,3 +5436,266 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
         out+= logsumexp(-0.5*numpy.sum(sub_vxvv,axis=1))
     return -out
 
+def _check_roSet(orb,kwargs,funcName):
+    """Function to check whether ro is set, because it's required for funcName"""
+    if not orb._roSet and kwargs.get('ro',None) is None:
+        warnings.warn("Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,orb._ro),
+                      galpyWarning)
+
+def _check_voSet(orb,kwargs,funcName):
+    """Function to check whether vo is set, because it's required for funcName"""
+    if not orb._voSet and kwargs.get('vo',None) is None:
+        warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
+                      galpyWarning)
+
+# Coordinate transform functions moved outside of Orbit instance such that they
+# can be used by Orbits as well; split out calling-sequence specific part from
+# the object to do this (but otherwise use the fact that Orbit and Orbits are
+# similar)
+def _helioXYZ(orb,thiso,*args,**kwargs):
+    """Calculate heliocentric rectangular coordinates"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbd functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),0.,
+                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
+                thiso[3,:],
+                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro)
+
+def _lbd(orb,thiso,*args,**kwargs):
+    """Calculate l,b, and d"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z= _helioXYZ(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.XYZ_to_lbd(X,Y,Z,degree=True)
+
+def _radec(orb,thiso,*args,**kwargs):
+    """Calculate ra and dec"""
+    lbd= _lbd(orb,thiso,*args,**kwargs)
+    return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
+
+def _XYZvxvyvz(orb,thiso,*args,**kwargs):
+    """Calculate X,Y,Z,U,V,W"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,vel=True)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
+                numpy.zeros_like(thiso[0]),
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
+                vsun=numpy.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),thiso[3,:],
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],thiso[4,:],
+                thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
+                vsun=numpy.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
+def _lbdvrpmllpmbb(orb,thiso,*args,**kwargs):
+    """Calculate l,b,d,vr,pmll,pmbb"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z,vX,vY,vZ= _XYZvxvyvz(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+
+def _pmrapmdec(orb,thiso,*args,**kwargs):
+    """Calculate pmra and pmdec"""
+    lbdvrpmllpmbb= _lbdvrpmllpmbb(orb,thiso,*args,**kwargs)
+    return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                        lbdvrpmllpmbb[:,5],
+                                        lbdvrpmllpmbb[:,0],
+                                        lbdvrpmllpmbb[:,1],degree=True,
+                                        epoch=None)
+
+def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
+    if 'obs' in kwargs:
+        obs= kwargs['obs']
+        if not dontpop:
+            kwargs.pop('obs')
+        if isinstance(obs,(list,numpy.ndarray)):
+            if len(obs) == 2:
+                obs= [obs[0],obs[1],0.]
+            elif len(obs) == 4:
+                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+            for ii in range(len(obs)):
+                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                    if ii < 3:
+                        obs[ii]= obs[ii].to(units.kpc).value
+                    else:
+                        obs[ii]= obs[ii].to(units.km/units.s).value
+    else:
+        if vel:
+            obs= [orb._ro,0.,orb._zo,
+                  orb._solarmotion[0],orb._solarmotion[1]+orb._vo,
+                  orb._solarmotion[2]]
+        else:
+            obs= [orb._ro,0.,orb._zo]
+    if 'ro' in kwargs:
+        ro= kwargs['ro']
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if not dontpop:
+            kwargs.pop('ro')
+    else:
+        ro= orb._ro
+    if 'vo' in kwargs:
+        vo= kwargs['vo']
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if not dontpop:
+            kwargs.pop('vo')
+    else:
+        vo= orb._vo
+    return (obs,ro,vo)
+
+def _check_integrate_dt(t,dt):
+    """Check that the stepszie in t is an integer x dt"""
+    if dt is None:
+        return True
+    mult= round((t[1]-t[0])/dt)
+    if numpy.fabs(mult*dt-t[1]+t[0]) < 10.**-10.:
+        return True
+    else:
+        return False
+
+def _check_potential_dim(orb,pot):
+    from galpy.potential import _dim
+    # Don't deal with pot=None here, just dimensionality
+    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
+
+def _check_consistent_units(orb,pot):
+    if pot is None: return None
+    if isinstance(pot,list):
+        if orb._roSet and pot[0]._roSet:
+            assert numpy.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot[0]._voSet:
+            assert numpy.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    else:
+        if orb._roSet and pot._roSet:
+            assert numpy.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot._voSet:
+            assert numpy.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    return None
