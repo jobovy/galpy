@@ -82,7 +82,7 @@ class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
+    def __init__(self,vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
                  radec=False,uvw=False,lb=False):
         """
         NAME:
