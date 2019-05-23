@@ -1338,8 +1338,10 @@ class Orbits(object):
             t= numpy.atleast_1d(t)
         if self.phasedim() == 2:
             try:
-                out= (evaluatelinearPotentials(pot,thiso[0],t=t,
-                                               use_physical=False)\
+                out= (evaluatelinearPotentials(\
+                        pot,thiso[0],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatelinearPotentials(\
@@ -1350,8 +1352,10 @@ class Orbits(object):
                           +(thiso[1]**2./2.).T)
         elif self.phasedim() == 3:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
-                                               use_physical=False)\
+                out= (evaluateplanarPotentials(\
+                        pot,thiso[0],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
@@ -1362,9 +1366,10 @@ class Orbits(object):
                       +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 4:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
-                                               phi=thiso[-1],
-                                               use_physical=False)\
+                out= (evaluateplanarPotentials(\
+                        pot,thiso[0],phi=thiso[-1],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
@@ -1378,8 +1383,10 @@ class Orbits(object):
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
             vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
-                                         use_physical=False)\
+                out= (evaluatePotentials(\
+                        pot,thiso[0],z,
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
@@ -1394,9 +1401,10 @@ class Orbits(object):
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
             vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
-                                         phi=thiso[-1],
-                                         use_physical=False)\
+                out= (evaluatePotentials(\
+                        pot,thiso[0],z,phi=thiso[-1],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
