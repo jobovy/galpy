@@ -9,7 +9,7 @@ _APY3= astropy.__version__ > '3'
 
 # Test Orbits initialization
 def test_initialization_vxvv():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbits
     # 1D
     vxvvs= [[1.,0.1],[0.1,3.]]
     orbits= Orbits(vxvvs)
@@ -614,7 +614,7 @@ def test_orbits_consistentzo():
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
     orbits= Orbits(orbits_list)
     # Check that zo is taken correctly
-    assert numpy.fabs(orbits._zo-orbits_list[0]._orb._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
+    assert numpy.fabs(orbits._zo-orbits_list[0]._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
     # Check that consistency of zos is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits= Orbits(orbits_list,zo=0.045)
@@ -632,7 +632,7 @@ def test_orbits_consistentsolarmotion():
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
     orbits= Orbits(orbits_list)
     # Check that solarmotion is taken correctly
-    assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._orb._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
+    assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
     # Check that consistency of solarmotions is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits= Orbits(orbits_list,solarmotion=numpy.array([15.,20.,30]))
