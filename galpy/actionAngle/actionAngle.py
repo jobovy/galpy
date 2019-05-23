@@ -187,26 +187,23 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._eval_z= z
             self._eval_vz= vz
             self._eval_phi= phi
-        else:
+        else: # Orbit instance
             if not kwargs.get('_noOrbUnitsCheck',False):
                 self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
                 vxvv= args[0](args[1]).vxvv
             else:
-                try:
-                    vxvv= args[0].vxvv
-                except AttributeError: #if we're given an OrbitTop instance
-                    vxvv= args[0].vxvv
-            self._eval_R= vxvv[0]
-            self._eval_vR= vxvv[1]
-            self._eval_vT= vxvv[2]
-            if len(vxvv) > 4:
-                self._eval_z= vxvv[3]
-                self._eval_vz= vxvv[4]
-                if len(vxvv) > 5:
-                    self._eval_phi= vxvv[5]
-            elif len(vxvv) > 3:
-                self._eval_phi= vxvv[3]
+                vxvv= args[0].vxvv
+            self._eval_R= vxvv[0,0]
+            self._eval_vR= vxvv[0,1]
+            self._eval_vT= vxvv[0,2]
+            if args[0].phasedim() > 4:
+                self._eval_z= vxvv[0,3]
+                self._eval_vz= vxvv[0,4]
+                if args[0].phasedim() > 5:
+                    self._eval_phi= vxvv[0,5]
+            elif args[0].phasedim() > 3:
+                self._eval_phi= vxvv[0,3]
                 self._eval_z= 0.
                 self._eval_vz= 0.
             else:
