@@ -1793,8 +1793,8 @@ def test_pickle():
     assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
     assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
     assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
-    assert (True^o._orb._roSet)*(True^upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
-    assert (True^o._orb._voSet)*(True^upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
+    assert (True^o._roSet)*(True^upo._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (True^o._voSet)*(True^upo._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
     # w/ physical scales etc.
     o= Orbit([1.,0.1,1.1,0.1,0.2,2.],ro=10.,vo=300.)
     po= pickle.dumps(o)
@@ -1805,12 +1805,12 @@ def test_pickle():
     assert o.z() == upo.z(), "Pickled/unpickled orbit does not agree with original orbut for z"
     assert o.vz() == upo.vz(), "Pickled/unpickled orbit does not agree with original orbut for vz"
     assert o.phi() == upo.phi(), "Pickled/unpickled orbit does not agree with original orbut for phi"
-    assert o._orb._ro == upo._orb._ro, "Pickled/unpickled orbit does not agree with original orbut for ro"
-    assert o._orb._vo == upo._orb._vo, "Pickled/unpickled orbit does not agree with original orbut for vo"
-    assert o._orb._zo == upo._orb._zo, "Pickled/unpickled orbit does not agree with original orbut for zo"
-    assert numpy.all(o._orb._solarmotion == upo._orb._solarmotion), "Pickled/unpickled orbit does not agree with original orbut for solarmotion"
-    assert (o._orb._roSet)*(upo._orb._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
-    assert (o._orb._voSet)*(upo._orb._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
+    assert o._ro == upo._ro, "Pickled/unpickled orbit does not agree with original orbut for ro"
+    assert o._vo == upo._vo, "Pickled/unpickled orbit does not agree with original orbut for vo"
+    assert o._zo == upo._zo, "Pickled/unpickled orbit does not agree with original orbut for zo"
+    assert numpy.all(o._solarmotion == upo._solarmotion), "Pickled/unpickled orbit does not agree with original orbut for solarmotion"
+    assert (o._roSet)*(upo._roSet), "Pickled/unpickled orbit does not agree with original orbut for roSet"
+    assert (o._voSet)*(upo._voSet), "Pickled/unpickled orbit does not agree with original orbut for voSet"
     return None
 
 # Basic checks of the angular momentum function
@@ -2189,9 +2189,9 @@ def test_orbit_setup_SkyCoord():
     assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit SkyCoordvlos setup does not agree with o.vlos()'
     # Also test that the coordinate-transformation parameters are properly read
     assert numpy.fabs(o._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
-    assert numpy.fabs(o._orb._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
-    assert numpy.fabs(o._orb._zo-1.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
-    assert numpy.all(numpy.fabs(o._orb._solarmotion-numpy.array([[11.1,-5.,3.25]])) < 1e-12), 'Orbit SkyCoord setup does not properly store solarmotion'
+    assert numpy.fabs(o._ro-numpy.sqrt(10.**2.-1.**2.)) < 1e-12, 'Orbit SkyCoord setup does not properly store ro'
+    assert numpy.fabs(o._zo-1.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    assert numpy.all(numpy.fabs(o._solarmotion-numpy.array([[11.1,-5.,3.25]])) < 1e-12), 'Orbit SkyCoord setup does not properly store solarmotion'
     # If we only specify galcen_distance, but not z_sun, zo --> 0
     # Now specifying the coordinate conversion parameters in the SkyCoord
     v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
@@ -2201,7 +2201,7 @@ def test_orbit_setup_SkyCoord():
                           galcen_distance=10.*u.kpc,
                           galcen_v_sun=v_sun)
     o= Orbit(c)
-    assert numpy.fabs(o._orb._zo-0.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
+    assert numpy.fabs(o._zo-0.) < 1e-12, 'Orbit SkyCoord setup does not properly store zo'
     # If we specify both z_sun and zo, they need to be consistent
     c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
                           pm_ra_cosdec=pmra,pm_dec=pmdec,radial_velocity=vlos,
@@ -2280,12 +2280,12 @@ def test_toPlanar():
     assert obsp.R() == obs.R(), 'Planar orbit generated w/ toPlanar does not have the correct R'
     assert obsp.vR() == obs.vR(), 'Planar orbit generated w/ toPlanar does not have the correct vR'
     assert obsp.vT() == obs.vT(), 'Planar orbit generated w/ toPlanar does not have the correct vT'
-    assert numpy.fabs(obs._orb._ro-obsp._orb._ro) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert numpy.fabs(obs._orb._vo-obsp._orb._vo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert numpy.fabs(obs._orb._zo-obsp._orb._zo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert numpy.all(numpy.fabs(obs._orb._solarmotion-obsp._orb._solarmotion) < 10.**-15.), 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert obs._orb._roSet == obsp._orb._roSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert obs._orb._voSet == obsp._orb._voSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._ro-obsp._ro) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._vo-obsp._vo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._zo-obsp._zo) < 10.**-15., 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.all(numpy.fabs(obs._solarmotion-obsp._solarmotion) < 10.**-15.), 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._roSet == obsp._roSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._voSet == obsp._voSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
     obs= Orbit([1.,0.1,1.1,2.])
     try:
         obs.toPlanar()
@@ -2322,12 +2322,12 @@ def test_toLinear():
     assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
     assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
-    assert numpy.fabs(obs._orb._ro-obsl._orb._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert numpy.fabs(obs._orb._vo-obsl._orb._vo) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert (obsl._orb._zo is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert (obsl._orb._solarmotion is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert obs._orb._roSet == obsl._orb._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    assert obs._orb._voSet == obsl._orb._voSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._ro-obsl._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert numpy.fabs(obs._vo-obsl._vo) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert (obsl._zo is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert (obsl._solarmotion is None), 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._roSet == obsl._roSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
+    assert obs._voSet == obsl._voSet, 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
     return None
 
 # Check that some relevant errors are being raised
@@ -2433,16 +2433,16 @@ def test_flip():
             o= setup_orbit_flip(llp,ro,vo,zo,solarmotion,axi=False)
         of= o.flip()
         #First check that the scales have been propagated properly
-        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._ro-of._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._vo-of._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
-            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._zo is None)*(of._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._solarmotion is None)*(of._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         else:
-            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.fabs(o._zo-of._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._solarmotion-of._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._roSet == of._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._voSet == of._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
             assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
             assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
@@ -2479,16 +2479,16 @@ def test_flip_inplace():
         of= o()
         of.flip(inplace=True)
         #First check that the scales have been propagated properly
-        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._ro-of._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._vo-of._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
-            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._zo is None)*(of._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._solarmotion is None)*(of._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         else:
-            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.fabs(o._zo-of._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._solarmotion-of._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._roSet == of._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._voSet == of._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
             assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
             assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
@@ -2538,16 +2538,16 @@ def test_flip_inplace_integrated():
         o= o(0.5)
         of= of(0.5)
         #First check that the scales have been propagated properly
-        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._ro-of._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._vo-of._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
-            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._zo is None)*(of._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._solarmotion is None)*(of._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         else:
-            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.fabs(o._zo-of._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._solarmotion-of._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._roSet == of._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._voSet == of._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
             assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
             assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
@@ -2603,16 +2603,16 @@ def test_flip_inplace_integrated_evaluated():
         o= o(0.52)
         of= of(0.52)
         #First check that the scales have been propagated properly
-        assert numpy.fabs(o._orb._ro-of._orb._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert numpy.fabs(o._orb._vo-of._orb._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._ro-of._ro) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert numpy.fabs(o._vo-of._vo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
-            assert (o._orb._zo is None)*(of._orb._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert (o._orb._solarmotion is None)*(of._orb._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._zo is None)*(of._zo is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert (o._solarmotion is None)*(of._solarmotion is None), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         else:
-            assert numpy.fabs(o._orb._zo-of._orb._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-            assert numpy.all(numpy.fabs(o._orb._solarmotion-of._orb._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._roSet == of._orb._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
-        assert o._orb._voSet == of._orb._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.fabs(o._zo-of._zo) < 10.**-15., 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+            assert numpy.all(numpy.fabs(o._solarmotion-of._solarmotion) < 10.**-15.), 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._roSet == of._roSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
+        assert o._voSet == of._voSet, 'o.flip() did not conserve physical scales and coordinate-transformation parameters'
         if ii == 4:
             assert numpy.abs(o.x()-of.x()) < 10.**-10., 'o.flip() did not work as expected'
             assert numpy.abs(o.vx()+of.vx()) < 10.**-10., 'o.flip() did not work as expected'
@@ -2671,9 +2671,9 @@ def test_newOrbit():
     assert no.vz() == o.vz(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vz"
     assert no.phi() == o.phi(ts[-1]), "New orbit formed from calling an old orbit does not have the correct phi"
     assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Also test this for multiple time outputs
     nos= o(ts[-2:]) #new orbits
     #First t
@@ -2684,9 +2684,9 @@ def test_newOrbit():
     assert numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
     assert numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
     assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[0]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[0]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Second t
     assert numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct R"
     assert numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vR"
@@ -2695,9 +2695,9 @@ def test_newOrbit():
     assert numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
     assert numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
     assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[1]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[1]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     return None
 
 # Test new orbits formed from __call__, before integration
@@ -2712,9 +2712,9 @@ def test_newOrbit_b4integration():
     assert numpy.fabs(no.vz()-o.vz()) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
     assert numpy.fabs(no.phi()-o.phi()) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
     assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     return None
 
 # Test that we can still get outputs when there aren't enough points for an actual interpolation
@@ -2733,9 +2733,9 @@ def test_newOrbit_badinterpolation():
     assert no.vz() == o.vz(ts[-1]), "New orbit formed from calling an old orbit does not have the correct vz"
     assert no.phi() == o.phi(ts[-1]), "New orbit formed from calling an old orbit does not have the correct phi"
     assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not no._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not no._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Also test this for multiple time outputs
     nos= o(ts[-2:]) #new orbits
     #First t
@@ -2746,9 +2746,9 @@ def test_newOrbit_badinterpolation():
     assert numpy.fabs(nos[0].vz()-o.vz(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
     assert numpy.fabs(nos[0].phi()-o.phi(ts[-2])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
     assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[0]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[0]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[0]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Second t
     assert numpy.fabs(nos[1].R()-o.R(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct R"
     assert numpy.fabs(nos[1].vR()-o.vR(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vR"
@@ -2757,9 +2757,9 @@ def test_newOrbit_badinterpolation():
     assert numpy.fabs(nos[1].vz()-o.vz(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct vz"
     assert numpy.fabs(nos[1].phi()-o.phi(ts[-1])) < 10.**-10., "New orbit formed from calling an old orbit does not have the correct phi"
     assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[1]._orb._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._roSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert not nos[1]._orb._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert not nos[1]._voSet, "New orbit formed from calling an old orbit does not have the correct roSet"
     #Try point in between, shouldn't work
     try: no= o(0.6)
     except LookupError: pass
@@ -2961,16 +2961,16 @@ def test_physical_newOrbit():
     no= o(ts[-1]) #new orbit
     assert no._ro == 9., "New orbit formed from calling old orbit's ro is not that of the old orbit"
     assert no._vo == 230., "New orbit formed from calling old orbit's vo is not that of the old orbit"
-    assert no._orb._ro == 9., "New orbit formed from calling old orbit's ro is not that of the old orbit"
-    assert no._orb._vo == 230., "New orbit formed from calling old orbit's vo is not that of the old orbit"
+    assert no._ro == 9., "New orbit formed from calling old orbit's ro is not that of the old orbit"
+    assert no._vo == 230., "New orbit formed from calling old orbit's vo is not that of the old orbit"
     assert no._roSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
     assert no._voSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
-    assert no._orb._roSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
-    assert no._orb._voSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
-    assert no._orb._zo == 0.02, "New orbit formed from calling old orbit's zo is not that of the old orbit"
-    assert no._orb._solarmotion[0] == -5., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
-    assert no._orb._solarmotion[1] == 15., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
-    assert no._orb._solarmotion[2] == 25., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    assert no._roSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._voSet, "New orbit formed from calling old orbit's roSet is not that of the old orbit"
+    assert no._zo == 0.02, "New orbit formed from calling old orbit's zo is not that of the old orbit"
+    assert no._solarmotion[0] == -5., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    assert no._solarmotion[1] == 15., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
+    assert no._solarmotion[2] == 25., "New orbit formed from calling old orbit's solarmotion is not that of the old orbit"
     return None
 
 #Test the orbit interpolation
@@ -3010,7 +3010,7 @@ def test_orbitfit():
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
-    vxvv= o._orb.orbit[::100,:]
+    vxvv= o.orbit[::100,:]
     #now fit, using another orbit instance
     of= o()
     of.fit(vxvv,pot=lp,tintJ=1.5)
@@ -3024,7 +3024,7 @@ def test_orbitfit_potinput():
     ts= numpy.linspace(0.,1.,1001)
     o.integrate(ts,lp)
     #Create orbit points from this integrated orbit, each 100th point
-    vxvv= o._orb.orbit[::100,:]
+    vxvv= o.orbit[::100,:]
     #now fit, using another orbit instance, without potential, should error
     of= o()
     try:
@@ -3032,7 +3032,7 @@ def test_orbitfit_potinput():
     except AttributeError: pass
     else: raise AssertionError('Orbit fit w/o potential does not raise AttributeError')
     #Now give a potential to of
-    of._orb._pot= lp
+    of._pot= lp
     of.fit(vxvv,pot=lp,tintJ=1.5)
     assert numpy.all(comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp) < 10.**-7.), 'Orbit fit in configuration space does not work'
     return None
@@ -3121,9 +3121,9 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     off= of.flip()
     off.integrate(ts,pot)
     #Flip velocities again
-    off._orb.vxvv[1]*= -1.
-    off._orb.vxvv[2]*= -1.
-    off._orb.vxvv[4]*= -1.
+    off.vxvv[1]*= -1.
+    off.vxvv[2]*= -1.
+    off.vxvv[4]*= -1.
     if lb:
         allvxvv= []
         for ii in range(len(ts)):
