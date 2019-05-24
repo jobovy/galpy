@@ -164,58 +164,58 @@ def test_orbit_setup_solarmotion():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],
              solarmotion=units.Quantity([13.,25.,8.],unit=units.km/units.s))
-    assert numpy.fabs(o._orb._solarmotion[0]-13.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._solarmotion[1]-25.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._solarmotion[2]-8.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[0]-13.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[1]-25.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[2]-8.) < 10.**-8., 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_solarmotion_oddunits():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],
              solarmotion=units.Quantity([13.,25.,8.],unit=units.kpc/units.Gyr))
-    assert numpy.fabs(o._orb._solarmotion[0]-13./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._solarmotion[1]-25./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._solarmotion[2]-8./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[0]-13./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[1]-25./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._solarmotion[2]-8./1.0227121655399913) < 10.**-5., 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_roAsQuantity():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],ro=11*units.kpc)
     assert numpy.fabs(o._ro-11.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._ro-11.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._ro-11.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_roAsQuantity_oddunits():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],ro=11*units.lyr)
     assert numpy.fabs(o._ro-11.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._ro-11.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._ro-11.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_voAsQuantity():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],vo=210*units.km/units.s)
     assert numpy.fabs(o._vo-210.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._vo-210.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._vo-210.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_voAsQuantity_oddunits():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],vo=210*units.pc/units.Myr)
     assert numpy.fabs(o._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
-    assert numpy.fabs(o._orb._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_zoAsQuantity():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],zo=12*units.pc)
-    assert numpy.fabs(o._orb._zo-0.012) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._zo-0.012) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_setup_zoAsQuantity_oddunits():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.2,0.1,0.],zo=13*units.lyr)
-    assert numpy.fabs(o._orb._zo-13.*units.lyr.to(units.kpc)) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
+    assert numpy.fabs(o._zo-13.*units.lyr.to(units.kpc)) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbit_method_returntype_scalar():
@@ -1463,21 +1463,18 @@ def test_change_ro_config():
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._ro-8.) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._ro-8.) < 10.**-10., 'Default ro value not as expected'
     # Change value
     newro= 9.
     config.set_ro(newro)
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._ro-newro) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._ro-newro) < 10.**-10., 'Default ro value not as expected'
     # Change value as Quantity
     newro= 9.*units.kpc
     config.set_ro(newro)
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._ro-newro.value) < 10.**-10., 'Default ro value not as expected'
     # Back to default
     config.set_ro(8.)
     return None
@@ -1488,21 +1485,18 @@ def test_change_vo_config():
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._vo-220.) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._vo-220.) < 10.**-10., 'Default ro value not as expected'
     # Change value
     newvo= 250.
     config.set_vo(newvo)
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._vo-newvo) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._vo-newvo) < 10.**-10., 'Default ro value not as expected'
     # Change value as Quantity
     newvo= 250.*units.km/units.s
     config.set_vo(newvo)
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg])
     assert numpy.fabs(o._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
-    assert numpy.fabs(o._orb._vo-newvo.value) < 10.**-10., 'Default ro value not as expected'
     # Back to default
     config.set_vo(220.)
     return None
@@ -4606,19 +4600,19 @@ def test_diskdf_sample():
     du= df.sampleLOS(11.*units.deg,n=1)
     numpy.random.seed(1)
     dnou= dfnou.sampleLOS(11.,n=1,deg=True)
-    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sampleLOS does not work as expected with Quantity input'
+    assert numpy.all(numpy.fabs(numpy.array(du[0].vxvv)-numpy.array(dnou[0].vxvv)) < 10.**-8.), 'diskdf sampling method sampleLOS does not work as expected with Quantity input'
     # sample
     numpy.random.seed(1)
     du= df.sample(rrange=[4.*units.kpc,12.*units.kpc],n=1)
     numpy.random.seed(1)
     dnou= dfnou.sample(rrange=[4./ro,12./ro],n=1)
-    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
+    assert numpy.all(numpy.fabs(numpy.array(du[0].vxvv)-numpy.array(dnou[0].vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
     # sample for Shu
     numpy.random.seed(1)
     du= dfs.sample(rrange=[4.*units.kpc,12.*units.kpc],n=1)
     numpy.random.seed(1)
     dnou= dfsnou.sample(rrange=[4./ro,12./ro],n=1)
-    assert numpy.all(numpy.fabs(numpy.array(du[0]._orb.vxvv)-numpy.array(dnou[0]._orb.vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
+    assert numpy.all(numpy.fabs(numpy.array(du[0].vxvv)-numpy.array(dnou[0].vxvv)) < 10.**-8.), 'diskdf sampling method sample does not work as expected with Quantity input'
     return None
 
 def test_diskdf_method_inputAsQuantity():
@@ -5963,9 +5957,7 @@ def test_orbitmethodswunits_quantity_issue326():
     o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
     # First make sure we're testing what we want to test
     assert not o._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
-    assert not o._orb._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
     assert not o._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
-    assert not o._orb._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
     # Then test methods
     assert isinstance(o.ra(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
     assert isinstance(o.dec(),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
@@ -5994,9 +5986,7 @@ def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
     o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
     # First make sure we're testing what we want to test
     assert not o._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
-    assert not o._orb._roSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True'
     assert not o._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
-    assert not o._orb._voSet, 'Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True'
     # Then test methods
     assert isinstance(o.ra(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
     assert isinstance(o.dec(use_physical=False),units.Quantity), 'Orbit method ra does not return Quantity when called for orbit with _roSet = False / _voSet = False'
