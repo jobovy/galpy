@@ -572,8 +572,8 @@ def test_initialize_diffphasedim_error():
 def test_initialize_listorbits_error():
     from galpy.orbit import Orbits
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([Orbits([[1.,0.1],[1.,0.1,1.]]),
-                Orbits([[1.,0.1],[1.,0.1,1.]])])
+        Orbits([Orbits([[1.,0.1],[1.,0.1]]),
+                Orbits([[1.,0.1],[1.,0.1]])])
     return None
                
 def test_orbits_consistentro():
