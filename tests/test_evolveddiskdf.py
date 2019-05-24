@@ -567,7 +567,7 @@ def test_call_special():
     crk6c2= edf(o,0.,integrate_method='rk6_c',deriv='R')
     assert numpy.all(numpy.fabs(crk6c-crk6c2) < 10.**-4.), 'edf.__call__ w/ tlist consisting of one time and just a scalar time do not agree'
     #Call w/ just to and deriv
-    assert numpy.fabs(edf(o,-10.,deriv='R')-idf(o)*idf._dlnfdR(o._orb.vxvv[0],o._orb.vxvv[1],o._orb.vxvv[2])) < 10.**-10., 'edf.__call__ w/ to did not return initial DF (deriv=R)'
+    assert numpy.fabs(edf(o,-10.,deriv='R')-idf(o)*idf._dlnfdR(o.vxvv[0,0],o.vxvv[0,1],o.vxvv[0,2])) < 10.**-10., 'edf.__call__ w/ to did not return initial DF (deriv=R)'
     assert numpy.fabs(edf(o,-10.,deriv='phi')) < 10.**-10., 'edf.__call__ w/ to did not return initial DF (deriv=phi)'
     # Call w/ just one t and odeint
     codeint= edf(o,0,integrate_method='odeint',log=True)

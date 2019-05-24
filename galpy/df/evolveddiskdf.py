@@ -169,17 +169,16 @@ class evolveddiskdf(df):
                     dderiv= 10.**-10.
                     tmp= o.R(use_physical=False)+dderiv
                     dderiv= tmp-o.R(use_physical=False)
-                    msg= o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
+                    msg= o.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
                     tmp= o.phi(use_physical=False)+dderiv
                     dderiv= tmp-o.phi(use_physical=False)
-                    msg= o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
-                if msg > 0.: # pragma: no cover
+                    msg= o.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
+                if not msg is None and msg > 0.: # pragma: no cover
                     print("Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ...")
                     if kwargs.get('log',False) and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
                     else: return nu.zeros(len(t))
-                o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             if _PROFILE: #pragma: no cover
@@ -222,9 +221,9 @@ class evolveddiskdf(df):
                                                               o.vR(self._to+t[0]-ti,use_physical=False),
                                                               o.vT(self._to+t[0]-ti,use_physical=False))
                                         for ti in t])
-                    dRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),4] for ti in t])/dderiv
-                    dvRo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),5] for ti in t])/dderiv
-                    dvTo= nu.array([o._orb.orbit_dxdv[list(ts).index(self._to+t[0]-ti),6] for ti in t])/dderiv
+                    dRo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),0] for ti in t])/dderiv
+                    dvRo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),1] for ti in t])/dderiv
+                    dvTo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),2] for ti in t])/dderiv
                     #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     retval*= dlnfderiv
@@ -252,11 +251,11 @@ class evolveddiskdf(df):
                                                                   orb_array[1,ii],
                                                                   orb_array[2,ii])
                                             for ii in range(len(t))])
-                    dorb_array= o._orb.orbit_dxdv.T
+                    dorb_array= o.getOrbit_dxdv().T
                     if len(t) == 1: dorb_array= dorb_array[:,1]
-                    dRo= dorb_array[4]/dderiv
-                    dvRo= dorb_array[5]/dderiv
-                    dvTo= dorb_array[6]/dderiv
+                    dRo= dorb_array[0]/dderiv
+                    dvRo= dorb_array[1]/dderiv
+                    dvTo= dorb_array[2]/dderiv
                     #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     if len(t) > 1: dlnfderiv= dlnfderiv[::-1]
@@ -269,9 +268,10 @@ class evolveddiskdf(df):
                     return self._initdf(args[0],use_physical=False)
             elif self._to == t and not deriv is None:
                 if deriv.lower() == 'r':
-                    return self._initdf(args[0])*self._initdf._dlnfdR(args[0]._orb.vxvv[0],
-                                                                      args[0]._orb.vxvv[1],
-                                                                      args[0]._orb.vxvv[2])
+                    return self._initdf(args[0])\
+                        *self._initdf._dlnfdR(args[0].vxvv[...,0],
+                                              args[0].vxvv[...,1],
+                                              args[0].vxvv[...,2])
                 elif deriv.lower() == 'phi':
                     return 0.
             if integrate_method == 'odeint':
@@ -287,13 +287,12 @@ class evolveddiskdf(df):
                     dderiv= 10.**-10.
                     tmp= o.R(use_physical=False)+dderiv
                     dderiv= tmp-o.R(use_physical=False)
-                    o._orb.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
+                    o.integrate_dxdv([dderiv,0.,0.,0.],ts,self._pot,method=integrate_method)
                 elif deriv.lower() == 'phi':
                     dderiv= 10.**-10.
                     tmp= o.phi(use_physical=False)+dderiv
                     dderiv= tmp-o.phi(use_physical=False)
-                    o._orb.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
-                o._orb.orbit= o._orb.orbit_dxdv[:,0:4]
+                    o.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
@@ -307,9 +306,9 @@ class evolveddiskdf(df):
             retval= self._initdf(o(self._to-t,use_physical=False),
                                  use_physical=False)
             #print( int_time/(time.time()-start))
-            if nu.isnan(retval): print(retval, o._orb.vxvv, o(self._to-t)._orb.vxvv)
+            if nu.isnan(retval): print(retval, o.vxvv, o(self._to-t).vxvv)
             if not deriv is None:
-                thisorbit= o(self._to-t)._orb.vxvv
+                thisorbit= o(self._to-t).vxvv[0]
                 dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
                                               thisorbit[1],
                                               thisorbit[2])
@@ -320,9 +319,9 @@ class evolveddiskdf(df):
                                                 thisorbit[1],
                                                 thisorbit[2])
                 indx= list(ts).index(self._to-t)
-                dRo= o._orb.orbit_dxdv[indx,4]/dderiv
-                dvRo= o._orb.orbit_dxdv[indx,5]/dderiv
-                dvTo= o._orb.orbit_dxdv[indx,6]/dderiv
+                dRo= o.getOrbit_dxdv()[indx,0]/dderiv
+                dvRo= o.getOrbit_dxdv()[indx,1]/dderiv
+                dvTo= o.getOrbit_dxdv()[indx,2]/dderiv
                 dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                 retval*= dlnfderiv
         if kwargs.get('log',False) and deriv is None:
