@@ -1968,7 +1968,8 @@ def test_plotting():
     o.plot(d1='ERnorm',d2='R')
     o.plot(d1='Jacobi',d2='R')
     o.plot(d1='Jacobinorm',d2='R')
-    # callables don't work
+    # callables
+    o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
     return None

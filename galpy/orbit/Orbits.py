@@ -4294,13 +4294,16 @@ class Orbits(object):
         # Cannot be using Quantity output
         kwargs['quantity']= False
         if callable(quant):
-            return quant(self.t)
+            out= quant(self.t)
+            if out.shape == self.t.shape:
+                out= numpy.tile(out,self.shape+(1,))
+            return out
         def _eval(q):
             # Check those that don't have the exact name of the function
             if q == 't':
                 # Typically expect this to have same shape as other quantities
                 return numpy.tile(self.time(self.t,**kwargs),
-                                  (len(self),1))
+                                  self.shape+(1,))
             elif q == 'Enorm':
                 return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
             elif q == 'Eznorm':
@@ -4445,8 +4448,8 @@ class Orbits(object):
             d1= kwargs.pop('d1')
             d2= kwargs.pop('d2')
         kwargs['dontreshape']= True
-        x= self._parse_plot_quantity(d1,**kwargs)
-        y= self._parse_plot_quantity(d2,**kwargs)
+        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
+        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
         kwargs.pop('dontreshape')
         kwargs.pop('ro',None)
         kwargs.pop('vo',None)
@@ -4577,9 +4580,9 @@ class Orbits(object):
             d2= kwargs.pop('d2')
             d3= kwargs.pop('d3')
         kwargs['dontreshape']= True
-        x= self._parse_plot_quantity(d1,**kwargs)
-        y= self._parse_plot_quantity(d2,**kwargs)
-        z= self._parse_plot_quantity(d3,**kwargs)
+        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
+        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
+        z= numpy.atleast_2d(self._parse_plot_quantity(d3,**kwargs))
         kwargs.pop('dontreshape')
         kwargs.pop('ro',None)
         kwargs.pop('vo',None)

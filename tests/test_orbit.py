@@ -4473,6 +4473,7 @@ def test_full_plotting():
     o.plot() #defaults
     oa.plot()
     o.plot(d1='vR')
+    o.plot(d2='vR')
     o.plotR()
     o.plotvR(d1='vT')
     o.plotvT(d1='z')
@@ -4511,8 +4512,8 @@ def test_full_plotting():
     o.plot(d1='ERnorm',d2='R')
     o.plot(d1='Jacobi',d2='R')
     o.plot(d1='Jacobinorm',d2='R')
-    # callables don't work
-    #o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
+    # callables
+    o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
     o.plot(d1='R*cos(phi-{:f}*t)'\
@@ -4581,7 +4582,7 @@ def test_full_plotting():
     o.plot3d(d1='helioZ',d2='W',d3='U')
     o.plot3d(d2='helioZ',d1='W',d3='helioX')
     # callables don't work
-    #o.plot3d(d1=lambda t: t,d2=lambda t: o.R(t),d3=lambda t: o.z(t))
+    o.plot3d(d1=lambda t: t,d2=lambda t: o.R(t),d3=lambda t: o.z(t))
     # Test AttributeErrors
     try: o.plot3d(d1='R') #shouldn't work, bc there is no default
     except AttributeError: pass
