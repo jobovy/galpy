@@ -4272,6 +4272,29 @@ def test_orbit_sun_setup():
     assert numpy.fabs(o.vbb()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero velocity in the Galactic latitude direction'
     assert numpy.fabs(o.vlos()) < 1e-10, 'Orbit with no vxvv does not produce an orbit with zero line-of-sight velocity'
 
+def test_integrate_dxdv_errors():
+    from galpy.orbit import Orbit
+    ts= numpy.linspace(0.,10.,1001)
+    # Test that attempting to use integrate_dxdv with a non-phasedim==4 orbit 
+    # raises error
+    o= Orbit([1.,0.1])
+    with pytest.raises(AttributeError) as excinfo:
+        o.integrate_dxdv(None,ts,potential.toVertical(potential.MWPotential,1.))
+    o= Orbit([1.,0.1,1.])
+    with pytest.raises(AttributeError) as excinfo:
+        o.integrate_dxdv(None,ts,potential.MWPotential)
+    o= Orbit([1.,0.1,1.,0.1,0.1])
+    with pytest.raises(AttributeError) as excinfo:
+        o.integrate_dxdv(None,ts,potential.MWPotential)
+    o= Orbit([1.,0.1,1.,0.1,0.1,3.])
+    with pytest.raises(AttributeError) as excinfo:
+        o.integrate_dxdv(None,ts,potential.MWPotential)
+    # Test that a random string as the integrator doesn't work
+    o= Orbit([1.,0.1,1.,3.])
+    with pytest.raises(ValueError) as excinfo:
+        o.integrate_dxdv(None,ts,potential.MWPotential,method='some non-existent integrator')
+    return None
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential.verticalPotential import RZToverticalPotential
