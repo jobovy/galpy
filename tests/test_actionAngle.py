@@ -2435,14 +2435,14 @@ def test_orbit_interface_staeckel():
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'staeckel'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,delta=0.71),
-                        obs.jp(pot=MWPotential,type=type),
-                        obs.jz(pot=MWPotential,type=type),
-                        obs.Or(pot=MWPotential,type=type),
-                        obs.Op(pot=MWPotential,type=type),
-                        obs.Oz(pot=MWPotential,type=type),
-                        obs.wr(pot=MWPotential,type=type),
-                        obs.wp(pot=MWPotential,type=type),
-                        obs.wz(pot=MWPotential,type=type)])
+                        obs.jp(pot=MWPotential,type=type,delta=0.71),
+                        obs.jz(pot=MWPotential,type=type,delta=0.71),
+                        obs.Or(pot=MWPotential,type=type,delta=0.71),
+                        obs.Op(pot=MWPotential,type=type,delta=0.71),
+                        obs.Oz(pot=MWPotential,type=type,delta=0.71),
+                        obs.wr(pot=MWPotential,type=type,delta=0.71),
+                        obs.wp(pot=MWPotential,type=type,delta=0.71),
+                        obs.wz(pot=MWPotential,type=type,delta=0.71)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
     return None
@@ -2460,7 +2460,7 @@ def test_orbit_interface_staeckel_defaultdelta():
     aAS= actionAngleStaeckel(pot=MWPotential2014,delta=est_delta)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'staeckel'
-    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type,delta=0.71),
+    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type),
                         obs.jp(pot=MWPotential2014,type=type),
                         obs.jz(pot=MWPotential2014,type=type),
                         obs.Or(pot=MWPotential2014,type=type),
@@ -2519,6 +2519,8 @@ def test_orbits_interface_staeckel_PotentialErrors():
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
+# currently fails bc actionAngleAdiabatic doesn't have actionsFreqsAngles
+@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
@@ -2540,29 +2542,28 @@ def test_orbit_interface_actionAngleIsochroneApprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     aAS= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
-    acfs= list(aAS(obs))
-    acfs.extend(list(aAS.actionsFreqsAngles([obs()]))[3:])
+    acfs= aAS.actionsFreqsAngles([obs()])
     acfs= numpy.array(acfs).reshape(9)
     type= 'isochroneApprox'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,b=0.8),
-                        obs.jp(pot=MWPotential,type=type),
-                        obs.jz(pot=MWPotential,type=type),
-                        obs.Or(pot=MWPotential,type=type),
-                        obs.Op(pot=MWPotential,type=type),
-                        obs.Oz(pot=MWPotential,type=type),
-                        obs.wr(pot=MWPotential,type=type),
-                        obs.wp(pot=MWPotential,type=type),
-                        obs.wz(pot=MWPotential,type=type)])
+                        obs.jp(pot=MWPotential,type=type,b=0.8),
+                        obs.jz(pot=MWPotential,type=type,b=0.8),
+                        obs.Or(pot=MWPotential,type=type,b=0.8),
+                        obs.Op(pot=MWPotential,type=type,b=0.8),
+                        obs.Oz(pot=MWPotential,type=type,b=0.8),
+                        obs.wr(pot=MWPotential,type=type,b=0.8),
+                        obs.wp(pot=MWPotential,type=type,b=0.8),
+                        obs.wz(pot=MWPotential,type=type,b=0.8)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApproxStaeckel does not return the same as actionAngle interface'
-    assert numpy.abs(obs.Tr(pot=MWPotential,type=type)-2.*numpy.pi/acfso[3]) < 10.**-16., \
-        'Orbit.Tr does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.Tp(pot=MWPotential,type=type)-2.*numpy.pi/acfso[4]) < 10.**-16., \
-        'Orbit.Tp does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.Tz(pot=MWPotential,type=type)-2.*numpy.pi/acfso[5]) < 10.**-16., \
-        'Orbit.Tz does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
-        'Orbit.TrTp does not agree with actionAngleSpherical frequency'
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+        'Orbit.Tr does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+        'Orbit.Tp does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+        'Orbit.Tz does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+        'Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency'
     return None
 
 # Test physical output for actionAngleStaeckel
