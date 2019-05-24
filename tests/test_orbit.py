@@ -1926,7 +1926,6 @@ def test_orbit_setup_linear():
 
 def test_orbit_setup_planar():
     from galpy.orbit import Orbit
-    from galpy.orbit.planarOrbit import planarROrbit
     o= Orbit([1.,0.1,1.1])
     assert o.dim() == 2, 'planarROrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
@@ -1936,7 +1935,8 @@ def test_orbit_setup_planar():
         # setphi was deprecated when moving to Orbits
         o.setphi(3.)
         assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
-        assert not isinstance(o._orb,planarROrbit), 'After applying setphi, planarROrbit did not become planarOrbit'
+        # planarROrbit no longer exists after moving to Orbits
+        #assert not isinstance(o._orb,planarROrbit), 'After applying setphi, planarROrbit did not become planarOrbit'
     o= Orbit([1.,0.1,1.1,2.])
     assert o.dim() == 2, 'planarOrbit does not have dim == 2'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'planarOrbit R setup does not agree with o.R()'
