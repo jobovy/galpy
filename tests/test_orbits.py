@@ -568,6 +568,14 @@ def test_initialize_diffphasedim_error():
         Orbits([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
     return None
 
+# Test that initializing Orbits with a list of non-scalar Orbits raises an error
+def test_initialize_listorbits_error():
+    from galpy.orbit import Orbits
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([Orbits([[1.,0.1],[1.,0.1,1.]]),
+                Orbits([[1.,0.1],[1.,0.1,1.]])])
+    return None
+               
 def test_orbits_consistentro():
     from galpy.orbit import Orbit, Orbits
     ro= 7.
