@@ -1708,7 +1708,7 @@ def test_fixedstepsize():
     # Somewhat long time
     times= numpy.linspace(0.,100.,30001)
     # Test the following multiples
-    mults= [10.]
+    mults= [1.,10.]
     # Just do this for LogarithmicHaloPotential
     pot= LogarithmicHaloPotential(normalize=1.)
     planarpot= pot.toPlanar()
@@ -1727,11 +1727,13 @@ def test_fixedstepsize():
             runtimes= numpy.empty(len(mults))
             for ii,mult in enumerate(mults):
                 start= time.time()
-                o.integrate(times,pot,dt=(times[1]-times[0])/mult)
+                o.integrate(times,pot,dt=(times[1]-times[0])/mult,
+                            method=integrator)
                 runtimes[ii]= time.time()-start
             for ii,mult in enumerate(mults):
                 if ii == 0: continue
-                assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.4, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
+                # Pretty loose test, because hard to get exactly right with overhead
+                assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.7, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
 numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],runtimes[ii]/runtimes[0])
     return None
 
