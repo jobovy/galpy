@@ -1457,6 +1457,16 @@ def test_orbits_inconsistentPotentialUnits_error():
         o.integrate(ts,[pot])
     return None
 
+def test_orbit_method_inputAsQuantity():
+    from galpy.orbit import Orbit
+    from galpy import potential
+    ro, vo= 7., 210.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    assert numpy.fabs(o.Jacobi(pot=potential.MWPotential,OmegaP=41*units.km/units.s/units.kpc,use_physical=False)-o.Jacobi(pot=potential.MWPotential,OmegaP=41.*ro/vo,use_physical=False)) < 10.**-8., 'Orbit method Jacobi does not return the correct value when input OmegaP is Quantity'
+    return None
+
 def test_change_ro_config():
     from galpy.orbit import Orbit
     from galpy.util import config
