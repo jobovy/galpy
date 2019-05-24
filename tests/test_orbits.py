@@ -2956,3 +2956,21 @@ def test_pickling():
     assert numpy.fabs(orbits_unpickled.phi()[0]-1.5) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert numpy.fabs(orbits_unpickled.phi()[1]-2.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     return None
+
+def test_from_name_values():
+    from galpy.orbit import Orbit
+    # test Vega and Lacaille 8760 
+    o = Orbit.from_name(['Vega','Lacaille 8760'])
+    assert numpy.allclose(o.ra(), [279.23473479,319.31362024]), \
+        "RA of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
+        "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+        "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+        "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+        "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
+        "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    return None
