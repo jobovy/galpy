@@ -83,7 +83,7 @@ install:
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then conda install astropy --no-deps; fi
  - if $REQUIRES_ASTROQUERY; then pip install astroquery; fi
 # Compile w/o OpenMP for one, to make sure that works
- - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then python setup.py build_ext --coverage --single_ext --inplace --no-openmp; else python setup.py build_ext --coverage --single_ext --inplace; fi
+ - if [[ $TRAVIS_PYTHON_VERSION != $PYTHON_COVREPORTS_VERSION ]] && [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then python setup.py build_ext --coverage --single_ext --inplace --no-openmp; else python setup.py build_ext --coverage --single_ext --inplace; fi
  - python setup.py develop --single_ext
 # Following tests that we can start from an incomplete configuration file
  - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
