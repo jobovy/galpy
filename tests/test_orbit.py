@@ -1737,6 +1737,37 @@ def test_fixedstepsize():
 numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],runtimes[ii]/runtimes[0])
     return None
 
+# Test that fixing the stepsize works for integrate_dxdv
+def test_fixedstepsize_dxdv():
+    from galpy.potential import LogarithmicHaloPotential
+    import time
+    # Integrators for which it should work
+    integrators= ['rk4_c','rk6_c']
+    # Somewhat long time
+    from astropy import units
+    times= numpy.linspace(0.,100.,90001)/280.*units.Gyr
+    # Test the following multiples
+    mults= [1.,10.]
+    # Just do this for LogarithmicHaloPotential
+    pot= LogarithmicHaloPotential(normalize=1.)
+    planarpot= pot.toPlanar()
+    # Loop through integrators and different types of orbits
+    for integrator in integrators:
+        o= setup_orbit_energy(planarpot,axi=False)
+        runtimes= numpy.empty(len(mults))
+        for ii,mult in enumerate(mults):
+            start= time.time()
+            o.integrate_dxdv(1e-2*numpy.ones(4),
+                             times,planarpot,dt=(times[1]-times[0])/mult,
+                             method=integrator)
+            runtimes[ii]= time.time()-start
+        for ii,mult in enumerate(mults):
+            if ii == 0: continue
+            # Pretty loose test, because hard to get exactly right with overhead
+            assert numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.) < 0.7, 'Runtime of integration with fixed stepsize for integrator %s, type or orbit %s, stepsize reduction %i is not %i times less (residual is %g, times %g and %g)' % (integrator,type,mults[ii],mults[ii],
+numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],runtimes[ii]/runtimes[0])
+    return None
+
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
 # Not implemented for Orbits currently
 @pytest.mark.xfail(raises=RuntimeError,strict=True)
