@@ -108,7 +108,7 @@ def test_actionAngleIsochrone_conserved_actions():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAI,obs,ip,-5.,-5.,-5.)
     else:
@@ -123,7 +123,7 @@ def test_actionAngleIsochrone_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -286,7 +286,7 @@ def test_actionAngleSpherical_conserved_actions():
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101)
     else:
@@ -301,7 +301,7 @@ def test_actionAngleSpherical_conserved_actions_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101,
                                             fixed_quad=True)
@@ -318,7 +318,7 @@ def test_actionAngleSpherical_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -341,7 +341,7 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -1486,7 +1486,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1535,7 +1535,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy import potential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential, \
@@ -1576,7 +1576,7 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     if not ext_loaded: #odeint is not as accurate as dopr54_c
@@ -1673,7 +1673,7 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
         PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1947,7 +1947,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2025,7 +2025,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2087,7 +2087,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)

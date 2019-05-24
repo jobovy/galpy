@@ -2022,7 +2022,6 @@ def test_orbit_setup_planar():
 
 def test_orbit_setup():
     from galpy.orbit import Orbit
-    from galpy.orbit.FullOrbit import FullOrbit
     o= Orbit([1.,0.1,1.1,0.2,0.3])
     assert o.dim() == 3, 'RZOrbitOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
@@ -2035,7 +2034,8 @@ def test_orbit_setup():
         # setphi was deprecated when moving to Orbits
         o.setphi(3.)
         assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
-        assert isinstance(o._orb,FullOrbit), 'After applying setphi, RZOrbit did not become FullOrbit'
+        # FullOrbit no longer exists after switch to Orbits
+        #assert isinstance(o._orb,FullOrbit), 'After applying setphi, RZOrbit did not become FullOrbit'
     o= Orbit([1.,0.1,1.1,0.2,0.3,2.])
     assert o.dim() == 3, 'FullOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
@@ -2352,7 +2352,7 @@ def test_toLinear():
     ro,vo= 10.,300.
     obs= Orbit([1.,0.1,1.1,0.3,0.,2.],ro=ro,vo=vo)
     obsl= obs.toLinear()
-    assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
+    assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
     assert obsl.x() == obs.z(), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert obsl.vx() == obs.vz(), 'Linear orbit generated w/ toLinear does not have the correct vx'
     assert numpy.fabs(obs._ro-obsl._ro) < 10.**-15., 'Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it'
