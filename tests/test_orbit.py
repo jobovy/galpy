@@ -1769,8 +1769,7 @@ numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],ru
     return None
 
 # Check that adding a linear orbit to a planar orbit gives a FullOrbit
-# Not implemented for Orbits currently
-@pytest.mark.xfail(raises=RuntimeError,strict=True)
+@pytest.mark.skip(reason="Not implemented for Orbits currently")
 def test_add_linear_planar_orbit():
     from galpy.orbit import FullOrbit, RZOrbit
     kg= potential.KGPotential()
