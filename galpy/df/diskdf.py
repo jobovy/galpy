@@ -161,24 +161,24 @@ class diskdf(df):
                 elif kwargs.pop('marginalizeVlos',False):
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
-                    return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
-                                                        args[0]._orb.vxvv[2],
-                                                        args[0]._orb.vxvv[0],
+                    return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[...,1],
+                                                        args[0].vxvv[...,2],
+                                                        args[0].vxvv[...,0],
                                                         self._beta,
                                                         self._dftype)))
             else:
                 no= args[0](args[1])
-                return sc.real(self.eval(*vRvTRToEL(no._orb.vxvv[1],
-                                                    no._orb.vxvv[2],
-                                                    no._orb.vxvv[0],
+                return sc.real(self.eval(*vRvTRToEL(no.vxvv[...,1],
+                                                    no.vxvv[...,2],
+                                                    no.vxvv[...,0],
                                                     self._beta,
                                                     self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
             #Grab all of the vR, vT, and R
-            vR= nu.array([o._orb.vxvv[1] for o in args[0]])
-            vT= nu.array([o._orb.vxvv[2] for o in args[0]])
-            R= nu.array([o._orb.vxvv[0] for o in args[0]])
+            vR= nu.array([o.vxvv[...,1] for o in args[0]])
+            vT= nu.array([o.vxvv[...,2] for o in args[0]])
+            R= nu.array([o.vxvv[...,0] for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
                                                 self._dftype)))
         elif isinstance(args[0],nu.ndarray) and \
@@ -1803,17 +1803,17 @@ class dehnendf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)._orb.vxvv
+                    vxvv= thisOrbit(tr).vxvv[0]
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()\
                                                         *math.pi*2.])\
                                          .reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
-                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
+                kappa= _kappa(thisOrbit.vxvv[...,0],self._beta)
                 if not rrange == None:
-                    if thisOrbit._orb.vxvv[0] < rrange[0] \
-                            or thisOrbit._orb.vxvv[0] > rrange[1]:
+                    if thisOrbit.vxvv[...,0] < rrange[0] \
+                            or thisOrbit.vxvv[...,0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
@@ -2093,15 +2093,15 @@ class shudf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)._orb.vxvv
+                    vxvv= thisOrbit(tr).vxvv[0]
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()*math.pi*2.]).reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
-                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
+                kappa= _kappa(thisOrbit.vxvv[...,0],self._beta)
                 if not rrange == None:
-                    if thisOrbit._orb.vxvv[0] < rrange[0] \
-                            or thisOrbit._orb.vxvv[0] > rrange[1]:
+                    if thisOrbit.vxvv[...,0] < rrange[0] \
+                            or thisOrbit.vxvv[...,0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
