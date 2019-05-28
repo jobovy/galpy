@@ -11,6 +11,7 @@ Class
    :maxdepth: 2
 
    Orbit <orbitinit.rst>
+   Orbit.from_fit <orbitfromfit.rst>
    Orbit.from_name <orbitfromname.rst>
 
 Methods
@@ -19,7 +20,6 @@ Methods
 .. toctree::
    :maxdepth: 2
 
-   __add__ <orbitadd.rst>
    __call__ <orbitcall.rst>
    animate <orbitanimate.rst>
    bb <orbitbb.rst>
@@ -30,7 +30,6 @@ Methods
    e <orbitecc.rst>
    ER <orbitER.rst>
    Ez <orbitEz.rst>
-   fit <orbitfit.rst>
    flip <orbitflip.rst>
    integrate <orbitint.rst>
    integrate_dxdv <orbitintdxdv.rst>
@@ -74,10 +73,8 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
-   resetaA <orbitresetaa.rst>
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
-   setphi <orbitsetphi.rst>
    SkyCoord <orbitskycoord.rst>
    time <orbittime.rst>
    toLinear <orbittolinear.rst>
