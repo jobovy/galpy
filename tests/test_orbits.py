@@ -1868,11 +1868,19 @@ def test_plotting():
     from galpy.potential import LogarithmicHaloPotential
     o= Orbits([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
     oa= Orbits([Orbit([1.,0.1,1.1,0.1,0.2]),Orbit([1.,0.1,1.1,0.1,0.2])])
+    # Interesting shape
+    os= Orbits(numpy.array([[[1.,0.1,1.1,-0.1,-0.2,0.],
+                             [1.,0.2,1.2,0.,-0.1,1.]],
+                            [[1.,-0.2,0.9,0.2,0.2,2.],
+                             [1.2,-0.4,1.1,-0.1,0.,-2.]],
+                            [[1., 0.2,0.9,0.3,-0.2,0.1],
+                             [1.2, 0.4,1.1,-0.2,0.05,4.]]]))
     times= numpy.linspace(0.,7.,251)
     lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
     # Integrate
     o.integrate(times,lp)
     oa.integrate(times,lp)
+    os.integrate(times,lp)
     # Some plots
     # Energy
     o.plotE()
@@ -1889,6 +1897,12 @@ def test_plotting():
     oa.plotE(pot=lp,d1='vT')
     oa.plotE(pot=lp,d1='z')
     oa.plotE(pot=lp,d1='vz')
+    os.plotE()
+    os.plotE(pot=lp,d1='R')
+    os.plotE(pot=lp,d1='vR')
+    os.plotE(pot=lp,d1='vT')
+    os.plotE(pot=lp,d1='z')
+    os.plotE(pot=lp,d1='vz')
     # Vertical energy
     o.plotEz()
     o.plotEz(normed=True)
@@ -1905,12 +1919,21 @@ def test_plotting():
     oa.plotEz(pot=lp,d1='vT')
     oa.plotEz(pot=lp,d1='z')
     oa.plotEz(pot=lp,d1='vz')
+    os.plotEz()
+    os.plotEz(normed=True)
+    os.plotEz(pot=lp,d1='R')
+    os.plotEz(pot=lp,d1='vR')
+    os.plotEz(pot=lp,d1='vT')
+    os.plotEz(pot=lp,d1='z')
+    os.plotEz(pot=lp,d1='vz')
     # Radial energy
     o.plotER()
     o.plotER(normed=True)
     # Radial energy
     oa.plotER()
     oa.plotER(normed=True)
+    os.plotER()
+    os.plotER(normed=True)
     # Jacobi
     o.plotJacobi()
     o.plotJacobi(normed=True)
@@ -1926,9 +1949,16 @@ def test_plotting():
     oa.plotJacobi(pot=lp,d1='vT')
     oa.plotJacobi(pot=lp,d1='z')
     oa.plotJacobi(pot=lp,d1='vz')
+    os.plotJacobi()
+    os.plotJacobi(pot=lp,d1='R',OmegaP=1.)
+    os.plotJacobi(pot=lp,d1='vR')
+    os.plotJacobi(pot=lp,d1='vT')
+    os.plotJacobi(pot=lp,d1='z')
+    os.plotJacobi(pot=lp,d1='vz')
     # Plot the orbit itself
     o.plot() #defaults
     oa.plot()
+    os.plot()
     o.plot(d1='vR')
     o.plotR()
     o.plotvR(d1='vT')
@@ -1972,6 +2002,7 @@ def test_plotting():
     o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
+    os.plot(d1='t',d2='r*R/vR')
     return None
 
 def test_integrate_method_warning():
