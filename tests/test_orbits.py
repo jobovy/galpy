@@ -7,49 +7,9 @@ from galpy import potential
 import astropy
 _APY3= astropy.__version__ > '3'
 
-# Test that initializing an Orbit (not an Orbits) with an array of SkyCoords
-# processes the input correctly into the Orbit._orb.vxvv attribute;
-# The Orbits class depends on this to process arrays SkyCoords itself quickly
-def test_orbit_initialization_SkyCoordarray():
-    # Only run this for astropy>3
-    if not _APY3: return None
-    from galpy.orbit import Orbit
-    numpy.random.seed(1)
-    nrand= 30
-    ras= numpy.random.uniform(size=nrand)*360.*u.deg
-    decs= 90.*(2.*numpy.random.uniform(size=nrand)-1.)*u.deg
-    dists= numpy.random.uniform(size=nrand)*10.*u.kpc
-    pmras= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
-    pmdecs= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
-    vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
-    # Without any custom coordinate-transformation parameters
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
-                           pm_ra_cosdec=pmras,pm_dec=pmdecs,
-                           radial_velocity=vloss,
-                           frame='icrs')
-    os= Orbit(co)
-    vxvv= numpy.array(os._orb.vxvv).T
-    for ii in range(nrand):
-        to= Orbit(co[ii])
-        assert numpy.all(numpy.fabs(numpy.array(to._orb.vxvv)-vxvv[ii]) < 1e-10), 'Orbit initialization with an array of SkyCoords does not give the same result as processing each SkyCoord individually'
-    # With custom coordinate-transformation parameters
-    v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
-                           pm_ra_cosdec=pmras,pm_dec=pmdecs,
-                           radial_velocity=vloss,
-                           frame='icrs',
-                           galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
-                           galcen_v_sun=v_sun)
-    os= Orbit(co)
-    vxvv= numpy.array(os._orb.vxvv).T
-    for ii in range(nrand):
-        to= Orbit(co[ii])
-        assert numpy.all(numpy.fabs(numpy.array(to._orb.vxvv)-vxvv[ii]) < 1e-10), 'Orbit initialization with an array of SkyCoords does not give the same result as processing each SkyCoord individually'
-    return None
-
 # Test Orbits initialization
 def test_initialization_vxvv():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbits
     # 1D
     vxvvs= [[1.,0.1],[0.1,3.]]
     orbits= Orbits(vxvvs)
@@ -164,18 +124,6 @@ def test_initialization_SkyCoord():
         assert numpy.fabs(orbits.z()[ii]-to.z()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
         assert numpy.fabs(orbits.vz()[ii]-to.vz()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
         assert numpy.fabs(orbits.phi()[ii]-to.phi()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
-    return None
-
-# Test that attempting to initialize Orbits with radec, lb, or uvw gives 
-# an error
-def test_initialization_radecetc_error():
-    from galpy.orbit import Orbits
-    with pytest.raises(NotImplementedError) as excinfo:
-        Orbits([[0.,0.,0.,0.,0.,0.,]],radec=True)
-    with pytest.raises(NotImplementedError) as excinfo:
-        Orbits([[0.,0.,0.,0.,0.,0.,]],lb=True)
-    with pytest.raises(NotImplementedError) as excinfo:
-        Orbits([[0.,0.,0.,0.,0.,0.,]],radec=True,uvw=True)
     return None
 
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
@@ -293,7 +241,7 @@ def test_integration_p5d():
     return None
     
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
-# instances when using parallel_map Python paralleliization
+# instances when using parallel_map Python parallelization
 def test_integration_forcemap_1d():
     from galpy.orbit import Orbit, Orbits
     times= numpy.linspace(0.,10.,1001)
@@ -361,6 +309,60 @@ def test_integration_forcemap_3d():
         assert numpy.amax(numpy.fabs((((orbits_list[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
+def test_integration_dxdv_2d():
+    from galpy.orbit import Orbit, Orbits
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
+                  Orbit([1.2,-0.3,0.7,5.])]
+    orbits= Orbits(orbits_list)
+    numpy.random.seed(1)
+    dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
+    # Default, C integration
+    integrator= 'dopr54_c'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    # Python integration
+    integrator= 'odeint'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    return None
+    
+def test_integration_dxdv_2d_rectInOut():
+    from galpy.orbit import Orbit, Orbits
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
+                  Orbit([1.2,-0.3,0.7,5.])]
+    orbits= Orbits(orbits_list)
+    numpy.random.seed(1)
+    dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
+    # Default, C integration
+    integrator= 'dopr54_c'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator,
+                          rectIn=True,rectOut=True)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator,
+                         rectIn=True,rectOut=True)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    # Python integration
+    integrator= 'odeint'
+    orbits.integrate_dxdv(dxdv,times,lp,method=integrator,
+                          rectIn=True,rectOut=True)
+    # Integrate as multiple Orbits
+    for o,tdxdv in zip(orbits_list,dxdv):
+        o.integrate_dxdv(tdxdv,times,lp,method=integrator,
+                         rectIn=True,rectOut=True)
+    assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
+    return None
+    
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit, Orbits
@@ -566,6 +568,14 @@ def test_initialize_diffphasedim_error():
         Orbits([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
     return None
 
+# Test that initializing Orbits with a list of non-scalar Orbits raises an error
+def test_initialize_listorbits_error():
+    from galpy.orbit import Orbits
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbits([Orbits([[1.,0.1],[1.,0.1]]),
+                Orbits([[1.,0.1],[1.,0.1]])])
+    return None
+               
 def test_orbits_consistentro():
     from galpy.orbit import Orbit, Orbits
     ro= 7.
@@ -612,7 +622,7 @@ def test_orbits_consistentzo():
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
     orbits= Orbits(orbits_list)
     # Check that zo is taken correctly
-    assert numpy.fabs(orbits._zo-orbits_list[0]._orb._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
+    assert numpy.fabs(orbits._zo-orbits_list[0]._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
     # Check that consistency of zos is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits= Orbits(orbits_list,zo=0.045)
@@ -630,7 +640,7 @@ def test_orbits_consistentsolarmotion():
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
     orbits= Orbits(orbits_list)
     # Check that solarmotion is taken correctly
-    assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._orb._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
+    assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
     # Check that consistency of solarmotions is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits= Orbits(orbits_list,solarmotion=numpy.array([15.,20.,30]))
@@ -1559,6 +1569,58 @@ def test_output_reshape():
                     assert numpy.all(numpy.fabs(os.SkyCoord(times).radial_velocity[ii,jj,kk]-list_os[ii][jj][kk].SkyCoord(times).radial_velocity).to(u.km/u.s).value < 1e-9), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     return None
 
+def test_output_specialshapes():
+    # Test that the output shape is correct and that the shaped output is correct, for 'special' inputs (single objects, ...)
+    from galpy.orbit import Orbits
+    # vxvv= list of [R,vR,vT,z,...] should be shape == () and scalar output
+    os= Orbits([1.,0.1,1.,0.1,0.,0.1])
+    assert os.shape == (), 'Shape of Orbits with list of [R,vR,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [R,vR,...] input does not return scalar'
+    # Similar for list [ra,dec,...]
+    os= Orbits([1.,0.1,1.,0.1,0.,0.1],radec=True)
+    assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] input does not return scalar'
+    # Also with units
+    os= Orbits([1.*u.deg,0.1*u.rad,1.*u.pc,0.1*u.mas/u.yr,0.*u.arcsec/u.yr,0.1*u.pc/u.Myr],radec=True)
+    assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] w/units input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] w/units input does not return scalar'
+    # Also from_name
+    os= Orbits.from_name('LMC')
+    assert os.shape == (), 'Shape of Orbits with from_name single object is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with from_name single object does not return scalar'
+    # vxvv= list of list of [R,vR,vT,z,...] should be shape == (1,) and array output
+    os= Orbits([[1.,0.1,1.,0.1,0.,0.1]])
+    assert os.shape == (1,), 'Shape of Orbits with list of list of [R,vR,...] input is not (1,)'
+    assert numpy.ndim(os.R()) == 1, 'Orbits with list of list of [R,vR,...] input does not return array'
+    # vxvv= array of [R,vR,vT,z,...] should be shape == () and scalar output
+    os= Orbits(numpy.array([1.,0.1,1.,0.1,0.,0.1]))
+    assert os.shape == (), 'Shape of Orbits with array of [R,vR,...] input is not empty'
+    assert numpy.ndim(os.R()) == 0, 'Orbits with array of [R,vR,...] input does not return scalar'
+    if _APY3:
+        # vxvv= single SkyCoord should be shape == () and scalar output
+        co= apycoords.SkyCoord(ra=1.*u.deg,dec=0.5*u.rad,distance=2.*u.kpc,
+                               pm_ra_cosdec=-0.1*u.mas/u.yr,
+                               pm_dec=10.*u.mas/u.yr,
+                               radial_velocity=10.*u.km/u.s,
+                               frame='icrs')
+        os= Orbits(co)
+        assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+        # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
+        s= numpy.ones(1)
+        co= apycoords.SkyCoord(ra=s*1.*u.deg,dec=s*0.5*u.rad,
+                               distance=s*2.*u.kpc,
+                               pm_ra_cosdec=-0.1*u.mas/u.yr*s,
+                               pm_dec=10.*u.mas/u.yr*s,
+                               radial_velocity=10.*u.km/u.s*s,
+                               frame='icrs')
+        os= Orbits(co)
+        assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
+        # vxvv= None should be shape == (1,) and array output
+        os= Orbits()
+        assert os.shape == (), 'Shape of Orbits with vxvv=None input is not empty'
+        assert numpy.ndim(os.R()) == 0, 'Orbits with with vxvv=None input does not return scalar'
+    return None
+
 def test_call_issue256():
     # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
     from galpy.orbit import Orbits
@@ -1849,20 +1911,6 @@ def test_plotting():
     # Radial energy
     oa.plotER()
     oa.plotER(normed=True)
-    # EzJz
-    o.plotEzJz()
-    o.plotEzJz(pot=lp,d1='R')
-    o.plotEzJz(pot=lp,d1='vR')
-    o.plotEzJz(pot=lp,d1='vT')
-    o.plotEzJz(pot=lp,d1='z')
-    o.plotEzJz(pot=lp,d1='vz')
-    o.plotEzJz(pot=lp,d1='phi')
-    oa.plotEzJz()
-    oa.plotEzJz(pot=lp,d1='R')
-    oa.plotEzJz(pot=lp,d1='vR')
-    oa.plotEzJz(pot=lp,d1='vT')
-    oa.plotEzJz(pot=lp,d1='z')
-    oa.plotEzJz(pot=lp,d1='vz')
     # Jacobi
     o.plotJacobi()
     o.plotJacobi(normed=True)
@@ -1920,7 +1968,8 @@ def test_plotting():
     o.plot(d1='ERnorm',d2='R')
     o.plot(d1='Jacobi',d2='R')
     o.plot(d1='Jacobinorm',d2='R')
-    # callables don't work
+    # callables
+    o.plot(d1=lambda t: t,d2=lambda t: o.R(t))
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
     return None
@@ -2907,4 +2956,22 @@ def test_pickling():
     assert numpy.fabs(orbits_unpickled.vz()[1]-0.4) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert numpy.fabs(orbits_unpickled.phi()[0]-1.5) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert numpy.fabs(orbits_unpickled.phi()[1]-2.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
+    return None
+
+def test_from_name_values():
+    from galpy.orbit import Orbit
+    # test Vega and Lacaille 8760 
+    o = Orbit.from_name(['Vega','Lacaille 8760'])
+    assert numpy.allclose(o.ra(), [279.23473479,319.31362024]), \
+        "RA of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
+        "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+        "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+        "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+        "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
+        "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
     return None

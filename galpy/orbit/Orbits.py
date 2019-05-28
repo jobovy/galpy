@@ -7,16 +7,21 @@ from random import choice
 from string import ascii_lowercase
 import warnings
 import numpy
-from scipy import interpolate
-from .Orbit import Orbit, _check_integrate_dt, _check_potential_dim, \
-    _check_consistent_units
-from .OrbitTop import _check_roSet, _check_voSet, _helioXYZ, _lbd, _radec, \
-    _XYZvxvyvz, _lbdvrpmllpmbb, _pmrapmdec
+from scipy import interpolate, optimize
+import scipy
+_SCIPY_VERSION= [int(v.split('rc')[0])
+                 for v in scipy.__version__.split('.')]
+if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
+    from scipy.maxentropy import logsumexp
+elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
+    from scipy.misc import logsumexp
+else:
+    from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.bovy_coords import _K
-from ..util.multi import parallel_map
-from ..util.bovy_plot import _add_ticks
+from ..util import bovy_coords as coords
+import galpy.util.bovy_plot as plot
 from ..util import bovy_conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
@@ -24,23 +29,36 @@ from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
 from ..potential import rl, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
-from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded
-from .integratePlanarOrbit import integratePlanarOrbit_c
-from .integrateFullOrbit import integrateFullOrbit_c
+from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
+    integrateLinearOrbit
+from .integratePlanarOrbit import integratePlanarOrbit_c, \
+    integratePlanarOrbit, integratePlanarOrbit_dxdv
+from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 from .. import actionAngle
 ext_loaded= _ext_loaded
+_APY_LOADED= True
 try:
     from astropy.coordinates import SkyCoord
-    _APY_LOADED = True
 except ImportError:
     SkyCoord = None
-    _APY_LOADED = False
+    _APY_LOADED= False
 if _APY_LOADED:
     from astropy import units, coordinates
     import astropy
     _APY3= astropy.__version__ > '3'
+    _APY_GE_31= tuple(map(int,(astropy.__version__.split('.')))) > (3,0,5)
+_ASTROQUERY_LOADED= True
+try:
+    from astroquery.simbad import Simbad
+except ImportError:
+    _ASTROQUERY_LOADED= False
 from galpy.util import config
 _APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
+if _APY_LOADED:
+    vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
+                 units.kpc,units.km/units.s,units.rad]
+else:
+    _APY_UNITS= False
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
     _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
@@ -55,6 +73,8 @@ def shapeDecorator(func):
         result= func(*args,**kwargs)
         if dontreshape:
             return result
+        elif args[0].shape == ():
+            return result[0]
         else:
             return numpy.reshape(result,args[0].shape+result.shape[1:])
     return shape_wrapper
@@ -62,7 +82,7 @@ class Orbits(object):
     """
     Class representing multiple orbits.
     """
-    def __init__(self, vxvv=[None],ro=None,vo=None,zo=None,solarmotion=None,
+    def __init__(self,vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
                  radec=False,uvw=False,lb=False):
         """
         NAME:
@@ -77,17 +97,33 @@ class Orbits(object):
 
             vxvv - initial conditions (must all have the same phase-space dimension); can be either
 
-                a) list of Orbit instances
+                a) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
 
-                b) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
+                b) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit); shape information is retained and used in outputs; elements can be either
 
-                c) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit) or list of initial conditions for individual Orbit instances; elements can be either
+                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; needs to be in internal units (for Quantity input; see 'list' option below)
 
-                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; can be Quantities
+                    2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); (for Quantity input, see 'list' option below); ICRS frame
 
-                    2) None: (only works for lists) assumed to be the Sun
-                    
-              Shape information is retained and used in outputs
+                    4) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below); ICRS frame
+
+                    5) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (all J2000.0; mu_l = mu_l * cos b); (for Quantity input; see 'list' option below)
+
+                    6) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below)
+
+                    5) and 6) also work when leaving out b and mu_b/W
+
+                d) lists of initial conditions, entries can be
+
+                    1) individual Orbit instances
+
+                    2) Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+
+                    3) list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
+
+                    4) None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists (2 and 3 above)
+
+                    5) lists of scalar phase-space coordinates arranged as in c) (so things like [R,vR,...] where R,vR are scalars in internal units
 
         OPTIONAL INPUTS:
 
@@ -116,126 +152,556 @@ class Orbits(object):
             2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
 
         """
-        if radec or lb or uvw:
-            raise NotImplementedError("Orbits initialization with radec=True, lb=True, and uvw=True is not implemented; please initialize using an array of astropy SkyCoords instead")
+        # If you change the way an Orbit object is setup, also change each of
+        # the methods that return Orbits
+        # First deal with None = Sun
+        if vxvv is None: # Assume one wants the Sun
+            vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
+            radec= True
+        elif isinstance(vxvv,list):
+            if None in vxvv:
+                vxvv= [[0.,0.,0.,0.,0.,0.] 
+                       if tvxvv is None else tvxvv
+                       for tvxvv in vxvv]
+                radec= True
+        # Set ro, vo, zo, solarmotion based on input, SkyCoord vxvv, ...
+        self._setup_parse_coordtransform(vxvv,ro,vo,zo,solarmotion,
+                                         radec,lb)
+        # Determine and record input shape and flatten for further processing
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
-            # Convert entire SkyCoord to Galactocentric coordinates, then
-            # proceed in regular fashion; makes use of the fact that Orbit
-            # setup does the right processing even for an array of 
-            # SkyCoords
             input_shape= vxvv.shape
-            tmpo= Orbit(vxvv=vxvv.flatten(),
-                        ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-            vxvv= numpy.array(tmpo._orb.vxvv).T
-            # Grab coordinate-transform params, we know these must be 
-            # consistent with any explicitly given ones at this point, because
-            # Orbit setup would have thrown an error otherwise
-            ro= tmpo._ro
-            zo= tmpo._orb._zo
-            solarmotion= tmpo._orb._solarmotion
+            vxvv=vxvv.flatten()
         elif isinstance(vxvv,numpy.ndarray):
             input_shape= vxvv.shape[:-1]
+            vxvv= numpy.atleast_2d(vxvv)
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
         elif isinstance(vxvv,list):
-            input_shape= (len(vxvv),)
-        self.shape= input_shape
-        self._orbits = []
-        for coord in vxvv:
-            if isinstance(coord,Orbit):
-                self._orbits.append(copy.deepcopy(coord))
+            if isinstance(vxvv[0],Orbits):
+                vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
+                input_shape= (len(vxvv),)
+                vxvv= numpy.array(vxvv)
+            elif _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+                # Case where vxvv= [R,vR,...] or [ra,dec,...] with Quantities
+                input_shape= vxvv[0].shape
+                vxvv= [s.flatten() for s in vxvv]
+                # Keep as list, is fine later...
+            elif _APY_LOADED and isinstance(vxvv[0],list) \
+                    and isinstance(vxvv[0][0],units.Quantity):
+                # Case where vxvv= [[R1,vR1,...],[R2,vR2,...]]
+                # or [[ra1,dec1,...],[ra2,dec2,...]] with Quantities
+                input_shape= (len(vxvv),)
+                pdim= len(vxvv[0])
+                stack= []
+                for pp in range(pdim):
+                    stack.append(\
+                        numpy.array([tvxvv[pp].to(vxvv[0][pp].unit).value
+                                     for tvxvv in vxvv])\
+                            *vxvv[0][pp].unit)
+                vxvv= stack
+                # Keep as list, is fine later...
+            elif numpy.ndim(vxvv[0]) == 0: # Scalar, so assume single object
+                vxvv= [vxvv]
+                input_shape= ()
+                vxvv= numpy.array(vxvv)
             else:
-                orbit = Orbit(vxvv=coord,radec=radec,uvw=uvw,lb=lb,
-                              ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-                self._orbits.append(orbit)
-        self._setup_unit_coord_parameters(ro,vo,zo,solarmotion)
-        # Cross-checks: phase-space dimension
-        if not numpy.all([o.phasedim() == self._orbits[0].phasedim() 
-                          for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
-        # Store all vxvv and make individual ones views
-        self.vxvv= numpy.array([o._orb.vxvv for o in self._orbits])
-        for ii in range(len(self)):
-            self._orbits[ii]._orb.vxvv= self.vxvv[ii]
+                input_shape= (len(vxvv),)
+                vxvv= numpy.array(vxvv)
+            if isinstance(vxvv,numpy.ndarray) and vxvv.dtype == 'object':
+                # if diff. phasedim, object array is created
+                raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
+        self.shape= input_shape
+        self._setup_parse_vxvv(vxvv,radec,lb,uvw)
+        if self.dim() == 1:
+            # For the 1D case, solar position/velocity is not used currently
+            self._zo= None
+            self._solarmotion= None
 
-    def _setup_unit_coord_parameters(self,ro,vo,zo,solarmotion):
+    def _setup_parse_coordtransform(self,vxvv,ro,vo,zo,solarmotion,
+                                    radec,lb):
+        # Parse coordinate-transformation inputs with units
         if _APY_LOADED and isinstance(ro,units.Quantity):
             ro= ro.to(units.kpc).value
         if _APY_LOADED and isinstance(zo,units.Quantity):
             zo= zo.to(units.kpc).value
         if _APY_LOADED and isinstance(vo,units.Quantity):
             vo= vo.to(units.km/units.s).value
-        if _APY_LOADED and isinstance(solarmotion,units.Quantity):
-            solarmotion= solarmotion.to(units.km/units.s).value
-        # If parameters are not set, grab them from the first orbit (should
-        # be consistent anyway, checked later)
+        # if vxvv is SkyCoord, preferentially use its ro and zo
+        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+            if not _APY3: # pragma: no cover
+                raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
+            if zo is None and not vxvv.z_sun is None:
+                zo= vxvv.z_sun.to(units.kpc).value
+            elif not vxvv.z_sun is None:
+                if numpy.fabs(zo-vxvv.z_sun.to(units.kpc).value) > 1e-8:
+                    raise ValueError("Orbit initialization's zo different from SkyCoord's z_sun; these should be the same for consistency")
+            elif zo is None and not vxvv.galcen_distance is None:
+                zo= 0.
+            if ro is None and not vxvv.galcen_distance is None:
+                ro= numpy.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
+                            -zo**2.)
+            elif not vxvv.galcen_distance is None and \
+                    numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
+                warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
+        # If at this point ro/vo not set, use default from config
+        if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
+            if ro is None:
+                ro= config.__config__.getfloat('normalization','ro')
+            if vo is None:
+                vo= config.__config__.getfloat('normalization','vo')
+        # If at this point zo not set, use default
+        if zo is None: zo= 0.025
+        # if vxvv is SkyCoord, preferentially use its solarmotion
+        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+                and not vxvv.galcen_v_sun is None:
+            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
+            sc_solarmotion[0]= -sc_solarmotion[0] # right->left
+            sc_solarmotion[1]-= vo
+            if solarmotion is None:
+                solarmotion= sc_solarmotion
+        # If at this point solarmotion not set, use default
+        if solarmotion is None: solarmotion= 'schoenrich'
+        if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
+            vsolar= numpy.array([-10.1,4.0,6.7])
+        elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
+            vsolar= numpy.array([-10.,5.25,7.17])
+        elif isinstance(solarmotion,str) \
+                and solarmotion.lower() == 'schoenrich':
+            vsolar= numpy.array([-11.1,12.24,7.25])
+        elif _APY_LOADED and isinstance(solarmotion,units.Quantity):
+            vsolar= solarmotion.to(units.km/units.s).value
+        else:
+            vsolar= numpy.array(solarmotion)
+        # If both vxvv SkyCoord with vsun and solarmotion set, check the same
+        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+                and not vxvv.galcen_v_sun is None:
+            if numpy.any(numpy.fabs(sc_solarmotion-vsolar) > 1e-8):
+                raise ValueError("Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)")
+        # Now store all coordinate-transformation parameters and save whether
+        # ro/vo are set (they are considered to be set if they have been
+        # determined at this point, even if they were not explicitly set
         if vo is None:
-            self._vo= self._orbits[0]._orb._vo
+            self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
             self._vo= vo
             self._voSet= True
         if ro is None:
-            self._ro= self._orbits[0]._orb._ro
+            self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
             self._ro= ro
             self._roSet= True
-        if zo is None:
-            self._zo= self._orbits[0]._orb._zo
-        else:
-            self._zo= zo
-        if solarmotion is None:
-            self._solarmotion= self._orbits[0]._orb._solarmotion
-        elif isinstance(solarmotion,str):
-            # Use a dummy orbit to parse this consistently with how it's done
-            # in Orbit
-            dummy_orbit= Orbit([1.,0.1,1.1,0.1,0.2,0.],solarmotion=solarmotion)
-            self._solarmotion= dummy_orbit._orb._solarmotion
-        else:
-            self._solarmotion= numpy.array(solarmotion)
-        # Cross-checks: unit- and coordinate-conversion parameters
-        if not numpy.all([numpy.fabs(o._ro-self._orbits[0]._ro) < 1e-10
-                          for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter")
-        if not numpy.fabs(self._ro-self._orbits[0]._ro) < 1e-10:
-            raise RuntimeError("All individual orbits in an Orbits class must have the same ro unit-conversion parameter as the main Orbits object")
-        if not numpy.all([numpy.fabs(o._vo-self._orbits[0]._vo) < 1e-10
-                         for o in self._orbits]):
-            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter")
-        if not numpy.fabs(self._vo-self._orbits[0]._vo) < 1e-10:
-            raise RuntimeError("All individual orbits in an Orbits class must have the same vo unit-conversion parameter as the main Orbits object")
-        if self.dim() > 1:
-            if not self._orbits[0]._orb._zo is None \
-                    and not numpy.all([numpy.fabs(o._orb._zo
-                                            -self._orbits[0]._orb._zo) < 1e-10
-                                       for o in self._orbits]):
-                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset")
-            if not numpy.fabs(self._zo-self._orbits[0]._orb._zo) < 1e-10:
-                raise RuntimeError("All individual orbits in an Orbits class must have the same zo solar offset as the main Orbits object")
-        if self.dim() > 1:
-            if not numpy.all([numpy.fabs(o._orb._solarmotion
-                                    -self._orbits[0]._orb._solarmotion) < 1e-10
-                              for o in self._orbits]):
-                raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion")
-            if not numpy.all(numpy.fabs(self._solarmotion
-                                  -self._orbits[0]._orb._solarmotion) < 1e-10):
-                raise RuntimeError("All individual orbits in an Orbits class must have the same solar motion as the main Orbits object")
-        # If a majority of input orbits have roSet or voSet, set ro/vo for all
-        if numpy.sum([o._roSet for o in self._orbits]) >= len(self)/2. \
-                or numpy.sum([o._voSet for o in self._orbits]) >= len(self)/2.:
-            [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
-            self._roSet= True
-            self._voSet= True
+        self._zo= zo
+        self._solarmotion= vsolar
         return None
 
-    def __len__(self):
-        return len(self._orbits)
-    def dim(self):
-        return self._orbits[0].dim()
-    def phasedim(self):
-        return self._orbits[0].phasedim()
+    def _setup_parse_listofOrbits(self,vxvv,ro,vo,zo,solarmotion):
+        # Only implement lists of scalar Orbits for now
+        if not numpy.all([o.shape == () for o in vxvv]):
+            raise RuntimeError("Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances")
+        # Need to check that coordinate-transformation parameters are 
+        # consistent between given orbits and between this instance's
+        # initialization and the given orbits; if not explicitly given
+        # for this instance, fall back onto list's parameters
+        ros= numpy.array([o._ro for o in vxvv])
+        vos= numpy.array([o._vo for o in vxvv])
+        zos= numpy.array([o._zo for o in vxvv])
+        solarmotions= numpy.array([o._solarmotion for o in vxvv])
+        if numpy.any(numpy.fabs(ros-ros[0]) > 1e-10):
+            raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter")
+        if numpy.any(numpy.fabs(vos-vos[0]) > 1e-10):
+            raise RuntimeError("All individual orbits given to an Orbits class must have the same vo unit-conversion parameter")
+        if not zos[0] is None and numpy.any(numpy.fabs(zos-zos[0]) > 1e-10):
+            raise RuntimeError("All individual orbits given to an Orbits class must have the same zo solar offset")               
+        if not solarmotions[0] is None and \
+                numpy.any(numpy.fabs(solarmotions-solarmotions[0]) > 1e-10):
+            raise RuntimeError("All individual orbits given to an Orbits class must have the same solar motion")
+        if self._roSet:
+            if numpy.fabs(ros[0]-self._ro) > 1e-10:
+                raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter as used in the initialization call")
+        else:
+            self._ro= vxvv[0]._ro
+            self._roSet= vxvv[0]._roSet
+        if self._voSet:
+            if numpy.fabs(vos[0]-self._vo) > 1e-10:
+                raise RuntimeError("All individual orbits given to an Orbits class must have the same vo unit-conversion parameter as used in the initialization call")
+        else:
+            self._vo= vxvv[0]._vo
+            self._voSet= vxvv[0]._voSet
+        if not zo is None:
+            if numpy.fabs(zos[0]-self._zo) > 1e-10:
+                raise RuntimeError("All individual orbits given to an Orbits class must have the same zo solar offset parameter as used in the initialization call")
+        else:
+            self._zo= vxvv[0]._zo
+        if not solarmotion is None:
+            if numpy.any(numpy.fabs(solarmotions[0]-self._solarmotion) > 1e-10):
+                raise RuntimeError("All individual orbits given to an Orbits class must have the same solar motion as used in the initialization call")
+        else:
+            self._solarmotion= vxvv[0]._solarmotion
+        # shape of o.vxvv is (1,phasedim) due to internal storage
+        return [list(o.vxvv[0]) for o in vxvv]
+                
+    def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
+        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+            galcen_v_sun= coordinates.CartesianDifferential(\
+                numpy.array([-self._solarmotion[0],
+                              self._solarmotion[1]+self._vo,
+                              self._solarmotion[2]])*units.km/units.s)
+            gc_frame= coordinates.Galactocentric(\
+                galcen_distance=numpy.sqrt(self._ro**2.+self._zo**2.)\
+                                    *units.kpc,
+                z_sun=self._zo*units.kpc,galcen_v_sun=galcen_v_sun)
+            vxvvg= vxvv.transform_to(gc_frame)
+            if _APY_GE_31:
+                vxvvg.representation_type= 'cylindrical'
+            else: #pragma: no cover
+                vxvvg.representation= 'cylindrical'
+            R= vxvvg.rho.to(units.kpc).value/self._ro
+            phi= numpy.pi-vxvvg.phi.to(units.rad).value
+            z= vxvvg.z.to(units.kpc).value/self._ro
+            try:
+                vR= vxvvg.d_rho.to(units.km/units.s).value/self._vo
+            except TypeError:
+                raise TypeError("SkyCoord given to Orbit initialization does not have velocity data, which is required to setup an Orbit")
+            vT= -(vxvvg.d_phi*vxvvg.rho)\
+                .to(units.km/units.s,
+                    equivalencies=units.dimensionless_angles()).value/self._vo
+            vz= vxvvg.d_z.to(units.km/units.s).value/self._vo
+            vxvv= numpy.array([R,vR,vT,z,vz,phi])
+        elif not isinstance(vxvv,list):
+            vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
+        if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
+            if radec:
+                if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+                    ra, dec= vxvv[0].to(units.deg).value, \
+                        vxvv[1].to(units.deg).value
+                else:
+                    ra, dec= vxvv[0], vxvv[1]
+                l,b= coords.radec_to_lb(ra,dec,degree=True,epoch=None).T
+                _extra_rot= True
+            elif len(vxvv) == 4:
+                l, b= vxvv[0], numpy.zeros_like(vxvv[0])
+                _extra_rot= False
+            else:
+                l,b= vxvv[0],vxvv[1]
+                _extra_rot= True
+            if _APY_LOADED and isinstance(l,units.Quantity):
+                l= l.to(units.deg).value
+            if _APY_LOADED and isinstance(b,units.Quantity):
+                b= b.to(units.deg).value
+            if uvw:
+                if _APY_LOADED and isinstance(vxvv[2],units.Quantity):
+                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2].to(units.kpc).value,
+                                             degree=True).T
+                else:
+                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True).T
+                vx= vxvv[3]
+                vy= vxvv[4]
+                vz= vxvv[5]
+                if _APY_LOADED and isinstance(vx,units.Quantity):
+                    vx= vx.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(vy,units.Quantity):
+                    vy= vy.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(vz,units.Quantity):
+                    vz= vz.to(units.km/units.s).value
+            else:
+                if radec:
+                    if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
+                        pmra, pmdec= vxvv[3].to(units.mas/units.yr).value, \
+                            vxvv[4].to(units.mas/units.yr).value
+                    else:
+                        pmra, pmdec= vxvv[3], vxvv[4]
+                    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
+                                                             degree=True,
+                                                             epoch=None).T
+                    d, vlos= vxvv[2], vxvv[5]
+                elif len(vxvv) == 4:
+                    pmll, pmbb= vxvv[2], numpy.zeros_like(vxvv[2])
+                    d, vlos= vxvv[1], vxvv[3]
+                else:
+                    pmll, pmbb= vxvv[3], vxvv[4]
+                    d, vlos= vxvv[2], vxvv[5]
+                if _APY_LOADED and isinstance(d,units.Quantity):
+                    d= d.to(units.kpc).value
+                if _APY_LOADED and isinstance(vlos,units.Quantity):
+                    vlos= vlos.to(units.km/units.s).value
+                if _APY_LOADED and isinstance(pmll,units.Quantity):
+                    pmll= pmll.to(units.mas/units.yr).value
+                if _APY_LOADED and isinstance(pmbb,units.Quantity):
+                    pmbb= pmbb.to(units.mas/units.yr).value
+                X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
+                                                           vlos,pmll, pmbb,
+                                                           degree=True).T
+            X/= self._ro
+            Y/= self._ro
+            Z/= self._ro
+            vx/= self._vo
+            vy/= self._vo
+            vz/= self._vo
+            vsun= numpy.array([0.,1.,0.,])+self._solarmotion/self._vo
+            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=self._zo/self._ro,
+                                               _extra_rot=_extra_rot).T
+            vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
+                                                  R,phi,z,
+                                                  vsun=vsun,
+                                                  Xsun=1.,Zsun=self._zo/self._ro,
+                                                  galcen=True,
+                                                  _extra_rot=_extra_rot).T
+            if lb and len(vxvv) == 4: vxvv= numpy.array([R,vR,vT,phi])
+            else: vxvv= numpy.array([R,vR,vT,z,vz,phi])
+        # Parse vxvv if it consists of Quantities
+        if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+            # Need to set ro and vo, default if not specified, so need to
+            # turn them on
+            self._roSet= True
+            self._voSet= True
+            new_vxvv= [vxvv[0].to(vxvv_units[0]).value/self._ro,
+                       vxvv[1].to(vxvv_units[1]).value/self._vo]
+            if len(vxvv) > 2:
+                new_vxvv.append(vxvv[2].to(vxvv_units[2]).value/self._vo)
+            if len(vxvv) == 4:
+                new_vxvv.append(vxvv[3].to(vxvv_units[5]).value)
+            elif len(vxvv) > 4:
+                new_vxvv.append(vxvv[3].to(vxvv_units[3]).value/self._ro)
+                new_vxvv.append(vxvv[4].to(vxvv_units[4]).value/self._vo)
+                if len(vxvv) == 6:
+                    new_vxvv.append(vxvv[5].to(vxvv_units[5]).value)
+            vxvv= numpy.array(new_vxvv)
+        # (phasedim,norb) --> (norb,phasedim) again and store
+        self.vxvv= vxvv.T
+        return None
 
-    def __getattr__(self, name):
+    @classmethod
+    def from_name(cls,name,vo=None,ro=None,zo=None,solarmotion=None):
+        """
+        NAME:
+
+            from_name
+
+        PURPOSE:
+
+            given the name of an object or a list of names, retrieve coordinate information for that object from SIMBAD and return a corresponding orbit
+
+        INPUT:
+
+            name - the name of the object or list of names
+
+            +standard Orbit initialization keywords:
+
+                ro= distance from vantage point to GC (kpc; can be Quantity)
+
+                vo= circular velocity at ro (km/s; can be Quantity)
+
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+
+        OUTPUT:
+
+            orbit containing the phase space coordinates of the named object
+
+        HISTORY:
+
+            2018-07-15 - Written - Mathew Bub (UofT)
+
+            2019-05-21 - Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
+
+        """
+        if not _APY_LOADED: # pragma: no cover
+            raise ImportError('astropy needs to be installed to use '
+                              'Orbit.from_name')
+        if not _ASTROQUERY_LOADED: # pragma: no cover
+            raise ImportError('astroquery needs to be installed to use '
+                              'Orbit.from_name')
+        if isinstance(name,str):
+            out= cls(vxvv=_from_name_oneobject(name),radec=True,
+                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        else: # assume list
+            all_vxvv= []
+            for tname in name:
+                all_vxvv.append(_from_name_oneobject(tname))
+            out= cls(vxvv=all_vxvv,radec=True,
+                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        out.name= name
+        return out
+           
+    @classmethod
+    def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
+                 radec=False,lb=False,
+                 customsky=False,lb_to_customsky=None,
+                 pmllpmbb_to_customsky=None,
+                 tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
+                 ro=None,vo=None,zo=None,solarmotion=None,
+                 disp=False):
+        """
+        NAME:
+
+           from_fit
+
+        PURPOSE:
+
+           Initialize an Orbit using a fit to data
+
+        INPUT:
+
+           init_vxvv - initial guess for the fit (same representation [e.g.,radec=True] as vxvv data, except when customsky, then init_vxvv is assumed to be ra,dec)
+
+           vxvv - [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
+
+           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
+
+           pot= Potential to fit the orbit in
+
+           Keywords related to the input data:
+
+               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+
+               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+                                      (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
+                                      Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
+                                      Y is ignored and always assumed to be zero
+
+               lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
+
+               pmllpmbb_to_customsky= function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True
+
+           Keywords related to the orbit integrations:
+
+               tintJ= (default: 10) time to integrate orbits for fitting the orbit (can be Quantity)
+
+               ntintJ= (default: 1000) number of time-integration points
+
+               integrate_method= (default: 'dopr54_c') integration method to use
+
+           Keywords related to the coordinate transformation:
+
+               ro= distance from vantage point to GC (kpc; can be Quantity)
+
+               vo= circular velocity at ro (km/s; can be Quantity)
+
+               zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+
+               solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+
+           disp= (False) display the optimizer's convergence message
+
+        OUTPUT:
+
+           Orbit instance
+
+        HISTORY:
+
+           2014-06-17 - Written - Bovy (IAS)
+
+           2019-05-22 - Incorporated into new Orbit class as from_fit -  Bovy (UofT)
+
+        """
+        pot= flatten_potential(pot)
+        # Setup Orbit instance for initialization to, among other things, 
+        # parse the coordinate-transformation keywords
+        init_orbit= cls(init_vxvv,radec=radec or customsky,
+                        lb=lb,ro=ro,vo=vo,zo=zo,
+                        solarmotion=solarmotion)
+        _check_potential_dim(init_orbit,pot)
+        _check_consistent_units(init_orbit,pot)
+        if radec or lb or customsky:
+            obs, ro, vo= _parse_radec_kwargs(init_orbit,
+                                             {'ro':init_orbit._ro,
+                                              'vo':init_orbit._vo},
+                                             vel=True,dontpop=True)
+        else:
+            obs, ro, vo= None, None, None
+        if customsky \
+                and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
+            raise IOError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
+        new_vxvv, maxLogL= _fit_orbit(init_orbit,vxvv,vxvv_err,pot,
+                                      radec=radec,lb=lb,
+                                      customsky=customsky,
+                                      lb_to_customsky=lb_to_customsky,
+                                      pmllpmbb_to_customsky=pmllpmbb_to_customsky,
+                                      tintJ=tintJ,ntintJ=ntintJ,
+                                      integrate_method=integrate_method,
+                                      ro=ro,vo=vo,obs=obs,disp=disp)
+        #Setup with these new initial conditions
+        return cls(new_vxvv,
+                   ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+
+    def fit(self,*args,**kwargs): # pragma: no cover
+        raise RuntimeError('Orbit.fit has been deprecated in favor of Orbit.from_fit')
+
+    def setphi(self,*args,**kwargs): # pragma: no cover
+        raise RuntimeError('Orbit.setphi has been deprecated')
+
+    def reverse(self,*args,**kwargs): # pragma: no cover
+        raise RuntimeError('Orbit.reverse has been deprecated')
+
+    def __add__(self,*args,**kwargs): # pragma: no cover
+        raise RuntimeError('Orbit.__add__ has been deprecated')
+
+    def __len__(self):
+        return len(self.vxvv)
+
+    def dim(self):
+        """
+        NAME:
+
+           dim
+
+        PURPOSE:
+
+           return the dimension of the Orbit
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           dimension
+
+        HISTORY:
+
+           2011-02-03 - Written - Bovy (NYU)
+
+        """
+        pdim= self.phasedim()
+        if pdim == 2:
+            return 1
+        elif pdim == 3 or pdim == 4:
+            return 2
+        elif pdim == 5 or pdim == 6:
+            return 3
+
+    def phasedim(self):
+        """
+        NAME:
+
+           phasedim
+
+        PURPOSE:
+
+           return the phase-space dimension of the problem (2 for 1D, 3 for 2D-axi, 4 for 2D, 5 for 3D-axi, 6 for 3D)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           phase-space dimension
+
+        HISTORY:
+
+           2018-12-20 - Written - Bovy (UofT)
+
+        """
+        return self.vxvv.shape[-1]
+
+    def __getattr__(self,name):
         """
         NAME:
 
@@ -263,23 +729,56 @@ class Orbits(object):
         # Catch all plotting functions
         if 'plot' in name:
             def _plot(*args,**kwargs):
-                for ii in range(len(self)):
-                    line2d= \
-                     self._orbits[ii].__getattribute__(name)(*args,**kwargs)[0]
-                    kwargs['overplot']= True
-                line2d.axes.autoscale(enable=True)
-                _add_ticks()
-                return None
+                kwargs['d1']= kwargs.get('d1','t')
+                kwargs['d2']= name.split('plot')[1]
+                if ('E' in kwargs['d2'] or kwargs['d2'] == 'Jacobi') \
+                        and kwargs.pop('normed',False):
+                    kwargs['d2']+= 'norm'
+                return self.plot(*args,**kwargs)
             # Assign documentation
-            _plot.__doc__= self._orbits[0].__getattribute__(name).__doc__
+            if 'E' in name or 'Jacobi' in name:
+                Estring= """pot= Potential instance or list of instances in which the orbit was integrated
+
+           normed= if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
+
+           """.format(quant=name.split('plot')[1])
+            else:
+                Estring= ''
+            _plot.__doc__= """
+        NAME:
+
+           plot{quant}
+
+        PURPOSE:
+
+           plot {quant}(t) along the orbit
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           {Estring}ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           matplotlib.plot inputs+bovy_plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2019-04-13 - Written - Bovy (UofT)
+
+        """.format(quant=name.split('plot')[1],Estring=Estring)
             return _plot
-        attribute = getattr(Orbit(), name)
-        if callable(attribute):
-            return lambda *args, **kwargs: [
-                getattr(orbit, name)(*args, **kwargs) for orbit in self._orbits
-            ]
         else:
-            return [getattr(orbit, name) for orbit in self.orbits]
+            raise AttributeError("'{}' object has no attribute '{}'"\
+                                     .format(self.__class__.__name__,
+                                             name))
 
     def __getitem__(self,key):
         """
@@ -307,26 +806,22 @@ class Orbits(object):
         indx_array= numpy.arange(len(self)).reshape(self.shape)
         indx_array= indx_array[key]
         flat_indx_array= indx_array.flatten()
-        orbits_list= [copy.deepcopy(self._orbits[ii]) 
-                      for ii in flat_indx_array]
-        if len(orbits_list) == 1: # single item, return orbit
-            return copy.deepcopy(orbits_list[0])
-        else: # Return new Orbits instance
-            # Transfer new shape
-            shape_kwargs= {}
-            shape_kwargs['shape']= indx_array.shape
-            # Also transfer all attributes related to integration
-            if hasattr(self,'orbit'):
-                integrate_kwargs= {}
-                integrate_kwargs['t']= self.t
-                integrate_kwargs['_integrate_t_asQuantity']= \
-                    self._integrate_t_asQuantity
-                integrate_kwargs['orbit']= \
-                    copy.deepcopy(self.orbit[flat_indx_array])
-                integrate_kwargs['_pot']= self._pot
-            else: integrate_kwargs= None
-            return self._from_slice(orbits_list,integrate_kwargs,
-                                      shape_kwargs)
+        orbits_list= self.vxvv[flat_indx_array]
+        # Transfer new shape
+        shape_kwargs= {}
+        shape_kwargs['shape']= indx_array.shape
+        # Also transfer all attributes related to integration
+        if hasattr(self,'orbit'):
+            integrate_kwargs= {}
+            integrate_kwargs['t']= self.t
+            integrate_kwargs['_integrate_t_asQuantity']= \
+                self._integrate_t_asQuantity
+            integrate_kwargs['orbit']= \
+                copy.deepcopy(self.orbit[flat_indx_array])
+            integrate_kwargs['_pot']= self._pot
+        else: integrate_kwargs= None
+        return self._from_slice(orbits_list,integrate_kwargs,
+                                shape_kwargs)
 
     @classmethod
     def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs):
@@ -399,7 +894,6 @@ class Orbits(object):
         """
         self._roSet= False
         self._voSet= False
-        [o.turn_physical_off() for o in self._orbits]
         return None
 
     def turn_physical_on(self,ro=None,vo=None):
@@ -437,7 +931,6 @@ class Orbits(object):
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
-        [o.turn_physical_on(vo=self._vo,ro=self._ro) for o in self._orbits]
         return None
 
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
@@ -469,7 +962,9 @@ class Orbits(object):
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
-            numcores - number of cores to use for multiprocessing with force_map; default = 1
+            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
 
         OUTPUT:
 
@@ -535,15 +1030,15 @@ class Orbits(object):
             warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
-            # Must return each Orbit for its values to correctly update
-            def integrate_for_map(orbit):
-                orbit.integrate(t, self._pot, method=method, dt=dt)
-                return orbit
-            self._orbits = list(parallel_map(integrate_for_map, self._orbits,
-                                             numcores=numcores))
-            # Gather all into single self.orbit array
-            self.orbit= numpy.array([self._orbits[ii]._orb.orbit
-                                     for ii in range(len(self))])
+            if self.dim() == 1:
+                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,
+                                               method,numcores=numcores,dt=dt)
+            elif self.dim() == 2:
+                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,
+                                               method,numcores=numcores,dt=dt)
+            else:
+                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,
+                                             method,numcores=numcores,dt=dt)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
@@ -569,13 +1064,112 @@ class Orbits(object):
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
                     out= out[:,:,:-1]
-            # Store orbit internally
-            self.orbit= out
-        # Also store per-orbit view of the orbit for __getattr__ funcs
-        for ii in range(len(self)):
-            self._orbits[ii]._orb.orbit= self.orbit[ii]
-            self._orbits[ii]._orb.t= t
-            self._orbits[ii]._orb._pot= pot
+        # Store orbit internally
+        self.orbit= out
+        return None
+
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
+                       numcores=_NUMCORES,force_map=False,
+                       rectIn=False,rectOut=False):
+        """
+        NAME:
+
+           integrate_dxdv
+
+        PURPOSE:
+
+           integrate the orbit and a small area of phase space
+
+        INPUT:
+
+           dxdv - [dR,dvR,dvT,dphi], shape=(*input_shape,4)
+
+           t - list of times at which to output (0 has to be in this!) (can be Quantity)
+
+           pot - potential instance or list of instances
+
+           dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
+
+           method = 'odeint' for scipy's odeint
+                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                    'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                    'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+           rectIn= (False) if True, input dxdv is in rectangular coordinates
+
+           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
+
+           numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+           force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+
+        OUTPUT:
+
+           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!)
+
+        HISTORY:
+
+           2011-10-17 - Written - Bovy (IAS)
+
+           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
+
+           2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
+
+        """
+        if not self.phasedim() == 4:
+            raise AttributeError('integrate_dxdv is only implemented for 4D (planar) orbits')
+        if method.lower() not in ['odeint', 'dop853', 'rk4_c', 'rk6_c',
+                                  'dopr54_c', 'dop853_c']:
+            if 'leapfrog' in method.lower() or 'symplec' in method.lower():
+                raise ValueError('{:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`'.format(method))
+            else:
+                raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
+        pot= flatten_potential(pot)
+        _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
+        # Parse t
+        if _APY_LOADED and isinstance(t,units.Quantity):
+            self._integrate_t_asQuantity= True
+            t= t.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        else: self._integrate_t_asQuantity= False
+        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
+            dt= dt.to(units.Gyr).value\
+                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        # Parse dxdv
+        dxdv= numpy.array(dxdv)
+        if dxdv.ndim > 1:
+            dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
+        else:
+            dxdv= numpy.atleast_2d(dxdv)
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
+        if self.dim() == 2:
+            thispot= toPlanarPotential(pot)
+        self.t= numpy.array(t)
+        self._pot_dxdv= thispot
+        self._pot= thispot
+        #First check that the potential has C
+        if '_c' in method:
+            allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
+            if not ext_loaded or \
+                    (not allHasC and not 'leapfrog' in method and not 'symplec' in method):
+                method= 'odeint'
+                if not ext_loaded: # pragma: no cover
+                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+                else:
+                    warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
+        # Implementation with parallel_map in Python
+        if True or not '_c' in method or not ext_loaded or force_map:
+            if self.dim() == 2:
+                out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
+                                                    t,method,rectIn,rectOut,
+                                                    numcores=numcores,dt=dt)
+        # Store orbit internally
+        self.orbit_dxdv= out
+        self.orbit= self.orbit_dxdv[...,:4]
         return None
 
     def flip(self,inplace=False):
@@ -643,6 +1237,8 @@ class Orbits(object):
                          **orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
+        # Make sure the output has the same shape as the original Orbit
+        out.reshape(self.shape)
         return out
         
     @shapeDecorator
@@ -671,6 +1267,33 @@ class Orbits(object):
 
         """
         return self.orbit
+
+    @shapeDecorator
+    def getOrbit_dxdv(self):
+        """
+
+        NAME:
+
+           getOrbit_dxdv
+
+        PURPOSE:
+
+           return a previously calculated integration of a small phase-space volume (with integrate_dxdv)
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           array orbit[*input_shape,nt,nphasedim]
+
+        HISTORY:
+
+           2019-05-21 - Written - Bovy (UofT)
+
+        """
+        return self.orbit_dxdv[...,4:]
 
     @physical_conversion('energy')
     @shapeDecorator
@@ -728,8 +1351,10 @@ class Orbits(object):
             t= numpy.atleast_1d(t)
         if self.phasedim() == 2:
             try:
-                out= (evaluatelinearPotentials(pot,thiso[0],t=t,
-                                               use_physical=False)\
+                out= (evaluatelinearPotentials(\
+                        pot,thiso[0],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatelinearPotentials(\
@@ -740,8 +1365,10 @@ class Orbits(object):
                           +(thiso[1]**2./2.).T)
         elif self.phasedim() == 3:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
-                                               use_physical=False)\
+                out= (evaluateplanarPotentials(\
+                        pot,thiso[0],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
@@ -752,9 +1379,10 @@ class Orbits(object):
                       +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 4:
             try:
-                out= (evaluateplanarPotentials(pot,thiso[0],t=t,
-                                               phi=thiso[-1],
-                                               use_physical=False)\
+                out= (evaluateplanarPotentials(\
+                        pot,thiso[0],phi=thiso[-1],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluateplanarPotentials(\
@@ -768,8 +1396,10 @@ class Orbits(object):
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
             vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
-                                         use_physical=False)\
+                out= (evaluatePotentials(\
+                        pot,thiso[0],z,
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
@@ -784,9 +1414,10 @@ class Orbits(object):
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
             vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
             try:
-                out= (evaluatePotentials(pot,thiso[0],z,t=t,
-                                         phi=thiso[-1],
-                                         use_physical=False)\
+                out= (evaluatePotentials(\
+                        pot,thiso[0],z,phi=thiso[-1],
+                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
+                        use_physical=False)\
                           +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
             except (ValueError,TypeError,IndexError):
                 out= (numpy.array([[evaluatePotentials(\
@@ -1103,6 +1734,11 @@ class Orbits(object):
         if _APY_LOADED and not b is None \
                 and isinstance(b,units.Quantity):
             b= b.to(units.kpc).value/self._ro
+        if pot is None:
+            try:
+                pot= self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit or specify pot=")
         if hasattr(self,'_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
@@ -1121,11 +1757,6 @@ class Orbits(object):
             else:
                 return None
         _check_consistent_units(self,pot)
-        if pot is None:
-            try:
-                pot= self._pot
-            except AttributeError:
-                raise AttributeError("Integrate orbit or specify pot=")
         self._aAPot= pot
         self._aAType= type
         #Setup
@@ -1146,7 +1777,7 @@ class Orbits(object):
                     delta= actionAngle.estimateDeltaStaeckel(\
                         self._aAPot,
                         self.R(use_physical=False,dontreshape=True),
-                        tz,no_median=True)
+                        tz,no_median=True,use_physical=False)
                 except PotentialError as e:
                     if 'deriv' in str(e):
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
@@ -3474,7 +4105,7 @@ class Orbits(object):
            2019-02-01 - Started - Bovy (UofT)
            2019-02-18 - Written interpolation part - Bovy (UofT)
         """
-        if len(args) == 0:
+        if len(args) == 0 or (not hasattr(self,'t') and args[0] == 0. ):
             return numpy.array(self.vxvv).T
         elif not hasattr(self,'t'):
             raise ValueError("Integrate instance before evaluating it at a specific time")
@@ -3663,21 +4294,24 @@ class Orbits(object):
         # Cannot be using Quantity output
         kwargs['quantity']= False
         if callable(quant):
-            return quant(self.t)
+            out= quant(self.t)
+            if out.shape == self.t.shape:
+                out= numpy.tile(out,self.shape+(1,))
+            return out
         def _eval(q):
             # Check those that don't have the exact name of the function
             if q == 't':
                 # Typically expect this to have same shape as other quantities
                 return numpy.tile(self.time(self.t,**kwargs),
-                                  (len(self),1))
+                                  self.shape+(1,))
             elif q == 'Enorm':
-                return self.E(self.t,**kwargs)/self.E(0.,**kwargs)
+                return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
             elif q == 'Eznorm':
-                return self.Ez(self.t,**kwargs)/self.Ez(0.,**kwargs)
+                return (self.Ez(self.t,**kwargs).T/self.Ez(0.,**kwargs)).T
             elif q == 'ERnorm':
-                return self.ER(self.t,**kwargs)/self.ER(0.,**kwargs)
+                return (self.ER(self.t,**kwargs).T/self.ER(0.,**kwargs)).T
             elif q == 'Jacobinorm':
-                return self.Jacobi(self.t,**kwargs)/self.Jacobi(0.,**kwargs)
+                return (self.Jacobi(self.t,**kwargs).T/self.Jacobi(0.,**kwargs)).T
             else: # these are exact, e.g., 'x' for self.x
                 return self.__getattribute__(q)(self.t,**kwargs)
         try:
@@ -3697,6 +4331,277 @@ class Orbits(object):
         for var in vars:
             vars_dict[var]= _eval(var)
         return numexpr.evaluate(quant,local_dict=vars_dict)
+
+    def plot(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot
+
+        PURPOSE:
+
+           plot a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a  user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot; can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           matplotlib.plot inputs+bovy_plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2010-07-26 - Written - Bovy (NYU)
+
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+
+           2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
+
+        """
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
+                        'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Enorm':r'$E(t)/E(0.)$',
+                        'Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$',
+                        'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
+                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
+                        'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
+                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$',
+                        'Jacobi':r'$E-\Omega_p\,L$',
+                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+            elif self.phasedim() == 2:
+                d1= 'x'
+                d2= 'vx'
+            elif self.phasedim() == 5 or self.phasedim() == 6:
+                d1= 'R'
+                d2= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+        kwargs['dontreshape']= True
+        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
+        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
+        kwargs.pop('dontreshape')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        #Plot
+        if not 'xlabel' in kwargs:
+            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+        if not 'ylabel' in kwargs:
+            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+        for tx,ty in zip(x,y):
+            line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
+            kwargs['overplot']= True
+        line2d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line2d]
+
+    def plot3d(self,*args,**kwargs):
+        """
+        NAME:
+
+           plot3d
+
+        PURPOSE:
+
+           plot 3D aspects of an Orbit
+
+        INPUT:
+
+           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
+
+           d2= second dimension to plot
+
+           d3= third dimension to plot
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+           bovy_plot3d args and kwargs
+
+        OUTPUT:
+
+           plot
+
+        HISTORY:
+
+           2010-07-26 - Written - Bovy (NYU)
+
+           2010-09-22 - Adapted to more general framework - Bovy (NYU)
+
+           2010-01-08 - Adapted to 3D - Bovy (NYU)
+
+           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
+
+           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+
+           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+
+           2019-04-13 - Adapated for multiple orbits - Bovy (UofT)
+
+        """
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
+                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+                        'z':r'$z\ (\mathrm{kpc})$',
+                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+                        'r':r'$r\ (\mathrm{kpc})$',
+                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+        else:
+            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
+                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
+                        'r':r'$r$','x':r'$x$','y':r'$y$',
+                        'vx':r'$v_x$','vy':r'$v_y$'}
+        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
+                          'dec':r'$\delta\ (\mathrm{deg})$',
+                          'll':r'$l\ (\mathrm{deg})$',
+                          'bb':r'$b\ (\mathrm{deg})$',
+                          'dist':r'$d\ (\mathrm{kpc})$',
+                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+                          'helioX':r'$X\ (\mathrm{kpc})$',
+                          'helioY':r'$Y\ (\mathrm{kpc})$',
+                          'helioZ':r'$Z\ (\mathrm{kpc})$',
+                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif self.phasedim() == 2:
+                raise AttributeError("Cannot plot 3D aspects of 1D orbits")
+            elif self.phasedim() == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif self.phasedim() == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not ('d1' in kwargs and 'd2' in kwargs and 'd3' in kwargs):
+            raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+            d3= kwargs.pop('d3')
+        kwargs['dontreshape']= True
+        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
+        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
+        z= numpy.atleast_2d(self._parse_plot_quantity(d3,**kwargs))
+        kwargs.pop('dontreshape')
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('quantity',None)
+        #Plot
+        if not 'xlabel' in kwargs:
+            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+        if not 'ylabel' in kwargs:
+            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+        if not 'zlabel' in kwargs:
+            kwargs['zlabel']= labeldict.get(d3,r'${}$'.format(d3))
+        for tx,ty,tz in zip(x,y,z):
+            line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
+            kwargs['overplot']= True
+        line3d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line3d]
 
     def animate(self,*args,**kwargs): #pragma: no cover
         """
@@ -3836,8 +4741,10 @@ class Orbits(object):
         all_ylabel= kwargs.get('ylabel',[None for d in d2])
         for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
            #Get x and y for each subplot
+            kwargs['dontreshape']= True
             x= self._parse_plot_quantity(d1,**kwargs)
             y= self._parse_plot_quantity(d2,**kwargs)
+            kwargs.pop('dontreshape')
             xs.append(x)
             ys.append(y)
             if xlabel is None:
@@ -4397,3 +5304,426 @@ class _1DInterp(object):
         self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
     def __call__(self,t,indx):
         return self._ip(t)[:,None]
+
+def _from_name_oneobject(name):
+    """
+    NAME:
+       _from_name_oneobject
+    PURPOSE:
+       Query Simbad for the phase-space coordinates of one object
+    INPUT:
+       name - name of the object
+    OUTPUT:
+       [ra,dec,dist,pmra,pmdec,vlos]
+    HISTORY:
+       2018-07-15 - Written - Mathew Bub (UofT)
+    """
+    # setup a SIMBAD query with the appropriate fields
+    simbad= Simbad()
+    simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
+                              'rv_value', 'plx', 'distance')
+    simbad.remove_votable_fields('main_id', 'coordinates')
+    # query SIMBAD for the named object
+    try:
+        simbad_table= simbad.query_object(name)
+    except OSError: # pragma: no cover
+        raise OSError('failed to connect to SIMBAD')
+    if not simbad_table:
+        raise ValueError('failed to find {} in SIMBAD'.format(name))
+    # check that the necessary coordinates have been found
+    missing= simbad_table.mask
+    if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
+        all(missing['PLX_VALUE', 'Distance_distance'][0])):
+        raise ValueError('failed to find some coordinates for {} in '
+                         'SIMBAD'.format(name))
+    ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
+                                             'PMDEC', 'RV_VALUE'][0]
+    # get a distance value
+    if not missing['PLX_VALUE'][0]:
+        dist= 1./simbad_table['PLX_VALUE'][0]
+    else:
+        dist_str= str(simbad_table['Distance_distance'][0]) + \
+            simbad_table['Distance_unit'][0]
+        dist= units.Quantity(dist_str).to(units.kpc).value
+    return [ra,dec,dist,pmra,pmdec,vlos]
+
+def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
+               customsky=False,lb_to_customsky=None,
+               pmllpmbb_to_customsky=None,
+               tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
+               ro=None,vo=None,obs=None,disp=False):
+    """Fit an orbit to data in a given potential"""
+    # Need to turn this off for speed
+    coords._APY_COORDS_ORIG= coords._APY_COORDS
+    coords._APY_COORDS= False
+    #Import here, because otherwise there is an infinite loop of imports
+    from ..actionAngle import actionAngleIsochroneApprox, actionAngle
+    #Mock this up, bc we want to use its orbit-integration routines
+    class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
+        def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
+            actionAngle.__init__(self)
+            self._tintJ= tintJ
+            self._ntintJ=ntintJ
+            self._tsJ= numpy.linspace(0.,self._tintJ,self._ntintJ)
+            self._integrate_dt= None
+            self._pot= pot
+            self._integrate_method= integrate_method
+            return None
+    tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
+                                            integrate_method=integrate_method)
+    opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
+                                   args=(vxvv,vxvv_err,pot,radec,lb,
+                                         customsky,lb_to_customsky,
+                                         pmllpmbb_to_customsky,
+                                         tmockAA,
+                                         ro,vo,obs),
+                                   disp=disp)
+    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                               customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                               tmockAA,
+                               ro,vo,obs)
+    coords._APY_COORDS= coords._APY_COORDS_ORIG
+    return (opt_vxvv,maxLogL)
+
+def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
+                     customsky,lb_to_customsky,pmllpmbb_to_customsky,
+                     tmockAA,
+                     ro,vo,obs):
+    """The log likelihood for fitting an orbit"""
+    #Use this _parse_args routine, which does forward and backward integration
+    iR,ivR,ivT,iz,ivz,iphi= tmockAA._parse_args(True,False,
+                                                new_vxvv[0],
+                                                new_vxvv[1],
+                                                new_vxvv[2],
+                                                new_vxvv[3],
+                                                new_vxvv[4],
+                                                new_vxvv[5])
+    if radec or lb or customsky:
+        #Need to transform to (l,b), (ra,dec), or a custom set
+        #First transform to X,Y,Z,vX,vY,vZ (Galactic)
+        X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
+                                        iz.flatten(),
+                                        Xsun=obs[0]/ro,
+                                        Zsun=obs[2]/ro).T
+        vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
+                                              ivz.flatten(),iphi.flatten(),
+                                              vsun=numpy.array(\
+                obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
+        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+        if True in bad_indx: X[bad_indx]+= ro/10000.
+        lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,
+                                                  vX*vo,vY*vo,vZ*vo,
+                                                  degree=True)
+        if lb:
+            orb_vxvv= numpy.array([lbdvrpmllpmbb[:,0],
+                                   lbdvrpmllpmbb[:,1],
+                                   lbdvrpmllpmbb[:,2],
+                                   lbdvrpmllpmbb[:,4],
+                                   lbdvrpmllpmbb[:,5],
+                                   lbdvrpmllpmbb[:,3]]).T
+        elif radec:
+            #Further transform to ra,dec,pmra,pmdec
+            radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
+                                      lbdvrpmllpmbb[:,1],degree=True,
+                                      epoch=None)
+            pmrapmdec= coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                                    lbdvrpmllpmbb[:,5],
+                                                    lbdvrpmllpmbb[:,0],
+                                                    lbdvrpmllpmbb[:,1],
+                                                    degree=True,
+                                                    epoch=None)
+            orb_vxvv= numpy.array([radec[:,0],radec[:,1],
+                                   lbdvrpmllpmbb[:,2],
+                                   pmrapmdec[:,0],pmrapmdec[:,1],
+                                   lbdvrpmllpmbb[:,3]]).T
+        elif customsky:
+            #Further transform to ra,dec,pmra,pmdec
+            customradec= lb_to_customsky(lbdvrpmllpmbb[:,0],
+                                              lbdvrpmllpmbb[:,1],degree=True)
+            custompmrapmdec= pmllpmbb_to_customsky(lbdvrpmllpmbb[:,4],
+                                                   lbdvrpmllpmbb[:,5],
+                                                   lbdvrpmllpmbb[:,0],
+                                                   lbdvrpmllpmbb[:,1],
+                                                   degree=True)
+            orb_vxvv= numpy.array([customradec[:,0],customradec[:,1],
+                                   lbdvrpmllpmbb[:,2],
+                                   custompmrapmdec[:,0],custompmrapmdec[:,1],
+                                   lbdvrpmllpmbb[:,3]]).T
+    else:
+        #shape=(2tintJ-1,6)
+        orb_vxvv= numpy.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
+                            iz.flatten(),ivz.flatten(),iphi.flatten()]).T 
+    out= 0.
+    for ii in range(vxvv.shape[0]):
+        sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
+        #print(sub_vxvv[numpy.argmin(numpy.sum(sub_vxvv,axis=1))])
+        if not vxvv_err is None:
+            sub_vxvv/= vxvv_err[ii,:]**2.
+        else:
+            sub_vxvv/= 0.01**2.
+        out+= logsumexp(-0.5*numpy.sum(sub_vxvv,axis=1))
+    return -out
+
+def _check_roSet(orb,kwargs,funcName):
+    """Function to check whether ro is set, because it's required for funcName"""
+    if not orb._roSet and kwargs.get('ro',None) is None:
+        warnings.warn("Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,orb._ro),
+                      galpyWarning)
+
+def _check_voSet(orb,kwargs,funcName):
+    """Function to check whether vo is set, because it's required for funcName"""
+    if not orb._voSet and kwargs.get('vo',None) is None:
+        warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
+                      galpyWarning)
+
+# Coordinate transform functions moved outside of Orbit instance such that they
+# can be used by Orbits as well; split out calling-sequence specific part from
+# the object to do this (but otherwise use the fact that Orbit and Orbits are
+# similar)
+def _helioXYZ(orb,thiso,*args,**kwargs):
+    """Calculate heliocentric rectangular coordinates"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbd functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),0.,
+                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
+                thiso[3,:],
+                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
+                Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro)
+
+def _lbd(orb,thiso,*args,**kwargs):
+    """Calculate l,b, and d"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z= _helioXYZ(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.XYZ_to_lbd(X,Y,Z,degree=True)
+
+def _radec(orb,thiso,*args,**kwargs):
+    """Calculate ra and dec"""
+    lbd= _lbd(orb,thiso,*args,**kwargs)
+    return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
+
+def _XYZvxvyvz(orb,thiso,*args,**kwargs):
+    """Calculate X,Y,Z,U,V,W"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,vel=True)
+    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
+    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+        raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
+    elif len(thiso[:,0]) == 4: #planarOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
+                numpy.zeros_like(thiso[0]),
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
+                vsun=numpy.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                    numpy.zeros_like(thiso[0]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
+                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+            obs.turn_physical_on()
+    else: #FullOrbit
+        if isinstance(obs,(numpy.ndarray,list)):
+            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
+            X,Y,Z = coords.galcencyl_to_XYZ(\
+                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),thiso[3,:],
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                thiso[1,:],thiso[2,:],thiso[4,:],
+                thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
+                vsun=numpy.array(# have to rotate
+                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
+                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
+                     obs[5]])/vo,
+                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
+        else: #Orbit instance
+            obs.turn_physical_off()
+            if obs.dim() == 2:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
+                            0.]),
+                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+            else:
+                X,Y,Z = coords.galcencyl_to_XYZ(\
+                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
+                    thiso[3,:],
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
+                    thiso[1,:],thiso[2,:],thiso[4,:],
+                    thiso[5,:]-obs.phi(*args,**kwargs),
+                    vsun=numpy.array([\
+                            obs.vR(*args,**kwargs),
+                            obs.vT(*args,**kwargs),
+                            obs.vz(*args,**kwargs)]),
+                    Xsun=obs.R(*args,**kwargs),
+                    Zsun=obs.z(*args,**kwargs)).T
+            obs.turn_physical_on()
+    return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+
+def _lbdvrpmllpmbb(orb,thiso,*args,**kwargs):
+    """Calculate l,b,d,vr,pmll,pmbb"""
+    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
+    X,Y,Z,vX,vY,vZ= _XYZvxvyvz(orb,thiso,*args,**kwargs)
+    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    if True in bad_indx:
+        X[bad_indx]+= ro/10000.
+    return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+
+def _pmrapmdec(orb,thiso,*args,**kwargs):
+    """Calculate pmra and pmdec"""
+    lbdvrpmllpmbb= _lbdvrpmllpmbb(orb,thiso,*args,**kwargs)
+    return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
+                                        lbdvrpmllpmbb[:,5],
+                                        lbdvrpmllpmbb[:,0],
+                                        lbdvrpmllpmbb[:,1],degree=True,
+                                        epoch=None)
+
+def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
+    if 'obs' in kwargs:
+        obs= kwargs['obs']
+        if not dontpop:
+            kwargs.pop('obs')
+        if isinstance(obs,(list,numpy.ndarray)):
+            if len(obs) == 2:
+                obs= [obs[0],obs[1],0.]
+            elif len(obs) == 4:
+                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+            for ii in range(len(obs)):
+                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                    if ii < 3:
+                        obs[ii]= obs[ii].to(units.kpc).value
+                    else:
+                        obs[ii]= obs[ii].to(units.km/units.s).value
+    else:
+        if vel:
+            obs= [orb._ro,0.,orb._zo,
+                  orb._solarmotion[0],orb._solarmotion[1]+orb._vo,
+                  orb._solarmotion[2]]
+        else:
+            obs= [orb._ro,0.,orb._zo]
+    if 'ro' in kwargs:
+        ro= kwargs['ro']
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        if not dontpop:
+            kwargs.pop('ro')
+    else:
+        ro= orb._ro
+    if 'vo' in kwargs:
+        vo= kwargs['vo']
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        if not dontpop:
+            kwargs.pop('vo')
+    else:
+        vo= orb._vo
+    return (obs,ro,vo)
+
+def _check_integrate_dt(t,dt):
+    """Check that the stepszie in t is an integer x dt"""
+    if dt is None:
+        return True
+    mult= round((t[1]-t[0])/dt)
+    if numpy.fabs(mult*dt-t[1]+t[0]) < 10.**-10.:
+        return True
+    else:
+        return False
+
+def _check_potential_dim(orb,pot):
+    from galpy.potential import _dim
+    # Don't deal with pot=None here, just dimensionality
+    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
+
+def _check_consistent_units(orb,pot):
+    if pot is None: return None
+    if isinstance(pot,list):
+        if orb._roSet and pot[0]._roSet:
+            assert numpy.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot[0]._voSet:
+            assert numpy.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    else:
+        if orb._roSet and pot._roSet:
+            assert numpy.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+        if orb._voSet and pot._voSet:
+            assert numpy.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+    return None

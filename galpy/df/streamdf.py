@@ -249,7 +249,7 @@ class streamdf(df):
                                                  self._progenitor_Omegaphi,
                                                  self._progenitor_Omegaz]).reshape(3)
         else:
-            self._dOdJp= calcaAJac(self._progenitor._orb.vxvv,
+            self._dOdJp= calcaAJac(self._progenitor.vxvv[0],
                                    self._aA,dxv=None,dOdJ=True,
                                    _initacfs=acfs)
         self._dOdJpInv= numpy.linalg.inv(self._dOdJp)
@@ -319,18 +319,18 @@ class streamdf(df):
     def _setup_coord_transform(self,R0,Zsun,vsun,progenitor,custom_transform):
         #Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet \
-                and (numpy.fabs(self._ro-progenitor._orb._ro) > 10.**-.8 \
-                         or numpy.fabs(R0-progenitor._orb._ro) > 10.**-8.):
+                and (numpy.fabs(self._ro-progenitor._ro) > 10.**-.8 \
+                         or numpy.fabs(R0-progenitor._ro) > 10.**-8.):
             warnings.warn("Warning: progenitor's ro does not agree with streamdf's ro and R0; this may have unexpected consequences when projecting into observables", galpyWarning)
         if progenitor._voSet \
-                and numpy.fabs(self._vo-progenitor._orb._vo) > 10.**-8.:
+                and numpy.fabs(self._vo-progenitor._vo) > 10.**-8.:
             warnings.warn("Warning: progenitor's vo does not agree with streamdf's vo; this may have unexpected consequences when projecting into observables", galpyWarning)
         if (progenitor._roSet or progenitor._voSet) \
-                and numpy.fabs(Zsun-progenitor._orb._zo) > 10.**-8.:
+                and numpy.fabs(Zsun-progenitor._zo) > 10.**-8.:
             warnings.warn("Warning: progenitor's zo does not agree with streamdf's Zsun; this may have unexpected consequences when projecting into observables", galpyWarning)
         if (progenitor._roSet or progenitor._voSet) \
                 and numpy.any(numpy.fabs(vsun-numpy.array([0.,self._vo,0.])\
-                                             -progenitor._orb._solarmotion) > 10.**-8.):
+                                             -progenitor._solarmotion) > 10.**-8.):
             warnings.warn("Warning: progenitor's solarmotion does not agree with streamdf's vsun (after accounting for vo); this may have unexpected consequences when projecting into observables", galpyWarning)
         self._R0= R0
         self._Zsun= Zsun
@@ -501,8 +501,8 @@ class streamdf(df):
             nsubhalo= nsubhalo.to(1/units.kpc**3).value*self._ro**3.
         if _APY_LOADED and isinstance(bmax,units.Quantity):
             bmax= bmax.to(units.kpc).value/self._ro
-        Ravg= numpy.mean(numpy.sqrt(self._progenitor._orb.orbit[:,0]**2.
-                                    +self._progenitor._orb.orbit[:,3]**2.))
+        Ravg= numpy.mean(numpy.sqrt(self._progenitor.orbit[0,:,0]**2.
+                                    +self._progenitor.orbit[0,:,3]**2.))
         if numpy.isinf(venc):
             vencFac= 1.
         elif yoon:
@@ -627,8 +627,8 @@ class streamdf(df):
            2013-12-09 - Written - Bovy (IAS)
 
         """
-        tts= self._progenitor._orb.t[self._progenitor._orb.t \
-                                          < self._trackts[self._nTrackChunks-1]]
+        tts= self._progenitor.t[self._progenitor.t \
+                                    < self._trackts[self._nTrackChunks-1]]
         obs= [self._R0,0.,self._Zsun]
         obs.extend(self._vsun)
         phys= kwargs.pop('scaleToPhysical',False)
@@ -957,9 +957,9 @@ class streamdf(df):
         auxiliaryTrack.integrate(self._trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            auxiliaryTrack._orb.orbit[:,1]= -auxiliaryTrack._orb.orbit[:,1]
-            auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
-            auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
+            auxiliaryTrack.orbit[...,1]= -auxiliaryTrack.orbit[...,1]
+            auxiliaryTrack.orbit[...,2]= -auxiliaryTrack.orbit[...,2]
+            auxiliaryTrack.orbit[...,4]= -auxiliaryTrack.orbit[...,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),
                                     use_physical=False)
@@ -3116,7 +3116,7 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
     allAcfsTrack[2]= tacfs[2][0]
     for jj in range(3,9):
         allAcfsTrack[jj]= tacfs[jj]
-    tjac= calcaAJac(progenitorTrack(trackt)._orb.vxvv,
+    tjac= calcaAJac(progenitorTrack(trackt).vxvv[0],
                     aA,
                     dxv=None,actionsFreqsAngles=True,
                     lb=False,

@@ -17,6 +17,7 @@ import numpy as nu
 from galpy.util import galpyWarning
 from galpy.potential import planarPotential, MWPotential
 from galpy.potential.Potential import flatten as flatten_potential
+from ..potential import toPlanarPotential, toVerticalPotential
 from .actionAngleAxi import actionAngleAxi
 from .actionAngle import actionAngle
 from . import actionAngleAdiabatic_c
@@ -143,14 +144,8 @@ class actionAngleAdiabatic(actionAngle):
             else:
                 #Set up the actionAngleAxi object
                 self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
-                else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
+                thispot= toPlanarPotential(self._pot)
+                thisverticalpot= toVerticalPotential(self._pot,self._eval_R)
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
@@ -236,14 +231,8 @@ class actionAngleAdiabatic(actionAngle):
             else:
                 #Set up the actionAngleAxi object
                 self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
-                else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
+                thispot= toPlanarPotential(self._pot)
+                thisverticalpot= toVerticalPotential(self._pot,self._eval_R)
                 aAAxi= actionAngleAxi(*args,pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
@@ -269,15 +258,8 @@ class actionAngleAdiabatic(actionAngle):
            2013-11-27 - Written - Bovy (IAS)
         """
         #Set up the actionAngleAxi object
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot if not isinstance(p,planarPotential)]
-            thispot.extend([p for p in self._pot if isinstance(p,planarPotential)])
-        elif not isinstance(self._pot,planarPotential):
-            thispot= self._pot.toPlanar()
-        else:
-            thispot= self._pot
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               gamma=self._gamma)
+        thispot= toPlanarPotential(self._pot)
+        aAAxi= actionAngleAxi(*args,pot=thispot,amma=self._gamma)
         return aAAxi.calcRapRperi(**kwargs)
 
     def calczmax(self,*args,**kwargs): #pragma: no cover
@@ -299,14 +281,8 @@ class actionAngleAdiabatic(actionAngle):
         warnings.warn("actionAngleAdiabatic.calczmax function will soon be deprecated; please contact galpy's maintainer if you require this function")
         #Set up the actionAngleAxi object
         self._parse_eval_args(*args)
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
-            thispot= self._pot.toPlanar()
-        if isinstance(self._pot,list):
-            thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-        else:
-            thisverticalpot= self._pot.toVertical(self._eval_R)
+        thispot= toPlanarPotential(self._pot)
+        thisverticalpot= toVerticalPotential(self._pot,self._eval_R)
         aAAxi= actionAngleAxi(*args,pot=thispot,
                                verticalPot=thisverticalpot,
                                gamma=self._gamma)
