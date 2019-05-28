@@ -4294,14 +4294,14 @@ class Orbit(object):
         if callable(quant):
             out= quant(self.t)
             if out.shape == self.t.shape:
-                out= numpy.tile(out,self.shape+(1,))
+                out= numpy.tile(out,(len(self.vxvv),1))
             return out
         def _eval(q):
             # Check those that don't have the exact name of the function
             if q == 't':
                 # Typically expect this to have same shape as other quantities
                 return numpy.tile(self.time(self.t,**kwargs),
-                                  self.shape+(1,))
+                                  (len(self.vxvv),1))
             elif q == 'Enorm':
                 return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
             elif q == 'Eznorm':
