@@ -9,5 +9,5 @@ from . import Orbits
 #
 # Classes
 #
-Orbit= Orbits.Orbits
-Orbits= Orbits.Orbits
+Orbit= Orbits.Orbit
+Orbits= Orbit

@@ -78,9 +78,9 @@ def shapeDecorator(func):
         else:
             return numpy.reshape(result,args[0].shape+result.shape[1:])
     return shape_wrapper
-class Orbits(object):
+class Orbit(object):
     """
-    Class representing multiple orbits.
+    Class representing single and multiple orbits.
     """
     def __init__(self,vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
                  radec=False,uvw=False,lb=False):
@@ -91,7 +91,7 @@ class Orbits(object):
 
         PURPOSE:
 
-            Initialize an Orbits instance
+            Initialize an Orbit instance
 
         INPUT:
 
@@ -152,8 +152,6 @@ class Orbits(object):
             2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
 
         """
-        # If you change the way an Orbit object is setup, also change each of
-        # the methods that return Orbits
         # First deal with None = Sun
         if vxvv is None: # Assume one wants the Sun
             vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
@@ -176,7 +174,7 @@ class Orbits(object):
             vxvv= numpy.atleast_2d(vxvv)
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
         elif isinstance(vxvv,list):
-            if isinstance(vxvv[0],Orbits):
+            if isinstance(vxvv[0],Orbit):
                 vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
                 input_shape= (len(vxvv),)
                 vxvv= numpy.array(vxvv)
@@ -208,7 +206,7 @@ class Orbits(object):
                 vxvv= numpy.array(vxvv)
             if isinstance(vxvv,numpy.ndarray) and vxvv.dtype == 'object':
                 # if diff. phasedim, object array is created
-                raise RuntimeError("All individual orbits in an Orbits class must have the same phase-space dimensionality")
+                raise RuntimeError("All individual orbits in an Orbit class must have the same phase-space dimensionality")
         self.shape= input_shape
         self._setup_parse_vxvv(vxvv,radec,lb,uvw)
         if self.dim() == 1:
@@ -296,7 +294,7 @@ class Orbits(object):
         return None
 
     def _setup_parse_listofOrbits(self,vxvv,ro,vo,zo,solarmotion):
-        # Only implement lists of scalar Orbits for now
+        # Only implement lists of scalar Orbit for now
         if not numpy.all([o.shape == () for o in vxvv]):
             raise RuntimeError("Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances")
         # Need to check that coordinate-transformation parameters are 
@@ -308,34 +306,34 @@ class Orbits(object):
         zos= numpy.array([o._zo for o in vxvv])
         solarmotions= numpy.array([o._solarmotion for o in vxvv])
         if numpy.any(numpy.fabs(ros-ros[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter")
+            raise RuntimeError("All individual orbits given to an Orbit class must have the same ro unit-conversion parameter")
         if numpy.any(numpy.fabs(vos-vos[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbits class must have the same vo unit-conversion parameter")
+            raise RuntimeError("All individual orbits given to an Orbit class must have the same vo unit-conversion parameter")
         if not zos[0] is None and numpy.any(numpy.fabs(zos-zos[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbits class must have the same zo solar offset")               
+            raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset")               
         if not solarmotions[0] is None and \
                 numpy.any(numpy.fabs(solarmotions-solarmotions[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbits class must have the same solar motion")
+            raise RuntimeError("All individual orbits given to an Orbit class must have the same solar motion")
         if self._roSet:
             if numpy.fabs(ros[0]-self._ro) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbits class must have the same ro unit-conversion parameter as used in the initialization call")
+                raise RuntimeError("All individual orbits given to an Orbit class must have the same ro unit-conversion parameter as used in the initialization call")
         else:
             self._ro= vxvv[0]._ro
             self._roSet= vxvv[0]._roSet
         if self._voSet:
             if numpy.fabs(vos[0]-self._vo) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbits class must have the same vo unit-conversion parameter as used in the initialization call")
+                raise RuntimeError("All individual orbits given to an Orbit class must have the same vo unit-conversion parameter as used in the initialization call")
         else:
             self._vo= vxvv[0]._vo
             self._voSet= vxvv[0]._voSet
         if not zo is None:
             if numpy.fabs(zos[0]-self._zo) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbits class must have the same zo solar offset parameter as used in the initialization call")
+                raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset parameter as used in the initialization call")
         else:
             self._zo= vxvv[0]._zo
         if not solarmotion is None:
             if numpy.any(numpy.fabs(solarmotions[0]-self._solarmotion) > 1e-10):
-                raise RuntimeError("All individual orbits given to an Orbits class must have the same solar motion as used in the initialization call")
+                raise RuntimeError("All individual orbits given to an Orbit class must have the same solar motion as used in the initialization call")
         else:
             self._solarmotion= vxvv[0]._solarmotion
         # shape of o.vxvv is (1,phasedim) due to internal storage
@@ -709,7 +707,7 @@ class Orbits(object):
 
         PURPOSE:
 
-            get or evaluate an attribute for these Orbits
+            get or evaluate an attribute for this Orbit instance
 
         INPUT:
 
@@ -796,7 +794,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           For single item: Orbit instance, for multiple items: another Orbits instance
+           For single item: Orbit instance, for multiple items: another Orbit instance
 
         HISTORY:
 
@@ -842,7 +840,7 @@ class Orbits(object):
 
         PURPOSE:
 
-           Change the shape of the Orbits instance
+           Change the shape of the Orbit instance
 
         INPUT:
 
@@ -863,7 +861,7 @@ class Orbits(object):
             dummy= dummy.reshape(newshape)
         except ValueError:
             # Eventually should just be raise ValueError from None (Python 3)
-            raise_from(ValueError('cannot reshape Orbits of shape %s into shape %s'
+            raise_from(ValueError('cannot reshape Orbit of shape %s into shape %s'
                                   % (self.shape,newshape)),None)
         self.shape= dummy.shape
         return None
@@ -942,7 +940,7 @@ class Orbits(object):
 
         PURPOSE:
 
-            integrate these Orbits with multiprocessing
+            integrate this Orbit instance with multiprocessing
 
         INPUT:
 
@@ -998,7 +996,7 @@ class Orbits(object):
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         if not _check_integrate_dt(t,dt):
-            raise ValueError('dt input (integrator stepsize) for Orbits.integrate must be an integer divisor of the output stepsize')
+            raise ValueError('dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize')
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
@@ -1188,7 +1186,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           Orbits instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
+           Orbit instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
 
         HISTORY:
 
@@ -1217,24 +1215,24 @@ class Orbits(object):
         if self.phasedim() == 2:
             orbSetupKwargs.pop('zo',None)
             orbSetupKwargs.pop('solarmotion',None)
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1]]).T,
-                        **orbSetupKwargs)
+            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1]]).T,
+                       **orbSetupKwargs)
         elif self.phasedim() == 3:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
                                     -self.vxvv[...,2]]).T,**orbSetupKwargs)
         elif self.phasedim() == 4:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
                                     -self.vxvv[...,2],self.vxvv[...,3]]).T,
-                         **orbSetupKwargs)
+                       **orbSetupKwargs)
         elif self.phasedim() == 5:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
                                     -self.vxvv[...,2],self.vxvv[...,3],
                                     -self.vxvv[...,4]]).T,**orbSetupKwargs)
         elif self.phasedim() == 6:
-            out= Orbits(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
+            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
                                     -self.vxvv[...,2],self.vxvv[...,3],
                                     -self.vxvv[...,4],self.vxvv[...,5]]).T,
-                         **orbSetupKwargs)
+                       **orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
         # Make sure the output has the same shape as the original Orbit
@@ -1466,7 +1464,7 @@ class Orbits(object):
 
         """
         if self.dim() == 1:
-            raise AttributeError("'linear Orbits have no angular momentum")
+            raise AttributeError("'linear Orbit has no angular momentum")
         #Get orbit
         if self.dim() == 2:
             thiso= self._call_internal(*args,**kwargs)
@@ -1725,7 +1723,7 @@ class Orbits(object):
             # No reason to do Staeckel or adiabatic...
             type= 'spherical'
         elif self.dim() == 1:
-            raise RuntimeError("Orbits action-angle methods are not supported for 1D orbits")
+            raise RuntimeError("Orbit action-angle methods are not supported for 1D orbits")
         delta= kwargs.pop('delta',None)
         if _APY_LOADED and not delta is None \
                 and isinstance(delta,units.Quantity):
@@ -2942,7 +2940,7 @@ class Orbits(object):
 
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
-            raise AttributeError("Orbits must track azimuth to use phi()")
+            raise AttributeError("Orbit must track azimuth to use phi()")
         return self._call_internal(*args,**kwargs)[-1].T
 
     @physical_conversion('position')
@@ -2978,7 +2976,7 @@ class Orbits(object):
         if self.dim() == 1:
             return thiso[0].T
         elif self.phasedim()  != 4 and self.phasedim() != 6:
-            raise AttributeError("Orbits must track azimuth to use x()")
+            raise AttributeError("Orbit must track azimuth to use x()")
         else:
             return (thiso[0]*numpy.cos(thiso[-1,:])).T
 
@@ -3013,7 +3011,7 @@ class Orbits(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         if self.phasedim()  != 4 and self.phasedim() != 6:
-            raise AttributeError("Orbits must track azimuth to use y()")
+            raise AttributeError("Orbit must track azimuth to use y()")
         else:
             return (thiso[0]*numpy.sin(thiso[-1,:])).T
 
@@ -3050,7 +3048,7 @@ class Orbits(object):
         if self.dim() == 1:
             return thiso[1].T
         elif self.phasedim()  != 4 and self.phasedim() != 6:
-            raise AttributeError("Orbits must track azimuth to use vx()")
+            raise AttributeError("Orbit must track azimuth to use vx()")
         else:
             return (thiso[1]*numpy.cos(thiso[-1])
                     -thiso[2]*numpy.sin(thiso[-1])).T
@@ -3086,7 +3084,7 @@ class Orbits(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         if self.phasedim()  != 4 and self.phasedim() != 6:
-            raise AttributeError("Orbits must track azimuth to use vy()")
+            raise AttributeError("Orbit must track azimuth to use vy()")
         else:
             return (thiso[2]*numpy.cos(thiso[-1])
                     +thiso[1]*numpy.sin(thiso[-1])).T
@@ -4070,8 +4068,8 @@ class Orbits(object):
 
         OUTPUT:
 
-           an Orbits instance with initial conditions set to the 
-           phase-space at time t; shape of new Orbits is (shape_old,nt)
+           an Orbit instance with initial conditions set to the 
+           phase-space at time t; shape of new Orbit is (shape_old,nt)
 
         HISTORY:
 
@@ -4085,8 +4083,8 @@ class Orbits(object):
                          'zo':self._zo,
                          'solarmotion':self._solarmotion}
         thiso= self._call_internal(*args,**kwargs)
-        out= Orbits(vxvv=numpy.reshape(thiso.T,self.shape+thiso.T.shape[1:]),
-                    **orbSetupKwargs)
+        out= Orbit(vxvv=numpy.reshape(thiso.T,self.shape+thiso.T.shape[1:]),
+                   **orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
         return out
@@ -4183,7 +4181,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           planar Orbits instance
+           planar Orbit instance
 
         HISTORY:
 
@@ -4199,8 +4197,8 @@ class Orbits(object):
         elif self.phasedim() == 5:
             vxvv= self.vxvv[:,[0,1,2]]
         else:
-            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
+            raise AttributeError("planar or linear Orbit does not have the toPlanar attribute")
+        out= Orbit(vxvv=vxvv,**orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
         return out
@@ -4221,7 +4219,7 @@ class Orbits(object):
 
         OUTPUT:
 
-           linear Orbits instance
+           linear Orbit instance
 
         HISTORY:
 
@@ -4233,8 +4231,8 @@ class Orbits(object):
         if self.dim() == 3:
             vxvv= self.vxvv[:,[3,4]]
         else:
-            raise AttributeError("planar or linear Orbits do not have the toPlanar attribute")
-        out= Orbits(vxvv=vxvv,**orbSetupKwargs)
+            raise AttributeError("planar or linear Orbit does not have the toPlanar attribute")
+        out= Orbit(vxvv=vxvv,**orbSetupKwargs)
         out._roSet= self._roSet
         out._voSet= self._voSet
         return out
@@ -5476,10 +5474,6 @@ def _check_voSet(orb,kwargs,funcName):
         warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
                       galpyWarning)
 
-# Coordinate transform functions moved outside of Orbit instance such that they
-# can be used by Orbits as well; split out calling-sequence specific part from
-# the object to do this (but otherwise use the fact that Orbit and Orbits are
-# similar)
 def _helioXYZ(orb,thiso,*args,**kwargs):
     """Calculate heliocentric rectangular coordinates"""
     obs, ro, vo= _parse_radec_kwargs(orb,kwargs)
