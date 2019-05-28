@@ -4,8 +4,8 @@ Orbit (``galpy.orbit``)
 See :ref:`Orbit initialization <orbinit>` for a detailed explanation
 on how to set up Orbit instances.
 
-Class
------
+Initialization
+--------------
 
 .. toctree::
    :maxdepth: 2
@@ -14,6 +14,23 @@ Class
    Orbit.from_fit <orbitfromfit.rst>
    Orbit.from_name <orbitfromname.rst>
 
+Plotting
+--------
+
+.. toctree::
+   :maxdepth: 2
+
+   animate <orbitanimate.rst>
+   plot <orbitplot.rst>
+   plot3d <orbitplot3d.rst>
+
+In addition to these methods, any calculable attribute listed below
+can be plotted versus other attributes using ``plotATTR``, where
+``ATTR`` is an attribute like ``R``, ``ll``, etc. In this case, the y
+axis will have ``ATTR`` and the overrideable x axis default is
+time. For example, ``o.plotR()`` will plot the orbit's R vs time.
+
+
 Methods
 -------
 
@@ -21,7 +38,7 @@ Methods
    :maxdepth: 2
 
    __call__ <orbitcall.rst>
-   animate <orbitanimate.rst>
+   __getitem__ <orbitgetitem.rst>
    bb <orbitbb.rst>
    dec <orbitdec.rst>
    dim <orbitdim.rst>
@@ -50,21 +67,6 @@ Methods
    Oz <orbitoz.rst>
    phasedim <orbitphasedim.rst>
    phi <orbitphi.rst>
-   plot <orbitplot.rst>
-   plot3d <orbitplot3d.rst>
-   plotE <orbitplote.rst>
-   plotER <orbitplotER.rst>
-   plotEz <orbitplotEz.rst>
-   plotphi <orbitplotphi.rst>
-   plotR <orbitplotr.rst>
-   plotvR <orbitplotvr.rst>
-   plotvT <orbitplotvt.rst>
-   plotvx <orbitplotvx.rst>
-   plotvy <orbitplotvy.rst>
-   plotvz <orbitplotvz.rst>
-   plotx <orbitplotx.rst>
-   ploty <orbitploty.rst>
-   plotz <orbitplotz.rst>
    pmbb <orbitpmbb.rst>
    pmdec <orbitpmdec.rst>
    pmll <orbitpmll.rst>
@@ -73,6 +75,7 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
+   reshape <orbitreshape.rst>
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
    SkyCoord <orbitskycoord.rst>
