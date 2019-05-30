@@ -34,7 +34,6 @@ from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
 from .integratePlanarOrbit import integratePlanarOrbit_c, \
     integratePlanarOrbit, integratePlanarOrbit_dxdv
 from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
-from .. import actionAngle
 ext_loaded= _ext_loaded
 _APY_LOADED= True
 try:
@@ -1718,6 +1717,7 @@ class Orbit(object):
         HISTORY:
            2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
         """
+        from .. import actionAngle
         if not pot is None: pot= flatten_potential(pot)
         if self.dim() == 2 and (type == 'staeckel' or type == 'adiabatic'):
             # No reason to do Staeckel or adiabatic...
