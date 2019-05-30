@@ -2717,6 +2717,22 @@ def test_actionAngleAdiabatic_issue361():
     assert numpy.fabs(jr_good-jr_bad) < 1e-6, 'Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {}, Jr_bad = {}'.format(jr_good,jr_bad)
     return None
 
+# Test that evaluating actionAngle with multi-dimensional orbit doesn't work
+def test_actionAngle_orbitInput_multid_error():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    orbits= Orbit(numpy.array([[[1.,0.1,1.1,-0.1,-0.2,0.],
+                                [1.,0.2,1.2,0.,-0.1,1.]],
+                               [[1.,-0.2,0.9,0.2,0.2,2.],
+                                [1.2,-0.4,1.1,-0.1,0.,-2.]],
+                               [[1., 0.2,0.9,0.3,-0.2,0.1],
+                                [1.2, 0.4,1.1,-0.2,0.05,4.]]]))
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45,c=True)
+    with pytest.raises(RuntimeError,message='Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not support') as excinfo:
+        aAS(orbits)
+    return None
+
 #Test that the actions are conserved along an orbit
 def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
                                         ntimes=1001,fixed_quad=False,
@@ -2733,8 +2749,8 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
         js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
                obs.vz(times),obs.phi(times))
     else:
-        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-               obs.vz(times))
+        # Test Orbit with multiple objects case, but calling
+        js= aA(obs(times))
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])

@@ -2,6 +2,7 @@ from six import with_metaclass
 import types
 import copy
 import math as m
+import numpy
 from galpy.util import config
 from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
     actionAngle_physical_input
@@ -191,27 +192,26 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             if not kwargs.get('_noOrbUnitsCheck',False):
                 self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
-                vxvv= args[0](args[1]).vxvv
+                orb= args[0](args[1])
             else:
-                vxvv= args[0].vxvv
-            self._eval_R= vxvv[0,0]
-            self._eval_vR= vxvv[0,1]
-            self._eval_vT= vxvv[0,2]
+                orb= args[0]
+            if len(orb.shape) > 1:
+                raise RuntimeError("Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not support")
+            self._eval_R= orb.R(use_physical=False)
+            self._eval_vR= orb.vR(use_physical=False)
+            self._eval_vT= orb.vT(use_physical=False)
             if args[0].phasedim() > 4:
-                self._eval_z= vxvv[0,3]
-                self._eval_vz= vxvv[0,4]
+                self._eval_z= orb.z(use_physical=False)
+                self._eval_vz= orb.vz(use_physical=False)
                 if args[0].phasedim() > 5:
-                    self._eval_phi= vxvv[0,5]
-            elif args[0].phasedim() > 3:
-                self._eval_phi= vxvv[0,3]
-                self._eval_z= 0.
-                self._eval_vz= 0.
+                    self._eval_phi= orb.phi(use_physical=False)
             else:
-                self._eval_z= 0.
-                self._eval_vz= 0.
+                if args[0].phasedim() > 3:
+                    self._eval_phi= orb.phi(use_physical=False)
+                self._eval_z= numpy.zeros_like(self._eval_R)
+                self._eval_vz= numpy.zeros_like(self._eval_R)
         if hasattr(self,'_eval_z'): #calculate the polar angle
-            if self._eval_z == 0.: self._eval_theta= m.pi/2.
-            else: self._eval_theta= m.atan(self._eval_R/self._eval_z)
+            self._eval_theta= numpy.arctan2(self._eval_R,self._eval_z)
         return None
 
     @actionAngle_physical_input

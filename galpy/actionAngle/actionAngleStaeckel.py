@@ -118,26 +118,26 @@ class actionAngleStaeckel(actionAngle):
         """
         delta= kwargs.pop('delta',self._delta)
         order= kwargs.get('order',self._order)
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
-                R,vR,vT, z, vz= args
-            elif len(args) == 6: #R,vR.vT, z, vz, phi
-                R,vR,vT, z, vz, phi= args
-            else:
-                self._parse_eval_args(*args)
-                R= self._eval_R
-                vR= self._eval_vR
-                vT= self._eval_vT
-                z= self._eval_z
-                vz= self._eval_vz
-            if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
@@ -161,18 +161,12 @@ class actionAngleStaeckel(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
-            if (len(args) == 5 or len(args) == 6) \
-                    and isinstance(args[0],nu.ndarray):
-                ojr= nu.zeros((len(args[0])))
-                olz= nu.zeros((len(args[0])))
-                ojz= nu.zeros((len(args[0])))
-                for ii in range(len(args[0])):
-                    if len(args) == 5:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii])
-                    elif len(args) == 6:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii],args[5][ii])
+            if len(R) > 1:
+                ojr= nu.zeros((len(R)))
+                olz= nu.zeros((len(R)))
+                ojz= nu.zeros((len(R)))
+                for ii in range(len(R)):
+                    targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
                     try:
                         tkwargs['delta']= delta[ii]
@@ -185,8 +179,9 @@ class actionAngleStaeckel(actionAngle):
                 return (ojr,olz,ojz)
             else:
                 #Set up the actionAngleStaeckelSingle object
-                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=delta)
+                aASingle= actionAngleStaeckelSingle(R[0],vR[0],vT[0],
+                                                    z[0],vz[0],pot=self._pot,
+                                                    delta=delta)
                 return (aASingle.JR(**copy.copy(kwargs)),
                         aASingle._R*aASingle._vT,
                         aASingle.Jz(**copy.copy(kwargs)))
@@ -391,26 +386,26 @@ class actionAngleStaeckel(actionAngle):
            2017-12-12 - Written - Bovy (UofT)
         """
         delta= kwargs.pop('delta',self._delta)
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
-                R,vR,vT, z, vz= args
-            elif len(args) == 6: #R,vR.vT, z, vz, phi
-                R,vR,vT, z, vz, phi= args
-            else:
-                self._parse_eval_args(*args)
-                R= self._eval_R
-                vR= self._eval_vR
-                vT= self._eval_vT
-                z= self._eval_z
-                vz= self._eval_vz
-            if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
@@ -435,33 +430,27 @@ class actionAngleStaeckel(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
-            if (len(args) == 5 or len(args) == 6) \
-                    and isinstance(args[0],nu.ndarray):
-                oumin= nu.zeros((len(args[0])))
-                oumax= nu.zeros((len(args[0])))
-                ovmin= nu.zeros((len(args[0])))
-                for ii in range(len(args[0])):
-                    if len(args) == 5:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii])
-                    elif len(args) == 6:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii],args[5][ii])
+            if len(R) > 1:
+                oumin= nu.zeros((len(R)))
+                oumax= nu.zeros((len(R)))
+                ovmin= nu.zeros((len(R)))
+                for ii in range(len(R)):
+                    targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
                     try:
                         tkwargs['delta']= delta[ii]
                     except TypeError:
                         tkwargs['delta']= delta
-                    tumin,tumax,tvmin= self._uminumaxvmin(\
-                        *targs,**tkwargs)
+                    tumin,tumax,tvmin= self._uminumaxvmin(*targs,**tkwargs)
                     oumin[ii]= tumin
                     oumax[ii]= tumax
                     ovmin[ii]= tvmin
                 return (oumin,oumax,ovmin)
             else:
                 #Set up the actionAngleStaeckelSingle object
-                aASingle= actionAngleStaeckelSingle(*args,pot=self._pot,
-                                                     delta=delta)
+                aASingle= actionAngleStaeckelSingle(R[0],vR[0],vT[0],
+                                                    z[0],vz[0],pot=self._pot,
+                                                    delta=delta)
                 umin, umax= aASingle.calcUminUmax()
                 vmin= aASingle.calcVmin()
                 return (umin,umax,vmin)
