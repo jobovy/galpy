@@ -148,9 +148,13 @@ class actionAngleAdiabatic(actionAngle):
                     return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
                 elif kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
-                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                    return (nu.atleast_1d(nu.nan),
+                            nu.atleast_1d(nu.nan),
+                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
                 else:
-                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+                    return (nu.atleast_1d(aAAxi.JR(**kwargs)),
+                            nu.atleast_1d(aAAxi._R*aAAxi._vT),
+                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
 
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
@@ -227,7 +231,9 @@ class actionAngleAdiabatic(actionAngle):
                 rperi,Rap= aAAxi.calcRapRperi(**kwargs)
                 zmax= aAAxi.calczmax(**kwargs)
                 rap= nu.sqrt(Rap**2.+zmax**2.)
-                return ((rap-rperi)/(rap+rperi),zmax,rperi,rap)
+                return (nu.atleast_1d((rap-rperi)/(rap+rperi)),
+                        nu.atleast_1d(zmax),nu.atleast_1d(rperi),
+                        nu.atleast_1d(rap))
 
     def calcRapRperi(self,*args,**kwargs):
         """

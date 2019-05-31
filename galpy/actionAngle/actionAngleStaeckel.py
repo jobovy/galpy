@@ -182,9 +182,9 @@ class actionAngleStaeckel(actionAngle):
                 aASingle= actionAngleStaeckelSingle(R[0],vR[0],vT[0],
                                                     z[0],vz[0],pot=self._pot,
                                                     delta=delta)
-                return (aASingle.JR(**copy.copy(kwargs)),
-                        aASingle._R*aASingle._vT,
-                        aASingle.Jz(**copy.copy(kwargs)))
+                return (nu.atleast_1d(aASingle.JR(**copy.copy(kwargs))),
+                        nu.atleast_1d(aASingle._R*aASingle._vT),
+                        nu.atleast_1d(aASingle.Jz(**copy.copy(kwargs))))
 
     def _actionsFreqs(self,*args,**kwargs):
         """
@@ -453,7 +453,9 @@ class actionAngleStaeckel(actionAngle):
                                                     delta=delta)
                 umin, umax= aASingle.calcUminUmax()
                 vmin= aASingle.calcVmin()
-                return (umin,umax,vmin)
+                return (nu.atleast_1d(umin),
+                        nu.atleast_1d(umax),
+                        nu.atleast_1d(vmin))
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
