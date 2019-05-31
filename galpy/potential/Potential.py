@@ -1519,15 +1519,13 @@ class Potential(Force):
         tyx= R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R\
             -Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2\
             +phideriv*(sin2phi-cos2phi)/R2      
-        tzx=Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R\
-            +phideriv*2.*sinphi*z/R3
+        tzx=Rzderiv*cosphi-zphideriv*sinphi/R
         tyy=R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R\
             +phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
         txy=tyx
-        tzy=Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R\
-            -phideriv*2.*cosphi*z/R3
-        txz=Rzderiv*cosphi-zphideriv*sinphi/R
-        tyz=Rzderiv*sinphi+zphideriv*cosphi/R
+        tzy=Rzderiv*sinphi+zphideriv*cosphi/R
+        txz=tzx
+        tyz=tzy
         tzz=z2deriv
         tij=-nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
         if eigenval:
@@ -3183,15 +3181,13 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
         +phi2deriv*sin2phi/R2+phideriv*2.*cosphi*sinphi/R2
     tyx= R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R\
         -Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2+phideriv*(sin2phi-cos2phi)/R2
-    tzx= Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R\
-        +phideriv*2.*sinphi*z/R3
+    tzx= Rzderiv*cosphi-zphideriv*sinphi/R
     tyy= R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R\
         +phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
     txy=tyx
-    tzy= Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R\
-        -phideriv*2.*cosphi*z/R3
-    txz= Rzderiv*cosphi-zphideriv*sinphi/R
-    tyz= Rzderiv*sinphi+zphideriv*cosphi/R
+    tzy= Rzderiv*sinphi+zphideriv*cosphi/R
+    txz= tzx
+    tyz= tzy
     tzz=z2deriv
     tij= -nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
     if eigenval:

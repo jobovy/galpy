@@ -2668,6 +2668,11 @@ def test_ttensor():
     # Also test eigenvalues
     tij= potential.ttensor([pmass],1.0,0.0,0.0,eigenval=True)
     assert numpy.all(numpy.fabs(tij-numpy.array([2,-1,-1])) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    # Also Test symmetry when y!=0 and z!=0
+    tij= potential.ttensor([pmass],1.0,1.0,1.0)
+    assert numpy.all(numpy.fabs(tij[0][1]-tij[1][0]) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    assert numpy.all(numpy.fabs(tij[0][2]-tij[2][0]) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
+    assert numpy.all(numpy.fabs(tij[1][2]-tij[2][1]) < 1e-10), "Calculation of tidal tensor in point-mass potential fails"
     return None
     
 def test_ttensor_trace():
