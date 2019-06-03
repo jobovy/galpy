@@ -31,6 +31,14 @@ axis will have ``ATTR`` and the overrideable x axis default is
 time. For example, ``o.plotR()`` will plot the orbit's R vs time.
 
 
+Attributes
+----------
+
+* .. autoinstanceattribute:: galpy.orbit.Orbit.shape
+     :annotation: Tuple of Orbit dimensions
+* .. autoinstanceattribute:: galpy.orbit.Orbit.size
+     :annotation: Total number of elements in the Orbit instance
+
 Methods
 -------
 
