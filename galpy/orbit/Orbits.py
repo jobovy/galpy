@@ -206,8 +206,11 @@ class Orbit(object):
             if isinstance(vxvv,numpy.ndarray) and vxvv.dtype == 'object':
                 # if diff. phasedim, object array is created
                 raise RuntimeError("All individual orbits in an Orbit class must have the same phase-space dimensionality")
+        #: Tuple of Orbit dimensions
         self.shape= input_shape
         self._setup_parse_vxvv(vxvv,radec,lb,uvw)
+        #: Total number of elements in the Orbit instance
+        self.size= 1 if self.shape == () else len(self.vxvv)
         if self.dim() == 1:
             # For the 1D case, solar position/velocity is not used currently
             self._zo= None
@@ -640,7 +643,7 @@ class Orbit(object):
         raise RuntimeError('Orbit.__add__ has been deprecated')
 
     def __len__(self):
-        return len(self.vxvv)
+        return 1 if self.shape == () else self.shape[0]
 
     def dim(self):
         """
@@ -800,7 +803,7 @@ class Orbit(object):
            2018-12-31 - Written - Bovy (UofT)
 
         """
-        indx_array= numpy.arange(len(self)).reshape(self.shape)
+        indx_array= numpy.arange(self.size).reshape(self.shape)
         indx_array= indx_array[key]
         flat_indx_array= indx_array.flatten()
         orbits_list= self.vxvv[flat_indx_array]
@@ -1358,7 +1361,7 @@ class Orbit(object):
                                     pot,thiso[0][ii][jj],t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
-                                   for jj in range(len(self))])\
+                                   for jj in range(self.size)])\
                           +(thiso[1]**2./2.).T)
         elif self.phasedim() == 3:
             try:
@@ -1372,7 +1375,7 @@ class Orbit(object):
                                     pot,thiso[0][ii][jj],t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
-                                   for jj in range(len(self))])
+                                   for jj in range(self.size)])
                       +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 4:
             try:
@@ -1387,7 +1390,7 @@ class Orbit(object):
                                     phi=thiso[-1][ii][jj],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
-                                   for jj in range(len(self))])
+                                   for jj in range(self.size)])
                                   +(thiso[1]**2./2.+thiso[2]**2./2.).T)
         elif self.phasedim() == 5:
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
@@ -1405,7 +1408,7 @@ class Orbit(object):
                                     t=t[ii],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
-                                   for jj in range(len(self))])
+                                   for jj in range(self.size)])
                       +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         elif self.phasedim() == 6:
             z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
@@ -1424,7 +1427,7 @@ class Orbit(object):
                                     phi=thiso[-1][ii][jj],
                                     use_physical=False)
                                     for ii in range(len(thiso[0]))]
-                                   for jj in range(len(self))])
+                                   for jj in range(self.size)])
                       +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
         if onet:
             return out[:,0]
@@ -1811,8 +1814,8 @@ class Orbit(object):
                               dontreshape=True) >= 0)-1.)*1e-10
             tvz= self.vz(use_physical=False,dontreshape=True)
         elif self.dim() == 2:
-            tz= numpy.zeros(len(self))
-            tvz= numpy.zeros(len(self))
+            tz= numpy.zeros(self.size)
+            tvz= numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
         self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap=\
             self._aA.EccZmaxRperiRap(self.R(use_physical=False,
@@ -1838,8 +1841,8 @@ class Orbit(object):
                               dontreshape=True) >= 0)-1.)*1e-10
             tvz= self.vz(use_physical=False,dontreshape=True)
         elif self.dim() == 2:
-            tz= numpy.zeros(len(self))
-            tvz= numpy.zeros(len(self))
+            tz= numpy.zeros(self.size)
+            tvz= numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
         self._aA_jr, self._aA_jp, self._aA_jz, \
             self._aA_Or, self._aA_Op, self._aA_Oz, \
@@ -4135,7 +4138,7 @@ class Orbit(object):
             try:
                 self._setupOrbitInterp()
             except:
-                out= numpy.zeros((self.phasedim(),nt,len(self)))
+                out= numpy.zeros((self.phasedim(),nt,self.size))
                 for jj in range(nt):
                     try:
                         indx= list(self.t).index(t[jj])
@@ -4143,7 +4146,7 @@ class Orbit(object):
                         raise LookupError("Orbit interpolaton failed; integrate on finer grid")
                     out[:,jj]= self.orbit[:,indx].T
                 return out #should always have nt > 1, bc otherwise covered by above
-            out= numpy.empty((self.phasedim(),nt,len(self)))
+            out= numpy.empty((self.phasedim(),nt,self.size))
             # Evaluating RectBivariateSpline on grid requires sorted arrays
             sindx= numpy.argsort(t)
             t= t[sindx]
@@ -4249,11 +4252,11 @@ class Orbit(object):
                 self.orbit= self.orbit[:,sindx]
                 usindx= numpy.argsort(sindx) # to later unsort
         orbInterp= []
-        orb_indx= numpy.arange(len(self))
+        orb_indx= numpy.arange(self.size)
         for ii in range(self.phasedim()):
             if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
                 #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
-                if len(self) == 1:
+                if self.size == 1:
                     orbInterp.append(_1DInterp(\
                           self.t,
                           self.orbit[0,:,0]*numpy.cos(self.orbit[0,:,-1])))
@@ -4264,7 +4267,7 @@ class Orbit(object):
                           ky=1,s=0.))
             elif (self.phasedim() == 4 or self.phasedim() == 6) and \
                     ii == self.phasedim()-1:
-                if len(self) == 1:
+                if self.size == 1:
                     orbInterp.append(_1DInterp(\
                           self.t,
                           self.orbit[0,:,0]*numpy.sin(self.orbit[0,:,-1])))
@@ -4274,7 +4277,7 @@ class Orbit(object):
                           (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
                           ky=1,s=0.))
             else:
-                if len(self) == 1:
+                if self.size == 1:
                     orbInterp.append(_1DInterp(self.t,self.orbit[0,:,ii]))
                 else:
                     orbInterp.append(interpolate.RectBivariateSpline(\
@@ -4775,7 +4778,7 @@ class Orbit(object):
         nplots= len(xs)
         jsonDict= {}
         for ii in range(nplots):
-            for jj in range(len(self)):
+            for jj in range(self.size):
                 jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
                 jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
         json_filename= kwargs.pop('json_filename',None)
@@ -4815,9 +4818,9 @@ class Orbit(object):
                       '#bcbd22', # curry yellow-green
                       '#17becf'] # blue-teal
         # When there are more than these # of colors needed, make up randoms
-        if len(self) > len(line_colors):
+        if self.size > len(line_colors):
             line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
-                                for ii in range(len(self)-len(line_colors))])
+                                for ii in range(self.size-len(line_colors))])
         layout= """{{
   xaxis: {{
     title: '{xlabel}',
@@ -4867,7 +4870,7 @@ class Orbit(object):
     }};
 """.format(line_color=line_colors[0])
         traces_cumul= """trace1,trace2"""
-        for ii in range(1,len(self)):
+        for ii in range(1,self.size):
             setup_trace1+= """            
     let trace{trace_num_1}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame), 
@@ -4905,7 +4908,7 @@ class Orbit(object):
       }};
       Plotly.restyle('{divid}',trace2,[1]);
 """.format(divid=self.divid)
-        for ii in range(1,len(self)):
+        for ii in range(1,self.size):
             update_trace12+= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
@@ -4923,7 +4926,7 @@ class Orbit(object):
            trace_num_20=str(2*ii+2-1))
         delete_trace2= ""
         delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
-        for ii in range(len(self)-1,0,-1):
+        for ii in range(self.size-1,0,-1):
             delete_trace2+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*ii+2-1))
             delete_trace1+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         delete_trace2+= """\n        Plotly.deleteTraces('{divid}',1);""".format(divid=self.divid)
@@ -4955,10 +4958,10 @@ class Orbit(object):
         color: '{line_color}',
       }},
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(2*len(self)+1),
-           trace_num_2=str(2*len(self)+2))
-            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*len(self)+1),trace_num_2=str(2*len(self)+2))
-            for ii in range(1,len(self)):
+""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
+           trace_num_2=str(2*self.size+2))
+            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+1),trace_num_2=str(2*self.size+2))
+            for ii in range(1,self.size):
                 setup_trace2+= """
     let trace{trace_num_1}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
@@ -4986,9 +4989,9 @@ class Orbit(object):
       }},
     }};
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
-           trace_num_1=str(2*len(self)+2*ii+1),
-           trace_num_2=str(2*len(self)+2*ii+2))
-                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*len(self)+2*ii+1),trace_num_2=str(2*len(self)+2*ii+2))
+           trace_num_1=str(2*self.size+2*ii+1),
+           trace_num_2=str(2*self.size+2*ii+2))
+                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
             update_trace34= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
@@ -5002,10 +5005,10 @@ class Orbit(object):
         y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
       }},
       Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(2*len(self)+2),
-           trace_num_10=str(2*len(self)+1-1),
-           trace_num_20=str(2*len(self)+2-1))
-            for ii in range(1,len(self)):
+""".format(divid=self.divid,trace_num_2=str(2*self.size+2),
+           trace_num_10=str(2*self.size+1-1),
+           trace_num_20=str(2*self.size+2-1))
+            for ii in range(1,self.size):
                 update_trace34+= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
@@ -5020,14 +5023,14 @@ class Orbit(object):
       }},
       Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
 """.format(divid=self.divid,trace_indx=str(ii),
-           trace_num_1=str(2*len(self)+2*ii+1),
-           trace_num_2=str(2*len(self)+2*ii+2),
-           trace_num_10=str(2*len(self)+2*ii+1-1),
-           trace_num_20=str(2*len(self)+2*ii+2-1))
+           trace_num_1=str(2*self.size+2*ii+1),
+           trace_num_2=str(2*self.size+2*ii+2),
+           trace_num_10=str(2*self.size+2*ii+1-1),
+           trace_num_20=str(2*self.size+2*ii+2-1))
             delete_trace4= ""
             delete_trace3= ""
-            for ii in range(len(self)-1,-1,-1):
-                delete_trace4+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*len(self)+2*ii+2-1))
+            for ii in range(self.size-1,-1,-1):
+                delete_trace4+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*self.size+2*ii+2-1))
                 delete_trace3+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
@@ -5067,10 +5070,10 @@ class Orbit(object):
         color: '{line_color}',
       }},
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(4*len(self)+1),
-           trace_num_2=str(4*len(self)+2))
-            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*len(self)+1),trace_num_2=str(4*len(self)+2))
-            for ii in range(1,len(self)):
+""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
+           trace_num_2=str(4*self.size+2))
+            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+1),trace_num_2=str(4*self.size+2))
+            for ii in range(1,self.size):
                 setup_trace3+= """
     let trace{trace_num_1}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
@@ -5098,11 +5101,11 @@ class Orbit(object):
       }},
     }};
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
-           trace_num_1=str(4*len(self)+2*ii+1),
-           trace_num_2=str(4*len(self)+2*ii+2),
-           trace_num_10=str(4*len(self)+2*ii+1-1),
-           trace_num_20=str(4*len(self)+2*ii+2-1))
-                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*len(self)+2*ii+1),trace_num_2=str(4*len(self)+2*ii+2))
+           trace_num_1=str(4*self.size+2*ii+1),
+           trace_num_2=str(4*self.size+2*ii+2),
+           trace_num_10=str(4*self.size+2*ii+1-1),
+           trace_num_20=str(4*self.size+2*ii+2-1))
+                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+2*ii+1),trace_num_2=str(4*self.size+2*ii+2))
             setup_trace3+= """
     let traces= [{traces_cumul}];
 """.format(traces_cumul=traces_cumul)
@@ -5119,10 +5122,10 @@ class Orbit(object):
         y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
       }},
       Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(4*len(self)+2),
-           trace_num_10=str(4*len(self)+1-1),
-           trace_num_20=str(4*len(self)+2-1))
-            for ii in range(1,len(self)):
+""".format(divid=self.divid,trace_num_2=str(4*self.size+2),
+           trace_num_10=str(4*self.size+1-1),
+           trace_num_20=str(4*self.size+2-1))
+            for ii in range(1,self.size):
                 update_trace56+= """
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('{divid}', {{
@@ -5137,13 +5140,13 @@ class Orbit(object):
       }},
       Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
 """.format(divid=self.divid,trace_indx=str(ii),
-           trace_num_2=str(4*len(self)+2*ii+2),
-           trace_num_10=str(4*len(self)+2*ii+1-1),
-           trace_num_20=str(4*len(self)+2*ii+2-1))
+           trace_num_2=str(4*self.size+2*ii+2),
+           trace_num_10=str(4*self.size+2*ii+1-1),
+           trace_num_20=str(4*self.size+2*ii+2-1))
             delete_trace6= ""
             delete_trace5= ""
-            for ii in range(len(self)-1,-1,-1):
-                delete_trace6+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(4*len(self)+2*ii+2-1))
+            for ii in range(self.size-1,-1,-1):
+                delete_trace6+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(4*self.size+2*ii+2-1))
                 delete_trace5+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         elif len(d1s) > 1: # elif for "if there is a 3rd panel
             setup_trace3= """
