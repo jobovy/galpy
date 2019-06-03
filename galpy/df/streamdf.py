@@ -2621,10 +2621,14 @@ class streamdf(df):
             else:
                 return self._approxaA(*args,interp=interp)
         elif isinstance(args[0],Orbit):
+            if len(args[0].shape) > 1:
+                raise RuntimeError("Evaluating streamdf with Orbit instances with multi-dimensional shapes is not supported") #pragma: no cover
             o= args[0]
             return self._approxaA(o.R(),o.vR(),o.vT(),o.z(),o.vz(),o.phi(),
                                   interp=interp)
         elif isinstance(args[0],list) and isinstance(args[0][0],Orbit):
+            if numpy.any([len(no) > 1 for no in args[0]]):
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             R, vR, vT, z, vz, phi= [], [], [], [], [], []
             for o in args[0]:
                 R.append(o.R())

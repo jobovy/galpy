@@ -125,7 +125,7 @@ class diskdf(df):
            either an orbit instance, a list of such instances,  or E,Lz
 
            1) Orbit instance or list:
-              a) Orbit instance alone: use vxvv member
+              a) Orbit instance alone: use initial condition
               b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
@@ -155,30 +155,34 @@ class diskdf(df):
 
         """
         if isinstance(args[0],Orbit):
+            if len(args[0]) > 1:
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             if len(args) == 1:
                 if kwargs.pop('marginalizeVperp',False):
                     return self._call_marginalizevperp(args[0],**kwargs)
                 elif kwargs.pop('marginalizeVlos',False):
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
-                    return sc.real(self.eval(*vRvTRToEL(args[0].vxvv[0,1],
-                                                        args[0].vxvv[0,2],
-                                                        args[0].vxvv[0,0],
-                                                        self._beta,
-                                                        self._dftype)))
+                    return sc.real(self.eval(*vRvTRToEL(\
+                                args[0].vR(use_physical=False),
+                                args[0].vT(use_physical=False),
+                                args[0].R(use_physical=False),
+                                self._beta,self._dftype)))
             else:
                 no= args[0](args[1])
-                return sc.real(self.eval(*vRvTRToEL(no.vxvv[0,1],
-                                                    no.vxvv[0,2],
-                                                    no.vxvv[0,0],
+                return sc.real(self.eval(*vRvTRToEL(no.vR(use_physical=False),
+                                                    no.vT(use_physical=False),
+                                                    no.R(use_physical=False),
                                                     self._beta,
                                                     self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
+            if nu.any([len(no) > 1 for no in args[0]]):
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             #Grab all of the vR, vT, and R
-            vR= nu.array([o.vxvv[0,1] for o in args[0]])
-            vT= nu.array([o.vxvv[0,2] for o in args[0]])
-            R= nu.array([o.vxvv[0,0] for o in args[0]])
+            vR= nu.array([o.vR(use_physical=False) for o in args[0]])
+            vT= nu.array([o.vT(use_physical=False) for o in args[0]])
+            R= nu.array([o.R(use_physical=False) for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
                                                 self._dftype)))
         elif isinstance(args[0],nu.ndarray) and \

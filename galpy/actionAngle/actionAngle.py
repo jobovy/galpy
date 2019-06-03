@@ -196,7 +196,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             else:
                 orb= args[0]
             if len(orb.shape) > 1:
-                raise RuntimeError("Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not support")
+                raise RuntimeError("Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not supported")
             self._eval_R= orb.R(use_physical=False)
             self._eval_vR= orb.vR(use_physical=False)
             self._eval_vT= orb.vT(use_physical=False)

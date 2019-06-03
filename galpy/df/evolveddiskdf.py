@@ -124,6 +124,8 @@ class evolveddiskdf(df):
                 integrate_method= 'odeint'
         deriv= kwargs.get('deriv',None)
         if isinstance(args[0],Orbit):
+            if len(args[0]) > 1:
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             if len(args) == 1:
                 t= 0.
             else:
