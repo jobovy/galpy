@@ -617,14 +617,6 @@ as a function of R
 
 .. image:: images/lp-orbit-integration-Ez.png
 
-Often, a better approximation to an integral of the motion is given by
-Ez/sqrt(density[R]). We refer to this quantity as ``EzJz`` and we can plot its
-behavior
-
->>> o.plotEzJz(d1='R',normed=True)
-
-.. image:: images/lp-orbit-integration-EzJz.png
-
 .. _fastchar:
 
 Fast orbit characterization
