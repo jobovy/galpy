@@ -34,6 +34,8 @@ time. For example, ``o.plotR()`` will plot the orbit's R vs time.
 Attributes
 ----------
 
+* .. autoinstanceattribute:: galpy.orbit.Orbit.name
+     :annotation: Name(s) of objects initialized using ``Orbit.from_name``
 * .. autoinstanceattribute:: galpy.orbit.Orbit.shape
      :annotation: Tuple of Orbit dimensions
 * .. autoinstanceattribute:: galpy.orbit.Orbit.size

@@ -3,7 +3,7 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-**UPDATED in v1.4**: Orbit initialization
+**UPDATED in v1.5**: Orbit initialization
 -----------------------------------------
 
 Standard initialization
@@ -15,29 +15,29 @@ conditions directly in the Galactocentric cylindrical coordinate frame
 (or in the rectangular coordinate frame in one dimension). ``Orbit()``
 automatically figures out the dimensionality of the space from the
 initial conditions in this case. In three dimensions initial
-conditions are given either as ``vxvv=[R,vR,vT,z,vz,phi]`` or one can
+conditions are given either as ``[R,vR,vT,z,vz,phi]`` or one can
 choose not to specify the azimuth of the orbit and initialize with
-``vxvv=[R,vR,vT,z,vz]``. Since potentials in galpy are easily
-initialized to have a circular velocity of one at a radius equal to
-one, initial coordinates are best given as a fraction of the radius at
-which one specifies the circular velocity, and initial velocities are
-best expressed as fractions of this circular velocity. For example,
+``[R,vR,vT,z,vz]``. Since potentials in galpy are easily initialized
+to have a circular velocity of one at a radius equal to one, initial
+coordinates are best given as a fraction of the radius at which one
+specifies the circular velocity, and initial velocities are best
+expressed as fractions of this circular velocity. For example,
 
 >>> from galpy.orbit import Orbit
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
 
 initializes a fully three-dimensional orbit, while
 
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1])
 
 initializes an orbit in which the azimuth is not tracked, as might be
 useful for axisymmetric potentials.
 
 In two dimensions, we can similarly specify fully two-dimensional
-orbits ``o=Orbit(vxvv=[R,vR,vT,phi])`` or choose not to track the
-azimuth and initialize with ``o= Orbit(vxvv=[R,vR,vT])``.
+orbits ``o=Orbit([R,vR,vT,phi])`` or choose not to track the azimuth
+and initialize with ``o= Orbit([R,vR,vT])``.
 
-In one dimension we simply initialize with ``o= Orbit(vxvv=[x,vx])``.
+In one dimension we simply initialize with ``o= Orbit([x,vx])``.
 
 Initialization with physical units
 ************************************
@@ -48,7 +48,7 @@ are initialized using a distance scale ``ro=`` and a velocity scale
 coordinates. Specifically, physical distance and velocity scales are
 specified as
 
->>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.)
+>>> op= Orbit([1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.)
 
 All output quantities will then be automatically be specified in
 physical units: kpc for positions, km/s for velocities, (km/s)^2 for
@@ -60,7 +60,7 @@ The actual initial condition can also be specified in physical
 units. For example, the Orbit above can be initialized as
 
 >>> from astropy import units
->>> op= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242*units.km/units.s,0.*units.kpc,22.*units.km/units.s,0.*units.deg])
+>>> op= Orbit([8.*units.kpc,22.*units.km/units.s,242*units.km/units.s,0.*units.kpc,22.*units.km/units.s,0.*units.deg])
 
 In this case, it is unnecessary to specify the ``ro=`` and ``vo=``
 scales; when they are not specified, ``ro`` and ``vo`` are set to the
@@ -81,8 +81,8 @@ If for any output you do *not* want the output in physical units, you
 can specify this by supplying the keyword argument
 ``use_physical=False``.
 
-Initialization from observed coordinates
-****************************************
+Initialization from observed coordinates or astropy ``SkyCoord``
+****************************************************************
 
 For orbit integration and characterization of observed stars or
 clusters, initial conditions can also be specified directly as
@@ -90,18 +90,18 @@ observed quantities when ``radec=True`` is set (see further down in
 this section on how to use an ``astropy`` `SkyCoord
 <http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html#astropy.coordinates.SkyCoord>`__
 instead). In this case a full three-dimensional orbit is initialized
-as ``o= Orbit(vxvv=[RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)``
+as ``o= Orbit([RA,Dec,distance,pmRA,pmDec,Vlos],radec=True)``
 where RA and Dec are expressed in degrees, the distance is expressed
 in kpc, proper motions are expressed in mas/yr (pmra = pmra' *
 cos[Dec] ), and ``Vlos`` is the heliocentric line-of-sight velocity
 given in km/s. The observed epoch is currently assumed to be
 J2000.00. These observed coordinates are translated to the
 Galactocentric cylindrical coordinate frame by assuming a Solar motion
-that can be specified as either ``solarmotion=hogg`` (`2005ApJ...629..268H
+that can be specified as either ``solarmotion='hogg'`` (`2005ApJ...629..268H
 <http://adsabs.harvard.edu/abs/2005ApJ...629..268H>`_),
-``solarmotion=dehnen`` (`1998MNRAS.298..387D
+``solarmotion='dehnen'`` (`1998MNRAS.298..387D
 <http://adsabs.harvard.edu/abs/1998MNRAS.298..387D>`_) or
-``solarmotion=schoenrich`` (default; `2010MNRAS.403.1829S
+``solarmotion='schoenrich'`` (default; `2010MNRAS.403.1829S
 <http://adsabs.harvard.edu/abs/2010MNRAS.403.1829S>`_). A circular
 velocity can be specified as ``vo=220`` in km/s and a value for the
 distance between the Galactic center and the Sun can be given as
@@ -116,11 +116,11 @@ transformations are stored internally, such that they are
 automatically used for relevant outputs (for example, when the RA of
 an orbit is requested). An example of all of this is:
 
->>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],radec=True,ro=8.,vo=220.)
+>>> o= Orbit([20.,30.,2.,-10.,20.,50.],radec=True,ro=8.,vo=220.)
 
 However, the internally stored position/velocity vector is
 
->>> print(o._orb.vxvv)
+>>> print(o.vxvv)
 # [1.1480792664061401, 0.1994859759019009, 1.8306295160508093, -0.13064400474040533, 0.58167185623715167, 0.14066246212987227]
 
 and is therefore in *natural* units.
@@ -129,19 +129,19 @@ and is therefore in *natural* units.
    Initialization using observed coordinates can also use units. So, for example, proper motions can be specified as ``2*units.mas/units.yr``.
 
 Similarly, one can also initialize orbits from Galactic coordinates
-using ``o= Orbit(vxvv=[glon,glat,distance,pmll,pmbb,Vlos],lb=True)``,
-where glon and glat are Galactic longitude and latitude expressed in
+using ``o= Orbit([glon,glat,distance,pmll,pmbb,Vlos],lb=True)``, where
+glon and glat are Galactic longitude and latitude expressed in
 degrees, and the proper motions are again given in mas/yr ((pmll =
 pmll' * cos[glat] ):
 
->>> o= Orbit(vxvv=[20.,30.,2.,-10.,20.,50.],lb=True,ro=8.,vo=220.)
->>> print(o._orb.vxvv)
+>>> o= Orbit([20.,30.,2.,-10.,20.,50.],lb=True,ro=8.,vo=220.)
+>>> print(o.vxvv)
 # [0.79959714332811838, 0.073287283885367677, 0.5286278286083651, 0.12748861331872263, 0.89074407199364924, 0.0927414387396788]
 
 
-When ``radec=True`` or ``lb=True`` is set, velocities can also be specified in
-Galactic coordinates if ``UVW=True`` is set. The input is then
-``vxvv=[RA,Dec,distance,U,V,W]``, where the velocities are expressed
+When ``radec=True`` or ``lb=True`` is set, velocities can also be
+specified in Galactic coordinates if ``UVW=True`` is set. The input is
+then ``[RA,Dec,distance,U,V,W]``, where the velocities are expressed
 in km/s. U is, as usual, defined as -vR (minus vR).
 
 Finally, orbits can also be initialized using an
@@ -192,6 +192,105 @@ natural coordinates, you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
+**NEW in v1.5**: Initializing multiple objects at once
+*******************************************************
+
+In all of the examples above, the ``Orbit`` instance corresponds to a
+single object, but ``Orbit`` instances can also contain and analyze
+multiple objects at once. This makes handling ``Orbit`` instances
+highly convenient and also allows for efficient handling of multiple
+objects. Many of the most computationally-intense methods have been
+parallelized (orbit integration; analytic eccentricity, zmax,
+etc. calculation; action-angle calculations) and some other methods
+switch to more efficient algorithms for larger numbers of objects
+(e.g., ``rguiding``). 
+
+All of the methods for initializing ``Orbit`` instances above work for
+multiple objects. Specifically, the initial conditions can be:
+
+* Array of arbitrary shape (shape,phasedim); needs to be in internal units (for Quantity input; see 'list' option below or use a SkyCoord):
+    * in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)];
+    * [ra,dec,d,mu_ra, mu_dec,vlos] or [l,b,d,mu_l, mu_b, vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s], or [ra,dec,d,U,V,W] or [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms] (ICRS where relevant; mu_ra = mu_ra * cos dec and mu_l = mu_l * cos ); use the ``radec=``, ``lb=``, and ``UVW=`` keywords as before
+* astropy (>v3.0) SkyCoord with arbitrary shape, including velocities;
+* lists of initial conditions, entries can be
+   * individual Orbit instances (of single objects)
+   * Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+   * list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
+   * None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists
+   * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units  
+
+.. TIP::
+   For multiple object initialization using an array or SkyCoord, arbitrary input shapes are supported.
+
+An example initialization with an array is:
+
+>>> vxvvs= numpy.array([[1.,0.1,1.,0.1,-0.2,1.5],[0.1,0.3,1.1,-0.3,0.4,2.]])
+>>> orbits= Orbit(vxvvs)
+>>> print(orbits.R())
+# [ 1.   0.1]
+
+and with a SkyCoord:
+
+>>> numpy.random.seed(1)
+>>> nrand= 30
+>>> ras= numpy.random.uniform(size=nrand)*360.*u.deg
+>>> decs= 90.*(2.*numpy.random.uniform(size=nrand)-1.)*u.deg
+>>> dists= numpy.random.uniform(size=nrand)*10.*u.kpc
+>>> pmras= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
+>>> pmdecs= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
+>>> vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
+# Without any custom coordinate-transformation parameters
+>>> co= SkyCoord(ra=ras,dec=decs,distance=dists, 
+                 pm_ra_cosdec=pmras,pm_dec=pmdecs,
+                 radial_velocity=vloss,
+                 frame='icrs')
+>>> orbits= Orbit(co)
+>>> print(orbits.ra()[:3],ras[:3])
+# [  1.50127922e+02   2.59316818e+02   4.11749371e-02] deg [  1.50127922e+02   2.59316818e+02   4.11749342e-02] deg
+
+As before, you can use the ``SkyCoord`` Galactocentric frame
+specification here.
+
+``Orbit`` instances containing multiple objects act like numpy arrays
+in many ways, but have some subtly different behaviors for some
+functions. For example, one can do:
+
+>>> print(len(orbits))
+# 30
+>>> print(orbits.shape)
+# (30,)
+>>> print(orbits.size)
+# 30
+>>> orbits.reshape((6,5)) # reshape is done inplace
+>>> print(len(orbits))
+# 6
+>>> print(orbits.shape)
+# (6,5)
+>>> print(orbits.size)
+# 30
+>>> sliced_orbits= orbits[:3,1:5] # Extract a subset using numpy's slicing rules
+>>> print(sliced_orbits.shape)
+# (3,4)
+>>> single_orbit= orbits[1,3] # Extract a single object
+>>> print(single_orbit.shape)
+# ()
+
+Slicing creates a new ``Orbit`` instance. When slicing an ``Orbit``
+instance that has been integrated, the integrated orbit will be
+transferred to the new instance.
+
+The shape of the ``Orbit`` instances is retained for all relevant
+outputs. Continuing on from the previous example (where ``orbits`` has
+shape ``(6.5)`` after we reshaped it), we have:
+
+>>> print(orbits.R().shape)
+# (6,5)
+>>> print(orbits.L().shape)
+# (6,5,3)
+
+After orbit integration, evaluating ``orbits.R(times)`` would return
+an array with shape ``(6,5,ntimes)`` here.
+
 .. _orbfromname:
 
 Initialization from an object's name
@@ -224,6 +323,17 @@ Similarly, you can do:
 >>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
 # [80.894200000000055, -69.756099999999847, 49.999999999999993, 1.909999999999999, 0.2290000000000037, 262.19999999999993]
 
+It is also possible to initialize using multiple names, for example:
+
+>>> o= Orbit.from_name(['LMC','SMC'])
+>>> print(o.ra(),o.dec(),o.dist())
+# [ 80.8942  13.1583] deg [-69.7561 -72.8003] deg [ 50.  60.] kpc
+
+The names are stored in the ``name`` attribute:
+
+>>> print(o.name)
+# ['LMC', 'SMC']
+
 The ``Orbit.from_name`` method attempts to resolve the name of the
 object in SIMBAD, and then use the observed coordinates found there to
 generate an ``Orbit`` instance. In order to query SIMBAD,
@@ -245,7 +355,7 @@ potential we can do the following
 
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
 >>> o.integrate(ts,lp)
@@ -257,12 +367,36 @@ to integrate the orbit from ``t=0`` to ``t=100``, saving the orbit at
 >>> ts= numpy.linspace(0,10.,10000)*units.Gyr
 >>> o.integrate(ts,lp)
 
+.. WARNING::
+   When the integration times are not specified using a Quantity, they are assumed to be in natural units.
+
 If we initialize the Orbit using a distance scale ``ro=`` and a
 velocity scale ``vo=``, then Orbit plots and outputs will use physical
 coordinates (currently, times, positions, and velocities)
 
->>> op= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
+>>> op= Orbit([1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
 >>> op.integrate(ts,lp) 
+
+An ``Orbit`` instance containing multiple objects can be integrated in
+the same way and the orbit integration will be performed in parallel
+on machines with multiple cores. For the fast C integrators (:ref:`see
+below <fastorbit>`), this parallelization is done using OpenMP in C
+and requires one to set the ``OMP_NUM_THREADS`` environment variable
+to control the number of cores used. The Python integrators are
+parallelized in Python and by default also use the ``OMP_NUM_THREADS``
+variable to set the number of cores (but for the Python integrators
+this can be overwritten). A simple example is
+
+>>> vxvvs= numpy.array([[1.,0.1,1.,0.1,-0.2,1.5],[0.1,0.3,1.1,-0.3,0.4,2.]])
+>>> orbits= Orbit(vxvvs)
+>>> orbits.integrate(ts,lp)
+>>> print(orbits.R(ts).shape)
+# (2,10000)
+>>> print(orbits.R(ts))
+# [[ 1.          1.00281576  1.00563403 ...,  1.05694767  1.05608923
+#   1.0551804 ]
+# [ 0.1         0.18647825  0.27361065 ...,  3.39447863  3.34992543
+#   3.30527001]]
 
 Displaying the orbit
 ---------------------
@@ -289,6 +423,16 @@ velocity scales associated with it, we get the following
 
 If we call ``op.plot(use_physical=False)``, the quantities will be
 displayed in natural galpy coordinates. 
+
+Plotting an ``Orbit`` instance that consists of multiple objects plots
+all objects at once, e.g.,
+
+>>> orbits.plot()
+
+gives
+
+.. image:: images/lp-orbits-integration.png
+	:scale: 80 % 
 
 Other projections of the orbit can be displayed by specifying the
 quantities to plot. E.g., 
@@ -404,9 +548,11 @@ which gives
    :file: orbitanim2proj.html
 
 If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
+
+``animate`` also works in principle for ``Orbit`` instances containing multiple objects, but in practice the resulting animation is very slow once more than a few orbits/projections are used.
    
 Orbit characterization
-------------------------
+----------------------
 
 The properties of the orbit can also be found using galpy. For
 example, we can calculate the peri- and apocenter radii of an orbit,
@@ -415,10 +561,26 @@ its eccentricity, and the maximal height above the plane of the orbit
 >>> o.rap(), o.rperi(), o.e(), o.zmax()
 # (1.2581455175173673,0.97981663263371377,0.12436710999105324,0.11388132751079502)
 
+or for multiple objects at once
+
+>>> orbits.rap(), orbits.rperi(), orbits.e(), orbits.zmax()
+# (array([ 1.0918143 ,  0.49557137]),
+# array([ 0.96779816,  0.29150873]),
+# array([ 0.06021334,  0.2592654 ]),
+# array([ 0.24734084,  0.47327396]))
+
 These four quantities can also be computed using analytical means (exact or approximations depending on the potential) by specifying ``analytic=True``
 
 >>> o.rap(analytic=True), o.rperi(analytic=True), o.e(analytic=True), o.zmax(analytic=True)
 # (1.2581448917376636,0.97981640959995842,0.12436697719989584,0.11390708640305315)
+
+or for multiple objects at once (this calculation is done in parallel on systems that support it)
+
+>>> orbits.rap(analytic=True), orbits.rperi(analytic=True), orbits.e(analytic=True), orbits.zmax(analytic=True)
+# (array([ 1.09181433,  0.49557137]),
+# array([ 0.96779816,  0.29150873]),
+# array([ 0.06021335,  0.2592654 ]),
+# array([ 0.24734693,  0.4733304 ]))
 
 We can also calculate the energy of the orbit, either in the potential
 that the orbit was integrated in, or in another potential:
@@ -468,71 +630,86 @@ behavior
 Fast orbit characterization
 ---------------------------
 
-It is also possible to use galpy for the fast estimation of orbit parameters as demonstrated
-in Mackereth & Bovy (2018, in prep.) via the Staeckel approximation (originally used by `Binney (2012) <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_
-for the appoximation of actions in axisymmetric potentials), without performing any orbit integration. 
-The method uses the geometry of the orbit tori to estimate the orbit parameters. After initialising 
-an ``Orbit`` instance, the method is applied by specifying ``analytic=True`` and 
-selecting ``type='staeckel'``.
+It is also possible to use galpy for the fast estimation of orbit
+parameters as demonstrated in `Mackereth & Bovy (2018)
+<http://adsabs.harvard.edu/abs/2018PASP..130k4501M>`__ via the
+Staeckel approximation (originally used by `Binney (2012)
+<http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_ for the
+appoximation of actions in axisymmetric potentials), without
+performing any orbit integration.  The method uses the geometry of the
+orbit tori to estimate the orbit parameters. After initialising an
+``Orbit`` instance, the method is applied by specifying
+``analytic=True`` and selecting ``type='staeckel'``.
 
 >>> o.e(analytic=True, type='staeckel')
 
-if running the above without integrating the orbit, the potential should also be specified
-in the usual way
+if running the above without integrating the orbit, the potential
+should also be specified in the usual way
 
 >>> o.e(analytic=True, type='staeckel', pot=mp)
 
-This interface automatically estimates the necessary delta parameter based on the initial 
-condition of the ``Orbit`` object.
+This interface automatically estimates the necessary delta parameter
+based on the initial condition of the ``Orbit`` object. (delta is the
+focal-length parameter of the prolate spheroidal coordinate system
+used in the approximation, see :ref:`the documentation of the
+actionAngleStaeckel class <actionanglestaeckel>`).
 
-While this is useful and fast for individual ``Orbit`` objects, it is likely that users will
-want to rapidly evaluate the orbit parameters of large numbers of objects. It is possible
-to perform the orbital parameter estimation above through the :ref:`actionAngle <actionangle>` 
-interface. To do this, we need arrays of the phase-space points ``R``, ``vR``, ``vT``, ``z``, ``vz``, and 
-``phi`` for the objects.  The orbit parameters are then calculated by first 
-specifying an ``actionAngleStaeckel`` instance (this requires a single ``delta`` focal-length parameter, see :ref:`the documentation of the actionAngleStaeckel class <actionanglestaeckel>`), then using the 
-``EccZmaxRperiRap`` method with the data points:
+While this is useful and fast for individual ``Orbit`` objects, it is
+likely that users will want to rapidly evaluate the orbit parameters
+of large numbers of objects. The easiest way to do this is by setting
+up an ``Orbit`` instance that contains all objects and call the same
+functions as above (in this case, the necessary delta parameter will
+be automatically determined for each object in the instance based on
+its initial condition)
 
->>> aAS = actionAngleStaeckel(pot=mp, delta=0.4)
->>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi)
+>>> os= Orbit([R, vR, vT, z, vz, phi])
+>>> os.e(analytic=True,type='staeckel',pot=mp)
 
-Alternatively, you can specify an array for ``delta`` when calling ``aAS.EccZmaxRperiRap``, for example by first estimating good ``delta`` parameters as follows:
+In this case, the returned array has the same shape as the input
+``R,vR,...`` arrays.
+
+Rather than automatically estimating delta, you can specify an array
+for ``delta`` when calling ``os.e`` (or ``zmax``, ``rperi``, and
+``rap``), for example by first estimating good ``delta`` parameters as
+follows:
 
 >>> from galpy.actionAngle import estimateDeltaStaeckel
->>> delta = estimateDeltaStaeckel(mp, R, z, no_median=True)
+>>> delta= estimateDeltaStaeckel(mp, R, z, no_median=True)
 
-where ``no_median=True`` specifies that the function return the delta parameter at each given point
-rather than the median of the calculated deltas (which is the default option). Then one can compute the eccetrncity etc. using individual delta values as:
+where ``no_median=True`` specifies that the function return the delta
+parameter at each given point rather than the median of the calculated
+deltas (which is the default option). Then one can compute the
+eccentricity etc. using individual delta values as:
 
->>> e, Zmax, rperi, rap = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, phi, delta=delta)
+>>> os.e(analytic=True,type='staeckel',pot=mp,delta=delta)
 
-Th ``EccZmaxRperiRap`` method also exists for the ``actionAngleIsochrone``, 
-``actionAngleSpherical``, and ``actionAngleAdiabatic`` modules. 
+We can test the speed of this method in iPython by finding the
+parameters at 100000 steps along an orbit in MWPotential2014, like
+this
 
-We can test the speed of this method in iPython by finding the parameters at 100000 steps 
-along an orbit in MWPotential2014, like this
-
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1,0.])
->>> ts = numpy.linspace(0,100,100000)
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
+>>> ts = numpy.linspace(0,100,10000)
 >>> o.integrate(ts,MWPotential2014)
->>> aAS = actionAngleStaeckel(pot=MWPotential2014,delta=0.3) 
->>> R, vR, vT, z, vz, phi = o.getOrbit().T
->>> delta = estimateDeltaStaeckel(MWPotential2014, R, z, no_median=True)
->>> %timeit -n 10 es, zms, rps, ras = aAS.EccZmaxRperiRap(R,vR,vT,z,vz,phi,delta=delta)
-#10 loops, best of 3: 899 ms per loop
+>>> os= o(ts) # returns an Orbit instance with nt objects, each initialized at the position at one of the ts
+>>> delta= estimateDeltaStaeckel(MWPotential2014,o.R(ts),o.z(ts),no_median=True)
+>>> %timeit -n 10 os.e(analytic=True,pot=MWPotential2014,delta=delta)
+# 584 ms ± 8.63 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
-you can see that in this potential, each phase space point is calculated in roughly 9µs.
-further speed-ups can be gained by using the ``actionAngleStaeckelGrid`` module, which first
+you can see that in this potential, each phase space point is
+calculated in roughly 60µs.  further speed-ups can be gained by using
+the ``galpy.actionAngle.actionAngleStaeckelGrid`` module, which first
 calculates the parameters using a grid-based interpolation
 
 >>> from galpy.actionAngle import actionAngleStaeckelGrid
->>> aASG= actionAngleStaeckelGrid(pot=mp,delta=0.4,nE=51,npsi=51,nLz=61,c=True,interpecc=True)
+>>> R, vR, vT, z, vz, phi = o.getOrbit().T
+>>> aASG= actionAngleStaeckelGrid(pot=MWPotential2014,delta=0.4,nE=51,npsi=51,nLz=61,c=True,interpecc=True)
 >>> %timeit -n 10 es, zms, rps, ras = aASG.EccZmaxRperiRap(R,vR,vT,z,vz,phi)
-#10 loops, best of 3: 587 ms per loop
+# 47.4 ms ± 5.11 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
-where ``interpecc=True`` is required to perform the interpolation of the orbit parameter grid.
-Looking at how the eccentricity estimation varies along the orbit, and comparing to the calculation
-using the orbit integration, we see that the estimation good job
+where ``interpecc=True`` is required to perform the interpolation of
+the orbit parameter grid.  Looking at how the eccentricity estimation
+varies along the orbit, and comparing to the calculation using the
+orbit integration, we see that the estimation good job
 
 .. image:: images/lp-orbit-integration-et.png
 	:scale: 40 % 
@@ -578,19 +755,26 @@ e.g.,
 >>> op.R(1.,ro=4.) #different velocity scale would be vo=
 # 4.6180307418914612
 
+For ``Orbit`` instances that contain multiple objects, the functions
+above return arrays with the shape of the Orbit.
+
 We can also initialize an ``Orbit`` instance using the phase-space
 position of another ``Orbit`` instance evaulated at time t. For
 example,
 
 >>> newOrbit= o(10.)
 
-will initialize a new Orbit instance with as initial condition the phase-space position of orbit ``o`` at ``time=10.``.
+will initialize a new ``Orbit`` instance with as initial condition the
+phase-space position of orbit ``o`` at ``time=10.``. If multiple times
+are given, an ``Orbit`` instance with one object for each time will be
+instantiated (this works even if the original ``Orbit`` instance
+contained multiple objects already).
 
 The whole orbit can also be obtained using the function ``getOrbit``
 
 >>> o.getOrbit()
 
-which returns a matrix of phase-space points with dimensions [ntimes,ndim].
+which returns a matrix of phase-space points with dimensions [ntimes,nphasedim] or [shape,ntimes,nphasedim] for ``Orbit`` instances with multiple objects.
 
 
 .. _fastorbit:
@@ -635,7 +819,7 @@ Python, the available integrators are
 For most applications I recommend ``symplec4_c`` or ``dop853_c``,
 which are speedy and reliable. For example, compare
 
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1])
 >>> timeit(o.integrate(ts,mp,method='leapfrog'))
 # 1.34 s ± 41.8 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 >>> timeit(o.integrate(ts,mp,method='leapfrog_c'))
@@ -651,7 +835,7 @@ If the C extensions are unavailable for some reason, I recommend using
 the ``odeint`` pure-Python integrator, as it is the fastest. Using the
 same example as above
 
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1])
 >>> timeit(o.integrate(ts,mp,method='leapfrog'))
 # 2.62 s ± 128 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 >>> timeit(o.integrate(ts,mp,method='odeint'))
@@ -668,7 +852,7 @@ implemented for two-dimensional orbits (``planarOrbit``). As an
 example, we can check Liouville's theorem explicitly. We initialize
 the orbit
 
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.])
+>>> o= Orbit([1.,0.1,1.1,0.])
 
 and then integrate small deviations in each of the four
 phase-space directions
