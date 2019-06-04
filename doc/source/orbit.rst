@@ -892,10 +892,11 @@ a set of thick disk stars. We start by downloading the sample of SDSS
 SEGUE (`2009AJ....137.4377Y
 <http://adsabs.harvard.edu/abs/2009AJ....137.4377Y>`_) thick disk
 stars compiled by Dierickx et al. (`2010arXiv1009.1616D
-<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) from CDS at `this 
-link <http://vizier.cfa.harvard.edu/viz-bin/Cat?cat=J%2FApJ%2F725%2FL186&target=http&>`_.
-Downloading the table and the ReadMe will allow you to read in the data using ``astropy.io.ascii``
-like so
+<http://adsabs.harvard.edu/abs/2010arXiv1009.1616D>`_) from CDS at
+`this link
+<http://vizier.cfa.harvard.edu/viz-bin/Cat?cat=J%2FApJ%2F725%2FL186&target=http&>`_.
+Downloading the table and the ReadMe will allow you to read in the
+data using ``astropy.io.ascii`` like so
  
 >>> from astropy.io import ascii
 >>> dierickx = ascii.read('table2.dat', readme='ReadMe')
@@ -904,26 +905,18 @@ like so
 After reading in the data (RA,Dec,distance,pmRA,pmDec,vlos; see above)
 as a vector ``vxvv`` with dimensions [6,ndata] we (a) define the
 potential in which we want to integrate the orbits, and (b) integrate
-each orbit and save its eccentricity as calculated analytically following the :ref:`Staeckel 
-approximation method <fastchar>` and by orbit integration (running this for all 30,000-ish
-stars will take about half an hour)
+all orbits and compute their eccentricity numerically from the orbit
+integration and analytically following the :ref:`Staeckel
+approximation method <fastchar>` (the following takes lots of memory;
+you might want to slice the ``orbits`` object to a smaller number to
+run this code faster)
 
->>> from galpy.actionAngle import UnboundError
 >>> ts= np.linspace(0.,20.,10000)
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> e_ana = numpy.zeros(len(vxvv))
->>> e_int = numpy.zeros(len(vxvv))
->>> for i in range(len(vxvv)):
-...	#calculate analytic e estimate, catch any 'unbound' orbits
-...     try:
-...         orbit = Orbit(vxvv[i], radec=True, vo=220., ro=8.)
-...         e_ana[i] = orbit.e(analytic=True, pot=lp, c=True)
-...     except UnboundError:
-...         #parameters cannot be estimated analytically
-...         e_ana[i] = np.nan
-...     #integrate the orbit and return the numerical e value
-...     orbit.integrate(ts, lp)
-...     e_int[i] = orbit.e(analytic=False)
+>>> orbits= Orbit(vxvv,radec=True,ro=8.,vo=220.,solarmotion='hogg')
+>>> e_ana= orbits.e(analytic=True,pot=lp,delta=1e-6)
+>>> orbits.integrate(ts,lp)
+>>> e_int= orbits.e()
 
 We then find the following eccentricity distribution (from the numerical eccentricities)
 

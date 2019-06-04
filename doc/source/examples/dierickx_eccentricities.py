@@ -21,44 +21,22 @@ import numpy
 _ERASESTR= "                                                                                "
 
 def calc_eccentricity(args, options):
+    # Note: somewhat outdated way of computing this (but still works), see
+    # the online HTML docs for a simpler way
     table = os.path.join(args[0],'table2.dat')
     readme = os.path.join(args[0],'ReadMe')
     dierickx = ascii.read(table, readme=readme)
     vxvv = np.dstack([dierickx['RAdeg'], dierickx['DEdeg'], dierickx['Dist']/1e3, dierickx['pmRA'], dierickx['pmDE'], dierickx['HRV']])[0]
     ro, vo, zo = 8., 220., 0.025
-    ra, dec= vxvv[:,0], vxvv[:,1]
-    lb= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    pmra, pmdec= vxvv[:,3], vxvv[:,4]
-    pmllpmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=True)
-    d, vlos= vxvv[:,2], vxvv[:,5]
-    rectgal= bovy_coords.sphergal_to_rectgal(lb[:,0],lb[:,1],d,vlos,pmllpmbb[:,0], pmllpmbb[:,1],degree=True)
-    vsolar= np.array([-10.1,4.0,6.7])
-    vsun= np.array([0.,1.,0.,])+vsolar/vo
-    X = rectgal[:,0]/ro
-    Y = rectgal[:,1]/ro
-    Z = rectgal[:,2]/ro
-    vx = rectgal[:,3]/vo
-    vy = rectgal[:,4]/vo
-    vz = rectgal[:,5]/vo
-    vsun= np.array([0.,1.,0.,])+vsolar/vo
-    Rphiz= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Zsun=zo/ro)
-    vRvTvz= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,Rphiz[:,0],Rphiz[:,1],Rphiz[:,2],vsun=vsun,Xsun=1.,Zsun=zo/ro,galcen=True)
+    orbits= Orbit(vxvv,radec=True,ro=ro,vo=vo,zo=zo,solarmotion='hogg')
     #do the integration and individual analytic estimate for each object
-    ts= np.linspace(0.,20.,10000)
     lp= LogarithmicHaloPotential(normalize=1.)
-    e_ana = numpy.zeros(len(vxvv))
-    e_int = numpy.zeros(len(vxvv))
-    print('Performing orbit integration and analytic parameter estimates for Dierickx et al. sample...')
-    for i in tqdm(range(len(vxvv))):
-        try:
-            orbit = Orbit(vxvv[i], radec=True, vo=220., ro=8.)
-            e_ana[i] = orbit.e(analytic=True, pot=lp, c=True)
-        except UnboundError:
-            e_ana[i] = np.nan
-        orbit.integrate(ts, lp)
-        e_int[i] = orbit.e(analytic=False)
+    e_ana= orbits.e(analytic=True,pot=lp,delta=1e-6)
+    ts= np.linspace(0.,20.,10000)
+    orbits.integrate(ts,lp)
+    e_int= orbits.e()
+    # Now plot everything
     fig = plt.figure()
-    fig.set_size_inches(1.5*columnwidth, 1.5*columnwidth)
     plt.scatter(e_int, e_ana,  s=1, color='Black', lw=0.)
     plt.xlabel(r'$\mathrm{galpy\ integrated}\ e$')
     plt.ylabel(r'$\mathrm{galpy\ analytic}\ e$')
@@ -67,14 +45,12 @@ def calc_eccentricity(args, options):
     fig.tight_layout()
     plt.savefig(os.path.join(args[0],'dierickx-integratedeanalytice.png'), format='png', dpi=200)
     fig = plt.figure()
-    fig.set_size_inches(1.5*columnwidth, 1.5*columnwidth)
     plt.hist(e_int, bins=30)
     plt.xlim(0.,1.)
     plt.xlabel(r'$\mathrm{galpy}\ e$')
     fig.tight_layout()
     plt.savefig(os.path.join(args[0], 'dierickx-integratedehist.png'), format='png', dpi=200)
     fig = plt.figure()
-    fig.set_size_inches(1.5*columnwidth, 1.5*columnwidth)
     plt.scatter(dierickx['e'], e_int,  s=1, color='Black', lw=0.)
     plt.xlabel(r'$\mathrm{Dierickx\ et\ al.}\ e$')
     plt.ylabel(r'$\mathrm{galpy\ integrated}\ e$')
@@ -83,7 +59,6 @@ def calc_eccentricity(args, options):
     fig.tight_layout()
     plt.savefig(os.path.join(args[0],'dierickx-integratedee.png'), format='png', dpi=200)
     fig = plt.figure()
-    fig.set_size_inches(1.5*columnwidth, 1.5*columnwidth)
     plt.scatter(dierickx['e'], e_ana,  s=1, color='Black', lw=0.)
     plt.xlabel(r'$\mathrm{Dierickx\ et\ al.}\ e$')
     plt.ylabel(r'$\mathrm{galpy\ estimated}\ e$')
