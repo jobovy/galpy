@@ -2499,9 +2499,9 @@ def test_orbits_interface_staeckel_PotentialErrors():
     # staeckel approx. w/ automatic delta should fail if delta cannot be found
     from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
     from galpy.potential import PotentialError
-    from galpy.orbit import Orbits
-    obs= Orbits([[1.05, 0.02, 1.05, 0.03,0.,2.],
-                 [1.15, -0.02, 1.02, -0.03,0.,2.]])
+    from galpy.orbit import Orbit
+    obs= Orbit([[1.05, 0.02, 1.05, 0.03,0.,2.],
+                [1.15, -0.02, 1.02, -0.03,0.,2.]])
     # Currently doesn't have second derivs
     tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
     # Check that this potential indeed does not have second derivs

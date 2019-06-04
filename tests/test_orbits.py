@@ -9,10 +9,10 @@ _APY3= astropy.__version__ > '3'
 
 # Test Orbits initialization
 def test_initialization_vxvv():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     # 1D
     vxvvs= [[1.,0.1],[0.1,3.]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     assert orbits.dim() == 1, 'Orbits initialization with vxvv in 1D does not work as expected'
     assert orbits.phasedim() == 2, 'Orbits initialization with vxvv in 1D does not work as expected'
     assert numpy.fabs(orbits.x()[0]-1.) < 1e-10, 'Orbits initialization with vxvv in 1D does not work as expected'
@@ -21,7 +21,7 @@ def test_initialization_vxvv():
     assert numpy.fabs(orbits.vx()[1]-3.) < 1e-10, 'Orbits initialization with vxvv in 1D does not work as expected'
     # 2D, 3 phase-D
     vxvvs= [[1.,0.1,1.],[0.1,3.,1.1]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     assert orbits.dim() == 2, 'Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected'
     assert orbits.phasedim() == 3, 'Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected'
     assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected'
@@ -32,7 +32,7 @@ def test_initialization_vxvv():
     assert numpy.fabs(orbits.vT()[1]-1.1) < 1e-10, 'Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected'
     # 2D, 4 phase-D
     vxvvs= [[1.,0.1,1.,1.5],[0.1,3.,1.1,2.]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     assert orbits.dim() == 2, 'Orbits initialization with vxvv 2D, 4 phase-D does not work as expected'
     assert orbits.phasedim() == 4, 'Orbits initialization with vxvv 2D, 4 phase-D does not work as expected'
     assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbits initialization with vxvv 2D, 4 phase-D does not work as expected'
@@ -45,7 +45,7 @@ def test_initialization_vxvv():
     assert numpy.fabs(orbits.phi()[1]-2.) < 1e-10, 'Orbits initialization with vxvv 2D, 4 phase-D does not work as expected'
     # 3D, 5 phase-D
     vxvvs= [[1.,0.1,1.,0.1,-0.2],[0.1,3.,1.1,-0.3,0.4]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     assert orbits.dim() == 3, 'Orbits initialization with vxvv 3D, 5 phase-D does not work as expected'
     assert orbits.phasedim() == 5, 'Orbits initialization with vxvv 3D, 5 phase-D does not work as expected'
     assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbits initialization with vxvv 3D, 5 phase-D does not work as expected'
@@ -60,7 +60,7 @@ def test_initialization_vxvv():
     assert numpy.fabs(orbits.vz()[1]-0.4) < 1e-10, 'Orbits initialization with vxvv 3D, 5 phase-D does not work as expected'
     # 3D, 6 phase-D
     vxvvs= [[1.,0.1,1.,0.1,-0.2,1.5],[0.1,3.,1.1,-0.3,0.4,2.]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     assert orbits.dim() == 3, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert orbits.phasedim() == 6, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert numpy.fabs(orbits.R()[0]-1.) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
@@ -80,7 +80,7 @@ def test_initialization_vxvv():
 def test_initialization_SkyCoord():
     # Only run this for astropy>3
     if not _APY3: return None
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     numpy.random.seed(1)
     nrand= 30
     ras= numpy.random.uniform(size=nrand)*360.*u.deg
@@ -94,7 +94,7 @@ def test_initialization_SkyCoord():
                            pm_ra_cosdec=pmras,pm_dec=pmdecs,
                            radial_velocity=vloss,
                            frame='icrs')
-    orbits= Orbits(co)
+    orbits= Orbit(co)
     assert orbits.dim() == 3, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert orbits.phasedim() == 6, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     for ii in range(nrand):
@@ -113,7 +113,7 @@ def test_initialization_SkyCoord():
                            frame='icrs',
                            galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
                            galcen_v_sun=v_sun)
-    orbits= Orbits(co)
+    orbits= Orbit(co)
     assert orbits.dim() == 3, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     assert orbits.phasedim() == 6, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     for ii in range(nrand):
@@ -129,10 +129,10 @@ def test_initialization_SkyCoord():
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
 # instances
 def test_integration_1d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1]),Orbit([0.1,1.]),Orbit([-0.2,0.3])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
     orbits.integrate(times,
                      potential.toVerticalPotential(potential.MWPotential2014,1.))
@@ -149,11 +149,11 @@ def test_integration_1d():
     return None
     
 def test_integration_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
                   Orbit([1.2,-0.3,0.7,5.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
     orbits.integrate(times,potential.MWPotential)
     orbits.integrate(times,potential.MWPotential)
@@ -174,11 +174,11 @@ def test_integration_2d():
     
 def test_integration_p3d():
     # 3D phase-space integration
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
                   Orbit([1.2,-0.3,0.7])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
     orbits.integrate(times,potential.MWPotential2014)
     orbits.integrate(times,potential.MWPotential2014)
@@ -193,11 +193,11 @@ def test_integration_p3d():
     return None
     
 def test_integration_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
                   Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
     orbits.integrate(times,potential.MWPotential2014)
     orbits.integrate(times,potential.MWPotential2014)
@@ -220,11 +220,11 @@ def test_integration_3d():
     
 def test_integration_p5d():
     # 5D phase-space integration
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.,0.1]),Orbit([.9,0.3,1.,-0.3,0.4]),
                   Orbit([1.2,-0.3,0.7,.5,-0.5])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits, twice to make sure initial cond. isn't changed
     orbits.integrate(times,potential.MWPotential2014)
     orbits.integrate(times,potential.MWPotential2014)
@@ -243,10 +243,10 @@ def test_integration_p5d():
 # Tests that integrating Orbits agrees with integrating multiple Orbit 
 # instances when using parallel_map Python parallelization
 def test_integration_forcemap_1d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1]),Orbit([0.1,1.]),Orbit([-0.2,0.3])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits
     orbits.integrate(times,
                      potential.toVerticalPotential(potential.MWPotential2014,1.),
@@ -262,11 +262,11 @@ def test_integration_forcemap_1d():
     return None
     
 def test_integration_forcemap_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
                   Orbit([1.2,-0.3,0.7,5.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits
     orbits.integrate(times,potential.MWPotential2014,force_map=True)
     # Integrate as multiple Orbits
@@ -285,11 +285,11 @@ def test_integration_forcemap_2d():
     return None
     
 def test_integration_forcemap_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
                   Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits
     orbits.integrate(times,potential.MWPotential2014,force_map=True)
     # Integrate as multiple Orbits
@@ -310,12 +310,12 @@ def test_integration_forcemap_3d():
     return None
 
 def test_integration_dxdv_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
                   Orbit([1.2,-0.3,0.7,5.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     numpy.random.seed(1)
     dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
     # Default, C integration
@@ -335,12 +335,12 @@ def test_integration_dxdv_2d():
     return None
     
 def test_integration_dxdv_2d_rectInOut():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,-0.3]),
                   Orbit([1.2,-0.3,0.7,5.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     numpy.random.seed(1)
     dxdv= (2.*numpy.random.uniform(size=orbits.shape+(4,))-1)/10.
     # Default, C integration
@@ -365,11 +365,11 @@ def test_integration_dxdv_2d_rectInOut():
     
 # Test slicing of orbits
 def test_slice_singleobject():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
                   Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     orbits.integrate(times,potential.MWPotential2014)
     indices= [0,1,-1]
     for ii in indices:
@@ -387,14 +387,14 @@ def test_slice_singleobject():
     
 # Test slicing of orbits
 def test_slice_multipleobjects():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),
                   Orbit([.9,0.3,1.,-0.3,0.4,3.]),
                   Orbit([1.2,-0.3,0.7,.5,-0.5,6.]),
                   Orbit([0.6,-0.4,0.4,.25,-0.5,6.]),
                   Orbit([1.1,-0.13,0.17,.35,-0.5,2.])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Pre-integration
     orbits_slice= orbits[1:4]
     for ii in range(3):
@@ -426,7 +426,7 @@ def test_slice_multipleobjects():
 
 # Test slicing of orbits with non-trivial shapes
 def test_slice_singleobject_multidim():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     numpy.random.seed(1)
     nrand= (5,1,3)
     Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
@@ -436,7 +436,7 @@ def test_slice_singleobject_multidim():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
-    orbits= Orbits(vxvv)
+    orbits= Orbit(vxvv)
     times= numpy.linspace(0.,10.,1001)
     orbits.integrate(times,potential.MWPotential2014)
     indices= [(0,0,0),(1,0,2),(-1,0,1)]
@@ -455,7 +455,7 @@ def test_slice_singleobject_multidim():
     
 # Test slicing of orbits with non-trivial shapes
 def test_slice_multipleobjects_multidim():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     numpy.random.seed(1)
     nrand= (5,1,3)
     Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
@@ -465,7 +465,7 @@ def test_slice_multipleobjects_multidim():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
-    orbits= Orbits(vxvv)
+    orbits= Orbit(vxvv)
     times= numpy.linspace(0.,10.,1001)
     # Pre-integration
     orbits_slice= orbits[1:4,0,:2]
@@ -503,7 +503,7 @@ def test_slice_multipleobjects_multidim():
 def test_slice_integratedorbit_wrapperpot_367():
     # Test related to issue 367: slicing orbits with a potential that includes 
     # a wrapper potential (from Ted Mackereth)
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import DehnenSmoothWrapperPotential, \
         DehnenBarPotential, LogarithmicHaloPotential
     #initialise a wrapper potential
@@ -525,7 +525,7 @@ def test_slice_integratedorbit_wrapperpot_367():
     vT = numpy.random.randn(2)*0.01+1.
     vz = numpy.random.randn(2)*0.01+0.02
     vxvv = numpy.dstack([r,vR,vT,z,vz,phi])[0]
-    os = Orbits(vxvv)
+    os = Orbit(vxvv)
     times = numpy.linspace(0.,100.,3000)
     os.integrate(times,pot)
     # This failed in #367
@@ -535,131 +535,131 @@ def test_slice_integratedorbit_wrapperpot_367():
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
 def test_initialize_diffphasedim_error():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     # 2D with 3D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1],[1.,0.1,1.]])
+        Orbit([[1.,0.1],[1.,0.1,1.]])
     # 2D with 4D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1],[1.,0.1,1.,0.1]])
+        Orbit([[1.,0.1],[1.,0.1,1.,0.1]])
     # 2D with 5D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1],[1.,0.1,1.,0.1,0.2]])
+        Orbit([[1.,0.1],[1.,0.1,1.,0.1,0.2]])
     # 2D with 6D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1],[1.,0.1,1.,0.1,0.2,3.]])
+        Orbit([[1.,0.1],[1.,0.1,1.,0.1,0.2,3.]])
     # 3D with 4D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1]])
+        Orbit([[1.,0.1,1.],[1.,0.1,1.,0.1]])
     # 3D with 5D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2]])
+        Orbit([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2]])
     # 3D with 6D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2,6.]])
+        Orbit([[1.,0.1,1.],[1.,0.1,1.,0.1,0.2,6.]])
     # 4D with 5D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2]])
+        Orbit([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2]])
     # 4D with 6D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2,6.]])
+        Orbit([[1.,0.1,1.,2.],[1.,0.1,1.,0.1,0.2,6.]])
     # 5D with 6D
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
+        Orbit([[1.,0.1,1.,0.2,-0.2],[1.,0.1,1.,0.1,0.2,6.]])
     return None
 
 # Test that initializing Orbits with a list of non-scalar Orbits raises an error
 def test_initialize_listorbits_error():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     with pytest.raises(RuntimeError) as excinfo:
-        Orbits([Orbits([[1.,0.1],[1.,0.1]]),
-                Orbits([[1.,0.1],[1.,0.1]])])
+        Orbit([Orbit([[1.,0.1],[1.,0.1]]),
+               Orbit([[1.,0.1],[1.,0.1]])])
     return None
                
 def test_orbits_consistentro():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     ro= 7.
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro)]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Check that ro is taken correctly
     assert numpy.fabs(orbits._ro-orbits_list[0]._ro) < 1e-10, "Orbits' ro not correctly taken from input list of Orbit instances"
     assert orbits._roSet, "Orbits' ro not correctly taken from input list of Orbit instances"
     # Check that consistency of ros is enforced
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,ro=6.)
+        orbits= Orbit(orbits_list,ro=6.)
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro*1.2)]
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,ro=ro)
+        orbits= Orbit(orbits_list,ro=ro)
     return None
 
 def test_orbits_consistentvo():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     vo= 230.
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo)]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Check that vo is taken correctly
     assert numpy.fabs(orbits._vo-orbits_list[0]._vo) < 1e-10, "Orbits' vo not correctly taken from input list of Orbit instances"
     assert orbits._voSet, "Orbits' vo not correctly taken from input list of Orbit instances"
     # Check that consistency of vos is enforced
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,vo=210.)
+        orbits= Orbit(orbits_list,vo=210.)
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo*1.2)]
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,vo=vo)
+        orbits= Orbit(orbits_list,vo=vo)
     return None
 
 def test_orbits_consistentzo():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     zo= 0.015
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Check that zo is taken correctly
     assert numpy.fabs(orbits._zo-orbits_list[0]._zo) < 1e-10, "Orbits' zo not correctly taken from input list of Orbit instances"
     # Check that consistency of zos is enforced
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,zo=0.045)
+        orbits= Orbit(orbits_list,zo=0.045)
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo*1.2)]
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,zo=zo)
+        orbits= Orbit(orbits_list,zo=zo)
     return None
 
 def test_orbits_consistentsolarmotion():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     solarmotion= numpy.array([-10.,20.,30.])
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Check that solarmotion is taken correctly
     assert numpy.all(numpy.fabs(orbits._solarmotion-orbits_list[0]._solarmotion) < 1e-10), "Orbits' solarmotion not correctly taken from input list of Orbit instances"
     # Check that consistency of solarmotions is enforced
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,solarmotion=numpy.array([15.,20.,30]))
+        orbits= Orbit(orbits_list,solarmotion=numpy.array([15.,20.,30]))
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,solarmotion=numpy.array([-10.,25.,30]))
+        orbits= Orbit(orbits_list,solarmotion=numpy.array([-10.,25.,30]))
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,solarmotion=numpy.array([-10.,20.,-30]))
+        orbits= Orbit(orbits_list,solarmotion=numpy.array([-10.,20.,-30]))
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion*1.2)]
     with pytest.raises(RuntimeError) as excinfo:
-        orbits= Orbits(orbits_list,solarmotion=solarmotion)
+        orbits= Orbit(orbits_list,solarmotion=solarmotion)
     return None
 
 def test_orbits_stringsolarmotion():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     solarmotion= 'hogg'
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
-    orbits= Orbits(orbits_list,solarmotion='hogg')
+    orbits= Orbit(orbits_list,solarmotion='hogg')
     assert numpy.all(numpy.fabs(orbits._solarmotion-numpy.array([-10.1,4.0,6.7])) < 1e-10), 'String solarmotion not parsed correcty'
     return None
                      
@@ -667,15 +667,15 @@ def test_orbits_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
     from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     ell_p= potential.EllipticalDiskPotential()
     pota=[b_p,ell_p]
-    o= Orbits([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
-                     radec=True,ro=8.0,vo=220.0),
-               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
-                     radec=True,ro=8.0,vo=220.0)])
+    o= Orbit([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                    radec=True,ro=8.0,vo=220.0),
+              Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                    radec=True,ro=8.0,vo=220.0)])
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
@@ -686,14 +686,14 @@ def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
     from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     pota= potential.RZToverticalPotential(b_p,1.1)
-    o= Orbits([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
-                     radec=True,ro=8.0,vo=220.0),
-               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
-                     radec=True,ro=8.0,vo=220.0)])
+    o= Orbit([Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                    radec=True,ro=8.0,vo=220.0),
+              Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
+                    radec=True,ro=8.0,vo=220.0)])
     ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
@@ -703,11 +703,11 @@ def test_orbit_dim_1dPot_3dOrb():
 def test_orbit_dim_1dPot_2dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     pota= [b_p.toVertical(1.1)]
-    o= Orbits([Orbit(vxvv=[1.1,0.1,1.1,0.1]),Orbit(vxvv=[1.1,0.1,1.1,0.1])])
+    o= Orbit([Orbit(vxvv=[1.1,0.1,1.1,0.1]),Orbit(vxvv=[1.1,0.1,1.1,0.1])])
     ts= numpy.linspace(0.,10.,1001)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="leapfrog")
@@ -717,11 +717,11 @@ def test_orbit_dim_1dPot_2dOrb():
 
 # Test the error for when explicit stepsize does not divide the output stepsize
 def test_check_integrate_dt():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    o= Orbits([Orbit([1.,0.1,1.2,0.3,0.2,2.]),
-               Orbit([1.,0.1,1.2,0.3,0.2,2.])])
+    o= Orbit([Orbit([1.,0.1,1.2,0.3,0.2,2.]),
+              Orbit([1.,0.1,1.2,0.3,0.2,2.])])
     times= numpy.linspace(0.,7.,251)
     # This shouldn't work
     try:
@@ -737,7 +737,7 @@ def test_check_integrate_dt():
 
 # Test that evaluating coordinate functions for integrated orbits works
 def test_coordinate_interpolation():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -747,7 +747,7 @@ def test_coordinate_interpolation():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # Before integration
@@ -964,7 +964,7 @@ def test_coordinate_interpolation():
 # Test that evaluating coordinate functions for integrated orbits works, 
 # for 5D orbits
 def test_coordinate_interpolation_5d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 20
@@ -973,7 +973,7 @@ def test_coordinate_interpolation_5d():
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs)))
     list_os= [Orbit([R,vR,vT,z,vz])
               for R,vR,vT,z,vz in zip(Rs,vRs,vTs,zs,vzs)]
     # Before integration
@@ -1031,7 +1031,7 @@ def test_coordinate_interpolation_5d():
 # Test that evaluating coordinate functions for integrated orbits works, 
 # for 4D orbits
 def test_coordinate_interpolation_4d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 20
@@ -1039,7 +1039,7 @@ def test_coordinate_interpolation_4d():
     vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
     # Before integration
@@ -1094,14 +1094,14 @@ def test_coordinate_interpolation_4d():
 # Test that evaluating coordinate functions for integrated orbits works, 
 # for 3D orbits
 def test_coordinate_interpolation_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 20
     Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
-    os= Orbits(list(zip(Rs,vRs,vTs)))
+    os= Orbit(list(zip(Rs,vRs,vTs)))
     list_os= [Orbit([R,vR,vT])
               for R,vR,vT in zip(Rs,vRs,vTs)]
     # Before integration
@@ -1157,14 +1157,14 @@ def test_coordinate_interpolation_3d():
 # Test that evaluating coordinate functions for integrated orbits works, 
 # for 2D orbits
 def test_coordinate_interpolation_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014, toVerticalPotential
     MWPotential2014= toVerticalPotential(MWPotential2014,1.)
     numpy.random.seed(1)
     nrand= 20
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(zs,vzs)))
+    os= Orbit(list(zip(zs,vzs)))
     list_os= [Orbit([z,vz])
               for z,vz in zip(zs,vzs)]
     # Before integration
@@ -1194,7 +1194,7 @@ def test_coordinate_interpolation_2d():
 
 # Test interpolation with backwards orbit integration
 def test_backinterpolation():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 20
@@ -1204,7 +1204,7 @@ def test_backinterpolation():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # Integrate all
@@ -1222,7 +1222,7 @@ def test_backinterpolation():
 # Test that evaluating coordinate functions for integrated orbits works for
 # a single orbit
 def test_coordinate_interpolation_oneorbit():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 1
@@ -1232,7 +1232,7 @@ def test_coordinate_interpolation_oneorbit():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # Before integration
@@ -1294,7 +1294,7 @@ def test_coordinate_interpolation_oneorbit():
 # Test that an error is raised when evaluating an orbit outside of the 
 # integration range
 def test_interpolate_outsiderange():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 3
@@ -1304,7 +1304,7 @@ def test_interpolate_outsiderange():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     # Integrate all                                                            
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
@@ -1320,7 +1320,7 @@ def test_interpolate_outsiderange():
 
 def test_output_shape():
     # Test that the output shape is correct and that the shaped output is correct
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= (3,1,2)
@@ -1331,7 +1331,7 @@ def test_output_shape():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
-    os= Orbits(vxvv)
+    os= Orbit(vxvv)
     list_os= [[[Orbit([Rs[ii,jj,kk],vRs[ii,jj,kk],vTs[ii,jj,kk],
                        zs[ii,jj,kk],vzs[ii,jj,kk],phis[ii,jj,kk]])
                 for kk in range(nrand[2])]
@@ -1438,7 +1438,7 @@ def test_output_shape():
 
 def test_output_reshape():
     # Test that the output shape is correct and that the shaped output is correct
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= (3,1,2)
@@ -1449,7 +1449,7 @@ def test_output_reshape():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
-    os= Orbits(vxvv)
+    os= Orbit(vxvv)
     # NOW RESHAPE
     # First try a shape that doesn't work to test the error
     with pytest.raises(ValueError) as excinfo:
@@ -1571,29 +1571,29 @@ def test_output_reshape():
 
 def test_output_specialshapes():
     # Test that the output shape is correct and that the shaped output is correct, for 'special' inputs (single objects, ...)
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     # vxvv= list of [R,vR,vT,z,...] should be shape == () and scalar output
-    os= Orbits([1.,0.1,1.,0.1,0.,0.1])
+    os= Orbit([1.,0.1,1.,0.1,0.,0.1])
     assert os.shape == (), 'Shape of Orbits with list of [R,vR,...] input is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with list of [R,vR,...] input does not return scalar'
     # Similar for list [ra,dec,...]
-    os= Orbits([1.,0.1,1.,0.1,0.,0.1],radec=True)
+    os= Orbit([1.,0.1,1.,0.1,0.,0.1],radec=True)
     assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] input is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] input does not return scalar'
     # Also with units
-    os= Orbits([1.*u.deg,0.1*u.rad,1.*u.pc,0.1*u.mas/u.yr,0.*u.arcsec/u.yr,0.1*u.pc/u.Myr],radec=True)
+    os= Orbit([1.*u.deg,0.1*u.rad,1.*u.pc,0.1*u.mas/u.yr,0.*u.arcsec/u.yr,0.1*u.pc/u.Myr],radec=True)
     assert os.shape == (), 'Shape of Orbits with list of [ra,dec,...] w/units input is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with list of [ra,dec,...] w/units input does not return scalar'
     # Also from_name
-    os= Orbits.from_name('LMC')
+    os= Orbit.from_name('LMC')
     assert os.shape == (), 'Shape of Orbits with from_name single object is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with from_name single object does not return scalar'
     # vxvv= list of list of [R,vR,vT,z,...] should be shape == (1,) and array output
-    os= Orbits([[1.,0.1,1.,0.1,0.,0.1]])
+    os= Orbit([[1.,0.1,1.,0.1,0.,0.1]])
     assert os.shape == (1,), 'Shape of Orbits with list of list of [R,vR,...] input is not (1,)'
     assert numpy.ndim(os.R()) == 1, 'Orbits with list of list of [R,vR,...] input does not return array'
     # vxvv= array of [R,vR,vT,z,...] should be shape == () and scalar output
-    os= Orbits(numpy.array([1.,0.1,1.,0.1,0.,0.1]))
+    os= Orbit(numpy.array([1.,0.1,1.,0.1,0.,0.1]))
     assert os.shape == (), 'Shape of Orbits with array of [R,vR,...] input is not empty'
     assert numpy.ndim(os.R()) == 0, 'Orbits with array of [R,vR,...] input does not return scalar'
     if _APY3:
@@ -1603,7 +1603,7 @@ def test_output_specialshapes():
                                pm_dec=10.*u.mas/u.yr,
                                radial_velocity=10.*u.km/u.s,
                                frame='icrs')
-        os= Orbits(co)
+        os= Orbit(co)
         assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
         # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
         s= numpy.ones(1)
@@ -1613,18 +1613,18 @@ def test_output_specialshapes():
                                pm_dec=10.*u.mas/u.yr*s,
                                radial_velocity=10.*u.km/u.s*s,
                                frame='icrs')
-        os= Orbits(co)
+        os= Orbit(co)
         assert os.shape == co.shape, 'Shape of Orbits with SkyCoord does not agree with shape of SkyCoord'
         # vxvv= None should be shape == (1,) and array output
-        os= Orbits()
+        os= Orbit()
         assert os.shape == (), 'Shape of Orbits with vxvv=None input is not empty'
         assert numpy.ndim(os.R()) == 0, 'Orbits with with vxvv=None input does not return scalar'
     return None
 
 def test_call_issue256():
     # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
-    from galpy.orbit import Orbits
-    o = Orbits(vxvv=[[5.,-1.,0.8, 3, -0.1, 0]])
+    from galpy.orbit import Orbit
+    o = Orbit(vxvv=[[5.,-1.,0.8, 3, -0.1, 0]])
     # no integration of the orbit
     with pytest.raises(ValueError) as excinfo:
         o.R(30)
@@ -1632,7 +1632,7 @@ def test_call_issue256():
 
 # Test that the energy, angular momentum, and Jacobi functions work as expected
 def test_energy_jacobi_angmom():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     numpy.random.seed(1)
     nrand= 10
     Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
@@ -1642,27 +1642,27 @@ def test_energy_jacobi_angmom():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     # 6D
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     _check_energy_jacobi_angmom(os,list_os)
     # 5D
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs)))
     list_os= [Orbit([R,vR,vT,z,vz])
               for R,vR,vT,z,vz in zip(Rs,vRs,vTs,zs,vzs)]
     _check_energy_jacobi_angmom(os,list_os)
     # 4D
-    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
     _check_energy_jacobi_angmom(os,list_os)
     # 3D
-    os= Orbits(list(zip(Rs,vRs,vTs)))
+    os= Orbit(list(zip(Rs,vRs,vTs)))
     list_os= [Orbit([R,vR,vT])
               for R,vR,vT in zip(Rs,vRs,vTs)]
     _check_energy_jacobi_angmom(os,list_os)
     # 2D
-    os= Orbits(list(zip(zs,vzs)))
+    os= Orbit(list(zip(zs,vzs)))
     list_os= [Orbit([z,vz])
               for z,vz in zip(zs,vzs)]
     _check_energy_jacobi_angmom(os,list_os)
@@ -1758,11 +1758,11 @@ def _check_energy_jacobi_angmom(os,list_os):
 
 # Test that L cannot be computed for (a) linearOrbits and (b) 5D orbits
 def test_angmom_errors():
-    from galpy.orbit import Orbits
-    o= Orbits([[1.,0.1]])
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1]])
     with pytest.raises(AttributeError):
         o.L()
-    o= Orbits([[1.,0.1,1.1,0.1,-0.2]])
+    o= Orbit([[1.,0.1,1.1,0.1,-0.2]])
     with pytest.raises(AttributeError):
         o.L()
     return None
@@ -1772,12 +1772,12 @@ def test_angmom_errors():
 # unitless time when orbit is integrated with unitfull times
 def test_orbits_method_integrate_t_asQuantity_warning():
     from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from astropy import units
     from test_orbit import check_integrate_t_asQuantity_warning
     # Setup and integrate orbit
     ts= numpy.linspace(0.,10.,1001)*units.Gyr
-    o= Orbits([[1.1,0.1,1.1,0.1,0.1,0.2],
+    o= Orbit([[1.1,0.1,1.1,0.1,0.1,0.2],
                [1.1,0.1,1.1,0.1,0.1,0.2]])
     o.integrate(ts,MWPotential2014)
     # Now check
@@ -1786,8 +1786,8 @@ def test_orbits_method_integrate_t_asQuantity_warning():
 
 # Test new orbits formed from __call__
 def test_newOrbits():
-    from galpy.orbit import Orbits
-    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1,1.1,0.1,0.,0.],
                [1.1,0.3,0.9,-0.2,0.3,2.]])
     ts= numpy.linspace(0.,1.,21) #v. quick orbit integration
     lp= potential.LogarithmicHaloPotential(normalize=1.)
@@ -1815,8 +1815,8 @@ def test_newOrbits():
 
 # Test new orbits formed from __call__, before integration
 def test_newOrbit_b4integration():
-    from galpy.orbit import Orbits
-    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1,1.1,0.1,0.,0.],
                [1.1,0.3,0.9,-0.2,0.3,2.]])
     no= o() #New Orbits formed before integration
     assert numpy.all(numpy.fabs(no.R()-o.R()) < 10.**-10.), "New Orbits formed from calling an old orbit does not have the correct R"
@@ -1831,8 +1831,8 @@ def test_newOrbit_b4integration():
 
 # Test that we can still get outputs when there aren't enough points for an actual interpolation
 def test_badinterpolation():
-    from galpy.orbit import Orbits
-    o= Orbits([[1.,0.1,1.1,0.1,0.,0.],
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1,1.1,0.1,0.,0.],
                [1.1,0.3,0.9,-0.2,0.3,2.]])
     ts= numpy.linspace(0.,1.,3) #v. quick orbit integration, w/ not enough points for interpolation
     lp= potential.LogarithmicHaloPotential(normalize=1.)
@@ -1864,12 +1864,12 @@ def test_badinterpolation():
 
 # Check plotting routines
 def test_plotting():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    o= Orbits([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
-    oa= Orbits([Orbit([1.,0.1,1.1,0.1,0.2]),Orbit([1.,0.1,1.1,0.1,0.2])])
+    o= Orbit([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
+    oa= Orbit([Orbit([1.,0.1,1.1,0.1,0.2]),Orbit([1.,0.1,1.1,0.1,0.2])])
     # Interesting shape
-    os= Orbits(numpy.array([[[1.,0.1,1.1,-0.1,-0.2,0.],
+    os= Orbit(numpy.array([[[1.,0.1,1.1,-0.1,-0.2,0.],
                              [1.,0.2,1.2,0.,-0.1,1.]],
                             [[1.,-0.2,0.9,0.2,0.2,2.],
                              [1.2,-0.4,1.1,-0.1,0.,-2.]],
@@ -2008,8 +2008,8 @@ def test_plotting():
 def test_integrate_method_warning():
     """ Test Orbits.integrate raises an error if method is unvalid """
     from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit, Orbits
-    o = Orbits([Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0]),
+    from galpy.orbit import Orbit
+    o = Orbit([Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0]),
                 Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])])
     t = numpy.arange(0.0, 10.0, 0.001)
     with pytest.raises(ValueError):
@@ -2018,11 +2018,11 @@ def test_integrate_method_warning():
 # Test that fallback onto Python integrators works for Orbits
 def test_integrate_Cfallback_symplec():
     from test_potential import BurkertPotentialNoC
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
                   Orbit([1.2,-0.3,0.7])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits
     pot= BurkertPotentialNoC()
     pot.normalize(1.)
@@ -2039,11 +2039,11 @@ def test_integrate_Cfallback_symplec():
     
 def test_integrate_Cfallback_nonsymplec():
     from test_potential import BurkertPotentialNoC
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
                   Orbit([1.2,-0.3,0.7])]
-    orbits= Orbits(orbits_list)
+    orbits= Orbit(orbits_list)
     # Integrate as Orbits
     pot= BurkertPotentialNoC()
     pot.normalize(1.)
@@ -2060,24 +2060,24 @@ def test_integrate_Cfallback_nonsymplec():
     
 # Test flippingg an orbit
 def setup_orbits_flip(tp,ro,vo,zo,solarmotion,axi=False):
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     if isinstance(tp,potential.linearPotential):
-        o= Orbits([[1.,1.],[0.2,-0.3]],
+        o= Orbit([[1.,1.],[0.2,-0.3]],
                   ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
     elif isinstance(tp,potential.planarPotential):
         if axi:
-            o= Orbits([[1.,1.1,1.1],[1.1,-0.1,0.9]],
+            o= Orbit([[1.,1.1,1.1],[1.1,-0.1,0.9]],
                       ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
         else:
-            o= Orbits([[1.,1.1,1.1,0.],[1.1,-1.2,-0.9,2.]],
+            o= Orbit([[1.,1.1,1.1,0.],[1.1,-1.2,-0.9,2.]],
                       ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
     else:
         if axi:
-            o= Orbits([[1.,1.1,1.1,0.1,0.1],[1.1,-0.7,1.4,-0.1,0.3]],
+            o= Orbit([[1.,1.1,1.1,0.1,0.1],[1.1,-0.7,1.4,-0.1,0.3]],
                       ro=ro,vo=vo,zo=zo,
                       solarmotion=solarmotion)
         else:
-            o= Orbits([[1.,1.1,1.1,0.1,0.1,0.],[0.6,-0.4,-1.,-0.3,-0.5,2.]],
+            o= Orbit([[1.,1.1,1.1,0.1,0.1,0.],[0.6,-0.4,-1.,-0.3,-0.5,2.]],
                       ro=ro,vo=vo,zo=zo,
                       solarmotion=solarmotion)
     return o
@@ -2297,10 +2297,10 @@ def test_flip_inplace_integrated_evaluated():
 
 # test getOrbit
 def test_getOrbit():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    o= Orbits([[1.,0.1,1.2,0.3,0.2,2.],
+    o= Orbit([[1.,0.1,1.2,0.3,0.2,2.],
                [1.,-0.1,1.1,-0.3,0.2,5.]])
     times= numpy.linspace(0.,7.,251)
     o.integrate(times,lp)
@@ -2328,7 +2328,7 @@ def test_getOrbit():
 # Test that the eccentricity, zmax, rperi, and rap calculated numerically by
 # Orbits agrees with that calculated numerically using Orbit
 def test_EccZmaxRperiRap_num_againstorbit_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2338,7 +2338,7 @@ def test_EccZmaxRperiRap_num_againstorbit_3d():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test AttributeError when not integrated
@@ -2362,7 +2362,7 @@ def test_EccZmaxRperiRap_num_againstorbit_3d():
     return None
 
 def test_EccZmaxRperiRap_num_againstorbit_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2370,7 +2370,7 @@ def test_EccZmaxRperiRap_num_againstorbit_2d():
     vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
     # Integrate all
@@ -2386,7 +2386,7 @@ def test_EccZmaxRperiRap_num_againstorbit_2d():
 # Test that the eccentricity, zmax, rperi, and rap calculated analytically by
 # Orbits agrees with that calculated analytically using Orbit
 def test_EccZmaxRperiRap_analytic_againstorbit_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2396,7 +2396,7 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test AttributeError when no potential and not integrated
@@ -2417,7 +2417,7 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
     return None
 
 def test_EccZmaxRperiRap_analytic_againstorbit_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2425,7 +2425,7 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
     vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
     # No matter the type, should always be using adiabtic, not specified in 
@@ -2438,7 +2438,7 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
     return None
 
 def test_rguiding():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2448,7 +2448,7 @@ def test_rguiding():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test that if potential is not given, error is raised
@@ -2465,7 +2465,7 @@ def test_rguiding():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     rgs= os.rguiding(pot=MWPotential2014)
@@ -2479,7 +2479,7 @@ def test_rguiding():
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2489,7 +2489,7 @@ def test_actionsFreqsAngles_againstorbit_3d():
     zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test AttributeError when no potential and not integrated
@@ -2551,7 +2551,7 @@ def test_actionsFreqsAngles_againstorbit_3d():
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_2d():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= 10
@@ -2559,7 +2559,7 @@ def test_actionsFreqsAngles_againstorbit_2d():
     vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
-    os= Orbits(list(zip(Rs,vRs,vTs,phis)))
+    os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
     # First test AttributeError when no potential and not integrated
@@ -2623,7 +2623,7 @@ def test_actionsFreqsAngles_againstorbit_2d():
 
 def test_actionsFreqsAngles_output_shape():
     # Test that the output shape is correct and that the shaped output is correct for actionAngle methods
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
     nrand= (3,1,2)
@@ -2634,7 +2634,7 @@ def test_actionsFreqsAngles_output_shape():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     vxvv= numpy.rollaxis(numpy.array([Rs,vRs,vTs,zs,vzs,phis]),0,4)
-    os= Orbits(vxvv)
+    os= Orbit(vxvv)
     list_os= [[[Orbit([Rs[ii,jj,kk],vRs[ii,jj,kk],vTs[ii,jj,kk],
                        zs[ii,jj,kk],vzs[ii,jj,kk],phis[ii,jj,kk]])
                 for kk in range(nrand[2])]
@@ -2689,15 +2689,15 @@ def test_actionsFreqsAngles_output_shape():
 # approximation: when it changes, need to re-do the aA calcs.
 def test_actionsFreqsAngles_staeckeldelta():
     from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbits
-    os= Orbits([None,None]) # Just twice the Sun!
+    from galpy.orbit import Orbit
+    os= Orbit([None,None]) # Just twice the Sun!
     # First with delta
     jr= os.jr(delta=0.4,pot=MWPotential2014)
     # Now without, should be different
     jrn= os.jr(pot=MWPotential2014)
     assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it'
     # Again, now the other way around
-    os= Orbits([None,None]) # Just twice the Sun!
+    os= Orbit([None,None]) # Just twice the Sun!
     # First without delta
     jrn= os.jr(pot=MWPotential2014)
     # Now with, should be different
@@ -2709,8 +2709,8 @@ def test_actionsFreqsAngles_staeckeldelta():
 # as actionAngleSpherical
 def test_actionsFreqsAngles_staeckeldeltaequalzero():
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.orbit import Orbits
-    os= Orbits([None,None]) # Just twice the Sun!
+    from galpy.orbit import Orbit
+    os= Orbit([None,None]) # Just twice the Sun!
     lp= LogarithmicHaloPotential(normalize=1.)
     assert numpy.all(numpy.fabs(os.jr(pot=lp,type='staeckel')-os.jr(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
     assert numpy.all(numpy.fabs(os.jp(pot=lp,type='staeckel')-os.jp(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
@@ -2727,15 +2727,15 @@ def test_actionsFreqsAngles_staeckeldeltaequalzero():
 # isochroneapprox approximation: when they change, need to re-do the aA calcs.
 def test_actionsFreqsAngles_isochroneapproxb():
     from galpy.potential import MWPotential2014, IsochronePotential
-    from galpy.orbit import Orbits
-    os= Orbits([None,None]) # Just twice the Sun!
+    from galpy.orbit import Orbit
+    os= Orbit([None,None]) # Just twice the Sun!
     # First with one b
     jr= os.jr(type='isochroneapprox',b=0.8,pot=MWPotential2014)
     # Now with another b, should be different
     jrn= os.jr(type='isochroneapprox',b=1.8,pot=MWPotential2014)
     assert numpy.all(numpy.fabs(jr-jrn) > 1e-4), 'Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying b to not specifying it'
     # Again, now specifying ip
-    os= Orbits([None,None]) # Just twice the Sun!
+    os= Orbit([None,None]) # Just twice the Sun!
     # First with one
     jrn= os.jr(pot=MWPotential2014,type='isochroneapprox',
                ip=IsochronePotential(normalize=1.1,b=0.8))
@@ -2746,8 +2746,8 @@ def test_actionsFreqsAngles_isochroneapproxb():
     return None
 
 def test_actionsFreqsAngles_RuntimeError_1d():
-    from galpy.orbit import Orbits
-    os= Orbits([[1.,0.1],[0.2,0.3]])
+    from galpy.orbit import Orbit
+    os= Orbit([[1.,0.1],[0.2,0.3]])
     with pytest.raises(RuntimeError):
         os.jz(analytic=True)
     return None
@@ -2762,7 +2762,7 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
     # (e.g., B&T08, p. 648)
     from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     ro,vo= 8.,220.
     # Parameters
     GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
@@ -2774,7 +2774,7 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=GMs,const_lnLambda=const_lnLambda,
         dens=lp) # don't provide sigmar, so it gets computed using galpy.df.jeans
-    o= Orbits([Orbit([r_inits[0],0.,1.,0.,0.,0.]),
+    o= Orbit([Orbit([r_inits[0],0.,1.,0.,0.,0.]),
                Orbit([r_inits[1],0.,1.,0.,0.,0.])])
     ts= numpy.linspace(0.,dt,1001)
     o.integrate(ts,[lp,cdfc],method='leapfrog') # also tests fallback onto odeint
@@ -2785,8 +2785,8 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
 
 # Check that toPlanar works
 def test_toPlanar():
-    from galpy.orbit import Orbits
-    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+    from galpy.orbit import Orbit
+    obs= Orbit([[1.,0.1,1.1,0.3,0.,2.],
                 [1.,-0.2,1.3,-0.3,0.,5.]])
     obsp= obs.toPlanar()
     assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for FullOrbit'
@@ -2794,7 +2794,7 @@ def test_toPlanar():
     assert numpy.all(obsp.vR() == obs.vR()), 'Planar orbit generated w/ toPlanar does not have the correct vR'
     assert numpy.all(obsp.vT() == obs.vT()), 'Planar orbit generated w/ toPlanar does not have the correct vT'
     assert numpy.all(obsp.phi() == obs.phi()), 'Planar orbit generated w/ toPlanar does not have the correct phi'
-    obs= Orbits([[1.,0.1,1.1,0.3,0.],
+    obs= Orbit([[1.,0.1,1.1,0.3,0.],
                 [1.,-0.2,1.3,-0.3,0.]])
     obsp= obs.toPlanar()
     assert obsp.dim() == 2, 'toPlanar does not generate an Orbit w/ dim=2 for RZOrbit'
@@ -2802,7 +2802,7 @@ def test_toPlanar():
     assert numpy.all(obsp.vR() == obs.vR()), 'Planar orbit generated w/ toPlanar does not have the correct vR'
     assert numpy.all(obsp.vT() == obs.vT()), 'Planar orbit generated w/ toPlanar does not have the correct vT'
     ro,vo,zo,solarmotion= 10.,300.,0.01,'schoenrich'
-    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+    obs= Orbit([[1.,0.1,1.1,0.3,0.,2.],
                 [1.,-0.2,1.3,-0.3,0.,5.]],
                 ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
     obsp= obs.toPlanar()
@@ -2816,7 +2816,7 @@ def test_toPlanar():
     assert numpy.all(numpy.fabs(obs._solarmotion-obsp._solarmotion) < 10.**-15.), 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert obs._roSet == obsp._roSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
     assert obs._voSet == obsp._voSet, 'Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it'
-    obs= Orbits([[1.,0.1,1.1,0.3],
+    obs= Orbit([[1.,0.1,1.1,0.3],
                  [1.,-0.2,1.3,-0.3]])
     try:
         obs.toPlanar()
@@ -2828,20 +2828,20 @@ def test_toPlanar():
 
 # Check that toLinear works
 def test_toLinear():
-    from galpy.orbit import Orbits
-    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+    from galpy.orbit import Orbit
+    obs= Orbit([[1.,0.1,1.1,0.3,0.,2.],
                  [1.,-0.2,1.3,-0.3,0.,5.]])
     obsl= obs.toLinear()
     assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
     assert numpy.all(obsl.x() == obs.z()), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert numpy.all(obsl.vx() == obs.vz()), 'Linear orbit generated w/ toLinear does not have the correct vx'
-    obs= Orbits([[1.,0.1,1.1,0.3,0.],
+    obs= Orbit([[1.,0.1,1.1,0.3,0.],
                  [1.,-0.2,1.3,-0.3,0.]])
     obsl= obs.toLinear()
     assert obsl.dim() == 1, 'toLinear does not generate an Orbit w/ dim=1 for FullOrbit'
     assert numpy.all(obsl.x() == obs.z()), 'Linear orbit generated w/ toLinear does not have the correct z'
     assert numpy.all(obsl.vx() == obs.vz()), 'Linear orbit generated w/ toLinear does not have the correct vx'
-    obs= Orbits([[1.,0.1,1.1,0.3],
+    obs= Orbit([[1.,0.1,1.1,0.3],
                  [1.,-0.2,1.3,-0.3]])
     try:
         obs.toLinear()
@@ -2851,7 +2851,7 @@ def test_toLinear():
         raise AttributeError('toLinear() applied to a planar Orbit did not raise an AttributeError')
     # w/ scales
     ro,vo= 10.,300.
-    obs= Orbits([[1.,0.1,1.1,0.3,0.,2.],
+    obs= Orbit([[1.,0.1,1.1,0.3,0.,2.],
                  [1.,-0.2,1.3,-0.3,0.,5.]],ro=ro,vo=vo)
     obsl= obs.toLinear()
     assert obsl.dim() == 1, 'toLinwar does not generate an Orbit w/ dim=1 for FullOrbit'
@@ -2867,10 +2867,10 @@ def test_toLinear():
 
 # Check that the routines that should return physical coordinates are turned off by turn_physical_off
 def test_physical_output_off():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.)
-    o= Orbits()
+    o= Orbit()
     ro= o._ro
     vo= o._vo
     #turn off
@@ -2913,11 +2913,11 @@ def test_physical_output_off():
 # Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from astropy import units
     lp= LogarithmicHaloPotential(normalize=1.)
-    o= Orbits()
+    o= Orbit()
     ro= o._ro
     vo= o._vo
     o_orig= o()
@@ -2966,10 +2966,10 @@ def test_physical_output_on():
 # Test that Orbits can be pickled
 def test_pickling():
     import pickle
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     # Just test most common setup: 3D, 6 phase-D
     vxvvs= [[1.,0.1,1.,0.1,-0.2,1.5],[0.1,3.,1.1,-0.3,0.4,2.]]
-    orbits= Orbits(vxvvs)
+    orbits= Orbit(vxvvs)
     pickled= pickle.dumps(orbits)
     orbits_unpickled= pickle.loads(pickled)
     # Tests
