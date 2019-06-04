@@ -812,51 +812,51 @@ def test_orbit_inconsistentPotentialUnits_error():
     return None
 
 def test_orbits_setup_roAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     ro= 7.*units.kpc
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],ro=ro),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],ro=ro)]
-    orbits= Orbits(orbits_list,ro=ro)
+    orbits= Orbit(orbits_list,ro=ro)
     assert numpy.fabs(orbits._ro-7.) < 10.**-10., 'ro in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbits_setup_voAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     vo= 230.*units.km/units.s
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],vo=vo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],vo=vo)]
-    orbits= Orbits(orbits_list,vo=vo)
+    orbits= Orbit(orbits_list,vo=vo)
     assert numpy.fabs(orbits._vo-230.) < 10.**-10., 'vo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbits_setup_zoAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     zo= 23.*units.pc
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],zo=zo),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],zo=zo)]
-    orbits= Orbits(orbits_list,zo=zo)
+    orbits= Orbit(orbits_list,zo=zo)
     assert numpy.fabs(orbits._zo-0.023) < 10.**-10., 'zo in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbits_setup_solarmotionAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     solarmotion= numpy.array([-10.,20.,30.])*units.kpc/units.Gyr
     # Initialize Orbits from list of Orbit instances
     orbits_list= [Orbit([1.,0.1,1.,0.1,0.2,-3.],solarmotion=solarmotion),
                   Orbit([1.,0.1,1.,0.1,0.2,-4.],solarmotion=solarmotion)]
-    orbits= Orbits(orbits_list,solarmotion=solarmotion)
+    orbits= Orbit(orbits_list,solarmotion=solarmotion)
     assert numpy.all(numpy.fabs(orbits._solarmotion-solarmotion.to(units.km/units.s).value) < 10.**-10.), 'solarmotion in Orbit setup as Quantity does not work as expected'
     return None
 
 def test_orbits_method_returntype_scalar():
-    from galpy.orbit import Orbits
-    o= Orbits([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
-                500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-               [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
-                 -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
+    from galpy.orbit import Orbit
+    o= Orbit([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+              [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
+                -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
     from galpy.potential import MWPotential2014
     assert isinstance(o.E(pot=MWPotential2014),units.Quantity), 'Orbit method E does not return Quantity when it should'
     assert isinstance(o.ER(pot=MWPotential2014),units.Quantity), 'Orbit method ER does not return Quantity when it should'
@@ -916,11 +916,11 @@ def test_orbits_method_returntype_scalar():
     return None
 
 def test_orbits_method_returntype():
-    from galpy.orbit import Orbits
-    o= Orbits([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
-                500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-               [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
-                 -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
+    from galpy.orbit import Orbit
+    o= Orbit([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+              [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
+                -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
     from galpy.potential import MWPotential2014
     ts= numpy.linspace(0.,6.,1001)
     o.integrate(ts,MWPotential2014)
@@ -966,8 +966,8 @@ def test_orbits_method_returntype():
     return None
 
 def test_orbits_method_returnunit():
-    from galpy.orbit import Orbits
-    o= Orbits([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+    from galpy.orbit import Orbit
+    o= Orbit([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
                 500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
                  -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
@@ -1195,13 +1195,13 @@ def test_orbits_method_returnunit():
     return None
 
 def test_orbits_method_value():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.util import bovy_conversion
-    o= Orbits([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
-                500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-               [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
-                 -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
+    o= Orbit([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+              [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
+                -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
     oc= o()
     oc.turn_physical_off()
     assert numpy.all(numpy.fabs(o.E(pot=MWPotential2014).to(units.km**2/units.s**2).value-oc.E(pot=MWPotential2014)*o._vo**2.) < 10.**-8.), 'Orbit method E does not return the correct value as Quantity'
@@ -1262,13 +1262,13 @@ def test_orbits_method_value():
     return None
 
 def test_orbits_method_value_turnquantityoff():
-    from galpy.orbit import Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.util import bovy_conversion
-    o= Orbits([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
-                500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-               [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
-                 -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
+    o= Orbit([[10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+              [-20.*units.kpc,10.*units.km/units.s,230.*units.km/units.s,
+                -300.*units.pc,12.*units.km/units.s,125.*units.deg]])
     oc= o()
     oc.turn_physical_off()
     assert numpy.all(numpy.fabs(o.E(pot=MWPotential2014,quantity=False)-oc.E(pot=MWPotential2014)*o._vo**2.) < 10.**-8.), 'Orbit method E does not return the correct value when Quantity turned off'
@@ -1309,12 +1309,20 @@ def test_orbits_method_value_turnquantityoff():
     return None
 
 def test_integrate_orbits_timeAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import bovy_conversion
     import copy
     ro, vo= 8., 200.
-    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+    o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo),
+              Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo)])
+    oc= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo),
@@ -1322,14 +1330,6 @@ def test_integrate_orbits_timeAsQuantity():
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo)])
-    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo),
-                Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo)])
     ts_nounits= numpy.linspace(0.,1.,1001)
     ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
     ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)
@@ -1348,12 +1348,20 @@ def test_integrate_orbits_timeAsQuantity():
     return None
 
 def test_orbits_integrate_timeAsQuantity_Myr():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import bovy_conversion
     import copy
     ro, vo= 8., 200.
-    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+    o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo),
+              Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo)])
+    oc= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo),
@@ -1361,14 +1369,6 @@ def test_orbits_integrate_timeAsQuantity_Myr():
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo)])
-    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo),
-                Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo)])
     ts_nounits= numpy.linspace(0.,1000.,1001)
     ts= units.Quantity(copy.copy(ts_nounits),unit=units.Myr)
     ts_nounits/= bovy_conversion.time_in_Gyr(vo,ro)*1000.
@@ -1387,12 +1387,20 @@ def test_orbits_integrate_timeAsQuantity_Myr():
     return None
 
 def test_orbits_integrate_dtimeAsQuantity():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import bovy_conversion
     import copy
     ro, vo= 8., 200.
-    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
+    o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo),
+              Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+                    ro=ro,vo=vo)])
+    oc= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo),
@@ -1400,14 +1408,6 @@ def test_orbits_integrate_dtimeAsQuantity():
                       210.*units.km/units.s,
                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
                      ro=ro,vo=vo)])
-    oc= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo),
-                Orbit([10.*units.kpc,-20.*units.km/units.s,
-                       210.*units.km/units.s,
-                       500.*units.pc,-12.*units.km/units.s,45.*units.deg],
-                      ro=ro,vo=vo)])
     ts_nounits= numpy.linspace(0.,1.,1001)
     dt_nounits= (ts_nounits[1]-ts_nounits[0])/10.
     ts= units.Quantity(copy.copy(ts_nounits),unit=units.Gyr)
@@ -1429,15 +1429,15 @@ def test_orbits_integrate_dtimeAsQuantity():
     return None
 
 def test_orbits_inconsistentPotentialUnits_error():
-    from galpy.orbit import Orbit, Orbits
+    from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential
     ro, vo= 9., 220.
-    o= Orbits([Orbit([10.*units.kpc,-20.*units.km/units.s,
-                      210.*units.km/units.s,
-                      45.*units.deg],ro=ro,vo=vo),
-               Orbit([10.*units.kpc,-20.*units.km/units.s,
-                      210.*units.km/units.s,
-                      45.*units.deg],ro=ro,vo=vo)])
+    o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     45.*units.deg],ro=ro,vo=vo),
+              Orbit([10.*units.kpc,-20.*units.km/units.s,
+                     210.*units.km/units.s,
+                     45.*units.deg],ro=ro,vo=vo)])
     ts= numpy.linspace(0.,10.,1001)*units.Gyr
     # single, ro wrong
     pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
