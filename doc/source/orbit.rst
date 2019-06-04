@@ -281,7 +281,7 @@ transferred to the new instance.
 
 The shape of the ``Orbit`` instances is retained for all relevant
 outputs. Continuing on from the previous example (where ``orbits`` has
-shape ``(6.5)`` after we reshaped it), we have:
+shape ``(6,5)`` after we reshaped it), we have:
 
 >>> print(orbits.R().shape)
 # (6,5)
