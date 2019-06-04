@@ -21,8 +21,6 @@ import numpy
 _ERASESTR= "                                                                                "
 
 def calc_eccentricity(args, options):
-    # Note: somewhat outdated way of computing this (but still works), see
-    # the online HTML docs for a simpler way
     table = os.path.join(args[0],'table2.dat')
     readme = os.path.join(args[0],'ReadMe')
     dierickx = ascii.read(table, readme=readme)
