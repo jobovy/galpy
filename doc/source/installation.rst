@@ -11,8 +11,10 @@ Optional dependencies are: ``astropy`` for `Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
 support (used throughout galpy when installed), ``astroquery`` for the
 ``Orbit.from_name`` initialization method (to initialize using a
-celestial object's name), and ``numexpr`` for plotting arbitrary
-expressions of ``Orbit`` quantities.
+celestial object's name), ``numexpr`` for plotting arbitrary
+expressions of ``Orbit`` quantities, and `pynbody
+<https://github.com/pynbody/pynbody>`__ for use of
+``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 To be able to use the fast C extensions for orbit integration and
 action-angle calculations, the GNU Scientific Library (GSL) needs to
@@ -86,11 +88,18 @@ to, for example, install the ``dev`` branch.
 Installing from source on Windows
 ---------------------------------
 
-Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
+Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 
-     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+    set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+    set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+    set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+
+If you are using the Windows PowerShell (which newer versions of the
+Anaconda prompt might set as the default), do::
+
+    $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
+    $env:LIB="$env:CONDA_PREFIX\Library\lib"
+    $env:LIBPATH="$env:CONDA_PREFIX\Library\lib"
 
 where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
 
