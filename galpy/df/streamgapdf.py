@@ -839,9 +839,9 @@ class streamgapdf(streamdf.streamdf):
         auxiliaryTrack.integrate(self._gap_trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            auxiliaryTrack._orb.orbit[:,1]= -auxiliaryTrack._orb.orbit[:,1]
-            auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
-            auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
+            auxiliaryTrack.orbit[...,1]= -auxiliaryTrack.orbit[...,1]
+            auxiliaryTrack.orbit[...,2]= -auxiliaryTrack.orbit[...,2]
+            auxiliaryTrack.orbit[...,4]= -auxiliaryTrack.orbit[...,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
                                     use_physical=False)
@@ -969,9 +969,9 @@ class streamgapdf(streamdf.streamdf):
         ts= numpy.linspace(0.,self._tdisrupt,1001)
         self._gap_progenitor.integrate(ts,self._pot)
         # Flip its velocities, should really write a function for this
-        self._gap_progenitor._orb.orbit[:,1]= -self._gap_progenitor._orb.orbit[:,1]
-        self._gap_progenitor._orb.orbit[:,2]= -self._gap_progenitor._orb.orbit[:,2]
-        self._gap_progenitor._orb.orbit[:,4]= -self._gap_progenitor._orb.orbit[:,4]
+        self._gap_progenitor.orbit[...,1]= -self._gap_progenitor.orbit[...,1]
+        self._gap_progenitor.orbit[...,2]= -self._gap_progenitor.orbit[...,2]
+        self._gap_progenitor.orbit[...,4]= -self._gap_progenitor.orbit[...,4]
         return None
 
 ################################SAMPLE THE DF##################################

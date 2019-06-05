@@ -1,5 +1,4 @@
 galpy.orbit.Orbit
 =================
 
-.. autoclass:: galpy.orbit.Orbit
-   :members: __init__
+.. automethod:: galpy.orbit.Orbit.__init__

@@ -131,7 +131,7 @@ if WIN32:
     extra_compile_args.append("-DWIN32")
 
 #Orbit integration C extension
-orbit_int_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c']
+orbit_int_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c','galpy/util/bovy_coords.c']
 orbit_int_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/orbit/orbit_c_ext/*.c'))
 orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
@@ -139,6 +139,8 @@ orbit_int_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 orbit_libraries=['m']
 if float(gsl_version[0]) >= 1.:
     orbit_libraries.extend(['gsl','gslcblas'])
+if 'gomp' in pot_libraries:
+    orbit_libraries.append('gomp')
 
 # On Windows it's unnecessary and erroneous to include m
 if WIN32:
@@ -223,7 +225,7 @@ else:
 actionAngle_c_src= glob.glob('galpy/actionAngle/actionAngle_c_ext/*.c')
 actionAngle_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 actionAngle_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
-actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c'])
+actionAngle_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c','galpy/util/bovy_coords.c'])
 actionAngle_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 actionAngle_include_dirs= ['galpy/actionAngle/actionAngle_c_ext',
                            'galpy/orbit/orbit_c_ext',
@@ -252,7 +254,7 @@ else:
 #interppotential C extension
 interppotential_c_src= glob.glob('galpy/potential/potential_c_ext/*.c')
 interppotential_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
-interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c'])
+interppotential_c_src.extend(['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 'galpy/util/leung_dop853.c','galpy/util/bovy_coords.c'])
 interppotential_c_src.append('galpy/orbit/orbit_c_ext/integrateFullOrbit.c')
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 

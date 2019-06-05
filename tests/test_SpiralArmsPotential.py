@@ -785,7 +785,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_array_inputs_in_phiforce_raises_TypeError(self):
         """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
         sp = spiral(Cs=[1, 2, 3])
-        array = range(0, 10, 1)
+        array = np.arange(0, 10, 1)
 
         self.assertRaises(TypeError, sp.phiforce, array, array, array, array)
         self.assertRaises(TypeError, sp.phiforce, array, 1, 2, 3)
@@ -796,7 +796,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_array_inputs_in_zforce_raises_TypeError(self):
         """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
         sp = spiral(N=3, Cs=[3, 4, 5])
-        array = [1, 2, 3]
+        array = np.array([1, 2, 3])
         self.assertRaises(TypeError, sp.zforce, array, array, array, array)
         self.assertRaises(TypeError, sp.zforce, array, 1, 2, 3)
         self.assertRaises(TypeError, sp.zforce, 1, array, 2, 3)
@@ -846,7 +846,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_array_inputs_in_Rphideriv_raises_TypeError(self):
         """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
         sp = spiral(N=7, amp=7, phi_ref=0.7, alpha=-.7)
-        array = [7, 7, 7]
+        array = np.array([7, 7, 7])
         self.assertRaises(TypeError, sp.Rphideriv, array, array, array, array)
         self.assertRaises(TypeError, sp.Rphideriv, array, 1, 2, 3)
         self.assertRaises(TypeError, sp.Rphideriv, 1, array, 2, 3)

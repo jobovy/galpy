@@ -2,16 +2,21 @@ import sys
 import distutils.sysconfig as sysconfig
 import warnings
 import numpy as nu
+from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
 from galpy.util import galpyWarning
+from ..util.multi import parallel_map
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
+from ..potential.linearPotential import _evaluatelinearForces
 from galpy.potential.verticalPotential import verticalPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
+from ..util.leung_dop853 import dop853
+from ..util import bovy_symplecticode as symplecticode
 #Find and load the library
 _lib= None
 outerr= None
@@ -124,20 +129,25 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        C integrate an ode for a LinearOrbit
     INPUT:
        pot - Potential or list of such instances
-       yo - initial condition [q,p]
+       yo - initial condition [q,p], can be [N,2] or [2]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (N,len(t),2) or (len(y0),len(t)) if N=1
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
     HISTORY:
        2018-10-06 - Written - Bovy (UofT)
+       2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
     """
+    if len(yo.shape) == 1: single_obj= True
+    else: single_obj= False
+    yo= nu.atleast_2d(yo)
+    nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
@@ -145,13 +155,14 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
         dt= -9999.99
 
     #Set up result array
-    result= nu.empty((len(t),2))
-    err= ctypes.c_int(0)
+    result= nu.empty((nobj,len(t),2))
+    err= nu.zeros(nobj,dtype=nu.int32)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateLinearOrbit
-    integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+    integrationFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
                                ctypes.c_int,
@@ -161,7 +172,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ctypes.POINTER(ctypes.c_int),
+                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
                                ctypes.c_int]
 
     #Array requirements, first store old order
@@ -170,9 +181,11 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
     result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
+    err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
 
     #Run the C code
-    integrationFunc(yo,
+    integrationFunc(ctypes.c_int(nobj),
+                    yo,
                     ctypes.c_int(len(t)),
                     t,
                     ctypes.c_int(npot),
@@ -181,15 +194,83 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
-                    ctypes.byref(err),
+                    err,
                     ctypes.c_int(int_method_c))
     
-    if int(err.value) == -10: #pragma: no cover
+    if nu.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
     if f_cont[0]: yo= nu.asfortranarray(yo)
     if f_cont[1]: t= nu.asfortranarray(t)
 
-    return (result,err.value)
+    if single_obj: return (result[0],err[0])
+    else: return (result,err)
 
+# Python integration functions
+def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
+                         dt=None):
+    """
+    NAME:
+       integrateLinearOrbit
+    PURPOSE:
+       Integrate an ode for a LinearOrbit
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,2]
+       t - set of times at which one wants the result
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(t),2)
+       Array containing the value of y for each desired time in t, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2010-07-13- Written - Bovy (NYU)
+       2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
+    """
+    if int_method.lower() == 'leapfrog':
+        if rtol is None: rtol= 1e-8
+        def integrate_for_map(vxvv):
+            return symplecticode.leapfrog(lambda x,t=t: \
+                                              _evaluatelinearForces(pot,x,t=t),
+                                          nu.array(vxvv),
+                                          t,rtol=rtol)
+    elif int_method.lower() == 'dop853':
+        if rtol is None: rtol= 1e-8
+        def integrate_for_map(vxvv):
+            return dop853(func=_linearEOM,x=vxvv,t=t,args=(pot,))
+    elif int_method.lower() == 'odeint':
+        if rtol is None: rtol= 1e-8
+        def integrate_for_map(vxvv):
+            return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=rtol)
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv):
+            return integrateLinearOrbit_c(pot,nu.copy(vxvv),
+                                          t,int_method,dt=dt)[0]
+    if len(yo) == 1: # Can't map a single value...
+        return nu.atleast_3d(integrate_for_map(yo[0]).T).T, 0
+    else:
+        return (nu.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
+                nu.zeros(len(yo)))
+
+def _linearEOM(y,t,pot):
+    """
+    NAME:
+       linearEOM
+    PURPOSE:
+       the one-dimensional equation-of-motion
+    INPUT:
+       y - current phase-space position
+       t - current time
+       pot - (list of) linearPotential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2010-07-13 - Bovy (NYU)
+    """
+    return [y[1],_evaluatelinearForces(pot,y[0],t=t)]

@@ -11,9 +11,9 @@ env: #split tests
     - REQUIRES_ASTROQUERY=false
     - PYTHON_COVREPORTS_VERSION=3.7 # Version for which reports are uploaded
   matrix:
-    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py' REQUIRES_PYNBODY=true
+    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
-    - TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
+    - TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
     - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py'
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
@@ -21,7 +21,7 @@ env: #split tests
 matrix: # only run crucial tests for python 3.6
   include:
     - python: "3.6"
-      env: TEST_FILES='tests/test_orbit.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
+      env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
   apt:
     packages:
@@ -75,21 +75,22 @@ install:
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then git checkout galpy; fi
- - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then cd -; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then git checkout galpy; fi
+ - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install astropy --no-deps; fi
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then conda install astropy --no-deps; fi
  - if $REQUIRES_ASTROQUERY; then pip install astroquery; fi
- - python setup.py build_ext --coverage --single_ext --inplace
+# Compile w/o OpenMP for one, to make sure that works
+ - if [[ $TRAVIS_PYTHON_VERSION != $PYTHON_COVREPORTS_VERSION ]] && [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then python setup.py build_ext --coverage --single_ext --inplace --no-openmp; else python setup.py build_ext --coverage --single_ext --inplace; fi
  - python setup.py develop --single_ext
 # Following tests that we can start from an incomplete configuration file
- - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
+ - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
  - if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
 script:
 # only wait longer for orbit integrations
- - if [[ $TEST_FILES == 'tests/test_orbit.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
+ - if [[ $TEST_FILES == 'tests/test_orbit.py tests/test_orbits.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.7/galpy/ --no-external --output-file coverage_full.info; fi

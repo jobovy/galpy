@@ -13,7 +13,7 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential import epifreq, omegac
+from galpy.potential import epifreq, omegac, _dim
 from galpy.potential.Potential import _evaluatePotentials
 from galpy.potential.Potential import flatten as flatten_potential
 from .actionAngle import *
@@ -53,7 +53,9 @@ class actionAngleSpherical(actionAngle):
             raise IOError("Must specify pot= for actionAngleSpherical")
         self._pot= flatten_potential(kwargs['pot'])
         #Also store a 'planar' (2D) version of the potential
-        if isinstance(self._pot,list):
+        if _dim(self._pot) == 2:
+            self._2dpot= self._pot
+        elif isinstance(self._pot,list):
             self._2dpot= [p.toPlanar() for p in self._pot]
         else:
             self._2dpot= self._pot.toPlanar()

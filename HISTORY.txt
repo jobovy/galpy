@@ -1,6 +1,11 @@
 v1.5 (????-??-??)
 =================
 
+- Added support for holding multiple objects in an Orbit instance,
+  with efficient handling of multiple objects and parallelized
+  integration and action-angle-related functions. Orbit instances can
+  now have arbitrary shapes. Full re-write of Orbit class (PR #384).
+
 - Added support for 1D orbit integration in C (PR #354).
 
 - Added potential.toVerticalPotential to convert any 3D potential to a

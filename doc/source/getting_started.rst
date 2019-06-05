@@ -307,7 +307,7 @@ simple Miyamoto-Nagai potential, we initialize an orbit as follows
 
 >>> from galpy.orbit import Orbit
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1])
 
 Since we gave ``Orbit()`` a five-dimensional initial condition
 ``[R,vR,vT,z,vz]``, we assume we are dealing with a three-dimensional
@@ -319,7 +319,7 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 >>> o.integrate(ts,mp,method='odeint')
 
 .. TIP::
-   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
+   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit([8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
 
 Now we plot the resulting orbit as
 

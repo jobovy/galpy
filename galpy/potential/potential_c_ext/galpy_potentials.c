@@ -1,8 +1,4 @@
 #include <galpy_potentials.h>
-void cyl_to_rect(double R, double phi,double *x, double *y){
-  *x= R * cos ( phi );
-  *y= R * sin ( phi );
-}
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {

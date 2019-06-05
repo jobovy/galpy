@@ -1245,6 +1245,10 @@ def test_RZToplanarPotential():
     #Check that a planarPotential through RZToplanarPotential is still planar
     pplp= potential.RZToplanarPotential(plp)
     assert isinstance(pplp,potential.planarPotential), 'Running a planarPotential through RZToplanarPotential does not produce a planarPotential'
+    #Check that a list with a mix of planar and 3D potentials produces list of planar
+    ppplp= potential.RZToplanarPotential([lp,plp])
+    for p in ppplp:
+        assert isinstance(p,potential.planarPotential), 'Running a list with a mix of planar and 3D potentials through RZToPlanarPotential does not produce a list of planar potentials'
     # Check that giving an object that is not a list or Potential instance produces an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.RZToplanarPotential('something else')
