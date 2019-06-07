@@ -1276,6 +1276,7 @@ class streamdf(df):
         obskwargs['ro']= ro
         obskwargs['vo']= vo
         obskwargs['obs']= obs
+        obskwargs['quantity']= False
         self._ErrCovsLBScale= [180.,90.,
                                self._progenitor.dist(**obskwargs),
                                numpy.fabs(self._progenitor.vlos(**obskwargs)),
