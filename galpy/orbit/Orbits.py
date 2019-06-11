@@ -810,6 +810,14 @@ class Orbit(object):
         # Transfer new shape
         shape_kwargs= {}
         shape_kwargs['shape']= indx_array.shape
+        # Transfer physical
+        physical_kwargs= {}
+        physical_kwargs['_roSet']= self._roSet
+        physical_kwargs['_voSet']= self._voSet
+        physical_kwargs['_ro']= self._ro
+        physical_kwargs['_vo']= self._vo
+        physical_kwargs['_zo']= self._zo
+        physical_kwargs['_solarmotion']= self._solarmotion
         # Also transfer all attributes related to integration
         if hasattr(self,'orbit'):
             integrate_kwargs= {}
@@ -821,13 +829,17 @@ class Orbit(object):
             integrate_kwargs['_pot']= self._pot
         else: integrate_kwargs= None
         return self._from_slice(orbits_list,integrate_kwargs,
-                                shape_kwargs)
+                                shape_kwargs,physical_kwargs)
 
     @classmethod
-    def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs):
+    def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs,
+                    physical_kwargs):
         out= cls(vxvv=orbits_list)
         # Set shape
         out.shape= shape_kwargs['shape']
+        # Transfer attributes related to physical
+        for kw in physical_kwargs:
+            out.__dict__[kw]= physical_kwargs[kw]
         # Also transfer all attributes related to integration
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
