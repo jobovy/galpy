@@ -531,7 +531,42 @@ def test_slice_integratedorbit_wrapperpot_367():
     # This failed in #367
     assert not os[0] is None, 'Slicing an integrated Orbits instance with a WrapperPotential does not work'
     return None
- 
+
+# Test that slicing of orbits propagates unit info
+def test_slice_physical_issue385():
+    from galpy.orbit import Orbit
+    ra=[17.2875,302.2875,317.79583333,306.60833333,9.65833333,147.2]
+    dec=[61.54730278,42.86525833,17.72774722,9.45011944,-7.69072222,13.74425556]
+    dist=[0.16753225,0.08499065,0.03357057,0.05411548,0.11946004,0.0727802]
+    pmra=[633.01,119.536,-122.216,116.508,20.34,373.05]
+    pmdec=[65.303,540.224,-899.263,-548.329,-546.373,-774.38 ]
+    vlos=[-317.86,-195.44,-44.15,-246.76,-46.79,-15.17]
+    orbits=Orbit(numpy.column_stack([ra,dec,dist,pmra,pmdec,vlos]),radec=True,
+                 ro=9.,vo=230.,solarmotion=[-11.1,24.,7.25])
+    assert orbits._roSet, 'Test Orbit instance that was supposed to have physical output turned does not'
+    assert orbits._voSet, 'Test Orbit instance that was supposed to have physical output turned does not'
+    assert numpy.fabs(orbits._ro-9.) < 1e-10, 'Test Orbit instance that was supposed to have physical output turned does not have the right ro'
+    assert numpy.fabs(orbits._vo-230.) < 1e-10, 'Test Orbit instance that was supposed to have physical output turned does not have the right vo'
+    for ii in range(orbits.size):
+        assert orbits[ii]._roSet, 'Sliced Orbit instance that was supposed to have physical output turned does not'
+        assert orbits[ii]._voSet, 'Sliced Orbit instance that was supposed to have physical output turned does not'
+        assert numpy.fabs(orbits[ii]._ro-9.) < 1e-10, 'Sliced Orbit instance that was supposed to have physical output turned does not have the right ro'
+        assert numpy.fabs(orbits[ii]._vo-230.) < 1e-10, 'Sliced Orbit instance that was supposed to have physical output turned does not have the right vo'
+        assert numpy.fabs(orbits[ii]._zo-orbits._zo) < 1e-10, 'Sliced Orbit instance that was supposed to have physical output turned does not have the right zo'
+        assert numpy.all(numpy.fabs(orbits[ii]._solarmotion-orbits._solarmotion) < 1e-10), 'Sliced Orbit instance that was supposed to have physical output turned does not have the right zo'
+        assert numpy.amax(numpy.fabs(orbits[ii].x()-orbits.x()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vx()-orbits.vx()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].y()-orbits.y()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vy()-orbits.vy()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].z()-orbits.z()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vz()-orbits.vz()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].R()-orbits.R()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vR()-orbits.vR()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs(orbits[ii].vT()-orbits.vT()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+        assert numpy.amax(numpy.fabs((((orbits[ii].phi()-orbits.phi()[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
+    return None
+    
+
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
 def test_initialize_diffphasedim_error():
