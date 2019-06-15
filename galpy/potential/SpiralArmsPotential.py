@@ -98,17 +98,17 @@ class SpiralArmsPotential(Potential):
         self._phi_ref = phi_ref
         self._Rs = Rs
         self._H = H
-        self._Cs = np.array(Cs)
-        self._ns = np.arange(1, len(Cs) + 1)
+        self._Cs = self._Cs0 = np.array(Cs)
+        self._ns = self._ns0 = np.arange(1, len(Cs) + 1)
         self._omega = omega
         self._rho0 = 1 / (4 * np.pi)
-        self._HNn = self._H * self._N * self._ns
+        self._HNn = self._HNn0 = self._H * self._N * self._ns0
 
         self.isNonAxi = True   # Potential is not axisymmetric
         self.hasC = True       # Potential has C implementation to speed up orbit integrations
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
-    @check_potential_inputs_not_arrays
+    
     def _evaluate(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -125,14 +125,23 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs)
+               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs,axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -149,6 +158,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
 
@@ -174,9 +191,9 @@ class SpiralArmsPotential(Potential):
                                                                         - dBs_dR / Ks * np.log(sechzKB)
                                                                         + dKs_dR / Ks**2
                                                                         + dDs_dR / Ds / Ks))
-                                                           + cos_ng / Ks / self._Rs))
+                                                           + cos_ng / Ks / self._Rs),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _zforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -193,16 +210,25 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
         zK_B = z * Ks / Bs
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t))
+               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t),axis=0)
                         * np.tanh(zK_B) / np.cosh(zK_B)**Bs)
 
-    @check_potential_inputs_not_arrays
+    
     def _phiforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -219,6 +245,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -226,9 +260,9 @@ class SpiralArmsPotential(Potential):
         Ds = self._D(R)
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g))
+               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _R2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -246,6 +280,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-31  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -316,9 +358,9 @@ class SpiralArmsPotential(Potential):
                                                     + (cos_ng * ((dDs_dR * Ks + Ds * dKs_dR) / (Ds * Ks)
                                                                  -  (ztanhzKB * (dBs_dR / Bs * Ks - dKs_dR)
                                                                      + log_sechzKB * dBs_dR))
-                                                       + sin_ng * self._ns * dg_dR))))))
+                                                       + sin_ng * self._ns * dg_dR)))),axis=0))
 
-    @check_potential_inputs_not_arrays
+    
     def _z2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -336,6 +378,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -345,9 +395,9 @@ class SpiralArmsPotential(Potential):
         tanh2_zKB = np.tanh(zKB)**2
 
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-               * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs)
+               * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs,axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _phi2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -365,6 +415,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-29 Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -372,9 +430,9 @@ class SpiralArmsPotential(Potential):
         Ds = self._D(R)
 
         return self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g))
+               * np.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
         NAME:
@@ -392,6 +450,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -424,9 +490,9 @@ class SpiralArmsPotential(Potential):
                                                            - cos_ng * ((zKB * (dKs_dR/Ks - dBs_dR/Bs) * (1 - tanhzKB**2)
                                                                         + tanhzKB * (dKs_dR/Ks - dBs_dR/Bs)
                                                                         + dBs_dR / Bs * tanhzKB)
-                                                                       - tanhzKB / Rs)))
+                                                                       - tanhzKB / Rs)),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rphideriv(self, R, z, phi=0,t=0):
         """
         NAME:
@@ -444,6 +510,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-06-09  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
 
@@ -470,9 +544,9 @@ class SpiralArmsPotential(Potential):
                                           + 1/Ks * (-dBs_dR * np.log(sechzKB)
                                                     + dKs_dR / Ks
                                                     + dDs_dR / Ds
-                                                    + 1 / self._Rs))))
+                                                    + 1 / self._Rs))),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _dens(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -490,6 +564,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,float):
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+        else:
+            self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
+            self._ns=np.transpose(np.array([self._ns0,]*len(R)))
+            self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
 
         g = self._gamma(R, phi - self._omega * t)
 
@@ -518,7 +600,7 @@ class SpiralArmsPotential(Potential):
         return np.sum(self._Cs * self._rho0 * (self._H / (Ds * R)) * np.exp(-(R - self._r_ref) / self._Rs)
                       * sech_zKB**Bs * (np.cos(ng) * (Ks * R * (Bs + 1) / Bs * sech_zKB**2
                                                       - 1 / Ks / R * (E**2 + rE))
-                                        - 2 * np.sin(ng)* E * np.cos(self._alpha)))
+                                        - 2 * np.sin(ng)* E * np.cos(self._alpha)),axis=0)
 
     def OmegaP(self):
         """
