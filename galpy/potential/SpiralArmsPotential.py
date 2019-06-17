@@ -223,8 +223,8 @@ class SpiralArmsPotential(Potential):
         zK_B = z * Ks / Bs
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t),axis=0)
-                        * np.tanh(zK_B) / np.cosh(zK_B)**Bs)
+               * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t))
+                        * np.tanh(zK_B) / np.cosh(zK_B)**Bs,axis=0)
 
     
     def _phiforce(self, R, z, phi=0, t=0):
