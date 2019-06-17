@@ -123,14 +123,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Ks = self._K(R)
         Bs = self._B(R)
@@ -156,14 +156,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
 
@@ -208,14 +208,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Ks = self._K(R)
         Bs = self._B(R)
@@ -243,14 +243,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -278,14 +278,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-31  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -376,14 +376,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -413,14 +413,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-29 Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -448,14 +448,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -508,14 +508,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-06-09  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
 
@@ -562,14 +562,14 @@ class SpiralArmsPotential(Potential):
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
-        if isinstance(R,float):
-            self._Cs=self._Cs0
-            self._ns=self._ns0
-            self._HNn=self._HNn0
-        else:
+        if isinstance(R,np.ndarray):
             self._Cs=np.transpose(np.array([self._Cs0,]*len(R)))
             self._ns=np.transpose(np.array([self._ns0,]*len(R)))
             self._HNn=np.transpose(np.array([self._HNn0,]*len(R)))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
 
