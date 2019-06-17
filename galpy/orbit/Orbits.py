@@ -1,4 +1,5 @@
 from six import raise_from
+from past.builtins import basestring
 import os
 import sys
 _PY3= sys.version > '3'
@@ -485,7 +486,7 @@ class Orbit(object):
         return None
 
     @classmethod
-    def from_name(cls,*args,vo=None,ro=None,zo=None,solarmotion=None):
+    def from_name(cls,*args,**kwargs):
         """
         NAME:
 
@@ -528,12 +529,16 @@ class Orbit(object):
                               'Orbit.from_name')
         _load_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
-        obs= numpy.array([ro,vo,zo,solarmotion],dtype='object')
+        obs= numpy.array([kwargs.get('ro',None),
+                          kwargs.get('vro',None),
+                          kwargs.get('zo',None),
+                          kwargs.get('solarmotion',None)],
+                         dtype='object')
         if len(args) > 1:
             name= [n for n in args]
         else:
             name= args[0]
-        if isinstance(name,str):
+        if isinstance(name,(basestring)):
             out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         else: # assume list
@@ -5360,7 +5365,7 @@ def _from_name_oneobject(name,obs):
         this_name= this_name.translate(\
             str.maketrans('', '',string.punctuation))
     else:
-        this_name= this_name.translate(None,string.punctuation)
+        this_name= str(this_name).translate(None,string.punctuation)
     # Find the object in the file?
     if this_name in _known_objects.keys():
         if 'ra' in _known_objects[this_name].keys():
