@@ -5364,7 +5364,7 @@ def _from_name_oneobject(name,obs):
     if _PY3:
         this_name= this_name.translate(\
             str.maketrans('', '',string.punctuation))
-    else:
+    else: #pragma: no cover
         this_name= str(this_name).translate(None,string.punctuation)
     # Find the object in the file?
     if this_name in _known_objects.keys():
