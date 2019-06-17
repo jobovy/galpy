@@ -1686,7 +1686,7 @@ def test_DehnenBar_special():
     #Test some special cases for the DehnenBar potentials
     #if _TRAVIS: return None
     #Test that array input works
-    dp= potential.DehnenBarPotential(normalize=1.)
+    dp= potential.DehnenBarPotential()
     #Test frmo rs < rb through to rs > rb
     rs= numpy.linspace(0.1*dp._rb,2.11*dp._rb)
     zs= numpy.ones_like(rs)*0.1
@@ -1721,7 +1721,7 @@ def test_SpiralArm_special():
     #Test some special cases for the DehnenBar potentials
     #if _TRAVIS: return None
     #Test that array input works
-    dp= potential.SpiralArmsPotential(normalize=1.)
+    dp= potential.SpiralArmsPotential()
     rs= numpy.linspace(0.1,2.11)
     zs= numpy.ones_like(rs)*0.1
     phis=numpy.ones_like(rs)*0.1
