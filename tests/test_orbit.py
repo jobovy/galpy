@@ -4700,6 +4700,32 @@ def test_from_name_errors():
     assert str(excinfo.value) == msg, \
         "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
 
+def test_from_name_named():
+    # Test that the values from the JSON file are correctly transferred
+    from galpy.orbit import Orbit
+    import galpy.orbit
+    # Read the JSON file
+    import os
+    import json
+    named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
+                galpy.orbit.__file__)),'named_objects.json')
+    with open(named_objects_file,'r') as json_file:
+        named_data= json.load(json_file)
+    for obj in named_data:
+        o= Orbit.from_name(obj)
+        for attr in named_data[obj]:
+            if 'source' in attr: continue
+            if attr == 'ro' or attr == 'vo' or attr == 'zo' \
+                    or attr == 'solarmotion':
+                assert numpy.all(numpy.isclose(getattr(o,'_{:s}'.format(attr)),
+                                               named_data[obj][attr]))
+            elif attr == 'distance':
+                assert numpy.isclose(o.dist(),named_data[obj][attr])
+            else:
+                assert numpy.isclose(getattr(o,'{:s}'.format(attr))(),
+                                     named_data[obj][attr])
+    return None    
+
 def test_rguiding_errors():
     from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
