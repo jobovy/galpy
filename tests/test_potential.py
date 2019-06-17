@@ -1682,6 +1682,75 @@ def test_ExpDisk_special():
     else: raise AssertionError("RazorThinExponentialDiskPotential's R2deriv did not raise AttributeError for z=/= 0 input")
     return None
 
+def test_DehnenBar_special():
+    #Test some special cases for the DehnenBar potentials
+    #if _TRAVIS: return None
+    #Test that array input works
+    dp= potential.DehnenBarPotential(normalize=1.)
+    #Test frmo rs < rb through to rs > rb
+    rs= numpy.linspace(0.1*dp._rb,2.11*dp._rb)
+    zs= numpy.ones_like(rs)*0.1
+    phis=numpy.ones_like(rs)*0.1
+    #Potential itself
+    dpevals= numpy.array([dp(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential evaluation does not work as expected for array inputs'
+    #Rforce
+    dpevals= numpy.array([dp.Rforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.Rforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential Rforce evaluation does not work as expected for array inputs'
+    #zforce
+    dpevals= numpy.array([dp.zforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.zforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential zforce evaluation does not work as expected for array inputs'
+    #R2deriv
+    dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.R2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential R2deriv evaluation does not work as expected for array inputs'
+    #z2deriv
+    dpevals= numpy.array([dp.z2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.z2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential z2deriv evaluation does not work as expected for array inputs'
+    #Rzderiv
+    dpevals= numpy.array([dp.Rzderiv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.Rzderiv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential Rzderiv evaluation does not work as expected for array inputs'
+    return None
+
+def test_SpiralArm_special():
+    #Test some special cases for the DehnenBar potentials
+    #if _TRAVIS: return None
+    #Test that array input works
+    dp= potential.SpiralArmsPotential(normalize=1.)
+    rs= numpy.linspace(0.1,2.11)
+    zs= numpy.ones_like(rs)*0.1
+    phis=numpy.ones_like(rs)*0.1
+    #Potential itself
+    dpevals= numpy.array([dp(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential evaluation does not work as expected for array inputs'
+    #Rforce
+    dpevals= numpy.array([dp.Rforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.Rforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential Rforce evaluation does not work as expected for array inputs'
+    #zforce
+    dpevals= numpy.array([dp.zforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.zforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential zforce evaluation does not work as expected for array inputs'
+    #R2deriv
+    dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.R2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential R2deriv evaluation does not work as expected for array inputs'
+    #z2deriv
+    dpevals= numpy.array([dp.z2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.z2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential z2deriv evaluation does not work as expected for array inputs'
+    #Rzderiv
+    dpevals= numpy.array([dp.Rzderiv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.Rzderiv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs'
+    return None
+
 def test_MovingObject_density():
     mp= mockMovingObjectPotential()
     #Just test that the density far away from the object is close to zero

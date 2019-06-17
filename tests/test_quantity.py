@@ -2936,19 +2936,6 @@ def test_potential_paramunits():
                                               ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
-    # DehnenBarPotential, with numpy arrays
-    pot= potential.DehnenBarPotential(amp=1.,
-                                      omegab=50.*units.km/units.s/units.kpc,
-                                      rb=4.*units.kpc,
-                                      Af=1290.*units.km**2/units.s**2,
-                                      barphi=20.*units.deg,
-                                      ro=ro,vo=vo)
-    # Check potential for R < rb and R > rb
-    R=numpy.array([pot._rb/2.,2.*pot._rb])
-    z=numpy.zeros(len(R))
-    phi=numpy.zeros(len(R))
-    assert numpy.fabs(pot(R,z,phi=phi,use_physical=False)[0]-pot(R[0],z[0],phi=phi[0],use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units w/ numpy arrays does not behave as expected"   
-    assert numpy.fabs(pot(R,z,phi=phi,use_physical=False)[1]-pot(R[1],z[1],phi=phi[1],use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units w/ numpy arrays does not behave as expected"   
     # MiyamotoNagaiPotential
     pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun,
                                           a=5.*units.kpc,b=300.*units.pc,
