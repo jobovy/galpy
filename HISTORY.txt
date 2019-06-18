@@ -49,6 +49,9 @@ v1.5 (????-??-??)
 
 - DehnenSmoothWrapperPotential can now decay rather than grow a
   potential by setting ``decay=True``.
+
+- DehnenBarPotential and SpiralArmsPotential method now work for array
+  inputs (PR #388, by @webbjj).
   
 - Allow transformations of custom coordinate systems (positions
   and proper motions) to ICRS (ra,dec) and (pmra,pmdec).

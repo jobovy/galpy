@@ -672,7 +672,7 @@ class Potential(Force):
             return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_phi2deriv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -710,7 +710,7 @@ class Potential(Force):
             return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     def toPlanar(self):
