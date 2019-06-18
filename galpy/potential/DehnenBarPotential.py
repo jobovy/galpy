@@ -143,7 +143,7 @@ class DehnenBarPotential(Potential):
             smooth[indx]=0.
 
             indx=(t < self._tsteady)
-            delta=t[indx]-self._tform
+            deltat=t[indx]-self._tform
             xi= 2.*deltat/(self._tsteady-self._tform)-1.
             smooth[indx]= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
         else:
@@ -175,7 +175,7 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Started - Bovy (NYU)
         """
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
         if isinstance(r,numpy.ndarray):
@@ -185,7 +185,7 @@ class DehnenBarPotential(Potential):
             indx=numpy.invert(indx)
             out[indx]= -(self._rb/r[indx])**3.*R[indx]**2./r2[indx] 
 
-            out*=self._af*smooth[indx]*numpy.cos(2.*(phi[indx]-self._omegab*t[indx]-self._barphi))
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
             return out        
         else:
             if r <= self._rb:
@@ -214,13 +214,13 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb
@@ -258,14 +258,14 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb  
@@ -302,13 +302,13 @@ class DehnenBarPotential(Potential):
            2017-06-23 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb  
@@ -330,13 +330,13 @@ class DehnenBarPotential(Potential):
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb  
@@ -347,7 +347,7 @@ class DehnenBarPotential(Potential):
             out[indx]= (self._rb/r[indx])**3./r[indx]**6.*((r[indx]**2.-7.*R[indx]**2.)*(3.*R[indx]**2.-2.*z[indx]**2.)\
                                                  +6.*R[indx]**2.*r[indx]**2.)
 
-            out*=self._af*smooth[indx]*numpy.cos(2.*(phi[indx]-self._omegab*t[indx]-self._barphi))
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
             return out
         else:
             if r <= self._rb:
@@ -364,13 +364,13 @@ class DehnenBarPotential(Potential):
 
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb  
@@ -392,13 +392,13 @@ class DehnenBarPotential(Potential):
 
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb
@@ -420,13 +420,13 @@ class DehnenBarPotential(Potential):
              
     def _z2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
 
             out=numpy.empty(len(r))
             indx= r <= self._rb
@@ -450,14 +450,14 @@ class DehnenBarPotential(Potential):
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        smooth=_smooth(t)
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
-            if not isinstance(R,np.ndarray):
-                R=np.repeat(len(r))
-            if not isinstance(z,,np.ndarray):
-                z=np.repeat(len(r))
-                
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(len(r))
+
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= R[indx]*z[indx]/r[indx]**6.*((r[indx]/self._rb)**3.*(2.*r[indx]**2.-R[indx]**2.)

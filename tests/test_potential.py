@@ -1032,7 +1032,6 @@ def test_potential_array_input():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'EllipsoidalPotential']
-    rmpots.append('DehnenBarPotential')
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
