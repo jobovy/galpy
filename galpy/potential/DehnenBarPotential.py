@@ -179,6 +179,8 @@ class DehnenBarPotential(Potential):
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
         if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx]
@@ -218,13 +220,11 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb
-
             out[indx]= -((r[indx]/self._rb)**3.*R[indx]*(3.*R[indx]**2.+2.*z[indx]**2.)-4.*R[indx]*z[indx]**2.)/r[indx]**4.
             indx= numpy.invert(indx)
             out[indx]= -(self._rb/r[indx])**3.*R[indx]/r[indx]**4.*(3.*R[indx]**2.-2.*z[indx]**2.)
@@ -263,16 +263,14 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(r2)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx]
             indx=numpy.invert(indx)
             out[indx]= -(self._rb/r[indx])**3.*R[indx]**2./r2[indx]
-
             out*=2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-self._barphi))
             return out
         else:
@@ -306,10 +304,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= -((r[indx]/self._rb)**3.+4.)*R[indx]**2.*z[indx]/r[indx]**4.
@@ -334,10 +331,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= ((r[indx]/self._rb)**3.*((9.*R[indx]**2.+2.*z[indx]**2.)/r[indx]**4.
@@ -368,10 +364,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= -((r[indx]/self._rb)**3.-2.)*R[indx]**2./r[indx]**2.
@@ -396,10 +391,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= ((r[indx]/self._rb)**3.*R[indx]*(3.*R[indx]**2.+2.*z[indx]**2.)-4.*R[indx]*z[indx]**2.)/r[indx]**4.
@@ -424,10 +418,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= R[indx]**2./r[indx]**6.*((r[indx]/self._rb)**3.*(r[indx]**2.-z[indx]**2.)
@@ -454,10 +447,9 @@ class DehnenBarPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
-                R=numpy.repeat(len(r))
+                R=numpy.repeat(R,len(r))
             if not isinstance(z,numpy.ndarray):
-                z=numpy.repeat(len(r))
-
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= R[indx]*z[indx]/r[indx]**6.*((r[indx]/self._rb)**3.*(2.*r[indx]**2.-R[indx]**2.)
