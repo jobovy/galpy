@@ -1020,6 +1020,104 @@ def test_amp_mult_divide():
             assert numpy.fabs(tp(R,Z,phi=phi)/num-(tp/num)(R,Z,phi=phi)) < 1e-10, "Dividing a Potential with a number does not behave as expected"
     return None
 
+#Test whether potentials that support array input do so correctly
+def test_potential_array_input():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'EllipsoidalPotential']
+    rmpots.append('DehnenBarPotential')
+    rmpots.append('FerrersPotential')
+    rmpots.append('PerfectEllipsoidPotential')
+    rmpots.append('TriaxialHernquistPotential')
+    rmpots.append('TriaxialJaffePotential')
+    rmpots.append('TriaxialNFWPotential')
+    rmpots.append('TwoPowerTriaxialPotential')
+    rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('SphericalShellPotential')
+    # These cannot be setup without arguments
+    rmpots.append('MovingObjectPotential')
+    rmpots.append('SnapshotRZPotential')
+    rmpots.append('InterpSnapshotRZPotential')
+    # 2D ones that cannot use this test
+    rmpots.append('CosmphiDiskPotential')
+    rmpots.append('EllipticalDiskPotential')
+    rmpots.append('LopsidedDiskPotential')
+    rmpots.append('HenonHeilesPotential')
+    rmpots.append('TransientLogSpiralPotential')
+    rmpots.append('SteadyLogSpiralPotential')
+    # 2D ones that cannot use this test
+    rmpots.append('IsothermalDiskPotential')
+    rmpots.append('KGPotential')
+    for p in rmpots:
+        pots.remove(p)
+    rs= numpy.linspace(0.1,2.,11)
+    zs= numpy.linspace(-2.,2.,11)
+    phis= numpy.linspace(0.,numpy.pi,11)
+    ts= numpy.linspace(0.,10.,11)
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #Setup instance of potential
+        print(p)
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        #Potential itself
+        tpevals= numpy.array([tp(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+            '{} evaluation does not work as expected for array inputs'.format(p)
+        #Rforce
+        tpevals= numpy.array([tp.Rforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.Rforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+            '{} Rforce evaluation does not work as expected for array inputs'.format(p)
+        #zforce
+        tpevals= numpy.array([tp.zforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.zforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+        '{} zforce evaluation does not work as expected for array inputs'.format(p)
+        #phiforce
+        tpevals= numpy.array([tp.phiforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.phiforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+            '{} zforce evaluation does not work as expected for array inputs'.format(p)
+        #R2deriv
+        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+            tpevals= numpy.array([tp.R2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.R2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} R2deriv evaluation does not work as expected for array inputs'.format(p)
+        #z2deriv
+        if hasattr(tp,'_z2deriv') and not p == 'DiskSCFPotential' \
+                and not p == 'TwoPowerSphericalPotential': # latter bc done through R2deriv
+            tpevals= numpy.array([tp.z2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.z2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} z2deriv evaluation does not work as expected for array inputs'.format(p)
+        #phi2deriv
+        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+            tpevals= numpy.array([tp.phi2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.phi2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} phi2deriv evaluation does not work as expected for array inputs'.format(p)
+        #Rzderiv
+        if hasattr(tp,'_Rzderiv') and not p == 'DiskSCFPotential':
+            tpevals= numpy.array([tp.Rzderiv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.Rzderiv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} Rzderiv evaluation does not work as expected for array inputs'.format(p)
+        #Rphideriv
+        if hasattr(tp,'_Rphideriv') and not p == 'DiskSCFPotential':
+            tpevals= numpy.array([tp.Rphideriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.Rphideriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} Rphideriv evaluation does not work as expected for array inputs'.format(p)
+        #dens
+        tpevals= numpy.array([tp.dens(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.dens(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+            '{} dens evaluation does not work as expected for array inputs'.format(p)
+    return None
+
 # Test that the amplitude for potentials with a finite mass and amp=mass is 
 # correct through the relation -r^2 F_r =~ GM at large r
 def test_finitemass_amp():
@@ -1734,7 +1832,7 @@ def test_SpiralArm_special():
     #if _TRAVIS: return None
     #Test that array input works
     dp= potential.SpiralArmsPotential()
-    rs= numpy.linspace(0.1,2.11)
+    rs= numpy.linspace(0.1,2.,11)
     zs= numpy.ones_like(rs)*0.1
     phis=numpy.ones_like(rs)*0.1
     #Potential itself
