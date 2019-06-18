@@ -51,7 +51,7 @@ v1.5 (????-??-??)
   potential by setting ``decay=True``.
 
 - DehnenBarPotential and SpiralArmsPotential method now work for array
-  inputs.
+  inputs (PR #388, by @webbjj).
   
 - Allow transformations of custom coordinate systems (positions
   and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
