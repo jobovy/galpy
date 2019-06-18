@@ -1064,7 +1064,6 @@ def test_potential_array_input():
     for p in pots:
         #if not 'NFW' in p: continue #For testing the test
         #Setup instance of potential
-        print(p)
         try:
             tclass= getattr(potential,p)
         except AttributeError:
