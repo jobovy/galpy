@@ -163,16 +163,7 @@ class DehnenBarPotential(Potential):
             smooth= 1.
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))\
-                    *((r/self._rb)**3.-2.)*R**2./r2
-            else:
-                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                                                      *(self._rb/r)**3.\
-                                                      *R**2./r2
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t-self._barphi))\
@@ -183,6 +174,15 @@ class DehnenBarPotential(Potential):
                                                       *(self._rb/r[indx])**3.\
                                                       *R[indx]**2./r2[indx] 
             return out        
+        else:
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))\
+                    *((r/self._rb)**3.-2.)*R**2./r2
+            else:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                                                      *(self._rb/r)**3.\
+                                                      *R**2./r2
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -210,17 +210,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-
-        if isinstance(r,float):
-            if r <= self._rb:
-                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                      -self._barphi))\
-                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
-            else:
-                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb
 
@@ -232,6 +222,15 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r[indx])**3.*R[indx]/r[indx]**4.*(3.*R[indx]**2.-2.*z[indx]**2.)
             return out
+        else:
+            if r <= self._rb:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
+            else:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -260,17 +259,7 @@ class DehnenBarPotential(Potential):
             smooth= 1.
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-
-        if isinstance(r,float):
-            if r <= self._rb:
-                return 2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                        self._barphi))\
-                                                    *((r/self._rb)**3.-2.)*R**2./r2
-            else:
-                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                         self._barphi))\
-                                                         *(self._rb/r)**3.*R**2./r2
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= 2.*self._af*smooth*numpy.sin(2.*(phi[indx]-self._omegab*t-
@@ -281,6 +270,15 @@ class DehnenBarPotential(Potential):
                                                          self._barphi))\
                                                          *(self._rb/r[indx])**3.*R[indx]**2./r2[indx]
             return out
+        else:
+            if r <= self._rb:
+                return 2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                        self._barphi))\
+                                                    *((r/self._rb)**3.-2.)*R**2./r2
+            else:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                         self._barphi))\
+                                                         *(self._rb/r)**3.*R**2./r2
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -308,17 +306,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-
-        if isinstance(r,float):
-            if r <= self._rb:
-                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                      -self._barphi))\
-                       *((r/self._rb)**3.+4.)*R**2.*z/r**4.
-            else:
-                return -5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                                *(self._rb/r)**3.*R**2.*z/r**4.
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= -self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t
@@ -329,6 +317,15 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                                 *(self._rb/r[indx])**3.*R[indx]**2.*z[indx]/r[indx]**4.
             return out
+        else:
+            if r <= self._rb:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *((r/self._rb)**3.+4.)*R**2.*z/r**4.
+            else:
+                return -5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                                *(self._rb/r)**3.*R**2.*z/r**4.
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
@@ -341,19 +338,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                     -self._barphi))\
-                    *((r/self._rb)**3.*((9.*R**2.+2.*z**2.)/r**4.
-                                        -R**2./r**6.*(3.*R**2.+2.*z**2.))\
-                          +4.*z**2./r**6.*(4.*R**2.-r**2.))
-            else:
-                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                     self._barphi))\
-                    *(self._rb/r)**3./r**6.*((r**2.-7.*R**2.)*(3.*R**2.-2.*z**2.)\
-                                                 +6.*R**2.*r**2.)
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t
@@ -367,6 +352,18 @@ class DehnenBarPotential(Potential):
                     *(self._rb/r[indx])**3./r[indx]**6.*((r[indx]**2.-7.*R[indx]**2.)*(3.*R[indx]**2.-2.*z[indx]**2.)\
                                                  +6.*R[indx]**2.*r[indx]**2.)
             return out
+        else:
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                     -self._barphi))\
+                    *((r/self._rb)**3.*((9.*R**2.+2.*z**2.)/r**4.
+                                        -R**2./r**6.*(3.*R**2.+2.*z**2.))\
+                          +4.*z**2./r**6.*(4.*R**2.-r**2.))
+            else:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                     self._barphi))\
+                    *(self._rb/r)**3./r**6.*((r**2.-7.*R**2.)*(3.*R**2.-2.*z**2.)\
+                                                 +6.*R**2.*r**2.)
 
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
@@ -379,16 +376,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return -4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                         self._barphi))\
-                                                *((r/self._rb)**3.-2.)*R**2./r**2.
-            else:
-                return 4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                        self._barphi))\
-                                                     *(self._rb/r)**3.*R**2./r**2.
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb  
             out[indx]= -4.*self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t-
@@ -399,7 +387,15 @@ class DehnenBarPotential(Potential):
                                                         self._barphi))\
                                                      *(self._rb/r[indx])**3.*R[indx]**2./r[indx]**2.
             return out
-
+        else:
+            if r <= self._rb:
+                return -4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                         self._barphi))\
+                                                *((r/self._rb)**3.-2.)*R**2./r**2.
+            else:
+                return 4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                        self._barphi))\
+                                                     *(self._rb/r)**3.*R**2./r**2.
 
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
@@ -412,16 +408,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t
-                                                      -self._barphi))\
-                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
-            else:
-                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= -2.*self._af*smooth*numpy.sin(2.*(phi[indx]-self._omegab*t
@@ -432,6 +419,15 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r[indx])**3.*R[indx]/r[indx]**4.*(3.*R[indx]**2.-2.*z[indx]**2.)
             return out
+        else:
+            if r <= self._rb:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
+            else:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
              
     def _z2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
@@ -444,17 +440,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                      -self._barphi))\
-                       *R**2./r**6.*((r/self._rb)**3.*(r**2.-z**2.)
-                                     +4.*(r**2.-4.*z**2.))
-            else:
-                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                        *(self._rb/r)**3.*R**2./r**6.*(r**2.-7.*z**2.)
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t
@@ -466,6 +452,16 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r[indx])**3.*R[indx]**2./r[indx]**6.*(r[indx]**2.-7.*z[indx]**2.)
             return out
+        else:
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *R**2./r**6.*((r/self._rb)**3.*(r**2.-z**2.)
+                                     +4.*(r**2.-4.*z**2.))
+            else:
+                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R**2./r**6.*(r**2.-7.*z**2.)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
@@ -478,17 +474,7 @@ class DehnenBarPotential(Potential):
         else: #bar is fully on
             smooth= 1.
         r= numpy.sqrt(R**2.+z**2.)
-        if isinstance(r,float):
-            if r <= self._rb:
-                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                      -self._barphi))\
-                       *R*z/r**6.*((r/self._rb)**3.*(2.*r**2.-R**2.)
-                                     +8.*(r**2.-2.*R**2.))
-            else:
-                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                      self._barphi))\
-                        *(self._rb/r)**3.*R*z/r**6.*(2.*r**2.-7.*R**2.)
-        else:
+        if isinstance(r,numpy.ndarray):
             out=numpy.empty(len(r))
             indx= r <= self._rb
             out[indx]= self._af*smooth*numpy.cos(2.*(phi[indx]-self._omegab*t
@@ -500,6 +486,16 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r[indx])**3.*R[indx]*z[indx]/r[indx]**6.*(2.*r[indx]**2.-7.*R[indx]**2.)
             return out
+        else:
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *R*z/r**6.*((r/self._rb)**3.*(2.*r**2.-R**2.)
+                                     +8.*(r**2.-2.*R**2.))
+            else:
+                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R*z/r**6.*(2.*r**2.-7.*R**2.)
 
     def tform(self): #pragma: no cover
         """
