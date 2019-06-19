@@ -5,7 +5,7 @@
 import copy
 import numpy as nu
 from .Potential import Potential, _isNonAxi, flatten, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities, _check_c
 from .PlummerPotential import PlummerPotential
 class MovingObjectPotential(Potential):
     """
@@ -58,6 +58,7 @@ class MovingObjectPotential(Potential):
         self._orb= copy.deepcopy(orbit)
         self._orb.turn_physical_off()
         self.isNonAxi= True
+        self.hasC= _check_c(self._pot)
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -106,6 +107,7 @@ class MovingObjectPotential(Potential):
             R, phi, z)
         #Evaluate cylindrical radial force
         RF = evaluateRforces(self._pot,Rdist,zd, use_physical=False)
+
         # Return R force, negative of radial vector to evaluation location.
         return -RF*(nu.cos(phi)*xd+nu.sin(phi)*yd)/Rdist
 

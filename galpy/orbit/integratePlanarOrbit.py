@@ -309,6 +309,25 @@ def _parse_pot(pot):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._to,p._sigma2])
+        elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.MovingObjectPotential)) \
+              or isinstance(p,potential.MovingObjectPotential):
+            if not isinstance(p,potential.MovingObjectPotential):
+                p= p._Pot
+            pot_type.append(-6)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                    _parse_pot(potential.toPlanarPotential(p._pot))
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            o = p._orb
+            t = p._orb.time()
+            pot_args.extend([p._amp])
+            pot_args.extend([t[0], t[-1]]) #t_0, t_f
+            pot_args.extend([o.getOrbit().shape[0], 2]) # N_steps, N_dim
+            pot_args.extend(o.t)
+            pot_args.extend(nu.array([o.x(t) for t in o.t]))
+            pot_args.extend(nu.array([o.y(t) for t in o.t]))
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)

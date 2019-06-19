@@ -40,6 +40,10 @@ struct potentialArg{
   interp_2d * i2d;
   gsl_interp_accel * accx;
   gsl_interp_accel * accy;
+  gsl_interp_accel * accz;
+  gsl_spline * xSpline;
+  gsl_spline * ySpline;
+  gsl_spline * zSpline;
   interp_2d * i2drforce;
   gsl_interp_accel * accxrforce;
   gsl_interp_accel * accyrforce;
@@ -521,6 +525,19 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//MovingObjectPotential
+double MovingObjectPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double MovingObjectPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double MovingObjectPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double MovingObjectPotentialPlanarRforce(double,double,double,
+					struct potentialArg *);
+double MovingObjectPotentialPlanarphiforce(double,double,double,
+					    struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

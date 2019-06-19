@@ -1046,6 +1046,7 @@ class Orbit(object):
                 out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,
                                                method,numcores=numcores,dt=dt)
             elif self.dim() == 2:
+                print("IN HERE")
                 out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,
                                                method,numcores=numcores,dt=dt)
             else:

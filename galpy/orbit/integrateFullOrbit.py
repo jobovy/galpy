@@ -260,6 +260,23 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._to,p._sigma2])
+        elif isinstance(p,potential.MovingObjectPotential):
+            pot_type.append(-6)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            o = p._orb
+            t = p._orb.time()
+            pot_args.extend([p._amp])
+            pot_args.extend([t[0], t[-1]]) #t_0, t_f
+            pot_args.extend([o.getOrbit().shape[0], 3]) # N_steps, N_dim
+            pot_args.extend(o.t)
+            pot_args.extend(nu.array([o.x(t) for t in o.t]))
+            pot_args.extend(nu.array([o.y(t) for t in o.t]))
+            pot_args.extend(nu.array([o.z(t) for t in o.t]))
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -308,6 +325,11 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     if dt is None: 
         dt= -9999.99
 
+    if -6 in pot_type:
+        if min(t) < min(pot_args[14:16]) or max(t) > max(pot_args[14:16]):
+            raise Exception("Time range for orbit integration outside of range of MovingObjectPotential integration")
+
+
     #Set up result array
     result= nu.empty((nobj,len(t),6))
     err= nu.zeros(nobj,dtype=nu.int32)
@@ -346,7 +368,8 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     pot_type,
                     pot_args,
                     ctypes.c_double(dt),
-                    ctypes.c_double(rtol),ctypes.c_double(atol),
+                    ctypes.c_double(rtol),
+                    ctypes.c_double(atol),
                     result,
                     err,
                     ctypes.c_int(int_method_c))

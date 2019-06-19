@@ -13,6 +13,10 @@
 #include <leung_dop853.h>
 #include <bovy_rk.h>
 #include <integrateFullOrbit.h>
+
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
+
 //Potentials
 #include <galpy_potentials.h>
 #ifndef M_PI
@@ -357,6 +361,45 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &GaussianAmplitudeWrapperPotentialphiforce;
       potentialArgs->nargs= (int) 3;
       break;
+    case -6: //MovingObjectPotential
+      potentialArgs->Rforce= &MovingObjectPotentialRforce;
+      potentialArgs->zforce= &MovingObjectPotentialzforce;
+      potentialArgs->phiforce= &MovingObjectPotentialphiforce;
+
+      gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
+      gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
+      gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
+      int nPts = (int) (*(*pot_args+8));
+      gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+      gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+      gsl_spline *z_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+
+      double * t_arr = *pot_args+10;
+      double * x_arr = t_arr+1*nPts;
+      double * y_arr = t_arr+2*nPts;
+      double * z_arr = t_arr+3*nPts;
+
+      double t[nPts];
+      double tf = *(*pot_args+7);
+      double to = *(*pot_args+6);
+
+      for (int i=0; i<nPts; i++) {
+        t[i] = (t_arr[i]-to)/(tf-to);
+      }
+
+      gsl_spline_init(x_spline, t, x_arr, nPts);
+      gsl_spline_init(y_spline, t, y_arr, nPts);
+      gsl_spline_init(z_spline, t, z_arr, nPts);
+
+      potentialArgs->xSpline = x_spline;
+      potentialArgs->accx = x_accel_ptr;
+      potentialArgs->ySpline = y_spline;
+      potentialArgs->accy = y_accel_ptr;
+      potentialArgs->zSpline = z_spline;
+      potentialArgs->accz = z_accel_ptr;
+
+      potentialArgs->nargs= (int) 5;
+      break;
     }
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
@@ -397,6 +440,7 @@ EXPORT void integrateFullOrbit(int nobj,
   int * thread_pot_type;
   double * thread_pot_args;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
+
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
 #pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
