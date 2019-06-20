@@ -142,7 +142,7 @@ class DehnenBarPotential(Potential):
             indx=(t < self._tform)
             smooth[indx]=0.
 
-            indx=(t < self._tsteady)
+            indx=(t < self._tsteady) * (t >= self._tform)
             deltat=t[indx]-self._tform
             xi= 2.*deltat/(self._tsteady-self._tform)-1.
             smooth[indx]= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
