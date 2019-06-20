@@ -47,7 +47,7 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
       free((potentialArgs+ii)->wrappedPotentialArg);
     }
     if ( (potentialArgs+ii)->xSpline )
-      gsl_spline_free((potentialArgs+ii)->xSpline) ;
+      gsl_spline_free((potentialArgs+ii)->xSpline);
     if ( (potentialArgs+ii)->ySpline )
       gsl_spline_free ((potentialArgs+ii)->ySpline);
     if ( (potentialArgs+ii)->zSpline )

@@ -21,6 +21,7 @@ double MovingObjectPotentialRforce(double R,double z, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
+  constrain(&d_ind);
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
@@ -48,6 +49,7 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
+  constrain(&d_ind);
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
@@ -75,6 +77,7 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
+  constrain(&d_ind);
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
@@ -102,6 +105,7 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
+  constrain(&d_ind);
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
 
@@ -127,6 +131,7 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
+  constrain(&d_ind);
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
 
@@ -135,4 +140,9 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
 			      potentialArgs->wrappedPotentialArg);
 
   return -RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
+}
+
+void constrain(double * d) {
+  if (*d <= 0) *d = 0.000001;
+  if (*d >= 1) *d = 0.999999;
 }
