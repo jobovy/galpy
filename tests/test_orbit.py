@@ -4714,6 +4714,25 @@ def test_rguiding_errors():
         o.rguiding(pot=np)
     return None
 
+def test_phi_range():
+    # Test that the range returned by Orbit.phi is [-pi,pi], 
+    # example from Jeremy Webb
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    o=Orbit()
+    ts= numpy.linspace(0.0,-30,5000)
+    o.integrate(ts,MWPotential2014)
+    assert numpy.all(o.phi(ts) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(ts) >= -numpy.pi), 'o.phi does not return values >= pi'
+    assert numpy.all(o.phi(ts[::-1]) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(ts[::-1]) >= -numpy.pi), 'o.phi does not return values >= pi'
+    # Also really interpolated
+    its= numpy.linspace(0.0,-30,5001)
+    assert numpy.all(o.phi(its) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(its) >= -numpy.pi), 'o.phi does not return values >= pi'
+    return None
+
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
