@@ -1029,12 +1029,10 @@ def rect_to_cyl(X,Y,Z):
 
        2010-09-24 - Written - Bovy (NYU)
 
+       2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
+
     """
-    R= sc.sqrt(X**2.+Y**2.)
-    phi= sc.arctan2(Y,X)
-    if isinstance(phi,nu.ndarray): phi[phi<0.]+= 2.*nu.pi
-    elif phi < 0.: phi+= 2.*nu.pi
-    return (R,phi,Z)
+    return (sc.sqrt(X**2.+Y**2.),sc.arctan2(Y,X),Z)
 
 def cyl_to_rect(R,phi,Z):
     """
