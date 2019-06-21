@@ -4168,7 +4168,7 @@ class Orbit(object):
                 x= self._orbInterp[0](t,self._orb_indx_4orbInterp)
                 y= self._orbInterp[-1](t,self._orb_indx_4orbInterp)
                 out[0]= numpy.sqrt(x*x+y*y)
-                out[-1]= numpy.arctan2(y,x) % (2.*numpy.pi)
+                out[-1]= numpy.arctan2(y,x)
                 for ii in range(1,self.phasedim()-1):
                     out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
             else:
