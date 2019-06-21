@@ -2947,7 +2947,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           phi(t) [*input_shape,nt]
+           phi(t) [*input_shape,nt] in [-pi,pi]
 
         HISTORY:
 
