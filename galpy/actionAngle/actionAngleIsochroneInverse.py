@@ -154,6 +154,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
            2017-11-15 - Written - Bovy (UofT)
 
         """
+        jr= numpy.atleast_1d(jr)
         L= jz+numpy.fabs(jphi) # total angular momentum
         L2= L**2.
         sqrtfourbkL2= numpy.sqrt(L2+4.*self.b*self.amp)
@@ -194,16 +195,16 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         Lambdaeta= tan11+L/sqrtfourbkL2*tan12
         psi= anglez-omegaz/omegar*angler+Lambdaeta
         lowerl= numpy.sqrt(1.-jphi**2./L2)
-        sintheta= numpy.sin(psi)*lowerl
-        costheta= numpy.sqrt(1.-sintheta**2.)
-        vtheta= L*lowerl*numpy.cos(psi)/costheta/r
-        R= r*costheta
-        z= r*sintheta
-        vR= vr*costheta-vtheta*sintheta
-        vz= vr*sintheta+vtheta*costheta
-        sinu= sintheta/costheta*jphi/L/lowerl
+        costheta= numpy.sin(psi)*lowerl
+        sintheta= numpy.sqrt(1.-costheta**2.)
+        vtheta= -L*lowerl*numpy.cos(psi)/sintheta/r
+        R= r*sintheta
+        z= r*costheta
+        vR= vr*sintheta+vtheta*costheta
+        vz= vr*costheta-vtheta*sintheta
+        sinu= costheta/sintheta*jphi/L/lowerl
         u= numpy.arcsin(sinu)
-        u[vtheta < 0.]= numpy.pi-u[vtheta < 0.]
+        u[vtheta > 0.]= numpy.pi-u[vtheta > 0.]
         phi= anglephi-numpy.sign(jphi)*anglez+u
         # For non-inclined orbits, phi == psi
         phi[True^numpy.isfinite(phi)]= psi[True^numpy.isfinite(phi)]
