@@ -369,19 +369,21 @@ void parse_leapFuncArgs_Full(int npot,
       gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
       gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
       gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
-      int nPts = (int) (*(*pot_args+8));
+      int nWrapped = (int) **pot_args;
+      int nPts = (int) (*(*pot_args+4+nWrapped*2));
+
       gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
       gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
       gsl_spline *z_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
 
-      double * t_arr = *pot_args+10;
+      double * t_arr = (*pot_args+6+nWrapped*2);
       double * x_arr = t_arr+1*nPts;
       double * y_arr = t_arr+2*nPts;
       double * z_arr = t_arr+3*nPts;
 
       double t[nPts];
-      double tf = *(*pot_args+7);
-      double to = *(*pot_args+6);
+      double tf = *(*pot_args+3+nWrapped*2);
+      double to = *(*pot_args+2+nWrapped*2);
 
       for (int i=0; i<nPts; i++) {
         t[i] = (t_arr[i]-to)/(tf-to);
@@ -398,7 +400,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zSpline = z_spline;
       potentialArgs->accz = z_accel_ptr;
 
-      potentialArgs->nargs= (int) 5;
+      potentialArgs->nargs= (int) 5+(1+(*(*pot_args+5+nWrapped*2)))*(*(*pot_args+4+nWrapped*2));
       break;
     }
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
