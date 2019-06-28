@@ -368,9 +368,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       double tf = *(*pot_args+5);
       double to = *(*pot_args+4);
 
-      for (int i=0; i<nPts; i++) {
-        t[i] = (t_arr[i]-to)/(tf-to);
-      }
+      int i;
+      for (i=0; i<nPts; i++) t[i] = (t_arr[i]-to)/(tf-to);
 
       gsl_spline_init(x_spline, t, x_arr, nPts);
       gsl_spline_init(y_spline, t, y_arr, nPts);

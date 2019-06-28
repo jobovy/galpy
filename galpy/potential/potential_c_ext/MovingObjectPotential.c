@@ -143,6 +143,6 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
 }
 
 void constrain(double * d) {
-  if (*d <= 0) *d = 0.000001;
-  if (*d >= 1) *d = 0.999999;
+  if (*d < 0) *d = 0.0;
+  if (*d > 1) *d = 1.0;
 }
