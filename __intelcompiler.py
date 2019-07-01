@@ -16,6 +16,7 @@ else:
 class Intel64CompilerW(MSVCCompiler):
     """
     A modified Intel compiler compatible with an MSVC-built Python.
+    Only need to define the Windows one because Linux one is imported from distutils
     """
     compiler_type = 'intel64w'
     compiler_cxx = 'icl'
@@ -34,7 +35,7 @@ class Intel64CompilerW(MSVCCompiler):
                                       '/Qstd=c99', '/Z7', '/D_DEBUG']
 
 
-compiler_class['intel64w'] = ('intelcompiler', 'Intel64CompilerW',
+compiler_class['intel64w'] = ('__intelcompiler', 'Intel64CompilerW',
                               "Intel C Compiler for 64-bit applications on Windows")
 
 ccompiler._default_compilers += ('nt', 'intel64w')
