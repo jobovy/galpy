@@ -25,10 +25,10 @@ install:
   - cmd: conda.exe update --yes --quiet conda
   - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
   - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
+  - conda update --force -q conda
   - conda info -a
   - conda config --append channels astropy 
-  - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib numexpr pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
+  - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib numexpr setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage
   - pip install pytest-cov
