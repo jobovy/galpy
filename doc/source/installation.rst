@@ -120,18 +120,27 @@ If you encounter any issue related to OpenMP during compilation, you can do::
 Installing from source with Intel Compiler
 -------------------------------------------
 
-To compile galpy with Intel Compiler in Intel Parallel Studio XE for significant out of the box performance
-improvement on Intel CPUs with 64bit system. Moreover students can obtain a free copy of Intel Compiler at https://software.intel.com/en-us/qualify-for-free-software/student
+Compiling galpy with an Intel Compiler can give significant
+performance improvements on 64-bit Intel CPUs. Moreover students can
+obtain a free copy of an Intel Compiler at `this link
+<https://software.intel.com/en-us/qualify-for-free-software/student>`__.
 
-To compile galpy C extension with Intel Compiler on 64bit MaxOS/Linux::
+To compile the galpy C extensions with the Intel Compiler on 64bit
+MaxOS/Linux do::
 
     python setup.py build_ext --inplace --compiler=intelem
 
-To compile galpy C extension with Intel Compiler on 64bit Windows::
+and to compile the galpy C extensions with the Intel Compiler on 64bit
+Windows do::
 
     python setup.py build_ext --inplace --compiler=intel64w
 
-and then you can simply install or build your own wheels with::
+Then you can simply install with::
+
+     python setup.py install
+
+or other similar installation commands, or you can build your own
+wheels with::
 
     python setup.py sdist bdist_wheel
 
