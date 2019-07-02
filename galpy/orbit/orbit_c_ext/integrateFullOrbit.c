@@ -53,6 +53,7 @@ void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+void initSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -362,46 +363,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 3;
       break;
     case -6: //MovingObjectPotential
+      potentialArgs->potentialEval= &MovingObjectPotentialEval;
       potentialArgs->Rforce= &MovingObjectPotentialRforce;
       potentialArgs->zforce= &MovingObjectPotentialzforce;
       potentialArgs->phiforce= &MovingObjectPotentialphiforce;
-
-      gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
-      gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
-      gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
-      int nWrapped = (int) **pot_args;
-      int nPts = (int) (*(*pot_args+4+nWrapped*2));
-
-      gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
-      gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
-      gsl_spline *z_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
-
-      double * t_arr = (*pot_args+6+nWrapped*2);
-      double * x_arr = t_arr+1*nPts;
-      double * y_arr = t_arr+2*nPts;
-      double * z_arr = t_arr+3*nPts;
-
-      double t[nPts];
-      double tf = *(*pot_args+3+nWrapped*2);
-      double to = *(*pot_args+2+nWrapped*2);
-
-      int i;
-      for (i=0; i<nPts; i++) t[i] = (t_arr[i]-to)/(tf-to);
-
-      gsl_spline_init(x_spline, t, x_arr, nPts);
-      gsl_spline_init(y_spline, t, y_arr, nPts);
-      gsl_spline_init(z_spline, t, z_arr, nPts);
-
-      potentialArgs->xSpline = x_spline;
-      potentialArgs->accx = x_accel_ptr;
-      potentialArgs->ySpline = y_spline;
-      potentialArgs->accy = y_accel_ptr;
-      potentialArgs->zSpline = z_spline;
-      potentialArgs->accz = z_accel_ptr;
-
-      potentialArgs->nargs= (int) 5+(1+(*(*pot_args+5+nWrapped*2)))*(*(*pot_args+4+nWrapped*2));
       break;
     }
+    int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -411,6 +379,7 @@ void parse_leapFuncArgs_Full(int npot,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
     }
+    if (setupSplines) initSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -421,6 +390,7 @@ void parse_leapFuncArgs_Full(int npot,
   }
   potentialArgs-= npot;
 }
+
 EXPORT void integrateFullOrbit(int nobj,
 			       double *yo,
 			       int nt, 
@@ -631,6 +601,42 @@ void evalRectDeriv(double t, double *q, double *a,
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
+}
+
+void initSplines(struct potentialArg * potentialArgs, double ** pot_args){
+  gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
+  gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
+  gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
+  int nPts = (int) *(*pot_args+3);
+
+  gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+  gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+  gsl_spline *z_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+
+  double * t_arr = *pot_args+5;
+  double * x_arr = t_arr+1*nPts;
+  double * y_arr = t_arr+2*nPts;
+  double * z_arr = t_arr+3*nPts;
+
+  double t[nPts];
+  double tf = *(*pot_args+2);
+  double to = *(*pot_args+1);
+
+  int i;
+  for (i=0; i<nPts; i++) t[i] = (t_arr[i]-to)/(tf-to);
+
+  gsl_spline_init(x_spline, t, x_arr, nPts);
+  gsl_spline_init(y_spline, t, y_arr, nPts);
+  gsl_spline_init(z_spline, t, z_arr, nPts);
+
+  potentialArgs->xSpline = x_spline;
+  potentialArgs->accx = x_accel_ptr;
+  potentialArgs->ySpline = y_spline;
+  potentialArgs->accy = y_accel_ptr;
+  potentialArgs->zSpline = z_spline;
+  potentialArgs->accz = z_accel_ptr;
+
+  potentialArgs->nargs= (int) 5+(1+*(*pot_args+4))*nPts;
 }
 
 // LCOV_EXCL_START
