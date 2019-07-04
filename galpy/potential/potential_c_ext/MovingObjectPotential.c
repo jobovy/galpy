@@ -3,33 +3,6 @@
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
-double MovingObjectPotentialEval(double R,double z, double phi,
-          double t,
-          struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  //Get args
-  double amp= *args;
-  double t0= *(args+1);
-  double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
-
-  double d_ind = ((t-t0)/(tf-t0));
-
-  double x = R*cos(phi);
-  double y = R*sin(phi);
-
-  constrain(&d_ind);
-  double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
-  double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
-
-  double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-  return evaluatePotentials(Rdist, obj_z-z,
-       potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
-}
 
 double MovingObjectPotentialRforce(double R,double z, double phi,
 				      double t,
