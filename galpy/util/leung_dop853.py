@@ -271,8 +271,8 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
         h, k1, k2, k3 = hinit(func, x, t, pos_neg, k1, iord, hmax, rtol, atol, args)
 
     reject = 0
-    t_current = 0.  # store current integration time internally (not the current time wanted by user!!)
-    t_old = 0.
+    t_current = t[0]  # store current integration time internally (not the current time wanted by user!!)
+    t_old = t[0]
     finished_user_t_ii = 0  # times indices wanted by user
 
     result[0, :] = x

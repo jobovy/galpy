@@ -326,8 +326,8 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 	// finished estimate initial time step
 
 	int reject = 0;
-	double t_current = (double) 0.0;  // store current integration time internally(not the current time wanted by user!!)
-	double t_old = (double) 0.0;
+	double t_current = (double) t[0];  // store current integration time internally(not the current time wanted by user!!)
+	double t_old = (double) t[0];
 	double t_old_older = t_old;
 	int finished_user_t_ii = 0;  // times indices wanted by user
 
