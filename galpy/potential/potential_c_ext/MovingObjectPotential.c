@@ -3,7 +3,9 @@
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
-
+// MovingObjectPotential
+// 5 fixed arguments: amp, t0, tf, nsteps, ndim
+// Followed by <nsteps> time values and <ndim>*<nsteps> coordinates
 double MovingObjectPotentialRforce(double R,double z, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
@@ -22,11 +24,13 @@ double MovingObjectPotentialRforce(double R,double z, double phi,
   double y = R*sin(phi);
 
   constrain(&d_ind);
+  // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
+  // Calculate R force
   double RF = calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
 
@@ -50,12 +54,13 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
   double y = R*sin(phi);
 
   constrain(&d_ind);
+  // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-
+  // Calculate z force
   double zF = calczforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
   return -amp*zF;
@@ -78,11 +83,13 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   double y = R*sin(phi);
 
   constrain(&d_ind);
+  // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
   double obj_z = gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
+  // Calculate phiforce
   double RF = calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
 
@@ -106,20 +113,23 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   double y = R*sin(phi);
 
   constrain(&d_ind);
+  // Interpolate x, y
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-  double RF = calcRforce(Rdist, 0,phi,t,potentialArgs->nwrapped,
+  // Calculate R force
+  double RF = calcPlanarRforce(Rdist, phi, t, potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
-  return -RF*(cos(phi)*(obj_x-x)+sin(phi)*(obj_y-y))/Rdist;
+
+  return -amp*RF*(cos(phi)*(obj_x-x)+sin(phi)*(obj_y-y))/Rdist;
 }
 
 double MovingObjectPotentialPlanarphiforce(double R, double phi,
 					double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Get args
+  // Get args
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
@@ -132,17 +142,20 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   double y = R*sin(phi);
 
   constrain(&d_ind);
+  // Interpolate x, y
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-  double RF = calcRforce(Rdist,0,phi,t,potentialArgs->nwrapped,
+  // Calculate phiforce
+  double RF = calcPlanarphiforce(Rdist, phi, t, potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
 
-  return -RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
+  return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
 }
 
 void constrain(double * d) {
+  // Constrains index to be within interpolation range
   if (*d < 0) *d = 0.0;
   if (*d > 1) *d = 1.0;
 }

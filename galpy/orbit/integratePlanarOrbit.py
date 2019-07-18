@@ -426,7 +426,6 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
     result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
     err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
-
     #Run the C code
     integrationFunc(ctypes.c_int(nobj),
                     yo,
