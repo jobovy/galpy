@@ -526,8 +526,6 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
 //MovingObjectPotential
-double MovingObjectPotentialEval(double,double,double,double,
-				      struct potentialArg *);
 double MovingObjectPotentialRforce(double,double,double,double,
 					struct potentialArg *);
 double MovingObjectPotentialphiforce(double,double,double,double,

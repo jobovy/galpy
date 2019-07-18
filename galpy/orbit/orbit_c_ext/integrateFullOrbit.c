@@ -363,7 +363,6 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 3;
       break;
     case -6: //MovingObjectPotential
-      potentialArgs->potentialEval= &MovingObjectPotentialEval;
       potentialArgs->Rforce= &MovingObjectPotentialRforce;
       potentialArgs->zforce= &MovingObjectPotentialzforce;
       potentialArgs->phiforce= &MovingObjectPotentialphiforce;

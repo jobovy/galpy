@@ -325,11 +325,6 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     if dt is None: 
         dt= -9999.99
 
-    if -6 in pot_type:
-        if min(t) < min(pot_args[14:16]) or max(t) > max(pot_args[14:16]):
-            raise Exception("Time range for orbit integration outside of range of MovingObjectPotential integration")
-
-
     #Set up result array
     result= nu.empty((nobj,len(t),6))
     err= nu.zeros(nobj,dtype=nu.int32)
