@@ -4,14 +4,42 @@ Orbit (``galpy.orbit``)
 See :ref:`Orbit initialization <orbinit>` for a detailed explanation
 on how to set up Orbit instances.
 
-Class
------
+Initialization
+--------------
 
 .. toctree::
    :maxdepth: 2
 
    Orbit <orbitinit.rst>
+   Orbit.from_fit <orbitfromfit.rst>
    Orbit.from_name <orbitfromname.rst>
+
+Plotting
+--------
+
+.. toctree::
+   :maxdepth: 2
+
+   animate <orbitanimate.rst>
+   plot <orbitplot.rst>
+   plot3d <orbitplot3d.rst>
+
+In addition to these methods, any calculable attribute listed below
+can be plotted versus other attributes using ``plotATTR``, where
+``ATTR`` is an attribute like ``R``, ``ll``, etc. In this case, the y
+axis will have ``ATTR`` and the overrideable x axis default is
+time. For example, ``o.plotR()`` will plot the orbit's R vs time.
+
+
+Attributes
+----------
+
+* .. autoinstanceattribute:: galpy.orbit.Orbit.name
+     :annotation: Name(s) of objects initialized using ``Orbit.from_name``
+* .. autoinstanceattribute:: galpy.orbit.Orbit.shape
+     :annotation: Tuple of Orbit dimensions
+* .. autoinstanceattribute:: galpy.orbit.Orbit.size
+     :annotation: Total number of elements in the Orbit instance
 
 Methods
 -------
@@ -19,9 +47,8 @@ Methods
 .. toctree::
    :maxdepth: 2
 
-   __add__ <orbitadd.rst>
    __call__ <orbitcall.rst>
-   animate <orbitanimate.rst>
+   __getitem__ <orbitgetitem.rst>
    bb <orbitbb.rst>
    dec <orbitdec.rst>
    dim <orbitdim.rst>
@@ -30,7 +57,6 @@ Methods
    e <orbitecc.rst>
    ER <orbitER.rst>
    Ez <orbitEz.rst>
-   fit <orbitfit.rst>
    flip <orbitflip.rst>
    integrate <orbitint.rst>
    integrate_dxdv <orbitintdxdv.rst>
@@ -51,22 +77,6 @@ Methods
    Oz <orbitoz.rst>
    phasedim <orbitphasedim.rst>
    phi <orbitphi.rst>
-   plot <orbitplot.rst>
-   plot3d <orbitplot3d.rst>
-   plotE <orbitplote.rst>
-   plotER <orbitplotER.rst>
-   plotEz <orbitplotEz.rst>
-   plotEzJz <orbitplotEzJz.rst>
-   plotphi <orbitplotphi.rst>
-   plotR <orbitplotr.rst>
-   plotvR <orbitplotvr.rst>
-   plotvT <orbitplotvt.rst>
-   plotvx <orbitplotvx.rst>
-   plotvy <orbitplotvy.rst>
-   plotvz <orbitplotvz.rst>
-   plotx <orbitplotx.rst>
-   ploty <orbitploty.rst>
-   plotz <orbitplotz.rst>
    pmbb <orbitpmbb.rst>
    pmdec <orbitpmdec.rst>
    pmll <orbitpmll.rst>
@@ -75,10 +85,9 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
-   resetaA <orbitresetaa.rst>
+   reshape <orbitreshape.rst>
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
-   setphi <orbitsetphi.rst>
    SkyCoord <orbitskycoord.rst>
    time <orbittime.rst>
    toLinear <orbittolinear.rst>

@@ -2,13 +2,19 @@ import sys
 import distutils.sysconfig as sysconfig
 import warnings
 import numpy as nu
+from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
 import os
 from galpy import potential
 from galpy.util import galpyWarning
+from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
+    _evaluatephiforces
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
+from ..util.multi import parallel_map
+from ..util.leung_dop853 import dop853
+from ..util import bovy_symplecticode as symplecticode
 #Find and load the library
 _lib= None
 outerr= None
@@ -281,10 +287,10 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
-       y : array, shape (len(y0), len(t))
+       y : array, shape (N,len(t),6)  or (len(t),6) if N = 1
        Array containing the value of y for each desired time in t, \
        with the initial value y0 in the first row.
        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
@@ -428,3 +434,195 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
     if f_cont[1]: t= nu.asfortranarray(t)
 
     return (result,err.value)
+
+def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
+                       dt=None):
+    """
+    NAME:
+       integrateFullOrbit
+    PURPOSE:
+       Integrate an ode for a FullOrbit
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       t - set of times at which one wants the result
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(t),5/6)
+       Array containing the value of y for each desired time in t, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2010-08-01 - Written - Bovy (NYU)
+       2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+    """
+    nophi= False
+    if not int_method.lower() == 'dop853' and not int_method == 'odeint':
+        if len(yo[0]) == 5:
+            nophi= True
+            #We hack this by putting in a dummy phi=0
+            yo= nu.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+    if int_method.lower() == 'leapfrog':
+        if rtol is None: rtol= 1e-8
+        def integrate_for_map(vxvv):
+            #go to the rectangular frame
+            this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
+                                 vxvv[0]*nu.sin(vxvv[5]),
+                                 vxvv[3],
+                                 vxvv[1]*nu.cos(vxvv[5])
+                                     -vxvv[2]*nu.sin(vxvv[5]),
+                                 vxvv[2]*nu.cos(vxvv[5])
+                                     +vxvv[1]*nu.sin(vxvv[5]),
+                                 vxvv[4]])
+            #integrate
+            out= symplecticode.leapfrog(_rectForce,this_vxvv,
+                                        t,args=(pot,),rtol=rtol)
+            #go back to the cylindrical frame
+            R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
+            phi= nu.arccos(out[:,0]/R)
+            phi[(out[:,1] < 0.)]= 2.*nu.pi-phi[(out[:,1] < 0.)]
+            vR= out[:,3]*nu.cos(phi)+out[:,4]*nu.sin(phi)
+            vT= out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
+            out[:,3]= out[:,2]
+            out[:,4]= out[:,5]
+            out[:,0]= R
+            out[:,1]= vR
+            out[:,2]= vT
+            out[:,5]= phi
+            return out
+    elif int_method.lower() == 'dop853' or int_method.lower() == 'odeint':
+        if rtol is None: rtol= 1e-8
+        if int_method.lower() == 'dop853':
+            integrator= dop853
+            extra_kwargs= {}
+        else:
+            integrator= integrate.odeint
+            extra_kwargs= {'rtol':rtol}
+        if len(yo[0]) == 5:
+            def integrate_for_map(vxvv):
+                l= vxvv[0]*vxvv[2]
+                l2= l**2.
+                init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
+                intOut= integrator(_RZEOM,init,t=t,args=(pot,l2),
+                                   **extra_kwargs)
+                out= nu.zeros((len(t),5))
+                out[:,0]= intOut[:,0]
+                out[:,1]= intOut[:,1]
+                out[:,3]= intOut[:,2]
+                out[:,4]= intOut[:,3]
+                out[:,2]= l/out[:,0]
+                #post-process to remove negative radii
+                neg_radii= (out[:,0] < 0.)
+                out[neg_radii,0]= -out[neg_radii,0]
+                return out
+        else:
+            def integrate_for_map(vxvv):
+                vphi= vxvv[2]/vxvv[0]
+                init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
+                intOut= integrator(_EOM,init,t=t,args=(pot,))
+                out= nu.zeros((len(t),6))
+                out[:,0]= intOut[:,0]
+                out[:,1]= intOut[:,1]
+                out[:,2]= out[:,0]*intOut[:,3]
+                out[:,3]= intOut[:,4]
+                out[:,4]= intOut[:,5]
+                out[:,5]= intOut[:,2]
+                #post-process to remove negative radii
+                neg_radii= (out[:,0] < 0.)
+                out[neg_radii,0]= -out[neg_radii,0]
+                out[neg_radii,3]+= nu.pi
+                return out
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv):
+            return integrateFullOrbit_c(pot,nu.copy(vxvv),
+                                        t,int_method,dt=dt)[0]
+    if len(yo) == 1: # Can't map a single value...
+        out= nu.atleast_3d(integrate_for_map(yo[0]).T).T
+    else:
+        out= nu.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+    if nophi:
+        out= out[:,:,:5]
+    return out, nu.zeros(len(yo))
+
+def _RZEOM(y,t,pot,l2):
+    """
+    NAME:
+       _RZEOM
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential 
+       equation, for a 3D orbit assuming conservation of angular momentum
+    INPUT:
+       y - current phase-space position
+       t - current time
+       pot - (list of) Potential instance(s)
+       l2 - angular momentum squared
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2010-04-16 - Written - Bovy (NYU)
+    """
+    return [y[1],
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[2],t=t),
+            y[3],
+            _evaluatezforces(pot,y[0],y[2],t=t)]
+
+def _EOM(y,t,pot):
+    """
+    NAME:
+       _EOM
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential 
+       equation, for a 3D orbit
+    INPUT:
+       y - current phase-space position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2010-04-16 - Written - Bovy (NYU)
+    """
+    l2= (y[0]**2.*y[3])**2.
+    return [y[1],
+            l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t,
+                                         v=[y[1],y[0]*y[3],y[5]]),
+            y[3],
+            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t,
+                                            v=[y[1],y[0]*y[3],y[5]])
+                         -2.*y[0]*y[1]*y[3]),
+            y[5],
+            _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
+                             v=[y[1],y[0]*y[3],y[5]])]
+
+def _rectForce(x,pot,t=0.):
+    """
+    NAME:
+       _rectForce
+    PURPOSE:
+       returns the force in the rectangular frame
+    INPUT:
+       x - current position
+       t - current time
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       force
+    HISTORY:
+       2011-02-02 - Written - Bovy (NYU)
+    """
+    #x is rectangular so calculate R and phi
+    R= nu.sqrt(x[0]**2.+x[1]**2.)
+    phi= nu.arccos(x[0]/R)
+    sinphi= x[1]/R
+    cosphi= x[0]/R
+    if x[1] < 0.: phi= 2.*nu.pi-phi
+    #calculate forces
+    Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
+    phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
+    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
+                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
+

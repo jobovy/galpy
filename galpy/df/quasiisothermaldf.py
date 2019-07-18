@@ -230,6 +230,8 @@ class quasiisothermaldf(df):
                 jz= jz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         else:
             #Use self._aA to calculate the actions
+            if isinstance(args[0],Orbit) and len(args[0].shape) > 1:
+                raise RuntimeError("Evaluating quasiisothermaldf with Orbit instances with multi-dimensional shapes is not supported") #pragma: no cover
             try:
                 jr,lz,jz= self._aA(*args,use_physical=False,**kwargs)
             except actionAngle.UnboundError:

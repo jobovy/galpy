@@ -17,6 +17,7 @@ import numpy as nu
 from galpy.util import galpyWarning
 from galpy.potential import planarPotential, MWPotential
 from galpy.potential.Potential import flatten as flatten_potential
+from ..potential import toPlanarPotential, toVerticalPotential
 from .actionAngleAxi import actionAngleAxi
 from .actionAngle import actionAngle
 from . import actionAngleAdiabatic_c
@@ -92,26 +93,26 @@ class actionAngleAdiabatic(actionAngle):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
-                R,vR,vT, z, vz= args
-            elif len(args) == 6: #R,vR.vT, z, vz, phi
-                R,vR,vT, z, vz, phi= args
-            else:
-                self._parse_eval_args(*args)
-                R= self._eval_R
-                vR= self._eval_vR
-                vT= self._eval_vT
-                z= self._eval_z
-                vz= self._eval_vz
-            if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
             Lz= R*vT
             jr, jz, err= actionAngleAdiabatic_c.actionAngleAdiabatic_c(\
                 self._pot,self._gamma,R,vR,vT,z,vz)
@@ -123,18 +124,12 @@ class actionAngleAdiabatic(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c:
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
-            if (len(args) == 5 or len(args) == 6) \
-                    and isinstance(args[0],nu.ndarray):
-                ojr= nu.zeros((len(args[0])))
-                olz= nu.zeros((len(args[0])))
-                ojz= nu.zeros((len(args[0])))
-                for ii in range(len(args[0])):
-                    if len(args) == 5:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii])
-                    elif len(args) == 6:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii],args[5][ii])
+            if len(R) > 1:
+                ojr= nu.zeros((len(R)))
+                olz= nu.zeros((len(R)))
+                ojz= nu.zeros((len(R)))
+                for ii in range(len(R)):
+                    targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
                     ojr[ii]= tjr
                     ojz[ii]= tjz
@@ -142,16 +137,10 @@ class actionAngleAdiabatic(actionAngle):
                 return (ojr,olz,ojz)
             else:
                 #Set up the actionAngleAxi object
-                self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
-                else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
-                aAAxi= actionAngleAxi(*args,pot=thispot,
+                thispot= toPlanarPotential(self._pot)
+                thisverticalpot= toVerticalPotential(self._pot,R[0])
+                aAAxi= actionAngleAxi(R[0],vR[0],vT[0],z[0],vz[0],
+                                      pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
                 if kwargs.get('_justjr',False):
@@ -159,9 +148,13 @@ class actionAngleAdiabatic(actionAngle):
                     return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
                 elif kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
-                    return (nu.nan,nu.nan,aAAxi.Jz(**kwargs))
+                    return (nu.atleast_1d(nu.nan),
+                            nu.atleast_1d(nu.nan),
+                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
                 else:
-                    return (aAAxi.JR(**kwargs),aAAxi._R*aAAxi._vT,aAAxi.Jz(**kwargs))
+                    return (nu.atleast_1d(aAAxi.JR(**kwargs)),
+                            nu.atleast_1d(aAAxi._R*aAAxi._vT),
+                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
 
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
@@ -181,26 +174,26 @@ class actionAngleAdiabatic(actionAngle):
         HISTORY:
            2017-12-21 - Written - Bovy (UofT)
         """
+        if len(args) == 5: #R,vR.vT, z, vz
+            R,vR,vT, z, vz= args
+        elif len(args) == 6: #R,vR.vT, z, vz, phi
+            R,vR,vT, z, vz, phi= args
+        else:
+            self._parse_eval_args(*args)
+            R= self._eval_R
+            vR= self._eval_vR
+            vT= self._eval_vT
+            z= self._eval_z
+            vz= self._eval_vz
+        if isinstance(R,float):
+            R= nu.array([R])
+            vR= nu.array([vR])
+            vT= nu.array([vT])
+            z= nu.array([z])
+            vz= nu.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
-            if len(args) == 5: #R,vR.vT, z, vz
-                R,vR,vT, z, vz= args
-            elif len(args) == 6: #R,vR.vT, z, vz, phi
-                R,vR,vT, z, vz, phi= args
-            else:
-                self._parse_eval_args(*args)
-                R= self._eval_R
-                vR= self._eval_vR
-                vT= self._eval_vT
-                z= self._eval_z
-                vz= self._eval_vz
-            if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
             rperi,Rap,zmax, err= actionAngleAdiabatic_c.actionAngleRperiRapZmaxAdiabatic_c(\
                 self._pot,self._gamma,R,vR,vT,z,vz)
             if err == 0:
@@ -213,19 +206,13 @@ class actionAngleAdiabatic(actionAngle):
             if 'c' in kwargs and kwargs['c'] and not self._c:
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
-            if (len(args) == 5 or len(args) == 6) \
-                    and isinstance(args[0],nu.ndarray):
-                oecc= nu.zeros((len(args[0])))
-                orperi= nu.zeros((len(args[0])))
-                orap= nu.zeros((len(args[0])))
-                ozmax= nu.zeros((len(args[0])))
-                for ii in range(len(args[0])):
-                    if len(args) == 5:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii])
-                    elif len(args) == 6:
-                        targs= (args[0][ii],args[1][ii],args[2][ii],
-                                args[3][ii],args[4][ii],args[5][ii])
+            if len(R) > 1:
+                oecc= nu.zeros((len(R)))
+                orperi= nu.zeros((len(R)))
+                orap= nu.zeros((len(R)))
+                ozmax= nu.zeros((len(R)))
+                for ii in range(len(R)):
+                    targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tecc, tzmax, trperi,trap= self._EccZmaxRperiRap(\
                         *targs,**copy.copy(kwargs))
                     oecc[ii]= tecc
@@ -235,22 +222,18 @@ class actionAngleAdiabatic(actionAngle):
                 return (oecc,ozmax,orperi,orap)
             else:
                 #Set up the actionAngleAxi object
-                self._parse_eval_args(*args)
-                if isinstance(self._pot,list):
-                    thispot= [p.toPlanar() for p in self._pot]
-                else:
-                    thispot= self._pot.toPlanar()
-                if isinstance(self._pot,list):
-                    thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-                else:
-                    thisverticalpot= self._pot.toVertical(self._eval_R)
-                aAAxi= actionAngleAxi(*args,pot=thispot,
+                thispot= toPlanarPotential(self._pot)
+                thisverticalpot= toVerticalPotential(self._pot,R[0])
+                aAAxi= actionAngleAxi(R[0],vR[0],vT[0],z[0],vz[0],
+                                      pot=thispot,
                                        verticalPot=thisverticalpot,
                                        gamma=self._gamma)
                 rperi,Rap= aAAxi.calcRapRperi(**kwargs)
                 zmax= aAAxi.calczmax(**kwargs)
                 rap= nu.sqrt(Rap**2.+zmax**2.)
-                return ((rap-rperi)/(rap+rperi),zmax,rperi,rap)
+                return (nu.atleast_1d((rap-rperi)/(rap+rperi)),
+                        nu.atleast_1d(zmax),nu.atleast_1d(rperi),
+                        nu.atleast_1d(rap))
 
     def calcRapRperi(self,*args,**kwargs):
         """
@@ -269,15 +252,8 @@ class actionAngleAdiabatic(actionAngle):
            2013-11-27 - Written - Bovy (IAS)
         """
         #Set up the actionAngleAxi object
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot if not isinstance(p,planarPotential)]
-            thispot.extend([p for p in self._pot if isinstance(p,planarPotential)])
-        elif not isinstance(self._pot,planarPotential):
-            thispot= self._pot.toPlanar()
-        else:
-            thispot= self._pot
-        aAAxi= actionAngleAxi(*args,pot=thispot,
-                               gamma=self._gamma)
+        thispot= toPlanarPotential(self._pot)
+        aAAxi= actionAngleAxi(*args,pot=thispot,amma=self._gamma)
         return aAAxi.calcRapRperi(**kwargs)
 
     def calczmax(self,*args,**kwargs): #pragma: no cover
@@ -299,14 +275,8 @@ class actionAngleAdiabatic(actionAngle):
         warnings.warn("actionAngleAdiabatic.calczmax function will soon be deprecated; please contact galpy's maintainer if you require this function")
         #Set up the actionAngleAxi object
         self._parse_eval_args(*args)
-        if isinstance(self._pot,list):
-            thispot= [p.toPlanar() for p in self._pot]
-        else:
-            thispot= self._pot.toPlanar()
-        if isinstance(self._pot,list):
-            thisverticalpot= [p.toVertical(self._eval_R) for p in self._pot]
-        else:
-            thisverticalpot= self._pot.toVertical(self._eval_R)
+        thispot= toPlanarPotential(self._pot)
+        thisverticalpot= toVerticalPotential(self._pot,self._eval_R)
         aAAxi= actionAngleAxi(*args,pot=thispot,
                                verticalPot=thisverticalpot,
                                gamma=self._gamma)

@@ -1,6 +1,11 @@
 v1.5 (????-??-??)
 =================
 
+- Added support for holding multiple objects in an Orbit instance,
+  with efficient handling of multiple objects and parallelized
+  integration and action-angle-related functions. Orbit instances can
+  now have arbitrary shapes. Full re-write of Orbit class (PR #384).
+
 - Added support for 1D orbit integration in C (PR #354).
 
 - Added potential.toVerticalPotential to convert any 3D potential to a
@@ -32,6 +37,10 @@ v1.5 (????-??-??)
   potential. Only works for Potential instances, not for lists of
   Potential instances (#369).
 
+- Added support to plot arbitrary combinations of the basic Orbit
+  attributes by giving them as an expresion (e.g.,
+  orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
+
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
 
@@ -40,7 +49,13 @@ v1.5 (????-??-??)
 
 - DehnenSmoothWrapperPotential can now decay rather than grow a
   potential by setting ``decay=True``.
+
+- DehnenBarPotential and SpiralArmsPotential method now work for array
+  inputs (PR #388, by @webbjj).
   
+- Allow transformations of custom coordinate systems (positions
+  and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
+
 - Allow orbit integrations to be KeyboardInterrupted on Windows as well 
   (#362 by Henry Leung)
 

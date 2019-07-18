@@ -228,13 +228,13 @@ class actionAngleIsochroneApprox(actionAngle):
         from galpy.orbit import Orbit
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
-        if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
+        if isinstance(args[0],Orbit) and hasattr(args[0],'orbit') \
                 and not 'ts' in kwargs:
-            kwargs['ts']= args[0]._orb.t
+            kwargs['ts']= args[0].t
         elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
-                and hasattr(args[0][0]._orb,'orbit')  \
+                and hasattr(args[0][0],'orbit')  \
                 and not 'ts' in kwargs:
-            kwargs['ts']= args[0][0]._orb.t
+            kwargs['ts']= args[0][0].t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
@@ -418,8 +418,8 @@ class actionAngleIsochroneApprox(actionAngle):
             danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             from galpy.orbit import Orbit
-            if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'t'):
-                ts= args[0]._orb.t[:-1]
+            if isinstance(args[0],Orbit) and hasattr(args[0],'t'):
+                ts= args[0].t[:-1]
             else:
                 ts= self._tsJ[:-1]
             if type == 'jr':
@@ -601,30 +601,30 @@ class actionAngleIsochroneApprox(actionAngle):
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             self._check_consistent_units_orbitInput(os[0])
-            if not hasattr(os[0]._orb,'orbit'): #not integrated yet
+            if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
-                        o._orb.vxvv[1]= -o._orb.vxvv[1]
-                        o._orb.vxvv[2]= -o._orb.vxvv[2]
-                        o._orb.vxvv[4]= -o._orb.vxvv[4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method,
                              dt=self._integrate_dt) for o in os]
                 if _firstFlip:
                     for o in os:
-                        o._orb.vxvv[1]= -o._orb.vxvv[1]
-                        o._orb.vxvv[2]= -o._orb.vxvv[2]
-                        o._orb.vxvv[4]= -o._orb.vxvv[4]
-                        o._orb.orbit[:,1]= -o._orb.orbit[:,1]
-                        o._orb.orbit[:,2]= -o._orb.orbit[:,2]
-                        o._orb.orbit[:,4]= -o._orb.orbit[:,4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
+                        o.orbit[...,1]= -o.orbit[...,1]
+                        o.orbit[...,2]= -o.orbit[...,2]
+                        o.orbit[...,4]= -o.orbit[...,4]
                 integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)

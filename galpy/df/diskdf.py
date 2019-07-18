@@ -125,7 +125,7 @@ class diskdf(df):
            either an orbit instance, a list of such instances,  or E,Lz
 
            1) Orbit instance or list:
-              a) Orbit instance alone: use vxvv member
+              a) Orbit instance alone: use initial condition
               b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
 
            2)
@@ -155,30 +155,34 @@ class diskdf(df):
 
         """
         if isinstance(args[0],Orbit):
+            if len(args[0]) > 1:
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             if len(args) == 1:
                 if kwargs.pop('marginalizeVperp',False):
                     return self._call_marginalizevperp(args[0],**kwargs)
                 elif kwargs.pop('marginalizeVlos',False):
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
-                    return sc.real(self.eval(*vRvTRToEL(args[0]._orb.vxvv[1],
-                                                        args[0]._orb.vxvv[2],
-                                                        args[0]._orb.vxvv[0],
-                                                        self._beta,
-                                                        self._dftype)))
+                    return sc.real(self.eval(*vRvTRToEL(\
+                                args[0].vR(use_physical=False),
+                                args[0].vT(use_physical=False),
+                                args[0].R(use_physical=False),
+                                self._beta,self._dftype)))
             else:
                 no= args[0](args[1])
-                return sc.real(self.eval(*vRvTRToEL(no._orb.vxvv[1],
-                                                    no._orb.vxvv[2],
-                                                    no._orb.vxvv[0],
+                return sc.real(self.eval(*vRvTRToEL(no.vR(use_physical=False),
+                                                    no.vT(use_physical=False),
+                                                    no.R(use_physical=False),
                                                     self._beta,
                                                     self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
+            if nu.any([len(no) > 1 for no in args[0]]):
+                raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             #Grab all of the vR, vT, and R
-            vR= nu.array([o._orb.vxvv[1] for o in args[0]])
-            vT= nu.array([o._orb.vxvv[2] for o in args[0]])
-            R= nu.array([o._orb.vxvv[0] for o in args[0]])
+            vR= nu.array([o.vR(use_physical=False) for o in args[0]])
+            vT= nu.array([o.vT(use_physical=False) for o in args[0]])
+            R= nu.array([o.R(use_physical=False) for o in args[0]])
             return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
                                                 self._dftype)))
         elif isinstance(args[0],nu.ndarray) and \
@@ -1803,17 +1807,17 @@ class dehnendf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)._orb.vxvv
+                    vxvv= thisOrbit(tr).vxvv[0]
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()\
                                                         *math.pi*2.])\
                                          .reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
-                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
+                kappa= _kappa(thisOrbit.vxvv[0,0],self._beta)
                 if not rrange == None:
-                    if thisOrbit._orb.vxvv[0] < rrange[0] \
-                            or thisOrbit._orb.vxvv[0] > rrange[1]:
+                    if thisOrbit.vxvv[0,0] < rrange[0] \
+                            or thisOrbit.vxvv[0,0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
@@ -2093,15 +2097,15 @@ class shudf(diskdf):
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
                 thisOrbit.integrate(sc.array([0.,tr]),self._psp)
                 if returnOrbit:
-                    vxvv= thisOrbit(tr)._orb.vxvv
+                    vxvv= thisOrbit(tr).vxvv[0]
                     thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()*math.pi*2.]).reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
-                kappa= _kappa(thisOrbit._orb.vxvv[0],self._beta)
+                kappa= _kappa(thisOrbit.vxvv[0,0],self._beta)
                 if not rrange == None:
-                    if thisOrbit._orb.vxvv[0] < rrange[0] \
-                            or thisOrbit._orb.vxvv[0] > rrange[1]:
+                    if thisOrbit.vxvv[0,0] < rrange[0] \
+                            or thisOrbit.vxvv[0,0] > rrange[1]:
                         continue
                 mult= sc.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult

@@ -28,9 +28,9 @@
 
 - [ ] Build wheels for different python versions: ``python setup.py bdist_wheel`` and upload with ``twine upload -r pypi dist/*.whl``
 
-- [ ] Create wheels on other platforms and upload with ``twine upload dist/*.whl``
+- [ ] Create wheels for different python versions on other platforms and upload with ``twine upload dist/*.whl`` (note that Linux wheels are not supported)
 
-- [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly
+- [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
 
 - [ ] Bump master version to next X.dev version
 

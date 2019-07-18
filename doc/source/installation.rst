@@ -1,6 +1,25 @@
 Installation
 ==============
 
+Dependencies
+------------
+
+galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
+these must be installed or the code will not be able to be imported.
+
+Optional dependencies are: ``astropy`` for `Quantity
+<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
+support (used throughout galpy when installed), ``astroquery`` for the
+``Orbit.from_name`` initialization method (to initialize using a
+celestial object's name), ``numexpr`` for plotting arbitrary
+expressions of ``Orbit`` quantities, and `pynbody
+<https://github.com/pynbody/pynbody>`__ for use of
+``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
+
+To be able to use the fast C extensions for orbit integration and
+action-angle calculations, the GNU Scientific Library (GSL) needs to
+be installed (:ref:`see below <gsl_install>`).
+
 With conda
 ----------
 
@@ -12,6 +31,10 @@ or::
 
 	conda config --add channels conda-forge
 	conda install galpy
+
+Installing with conda will automatically install the required
+dependencies (``numpy``, ``scipy``, and ``matplotlib``) and the GSL,
+but not the optional dependencies.
 
 With pip
 --------
@@ -26,6 +49,11 @@ re-install using the upgrade command above). Then do::
 or to upgrade without upgrading the dependencies::
 
       pip install -U --no-deps galpy
+
+Installing with pip will automatically install the required
+dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
+optional dependencies or the GSL (which needs to be installed *before*
+the pip installation of galpy).
 
 Latest version
 --------------
@@ -60,11 +88,18 @@ to, for example, install the ``dev`` branch.
 Installing from source on Windows
 ---------------------------------
 
-Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows this is done as::
+Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 
-     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+    set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+    set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+    set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+
+If you are using the Windows PowerShell (which newer versions of the
+Anaconda prompt might set as the default), do::
+
+    $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
+    $env:LIB="$env:CONDA_PREFIX\Library\lib"
+    $env:LIBPATH="$env:CONDA_PREFIX\Library\lib"
 
 where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
 
@@ -81,6 +116,33 @@ If you encounter any issue related to OpenMP during compilation, you can do::
     python setup.py install --no-openmp
 
 .. _install_tm:
+
+Installing from source with Intel Compiler
+-------------------------------------------
+
+Compiling galpy with an Intel Compiler can give significant
+performance improvements on 64-bit Intel CPUs. Moreover students can
+obtain a free copy of an Intel Compiler at `this link
+<https://software.intel.com/en-us/qualify-for-free-software/student>`__.
+
+To compile the galpy C extensions with the Intel Compiler on 64bit
+MaxOS/Linux do::
+
+    python setup.py build_ext --inplace --compiler=intelem
+
+and to compile the galpy C extensions with the Intel Compiler on 64bit
+Windows do::
+
+    python setup.py build_ext --inplace --compiler=intel64w
+
+Then you can simply install with::
+
+     python setup.py install
+
+or other similar installation commands, or you can build your own
+wheels with::
+
+    python setup.py sdist bdist_wheel
 
 Installing the TorusMapper code
 --------------------------------

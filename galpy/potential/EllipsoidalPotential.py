@@ -13,7 +13,8 @@ import hashlib
 from scipy import integrate
 from galpy.util import bovy_coords
 from galpy.util import _rotate_to_arbitrary_vector
-from .Potential import Potential, _APY_LOADED
+from .Potential import Potential, _APY_LOADED, \
+    check_potential_inputs_not_arrays
 if _APY_LOADED:
     from astropy import units
 class EllipsoidalPotential(Potential):
@@ -119,6 +120,7 @@ class EllipsoidalPotential(Potential):
             self._glw*= 0.5
         return None
 
+    @check_potential_inputs_not_arrays
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -151,6 +153,7 @@ class EllipsoidalPotential(Potential):
             *_potInt(x,y,z,self._psi,
                      self._b2,self._c2,glx=self._glx,glw=self._glw)
 
+    @check_potential_inputs_not_arrays
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -194,6 +197,7 @@ class EllipsoidalPotential(Potential):
             Fx, Fy= Fxyz[0], Fxyz[1]
         return numpy.cos(phi)*Fx+numpy.sin(phi)*Fy
 
+    @check_potential_inputs_not_arrays
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -237,6 +241,7 @@ class EllipsoidalPotential(Potential):
             Fx, Fy= Fxyz[0], Fxyz[1]
         return R*(-numpy.sin(phi)*Fx+numpy.cos(phi)*Fy)
 
+    @check_potential_inputs_not_arrays
     def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -287,6 +292,7 @@ class EllipsoidalPotential(Potential):
                        lambda m: self._mdens(m),
                        self._b2,self._c2,i,glx=self._glx,glw=self._glw)
         
+    @check_potential_inputs_not_arrays
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -314,6 +320,7 @@ class EllipsoidalPotential(Potential):
         return numpy.cos(phi)**2.*phixx+numpy.sin(phi)**2.*phiyy\
             +2.*numpy.cos(phi)*numpy.sin(phi)*phixy
 
+    @check_potential_inputs_not_arrays
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -339,6 +346,7 @@ class EllipsoidalPotential(Potential):
         phiyz= self._2ndderiv_xyz(x,y,z,1,2)
         return numpy.cos(phi)*phixz+numpy.sin(phi)*phiyz
 
+    @check_potential_inputs_not_arrays
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -362,6 +370,7 @@ class EllipsoidalPotential(Potential):
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         return self._2ndderiv_xyz(x,y,z,2,2)
 
+    @check_potential_inputs_not_arrays
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -392,6 +401,7 @@ class EllipsoidalPotential(Potential):
                           -2.*numpy.cos(phi)*numpy.sin(phi)*phixy)\
                           +R*(numpy.cos(phi)*Fx+numpy.sin(phi)*Fy)
 
+    @check_potential_inputs_not_arrays
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -431,6 +441,7 @@ class EllipsoidalPotential(Potential):
                           lambda m: self._mdens_deriv(m),
                           self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
                  
+    @check_potential_inputs_not_arrays
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:

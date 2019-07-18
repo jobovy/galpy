@@ -1333,12 +1333,12 @@ def test_setup_progIsTrack():
                    nTrackChunks=11,
                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
                    progIsTrack=True)
-    assert numpy.all(numpy.fabs(obs._orb.vxvv-sdfp._ObsTrack[0,:]) < 10.**-3.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start'
+    assert numpy.all(numpy.fabs(obs.vxvv[0]-sdfp._ObsTrack[0,:]) < 10.**-3.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start'
     # Integrate the orbit a little bit and test at a further point
     obs.integrate(numpy.linspace(0.,2.,10001),lp)
     indx= numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:,0]-1.75))
-    oindx= numpy.argmin(numpy.fabs(obs._orb.orbit[:,0]-1.75))
-    assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs._orb.orbit[oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
+    oindx= numpy.argmin(numpy.fabs(obs.orbit[0,:,0]-1.75))
+    assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs.orbit[0,oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
     return None  
 
 def test_bovy14_useTM_poterror():
@@ -1482,7 +1482,7 @@ def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     #Test that the stream and the progenitor are close together in Z
     trackR= sdf._parse_track_dim(d1,interp=True,phys=phys) #bit hacky to use private function
     trackZ= sdf._parse_track_dim(d2,interp=True,phys=phys) #bit hacky to use private function
-    ts= sdf._progenitor._orb.t[sdf._progenitor._orb.t < sdf._trackts[-1]]
+    ts= sdf._progenitor.t[sdf._progenitor.t < sdf._trackts[-1]]
     progR= sdf._parse_progenitor_dim(d1,ts,
                                      ro=sdf._ro,vo=sdf._vo,
                                      obs=observe,
@@ -1642,14 +1642,14 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     #Now go back to real space
     RvR= sdf._approxaAInv(Oa[0,0],Oa[1,0],Oa[2,0],Oa[3,0],Oa[4,0],Oa[5,0],
                           interp=interp).flatten()
-    if phi > 2.*numpy.pi: phi-= 2.*numpy.pi
-    if phi < 0.: phi+= 2.*numpy.pi
+    if phi > numpy.pi: phi-= 2.*numpy.pi
+    if phi < -numpy.pi: phi+= 2.*numpy.pi
     #print numpy.fabs((RvR[0]-R)/R), numpy.fabs((RvR[1]-vR)/vR), numpy.fabs((RvR[2]-vT)/vT), numpy.fabs((RvR[3]-z)/z), numpy.fabs((RvR[4]-vz)/vz), numpy.fabs((RvR[5]-phi)/phi)
     assert numpy.fabs((RvR[0]-R)/R) < 10.**tol, 'R after _approxaA and _approxaAInv does not agree with initial R; relative difference = %g' % (numpy.fabs((RvR[0]-R)/R))
     assert numpy.fabs((RvR[1]-vR)/vR) < 10.**tol, 'vR after _approxaA and _approxaAInv does not agree with initial vR'
     assert numpy.fabs((RvR[2]-vT)/vT) < 10.**tol, 'vT after _approxaA and _approxaAInv does not agree with initial vT'
     assert numpy.fabs((RvR[3]-z)/z) < 10.**tol, 'z after _approxaA and _approxaAInv does not agree with initial z'
     assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
-    assert numpy.fabs((RvR[5]-phi)/phi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g' % (numpy.fabs((RvR[5]-phi)/phi))
+    assert numpy.fabs((RvR[5]-phi)/numpy.pi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g' % (numpy.fabs((RvR[5]-phi)/phi))
     return None
 

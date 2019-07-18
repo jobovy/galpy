@@ -31,6 +31,28 @@ from .DissipativeForce import DissipativeForce, _isDissipative
 from .Force import Force, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
+def check_potential_inputs_not_arrays(func):
+    """
+    NAME:
+       check_potential_inputs_not_arrays
+    PURPOSE:
+       Decorator to check inputs and throw TypeError if any of the inputs are arrays for Potentials that do not support array evaluation
+    HISTORY:
+       2017-summer - Written for SpiralArmsPotential - Jack Hong (UBC)
+       2019-05-23 - Moved to Potential for more general use - Bovy (UofT)
+       
+    """
+    @wraps(func)
+    def func_wrapper(self,R,z,phi,t):
+        if (hasattr(R,'shape') and R.shape != () and len(R) > 1) \
+                or (hasattr(z,'shape') and z.shape != () and len(z) > 1) \
+                or (hasattr(phi,'shape') and phi.shape != () and len(phi) > 1) \
+                or (hasattr(t,'shape') and t.shape != () and len(t) > 1):
+            raise TypeError('Methods in {} do not accept array inputs. Please input scalars'.format(self.__class__.__name__))
+        return func(self,R,z,phi,t)
+    return func_wrapper
+
+
 class Potential(Force):
     """Top-level class for a potential"""
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
@@ -650,7 +672,7 @@ class Potential(Force):
             return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_phi2deriv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -688,7 +710,7 @@ class Potential(Force):
             return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     def toPlanar(self):
@@ -1519,15 +1541,13 @@ class Potential(Force):
         tyx= R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R\
             -Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2\
             +phideriv*(sin2phi-cos2phi)/R2      
-        tzx=Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R\
-            +phideriv*2.*sinphi*z/R3
+        tzx=Rzderiv*cosphi-zphideriv*sinphi/R
         tyy=R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R\
             +phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
         txy=tyx
-        tzy=Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R\
-            -phideriv*2.*cosphi*z/R3
-        txz=Rzderiv*cosphi-zphideriv*sinphi/R
-        tyz=Rzderiv*sinphi+zphideriv*cosphi/R
+        tzy=Rzderiv*sinphi+zphideriv*cosphi/R
+        txz=tzx
+        tyz=tzy
         tzz=z2deriv
         tij=-nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
         if eigenval:
@@ -3183,15 +3203,13 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
         +phi2deriv*sin2phi/R2+phideriv*2.*cosphi*sinphi/R2
     tyx= R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R\
         -Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2+phideriv*(sin2phi-cos2phi)/R2
-    tzx= Rzderiv*cosphi-Rderiv*cosphi*z/R2-zphideriv*sinphi/R\
-        +phideriv*2.*sinphi*z/R3
+    tzx= Rzderiv*cosphi-zphideriv*sinphi/R
     tyy= R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R\
         +phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
     txy=tyx
-    tzy= Rzderiv*sinphi-Rderiv*sinphi*z/R2+zphideriv*cosphi/R\
-        -phideriv*2.*cosphi*z/R3
-    txz= Rzderiv*cosphi-zphideriv*sinphi/R
-    tyz= Rzderiv*sinphi+zphideriv*cosphi/R
+    tzy= Rzderiv*sinphi+zphideriv*cosphi/R
+    txz= tzx
+    tyz= tzy
     tzz=z2deriv
     tij= -nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
     if eigenval:

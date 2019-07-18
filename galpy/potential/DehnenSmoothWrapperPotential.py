@@ -18,7 +18,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
     .. math::
 
         \\xi = \\begin{cases}
-        0 & t < t_\\mathrm{form}\\\\
+        -1 & t < t_\\mathrm{form}\\\\
         2\\left(\\frac{t-t_\\mathrm{form}}{t_\mathrm{steady}}\\right)-1\\,, &  t_\\mathrm{form} \\leq t \\leq t_\\mathrm{form}+t_\\mathrm{steady}\\\\
         1 & t > t_\\mathrm{form}+t_\\mathrm{steady}
         \\end{cases}

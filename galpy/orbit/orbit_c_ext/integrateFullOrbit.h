@@ -16,6 +16,14 @@ void parse_leapFuncArgs_Full(int, struct potentialArg *,int **,double **);
   PyMODINIT_FUNC initgalpy_integrate_c(void); // Python 2
 #endif
 #endif
+//OpenMP
+#if defined(_OPENMP)
+#include <omp.h>
+#else
+typedef int omp_int_t;
+static inline omp_int_t omp_get_thread_num(void) { return 0;}
+static inline omp_int_t omp_get_max_threads(void) { return 1;}
+#endif
 #ifdef __cplusplus
 }
 #endif

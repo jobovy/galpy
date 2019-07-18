@@ -8,19 +8,11 @@
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
 #include <leung_dop853.h>
+#include <integrateFullOrbit.h>
 //Potentials
 #include <galpy_potentials.h>
-#include <integrateFullOrbit.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
-#endif
-//OpenMP
-#if defined(_OPENMP)
-#include <omp.h>
-#else
-typedef int omp_int_t;
-inline omp_int_t omp_get_thread_num() { return 0;}
-inline omp_int_t omp_get_max_threads() { return 1;}
 #endif
 #ifndef ORBITS_CHUNKSIZE
 #define ORBITS_CHUNKSIZE 1
