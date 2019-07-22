@@ -81,7 +81,6 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);
   double y = R*sin(phi);
-
   constrain(&d_ind);
   // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
@@ -148,7 +147,7 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
 
   double Rdist = pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate phiforce
-  double RF = calcPlanarphiforce(Rdist, phi, t, potentialArgs->nwrapped,
+  double RF = calcPlanarRforce(Rdist, phi, t, potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg);
 
   return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
