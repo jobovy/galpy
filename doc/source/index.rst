@@ -285,7 +285,7 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Connecting the Milky Way potential profile to the orbital timescales and spatial structure of the Sagittarius Stream*, Mark A. Fardal, Roeland P. van der Marel, David R. Law, Sangmo Tony Sohn, Branimir Sesar, Nina Hernitschek, & Hans-Walter Rix (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1804.04995 <http://arxiv.org/abs/1804.04995>`_):
      Employs the ``galpy.potential`` module to build models for the Milky Way's gravitational potential and uses ``galpy.orbit`` to integrate the orbits of members of the Sgr stream in a particle-spray model of the Sgr stream, to investigate how the Sgr stream is sensitive to the Milky Way's potential.
 
-     At this point, a flood of papers using ``galpy`` appeared, which we will not attempt to summarize:
+     At this point, a flood of papers using ``galpy`` started to appear, which we will not attempt to summarize:
 
 #. *Evidence for accreted component in the Galactic discs*, Q. F. Xing. & G. Zhao (2018) *Mon. Not. Roy. Astron. Soc.*, in press (`2018MNRAS.476.5388X <http://adsabs.harvard.edu/abs/2018MNRAS.476.5388X>`_)
 
@@ -430,7 +430,41 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Signatures of resonance and phase mixing in the Galactic disc*, Jason A. S. Hunt, Mathew W. Bub, Jo Bovy, J. Ted Mackereth, Wilma H. Trick, & Daisuke Kawata (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1904.10968 <http://arxiv.org/abs/1904.10968>`_)
 
+#. *Globular cluster candidates in the Galactic bulge: Gaia and VVV view of the latest discoveries*, F. Gran, M. Zoccali, R. Contreras Ramos, E. Valenti, A. Rojas-Arriagada, J. A. Carballo-Bello, J. Alonso-García, D. Minniti, M. Rejkuba, & F. Surot (2019) *Astron. & Astrophys.*, in press (`arXiv/1904.10872 <http://arxiv.org/abs/1904.10872>`_)
 
+#. *The effect of tides on the Sculptor dwarf spheroidal galaxy*, G. Iorio, C. Nipoti, G. Battaglia, & A. Sollima (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1904.10461 <http://arxiv.org/abs/1904.10461>`_)
+
+#. *Correcting the measured values of the rate of change of the spin and orbital periods of rotation powered pulsars*, Dhruv Pathak & Manjari Bagchi (2019) (`arXiv/1905.01159 <http://arxiv.org/abs/1905.01159>`_)
+
+#. *Are the double-mode bulge RR Lyrae stars with identical period-ratios the relic of a disrupted stellar system?*, Andrea Kunder, Alex Tilton, Dylon Maertens, Jonathan Ogata, David Nataf, R. Michael Rich, Christian I. Johnson, Christina Gilligan, & Brian Chaboyer (2019) *Astrophys. J. Lett.*, in press (`arXiv/1905.03256 <http://arxiv.org/abs/1905.03256>`_)
+
+#. *Evidence for the accretion origin of halo stars with an extreme r-process enhancement*, Qian-Fan Xing, Gang Zhao, Wako Aoki, Satoshi Honda, Hai-Ning Li, Miho N. Ishigaki, & Tadafumi Matsuno (2019) *Nature Astron.*, in press (`arXiv/1905.04141 <http://arxiv.org/abs/1905.04141>`_)
+
+#. *The influence of dark matter halo on the stellar stream asymmetry via dynamical friction*, Rain Kipper, Peeter Tenjes, Gert Hutsi, Taavi Tuvikene, & Elmo Tempel (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1905.05553 <http://arxiv.org/abs/1905.05553>`_)
+
+#. *Origin and Status of Low-Mass Candidate Hypervelocity Stars*, Bum-Suk Yeom, Young Sun Lee, Jae-Rim Koo, Timothy C. Beers, & Young Kwang Kim (2019) *J. Kor. Astron. Soc.*, in press (`arXiv/1905.07879 <http://arxiv.org/abs/1905.07879>`_)
+
+#. *On the Oosterhoff dichotomy in the Galactic bulge: II. kinematical distribution*, Z. Prudil, I. Dékany, E. K. Grebel, M. Catelan, M. Skarka, & R. Smolec (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1905.11870 <http://arxiv.org/abs/1905.11870>`_)
+
+#. *The Ophiuchus stream progenitor: a new type of globular cluster and its possible Sagittarius connection*, James M. M. Lane, Julio F. Navarro, Azadeh Fattahi, Kyle A. Oman, & Jo Bovy (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1905.12633 <http://arxiv.org/abs/1905.12633>`_)
+
+#. *Identifying resonances of the Galactic bar in Gaia DR2: Clues from action space*, Wilma H. Trick, Francesca Fragkoudi, Jason A. S. Hunt, J. Ted Mackereth, & Simon D. M. White (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1906.04786 <http://arxiv.org/abs/1906.04786>`_)
+
+#. *The Pristine survey - V. A bright star sample observed with SOPHIE*, P. Bonifacio, E. Caffau, F. Sestito, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`2019MNRAS.487.3797B <http://adsabs.harvard.edu/abs/2019MNRAS.487.3797B>`_)
+
+#. *Metal-poor Stars Observed with the Automated Planet Finder Telescope. II. Chemodynamical Analysis of Six Low-Metallicity Stars in the Halo System of the Milky Way*, Mohammad K. Mardini, Vinicius M. Placco, Ali Taani, Haining Li, & Gang Zhao (2019) *Astrophys. J.*, submitted (`arXiv/1906.08439 <http://arxiv.org/abs/1906.08439>`_)
+
+#. *Applying Liouville's Theorem to Gaia Data*, Matthew R. Buckley, David W. Hogg, & Adrian M. Price-Whelan (2019) *Phys. Rev. D.*, submitted (`arXiv/1907.00987 <http://arxiv.org/abs/1907.00987>`_)
+
+#. *Untangling the Galaxy I: Local Structure and Star Formation History of the Milky Way*, Marina Kounkel & Kevin Covey (2019) *Astron. J.*, in press (`arXiv/1907.07709 <http://arxiv.org/abs/1907.07709>`_)
+
+#. *Constraining churning and blurring in the Milky Way using large spectroscopic surveys -- an exploratory study*, Sofia Feltzing, J. Bradley Bowers, & Oscar Agertz (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1907.08011 <http://arxiv.org/abs/1907.08011>`_)
+
+#. *Proper Motions of Stellar Streams Discovered in the Dark Energy Survey*, N. Shipp, T. S. Li, A. B. Pace, et al. (2019) *Astrophys. J.*, submitted (`arXiv/1907.09488 <http://arxiv.org/abs/1907.09488>`_)
+
+#. *High-resolution spectroscopic study of dwarf stars in the northern sky: Na to Zn abundances in two fields with radii of 20 degrees*, Šarūnas Mikolaitis, Arnas Drazdauskas, Renata Minkevičiūtė, et al. (2019) *Astron. & Astrophys.*, submitted (`arXiv/1907.09157 <http://arxiv.org/abs/1907.09157>`_)
+
+#. *When Cold Radial Migration is Hot: Constraints from Resonant Overlap*, Kathryne J. Daniel, David A. Schaffner, Fiona McCluskey, Codie Fiedler Kawaguchi, & Sarah Loebman (2019) *Astrophys. J.*, submitted (`arXiv/1907.10100 <http://arxiv.org/abs/1907.10100>`_)
 
 Indices and tables
 ==================
