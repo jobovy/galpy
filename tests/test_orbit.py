@@ -4662,16 +4662,16 @@ def test_from_name_values():
 
     # test LMC
     o = Orbit.from_name('LMC')
-    assert numpy.isclose(o.ra(), 80.89416666666666), \
-        "RA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.dec(), -69.75611111111111), \
+    assert numpy.isclose(o.ra(), 78.77), \
+        "RA of LMC does not match value on file"
+    assert numpy.isclose(o.dec(), -69.01), \
         "DEC of LMC does not match SIMBAD value"
     # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
     #assert numpy.isclose(o.dist(), 50.0), \
     #    "Parallax of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), 1.91), \
+    assert numpy.isclose(o.pmra(), 1.850), \
         "PMRA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), 0.229), \
+    assert numpy.isclose(o.pmdec(), 0.234), \
         "PMDec of LMC does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 262.2), \
         "radial velocity of LMC does not match SIMBAD value"
