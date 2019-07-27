@@ -1,7 +1,12 @@
 from six import raise_from
+from past.builtins import basestring
 import os
+import sys
+_PY3= sys.version > '3'
+import json
 import copy
 import json
+import string
 from functools import wraps
 from random import choice
 from string import ascii_lowercase
@@ -64,6 +69,15 @@ try:
 except KeyError:
     import multiprocessing
     _NUMCORES= multiprocessing.cpu_count()
+# named_objects file
+_known_objects= None
+def _load_named_objects():
+    global _known_objects
+    if not _known_objects:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                               'named_objects.json'),'r') as jsonfile:
+            _known_objects= json.load(jsonfile)
+    return None
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
     @wraps(func)
@@ -472,7 +486,7 @@ class Orbit(object):
         return None
 
     @classmethod
-    def from_name(cls,name,vo=None,ro=None,zo=None,solarmotion=None):
+    def from_name(cls,*args,**kwargs):
         """
         NAME:
 
@@ -513,15 +527,26 @@ class Orbit(object):
         if not _ASTROQUERY_LOADED: # pragma: no cover
             raise ImportError('astroquery needs to be installed to use '
                               'Orbit.from_name')
-        if isinstance(name,str):
-            out= cls(vxvv=_from_name_oneobject(name),radec=True,
-                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+        _load_named_objects()
+        # Stack coordinate-transform parameters, so they can be changed...
+        obs= numpy.array([kwargs.get('ro',None),
+                          kwargs.get('vro',None),
+                          kwargs.get('zo',None),
+                          kwargs.get('solarmotion',None)],
+                         dtype='object')
+        if len(args) > 1:
+            name= [n for n in args]
+        else:
+            name= args[0]
+        if isinstance(name,(basestring)):
+            out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
+                     ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         else: # assume list
             all_vxvv= []
             for tname in name:
-                all_vxvv.append(_from_name_oneobject(tname))
+                all_vxvv.append(_from_name_oneobject(tname,obs))
             out= cls(vxvv=all_vxvv,radec=True,
-                     ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+                     ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         out.name= name
         return out
            
@@ -5318,7 +5343,7 @@ class _1DInterp(object):
     def __call__(self,t,indx):
         return self._ip(t)[:,None]
 
-def _from_name_oneobject(name):
+def _from_name_oneobject(name,obs):
     """
     NAME:
        _from_name_oneobject
@@ -5326,11 +5351,45 @@ def _from_name_oneobject(name):
        Query Simbad for the phase-space coordinates of one object
     INPUT:
        name - name of the object
+       obs - numpy.array of [ro,vo,zo,solarmotion] that can be altered
     OUTPUT:
        [ra,dec,dist,pmra,pmdec,vlos]
     HISTORY:
        2018-07-15 - Written - Mathew Bub (UofT)
+       2019-06-16 - Added named_objects - Bovy (UofT)
     """
+    # First check whether this is a named_object
+    # Remove white space and any punctuation
+    this_name= name.lower().replace(" ","")
+    if _PY3:
+        this_name= this_name.translate(\
+            str.maketrans('', '',string.punctuation))
+    else: #pragma: no cover
+        this_name= str(this_name).translate(None,string.punctuation)
+    # Find the object in the file?
+    if this_name in _known_objects.keys():
+        if 'ra' in _known_objects[this_name].keys():
+            vxvv= [_known_objects[this_name]['ra'],
+                   _known_objects[this_name]['dec'],
+                   _known_objects[this_name]['distance'],
+                   _known_objects[this_name]['pmra'],
+                   _known_objects[this_name]['pmdec'],
+                   _known_objects[this_name]['vlos']]
+        # If you add another way, need to convert to ra,dec,... bc from_name
+        # expects that
+        if obs[0] is None and \
+                'ro' in _known_objects[this_name].keys():
+            obs[0]= _known_objects[this_name]['ro']
+        if obs[1] is None and \
+                'vo' in _known_objects[this_name].keys():
+            obs[1]= _known_objects[this_name]['vo']
+        if obs[2] is None and \
+                'zo' in _known_objects[this_name].keys():
+            obs[2]= _known_objects[this_name]['zo']
+        if obs[3] is None and \
+                'solarmotion' in _known_objects[this_name].keys():
+            obs[3]= _known_objects[this_name]['solarmotion']
+        return vxvv
     # setup a SIMBAD query with the appropriate fields
     simbad= Simbad()
     simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',

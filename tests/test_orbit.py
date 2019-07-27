@@ -4662,16 +4662,16 @@ def test_from_name_values():
 
     # test LMC
     o = Orbit.from_name('LMC')
-    assert numpy.isclose(o.ra(), 80.89416666666666), \
-        "RA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.dec(), -69.75611111111111), \
+    assert numpy.isclose(o.ra(), 78.77), \
+        "RA of LMC does not match value on file"
+    assert numpy.isclose(o.dec(), -69.01), \
         "DEC of LMC does not match SIMBAD value"
     # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
     #assert numpy.isclose(o.dist(), 50.0), \
     #    "Parallax of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), 1.91), \
+    assert numpy.isclose(o.pmra(), 1.850), \
         "PMRA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), 0.229), \
+    assert numpy.isclose(o.pmdec(), 0.234), \
         "PMDec of LMC does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 262.2), \
         "radial velocity of LMC does not match SIMBAD value"
@@ -4699,6 +4699,32 @@ def test_from_name_errors():
     msg = "failed to find some coordinates for GRB 090423 in SIMBAD"
     assert str(excinfo.value) == msg, \
         "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+
+def test_from_name_named():
+    # Test that the values from the JSON file are correctly transferred
+    from galpy.orbit import Orbit
+    import galpy.orbit
+    # Read the JSON file
+    import os
+    import json
+    named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
+                galpy.orbit.__file__)),'named_objects.json')
+    with open(named_objects_file,'r') as json_file:
+        named_data= json.load(json_file)
+    for obj in named_data:
+        o= Orbit.from_name(obj)
+        for attr in named_data[obj]:
+            if 'source' in attr: continue
+            if attr == 'ro' or attr == 'vo' or attr == 'zo' \
+                    or attr == 'solarmotion':
+                assert numpy.all(numpy.isclose(getattr(o,'_{:s}'.format(attr)),
+                                               named_data[obj][attr]))
+            elif attr == 'distance':
+                assert numpy.isclose(o.dist(),named_data[obj][attr])
+            else:
+                assert numpy.isclose(getattr(o,'{:s}'.format(attr))(),
+                                     named_data[obj][attr])
+    return None    
 
 def test_rguiding_errors():
     from galpy.potential import TriaxialNFWPotential
