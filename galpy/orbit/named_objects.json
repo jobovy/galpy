@@ -1,4 +1,8 @@
 {
+  "_collections":
+    { "mwglobularclusters": ["ngc104","ngc288"],
+      "mwsatellites": ["sgr","lmc","smc"]
+    },
   "gd1":
     { "ra": 148.9363998668805,
       "dec": 36.15980426805254,

@@ -83,8 +83,12 @@ try: # pragma: no cover
     from IPython import get_ipython
     _load_named_objects()
     def name_completer(ipython,event):
-        out= list(_known_objects.keys())
-        out.extend(['ro=','vo=','zo=','solarmotion='])
+        try: # encapsulate in try/except to avoid *any* error
+            out= list(_known_objects.keys())
+            out.remove('_collections')
+            out.extend(list(_known_objects['_collections'].keys()))
+            out.extend(['ro=','vo=','zo=','solarmotion='])
+        except: pass
         return out
     get_ipython().set_hook('complete_command',name_completer,
                            re_key=".*from_name")
@@ -549,7 +553,16 @@ class Orbit(object):
         if len(args) > 1:
             name= [n for n in args]
         else:
-            name= args[0]
+            if _PY3:
+                this_name= args[0].translate(\
+                    str.maketrans('', '',string.punctuation)).replace(' ', '')
+            else: #pragma: no cover
+                this_name= str(args[0]).translate(None,string.punctuation)\
+                    .replace(' ', '')
+            if this_name in _known_objects['_collections'].keys():
+                name= _known_objects['_collections'][this_name]
+            else:
+                name= args[0]
         if isinstance(name,(basestring)):
             out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
