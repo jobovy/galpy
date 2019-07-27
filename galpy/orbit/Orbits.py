@@ -78,6 +78,18 @@ def _load_named_objects():
                                'named_objects.json'),'r') as jsonfile:
             _known_objects= json.load(jsonfile)
     return None
+
+try: # pragma: no cover
+    from IPython import get_ipython
+    _load_named_objects()
+    def name_completer(ipython,event):
+        out= list(_known_objects.keys())
+        out.extend(['ro=','vo=','zo=','solarmotion='])
+        return out
+    get_ipython().set_hook('complete_command',name_completer,
+                           re_key=".*from_name")
+except: pass
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
     @wraps(func)
@@ -549,7 +561,7 @@ class Orbit(object):
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         out.name= name
         return out
-           
+
     @classmethod
     def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
                  radec=False,lb=False,
