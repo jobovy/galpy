@@ -4666,15 +4666,29 @@ def test_from_name_values():
         "RA of LMC does not match value on file"
     assert numpy.isclose(o.dec(), -69.01), \
         "DEC of LMC does not match SIMBAD value"
-    # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
-    #assert numpy.isclose(o.dist(), 50.0), \
-    #    "Parallax of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 50.1), \
+        "Parallax of LMC does not match SIMBAD value"
     assert numpy.isclose(o.pmra(), 1.850), \
         "PMRA of LMC does not match SIMBAD value"
     assert numpy.isclose(o.pmdec(), 0.234), \
         "PMDec of LMC does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 262.2), \
         "radial velocity of LMC does not match SIMBAD value"
+
+    # test a distant hypervelocity star
+    o = Orbit.from_name('[BGK2006] HV 5')
+    assert numpy.isclose(o.ra(), 139.498), \
+        "RA of [BGK2006] HV 5 does not match value on file"
+    assert numpy.isclose(o.dec(), 67.377), \
+        "DEC of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 55.), \
+        "Parallax of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -0.023), \
+        "PMRA of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1.179), \
+        "PMDec of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 553.), \
+        "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"
 
 def test_from_name_errors():
     from galpy.orbit import Orbit
