@@ -4725,6 +4725,8 @@ def test_from_name_named():
                 galpy.orbit.__file__)),'named_objects.json')
     with open(named_objects_file,'r') as json_file:
         named_data= json.load(json_file)
+    del named_data['_collections']
+    del named_data['_synonyms']
     for obj in named_data:
         o= Orbit.from_name(obj)
         for attr in named_data[obj]:
