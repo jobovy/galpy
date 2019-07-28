@@ -4742,6 +4742,35 @@ def test_from_name_named():
                                      named_data[obj][attr])
     return None    
 
+def test_from_name_collections():
+    # Test that the values from the JSON file are correctly transferred, 
+    # for collections of objects
+    from galpy.orbit import Orbit
+    from galpy.orbit.Orbits import _known_objects_collections_original_keys
+    import galpy.orbit
+    # Read the JSON file
+    import os
+    import json
+    named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
+                galpy.orbit.__file__)),'named_objects.json')
+    with open(named_objects_file,'r') as json_file:
+        named_data= json.load(json_file)
+    for obj in _known_objects_collections_original_keys:
+        o= Orbit.from_name(obj)
+        for ii,individual_obj in enumerate(named_data['_collections'][obj]):
+            for attr in named_data[individual_obj]:
+                if 'source' in attr: continue
+                if attr == 'ro' or attr == 'vo' or attr == 'zo' \
+                        or attr == 'solarmotion':
+                    continue # don't test these here
+                elif attr == 'distance':
+                    assert numpy.isclose(o.dist()[ii],
+                                         named_data[individual_obj][attr])
+                else:
+                    assert numpy.isclose(getattr(o,'{:s}'.format(attr))()[ii],
+                                         named_data[individual_obj][attr])
+    return None    
+
 def test_rguiding_errors():
     from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
