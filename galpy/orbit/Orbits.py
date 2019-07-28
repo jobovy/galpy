@@ -82,18 +82,27 @@ def _named_objects_key_formatting(name):
 _known_objects= None
 _known_objects_original_keys= None # these are use for auto-completion
 _known_objects_collections_original_keys= None
+_known_objects_synonyms_original_keys= None
 _known_objects_keys_updated= False
 def _load_named_objects():
     global _known_objects
     global _known_objects_original_keys
     global _known_objects_collections_original_keys
+    global _known_objects_synonyms_original_keys
     if not _known_objects:
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                'named_objects.json'),'r') as jsonfile:
             _known_objects= json.load(jsonfile)
+        # Save original keys for auto-completion
         _known_objects_original_keys= copy.copy(list(_known_objects.keys()))
         _known_objects_collections_original_keys= \
             copy.copy(list(_known_objects['_collections'].keys()))
+        _known_objects_synonyms_original_keys= \
+            copy.copy(list(_known_objects['_synonyms'].keys()))
+        # Add synonyms as duplicates
+        for name in _known_objects['_synonyms']:
+            _known_objects[name]= \
+                _known_objects[_known_objects['_synonyms'][name]]
     return None
 def _update_keys_named_objects():
     global _known_objects_keys_updated
@@ -107,6 +116,7 @@ def _update_keys_named_objects():
         # Then the objects themselves
         old_keys= list(_known_objects.keys())
         old_keys.remove('_collections')
+        old_keys.remove('_synonyms')
         for old_key in old_keys:
             _known_objects[_named_objects_key_formatting(old_key)]= \
                    _known_objects.pop(old_key)
@@ -119,7 +129,9 @@ try: # pragma: no cover
         try: # encapsulate in try/except to avoid *any* error
             out= copy.copy(_known_objects_original_keys)
             out.remove('_collections')
+            out.remove('_synonyms')
             out.extend(_known_objects_collections_original_keys)
+            out.extend(_known_objects_synonyms_original_keys)
             out.extend(['ro=','vo=','zo=','solarmotion='])
         except: pass
         return out
