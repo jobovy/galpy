@@ -76,7 +76,7 @@ def _named_objects_key_formatting(name):
         out_name= name.translate(\
             str.maketrans('', '',string.punctuation)).replace(' ', '').lower()
     else: #pragma: no cover
-        out_name= str(args[0]).translate(None,string.punctuation)\
+        out_name= str(name).translate(None,string.punctuation)\
             .replace(' ', '').lower()
     return out_name   
 _known_objects= None
