@@ -70,23 +70,56 @@ except KeyError:
     import multiprocessing
     _NUMCORES= multiprocessing.cpu_count()
 # named_objects file
+def _named_objects_key_formatting(name):
+    # Remove punctuation, spaces, and make lowercase
+    if _PY3:
+        out_name= name.translate(\
+            str.maketrans('', '',string.punctuation)).replace(' ', '').lower()
+    else: #pragma: no cover
+        out_name= str(args[0]).translate(None,string.punctuation)\
+            .replace(' ', '').lower()
+    return out_name   
 _known_objects= None
+_known_objects_original_keys= None # these are use for auto-completion
+_known_objects_collections_original_keys= None
+_known_objects_keys_updated= False
 def _load_named_objects():
     global _known_objects
+    global _known_objects_original_keys
+    global _known_objects_collections_original_keys
     if not _known_objects:
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                'named_objects.json'),'r') as jsonfile:
             _known_objects= json.load(jsonfile)
+        _known_objects_original_keys= copy.copy(list(_known_objects.keys()))
+        _known_objects_collections_original_keys= \
+            copy.copy(list(_known_objects['_collections'].keys()))
     return None
-
+def _update_keys_named_objects():
+    global _known_objects_keys_updated
+    if not _known_objects_keys_updated:
+        # Format the keys of the known objects dictionary, first collections
+        old_keys= list(_known_objects['_collections'].keys())
+        for old_key in old_keys:
+            _known_objects['_collections']\
+                [_named_objects_key_formatting(old_key)]= \
+                   _known_objects['_collections'].pop(old_key)
+        # Then the objects themselves
+        old_keys= list(_known_objects.keys())
+        old_keys.remove('_collections')
+        for old_key in old_keys:
+            _known_objects[_named_objects_key_formatting(old_key)]= \
+                   _known_objects.pop(old_key)
+        _known_objects_keys_updated= True
+# Auto-completion
 try: # pragma: no cover
     from IPython import get_ipython
     _load_named_objects()
     def name_completer(ipython,event):
         try: # encapsulate in try/except to avoid *any* error
-            out= list(_known_objects.keys())
+            out= copy.copy(_known_objects_original_keys)
             out.remove('_collections')
-            out.extend(list(_known_objects['_collections'].keys()))
+            out.extend(_known_objects_collections_original_keys)
             out.extend(['ro=','vo=','zo=','solarmotion='])
         except: pass
         return out
@@ -544,6 +577,7 @@ class Orbit(object):
             raise ImportError('astroquery needs to be installed to use '
                               'Orbit.from_name')
         _load_named_objects()
+        _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
         obs= numpy.array([kwargs.get('ro',None),
                           kwargs.get('vro',None),
@@ -553,12 +587,7 @@ class Orbit(object):
         if len(args) > 1:
             name= [n for n in args]
         else:
-            if _PY3:
-                this_name= args[0].translate(\
-                    str.maketrans('', '',string.punctuation)).replace(' ', '')
-            else: #pragma: no cover
-                this_name= str(args[0]).translate(None,string.punctuation)\
-                    .replace(' ', '')
+            this_name= _named_objects_key_formatting(args[0])
             if this_name in _known_objects['_collections'].keys():
                 name= _known_objects['_collections'][this_name]
             else:
@@ -5384,13 +5413,7 @@ def _from_name_oneobject(name,obs):
        2019-06-16 - Added named_objects - Bovy (UofT)
     """
     # First check whether this is a named_object
-    # Remove white space and any punctuation
-    this_name= name.lower().replace(" ","")
-    if _PY3:
-        this_name= this_name.translate(\
-            str.maketrans('', '',string.punctuation))
-    else: #pragma: no cover
-        this_name= str(this_name).translate(None,string.punctuation)
+    this_name= _named_objects_key_formatting(name)
     # Find the object in the file?
     if this_name in _known_objects.keys():
         if 'ra' in _known_objects[this_name].keys():
