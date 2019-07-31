@@ -161,13 +161,8 @@ SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRo
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
 
-#
-# Constants
-#
-MWPotential= [MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6),
-              NFWPotential(a=4.5,normalize=.35),
-              HernquistPotential(a=0.6/8,normalize=0.05)]
-# See Table 1 in galpy paper: Bovy (2014)
-MWPotential2014= [PowerSphericalPotentialwCutoff(normalize=0.05,alpha=1.8,rc=1.9/8.),
-                  MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=0.6),
-                  NFWPotential(a=2.,normalize=0.35)]
+# MW potential models, now in galpy.potential.mwpotentials, but keep these two
+# for tests, backwards compatibility, and convenience
+from . import mwpotentials
+MWPotential= mwpotentials._MWPotential
+MWPotential2014= mwpotentials.MWPotential2014
