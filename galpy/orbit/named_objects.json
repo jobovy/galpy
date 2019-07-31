@@ -1,12 +1,61 @@
 {
   "_collections":
     { "MWglobularclusters": ["NGC5286","Terzan12","Arp2","NGC5024","NGC6638","Crater","BH261","NGC6553","NGC6749","NGC6528","NGC4372","NGC2808","IC4499","BH229","NGC6642","NGC6779","NGC6541","NGC6441","Pal4","NGC6341","NGC5694","NGC2298","Ton2","NGC6637","NGC6325","NGC4147","NGC6366","Pal7","NGC5986","NGC5927","Terzan1","NGC4833","Pal8","NGC7078","NGC6517","NGC6284","Pal14","NGC6539","NGC7089","NGC5272","NGC362","NGC6144","NGC6287","E3","NGC6205","NGC6402","FSR1735","Pal3","NGC6256","NGC6342","Djorg2","NGC6093","NGC5139","Terzan5","NGC6333","NGC6934","NGC6101","NGC6171","NGC5466","Pal5","ESO45211","NGC6266","Pal15","Pal13","Terzan2","NGC6540","Terzan4","BH184","NGC5053","NGC6723","FSR1716","BH176","NGC6809","NGC5897","NGC6496","NGC6715","NGC6388","Pal2","NGC1261","NGC6362","Whiting1","NGC6522","NGC6254","NGC6535","NGC6440","NGC6316","NGC5634","NGC7492","Terzan9","NGC6352","Terzan7","Terzan6","NGC6235","NGC5904","NGC6626","IC1257","NGC5946","NGC6717","NGC288","NGC2419","Terzan10","NGC6218","Pal6","NGC6426","NGC6304","NGC6273","NGC6544","NGC6624","NGC6356","Pal12","Djorg1","NGC6293","NGC7006","NGC104","Pal11","NGC5824","Terzan3","NGC6584","NGC3201","Rup106","NGC6838","NGC7099","NGC6229","NGC6139","Pyxis","NGC6121","NGC6681","NGC6652","NGC1904","NGC1851","NGC6397","Terzan8","NGC6569","NGC6981","NGC6401","NGC6760","NGC6380","NGC6355","NGC4590","Pal1","NGC6656","ESO28006","NGC6558","Pal10","E1","NGC6712","NGC6752","NGC6453","NGC6864","Eridanus"],
-      "MWsatellites": ["Sgr","LMC","SMC"]
+      "MWsatellites": ["AquII", "BooI", "BooII", "CVenI", "CVenII", "CarI", "CarII", "CarIII", "CBerI", "CraII", "DraI", "DraII", "GruI", "HerI", "HorI", "HyaII", "HyiI", "LeoI", "LeoII", "LeoIV", "LeoV", "LMC", "PisII", "RetII", "SgrI", "SclI", "Seg1", "Seg2", "SMC", "SxtI", "TriII", "TucII", "TucIII", "UMaI", "UMaII", "UMiI", "Wil"]
     },
   "_synonyms":
     { "OmegaCen": "NGC5139",
       "47Tuc": "NGC104",
-      "M13": "NGC6205"
+      "M13": "NGC6205",
+      "AM1": "E1",
+      "M79": "NGC1904",
+      "ESO371": "E3",
+      "Laevens1": "Crater",
+      "M68": "NGC4590",
+      "M53": "NGC5024",
+      "M3": "NGC5272",
+      "M5": "NGC5904",
+      "ESO2248": "BH176",
+      "Arp1": "Pal14",
+      "Lynga7": "BH184",
+      "M80": "NGC6093",
+      "M4": "NGC6121",
+      "M107": "NGC6171",
+      "1636283": "ESO45211",
+      "M13": "NGC6205",
+      "M12": "NGC6218",
+      "2MASSGC03": "FSR1735",
+      "M10": "NGC6254",
+      "M62": "NGC6266",
+      "M19": "NGC6273",
+      "M92": "NGC6341",
+      "M9": "NGC6333",
+      "HP3": "Terzan2",
+      "HP4": "Terzan4",
+      "HP1": "BH229",
+      "Ton1": "NGC6380",
+      "HP2": "Terzan1",
+      "Pismis26": "Ton2",
+      "M14": "NGC6402",
+      "Terzan11": "Terzan5",
+      "HP5": "Terzan6",
+      "Djorg3": "NGC6540",
+      "IC1276": "Pal7",
+      "ESO45678": "BH261",
+      "M28": "NGC6626",
+      "M69": "NGC6637",
+      "M22": "NGC6656",
+      "M70": "NGC6681",
+      "M54": "NGC6715",
+      "Pal9": "NGC6717",
+      "M56": "NGC6779",
+      "M55": "NGC6809",
+      "M71": "NGC6838",
+      "M75": "NGC6864",
+      "M72": "NGC6981",
+      "M15": "NGC7078",
+      "M2": "NGC7089",
+      "M30": "NGC7099"
     },
   "GD-1":
     { "ra": 148.9363998668805,
@@ -21,14 +70,203 @@
       "solarmotion": [-11.1,24.0,7.25],
       "source": "arXiv:1811.07022"
     },
-  "Sgr":
-    { "ra": 283.8313,
-      "dec": -30.5453,
-      "distance": 20,
-      "pmra": -2.692,
-      "pmdec": -1.359,
-      "vlos": 140,
-      "source": "arXiv:1804.09381"
+  "AquII":
+    { "ra": 338.481,
+      "dec": -9.327,
+      "distance": 105,
+      "pmra": -0.252,
+      "pmdec": 0.011,
+      "vlos": -71.1,
+      "source": "arXiv:1805.00908"
+    },
+  "BooI":
+    { "ra": 210.015,
+      "dec": 14.512,
+      "distance": 64,
+      "pmra": -0.554,
+      "pmdec": -1.111,
+      "vlos": 99,
+      "source": "arXiv:1805.00908"
+    },
+  "BooII":
+    { "ra": 209.521,
+      "dec": 12.859,
+      "distance": 39,
+      "pmra": -2.686,
+      "pmdec": -0.53,
+      "vlos": -117,
+      "source": "arXiv:1805.00908"
+    },
+  "CVenI":
+    { "ra": 202.016,
+      "dec": 33.559,
+      "distance": 211,
+      "pmra": -0.159,
+      "pmdec": -0.067,
+      "vlos": 30.9,
+      "source": "arXiv:1805.00908"
+    },
+  "CVenII":
+    { "ra": 194.292,
+      "dec": 34.321,
+      "distance": 161,
+      "pmra": -0.342,
+      "pmdec": -0.473,
+      "vlos": -128.9,
+      "source": "arXiv:1805.00908"
+    },
+  "CarI":
+    { "ra": 100.407,
+      "dec": -50.966,
+      "distance": 105,
+      "pmra": 0.485,
+      "pmdec": 0.131,
+      "vlos": 229.1,
+      "source": "arXiv:1805.00908"
+    },
+  "CarII":
+    { "ra": 114.107,
+      "dec": -57.999,
+      "distance": 37,
+      "pmra": 1.867,
+      "pmdec": 0.082,
+      "vlos": 477.2,
+      "source": "arXiv:1805.00908"
+    },
+  "CarIII":
+    { "ra": 114.63,
+      "dec": -57.9,
+      "distance": 29,
+      "pmra": 3.046,
+      "pmdec": 1.565,
+      "vlos": 284.6,
+      "source": "arXiv:1805.00908"
+    },
+  "CBerI":
+    { "ra": 186.746,
+      "dec": 23.908,
+      "distance": 42,
+      "pmra": 0.471,
+      "pmdec": -1.716,
+      "vlos": 98.1,
+      "source": "arXiv:1805.00908"
+    },
+  "CraII":
+    { "ra": 177.31,
+      "dec": -18.413,
+      "distance": 111,
+      "pmra": -0.184,
+      "pmdec": -0.106,
+      "vlos": 87.5,
+      "source": "arXiv:1805.00908"
+    },
+  "DraI":
+    { "ra": 260.06,
+      "dec": 57.965,
+      "distance": 79,
+      "pmra": -0.012,
+      "pmdec": -0.158,
+      "vlos": -291,
+      "source": "arXiv:1805.00908"
+    },
+  "DraII":
+    { "ra": 238.198,
+      "dec": 64.565,
+      "distance": 24,
+      "pmra": 1.242,
+      "pmdec": 0.845,
+      "vlos": -347.6,
+      "source": "arXiv:1805.00908"
+    },
+  "FnxI":
+    { "ra": 39.962,
+      "dec": -34.511,
+      "distance": 141,
+      "pmra": 0.374,
+      "pmdec": -0.401,
+      "vlos": 55.3,
+      "source": "arXiv:1805.00908"
+    },
+  "GruI":
+    { "ra": 344.176,
+      "dec": -50.163,
+      "distance": 116,
+      "pmra": -0.261,
+      "pmdec": -0.437,
+      "vlos": -140.5,
+      "source": "arXiv:1805.00908"
+    },
+  "HerI":
+    { "ra": 247.763,
+      "dec": 12.787,
+      "distance": 129,
+      "pmra": -0.297,
+      "pmdec": -0.329,
+      "vlos": 45,
+      "source": "arXiv:1805.00908"
+    },
+  "HorI":
+    { "ra": 43.882,
+      "dec": -54.119,
+      "distance": 83,
+      "pmra": 0.891,
+      "pmdec": -0.55,
+      "vlos": 112.8,
+      "source": "arXiv:1805.00908"
+    },
+  "HyaII":
+    { "ra": 185.425,
+      "dec": -31.985,
+      "distance": 148,
+      "pmra": -0.416,
+      "pmdec": 0.134,
+      "vlos": 303.1,
+      "source": "arXiv:1805.00908"
+    },
+  "HyiI":
+    { "ra": 37.389,
+      "dec": -79.309,
+      "distance": 26,
+      "pmra": 3.733,
+      "pmdec": -1.605,
+      "vlos": 80.4,
+      "source": "arXiv:1805.00908"
+    },
+  "LeoI":
+    { "ra": 152.122,
+      "dec": 12.313,
+      "distance": 273,
+      "pmra": -0.086,
+      "pmdec": -0.128,
+      "vlos": 282.5,
+      "source": "arXiv:1805.00908"
+    },
+  "LeoII":
+    { "ra": 168.37,
+      "dec": 22.152,
+      "distance": 227,
+      "pmra": -0.025,
+      "pmdec": -0.173,
+      "vlos": 78,
+      "source": "arXiv:1805.00908"
+    },
+  "LeoIV":
+    { "ra": 173.233,
+      "dec": -0.54,
+      "distance": 155,
+      "pmra": -0.59,
+      "pmdec": -0.449,
+      "vlos": 132.3,
+      "source": "arXiv:1805.00908"
+    },
+  "LeoV":
+    { "ra": 172.784,
+      "dec": 2.222,
+      "distance": 174,
+      "pmra": -0.097,
+      "pmdec": -0.628,
+      "vlos": 173.3,
+      "source": "arXiv:1805.00908"
     },
   "LMC":
     { "ra": 78.77,
@@ -39,6 +277,69 @@
       "vlos": 262.2,
       "source": "arXiv:1804:09381"
     },
+  "PisII":
+    { "ra": 344.634,
+      "dec": 5.955,
+      "distance": 182,
+      "pmra": -0.108,
+      "pmdec": -0.586,
+      "vlos": -226.5,
+      "source": "arXiv:1805.00908"
+    },
+  "RetII":
+    { "ra": 53.949,
+      "dec": -54.047,
+      "distance": 33,
+      "pmra": 2.398,
+      "pmdec": -1.319,
+      "vlos": 62.8,
+      "source": "arXiv:1805.00908"
+    },
+  "SgrI":
+    { "ra": 283.8313,
+      "dec": -30.5453,
+      "distance": 19,
+      "pmra": -2.692,
+      "pmdec": -1.359,
+      "vlos": 140,
+      "source": "arXiv:1804.09381"
+    },
+  "SclI":
+    { "ra": 15.039,
+      "dec": -33.709,
+      "distance": 85,
+      "pmra": 0.084,
+      "pmdec": -0.133,
+      "vlos": 111.4,
+      "source": "arXiv:1805.00908"
+    },
+  "Seg1":
+    { "ra": 151.763,
+      "dec": 16.074,
+      "distance": 28,
+      "pmra": -1.697,
+      "pmdec": -3.501,
+      "vlos": 208.5,
+      "source": "arXiv:1805.00908"
+    },
+  "Seg2":
+    { "ra": 34.817,
+      "dec": 20.175,
+      "distance": 42,
+      "pmra": 1.656,
+      "pmdec": 0.135,
+      "vlos": -39.2,
+      "source": "arXiv:1805.00908"
+    },
+  "SxtI":
+    { "ra": 153.268,
+      "dec": -1.62,
+      "distance": 89,
+      "pmra": -0.438,
+      "pmdec": 0.055,
+      "vlos": 224.2,
+      "source": "arXiv:1805.00908"
+    },
   "SMC":
     { "ra": 16.26,
       "dec": -72.42,
@@ -47,6 +348,69 @@
       "pmdec": -1.220,
       "vlos": 145.6,
       "source": "arXiv:1804:09381"
+    },
+  "TriII":
+    { "ra": 33.322,
+      "dec": 36.172,
+      "distance": 35,
+      "pmra": 0.588,
+      "pmdec": 0.554,
+      "vlos": -381.7,
+      "source": "arXiv:1805.00908"
+    },
+  "TucII":
+    { "ra": 343.06,
+      "dec": -58.57,
+      "distance": 54,
+      "pmra": 0.91,
+      "pmdec": -1.159,
+      "vlos": -129.1,
+      "source": "arXiv:1805.00908"
+    },
+  "TucIII":
+    { "ra": 359.15,
+      "dec": -59.6,
+      "distance": 21,
+      "pmra": -0.025,
+      "pmdec": -1.661,
+      "vlos": -102.3,
+      "source": "arXiv:1805.00908"
+    },
+  "UMaI":
+    { "ra": 158.685,
+      "dec": 51.926,
+      "distance": 102,
+      "pmra": -0.683,
+      "pmdec": -0.72,
+      "vlos": -55.3,
+      "source": "arXiv:1805.00908"
+    },
+  "UMaII":
+    { "ra": 132.874,
+      "dec": 63.133,
+      "distance": 41,
+      "pmra": 1.691,
+      "pmdec": -1.902,
+      "vlos": -116.5,
+      "source": "arXiv:1805.00908"
+    },
+  "UMiI":
+    { "ra": 227.242,
+      "dec": 67.222,
+      "distance": 78,
+      "pmra": -0.184,
+      "pmdec": 0.082,
+      "vlos": -246.9,
+      "source": "arXiv:1805.00908"
+    },
+  "Wil1":
+    { "ra": 162.341,
+      "dec": 51.053,
+      "distance": 43,
+      "pmra": 0.199,
+      "pmdec": -1.342,
+      "vlos": -12.3,
+      "source": "arXiv:1805.00908"
     },
   "NGC104":
     { "ra": 6.024000,
