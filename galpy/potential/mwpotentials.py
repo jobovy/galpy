@@ -1,6 +1,8 @@
 # galpy.potential.mwpotentials: Milky-Way-like potentials and tools for 
 # working with MW-like potentials (bars, spirals, ...)
 import sys
+import os
+import copy
 from . import HernquistPotential
 from . import MiyamotoNagaiPotential
 from . import NFWPotential
@@ -20,25 +22,35 @@ MWPotential2014= [PowerSphericalPotentialwCutoff(normalize=0.05,alpha=1.8,
                   NFWPotential(a=2.,normalize=0.35)]
 # Following class allows potentials that are expensive to setup to be 
 # lazily-loaded (see _mcmillan17.py)
+def _setup_globals(): # this func necessary to transfer *all* globals in Py2
+    out= copy.copy(globals())
+    out['__path__']= [os.path.dirname(__file__)]
+    return out
 class _ExpensivePotentials(object):
     def __init__(self):
         # Initialize all expensive potentials as None, filled in when loaded
         self._mcmillan17= None
+        # This is necessary to transfer *all* globals in Py2
+        self.__globals__= _setup_globals()
         return None
 
+    # For tab completion
     def __dir__(self):
         return ['McMillan17']
 
     @property
     def McMillan17(self):
         if not self._mcmillan17:
-            from ._mcmillan17 import McMillan17 as _McMillan17
+            # In python 3 this can be a relative import, but for some reason
+            # in python 2 it cannot
+            from galpy.potential._mcmillan17 import McMillan17 as _McMillan17
             self._mcmillan17= _McMillan17
         return self._mcmillan17
 
     def __getattr__(self,name):
         try:
-            return globals()[name]
+            #In Py3 you can just do 'return globals()[name]', but not in Py2
+            return self.__globals__[name]
         except: return None
 
 __all__= ['MWPotential2014']

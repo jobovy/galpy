@@ -4,17 +4,20 @@
 # Implemented in this funny way here to allow lazy-loading
 # (https://stackoverflow.com/questions/1462986/lazy-module-variables-can-it-be-done)
 import sys
-import numpy
-from . import NFWPotential
-from . import DiskSCFPotential
-from . import SCFPotential
-from . import scf_compute_coeffs_axi
-from ..util import bovy_conversion
+import os
+import copy
+def _setup_globals(): # this func necessary to transfer *all* globals in Py2
+    out= copy.copy(globals())
+    out['__path__']= [os.path.dirname(__file__)]
+    return out
 class _McMillan17(object):
     def __init__(self):
         self._pot= None
+        # This is necessary to transfer *all* globals in Py2
+        self.__globals__= _setup_globals()
         return None
 
+    # For tab completion
     def __dir__(self):
         return ['McMillan17']
 
@@ -26,7 +29,8 @@ class _McMillan17(object):
 
     def __getattr__(self,name):
         try:
-            return globals()[name]
+            #In Py3 you can just do 'return globals()[name]', but not in Py2
+            return self.__globals__[name]
         except: pass
 
 __all__= []
@@ -35,6 +39,12 @@ __all__= []
 sys.modules[__name__] = _McMillan17()
 
 def _setup_mcmillan17():
+    import numpy
+    from galpy.potential import NFWPotential
+    from galpy.potential import DiskSCFPotential
+    from galpy.potential import SCFPotential
+    from galpy.potential import scf_compute_coeffs_axi
+    from galpy.util import bovy_conversion
     # Suppress the numpy floating-point warnings that this code generates...
     old_error_settings= numpy.seterr(all='ignore')
     # Unit normalizations
