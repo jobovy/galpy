@@ -1,7 +1,7 @@
 {
   "_collections":
     { "MWglobularclusters": ["NGC5286","Terzan12","Arp2","NGC5024","NGC6638","Crater","BH261","NGC6553","NGC6749","NGC6528","NGC4372","NGC2808","IC4499","BH229","NGC6642","NGC6779","NGC6541","NGC6441","Pal4","NGC6341","NGC5694","NGC2298","Ton2","NGC6637","NGC6325","NGC4147","NGC6366","Pal7","NGC5986","NGC5927","Terzan1","NGC4833","Pal8","NGC7078","NGC6517","NGC6284","Pal14","NGC6539","NGC7089","NGC5272","NGC362","NGC6144","NGC6287","E3","NGC6205","NGC6402","FSR1735","Pal3","NGC6256","NGC6342","Djorg2","NGC6093","NGC5139","Terzan5","NGC6333","NGC6934","NGC6101","NGC6171","NGC5466","Pal5","ESO45211","NGC6266","Pal15","Pal13","Terzan2","NGC6540","Terzan4","BH184","NGC5053","NGC6723","FSR1716","BH176","NGC6809","NGC5897","NGC6496","NGC6715","NGC6388","Pal2","NGC1261","NGC6362","Whiting1","NGC6522","NGC6254","NGC6535","NGC6440","NGC6316","NGC5634","NGC7492","Terzan9","NGC6352","Terzan7","Terzan6","NGC6235","NGC5904","NGC6626","IC1257","NGC5946","NGC6717","NGC288","NGC2419","Terzan10","NGC6218","Pal6","NGC6426","NGC6304","NGC6273","NGC6544","NGC6624","NGC6356","Pal12","Djorg1","NGC6293","NGC7006","NGC104","Pal11","NGC5824","Terzan3","NGC6584","NGC3201","Rup106","NGC6838","NGC7099","NGC6229","NGC6139","Pyxis","NGC6121","NGC6681","NGC6652","NGC1904","NGC1851","NGC6397","Terzan8","NGC6569","NGC6981","NGC6401","NGC6760","NGC6380","NGC6355","NGC4590","Pal1","NGC6656","ESO28006","NGC6558","Pal10","E1","NGC6712","NGC6752","NGC6453","NGC6864","Eridanus"],
-      "MWsatellitegalaxies": ["AquariusII", "BootesI", "BootesII", "CanesVenaticiI", "CanesVenaticiII", "Carina", "CarinaII", "CarinaIII", "ComaBerenices", "CraterII", "Draco", "DracoII", "Fornax", "GrusI", "Hercules", "HorologiumI", "HydraII", "HydrusI", "LeoI", "LeoII", "LeoIV", "LeoV", "LMC", "PiscesII", "ReticulumII", "Sgr", "Sculptor", "Segue1", "Segue2", "SMC", "Sextans", "TriangulumII", "TucanaII", "TucanaIII", "UrsaMajorI", "UrsaMajorII", "UrsaMinor", "Willman1"]
+      "MWsatellitegalaxies": ["AquariusII", "BootesI", "BootesII", "CanesVenaticiI", "CanesVenaticiII", "Carina", "CarinaII", "CarinaIII", "ComaBerenices", "CraterII", "Draco", "DracoII", "EridanusII", "Fornax", "GrusI", "Hercules", "HorologiumI", "HydraII", "HydrusI", "LeoI", "LeoII", "LeoIV", "LeoV", "LMC", "PhoenixI", "PiscesII", "ReticulumII", "Sgr", "Sculptor", "Segue1", "Segue2", "SMC", "Sextans", "TriangulumII", "TucanaII", "TucanaIII", "UrsaMajorI", "UrsaMajorII", "UrsaMinor", "Willman1"]
     },
   "_synonyms":
     { "OmegaCen": "NGC5139",
@@ -187,6 +187,15 @@
       "vlos": 55.3,
       "source": "arXiv:1805.00908"
     },
+  "EridanusII":
+    { "ra": 56.08375,
+      "dec": -43.533806,
+      "distance": 363.08,
+      "pmra": 0.159,
+      "pmdec": 0.372,
+      "vlos": 75.6,
+      "source": "arXiv:1805.00908"
+    },
   "GrusI":
     { "ra": 344.176,
       "dec": -50.163,
@@ -276,6 +285,15 @@
       "pmdec": 0.234,
       "vlos": 262.2,
       "source": "arXiv:1804:09381"
+    },
+  "PhoenixI":
+    { "ra": 27.77625,
+      "dec": -44.44472,
+      "distance": 418.8,
+      "pmra": 0.079,
+      "pmdec": -0.049,
+      "vlos": -21.2,
+      "source": "arXiv:1805.00908"
     },
   "PiscesII":
     { "ra": 344.634,
