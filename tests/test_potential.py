@@ -1970,6 +1970,26 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
+# Test that the McMillan17 potential is what it's supposed to be
+def test_McMillan17():
+    from galpy.potential.mwpotentials import McMillan17
+    from galpy.util import bovy_conversion
+    ro,vo= McMillan17[0]._ro, McMillan17[0]._vo
+    # Check some numbers from Table 3 of McMillan17: vertical force at the Sun
+    assert numpy.fabs(-potential.evaluatezforces(McMillan17,1.,1.1/8.21,
+                                                 use_physical=False)
+                       *bovy_conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
+    # Halo density at the Sun
+    assert numpy.fabs(potential.evaluateDensities(McMillan17[1],1.,0.,
+                                                  use_physical=False)
+                      *bovy_conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
+    # Halo concentration
+    assert numpy.fabs(McMillan17[1].conc(overdens=94.,wrtcrit=True,H=70.4)-15.4) < 1e-1, 'Halo concentration in McMillan17 does not agree with what it is supposed to be'
+    # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
+    assert numpy.fabs((McMillan17[1].mass(50./8.21,quantity=False))/10.**11.+0.543+0.122-5.1) < 1e-1, 'Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be'
+    return None
+    
+
 # Test that the virial setup of NFW works
 def test_NFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit= 71., 0.32, 201., False
