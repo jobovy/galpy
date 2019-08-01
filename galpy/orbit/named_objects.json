@@ -1,7 +1,7 @@
 {
   "_collections":
     { "MWglobularclusters": ["NGC5286","Terzan12","Arp2","NGC5024","NGC6638","Crater","BH261","NGC6553","NGC6749","NGC6528","NGC4372","NGC2808","IC4499","BH229","NGC6642","NGC6779","NGC6541","NGC6441","Pal4","NGC6341","NGC5694","NGC2298","Ton2","NGC6637","NGC6325","NGC4147","NGC6366","Pal7","NGC5986","NGC5927","Terzan1","NGC4833","Pal8","NGC7078","NGC6517","NGC6284","Pal14","NGC6539","NGC7089","NGC5272","NGC362","NGC6144","NGC6287","E3","NGC6205","NGC6402","FSR1735","Pal3","NGC6256","NGC6342","Djorg2","NGC6093","NGC5139","Terzan5","NGC6333","NGC6934","NGC6101","NGC6171","NGC5466","Pal5","ESO45211","NGC6266","Pal15","Pal13","Terzan2","NGC6540","Terzan4","BH184","NGC5053","NGC6723","FSR1716","BH176","NGC6809","NGC5897","NGC6496","NGC6715","NGC6388","Pal2","NGC1261","NGC6362","Whiting1","NGC6522","NGC6254","NGC6535","NGC6440","NGC6316","NGC5634","NGC7492","Terzan9","NGC6352","Terzan7","Terzan6","NGC6235","NGC5904","NGC6626","IC1257","NGC5946","NGC6717","NGC288","NGC2419","Terzan10","NGC6218","Pal6","NGC6426","NGC6304","NGC6273","NGC6544","NGC6624","NGC6356","Pal12","Djorg1","NGC6293","NGC7006","NGC104","Pal11","NGC5824","Terzan3","NGC6584","NGC3201","Rup106","NGC6838","NGC7099","NGC6229","NGC6139","Pyxis","NGC6121","NGC6681","NGC6652","NGC1904","NGC1851","NGC6397","Terzan8","NGC6569","NGC6981","NGC6401","NGC6760","NGC6380","NGC6355","NGC4590","Pal1","NGC6656","ESO28006","NGC6558","Pal10","E1","NGC6712","NGC6752","NGC6453","NGC6864","Eridanus"],
-      "MWsatellites": ["AquII", "BooI", "BooII", "CVenI", "CVenII", "CarI", "CarII", "CarIII", "CBerI", "CraII", "DraI", "DraII", "GruI", "HerI", "HorI", "HyaII", "HyiI", "LeoI", "LeoII", "LeoIV", "LeoV", "LMC", "PisII", "RetII", "SgrI", "SclI", "Seg1", "Seg2", "SMC", "SxtI", "TriII", "TucII", "TucIII", "UMaI", "UMaII", "UMiI", "Wil1"]
+      "MWsatellites": ["AquariusII", "BootesI", "BootesII", "CanesVenaticiI", "CanesVenaticiII", "Carina", "CarinaII", "CarinaIII", "ComaBerenices", "CraterII", "Draco", "DracoII", "Fornax", "GrusI", "Hercules", "HorologiumI", "HydraII", "HydrusI", "LeoI", "LeoII", "LeoIV", "LeoV", "LMC", "PiscesII", "ReticulumII", "Sgr", "Sculptor", "Segue1", "Segue2", "SMC", "Sextans", "TriangulumII", "TucanaII", "TucanaIII", "UrsaMajorI", "UrsaMajorII", "UrsaMinor", "Willman1"]
     },
   "_synonyms":
     { "OmegaCen": "NGC5139",
@@ -70,7 +70,7 @@
       "solarmotion": [-11.1,24.0,7.25],
       "source": "arXiv:1811.07022"
     },
-  "AquII":
+  "AquariusII":
     { "ra": 338.481,
       "dec": -9.327,
       "distance": 105,
@@ -79,7 +79,7 @@
       "vlos": -71.1,
       "source": "arXiv:1805.00908"
     },
-  "BooI":
+  "BootesI":
     { "ra": 210.015,
       "dec": 14.512,
       "distance": 64,
@@ -88,7 +88,7 @@
       "vlos": 99,
       "source": "arXiv:1805.00908"
     },
-  "BooII":
+  "BootesII":
     { "ra": 209.521,
       "dec": 12.859,
       "distance": 39,
@@ -97,7 +97,7 @@
       "vlos": -117,
       "source": "arXiv:1805.00908"
     },
-  "CVenI":
+  "CanesVenaticiI":
     { "ra": 202.016,
       "dec": 33.559,
       "distance": 211,
@@ -106,7 +106,7 @@
       "vlos": 30.9,
       "source": "arXiv:1805.00908"
     },
-  "CVenII":
+  "CanesVenaticiII":
     { "ra": 194.292,
       "dec": 34.321,
       "distance": 161,
@@ -115,7 +115,7 @@
       "vlos": -128.9,
       "source": "arXiv:1805.00908"
     },
-  "CarI":
+  "Carina":
     { "ra": 100.407,
       "dec": -50.966,
       "distance": 105,
@@ -124,7 +124,7 @@
       "vlos": 229.1,
       "source": "arXiv:1805.00908"
     },
-  "CarII":
+  "CarinaII":
     { "ra": 114.107,
       "dec": -57.999,
       "distance": 37,
@@ -133,7 +133,7 @@
       "vlos": 477.2,
       "source": "arXiv:1805.00908"
     },
-  "CarIII":
+  "CarinaIII":
     { "ra": 114.63,
       "dec": -57.9,
       "distance": 29,
@@ -142,7 +142,7 @@
       "vlos": 284.6,
       "source": "arXiv:1805.00908"
     },
-  "CBerI":
+  "ComaBerenices":
     { "ra": 186.746,
       "dec": 23.908,
       "distance": 42,
@@ -151,7 +151,7 @@
       "vlos": 98.1,
       "source": "arXiv:1805.00908"
     },
-  "CraII":
+  "CraterII":
     { "ra": 177.31,
       "dec": -18.413,
       "distance": 111,
@@ -160,7 +160,7 @@
       "vlos": 87.5,
       "source": "arXiv:1805.00908"
     },
-  "DraI":
+  "Draco":
     { "ra": 260.06,
       "dec": 57.965,
       "distance": 79,
@@ -169,7 +169,7 @@
       "vlos": -291,
       "source": "arXiv:1805.00908"
     },
-  "DraII":
+  "DracoII":
     { "ra": 238.198,
       "dec": 64.565,
       "distance": 24,
@@ -178,7 +178,7 @@
       "vlos": -347.6,
       "source": "arXiv:1805.00908"
     },
-  "FnxI":
+  "Fornax":
     { "ra": 39.962,
       "dec": -34.511,
       "distance": 141,
@@ -187,7 +187,7 @@
       "vlos": 55.3,
       "source": "arXiv:1805.00908"
     },
-  "GruI":
+  "GrusI":
     { "ra": 344.176,
       "dec": -50.163,
       "distance": 116,
@@ -196,7 +196,7 @@
       "vlos": -140.5,
       "source": "arXiv:1805.00908"
     },
-  "HerI":
+  "Hercules":
     { "ra": 247.763,
       "dec": 12.787,
       "distance": 129,
@@ -205,7 +205,7 @@
       "vlos": 45,
       "source": "arXiv:1805.00908"
     },
-  "HorI":
+  "HorologiumI":
     { "ra": 43.882,
       "dec": -54.119,
       "distance": 83,
@@ -214,7 +214,7 @@
       "vlos": 112.8,
       "source": "arXiv:1805.00908"
     },
-  "HyaII":
+  "HydraII":
     { "ra": 185.425,
       "dec": -31.985,
       "distance": 148,
@@ -223,7 +223,7 @@
       "vlos": 303.1,
       "source": "arXiv:1805.00908"
     },
-  "HyiI":
+  "HydrusI":
     { "ra": 37.389,
       "dec": -79.309,
       "distance": 26,
@@ -277,7 +277,7 @@
       "vlos": 262.2,
       "source": "arXiv:1804:09381"
     },
-  "PisII":
+  "PiscesII":
     { "ra": 344.634,
       "dec": 5.955,
       "distance": 182,
@@ -286,7 +286,7 @@
       "vlos": -226.5,
       "source": "arXiv:1805.00908"
     },
-  "RetII":
+  "ReticulumII":
     { "ra": 53.949,
       "dec": -54.047,
       "distance": 33,
@@ -295,7 +295,7 @@
       "vlos": 62.8,
       "source": "arXiv:1805.00908"
     },
-  "SgrI":
+  "Sgr":
     { "ra": 283.8313,
       "dec": -30.5453,
       "distance": 19,
@@ -304,7 +304,7 @@
       "vlos": 140,
       "source": "arXiv:1804.09381"
     },
-  "SclI":
+  "Sculptor":
     { "ra": 15.039,
       "dec": -33.709,
       "distance": 85,
@@ -313,7 +313,7 @@
       "vlos": 111.4,
       "source": "arXiv:1805.00908"
     },
-  "Seg1":
+  "Segue1":
     { "ra": 151.763,
       "dec": 16.074,
       "distance": 28,
@@ -322,7 +322,7 @@
       "vlos": 208.5,
       "source": "arXiv:1805.00908"
     },
-  "Seg2":
+  "Segue2":
     { "ra": 34.817,
       "dec": 20.175,
       "distance": 42,
@@ -331,7 +331,7 @@
       "vlos": -39.2,
       "source": "arXiv:1805.00908"
     },
-  "SxtI":
+  "Sextans":
     { "ra": 153.268,
       "dec": -1.62,
       "distance": 89,
@@ -349,7 +349,7 @@
       "vlos": 145.6,
       "source": "arXiv:1804:09381"
     },
-  "TriII":
+  "TriangulumII":
     { "ra": 33.322,
       "dec": 36.172,
       "distance": 35,
@@ -358,7 +358,7 @@
       "vlos": -381.7,
       "source": "arXiv:1805.00908"
     },
-  "TucII":
+  "TucanaII":
     { "ra": 343.06,
       "dec": -58.57,
       "distance": 54,
@@ -367,7 +367,7 @@
       "vlos": -129.1,
       "source": "arXiv:1805.00908"
     },
-  "TucIII":
+  "TucanaIII":
     { "ra": 359.15,
       "dec": -59.6,
       "distance": 21,
@@ -376,7 +376,7 @@
       "vlos": -102.3,
       "source": "arXiv:1805.00908"
     },
-  "UMaI":
+  "UrsaMajorI":
     { "ra": 158.685,
       "dec": 51.926,
       "distance": 102,
@@ -385,7 +385,7 @@
       "vlos": -55.3,
       "source": "arXiv:1805.00908"
     },
-  "UMaII":
+  "UrsaMajorII":
     { "ra": 132.874,
       "dec": 63.133,
       "distance": 41,
@@ -394,7 +394,7 @@
       "vlos": -116.5,
       "source": "arXiv:1805.00908"
     },
-  "UMiI":
+  "UrsaMinor":
     { "ra": 227.242,
       "dec": 67.222,
       "distance": 78,
@@ -403,7 +403,7 @@
       "vlos": -246.9,
       "source": "arXiv:1805.00908"
     },
-  "Wil1":
+  "Willman1":
     { "ra": 162.341,
       "dec": 51.053,
       "distance": 43,
