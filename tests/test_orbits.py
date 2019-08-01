@@ -3027,7 +3027,7 @@ def test_pickling():
 def test_from_name_values():
     from galpy.orbit import Orbit
     # test Vega and Lacaille 8760 
-    o = Orbit.from_name(['Vega','Lacaille 8760'])
+    o = Orbit.from_name('Vega','Lacaille 8760')
     assert numpy.allclose(o.ra(), [279.23473479,319.31362024]), \
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
