@@ -1,0 +1,69 @@
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:628: RuntimeWarning: divide by zero encountered in true_divide
+  return self._ns * self._N / R / self._sin_alpha
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:636: RuntimeWarning: divide by zero encountered in true_divide
+  HNn_R = self._HNn / R
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:647: RuntimeWarning: divide by zero encountered in true_divide
+  + self._HNn + R * self._sin_alpha) / (0.3 * self._HNn + R * self._sin_alpha)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:632: RuntimeWarning: divide by zero encountered in true_divide
+  return -self._ns * self._N / R**2 / self._sin_alpha
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:642: RuntimeWarning: divide by zero encountered in true_divide
+  return -self._HNn / R**3 / self._sin_alpha**2 * (0.8 * self._HNn + R * self._sin_alpha)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:651: RuntimeWarning: divide by zero encountered in true_divide
+  HNn_R_sina = self._HNn / R / self._sin_alpha
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:653: RuntimeWarning: invalid value encountered in true_divide
+  return HNn_R_sina * (0.3 * (HNn_R_sina + 0.3 * HNn_R_sina**2. + 1) / R / (0.3 * HNn_R_sina + 1)**2
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:654: RuntimeWarning: divide by zero encountered in true_divide
+  - (1/R * (1 + 0.6 * HNn_R_sina) / (0.3 * HNn_R_sina + 1)))
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:654: RuntimeWarning: invalid value encountered in true_divide
+  - (1/R * (1 + 0.6 * HNn_R_sina) / (0.3 * HNn_R_sina + 1)))
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:620: RuntimeWarning: divide by zero encountered in log
+  return self._N * (phi - self._phi_ref - np.log(R / self._r_ref) / self._tan_alpha)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:624: RuntimeWarning: divide by zero encountered in true_divide
+  return -self._N / R / self._tan_alpha
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:181: RuntimeWarning: invalid value encountered in cos
+  cos_ng = np.cos(self._ns * g)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:182: RuntimeWarning: invalid value encountered in sin
+  sin_ng = np.sin(self._ns * g)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:184: RuntimeWarning: invalid value encountered in multiply
+  zKB = z * Ks / Bs
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:187: RuntimeWarning: invalid value encountered in true_divide
+  return -He * np.sum(self._Cs * sechzKB**Bs / Ds * ((self._ns * dg_dR / Ks * sin_ng
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:191: RuntimeWarning: invalid value encountered in true_divide
+  + dDs_dR / Ds / Ks))
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:140: RuntimeWarning: invalid value encountered in cos
+  * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs,axis=0)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:140: RuntimeWarning: invalid value encountered in multiply
+  * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs,axis=0)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:261: RuntimeWarning: invalid value encountered in multiply
+  * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g),axis=0)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:261: RuntimeWarning: invalid value encountered in sin
+  * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g),axis=0)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:392: RuntimeWarning: invalid value encountered in multiply
+  zKB = z * Ks / Bs
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:396: RuntimeWarning: invalid value encountered in true_divide
+  * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs,axis=0)
+
+/usr/local/lib/python3.6/site-packages/galpy-1.5.dev0-py3.6-macosx-10.12-x86_64.egg/galpy/potential/SpiralArmsPotential.py:396: RuntimeWarning: invalid value encountered in cos
+  * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs,axis=0)
+
