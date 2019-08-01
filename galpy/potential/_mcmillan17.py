@@ -31,7 +31,7 @@ class _McMillan17(object):
         try:
             #In Py3 you can just do 'return globals()[name]', but not in Py2
             return self.__globals__[name]
-        except: pass
+        except: raise AttributeError("'module' object has no attribute '{}'".format(name))
 
 __all__= []
 

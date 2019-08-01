@@ -51,7 +51,7 @@ class _ExpensivePotentials(object):
         try:
             #In Py3 you can just do 'return globals()[name]', but not in Py2
             return self.__globals__[name]
-        except: return None
+        except: raise AttributeError("'module' object has no attribute '{}'".format(name))
 
 __all__= ['MWPotential2014']
 
