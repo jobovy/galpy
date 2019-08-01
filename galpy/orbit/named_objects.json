@@ -73,7 +73,7 @@
   "AquariusII":
     { "ra": 338.481,
       "dec": -9.327,
-      "distance": 105,
+      "distance": 107.6,
       "pmra": -0.252,
       "pmdec": 0.011,
       "vlos": -71.1,
@@ -82,7 +82,7 @@
   "BootesI":
     { "ra": 210.015,
       "dec": 14.512,
-      "distance": 64,
+      "distance": 66.37,
       "pmra": -0.554,
       "pmdec": -1.111,
       "vlos": 99,
@@ -91,7 +91,7 @@
   "BootesII":
     { "ra": 209.521,
       "dec": 12.859,
-      "distance": 39,
+      "distance": 41.88,
       "pmra": -2.686,
       "pmdec": -0.53,
       "vlos": -117,
@@ -100,7 +100,7 @@
   "CanesVenaticiI":
     { "ra": 202.016,
       "dec": 33.559,
-      "distance": 211,
+      "distance": 210.9,
       "pmra": -0.159,
       "pmdec": -0.067,
       "vlos": 30.9,
@@ -109,7 +109,7 @@
   "CanesVenaticiII":
     { "ra": 194.292,
       "dec": 34.321,
-      "distance": 161,
+      "distance": 160,
       "pmra": -0.342,
       "pmdec": -0.473,
       "vlos": -128.9,
@@ -118,7 +118,7 @@
   "Carina":
     { "ra": 100.407,
       "dec": -50.966,
-      "distance": 105,
+      "distance": 103.8,
       "pmra": 0.485,
       "pmdec": 0.131,
       "vlos": 229.1,
@@ -127,7 +127,7 @@
   "CarinaII":
     { "ra": 114.107,
       "dec": -57.999,
-      "distance": 37,
+      "distance": 36.14,
       "pmra": 1.867,
       "pmdec": 0.082,
       "vlos": 477.2,
@@ -136,7 +136,7 @@
   "CarinaIII":
     { "ra": 114.63,
       "dec": -57.9,
-      "distance": 29,
+      "distance": 27.8,
       "pmra": 3.046,
       "pmdec": 1.565,
       "vlos": 284.6,
@@ -145,7 +145,7 @@
   "ComaBerenices":
     { "ra": 186.746,
       "dec": 23.908,
-      "distance": 42,
+      "distance": 42.27,
       "pmra": 0.471,
       "pmdec": -1.716,
       "vlos": 98.1,
@@ -154,7 +154,7 @@
   "CraterII":
     { "ra": 177.31,
       "dec": -18.413,
-      "distance": 111,
+      "distance": 112.2,
       "pmra": -0.184,
       "pmdec": -0.106,
       "vlos": 87.5,
@@ -163,7 +163,7 @@
   "Draco":
     { "ra": 260.06,
       "dec": 57.965,
-      "distance": 79,
+      "distance": 79.07,
       "pmra": -0.012,
       "pmdec": -0.158,
       "vlos": -291,
@@ -172,8 +172,8 @@
   "DracoII":
     { "ra": 238.198,
       "dec": 64.565,
-      "distance": 24,
-      "pmra": 1.242,
+      "distance": 21.48,
+      "pmra": 1.242,  
       "pmdec": 0.845,
       "vlos": -347.6,
       "source": "arXiv:1805.00908"
@@ -181,7 +181,7 @@
   "Fornax":
     { "ra": 39.962,
       "dec": -34.511,
-      "distance": 141,
+      "distance": 139.3,
       "pmra": 0.374,
       "pmdec": -0.401,
       "vlos": 55.3,
@@ -190,7 +190,7 @@
   "GrusI":
     { "ra": 344.176,
       "dec": -50.163,
-      "distance": 116,
+      "distance": 120,
       "pmra": -0.261,
       "pmdec": -0.437,
       "vlos": -140.5,
@@ -199,7 +199,7 @@
   "Hercules":
     { "ra": 247.763,
       "dec": 12.787,
-      "distance": 129,
+      "distance": 134.3,
       "pmra": -0.297,
       "pmdec": -0.329,
       "vlos": 45,
@@ -208,7 +208,7 @@
   "HorologiumI":
     { "ra": 43.882,
       "dec": -54.119,
-      "distance": 83,
+      "distance": 83.2,
       "pmra": 0.891,
       "pmdec": -0.55,
       "vlos": 112.8,
@@ -217,7 +217,7 @@
   "HydraII":
     { "ra": 185.425,
       "dec": -31.985,
-      "distance": 148,
+      "distance": 150.7,
       "pmra": -0.416,
       "pmdec": 0.134,
       "vlos": 303.1,
@@ -226,7 +226,7 @@
   "HydrusI":
     { "ra": 37.389,
       "dec": -79.309,
-      "distance": 26,
+      "distance": 27.54,
       "pmra": 3.733,
       "pmdec": -1.605,
       "vlos": 80.4,
@@ -235,7 +235,7 @@
   "LeoI":
     { "ra": 152.122,
       "dec": 12.313,
-      "distance": 273,
+      "distance": 269.2,
       "pmra": -0.086,
       "pmdec": -0.128,
       "vlos": 282.5,
@@ -244,7 +244,7 @@
   "LeoII":
     { "ra": 168.37,
       "dec": 22.152,
-      "distance": 227,
+      "distance": 224.9,
       "pmra": -0.025,
       "pmdec": -0.173,
       "vlos": 78,
@@ -253,7 +253,7 @@
   "LeoIV":
     { "ra": 173.233,
       "dec": -0.54,
-      "distance": 155,
+      "distance": 154.2,
       "pmra": -0.59,
       "pmdec": -0.449,
       "vlos": 132.3,
@@ -262,7 +262,7 @@
   "LeoV":
     { "ra": 172.784,
       "dec": 2.222,
-      "distance": 174,
+      "distance": 173.0,
       "pmra": -0.097,
       "pmdec": -0.628,
       "vlos": 173.3,
@@ -280,7 +280,7 @@
   "PiscesII":
     { "ra": 344.634,
       "dec": 5.955,
-      "distance": 182,
+      "distance": 182.8,
       "pmra": -0.108,
       "pmdec": -0.586,
       "vlos": -226.5,
@@ -289,7 +289,7 @@
   "ReticulumII":
     { "ra": 53.949,
       "dec": -54.047,
-      "distance": 33,
+      "distance": 31.6,
       "pmra": 2.398,
       "pmdec": -1.319,
       "vlos": 62.8,
@@ -298,7 +298,7 @@
   "Sgr":
     { "ra": 283.8313,
       "dec": -30.5453,
-      "distance": 19,
+      "distance": 26.67,
       "pmra": -2.692,
       "pmdec": -1.359,
       "vlos": 140,
@@ -307,7 +307,7 @@
   "Sculptor":
     { "ra": 15.039,
       "dec": -33.709,
-      "distance": 85,
+      "distance": 84.72,
       "pmra": 0.084,
       "pmdec": -0.133,
       "vlos": 111.4,
@@ -316,7 +316,7 @@
   "Segue1":
     { "ra": 151.763,
       "dec": 16.074,
-      "distance": 28,
+      "distance": 22.9,
       "pmra": -1.697,
       "pmdec": -3.501,
       "vlos": 208.5,
@@ -325,7 +325,7 @@
   "Segue2":
     { "ra": 34.817,
       "dec": 20.175,
-      "distance": 42,
+      "distance": 36.3,
       "pmra": 1.656,
       "pmdec": 0.135,
       "vlos": -39.2,
@@ -334,7 +334,7 @@
   "Sextans":
     { "ra": 153.268,
       "dec": -1.62,
-      "distance": 89,
+      "distance": 85.90,
       "pmra": -0.438,
       "pmdec": 0.055,
       "vlos": 224.2,
@@ -352,7 +352,7 @@
   "TriangulumII":
     { "ra": 33.322,
       "dec": 36.172,
-      "distance": 35,
+      "distance": 28.44,
       "pmra": 0.588,
       "pmdec": 0.554,
       "vlos": -381.7,
@@ -361,7 +361,7 @@
   "TucanaII":
     { "ra": 343.06,
       "dec": -58.57,
-      "distance": 54,
+      "distance": 57.5,
       "pmra": 0.91,
       "pmdec": -1.159,
       "vlos": -129.1,
@@ -370,7 +370,7 @@
   "TucanaIII":
     { "ra": 359.15,
       "dec": -59.6,
-      "distance": 21,
+      "distance": 22.9,
       "pmra": -0.025,
       "pmdec": -1.661,
       "vlos": -102.3,
@@ -379,7 +379,7 @@
   "UrsaMajorI":
     { "ra": 158.685,
       "dec": 51.926,
-      "distance": 102,
+      "distance": 97.27,
       "pmra": -0.683,
       "pmdec": -0.72,
       "vlos": -55.3,
@@ -388,7 +388,7 @@
   "UrsaMajorII":
     { "ra": 132.874,
       "dec": 63.133,
-      "distance": 41,
+      "distance": 34.67,
       "pmra": 1.691,
       "pmdec": -1.902,
       "vlos": -116.5,
@@ -397,7 +397,7 @@
   "UrsaMinor":
     { "ra": 227.242,
       "dec": 67.222,
-      "distance": 78,
+      "distance": 75.86,
       "pmra": -0.184,
       "pmdec": 0.082,
       "vlos": -246.9,
@@ -406,7 +406,7 @@
   "Willman1":
     { "ra": 162.341,
       "dec": 51.053,
-      "distance": 43,
+      "distance": 38.02,
       "pmra": 0.199,
       "pmdec": -1.342,
       "vlos": -12.3,
