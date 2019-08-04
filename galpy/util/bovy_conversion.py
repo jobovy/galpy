@@ -471,7 +471,8 @@ def get_physical(obj):
     from ..potential import Force, planarPotential, linearPotential
     try:
         new_obj= flatten_pot(obj)
-    except: pass # hope for the best!
+    except: # pragma: no cover 
+        pass # hope for the best!
     else: # only apply flattening for potentials
         if isinstance(new_obj,(Force,planarPotential,linearPotential)) \
            or (isinstance(new_obj,list) and len(new_obj) > 0 \
