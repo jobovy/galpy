@@ -443,6 +443,45 @@ def velocity_in_kpcGyr(vo,ro):
     """
     return vo*_kmsInPcMyr
 
+def get_physical(obj):
+    """
+    NAME:
+
+       get_physical
+
+    PURPOSE:
+
+       return the velocity and length units for converting between physical and internal units as a dictionary for any galpy object, so they can easily be fed to galpy routines
+
+    INPUT:
+
+       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+    OUTPUT:
+
+       Dictionary {'ro':length unit in kpc,'vo':velocity unit in km/s}; note that this routine will *always* return these conversion units, even if the obj you provide does not have units turned on
+
+    HISTORY:
+
+       2019-08-03 - Written - Bovy (UofT)
+
+    """
+    # Try flattening the object in case it's a nested list of Potentials
+    from ..potential import flatten as flatten_pot
+    from ..potential import Force, planarPotential, linearPotential
+    try:
+        new_obj= flatten_pot(obj)
+    except: pass # hope for the best!
+    else: # only apply flattening for potentials
+        if isinstance(new_obj,(Force,planarPotential,linearPotential)) \
+           or (isinstance(new_obj,list) and len(new_obj) > 0 \
+           and isinstance(new_obj[0],(Force,planarPotential,linearPotential))):
+            obj= new_obj
+    if isinstance(obj,list):
+        return {'ro':obj[0]._ro,'vo':obj[0]._vo}
+    else:
+        return {'ro':obj._ro,'vo':obj._vo}       
+
 #Decorator to apply these transformations
 def print_physical_warning():
     warnings.warn("The behavior of Orbit member functions has changed in versions > 0.1 to return positions in kpc, velocities in km/s, energies and the Jacobi integral in (km/s)^2, the angular momentum o.L() and actions in km/s kpc, frequencies in 1/Gyr, and times and periods in Gyr if a distance and velocity scale was specified upon Orbit initialization with ro=...,vo=...; you can turn this off by specifying use_physical=False when calling the function (e.g., o=Orbit(...); o.R(use_physical=False)",
