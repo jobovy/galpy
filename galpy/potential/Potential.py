@@ -2891,7 +2891,7 @@ def nemo_accpars(Pot,vo,ro):
     else: #pragma: no cover 
         raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
     
-def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None):
+def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None): # pragma: no cover
     """
     NAME:
     
