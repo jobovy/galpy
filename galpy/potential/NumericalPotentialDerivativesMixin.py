@@ -10,9 +10,11 @@ class NumericalPotentialDerivativesMixin(object):
     def _Rforce(self,R,z,phi=0.,t=0.):
         # Do forward difference because R cannot be negative
         RplusdR= R+self._dR
-        dR= RplusdR-R
-        return (self._evaluate(R,z,phi=phi,t=t)
-                   -self._evaluate(RplusdR,z,phi=phi,t=t))/dR
+        Rplus2dR= R+2.*self._dR
+        dR= (Rplus2dR-R)/2.
+        return (1.5*self._evaluate(R,z,phi=phi,t=t)
+                   -2.*self._evaluate(RplusdR,z,phi=phi,t=t)
+                   +0.5*self._evaluate(Rplus2dR,z,phi=phi,t=t))/dR
 
     def _zforce(self,R,z,phi=0.,t=0.):
         # Central difference to get derivative at z=0 right
