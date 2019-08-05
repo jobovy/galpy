@@ -2,7 +2,16 @@
 #   NumericalPotentialDerivativesMixin: helper class to add numerical derivs
 ###############################################################################
 class NumericalPotentialDerivativesMixin(object):
-    def __init__(self,*args,**kwargs):
+    """Mixin to add numerical derivatives to a Potential class, use as, e.g.,
+
+    class myPotential(SCFPotential,NumericalPotentialDerivativesMixin):
+        def __init__(self,*args,**kwargs):
+            NumericalPotentialDerivativesMixin.__init__(self,kwargs) # *not* **kwargs!
+            # Remainder of initialization
+            ....
+
+    to add numerical derivatives to the SCFPotential class (which at the time of writing does not have second derivatives, so adding the Mixin makes them numerical)"""
+    def __init__(self,kwargs): # no **kwargs to get a reference, not a copy!
         # For first derivatives
         self._dR= kwargs.pop('dR',1e-8)
         self._dphi= kwargs.pop('dphi',1e-8)
