@@ -76,5 +76,36 @@ class NumericalPotentialDerivativesMixin(object):
         return (self._evaluate(R,z,phi=phiplusdphi,t=t)
                    +self._evaluate(R,z,phi=phiminusdphi,t=t)
                    -2.*self._evaluate(R,z,phi=phi,t=t))/dphi**2.
+       
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        # Do forward difference in R because R cannot be negative
+        RplusdR= R+self._dR2
+        Rplus2dR= R+2.*self._dR2
+        dR= (Rplus2dR-R)/2.
+        zplusdz= z+self._dz2
+        zminusdz= z-self._dz2
+        dz= zplusdz-zminusdz
+        return (-1.5*self._evaluate(R,zplusdz,phi=phi,t=t)
+                   +2.*self._evaluate(RplusdR,zplusdz,phi=phi,t=t)
+                   -0.5*self._evaluate(Rplus2dR,zplusdz,phi=phi,t=t)
+                   +1.5*self._evaluate(R,zminusdz,phi=phi,t=t)
+                   -2.*self._evaluate(RplusdR,zminusdz,phi=phi,t=t)
+                   +0.5*self._evaluate(Rplus2dR,zminusdz,phi=phi,t=t))/dR/dz
 
-        
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        if not self.isNonAxi: return 0.
+        # Do forward difference in R because R cannot be negative
+        RplusdR= R+self._dR2
+        Rplus2dR= R+2.*self._dR2
+        dR= (Rplus2dR-R)/2.
+        phiplusdphi= phi+self._dphi2
+        phiminusdphi= phi-self._dphi2
+        dphi= phiplusdphi-phiminusdphi
+        return (-1.5*self._evaluate(R,z,phi=phiplusdphi,t=t)
+                   +2.*self._evaluate(RplusdR,z,phi=phiplusdphi,t=t)
+                   -0.5*self._evaluate(Rplus2dR,z,phi=phiplusdphi,t=t)
+                   +1.5*self._evaluate(R,z,phi=phiminusdphi,t=t)
+                   -2.*self._evaluate(RplusdR,z,phi=phiminusdphi,t=t)
+                   +0.5*self._evaluate(Rplus2dR,z,phi=phiminusdphi,t=t))\
+                   /dR/dphi
+
