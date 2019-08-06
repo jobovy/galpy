@@ -23,8 +23,10 @@ import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import bovy_coords
-from galpy.util.bovy_conversion import velocity_in_kpcGyr, \
-    physical_conversion, potential_physical_input, freq_in_Gyr
+from ..util.bovy_conversion import velocity_in_kpcGyr, \
+    physical_conversion, potential_physical_input, freq_in_Gyr, \
+    get_physical
+from ..util import config
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
 from .DissipativeForce import DissipativeForce, _isDissipative
@@ -2889,6 +2891,48 @@ def nemo_accpars(Pot,vo,ro):
     else: #pragma: no cover 
         raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
     
+def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None): # pragma: no cover
+    """
+    NAME:
+    
+       to_amuse
+
+    PURPOSE:
+
+       Return an AMUSE representation of a galpy Potential or list of Potentials
+
+    INPUT:
+
+       Pot - Potential instance or list of such instances
+
+       t= (0.) Initial time in AMUSE (can be in internal galpy units, astropy units, or AMUSE units)
+
+       tgalpy= (0.) Initial time in galpy (can be in internal galpy units, astropy units, or AMUSE units); because AMUSE initial times have to be positive, this is useful to set if the initial time in galpy is negative
+
+       ro= (default taken from Pot) length unit in kpc
+
+       vo= (default taken from Pot) velocity unit in km/s       
+
+    OUTPUT:
+
+       AMUSE representation of Pot
+
+    HISTORY:
+
+       2018-08-04 - Written - Bovy (UofT)
+
+    """
+    try:
+        from . import amuse
+    except ImportError:
+        raise ImportError("To obtain an AMUSE representation of a galpy potential, you need to have AMUSE installed")
+    Pot= flatten(Pot)
+    if ro is None or vo is None:
+        physical_dict= get_physical(Pot)
+        if ro is None: ro= physical_dict.get('ro')
+        if vo is None: vo= physical_dict.get('vo')
+    return amuse.galpy_profile(Pot,t=t,tgalpy=tgalpy,ro=ro,vo=vo)
+
 def turn_physical_off(Pot):
     """
     NAME:
