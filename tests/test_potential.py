@@ -2986,6 +2986,61 @@ def test_ttensor_nonaxi():
         dummy= potential.ttensor(lp,1.,0.,0.)
     return None
 
+def test_NumericalPotentialDerivativesMixin():
+    # Test that the NumericalPotentialDerivativesMixin works as expected
+    def get_mixin_first_instance(cls,*args,**kwargs):
+        # Function to return instance of a class for Potential cls where
+        # the NumericalPotentialDerivativesMixin comes first, so all derivs
+        # are numerical (should otherwise always be used second!)
+        class NumericalPot(potential.NumericalPotentialDerivativesMixin,cls):
+            def __init__(self,*args,**kwargs):
+                potential.NumericalPotentialDerivativesMixin.__init__(self,
+                                                                      kwargs)
+                cls.__init__(self,*args,**kwargs)
+        return NumericalPot(*args,**kwargs)
+    # Function to check all numerical derivatives
+    def check_numerical_derivs(Pot,NumPot,tol=1e-6,tol2=1e-5):
+        # tol: tolerance for forces, tol2: tolerance for 2nd derivatives
+        # Check wide range of R,z,phi
+        Rs= numpy.array([0.5,1.,2.])
+        Zs= numpy.array([0.,.125,-.125,0.25,-0.25])
+        phis= numpy.array([0.,0.5,-0.5,1.,-1.,
+                           numpy.pi,0.5+numpy.pi,
+                           1.+numpy.pi])
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                for kk in range(len(phis)):
+                    # Forces
+                    assert numpy.fabs((Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.zforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct zforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phiforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phiforce'.format(Pot.__class__.__name__)
+                    # Second derivatives
+                    assert numpy.fabs((Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct R2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct z2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phi2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rzderiv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rphideriv'.format(Pot.__class__.__name__)
+        return None
+    # Now check some potentials
+    # potential.MiyamotoNagaiPotential
+    mp= potential.MiyamotoNagaiPotential(amp=1.,a=0.5,b=0.05)
+    num_mp= get_mixin_first_instance(potential.MiyamotoNagaiPotential,
+                                     amp=1.,a=0.5,b=0.05)
+    check_numerical_derivs(mp,num_mp)
+    # potential.DehnenBarPotential
+    dp= potential.DehnenBarPotential()
+    num_dp= get_mixin_first_instance(potential.DehnenBarPotential)
+    check_numerical_derivs(dp,num_dp)
+    return None
+
 # Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
 def test_scf_tupleindexwarning():
     import warnings
