@@ -13,8 +13,10 @@ from scipy.special import gammaln
 
 import hashlib
 
+from .NumericalPotentialDerivativesMixin import \
+    NumericalPotentialDerivativesMixin
 
-class SCFPotential(Potential):
+class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential. 
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
@@ -79,6 +81,7 @@ class SCFPotential(Potential):
 
            2016-05-13 - Written - Aladdin 
         """        
+        NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
