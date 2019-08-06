@@ -44,6 +44,7 @@ def _setup_mcmillan17():
     from galpy.potential import DiskSCFPotential
     from galpy.potential import SCFPotential
     from galpy.potential import scf_compute_coeffs_axi
+    from galpy.potential import NumericalPotentialDerivativesMixin
     from galpy.util import bovy_conversion
     # Suppress the numpy floating-point warnings that this code generates...
     old_error_settings= numpy.seterr(all='ignore')
@@ -109,11 +110,23 @@ def _setup_mcmillan17():
               {'type':'exp', 'h':zd_thin},
               {'type':'exp', 'h':zd_thick}]
 
+    # SCF and DiskSCF classes with numerical 2nd derivatives
+    class SCFPotentialwNumericalSecondDerivatives(\
+        SCFPotential,NumericalPotentialDerivativesMixin):
+        def __init__(self,*args,**kwargs):
+            NumericalPotentialDerivativesMixin.__init__(self,kwargs)
+            SCFPotential.__init__(self,*args,**kwargs)
+    class DiskSCFPotentialwNumericalSecondDerivatives(\
+        DiskSCFPotential,NumericalPotentialDerivativesMixin):
+        def __init__(self,*args,**kwargs):
+            NumericalPotentialDerivativesMixin.__init__(self,kwargs)
+            DiskSCFPotential.__init__(self,*args,**kwargs)
+
     #generate separate disk and halo potential - and combined potential
-    McMillan_bulge=\
-        SCFPotential(Acos=scf_compute_coeffs_axi(bulge_dens,20,10,a=0.1)[0],
-                     a=0.1,ro=ro,vo=vo)
-    McMillan_disk= DiskSCFPotential(\
+    McMillan_bulge= SCFPotentialwNumericalSecondDerivatives(\
+        Acos=scf_compute_coeffs_axi(bulge_dens,20,10,a=0.1)[0],
+        a=0.1,ro=ro,vo=vo)
+    McMillan_disk= DiskSCFPotentialwNumericalSecondDerivatives(\
         dens=lambda R,z: gas_dens(R,z)+stellar_dens(R,z),
         Sigma=sigmadict,hz=hzdict,a=2.5,N=30,L=30,ro=ro,vo=vo)
     McMillan_halo= NFWPotential(amp=rho0_halo*(4*numpy.pi*rh**3),
