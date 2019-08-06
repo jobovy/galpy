@@ -336,7 +336,6 @@ def test_2ndDeriv_potential():
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -557,7 +556,6 @@ def test_poisson_potential():
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -662,7 +660,6 @@ def test_poisson_surfdens_potential():
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential') # R2deriv not implemented for |Z| > 0
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -1085,28 +1082,28 @@ def test_potential_array_input():
         assert numpy.all(numpy.fabs(tp.phiforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
             '{} zforce evaluation does not work as expected for array inputs'.format(p)
         #R2deriv
-        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_R2deriv'):
             tpevals= numpy.array([tp.R2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.R2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} R2deriv evaluation does not work as expected for array inputs'.format(p)
         #z2deriv
-        if hasattr(tp,'_z2deriv') and not p == 'DiskSCFPotential' \
+        if hasattr(tp,'_z2deriv') \
                 and not p == 'TwoPowerSphericalPotential': # latter bc done through R2deriv
             tpevals= numpy.array([tp.z2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.z2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} z2deriv evaluation does not work as expected for array inputs'.format(p)
         #phi2deriv
-        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_R2deriv'):
             tpevals= numpy.array([tp.phi2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.phi2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} phi2deriv evaluation does not work as expected for array inputs'.format(p)
         #Rzderiv
-        if hasattr(tp,'_Rzderiv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_Rzderiv'):
             tpevals= numpy.array([tp.Rzderiv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.Rzderiv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} Rzderiv evaluation does not work as expected for array inputs'.format(p)
         #Rphideriv
-        if hasattr(tp,'_Rphideriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_Rphideriv'):
             tpevals= numpy.array([tp.Rphideriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.Rphideriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} Rphideriv evaluation does not work as expected for array inputs'.format(p)
