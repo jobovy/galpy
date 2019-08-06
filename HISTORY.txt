@@ -68,6 +68,11 @@ v1.5 (????-??-??)
 - Add Python and C implementation of Dormand-Prince 8(5,3) integrator
   (#363 by Henry Leung)
 
+- Added function galpy.util.bovy_conversion.get_physical to obtain the
+  ro and vo parameters describing the conversion between physical and
+  internal units as a dictionary. This works for any galpy object or
+  lists of such objects.
+
 - Improved efficiency of requesting an integrated orbit at the exact
   times at which it was integrated (~10x faster now).
 
