@@ -354,103 +354,103 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         return self._scf.phiforce(R,z,phi=phi,use_physical=False)
 
-    def _R2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
-        raise AttributeError
-        # Implementation above does not work bc SCF.R2deriv is not implemented
-        r= numpy.sqrt(R**2.+z**2.)
-        out= self._scf.R2deriv(R,z,phi=phi,use_physical=False)
-        for a,ds,d2s,H in zip(self._Sigma_amp,self._dSigmadR,self._d2SigmadR2,
-                              self._Hz):
-            out+= 4.*numpy.pi*a*H(z)/r**2.*(d2s(r)*R**2.+z**2./r*ds(r))
-        return out
-        
-    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
-        raise AttributeError
-        # Implementation above does not work bc SCF.z2deriv is not implemented
-        r= numpy.sqrt(R**2.+z**2.)
-        out= self._scf.z2deriv(R,z,phi=phi,use_physical=False)
-        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,
-                                   self._Sigma,self._dSigmadR,self._d2SigmadR2,
-                                   self._hz,self._Hz,self._dHzdz):
-            out+= 4.*numpy.pi*a*(H(z)/r**2.*(d2s(r)*z**2.+ds(r)*R**2./r)
-                                 +2.*ds(r)*dH(z)*z/r+s(r)*h(z))
-        return out
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.): #pragma: no cover
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
-        raise AttributeError
-        # Implementation above does not work bc SCF.Rzderiv is not implemented
-        r= numpy.sqrt(R**2.+z**2.)
-        out= self._scf.Rzderiv(R,z,phi=phi,use_physical=False)
-        for a,ds,d2s,H,dH in zip(self._Sigma_amp,self._dsigmadR,
-                                 self._d2SigmadR2,self._Hz,self._dHzdz):
-            out+= 4.*numpy.pi*a*(H(z)*R*z/r**2.*(d2s(r)-ds(r)/r)
-                                 +ds(r)*dH(z)*R/r)
-        return out
-        
-    def _phi2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
-        raise AttributeError
-        # Implementation above does not work bc SCF.phi2deriv is not implemented
-        return self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
+#    def _R2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
+#        """
+#        NAME:
+#           _R2deriv
+#        PURPOSE:
+#           evaluate the second radial derivative for this potential
+#        INPUT:
+#           R - Galactocentric cylindrical radius
+#           z - vertical height
+#           phi - azimuth
+#           t - time
+#        OUTPUT:
+#           the second radial derivative
+#        HISTORY:
+#           2016-12-26 - Written - Bovy (UofT/CCA)
+#        """
+#        raise AttributeError
+#        # Implementation above does not work bc SCF.R2deriv is not implemented
+#        r= numpy.sqrt(R**2.+z**2.)
+#        out= self._scf.R2deriv(R,z,phi=phi,use_physical=False)
+#        for a,ds,d2s,H in zip(self._Sigma_amp,self._dSigmadR,self._d2SigmadR2,
+#                              self._Hz):
+#            out+= 4.*numpy.pi*a*H(z)/r**2.*(d2s(r)*R**2.+z**2./r*ds(r))
+#        return out
+#        
+#    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
+#        """
+#        NAME:
+#           _z2deriv
+#        PURPOSE:
+#           evaluate the second vertical derivative for this potential
+#        INPUT:
+#           R - Galactocentric cylindrical radius
+#           z - vertical height
+#           phi - azimuth
+#           t - time
+#        OUTPUT:
+#           the second vertical derivative
+#        HISTORY:
+#           2016-12-26 - Written - Bovy (UofT/CCA)
+#        """
+#        raise AttributeError
+#        # Implementation above does not work bc SCF.z2deriv is not implemented
+#        r= numpy.sqrt(R**2.+z**2.)
+#        out= self._scf.z2deriv(R,z,phi=phi,use_physical=False)
+#        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,
+#                                   self._Sigma,self._dSigmadR,self._d2SigmadR2,
+#                                   self._hz,self._Hz,self._dHzdz):
+#            out+= 4.*numpy.pi*a*(H(z)/r**2.*(d2s(r)*z**2.+ds(r)*R**2./r)
+#                                 +2.*ds(r)*dH(z)*z/r+s(r)*h(z))
+#        return out
+#
+#    def _Rzderiv(self,R,z,phi=0.,t=0.): #pragma: no cover
+#        """
+#        NAME:
+#           _Rzderiv
+#        PURPOSE:
+#           evaluate the mixed R,z derivative for this potential
+#        INPUT:
+#           R - Galactocentric cylindrical radius
+#           z - vertical height
+#           phi - azimuth
+#           t - time
+#        OUTPUT:
+#           d2phi/dR/dz
+#        HISTORY:
+#           2016-12-26 - Written - Bovy (UofT/CCA)
+#        """
+#        raise AttributeError
+#        # Implementation above does not work bc SCF.Rzderiv is not implemented
+#        r= numpy.sqrt(R**2.+z**2.)
+#        out= self._scf.Rzderiv(R,z,phi=phi,use_physical=False)
+#        for a,ds,d2s,H,dH in zip(self._Sigma_amp,self._dsigmadR,
+#                                 self._d2SigmadR2,self._Hz,self._dHzdz):
+#            out+= 4.*numpy.pi*a*(H(z)*R*z/r**2.*(d2s(r)-ds(r)/r)
+#                                 +ds(r)*dH(z)*R/r)
+#        return out
+#        
+#    def _phi2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
+#        """
+#        NAME:
+#           _phi2deriv
+#        PURPOSE:
+#           evaluate the second azimuthal derivative for this potential
+#        INPUT:
+#           R - Galactocentric cylindrical radius
+#           z - vertical height
+#           phi - azimuth
+#           t - time
+#        OUTPUT:
+#           the second azimuthal derivative
+#        HISTORY:
+#           2016-12-26 - Written - Bovy (UofT/CCA)
+#        """
+#        raise AttributeError
+#        # Implementation above does not work bc SCF.phi2deriv is not implemented
+#        return self._scf.phi2deriv(R,z,phi=phi,use_physical=False)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
