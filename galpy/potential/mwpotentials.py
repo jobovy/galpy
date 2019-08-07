@@ -21,7 +21,8 @@ MWPotential2014= [PowerSphericalPotentialwCutoff(normalize=0.05,alpha=1.8,
                   MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=0.6),
                   NFWPotential(a=2.,normalize=0.35)]
 # Following class allows potentials that are expensive to setup to be 
-# lazily-loaded (see _mcmillan17.py)
+# lazily-loaded 
+# (see https://stackoverflow.com/questions/1462986/lazy-module-variables-can-it-be-done)
 def _setup_globals(): # this func necessary to transfer *all* globals in Py2
     out= copy.copy(globals())
     out['__path__']= [os.path.dirname(__file__)]
