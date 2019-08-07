@@ -559,7 +559,7 @@ class Orbit(object):
 
         INPUT:
 
-            name - the name of the object or list of names
+            name - the name of the object or list of names; when loading a collection of objects (like 'mwglobularclusters'), lists are not allowed
 
             +standard Orbit initialization keywords:
 
@@ -598,6 +598,8 @@ class Orbit(object):
                          dtype='object')
         if len(args) > 1:
             name= [n for n in args]
+        elif isinstance(args[0],list):
+            name= args[0]
         else:
             this_name= _named_objects_key_formatting(args[0])
             if this_name in _known_objects['_collections'].keys():
