@@ -1988,7 +1988,8 @@ def test_McMillan17():
     
 # Test that the Irrgang13 potentials are what they are supposed to be
 def test_Irrgang13():
-    from galpy.potential.mwpotentials import Irrgang13I, Irrgang13II
+    from galpy.potential.mwpotentials import Irrgang13I, Irrgang13II, \
+        Irrgang13III
     # Model I
     ro,vo= Irrgang13I[0]._ro, Irrgang13I[0]._vo
     # Check some numbers from Table 1 of Irrgang13: circular velocity at the Sun
@@ -2022,6 +2023,21 @@ def test_Irrgang13():
     assert numpy.fabs(0.5*(potential.vcirc(Irrgang13II,1.,use_physical=False)-potential.dvcircdR(Irrgang13II,1.,use_physical=False))*vo/ro-15.11) < 1e-1, 'Oort A in Irrgang13II does not agree with what it should be'
     # Oort B
     assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13II,1.,use_physical=False)+potential.dvcircdR(Irrgang13II,1.,use_physical=False))*vo/ro+13.68) < 1e-1, 'Oort B in Irrgang13II does not agree with what it should be'
+
+    # Model III
+    ro,vo= Irrgang13III[0]._ro, Irrgang13III[0]._vo
+    # Check some numbers from Table 3 of Irrgang13: circular velocity at the Sun
+    assert numpy.fabs(potential.vcirc(Irrgang13III,1.,quantity=False)-239.7) < 3e-2, 'Circular velocity at the Sun in Irrgang13III does not agree with what it should be'
+    # Mass of the bulge
+    assert numpy.fabs(Irrgang13III[0].mass(100.,quantity=False)/1e9-10.2) < 1e-1, 'Mass of the bulge in Irrgang13III does not agree with what it should be'
+    # Mass of the disk
+    assert numpy.fabs(Irrgang13III[1].mass(100.,10.,quantity=False)/1e10-7.2) < 1e-1, 'Mass of the disk in Irrgang13III does not agree with what it should be'
+    # Escape velocity at the Sun
+    assert numpy.fabs(potential.vesc(Irrgang13III,1.,quantity=False)-811.5) < 1e0, 'Escape velocity at the Sun in Irrgang13III does not agree with what it should be'
+    # Oort A
+    assert numpy.fabs(0.5*(potential.vcirc(Irrgang13III,1.,use_physical=False)-potential.dvcircdR(Irrgang13III,1.,use_physical=False))*vo/ro-14.70) < 1e-1, 'Oort A in Irrgang13III does not agree with what it should be'
+    # Oort B
+    assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13III,1.,use_physical=False)+potential.dvcircdR(Irrgang13III,1.,use_physical=False))*vo/ro+14.08) < 1e-1, 'Oort B in Irrgang13III does not agree with what it should be'
     return None
     
 # Test that the virial setup of NFW works
