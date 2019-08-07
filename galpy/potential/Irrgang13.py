@@ -1,0 +1,36 @@
+# Milky-Way mass models from Irrgang et al. (2013)
+import numpy
+from ..potential import PlummerPotential
+from ..potential import MiyamotoNagaiPotential
+from ..potential import SCFPotential
+from ..potential import scf_compute_coeffs_spherical
+from ..util import bovy_conversion
+# Their mass unit
+mgal_in_msun= 1e5/bovy_conversion._G
+# Model I: updated version of Allen & Santillan
+# Unit normalizations
+ro, vo= 8.4, 242.
+Irrgang13I_bulge= PlummerPotential(\
+    amp=409.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    b=0.23/ro,ro=ro,vo=vo)
+Irrgang13I_disk= MiyamotoNagaiPotential(\
+    amp=2856.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    a=4.22/ro,b=0.292/ro,ro=ro,vo=vo)
+# The halo is a little more difficult, because the Irrgang13I halo model is 
+# not in galpy, so we use SCF to represent it (because we're lazy...). The 
+# sharp cut-off in the Irrgang13I halo model makes SCF difficult, so we 
+# replace it with a smooth cut-off; this only affects the very outer halo
+def Irrgang13I_halo_dens(\
+    r,amp=1018*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    ah=2.562/ro,gamma=2.,Lambda=200./ro):
+    r_over_ah_gamma= (r/ah)**(gamma-1.)
+    return amp/4./numpy.pi/ah*r_over_ah_gamma*(r_over_ah_gamma+gamma)/r**2\
+        /(1.+r_over_ah_gamma)**2.\
+        *((1.-numpy.tanh((r-Lambda)/(Lambda/20.)))/2.)
+a_for_scf= 20.
+# scf_compute_coeffs_spherical currently seems to require a function of 3 parameters...
+Acos= scf_compute_coeffs_spherical(\
+    lambda r,z,p: Irrgang13I_halo_dens(r),40,a=a_for_scf)[0]
+Irrgang13I_halo= SCFPotential(Acos=Acos,a=a_for_scf,ro=ro,vo=vo)
+# Final model I
+Irrgang13I= Irrgang13I_bulge+Irrgang13I_disk+Irrgang13I_halo
