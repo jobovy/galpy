@@ -18,7 +18,7 @@ class _McMillan17(object):
         return None
 
     # For tab completion
-    def __dir__(self):
+    def __dir__(self): # pragma: no cover
         return ['McMillan17']
 
     @property
@@ -31,7 +31,8 @@ class _McMillan17(object):
         try:
             #In Py3 you can just do 'return globals()[name]', but not in Py2
             return self.__globals__[name]
-        except: raise AttributeError("'module' object has no attribute '{}'".format(name))
+        except: # pragma: no cover
+            raise AttributeError("'module' object has no attribute '{}'".format(name))
 
 __all__= []
 
