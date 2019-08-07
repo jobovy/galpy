@@ -3032,8 +3032,8 @@ def test_interpolation_issue187():
     postWrapInterpolate=\
         interpolate.InterpolatedUnivariateSpline(ts[phaseWrapIndx:phaseWrapIndx+10],
                                                  orbpts[phaseWrapIndx:phaseWrapIndx+10,5])
-    assert numpy.all(numpy.fabs((preWrapInterpolate(tsPreWrap) % (2.*numpy.pi))-orb.phi(tsPreWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
-    assert numpy.all(numpy.fabs((postWrapInterpolate(tsPostWrap) % (2.*numpy.pi))-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    assert numpy.all(numpy.fabs((((preWrapInterpolate(tsPreWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi))-orb.phi(tsPreWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    assert numpy.all(numpy.fabs((((postWrapInterpolate(tsPostWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi))-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
     return None
 
 # Test that fitting an orbit works
@@ -4662,19 +4662,34 @@ def test_from_name_values():
 
     # test LMC
     o = Orbit.from_name('LMC')
-    assert numpy.isclose(o.ra(), 80.89416666666666), \
-        "RA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.dec(), -69.75611111111111), \
-        "DEC of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.ra(), 78.77), \
+        "RA of LMC does not match value on file"
+    assert numpy.isclose(o.dec(), -69.01), \
+        "DEC of LMC does not match value on file"
     # Remove distance for now, because SIMBAD has the wrong distance (100 Mpc)
-    #assert numpy.isclose(o.dist(), 50.0), \
-    #    "Parallax of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), 1.91), \
-        "PMRA of LMC does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), 0.229), \
-        "PMDec of LMC does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 50.1), \
+       "Parallax of LMC does not match value on file"
+    assert numpy.isclose(o.pmra(), 1.850), \
+        "PMRA of LMC does not match value on file"
+    assert numpy.isclose(o.pmdec(), 0.234), \
+        "PMDec of LMC does not match value on file"
     assert numpy.isclose(o.vlos(), 262.2), \
-        "radial velocity of LMC does not match SIMBAD value"
+        "radial velocity of LMC does not match value on file"
+
+    # test a distant hypervelocity star
+    o = Orbit.from_name('[BGK2006] HV 5')
+    assert numpy.isclose(o.ra(), 139.498), \
+        "RA of [BGK2006] HV 5 does not match value on file"
+    assert numpy.isclose(o.dec(), 67.377), \
+        "DEC of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.dist(), 55.), \
+        "Parallax of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.pmra(), -0.023), \
+        "PMRA of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.pmdec(), -1.179), \
+        "PMDec of [BGK2006] HV 5 does not match SIMBAD value"
+    assert numpy.isclose(o.vlos(), 553.), \
+        "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"
 
 def test_from_name_errors():
     from galpy.orbit import Orbit
@@ -4711,6 +4726,8 @@ def test_from_name_named():
                 galpy.orbit.__file__)),'named_objects.json')
     with open(named_objects_file,'r') as json_file:
         named_data= json.load(json_file)
+    del named_data['_collections']
+    del named_data['_synonyms']
     for obj in named_data:
         o= Orbit.from_name(obj)
         for attr in named_data[obj]:
@@ -4726,6 +4743,35 @@ def test_from_name_named():
                                      named_data[obj][attr])
     return None    
 
+def test_from_name_collections():
+    # Test that the values from the JSON file are correctly transferred, 
+    # for collections of objects
+    from galpy.orbit import Orbit
+    from galpy.orbit.Orbits import _known_objects_collections_original_keys
+    import galpy.orbit
+    # Read the JSON file
+    import os
+    import json
+    named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
+                galpy.orbit.__file__)),'named_objects.json')
+    with open(named_objects_file,'r') as json_file:
+        named_data= json.load(json_file)
+    for obj in _known_objects_collections_original_keys:
+        o= Orbit.from_name(obj)
+        for ii,individual_obj in enumerate(named_data['_collections'][obj]):
+            for attr in named_data[individual_obj]:
+                if 'source' in attr: continue
+                if attr == 'ro' or attr == 'vo' or attr == 'zo' \
+                        or attr == 'solarmotion':
+                    continue # don't test these here
+                elif attr == 'distance':
+                    assert numpy.isclose(o.dist()[ii],
+                                         named_data[individual_obj][attr])
+                else:
+                    assert numpy.isclose(getattr(o,'{:s}'.format(attr))()[ii],
+                                         named_data[individual_obj][attr])
+    return None    
+
 def test_rguiding_errors():
     from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
@@ -4739,6 +4785,25 @@ def test_rguiding_errors():
     with pytest.raises(RuntimeError) as excinfo:
         o.rguiding(pot=np)
     return None
+
+def test_phi_range():
+    # Test that the range returned by Orbit.phi is [-pi,pi], 
+    # example from Jeremy Webb
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    o=Orbit()
+    ts= numpy.linspace(0.0,-30,5000)
+    o.integrate(ts,MWPotential2014)
+    assert numpy.all(o.phi(ts) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(ts) >= -numpy.pi), 'o.phi does not return values >= pi'
+    assert numpy.all(o.phi(ts[::-1]) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(ts[::-1]) >= -numpy.pi), 'o.phi does not return values >= pi'
+    # Also really interpolated
+    its= numpy.linspace(0.0,-30,5001)
+    assert numpy.all(o.phi(its) <= numpy.pi), 'o.phi does not return values <= pi'
+    assert numpy.all(o.phi(its) >= -numpy.pi), 'o.phi does not return values >= pi'
+    return None
+
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):

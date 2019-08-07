@@ -5,12 +5,10 @@
 #  https://arxiv.org/abs/astro-ph/0207635
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
-#  NOTE: Methods do not take array inputs.
 ###############################################################################
 
 from __future__ import division
-from .Potential import Potential, _APY_LOADED, \
-    check_potential_inputs_not_arrays
+from .Potential import Potential, _APY_LOADED
 from galpy.util import bovy_conversion
 import numpy as np
 
@@ -98,17 +96,17 @@ class SpiralArmsPotential(Potential):
         self._phi_ref = phi_ref
         self._Rs = Rs
         self._H = H
-        self._Cs = np.array(Cs)
-        self._ns = np.arange(1, len(Cs) + 1)
+        self._Cs = self._Cs0 = np.array(Cs)
+        self._ns = self._ns0 = np.arange(1, len(Cs) + 1)
         self._omega = omega
         self._rho0 = 1 / (4 * np.pi)
-        self._HNn = self._H * self._N * self._ns
+        self._HNn = self._HNn0 = self._H * self._N * self._ns0
 
         self.isNonAxi = True   # Potential is not axisymmetric
         self.hasC = True       # Potential has C implementation to speed up orbit integrations
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
-    @check_potential_inputs_not_arrays
+    
     def _evaluate(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -116,23 +114,33 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the potential at the given coordinates. (without the amp factor; handled by super class)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: Phi(R, z, phi, t)
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs)
+               * np.sum(self._Cs / Ks / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t)) / np.cosh(Ks * z / Bs) ** Bs,axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -140,15 +148,24 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the radial force for this potential at the given coordinates. (-dPhi/dR)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the radial force
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
 
@@ -174,9 +191,9 @@ class SpiralArmsPotential(Potential):
                                                                         - dBs_dR / Ks * np.log(sechzKB)
                                                                         + dKs_dR / Ks**2
                                                                         + dDs_dR / Ds / Ks))
-                                                           + cos_ng / Ks / self._Rs))
+                                                           + cos_ng / Ks / self._Rs),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _zforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -184,15 +201,25 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the vertical force for this potential at the given coordinates. (-dPhi/dz)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the vertical force
         HISTORY:
             2017-05-25  Jack Hong (UBC) 
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+
         Ks = self._K(R)
         Bs = self._B(R)
         Ds = self._D(R)
@@ -200,9 +227,9 @@ class SpiralArmsPotential(Potential):
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
                * np.sum(self._Cs / Ds * np.cos(self._ns * self._gamma(R, phi - self._omega * t))
-                        * np.tanh(zK_B) / np.cosh(zK_B)**Bs)
+                        * np.tanh(zK_B) / np.cosh(zK_B)**Bs,axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _phiforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -210,15 +237,24 @@ class SpiralArmsPotential(Potential):
         PURPOSE:
             Evaluate the azimuthal force in cylindrical coordinates. (-dPhi/dphi)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the azimuthal force
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -226,9 +262,9 @@ class SpiralArmsPotential(Potential):
         Ds = self._D(R)
 
         return -self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g))
+               * np.sum(self._N * self._ns * self._Cs / Ds / Ks / np.cosh(z * Ks / Bs)**Bs * np.sin(self._ns * g),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _R2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -237,15 +273,24 @@ class SpiralArmsPotential(Potential):
             Evaluate the second (cylindrical) radial derivative of the potential.
              (d^2 potential / d R^2)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the second radial derivative
         HISTORY:
             2017-05-31  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -316,9 +361,9 @@ class SpiralArmsPotential(Potential):
                                                     + (cos_ng * ((dDs_dR * Ks + Ds * dKs_dR) / (Ds * Ks)
                                                                  -  (ztanhzKB * (dBs_dR / Bs * Ks - dKs_dR)
                                                                      + log_sechzKB * dBs_dR))
-                                                       + sin_ng * self._ns * dg_dR))))))
+                                                       + sin_ng * self._ns * dg_dR)))),axis=0))
 
-    @check_potential_inputs_not_arrays
+    
     def _z2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -327,15 +372,24 @@ class SpiralArmsPotential(Potential):
             Evaluate the second (cylindrical) vertical derivative of the potential.
              (d^2 potential / d z^2)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the second vertical derivative
         HISTORY:
             2017-05-26  Jack Hong (UBC) 
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -345,9 +399,9 @@ class SpiralArmsPotential(Potential):
         tanh2_zKB = np.tanh(zKB)**2
 
         return -self._H * np.exp(-(R-self._r_ref)/self._Rs) \
-               * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs)
+               * np.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * np.cos(self._ns * g) / np.cosh(zKB)**Bs,axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _phi2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -356,15 +410,24 @@ class SpiralArmsPotential(Potential):
             Evaluate the second azimuthal derivative of the potential in cylindrical coordinates.
             (d^2 potential / d phi^2)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: d^2 potential / d phi^2
         HISTORY:
             2017-05-29 Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
         Ks = self._K(R)
@@ -372,9 +435,9 @@ class SpiralArmsPotential(Potential):
         Ds = self._D(R)
 
         return self._H * np.exp(-(R-self._r_ref) / self._Rs) \
-               * np.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g))
+               * np.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / np.cosh(z*Ks/Bs)**Bs * np.cos(self._ns*g),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
         NAME:
@@ -383,15 +446,24 @@ class SpiralArmsPotential(Potential):
             Evaluate the mixed (cylindrical) radial and vertical derivative of the potential
             (d^2 potential / dR dz).
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: d^2 potential / dR dz
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         Rs = self._Rs
         He = self._H * np.exp(-(R-self._r_ref)/self._Rs)
@@ -424,9 +496,9 @@ class SpiralArmsPotential(Potential):
                                                            - cos_ng * ((zKB * (dKs_dR/Ks - dBs_dR/Bs) * (1 - tanhzKB**2)
                                                                         + tanhzKB * (dKs_dR/Ks - dBs_dR/Bs)
                                                                         + dBs_dR / Bs * tanhzKB)
-                                                                       - tanhzKB / Rs)))
+                                                                       - tanhzKB / Rs)),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _Rphideriv(self, R, z, phi=0,t=0):
         """
         NAME:
@@ -435,15 +507,24 @@ class SpiralArmsPotential(Potential):
             Return the mixed radial and azimuthal derivative of the potential in cylindrical coordinates
              (d^2 potential / dR dphi)
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the mixed radial and azimuthal derivative
         HISTORY:
             2017-06-09  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         He = self._H * np.exp(-(R - self._r_ref) / self._Rs)
 
@@ -470,9 +551,9 @@ class SpiralArmsPotential(Potential):
                                           + 1/Ks * (-dBs_dR * np.log(sechzKB)
                                                     + dKs_dR / Ks
                                                     + dDs_dR / Ds
-                                                    + 1 / self._Rs))))
+                                                    + 1 / self._Rs))),axis=0)
 
-    @check_potential_inputs_not_arrays
+    
     def _dens(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -481,15 +562,24 @@ class SpiralArmsPotential(Potential):
             Evaluate the density. If not given, the density is computed using the Poisson equation
             from the first and second derivatives of the potential (if all are implemented).
         INPUT:
-            :param R: galactocentric cylindrical radius (must be scalar, not array)
-            :param z: vertical height (must be scalar, not array)
-            :param phi: azimuth (must be scalar, not array)
-            :param t: time (must be scalar, not array)
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
         OUTPUT:
             :return: the density
         HISTORY:
             2017-05-12  Jack Hong (UBC)
         """
+        if isinstance(R,np.ndarray) or isinstance(z,np.ndarray):
+            nR= len(R) if isinstance(R,np.ndarray) else len(z)
+            self._Cs=np.transpose(np.array([self._Cs0,]*nR))
+            self._ns=np.transpose(np.array([self._ns0,]*nR))
+            self._HNn=np.transpose(np.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
 
         g = self._gamma(R, phi - self._omega * t)
 
@@ -518,7 +608,7 @@ class SpiralArmsPotential(Potential):
         return np.sum(self._Cs * self._rho0 * (self._H / (Ds * R)) * np.exp(-(R - self._r_ref) / self._Rs)
                       * sech_zKB**Bs * (np.cos(ng) * (Ks * R * (Bs + 1) / Bs * sech_zKB**2
                                                       - 1 / Ks / R * (E**2 + rE))
-                                        - 2 * np.sin(ng)* E * np.cos(self._alpha)))
+                                        - 2 * np.sin(ng)* E * np.cos(self._alpha)),axis=0)
 
     def OmegaP(self):
         """

@@ -136,6 +136,28 @@ class DehnenBarPotential(Potential):
         else:
             self._tsteady= self._tform+tsteady*self._tb
 
+    def _smooth(self,t):
+        if isinstance(t,numpy.ndarray):
+            smooth=numpy.ones(len(t))
+            indx=(t < self._tform)
+            smooth[indx]=0.
+
+            indx=(t < self._tsteady) * (t >= self._tform)
+            deltat=t[indx]-self._tform
+            xi= 2.*deltat/(self._tsteady-self._tform)-1.
+            smooth[indx]= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else:
+            if t < self._tform:
+                smooth= 0.
+            elif t < self._tsteady:
+                deltat= t-self._tform
+                xi= 2.*deltat/(self._tsteady-self._tform)-1.
+                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+            else: #bar is fully on
+                smooth= 1.
+
+        return smooth
+
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -153,24 +175,29 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Started - Bovy (NYU)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-        if r <= self._rb:
-            return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))\
-                *((r/self._rb)**3.-2.)*R**2./r2
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx]
+            indx=numpy.invert(indx)
+            out[indx]= -(self._rb/r[indx])**3.*R[indx]**2./r2[indx] 
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out        
         else:
-            return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                                                  *(self._rb/r)**3.\
-                                                  *R**2./r2
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))\
+                    *((r/self._rb)**3.-2.)*R**2./r2
+            else:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                                                      *(self._rb/r)**3.\
+                                                      *R**2./r2
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -189,24 +216,31 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                  -self._barphi))\
-                    *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb
+            out[indx]= -((r[indx]/self._rb)**3.*R[indx]*(3.*R[indx]**2.+2.*z[indx]**2.)-4.*R[indx]*z[indx]**2.)/r[indx]**4.
+            indx= numpy.invert(indx)
+            out[indx]= -(self._rb/r[indx])**3.*R[indx]/r[indx]**4.*(3.*R[indx]**2.-2.*z[indx]**2.)
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                    *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
-        
+            if r <= self._rb:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
+            else:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
+
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -224,24 +258,30 @@ class DehnenBarPotential(Potential):
            2010-11-24 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-        if r <= self._rb:
-            return 2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                    self._barphi))\
-                                                *((r/self._rb)**3.-2.)*R**2./r2
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx]
+            indx=numpy.invert(indx)
+            out[indx]= -(self._rb/r[indx])**3.*R[indx]**2./r2[indx]
+            out*=2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                     self._barphi))\
-                                                     *(self._rb/r)**3.*R**2./r2
+            if r <= self._rb:
+                return 2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                        self._barphi))\
+                                                    *((r/self._rb)**3.-2.)*R**2./r2
+            else:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                         self._barphi))\
+                                                         *(self._rb/r)**3.*R**2./r2
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -260,129 +300,176 @@ class DehnenBarPotential(Potential):
            2017-06-23 - Written - Bovy (NYU)
         """
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                  -self._barphi))\
-                   *((r/self._rb)**3.+4.)*R**2.*z/r**4.
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= -((r[indx]/self._rb)**3.+4.)*R[indx]**2.*z[indx]/r[indx]**4.
+            indx=numpy.invert(indx)
+            out[indx]= -5.*(self._rb/r[indx])**3.*R[indx]**2.*z[indx]/r[indx]**4.
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return -5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                    *(self._rb/r)**3.*R**2.*z/r**4.
-        
+            if r <= self._rb:
+                return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *((r/self._rb)**3.+4.)*R**2.*z/r**4.
+            else:
+                return -5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                                *(self._rb/r)**3.*R**2.*z/r**4.
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                 -self._barphi))\
-                *((r/self._rb)**3.*((9.*R**2.+2.*z**2.)/r**4.
-                                    -R**2./r**6.*(3.*R**2.+2.*z**2.))\
-                      +4.*z**2./r**6.*(4.*R**2.-r**2.))
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= ((r[indx]/self._rb)**3.*((9.*R[indx]**2.+2.*z[indx]**2.)/r[indx]**4.
+                                        -R[indx]**2./r[indx]**6.*(3.*R[indx]**2.+2.*z[indx]**2.))\
+                          +4.*z[indx]**2./r[indx]**6.*(4.*R[indx]**2.-r[indx]**2.))
+            indx=numpy.invert(indx)
+            out[indx]= (self._rb/r[indx])**3./r[indx]**6.*((r[indx]**2.-7.*R[indx]**2.)*(3.*R[indx]**2.-2.*z[indx]**2.)\
+                                                 +6.*R[indx]**2.*r[indx]**2.)
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                 self._barphi))\
-                *(self._rb/r)**3./r**6.*((r**2.-7.*R**2.)*(3.*R**2.-2.*z**2.)\
-                                             +6.*R**2.*r**2.)
-        
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                     -self._barphi))\
+                    *((r/self._rb)**3.*((9.*R**2.+2.*z**2.)/r**4.
+                                        -R**2./r**6.*(3.*R**2.+2.*z**2.))\
+                          +4.*z**2./r**6.*(4.*R**2.-r**2.))
+            else:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                     self._barphi))\
+                    *(self._rb/r)**3./r**6.*((r**2.-7.*R**2.)*(3.*R**2.-2.*z**2.)\
+                                                 +6.*R**2.*r**2.)
+
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return -4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                     self._barphi))\
-                                            *((r/self._rb)**3.-2.)*R**2./r**2.
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= -((r[indx]/self._rb)**3.-2.)*R[indx]**2./r[indx]**2.
+            indx=numpy.invert(indx)
+            out[indx]= (self._rb/r[indx])**3.*R[indx]**2./r[indx]**2.
+
+            out*=4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return 4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                    self._barphi))\
-                                                 *(self._rb/r)**3.*R**2./r**2.
+            if r <= self._rb:
+                return -4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                         self._barphi))\
+                                                *((r/self._rb)**3.-2.)*R**2./r**2.
+            else:
+                return 4.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                        self._barphi))\
+                                                     *(self._rb/r)**3.*R**2./r**2.
 
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t
-                                                  -self._barphi))\
-                    *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
-        else:
-            return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                    *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb
+            out[indx]= ((r[indx]/self._rb)**3.*R[indx]*(3.*R[indx]**2.+2.*z[indx]**2.)-4.*R[indx]*z[indx]**2.)/r[indx]**4.
+            indx=numpy.invert(indx)
+            out[indx]= (self._rb/r[indx])**3.*R[indx]/r[indx]**4.*(3.*R[indx]**2.-2.*z[indx]**2.)
 
+            out*=-2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-self._barphi))
+            return out
+        else:
+            if r <= self._rb:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                        *((r/self._rb)**3.*R*(3.*R**2.+2.*z**2.)-4.*R*z**2.)/r**4.
+            else:
+                return -2.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
+             
     def _z2deriv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                  -self._barphi))\
-                   *R**2./r**6.*((r/self._rb)**3.*(r**2.-z**2.)
-                                 +4.*(r**2.-4.*z**2.))
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb
+            out[indx]= R[indx]**2./r[indx]**6.*((r[indx]/self._rb)**3.*(r[indx]**2.-z[indx]**2.)
+                                     +4.*(r[indx]**2.-4.*z[indx]**2.))
+            indx=numpy.invert(indx)
+            out[indx]=5.*(self._rb/r[indx])**3.*R[indx]**2./r[indx]**6.*(r[indx]**2.-7.*z[indx]**2.)
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                    *(self._rb/r)**3.*R**2./r**6.*(r**2.-7.*z**2.)
-        
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *R**2./r**6.*((r/self._rb)**3.*(r**2.-z**2.)
+                                     +4.*(r**2.-4.*z**2.))
+            else:
+                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R**2./r**6.*(r**2.-7.*z**2.)
+
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         #Calculate relevant time
-        if t < self._tform:
-            smooth= 0.
-        elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
+        smooth=self._smooth(t)
         r= numpy.sqrt(R**2.+z**2.)
-        if r <= self._rb:
-            return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
-                                                  -self._barphi))\
-                   *R*z/r**6.*((r/self._rb)**3.*(2.*r**2.-R**2.)
-                                 +8.*(r**2.-2.*R**2.))
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb
+            out[indx]= R[indx]*z[indx]/r[indx]**6.*((r[indx]/self._rb)**3.*(2.*r[indx]**2.-R[indx]**2.)
+                                     +8.*(r[indx]**2.-2.*R[indx]**2.))
+            indx=numpy.invert(indx)
+            out[indx]= 5.*(self._rb/r[indx])**3.*R[indx]*z[indx]/r[indx]**6.*(2.*r[indx]**2.-7.*R[indx]**2.)
+
+            out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            return out
         else:
-            return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
-                                                  self._barphi))\
-                    *(self._rb/r)**3.*R*z/r**6.*(2.*r**2.-7.*R**2.)
-        
+            if r <= self._rb:
+                return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *R*z/r**6.*((r/self._rb)**3.*(2.*r**2.-R**2.)
+                                     +8.*(r**2.-2.*R**2.))
+            else:
+                return 5.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                        *(self._rb/r)**3.*R*z/r**6.*(2.*r**2.-7.*R**2.)
+
     def tform(self): #pragma: no cover
         """
         NAME:

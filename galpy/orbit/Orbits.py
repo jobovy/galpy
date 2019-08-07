@@ -70,14 +70,75 @@ except KeyError:
     import multiprocessing
     _NUMCORES= multiprocessing.cpu_count()
 # named_objects file
+def _named_objects_key_formatting(name):
+    # Remove punctuation, spaces, and make lowercase
+    if _PY3:
+        out_name= name.translate(\
+            str.maketrans('', '',string.punctuation)).replace(' ', '').lower()
+    else: #pragma: no cover
+        out_name= str(name).translate(None,string.punctuation)\
+            .replace(' ', '').lower()
+    return out_name   
 _known_objects= None
+_known_objects_original_keys= None # these are use for auto-completion
+_known_objects_collections_original_keys= None
+_known_objects_synonyms_original_keys= None
+_known_objects_keys_updated= False
 def _load_named_objects():
     global _known_objects
+    global _known_objects_original_keys
+    global _known_objects_collections_original_keys
+    global _known_objects_synonyms_original_keys
     if not _known_objects:
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                'named_objects.json'),'r') as jsonfile:
             _known_objects= json.load(jsonfile)
+        # Save original keys for auto-completion
+        _known_objects_original_keys= copy.copy(list(_known_objects.keys()))
+        _known_objects_collections_original_keys= \
+            copy.copy(list(_known_objects['_collections'].keys()))
+        _known_objects_synonyms_original_keys= \
+            copy.copy(list(_known_objects['_synonyms'].keys()))
+        # Add synonyms as duplicates
+        for name in _known_objects['_synonyms']:
+            _known_objects[name]= \
+                _known_objects[_known_objects['_synonyms'][name]]
     return None
+def _update_keys_named_objects():
+    global _known_objects_keys_updated
+    if not _known_objects_keys_updated:
+        # Format the keys of the known objects dictionary, first collections
+        old_keys= list(_known_objects['_collections'].keys())
+        for old_key in old_keys:
+            _known_objects['_collections']\
+                [_named_objects_key_formatting(old_key)]= \
+                   _known_objects['_collections'].pop(old_key)
+        # Then the objects themselves
+        old_keys= list(_known_objects.keys())
+        old_keys.remove('_collections')
+        old_keys.remove('_synonyms')
+        for old_key in old_keys:
+            _known_objects[_named_objects_key_formatting(old_key)]= \
+                   _known_objects.pop(old_key)
+        _known_objects_keys_updated= True
+# Auto-completion
+try: # pragma: no cover
+    from IPython import get_ipython
+    _load_named_objects()
+    def name_completer(ipython,event):
+        try: # encapsulate in try/except to avoid *any* error
+            out= copy.copy(_known_objects_original_keys)
+            out.remove('_collections')
+            out.remove('_synonyms')
+            out.extend(_known_objects_collections_original_keys)
+            out.extend(_known_objects_synonyms_original_keys)
+            out.extend(['ro=','vo=','zo=','solarmotion='])
+        except: pass
+        return out
+    get_ipython().set_hook('complete_command',name_completer,
+                           re_key=".*from_name")
+except: pass
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
     @wraps(func)
@@ -498,7 +559,7 @@ class Orbit(object):
 
         INPUT:
 
-            name - the name of the object or list of names
+            name - the name of the object or list of names; when loading a collection of objects (like 'mwglobularclusters'), lists are not allowed
 
             +standard Orbit initialization keywords:
 
@@ -528,6 +589,7 @@ class Orbit(object):
             raise ImportError('astroquery needs to be installed to use '
                               'Orbit.from_name')
         _load_named_objects()
+        _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
         obs= numpy.array([kwargs.get('ro',None),
                           kwargs.get('vro',None),
@@ -536,8 +598,14 @@ class Orbit(object):
                          dtype='object')
         if len(args) > 1:
             name= [n for n in args]
-        else:
+        elif isinstance(args[0],list):
             name= args[0]
+        else:
+            this_name= _named_objects_key_formatting(args[0])
+            if this_name in _known_objects['_collections'].keys():
+                name= _known_objects['_collections'][this_name]
+            else:
+                name= args[0]
         if isinstance(name,(basestring)):
             out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
@@ -549,7 +617,7 @@ class Orbit(object):
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         out.name= name
         return out
-           
+
     @classmethod
     def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
                  radec=False,lb=False,
@@ -2972,7 +3040,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           phi(t) [*input_shape,nt]
+           phi(t) [*input_shape,nt] in [-pi,pi]
 
         HISTORY:
 
@@ -4193,7 +4261,7 @@ class Orbit(object):
                 x= self._orbInterp[0](t,self._orb_indx_4orbInterp)
                 y= self._orbInterp[-1](t,self._orb_indx_4orbInterp)
                 out[0]= numpy.sqrt(x*x+y*y)
-                out[-1]= numpy.arctan2(y,x) % (2.*numpy.pi)
+                out[-1]= numpy.arctan2(y,x)
                 for ii in range(1,self.phasedim()-1):
                     out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
             else:
@@ -5359,13 +5427,7 @@ def _from_name_oneobject(name,obs):
        2019-06-16 - Added named_objects - Bovy (UofT)
     """
     # First check whether this is a named_object
-    # Remove white space and any punctuation
-    this_name= name.lower().replace(" ","")
-    if _PY3:
-        this_name= this_name.translate(\
-            str.maketrans('', '',string.punctuation))
-    else: #pragma: no cover
-        this_name= str(this_name).translate(None,string.punctuation)
+    this_name= _named_objects_key_formatting(name)
     # Find the object in the file?
     if this_name in _known_objects.keys():
         if 'ra' in _known_objects[this_name].keys():
