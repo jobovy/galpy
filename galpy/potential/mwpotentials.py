@@ -32,13 +32,14 @@ class _ExpensivePotentials(object):
         # Initialize all expensive potentials as None, filled in when loaded
         self._mcmillan17= None
         self._irrgang13i= None
+        self._irrgang13ii= None
         # This is necessary to transfer *all* globals in Py2
         self.__globals__= _setup_globals()
         return None
 
     # For tab completion
     def __dir__(self):  # pragma: no cover
-        return ['McMillan17','Irrgang13I']
+        return ['McMillan17','Irrgang13I','Irrgang13II']
 
     @property
     def McMillan17(self):
@@ -57,6 +58,15 @@ class _ExpensivePotentials(object):
             from galpy.potential.Irrgang13 import Irrgang13I as _Irrgang13I
             self._irrgang13i= _Irrgang13I
         return self._irrgang13i
+
+    @property
+    def Irrgang13II(self):
+        if not self._irrgang13ii:
+            # In python 3 this can be a relative import, but for some reason
+            # in python 2 it cannot
+            from galpy.potential.Irrgang13 import Irrgang13II as _Irrgang13II
+            self._irrgang13ii= _Irrgang13II
+        return self._irrgang13ii
 
     def __getattr__(self,name):
         try:

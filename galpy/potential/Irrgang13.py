@@ -34,3 +34,27 @@ Acos= scf_compute_coeffs_spherical(\
 Irrgang13I_halo= SCFPotential(Acos=Acos,a=a_for_scf,ro=ro,vo=vo)
 # Final model I
 Irrgang13I= Irrgang13I_bulge+Irrgang13I_disk+Irrgang13I_halo
+
+# Model II
+# Unit normalizations
+ro, vo= 8.35, 240.4
+Irrgang13II_bulge= PlummerPotential(\
+    amp=175.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    b=0.1843/ro,ro=ro,vo=vo)
+Irrgang13II_disk= MiyamotoNagaiPotential(\
+    amp=2829.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    a=4.85/ro,b=0.305/ro,ro=ro,vo=vo)
+# Again use SCF because the Irrgang13II halo model is not in galpy; because 
+# the halo model is quite different from Hernquist both in the inner and outer
+# part, need quite a few basis functions...
+def Irrgang13II_halo_dens(\
+    r,amp=69725*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    ah=200./ro):
+    return amp/4./numpy.pi*ah**2./r**2./(r**2.+ah**2.)**1.5
+a_for_scf= 0.15
+# scf_compute_coeffs_spherical currently seems to require a function of 3 parameters...
+Acos= scf_compute_coeffs_spherical(\
+    lambda r,z,p: Irrgang13II_halo_dens(r),75,a=a_for_scf)[0]
+Irrgang13II_halo= SCFPotential(Acos=Acos,a=a_for_scf,ro=ro,vo=vo)
+# Final model II
+Irrgang13II= Irrgang13II_bulge+Irrgang13II_disk+Irrgang13II_halo
