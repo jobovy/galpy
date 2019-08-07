@@ -3,6 +3,7 @@ import numpy
 from ..potential import PlummerPotential
 from ..potential import MiyamotoNagaiPotential
 from ..potential import SCFPotential
+from ..potential import NFWPotential
 from ..potential import scf_compute_coeffs_spherical
 from ..util import bovy_conversion
 # Their mass unit
@@ -40,7 +41,7 @@ Irrgang13I= Irrgang13I_bulge+Irrgang13I_disk+Irrgang13I_halo
 ro, vo= 8.35, 240.4
 Irrgang13II_bulge= PlummerPotential(\
     amp=175.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
-    b=0.1843/ro,ro=ro,vo=vo)
+    b=0.184/ro,ro=ro,vo=vo)
 Irrgang13II_disk= MiyamotoNagaiPotential(\
     amp=2829.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
     a=4.85/ro,b=0.305/ro,ro=ro,vo=vo)
@@ -58,3 +59,19 @@ Acos= scf_compute_coeffs_spherical(\
 Irrgang13II_halo= SCFPotential(Acos=Acos,a=a_for_scf,ro=ro,vo=vo)
 # Final model II
 Irrgang13II= Irrgang13II_bulge+Irrgang13II_disk+Irrgang13II_halo
+
+# Model III
+# Unit normalizations
+ro, vo= 8.33, 239.7
+Irrgang13III_bulge= PlummerPotential(\
+    amp=439.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    b=0.236/ro,ro=ro,vo=vo)
+Irrgang13III_disk= MiyamotoNagaiPotential(\
+    amp=3096.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    a=3.262/ro,b=0.289/ro,ro=ro,vo=vo)
+Irrgang13III_halo= NFWPotential(\
+    amp=142200.*mgal_in_msun/bovy_conversion.mass_in_msol(vo,ro),
+    a=45.02/ro,ro=ro,vo=vo)
+# Final model III
+Irrgang13III= Irrgang13III_bulge+Irrgang13III_disk+Irrgang13III_halo
+
