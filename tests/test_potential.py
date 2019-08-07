@@ -1986,7 +1986,26 @@ def test_McMillan17():
     assert numpy.fabs((McMillan17[1].mass(50./8.21,quantity=False))/10.**11.+0.543+0.122-5.1) < 1e-1, 'Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be'
     return None
     
-
+# Test that the Irrgang13 potentials are what they are supposed to be
+def test_Irrgang13():
+    from galpy.potential.mwpotentials import Irrgang13I
+    ro,vo= Irrgang13I[0]._ro, Irrgang13I[0]._vo
+    # Check some numbers from Table 1 of Irrgang13: circular velocity at the Sun
+    assert numpy.fabs(potential.vcirc(Irrgang13I,1.,quantity=False)-242.) < 1e-2, 'Circular velocity at the Sun in Irrgang13I does not agree with what it should be'
+    # Mass of the bulge
+    assert numpy.fabs(Irrgang13I[0].mass(100.,quantity=False)/1e9-9.5) < 1e-2, 'Mass of the bulge in Irrgang13I does not agree with what it should be'
+    # Mass of the disk
+    assert numpy.fabs(Irrgang13I[1].mass(100.,10.,quantity=False)/1e10-6.6) < 1e-2, 'Mass of the disk in Irrgang13I does not agree with what it should be'
+    # Mass of the halo (go to edge in Irrgang13I)
+    assert numpy.fabs(Irrgang13I[2].mass(200./ro,quantity=False)/1e12-1.8) < 1e-1, 'Mass of the halo in Irrgang13I does not agree with what it should be'
+    # Escape velocity at the Sun
+    assert numpy.fabs(potential.vesc(Irrgang13I,1.,quantity=False)-616.4) < 1e0, 'Escape velocity at the Sun in Irrgang13I does not agree with what it should be'
+    # Oort A
+    assert numpy.fabs(0.5*(potential.vcirc(Irrgang13I,1.,use_physical=False)-potential.dvcircdR(Irrgang13I,1.,use_physical=False))*vo/ro-15.06) < 1e-1, 'Oort A in Irrgang13I does not agree with what it should be'
+    # Oort B
+    assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13I,1.,use_physical=False)+potential.dvcircdR(Irrgang13I,1.,use_physical=False))*vo/ro+13.74) < 1e-1, 'Oort B in Irrgang13I does not agree with what it should be'
+    return None
+    
 # Test that the virial setup of NFW works
 def test_NFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit= 71., 0.32, 201., False
