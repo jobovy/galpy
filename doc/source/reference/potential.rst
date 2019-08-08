@@ -218,13 +218,19 @@ Dissipative forces
 
 .. _potential-mw:
 
-In addition to these classes, a simple Milky-Way-like potential fit to
-data on the Milky Way is included as
-``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
-details). Note that this potential assumes a circular velocity of 220
-km/s at the solar radius at 8 kpc; see `arXiv/1412.3451
+Milky-Way-like potentials
+-------------------------
+
+``galpy`` contains various simple models for the Milky Way's
+gravitational potential. The recommended model, described in `Bovy
+(2015) <http://arxiv.org/abs/1412.3451>`_, is included as
+``galpy.potential.MWPotential2014``. This potential was fit to a large
+variety of data on the Milky Way and thus serves as both a simple and
+accurate model for the Milky Way's potential (see `Bovy 2015
 <http://arxiv.org/abs/1412.3451>`_ for full information on how this
-potential was fit. This potential is defined as
+potential was fit). Note that this potential assumes a circular
+velocity of 220 km/s at the solar radius at 8 kpc. This potential is
+defined as
 
 >>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
 >>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
@@ -272,16 +278,95 @@ Dehnen's gyrfalcON code using ``accname=PowSphwCut+MiyamotoNagai+NFW``
 and
 ``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
 
-An older version ``galpy.potential.MWPotential`` of a similar
-potential that was *not* fit to data on the Milky Way is defined as
+``galpy`` also contains other models for the Milky Way's potential
+from the literature in the ``galpy.potential.mwpotentials`` module
+(which also contains ``MWPotential2014``). Currently, these are:
+
+* ``McMillan17``: the potential model from `McMillan (2017) <https://ui.adsabs.harvard.edu/abs/2017MNRAS.465...76M>`_
+* ``Irrgang13I``: model I from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_, which is an updated version of the classic `Allen & Santillan (1991) <https://ui.adsabs.harvard.edu/abs/1991RMxAA..22..255A>`_
+* ``Irrgang13II`` and ``Irrgang13III``: model II and III from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_
+
+Unlike ``MWPotential2014``, these potentials have physical units
+turned on, using as the unit scaling parameters ``ro`` and ``vo`` the
+distance to the Galactic center and the circular velocity at the Sun's
+radius of each potential. These can be obtained using the
+``galpy.util.bovy_conversion.get_physical`` function, e.g.,
+
+>>> from galpy.potential.mwpotentials import McMillan17
+>>> from galpy.util.bovy_conversion import get_physical
+>>> get_physical(McMillan17)
+# {'ro': 8.21, 'vo': 233.1}
+
+This function returns the unit-conversion parameters as a dictionary,
+so they can be easily passed to other functions. For example, when
+integrating an orbit in these potentials and either initializing the
+orbit using observed coordinates or converting the integrated orbit to
+observed coordinates, it is important to use the same unit-conversion
+parameters (otherwise an error will be raised). For example, to obtain the orbit of the Sun in the ``McMillan17`` potential, we do
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit(**get_physical(McMillan17))
+
+As an example, we integrate the Sun's orbit for 10 Gyr in
+``MWPotential2014``, ``McMillan17`` and ``Irrgang13I``
+
+>>> from galpy.potential.mwpotentials import MWPotential2014, McMillan17, Irrgang13I
+>>> from galpy.orbit import Orbit
+>>> from galpy.util.bovy_conversion import get_physical
+>>> from astropy import units
+>>> times= numpy.linspace(0.,10.,3001)*units.Gyr
+>>> o_mwp14= Orbit(ro=8.,vo=220.) # Need to set these by hand
+>>> o_mcm17= Orbit(**get_physical(McMillan17))
+>>> o_irrI= Orbit(**get_physical(Irrgang13I))
+>>> o_mwp14.integrate(times,MWPotential2014)
+>>> o_mcm17.integrate(times,McMillan17)
+>>> o_irrI.integrate(times,Irrgang13I)
+>>> o_mwp14.plot(lw=0.6)
+>>> o_mcm17.plot(overplot=True,lw=0.6)
+>>> o_irrI.plot(overplot=True,lw=0.6)
+
+which gives
+
+.. image:: ../images/orbit-sun-mwpotentials.png
+   :scale: 40 %
+
+Much of the difference between these orbits is due to the different
+present Galactocentric radius of the Sun, if we simply plot the
+difference with respect to the present Galactocentric radius, they
+agree better
+
+>>> o_mwp14.plot(d1='R-8.',d2='z',lw=0.6,xlabel=r'$R-R_0\,(\mathrm{kpc})$')
+>>> o_mcm17.plot(d1='R-{}'.format(get_physical(McMillan17)['ro']),d2='z',overplot=True,lw=0.6)
+>>> o_irrI.plot(d1='R-{}'.format(get_physical(Irrgang13I)['ro']),d2='z',overplot=True,lw=0.6)
+
+.. image:: ../images/orbit-sun-mwpotentials-vsRsun.png
+   :scale: 40 %
+
+We can also compare the rotation curves of these different models
+
+>>> from galpy.potential import plotRotcurve
+>>> plotRotcurve(MWPotential2014,label=r'$\mathrm{MWPotential2014}$',ro=8.,vo=220.) # need to set ro and vo explicitly, because MWPotential2014 has units turned off
+>>> plotRotcurve(McMillan17,overplot=True,label=r'$\mathrm{McMillan\, (2017)}$')
+>>> plotRotcurve(Irrgang13I,overplot=True,label=r'$\mathrm{Irrgang\ et\ al.\, (2017), model\ I}$')
+>>> legend()
+
+.. image:: ../images/mwpotentials-vcirc.png
+   :scale: 40 %
+
+
+
+
+An older version ``galpy.potential.MWPotential`` of
+``MWPotential2014`` that was *not* fit to data on the Milky Way is
+defined as
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> MWPotential= mp+np+hp
 
-``galpy.potential.MWPotential2014`` supersedes
-``galpy.potential.MWPotential``.
+but ``galpy.potential.MWPotential2014`` supersedes
+``galpy.potential.MWPotential`` and its use is no longer recommended.
 
 2D potentials
 -------------

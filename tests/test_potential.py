@@ -38,7 +38,7 @@ def test_normalize_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -166,7 +166,7 @@ def test_forceAsDeriv_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -332,11 +332,10 @@ def test_2ndDeriv_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -553,11 +552,10 @@ def test_poisson_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -657,12 +655,11 @@ def test_poisson_surfdens_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential') # R2deriv not implemented for |Z| > 0
-    rmpots.append('DiskSCFPotential') # 2nd derivs not implemented yet, but placeholders exist
     for p in rmpots:
         pots.remove(p)
     Rs= numpy.array([0.5,1.,2.])
@@ -781,7 +778,7 @@ def test_evaluateAndDerivs_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -987,7 +984,7 @@ def test_amp_mult_divide():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1031,7 +1028,7 @@ def test_potential_array_input():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
@@ -1085,28 +1082,28 @@ def test_potential_array_input():
         assert numpy.all(numpy.fabs(tp.phiforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
             '{} zforce evaluation does not work as expected for array inputs'.format(p)
         #R2deriv
-        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_R2deriv'):
             tpevals= numpy.array([tp.R2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.R2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} R2deriv evaluation does not work as expected for array inputs'.format(p)
         #z2deriv
-        if hasattr(tp,'_z2deriv') and not p == 'DiskSCFPotential' \
+        if hasattr(tp,'_z2deriv') \
                 and not p == 'TwoPowerSphericalPotential': # latter bc done through R2deriv
             tpevals= numpy.array([tp.z2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.z2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} z2deriv evaluation does not work as expected for array inputs'.format(p)
         #phi2deriv
-        if hasattr(tp,'_R2deriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_R2deriv'):
             tpevals= numpy.array([tp.phi2deriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.phi2deriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} phi2deriv evaluation does not work as expected for array inputs'.format(p)
         #Rzderiv
-        if hasattr(tp,'_Rzderiv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_Rzderiv'):
             tpevals= numpy.array([tp.Rzderiv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.Rzderiv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} Rzderiv evaluation does not work as expected for array inputs'.format(p)
         #Rphideriv
-        if hasattr(tp,'_Rphideriv') and not p == 'DiskSCFPotential':
+        if hasattr(tp,'_Rphideriv'):
             tpevals= numpy.array([tp.Rphideriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.Rphideriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} Rphideriv evaluation does not work as expected for array inputs'.format(p)
@@ -1309,7 +1306,7 @@ def test_toVertical_toPlanar():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1970,6 +1967,79 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[2].Rforce(1.,0.)+0.35) < 10.**-14., "MWPotential2014's halo amplitude is incorrect"
     return None
 
+# Test that the McMillan17 potential is what it's supposed to be
+def test_McMillan17():
+    from galpy.potential.mwpotentials import McMillan17
+    from galpy.util import bovy_conversion
+    ro,vo= McMillan17[0]._ro, McMillan17[0]._vo
+    # Check some numbers from Table 3 of McMillan17: vertical force at the Sun
+    assert numpy.fabs(-potential.evaluatezforces(McMillan17,1.,1.1/8.21,
+                                                 use_physical=False)
+                       *bovy_conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
+    # Halo density at the Sun
+    assert numpy.fabs(potential.evaluateDensities(McMillan17[1],1.,0.,
+                                                  use_physical=False)
+                      *bovy_conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
+    # Halo concentration
+    assert numpy.fabs(McMillan17[1].conc(overdens=94.,wrtcrit=True,H=70.4)-15.4) < 1e-1, 'Halo concentration in McMillan17 does not agree with what it is supposed to be'
+    # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
+    assert numpy.fabs((McMillan17[1].mass(50./8.21,quantity=False))/10.**11.+0.543+0.122-5.1) < 1e-1, 'Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be'
+    return None
+    
+# Test that the Irrgang13 potentials are what they are supposed to be
+def test_Irrgang13():
+    from galpy.potential.mwpotentials import Irrgang13I, Irrgang13II, \
+        Irrgang13III
+    # Model I
+    ro,vo= Irrgang13I[0]._ro, Irrgang13I[0]._vo
+    # Check some numbers from Table 1 of Irrgang13: circular velocity at the Sun
+    assert numpy.fabs(potential.vcirc(Irrgang13I,1.,quantity=False)-242.) < 1e-2, 'Circular velocity at the Sun in Irrgang13I does not agree with what it should be'
+    # Mass of the bulge
+    assert numpy.fabs(Irrgang13I[0].mass(100.,quantity=False)/1e9-9.5) < 1e-2, 'Mass of the bulge in Irrgang13I does not agree with what it should be'
+    # Mass of the disk
+    assert numpy.fabs(Irrgang13I[1].mass(100.,10.,quantity=False)/1e10-6.6) < 1e-2, 'Mass of the disk in Irrgang13I does not agree with what it should be'
+    # Mass of the halo (go to edge in Irrgang13I)
+    assert numpy.fabs(Irrgang13I[2].mass(200./ro,quantity=False)/1e12-1.8) < 1e-1, 'Mass of the halo in Irrgang13I does not agree with what it should be'
+    # Escape velocity at the Sun
+    assert numpy.fabs(potential.vesc(Irrgang13I,1.,quantity=False)-616.4) < 1e0, 'Escape velocity at the Sun in Irrgang13I does not agree with what it should be'
+    # Oort A
+    assert numpy.fabs(0.5*(potential.vcirc(Irrgang13I,1.,use_physical=False)-potential.dvcircdR(Irrgang13I,1.,use_physical=False))*vo/ro-15.06) < 1e-1, 'Oort A in Irrgang13I does not agree with what it should be'
+    # Oort B
+    assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13I,1.,use_physical=False)+potential.dvcircdR(Irrgang13I,1.,use_physical=False))*vo/ro+13.74) < 1e-1, 'Oort B in Irrgang13I does not agree with what it should be'
+
+    # Model II
+    ro,vo= Irrgang13II[0]._ro, Irrgang13II[0]._vo
+    # Check some numbers from Table 2 of Irrgang13: circular velocity at the Sun
+    assert numpy.fabs(potential.vcirc(Irrgang13II,1.,quantity=False)-240.4) < 3e-2, 'Circular velocity at the Sun in Irrgang13II does not agree with what it should be'
+    # Mass of the bulge
+    assert numpy.fabs(Irrgang13II[0].mass(100.,quantity=False)/1e9-4.1) < 1e-1, 'Mass of the bulge in Irrgang13II does not agree with what it should be'
+    # Mass of the disk
+    assert numpy.fabs(Irrgang13II[1].mass(100.,10.,quantity=False)/1e10-6.6) < 1e-1, 'Mass of the disk in Irrgang13II does not agree with what it should be'
+    # Mass of the halo (go to edge in Irrgang13II)
+    assert numpy.fabs(Irrgang13II[2].mass(100.,quantity=False)/1e12-1.6) < 1e-1, 'Mass of the halo in Irrgang13II does not agree with what it should be'
+    # Escape velocity at the Sun
+    assert numpy.fabs(potential.vesc(Irrgang13II,1.,quantity=False)-575.9) < 1e0, 'Escape velocity at the Sun in Irrgang13II does not agree with what it should be'
+    # Oort A
+    assert numpy.fabs(0.5*(potential.vcirc(Irrgang13II,1.,use_physical=False)-potential.dvcircdR(Irrgang13II,1.,use_physical=False))*vo/ro-15.11) < 1e-1, 'Oort A in Irrgang13II does not agree with what it should be'
+    # Oort B
+    assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13II,1.,use_physical=False)+potential.dvcircdR(Irrgang13II,1.,use_physical=False))*vo/ro+13.68) < 1e-1, 'Oort B in Irrgang13II does not agree with what it should be'
+
+    # Model III
+    ro,vo= Irrgang13III[0]._ro, Irrgang13III[0]._vo
+    # Check some numbers from Table 3 of Irrgang13: circular velocity at the Sun
+    assert numpy.fabs(potential.vcirc(Irrgang13III,1.,quantity=False)-239.7) < 3e-2, 'Circular velocity at the Sun in Irrgang13III does not agree with what it should be'
+    # Mass of the bulge
+    assert numpy.fabs(Irrgang13III[0].mass(100.,quantity=False)/1e9-10.2) < 1e-1, 'Mass of the bulge in Irrgang13III does not agree with what it should be'
+    # Mass of the disk
+    assert numpy.fabs(Irrgang13III[1].mass(100.,10.,quantity=False)/1e10-7.2) < 1e-1, 'Mass of the disk in Irrgang13III does not agree with what it should be'
+    # Escape velocity at the Sun
+    assert numpy.fabs(potential.vesc(Irrgang13III,1.,quantity=False)-811.5) < 1e0, 'Escape velocity at the Sun in Irrgang13III does not agree with what it should be'
+    # Oort A
+    assert numpy.fabs(0.5*(potential.vcirc(Irrgang13III,1.,use_physical=False)-potential.dvcircdR(Irrgang13III,1.,use_physical=False))*vo/ro-14.70) < 1e-1, 'Oort A in Irrgang13III does not agree with what it should be'
+    # Oort B
+    assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13III,1.,use_physical=False)+potential.dvcircdR(Irrgang13III,1.,use_physical=False))*vo/ro+14.08) < 1e-1, 'Oort B in Irrgang13III does not agree with what it should be'
+    return None
+    
 # Test that the virial setup of NFW works
 def test_NFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit= 71., 0.32, 201., False
@@ -2964,6 +3034,61 @@ def test_ttensor_nonaxi():
         dummy= lp.ttensor(1.,0.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.ttensor(lp,1.,0.,0.)
+    return None
+
+def test_NumericalPotentialDerivativesMixin():
+    # Test that the NumericalPotentialDerivativesMixin works as expected
+    def get_mixin_first_instance(cls,*args,**kwargs):
+        # Function to return instance of a class for Potential cls where
+        # the NumericalPotentialDerivativesMixin comes first, so all derivs
+        # are numerical (should otherwise always be used second!)
+        class NumericalPot(potential.NumericalPotentialDerivativesMixin,cls):
+            def __init__(self,*args,**kwargs):
+                potential.NumericalPotentialDerivativesMixin.__init__(self,
+                                                                      kwargs)
+                cls.__init__(self,*args,**kwargs)
+        return NumericalPot(*args,**kwargs)
+    # Function to check all numerical derivatives
+    def check_numerical_derivs(Pot,NumPot,tol=1e-6,tol2=1e-5):
+        # tol: tolerance for forces, tol2: tolerance for 2nd derivatives
+        # Check wide range of R,z,phi
+        Rs= numpy.array([0.5,1.,2.])
+        Zs= numpy.array([0.,.125,-.125,0.25,-0.25])
+        phis= numpy.array([0.,0.5,-0.5,1.,-1.,
+                           numpy.pi,0.5+numpy.pi,
+                           1.+numpy.pi])
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                for kk in range(len(phis)):
+                    # Forces
+                    assert numpy.fabs((Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.zforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct zforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phiforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phiforce'.format(Pot.__class__.__name__)
+                    # Second derivatives
+                    assert numpy.fabs((Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct R2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.z2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct z2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phi2deriv(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phi2deriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rzderiv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rphideriv'.format(Pot.__class__.__name__)
+        return None
+    # Now check some potentials
+    # potential.MiyamotoNagaiPotential
+    mp= potential.MiyamotoNagaiPotential(amp=1.,a=0.5,b=0.05)
+    num_mp= get_mixin_first_instance(potential.MiyamotoNagaiPotential,
+                                     amp=1.,a=0.5,b=0.05)
+    check_numerical_derivs(mp,num_mp)
+    # potential.DehnenBarPotential
+    dp= potential.DehnenBarPotential()
+    num_dp= get_mixin_first_instance(potential.DehnenBarPotential)
+    check_numerical_derivs(dp,num_dp)
     return None
 
 # Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347

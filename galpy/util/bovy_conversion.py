@@ -562,8 +562,9 @@ def physical_conversion(quantity,pop=False):
                 vo= vo.to(units.km/units.s).value
             # Override Quantity output?
             _apy_units= kwargs.get('quantity',_APY_UNITS)
-            #Remove ro and vo kwargs if necessary
+            #Remove ro, vo, use_physical, and quantity kwargs if necessary
             if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
+            if pop and 'quantity' in kwargs: kwargs.pop('quantity')
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and \
