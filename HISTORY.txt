@@ -17,7 +17,7 @@ v1.5 (????-??-??)
 - Added the galpy.potentials.mwpotentials module with various
   Milky-Way-like potentials. Currently included are MWPotential2014,
   McMillan17 for the potential from McMillan (2017), and the three
-  models from Irrgang et al. (2013). See PR #394.
+  models from Irrgang et al. (2013). See PR #395.
 
 - Added potential.toVerticalPotential to convert any 3D potential to a
   1D potential at a given (R,phi) [generalizes RZToverticalPotential
