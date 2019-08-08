@@ -107,3 +107,58 @@ def test_velocity_in_kpcGyr():
     assert numpy.fabs(bovy_conversion.velocity_in_kpcGyr(vofid,rofid)/bovy_conversion.velocity_in_kpcGyr(vofid,2*rofid)-1.) < 10.**-10., 'velocity_in_kpcGyr did not work as expected'
     return None
     
+def test_get_physical():
+    #Test that the get_physical function returns the right scaling parameters
+    from galpy.util.bovy_conversion import get_physical
+    # Potential and variations thereof
+    from galpy.potential import MWPotential2014, DehnenBarPotential
+    dp= DehnenBarPotential
+    assert numpy.fabs(get_physical(MWPotential2014[0]).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014[0]).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    ro,vo= 9., 230.
+    dp= DehnenBarPotential(ro=ro,vo=vo)
+    assert numpy.fabs(get_physical(dp).get('ro')-ro) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(dp).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014+dp).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014+dp).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014+dp).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    assert numpy.fabs(get_physical(MWPotential2014+dp).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
+    # Orbits
+    from galpy.orbit import Orbit
+    ro,vo= 10., 210.
+    o= Orbit(ro=ro,vo=vo)
+    assert numpy.fabs(get_physical(o).get('ro')-ro) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an Orbit'
+    assert numpy.fabs(get_physical(o).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an Orbit'
+    # even though one shouldn't do this, let's test a list
+    assert numpy.fabs(get_physical([o,o]).get('ro')-ro) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an Orbit'
+    assert numpy.fabs(get_physical([o,o]).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an Orbit'
+    # actionAngle
+    from galpy.actionAngle import actionAngleStaeckel
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45)
+    assert numpy.fabs(get_physical(aAS).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an actionAngle instance'
+    assert numpy.fabs(get_physical(aAS).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an actionAngle instance'
+    # This doesn't make much sense, but let's test...
+    ro,vo= 19., 130.
+    dp= DehnenBarPotential(ro=ro,vo=vo)
+    aAS= actionAngleStaeckel(pot=dp,delta=0.45,ro=ro,vo=vo)
+    assert numpy.fabs(get_physical(aAS).get('ro')-ro) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an actionAngle instance'
+    assert numpy.fabs(get_physical(aAS).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for an actionAngle instance'
+    # DF
+    from galpy.df import quasiisothermaldf
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45)
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,aA=aAS,pot=MWPotential2014)
+    assert numpy.fabs(get_physical(qdf).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a DF instance'
+    assert numpy.fabs(get_physical(qdf).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a DF instance'
+    # non-standard ro,vo
+    from galpy.potential import MiyamotoNagaiPotential
+    ro,vo= 4., 330.
+    mp= MiyamotoNagaiPotential(a=0.5,b=0.1,ro=ro,vo=vo)
+    aAS= actionAngleStaeckel(pot=mp,delta=0.45,ro=ro,vo=vo)
+    qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,aA=aAS,pot=mp,ro=ro,vo=vo)
+    assert numpy.fabs(get_physical(qdf).get('ro')-ro) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a DF instance'
+    assert numpy.fabs(get_physical(qdf).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a DF instance'
+    return None
+
+    

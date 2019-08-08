@@ -1,4 +1,5 @@
 import warnings
+from . import Force
 from . import Potential
 from . import planarPotential
 from . import linearPotential
@@ -107,6 +108,7 @@ flatten= Potential.flatten
 #
 # Classes
 #
+Force= Force.Force
 Potential= Potential.Potential
 planarAxiPotential= planarPotential.planarAxiPotential
 planarPotential= planarPotential.planarPotential
