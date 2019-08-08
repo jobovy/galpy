@@ -14,6 +14,11 @@ v1.5 (????-??-??)
   Orbit.from_name also supports tab completion for known objects in
   this list in IPython/Jupyter (PR #392).
 
+- Added the galpy.potentials.mwpotentials module with various
+  Milky-Way-like potentials. Currently included are MWPotential2014,
+  McMillan17 for the potential from McMillan (2017), and the three
+  models from Irrgang et al. (2013). See PR #394.
+
 - Added potential.toVerticalPotential to convert any 3D potential to a
   1D potential at a given (R,phi) [generalizes RZToverticalPotential
   to non-axi potentials; RZToverticalPotential retained for backwards
