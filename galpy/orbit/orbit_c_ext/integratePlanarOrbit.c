@@ -632,12 +632,12 @@ void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
   double * x_arr = t_arr+1*nPts;
   double * y_arr = t_arr+2*nPts;
 
-  double t[nPts];
+  double * t= (double *) malloc ( nPts * sizeof (double) );
   double tf = *(*pot_args+2);
   double to = *(*pot_args+1);
 
   int i;
-  for (i=0; i<nPts; i++) t[i] = (t_arr[i]-to)/(tf-to);
+  for (i=0; i<nPts; i++) *(t+i) = (t_arr[i]-to)/(tf-to);
 
   gsl_spline_init(x_spline, t, x_arr, nPts);
   gsl_spline_init(y_spline, t, y_arr, nPts);
@@ -648,4 +648,5 @@ void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
   potentialArgs->accy = y_accel_ptr;
 
   potentialArgs->nargs= (int) 5+(1+*(*pot_args+4))*nPts;
+  free(t);
 }
