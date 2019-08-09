@@ -6,7 +6,11 @@
 // MovingObjectPotential
 // 5 fixed arguments: amp, t0, tf, nsteps, ndim
 // Followed by <nsteps> time values and <ndim>*<nsteps> coordinates
-double MovingObjectPotentialRforce(double R,double z, double phi,
+void constrain_range(double * d) {
+  // Constrains index to be within interpolation range
+  if (*d < 0) *d = 0.0;
+  if (*d > 1) *d = 1.0;
+}double MovingObjectPotentialRforce(double R,double z, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -23,7 +27,7 @@ double MovingObjectPotentialRforce(double R,double z, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
-  constrain(&d_ind);
+  constrain_range(&d_ind);
   // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
@@ -53,7 +57,7 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
-  constrain(&d_ind);
+  constrain_range(&d_ind);
   // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
@@ -81,7 +85,7 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);
   double y = R*sin(phi);
-  constrain(&d_ind);
+  constrain_range(&d_ind);
   // Interpolate x, y, z
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
@@ -111,7 +115,7 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
-  constrain(&d_ind);
+  constrain_range(&d_ind);
   // Interpolate x, y
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
@@ -140,7 +144,7 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   double x = R*cos(phi);
   double y = R*sin(phi);
 
-  constrain(&d_ind);
+  constrain_range(&d_ind);
   // Interpolate x, y
   double obj_x = gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
   double obj_y = gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
@@ -151,10 +155,4 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
 			      potentialArgs->wrappedPotentialArg);
 
   return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
-}
-
-void constrain(double * d) {
-  // Constrains index to be within interpolation range
-  if (*d < 0) *d = 0.0;
-  if (*d > 1) *d = 1.0;
 }
