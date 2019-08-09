@@ -4804,6 +4804,29 @@ def test_phi_range():
     assert numpy.all(o.phi(its) >= -numpy.pi), 'o.phi does not return values >= pi'
     return None
 
+def test_orbit_time():
+    # Test that Orbit.time returns the time correctly, with units when that's
+    # required
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from galpy.util import bovy_conversion
+    from astropy import units as u
+    ts= numpy.linspace(0.,1.,1001)*u.Gyr
+    o= Orbit()
+    o.integrate(ts,MWPotential2014)
+    # No argument, in this case should be times in Gyr
+    assert numpy.all(numpy.fabs((ts-o.time(quantity=True))/ts[-1]).value < 1e-10), 'Orbit.time does not return the correct times'
+    # with argument, should be time in Gyr
+    assert numpy.all(numpy.fabs((ts-o.time(ts,quantity=True))/ts[-1]).value < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs((ts[-1]-o.time(ts[-1],quantity=True))/ts[-1]).value < 1e-10, 'Orbit.time does not return the correct times'
+    # with argument without units --> units
+    assert numpy.all(numpy.fabs((ts-o.time(ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs((ts[-1]-o.time(ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10, 'Orbit.time does not return the correct times'
+    # Now should get without units
+    o.turn_physical_off()
+    assert numpy.all(numpy.fabs((ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs((ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10, 'Orbit.time does not return the correct times'
+    return None
 
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):

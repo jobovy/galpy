@@ -2826,7 +2826,12 @@ class Orbit(object):
                 return self.t
             except AttributeError:
                 return 0.
-        else: return args[0]
+        else:
+            out= args[0]
+            if _APY_LOADED and isinstance(out,units.Quantity):
+                out= out.to(units.Gyr).value\
+                    /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            return out
 
     @physical_conversion('position')
     @shapeDecorator
