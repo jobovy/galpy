@@ -4230,6 +4230,10 @@ class Orbit(object):
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            # Need to re-evaluate now that t has changed...
+            t_exact_integration_times= hasattr(t,'__len__') \
+                and (len(t) == len(self.t)) \
+                and numpy.all(t == self.t)
         elif '_integrate_t_asQuantity' in self.__dict__ \
                 and self._integrate_t_asQuantity \
                 and not t_exact_integration_times:
