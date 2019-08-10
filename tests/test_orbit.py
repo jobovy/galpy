@@ -4828,6 +4828,35 @@ def test_orbit_time():
     assert numpy.fabs((ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10, 'Orbit.time does not return the correct times'
     return None
 
+def test_noDeprecationWarning_timeInCall():
+    # The short-cut in calling an orbit to check whether the given times are
+    # exactly the same as the input times should not raise a DeprecationWarning
+    # (in the first implementation as 'numpy.all(t == self.t)' it did)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from astropy import units
+    ts= numpy.linspace(0.,10.,1001)
+    orb= Orbit()
+    orb.integrate(ts,MWPotential)
+    with pytest.warns(None) as record:
+        orb.R(ts[:2])
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "elementwise == comparison failed; this will raise an error in the future.")
+        assert not raisedWarning, "Orbit evaluation with array times raises the DeprecationWarning 'elementwise == comparison failed; this will raise an error in the future.'"
+    # Also when using time units and evaluating without
+    ts= numpy.linspace(0.,0.1,1001)*units.Gyr
+    orb.integrate(ts,MWPotential)
+    with pytest.warns(None) as record:
+        orb.R(ts[:2].to(units.Gyr).value)
+        raisedWarning= False
+        for rec in record:
+            # check that the message matches
+            raisedWarning+= (str(rec.message.args[0]) == "elementwise == comparison failed; this will raise an error in the future.")
+        assert not raisedWarning, "Orbit evaluation with array times raises the DeprecationWarning 'elementwise == comparison failed; this will raise an error in the future.'"
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable

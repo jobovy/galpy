@@ -4222,16 +4222,20 @@ class Orbit(object):
             raise ValueError("Integrate instance before evaluating it at a specific time")
         else:
             t= args[0]
-        # Parse t
+        # Parse t, first check whether we are dealing with the common case 
+        # where one wants all integrated times
+        t_exact_integration_times= hasattr(t,'__len__') \
+            and (len(t) == len(self.t)) \
+            and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
             t= t.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         elif '_integrate_t_asQuantity' in self.__dict__ \
                 and self._integrate_t_asQuantity \
-                and not numpy.all(t == self.t):
+                and not t_exact_integration_times:
             # Not doing hasattr in above elif, bc currently slow due to overwrite of __getattribute__
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
-        if numpy.all(t == self.t): # Common case where one wants all integrated times
+        if t_exact_integration_times: # Common case where one wants all integrated times
             return self.orbit.T
         elif isinstance(t,(int,float)) and hasattr(self,'t') \
                 and t in list(self.t):
