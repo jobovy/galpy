@@ -3056,17 +3056,7 @@ def test_potential_paramunits():
                                                         tform=-1./bovy_conversion.time_in_Gyr(vo,ro),
                                                         tsteady=3./bovy_conversion.time_in_Gyr(vo,ro))
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"
-    # DehnenSmoothWrapperPotential with time as array
-    dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
-    pot= potential.DehnenSmoothWrapperPotential(pot=dpn,
-                                                tform=-1.*units.Gyr,
-                                                tsteady=3.*units.Gyr,
-                                                ro=ro,vo=vo)
-    # Check potential
-    t=numpy.array([0.,1.])
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,t=t,use_physical=False)[0]-pot(1.5,0.3,phi=0.1,t=t[0],use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,t=t,use_physical=False)[1]-pot(1.5,0.3,phi=0.1,t=t[1],use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
     # SolidBodyRotationWrapperPotential
     spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
     pot= potential.SolidBodyRotationWrapperPotential(pot=spn,\

@@ -4,7 +4,6 @@
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
 from galpy.util import bovy_conversion
-import numpy
 if _APY_LOADED:
     from astropy import units
 class DehnenSmoothWrapperPotential(parentWrapperPotential):
@@ -77,24 +76,14 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
 
     def _smooth(self,t):
         #Calculate relevant time
-        if isinstance(t,numpy.ndarray):
-            smooth=numpy.ones(len(t))
-            indx=(t < self._tform)
-            smooth[indx]=0.
-
-            indx=(t < self._tsteady) * (t >= self._tform)
-            deltat=t[indx]-self._tform
+        if t < self._tform:
+            smooth= 0.
+        elif t < self._tsteady:
+            deltat= t-self._tform
             xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth[indx]= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else:
-            if t < self._tform:
-                smooth= 0.
-            elif t < self._tsteady:
-                deltat= t-self._tform
-                xi= 2.*deltat/(self._tsteady-self._tform)-1.
-                smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-            else: #bar is fully on
-                smooth= 1.
+            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
+        else: #bar is fully on
+            smooth= 1.
         return smooth if self._grow else 1.-smooth 
 
     def _wrap(self,attribute,*args,**kwargs):
