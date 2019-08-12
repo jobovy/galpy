@@ -7,7 +7,7 @@ from galpy.orbit import Orbit
 from galpy import potential
 from galpy.util import bovy_conversion,bovy_coords
 
-from galpy.potential import amuse
+from galpy.potential import to_amuse
 
 from amuse.lab import *
 from amuse.couple import bridge
@@ -115,7 +115,7 @@ def integrate_amuse(orb,pot,tmax,vo,ro):
 
     orbit.position=[orb.x(),orb.y(),orb.z()] | units.kpc
     orbit.velocity=[orb.vx(),orb.vy(),orb.vz()] | units.kms
-    galaxy_code = amuse.galpy_profile(pot,ro=ro,vo=vo)
+    galaxy_code = to_amuse(pot,ro=ro,vo=vo)
     
     orbit_gravity=drift_without_gravity(orbit)
     orbit_gravity.particles.add_particles(orbit)
