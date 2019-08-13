@@ -1,18 +1,13 @@
 # galpy.potential.amuse: AMUSE representation of galpy potentials
-# amuse imports first
+import numpy
+from amuse.units import units
+from amuse.units.quantities import ScalarQuantity
+from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
 from ..util import bovy_conversion
-
-import numpy
-
-#Import exactly what exactly needs to be important
-
-from amuse.lab import units,ScalarQuantity
-from amuse.support.literature import LiteratureReferencesMixIn
-
 class galpy_profile(LiteratureReferencesMixIn):
     """
-    User-defined potential from GALPY
+    User-defined potential from galpy
     
     .. [#] Bovy, J, 2015, galpy: A Python Library for Galactic Dynamics, Astrophys. J. Supp. 216, 29 [2015ApJS..216...29B]
     
