@@ -861,6 +861,90 @@ backwards in time in AMUSE, ``to_amuse`` has a keyword ``reverse=``
 ``galpy`` potential; ``reverse=True`` does this (note that you also
 have to flip the velocities to actually go backwards).
 
+A full example of setting up a Plummer-sphere cluster and evolving its
+N-body dynamics using an AMUSE ``BHTree`` in the external
+``MWPotential2014`` potential is:
+
+>>> from amuse.lab import *
+>>> from amuse.couple import bridge
+>>> from amuse.datamodel import Particles
+>>> from galpy.potential import to_amuse, MWPotential2014
+>>> from galpy.util import bovy_plot
+>>>
+>>> # Convert galpy MWPotential2014 to AMUSE representation
+>>> mwp_amuse= to_amuse(MWPotential2014)
+>>> 
+>>> # Set initial cluster parameters
+>>> N= 1000
+>>> Mcluster= 1000. | units.MSun
+>>> Rcluster= 10. | units.parsec
+>>> Rinit= [10.,0.,0.] | units.kpc
+>>> Vinit= [0.,220.,0.] | units.km/units.s
+>>> # Setup star cluster simulation
+>>> tend= 100.0 | units.Myr
+>>> dtout= 5.0 | units.Myr
+>>> dt= 1.0 | units.Myr
+>>>
+>>> def setup_cluster(N,Mcluster,Rcluster,Rinit,Vinit):
+>>>     converter= nbody_system.nbody_to_si(Mcluster,Rcluster)
+>>>     stars= new_plummer_sphere(N,converter)
+>>>     stars.x+= Rinit[0]
+>>>     stars.y+= Rinit[1]
+>>>     stars.z+= Rinit[2]
+>>>     stars.vx+= Vinit[0]
+>>>     stars.vy+= Vinit[1]
+>>>     stars.vz+= Vinit[2]
+>>>     return stars,converter
+>>> 
+>>> # Setup cluster
+>>> stars,converter= setup_cluster(N,Mcluster,Rcluster,Rinit,Vinit)
+>>> cluster_code= BHTree(converter,number_of_workers=1) #Change number of workers depending no. of CPUs
+>>> cluster_code.parameters.epsilon_squared= (3. | units.parsec)**2
+>>> cluster_code.parameters.opening_angle= 0.6
+>>> cluster_code.parameters.timestep= dt
+>>> cluster_code.particles.add_particles(stars)
+>>>
+>>> # Setup channels between stars particle dataset and the cluster code
+>>> channel_from_stars_to_cluster_code= stars.new_channel_to(cluster_code.particles,
+>>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])    
+>>> channel_from_cluster_code_to_stars= cluster_code.particles.new_channel_to(stars,
+>>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])
+>>>
+>>> # Setup gravity bridge
+>>> gravity= bridge.Bridge(use_threading=False)
+>>> # Stars in cluster_code depend on gravity from external potential mwp_amuse (i.e., MWPotential2014)
+>>> gravity.add_system(cluster_code, (mwp_amuse,))
+>>> # External potential mwp_amuse still needs to be added to system so it evolves with time
+>>> gravity.add_system(mwp_amuse,)
+>>> # Set how often to update external potential
+>>> gravity.timestep= cluster_code.parameters.timestep/2.
+>>> # Evolve
+>>> time= 0.0 | tend.unit
+>>> while time<tend:
+>>>     gravity.evolve_model(time+dt)
+>>>     # If you want to output or analyze the simulation, you need to copy 
+>>>     # stars from cluster_code
+>>>     #channel_from_cluster_code_to_stars.copy()
+>>>
+>>>     # If you edited the stars particle set, for example to remove stars from the 
+>>>     # array because they have been kicked far from the cluster, you need to
+>>>     # copy the array back to cluster_code:
+>>>     #channel_from_stars_to_cluster_code.copy()
+>>>
+>>>     # Update time
+>>>     time= gravity.model_time
+>>>
+>>> channel_from_cluster_code_to_stars.copy()
+>>> gravity.stop()
+>>>
+>>> bovy_plot.bovy_plot(stars.x.value_in(units.kpc),stars.y.value_in(units.kpc),'.',
+>>>                     xlabel=r'$X\,(\mathrm{kpc})$',ylabel=r'$Y\,(\mathrm{kpc})$')
+
+After about 30 seconds, you should get a plot like the following,
+which shows a cluster in the first stages of disruption:
+
+.. image:: images/potential-amuse-example.png
+   :scale: 50 %
 
 **NEW in v1.4**: Dissipative forces
 ------------------------------------
