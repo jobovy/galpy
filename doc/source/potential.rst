@@ -806,8 +806,8 @@ between ``galpy`` and NEMO (one can flatten in ``y``).
 
 .. _amusepot:
 
-Conversion to AMUSE potentials
---------------------------------
+**NEW in v1.5**: Conversion to AMUSE potentials
+-----------------------------------------------
 
 `AMUSE <http://amusecode.org/>`_ is a Python software framework for
 astrophysical simulations, in which existing codes from different
