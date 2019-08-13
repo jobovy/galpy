@@ -2891,7 +2891,7 @@ def nemo_accpars(Pot,vo,ro):
     else: #pragma: no cover 
         raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
     
-def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None): # pragma: no cover
+def to_amuse(Pot,t=0.,tgalpy=0.,reverse=False,ro=None,vo=None): # pragma: no cover
     """
     NAME:
     
@@ -2905,9 +2905,11 @@ def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None): # pragma: no cover
 
        Pot - Potential instance or list of such instances
 
-       t= (0.) Initial time in AMUSE (can be in internal galpy units, astropy units, or AMUSE units)
+       t= (0.) Initial time in AMUSE (can be in internal galpy units or AMUSE units)
 
-       tgalpy= (0.) Initial time in galpy (can be in internal galpy units, astropy units, or AMUSE units); because AMUSE initial times have to be positive, this is useful to set if the initial time in galpy is negative
+       tgalpy= (0.) Initial time in galpy (can be in internal galpy units or AMUSE units); because AMUSE initial times have to be positive, this is useful to set if the initial time in galpy is negative
+
+       reverse= (False) set whether the galpy potential evolves forwards or backwards in time (default: False); because AMUSE can only integrate forward in time, this is useful to integrate backward in time in AMUSE
 
        ro= (default taken from Pot) length unit in kpc
 
@@ -2919,7 +2921,9 @@ def to_amuse(Pot,t=0.,tgalpy=0.,ro=None,vo=None): # pragma: no cover
 
     HISTORY:
 
-       2018-08-04 - Written - Bovy (UofT)
+       2019-08-04 - Written - Bovy (UofT)
+
+       2019-08-12 - Implemented actual function - Webb (UofT)
 
     """
     try:
