@@ -14,7 +14,7 @@ class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from GALPY
     
-    .. [#] Bovy, J; ApJSS, Volume 216, Issue 2, article id. 29, 27 pp. (2015)
+    .. [#] Bovy, J, 2015, galpy: A Python Library for Galactic Dynamics, Astrophys. J. Supp. 216, 29 [2015ApJS..216...29B]
     
     """
     def __init__(self,pot, t = 0., tgalpy = 0., ro=8, vo=220., reverse=False):
