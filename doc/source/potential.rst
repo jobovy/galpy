@@ -804,7 +804,63 @@ logarithmic potential in NEMO, it cannot be flattened in ``z``, so to
 use a flattened logarithmic potential, one has to flip ``y`` and ``z``
 between ``galpy`` and NEMO (one can flatten in ``y``).
 
-.. _addpot:
+.. _amusepot:
+
+Conversion to AMUSE potentials
+--------------------------------
+
+`AMUSE <http://amusecode.org/>`_ is a Python software framework for
+astrophysical simulations, in which existing codes from different
+domains, such as stellar dynamics, stellar evolution, hydrodynamics
+and radiative transfer can be easily coupled. AMUSE allows you to run
+N-body simulations that include a wide range of physics (gravity,
+stellar evolution, hydrodynamics, radiative transfer) with a large
+variety of numerical codes (collisionless, collisional, etc.).
+
+The ``galpy.potential.to_amuse`` function allows you to create an
+AMUSE representation of any ``galpy`` potential. This is useful, for
+instance, if you want to run a simulation of a stellar cluster in an
+external gravitational field, because ``galpy`` has wide support for
+representing external gravitational fields. Creating the AMUSE
+representation is as simple as (for ``MWPotential2014``):
+
+>>> from galpy.potential import to_amuse, MWPotential2014
+>>> mwp_amuse= to_amuse(MWPotential2014)
+>>> print(mwp_amuse)
+# <galpy.potential.amuse.galpy_profile object at 0x7f6b366d13c8>
+
+Schematically, this potential can then be used in AMUSE as
+
+>>> gravity = bridge.Bridge(use_threading=False)
+>>> gravity.add_system(cluster_code, (mwp_amuse,))
+>>> gravity.add_system(mwp_amuse,)
+
+where ``cluster_code`` is a code to perform the N-body integration of
+a system (e.g., a ``BHTree`` in AMUSE). A fuller example is given below.
+
+AMUSE uses physical units when interacting with the galpy potential
+and it is therefore necessary to make sure that the correct physical
+units are used. The ``to_amuse`` function takes the ``galpy`` unit
+conversion parameters ``ro=`` and ``vo=`` as keyword parameters to
+perform the conversion between internal galpy units and physical
+units; if these are not explicitly set, ``to_amuse`` attempts to set
+them automatically using the potential that you input using the
+``galpy.util.bovy_conversion.get_physical`` function.
+
+Another difference between ``galpy`` and AMUSE is that in AMUSE
+integration times can only be positive and they have to increase in
+time. ``to_amuse`` takes as input the ``t=`` and ``tgalpy=`` keywords
+that specify (a) the initial time in AMUSE and (b) the initial time in
+``galpy`` that this time corresponds to. Typically these will be the
+same (and equal to zero), but if you want to run a simulation where
+the initial time in ``galpy`` is negative it is useful to give them
+different values. The time inputs can be either given in ``galpy``
+internal units or using AMUSE's units. Similarly, to integrate
+backwards in time in AMUSE, ``to_amuse`` has a keyword ``reverse=``
+(default: ``False``) that reverses the time direction given to the
+``galpy`` potential; ``reverse=True`` does this (note that you also
+have to flip the velocities to actually go backwards).
+
 
 **NEW in v1.4**: Dissipative forces
 ------------------------------------
