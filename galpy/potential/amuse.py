@@ -12,7 +12,7 @@ class galpy_profile(LiteratureReferencesMixIn):
     .. [#] Bovy, J, 2015, galpy: A Python Library for Galactic Dynamics, Astrophys. J. Supp. 216, 29 [2015ApJS..216...29B]
     
     """
-    def __init__(self,pot, t = 0., tgalpy = 0., ro=8, vo=220., reverse=False):
+    def __init__(self,pot,t = 0.,tgalpy = 0.,ro=8,vo=220.,reverse=False):
         """
         NAME:
 
@@ -20,19 +20,19 @@ class galpy_profile(LiteratureReferencesMixIn):
 
         PURPOSE:
 
-           initialize a GALPY potential for use with AMUSE
+           initialize a galpy potential for use with AMUSE
 
         INPUT:
 
-           pot - GALPY potential
+           pot - galpy potential object or list of such objects
 
-           t - start time for AMUSE simulation (can be Quantity)
+           t - start time for AMUSE simulation (can be an AMUSE Quantity)
 
-           tgalpy - start time for GALPY potential, can be less than zero (can be Quantity)
+           tgalpy - start time for galpy potential, can be less than zero (can be Quantity)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
-           reverse - set whether GALPY potential evolves forwards or backwards in time (default: False)
+           reverse - set whether galpy potential evolves forwards or backwards in time (default: False)
 
         OUTPUT:
 
@@ -40,28 +40,27 @@ class galpy_profile(LiteratureReferencesMixIn):
 
         HISTORY:
 
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
 
         """
-
         LiteratureReferencesMixIn.__init__(self)
-
-        self.pot = pot
-        self.ro=ro
-        self.vo=vo
-        self.reverse=reverse
-
+        self.pot= pot
+        self.ro= ro
+        self.vo= vo
+        self.reverse= reverse
         #Initialize model time
         if isinstance(t,ScalarQuantity):
-            self.model_time=t
+            self.model_time= t
         else:
-            self.model_time=t*bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo) | units.Gyr
-
+            self.model_time= \
+                t*bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
+                | units.Gyr
         #Initialize galpy time
         if isinstance(tgalpy,ScalarQuantity):
-            self.tgalpy=tgalpy.value_in(units.Gyr)/bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.tgalpy= tgalpy.value_in(units.Gyr)\
+                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
-            self.tgalpy=tgalpy
+            self.tgalpy= tgalpy
 
     def evolve_model(self,time):
         """
@@ -74,16 +73,16 @@ class galpy_profile(LiteratureReferencesMixIn):
         OUTPUT:
            None
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-
-        dt=time-self.model_time
-        self.model_time=time  
-
+        dt= time-self.model_time
+        self.model_time= time  
         if self.reverse:
-            self.tgalpy-=dt.value_in(units.Gyr)/bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.tgalpy-= dt.value_in(units.Gyr)\
+                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
-            self.tgalpy+=dt.value_in(units.Gyr)/bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.tgalpy+= dt.value_in(units.Gyr)\
+                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
 
     def get_potential_at_point(self,eps,x,y,z):
         """
@@ -92,21 +91,20 @@ class galpy_profile(LiteratureReferencesMixIn):
         PURPOSE:
            Get potenial at a given location in the potential
         INPUT:
-           eps - softening length (necessary for AMUSE, but not used by GALPY potential)
+           eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential
         OUTPUT:
            Phi(x,y,z)
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-
-        R=numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed=z.value_in(units.kpc)
-        phi=numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-
-        pot=potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,phi=phi,t=self.tgalpy,ro=self.ro,vo=self.vo) | units.km**2*units.s**-2
-                    
-        return pot
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        return potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
+                                            phi=phi,t=self.tgalpy,
+                                            ro=self.ro,vo=self.vo) \
+                                            | units.km**2*units.s**-2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -115,26 +113,35 @@ class galpy_profile(LiteratureReferencesMixIn):
         PURPOSE:
            Get acceleration due to potential at a given location in the potential
         INPUT:
-           eps - softening length (necessary for AMUSE, but not used by GALPY potential)
+           eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential
         OUTPUT:
            ax,ay,az
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-
-        R=numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed=z.value_in(units.kpc)
-        phi=numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-
-        Rforce=potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,phi=phi,t=self.tgalpy)
-        phiforce=potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,phi=phi,t=self.tgalpy)/(R/self.ro)
-        zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,phi=phi,t=self.tgalpy)
-
-        ax=(Rforce*numpy.cos(phi)-phiforce*numpy.sin(phi))*bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) | units.kms * units.myr**-1
-        ay=(Rforce*numpy.sin(phi)+phiforce*numpy.cos(phi))*bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) | units.kms * units.myr**-1
-        az=zforce*bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) | units.kms * units.myr**-1
-        
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        # Cylindrical force
+        Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
+                                          phi=phi,t=self.tgalpy)
+        phiforce= potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,
+                                              phi=phi,t=self.tgalpy)\
+                                              /(R/self.ro)
+        zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,
+                                         phi=phi,t=self.tgalpy)
+        # Convert cylindrical force --> rectangular
+        cp, sp= numpy.cos(phi), numpy.sin(phi)
+        ax= (Rforce*cp - phiforce*sp)\
+            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            | units.kms * units.myr**-1
+        ay= (Rforce*sp + phiforce*cp)\
+            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            | units.kms * units.myr**-1
+        az= zforce\
+            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            | units.kms * units.myr**-1
         return ax,ay,az
 
     def mass_density(self,x,y,z):
@@ -144,21 +151,20 @@ class galpy_profile(LiteratureReferencesMixIn):
         PURPOSE:
            Get mass density at a given location in the potential
         INPUT:
-           eps - softening length (necessary for AMUSE, but not used by GALPY potential)
+           eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential
         OUTPUT:
            the density
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-
-        R=numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed=z.value_in(units.kpc)
-        phi=numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-
-        dens=potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,phi=phi,t=self.tgalpy,ro=self.ro,vo=self.vo) | units.MSun/(units.parsec**3.)
-                        
-        return dens
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        return potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
+                                           phi=phi,t=self.tgalpy,
+                                           ro=self.ro,vo=self.vo) \
+                                           | units.MSun/(units.parsec**3.)
 
     def circular_velocity(self,r):
         """
@@ -171,10 +177,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         OUTPUT:
            the circular velocity
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-        vcirc=potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,ro=self.ro,vo=self.vo) | units.kms
-        return vcirc
+        return potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
+                               t=self.tgalpy,ro=self.ro,vo=self.vo) | units.kms
         
     def enclosed_mass(self,r):
         """
@@ -200,10 +206,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         PURPOSE:
            Stop the potential model (necessary function for AMUSE)
         INPUT:
-           NONE
+           None
         OUTPUT:
-           NONE
+           None
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
         pass
