@@ -96,6 +96,7 @@ Use as ``method(...)``
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
+   to_amuse <potentialtoamuses.rst>
    ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>

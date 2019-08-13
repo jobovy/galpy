@@ -105,6 +105,7 @@ scf_compute_coeffs = SCFPotential.scf_compute_coeffs
 rtide= Potential.rtide
 ttensor= Potential.ttensor
 flatten= Potential.flatten
+to_amuse= Potential.to_amuse
 #
 # Classes
 #
