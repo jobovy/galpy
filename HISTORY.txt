@@ -19,6 +19,11 @@ v1.5 (????-??-??)
   McMillan17 for the potential from McMillan (2017), and the three
   models from Irrgang et al. (2013). See PR #395.
 
+- Added potential.to_amuse to create an AMUSE
+  (http://www.amusecode.org) representation of any galpy potential,
+  allowing galpy potentials to be used as external gravitational
+  fields in AMUSE N-body simulations (#398).
+
 - Added potential.toVerticalPotential to convert any 3D potential to a
   1D potential at a given (R,phi) [generalizes RZToverticalPotential
   to non-axi potentials; RZToverticalPotential retained for backwards
