@@ -187,13 +187,11 @@ class galpy_profile(LiteratureReferencesMixIn):
         OUTPUT:
            the mass enclosed
         HISTORY:
-           2019- Written - Webb (UofT)
+           2019-08-12 - Written - Webb (UofT)
         """
-
-        grav=4.302e-6 #kpc (km/s)^2/Msun
-        vc2=potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,t=self.tgalpy,ro=self.ro,vo=self.vo)**2.
-        menc= vc2*r.value_in(units.kpc)/grav | units.MSun
-        return menc
+        vc2= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
+                             t=self.tgalpy,ro=self.ro,vo=self.vo)**2.
+        return vc2*r.value_in(units.kpc)/bovy_conversion._G*1000. | units.MSun
 
     def stop(self):
         """
