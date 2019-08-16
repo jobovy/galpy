@@ -18,6 +18,7 @@ from __future__  import division, print_function
 import os, os.path
 import pickle
 from functools import wraps
+import warnings
 import math
 import numpy as nu
 from scipy import optimize, integrate
@@ -27,6 +28,7 @@ from ..util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical
 from ..util import config
+from ..util import galpyWarning
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
 from .DissipativeForce import DissipativeForce, _isDissipative
@@ -392,6 +394,8 @@ class Potential(Force):
 
            2014-01-29 - Written - Bovy (IAS)
 
+           2019-08-15 - Added spherical warning - Bovy (UofT)
+
         """
         if self.isNonAxi:
             raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
@@ -401,6 +405,10 @@ class Potential(Force):
         except AttributeError:
             #Use numerical integration to get the mass
             if z is None:
+                warnings.warn("Vertical height z not specified for mass "
+                              "calculation...assuming spherical potential"
+                              " (for the mass of axisymmetric potentials"
+                              ", specify z)",galpyWarning)
                 return 4.*nu.pi\
                     *integrate.quad(lambda x: x**2.\
                                         *self.dens(x,0.,
