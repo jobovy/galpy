@@ -4,13 +4,23 @@
 class NumericalPotentialDerivativesMixin(object):
     """Mixin to add numerical derivatives to a Potential class, use as, e.g.,
 
-    class myPotential(SCFPotential,NumericalPotentialDerivativesMixin):
-        def __init__(self,*args,**kwargs):
-            NumericalPotentialDerivativesMixin.__init__(self,kwargs) # *not* **kwargs!
-            # Remainder of initialization
-            ....
+    .. highlight:: python
+    .. code-block:: python
 
-    to add numerical derivatives to the SCFPotential class (which at the time of writing does not have second derivatives, so adding the Mixin makes them numerical)"""
+        class PotWithNumericalDerivs(Potential,NumericalPotentialDerivativesMixin):
+            def __init__(self,*args,**kwargs):
+                NumericalPotentialDerivativesMixin.__init__(self,kwargs) # *not* **kwargs!
+                # Remainder of initialization
+                ...
+
+            def _evaluate(self,R,z,phi=0.,t=0.):
+                # Evaluate the potential
+
+            # All forces and second derivatives then computed by NumericalPotentialDerivativesMixin
+
+    to add numerical derivatives to a new potential class ``PotWithNumericalDerivs`` that only implements the potential itself, but not the forces. The class may implement any of the forces or second derivatives, all non-implemented forces/second-derivatives will be computed numerically by adding this Mixin
+
+    The step used to compute the first (force) and second derivatives can be controlled at object instantiation by the keyword arguments ``dR``, ``dz``, ``dphi`` (for the forces; 1e-8 default) and ``dR2``, ``dz2``, and ``dphi2`` (for the second derivaives; 1e-4 default)"""
     def __init__(self,kwargs): # no **kwargs to get a reference, not a copy!
         # For first derivatives
         self._dR= kwargs.pop('dR',1e-8)

@@ -217,6 +217,14 @@ Dissipative forces
 
    potentialchandrasekhardynfric.rst
 
+Helper classes
+**************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialnumericalpotentialderivsmixin.rst
+
 .. _potential-mw:
 
 Milky-Way-like potentials
