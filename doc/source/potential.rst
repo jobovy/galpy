@@ -1053,6 +1053,15 @@ also see :ref:`the next section <addwrappot>`):
   code for ``galpy.potential.CosmphiDiskPotential`` provides a good
   template for 2D, non-axisymmetric potentials.
 
+  During development or if some of the forces or second derivatives
+  are too tedious to implement, it is possible to numerically compute
+  any non-implemented forces and second derivatives by inheriting from
+  the :ref:`NumericalPotentialDerivativesMixin
+  <numderivsmixin_potential>` class. Thus, a functioning potential can
+  be implemented by simply implementing the ``_evaluate`` function and
+  adding all forces and second derivatives using the
+  ``NumericalPotentialDerivativesMixin``.
+
   After this step, the new potential will work in any part of galpy
   that uses pure python potentials. To get the potential to work with
   the C implementations of orbit integration or action-angle
