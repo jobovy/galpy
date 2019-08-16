@@ -60,6 +60,12 @@ v1.5 (????-??-??)
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
 
+- Added NumericalPotentialDerivativesMixin, a Mixin class to add
+  numerically-computed forces and second derivatives to any Potential
+  class, allowing new potentials to be implmented quickly by only
+  implementing the potential itself and obtaining all forces and
+  second derivatives numerically.
+
 - Added nemo_accname and nemo_accpars for the HernquistPotential,
   allowing it to be converted to NEMO.
 
