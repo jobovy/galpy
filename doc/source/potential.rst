@@ -946,8 +946,8 @@ which shows a cluster in the first stages of disruption:
 .. image:: images/potential-amuse-example.png
    :scale: 50 %
 
-**NEW in v1.4**: Dissipative forces
-------------------------------------
+Dissipative forces
+------------------
 
 While almost all of the forces that you can use in ``galpy`` derive
 from a potential (that is, the force is the gradient of a scalar
@@ -1248,8 +1248,8 @@ implementation of the glue for any new wrappers.  Wrapper potentials
 should be given negative potential types in the glue to distinguish
 them from regular potentials.
 
-**NEW in v1.4**: Adding dissipative forces to the galpy framework
-------------------------------------------------------------------
+Adding dissipative forces to the galpy framework
+------------------------------------------------
 
 Dissipative forces are implemented in much the same way as forces that
 derive from potentials. Rather than inheriting from

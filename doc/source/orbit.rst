@@ -965,7 +965,7 @@ the estimations in one batch using the ``actionAngle`` interface, which takes co
 
 The above code calculates the parameters in roughly 100ms on a single core.
 
-**NEW in v1.4** Example: The orbit of the Large Magellanic Cloud in the presence of dynamical friction
+Example: The orbit of the Large Magellanic Cloud in the presence of dynamical friction
 --------------------------------------------------------------------------------------------------------
 
 As a further example of what you can do with galpy, we investigate the
