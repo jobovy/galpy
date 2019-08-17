@@ -2051,7 +2051,7 @@ def test_orbit_setup():
         assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
     #Radec w/ default
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
-    assert numpy.fabs(o.ra()-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.ra()-120.) < 10.**-12., 'Orbit ra setup does not agree with o.ra()'
     assert numpy.fabs(o.dec()-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmra()-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
@@ -2059,7 +2059,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.vlos()-30.) < 10.**-13., 'Orbit vlos setup does not agree with o.vlos()'
     #Radec w/ hogg
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='hogg')
-    assert numpy.fabs(o.ra()-120.) < 10.**-13., 'Orbit ra setup does not agree with o.ra()'
+    assert numpy.fabs(o.ra()-120.) < 10.**-12., 'Orbit ra setup does not agree with o.ra()'
     assert numpy.fabs(o.dec()-60.) < 10.**-13., 'Orbit dec setup does not agree with o.dec()'
     assert numpy.fabs(o.dist()-2.) < 10.**-13., 'Orbit dist setup does not agree with o.dist()'
     assert numpy.fabs(o.pmra()-0.5) < 10.**-13., 'Orbit pmra setup does not agree with o.pmra()'
@@ -2135,7 +2135,7 @@ def test_orbit_setup():
     assert numpy.fabs(o.W()+25.) < 10.**-10., 'Orbit W setup does not agree with o.W()'
     #Radec w/ hogg and obs=Orbit
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True,solarmotion='hogg')
-    obs= Orbit([1.,-10.1/220.,224./220,0.025/8.,6.7/220.,0.],
+    obs= Orbit([1.,-10.1/220.,224./220,0.0208/8.,6.7/220.,0.],
                solarmotion='hogg')
     assert numpy.fabs(o.ra(obs=obs)-120.) < 10.**-10., 'Orbit ra setup does not agree with o.ra()'
     assert numpy.fabs(o.dec(obs=obs)-60.) < 10.**-10., 'Orbit dec setup does not agree with o.dec()'

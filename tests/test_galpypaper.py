@@ -161,7 +161,9 @@ def test_orbitint():
 def test_orbmethods():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    o= Orbit([0.8,0.3,0.75,0.,0.2,0.]) # setup R,vR,vT,z,vz,phi
+    # 8/17/2019: added explicit z=0.025, because that was the default at the 
+    # time of the galpy paper, but the default has been changed
+    o= Orbit([0.8,0.3,0.75,0.,0.2,0.],zo=0.025) # setup R,vR,vT,z,vz,phi
     times= numpy.linspace(0.,10.,1001) # Output times
     o.integrate(times,MWPotential2014) # Integrate
     o.E() # Energy

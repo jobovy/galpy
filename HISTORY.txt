@@ -57,6 +57,10 @@ v1.5 (????-??-??)
   attributes by giving them as an expresion (e.g.,
   orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
 
+- Switched default Sun's vertical height zo parameter for Orbit
+  initialization to be the value of 20.8 pc from Bennett & Bovy
+  (2019).
+
 - Added IsothermalDiskPotential, the one-dimensional potential of an
   isothermal self-gravitating disk (sech^2 profile).
 

@@ -205,7 +205,7 @@ class Orbit(object):
 
             vo - circular velocity at ro (km/s; can be Quantity)
 
-            zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+            zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
 
             solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
 
@@ -324,7 +324,7 @@ class Orbit(object):
             if vo is None:
                 vo= config.__config__.getfloat('normalization','vo')
         # If at this point zo not set, use default
-        if zo is None: zo= 0.025
+        if zo is None: zo= 0.0208
         # if vxvv is SkyCoord, preferentially use its solarmotion
         if _APY_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
@@ -567,7 +567,7 @@ class Orbit(object):
 
                 vo= circular velocity at ro (km/s; can be Quantity)
 
-                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
 
                 solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
 
@@ -676,7 +676,7 @@ class Orbit(object):
 
                vo= circular velocity at ro (km/s; can be Quantity)
 
-               zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 25 pc)
+               zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
 
                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
 
@@ -5678,7 +5678,7 @@ def _lbd(orb,thiso,*args,**kwargs):
     X,Y,Z= _helioXYZ(orb,thiso,*args,**kwargs)
     bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
     if True in bad_indx:
-        X[bad_indx]+= ro/10000.
+        X[bad_indx]+= 1e-15
     return coords.XYZ_to_lbd(X,Y,Z,degree=True)
 
 def _radec(orb,thiso,*args,**kwargs):

@@ -53,7 +53,7 @@ class streamdf(df):
                  progIsTrack=False,
                  ro=None,vo=None,
                  Vnorm=None,Rnorm=None,
-                 R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
+                 R0=8.,Zsun=0.0208,vsun=[-11.1,8.*30.24,7.25],
                  multi=None,interpTrack=_INTERPDURINGSETUP,
                  useInterp=_USEINTERP,nosetup=False,nospreadsetup=False,
                  approxConstTrackFreq=False,useTMHessian=False,
@@ -124,7 +124,7 @@ class streamdf(df):
 
               R0= (8) Galactocentric radius of the Sun (kpc) [can be different from ro; can be Quantity]
 
-              Zsun= (0.025) Sun's height above the plane (kpc; can be Quantity)
+              Zsun= (0.0208) Sun's height above the plane (kpc; can be Quantity)
 
               vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity)
 
@@ -2671,7 +2671,7 @@ class streamdf(df):
 
            R0= (8) Galactocentric radius of the Sun (kpc)
 
-           Zsun= (0.025) Sun's height above the plane (kpc)
+           Zsun= (0.0208) Sun's height above the plane (kpc)
 
            vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
 
@@ -3284,7 +3284,7 @@ def _determine_stream_spread_single(sigomatrixEig,
 
 def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
               lb=False,coordFunc=None,
-              vo=220.,ro=8.,R0=8.,Zsun=0.025,vsun=[-11.1,8.*30.24,7.25],
+              vo=220.,ro=8.,R0=8.,Zsun=0.0208,vsun=[-11.1,8.*30.24,7.25],
               _initacfs=None):
     """
     NAME:
@@ -3311,7 +3311,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
        vo= (220) circular velocity to normalize with when lb=True
        ro= (8) Galactocentric radius to normalize with when lb=True
        R0= (8) Galactocentric radius of the Sun (kpc)
-       Zsun= (0.025) Sun's height above the plane (kpc)
+       Zsun= (0.0208) Sun's height above the plane (kpc)
        vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center)
 
        coordFunc= (None) if set, this is a function that takes xv and returns R,vR,vT,z,vz,phi in normalized units (units where vc=1 at r=1 if the potential is normalized that way, for example)
