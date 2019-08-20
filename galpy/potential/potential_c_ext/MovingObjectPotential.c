@@ -9,7 +9,8 @@ void constrain_range(double * d) {
   // Constrains index to be within interpolation range
   if (*d < 0) *d = 0.0;
   if (*d > 1) *d = 1.0;
-}double MovingObjectPotentialRforce(double R,double z, double phi,
+}
+double MovingObjectPotentialRforce(double R,double z, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
