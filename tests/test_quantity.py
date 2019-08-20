@@ -2144,6 +2144,7 @@ def test_planarPotential_method_inputAsQuantity():
 def test_linearPotential_method_inputAsQuantity():
     from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.util import bovy_conversion
     ro, vo= 8.*units.kpc, 220.*units.km/units.s
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
     # Force linearPotential setup with default
@@ -2163,9 +2164,10 @@ def test_linearPotential_method_inputAsQuantity():
     pot._roSet= False
     pot._vo= None
     pot._voSet= False
-    pot= pot.toVertical(1.1,10./180.*numpy.pi)
+    pot= pot.toVertical(1.1,10./180.*numpy.pi,
+                        t=1./bovy_conversion.time_in_Gyr(vo.to(units.km/units.s).value,ro.to(units.kpc).value))
     potu= potential.toVerticalPotential(SpiralArmsPotential(),
-                                        1.1*ro,phi=10*units.deg)
+                                        1.1*ro,phi=10*units.deg,t=1.*units.Gyr)
     assert numpy.fabs(pot(1.1*ro,use_physical=False)-potu(1.1)) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.force(1.1*ro,use_physical=False)-potu.force(1.1)) < 10.**-4., 'Potential method force does not return the correct value as Quantity'
     return None
@@ -2260,9 +2262,11 @@ def test_linearPotential_function_inputAsQuantity():
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     # Also toVerticalPotential, with non-axi
     pot= [SpiralArmsPotential(ro=ro,vo=vo)\
-              .toVertical((1.1*ro).to(units.kpc).value/8.,phi=20.*units.deg)]
+              .toVertical((1.1*ro).to(units.kpc).value/8.,phi=20.*units.deg,
+                          t=1.*units.Gyr)]
     potu= potential.toVerticalPotential([SpiralArmsPotential()],
-                                        1.1*ro,phi=20.*units.deg)
+                                        1.1*ro,phi=20.*units.deg,
+                                        t=1.*units.Gyr)
     assert numpy.fabs(potential.evaluatelinearPotentials(pot,1.1*ro,use_physical=False)-potential.evaluatelinearPotentials(potu,1.1)) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatelinearForces(pot,1.1*ro,use_physical=False)-potential.evaluatelinearForces(potu,1.1)) < 10.**-4., 'Potential function force does not return the correct value as Quantity'
     return None
