@@ -9,9 +9,9 @@ try:
 except ImportError:
     _APY_LOADED= False
 class verticalPotential(linearPotential):
-    """Class that represents a vertical potential derived from a RZPotential:
-    phi(z;R)= phi(R,z)-phi(R,0.)"""
-    def __init__(self,Pot,R=1.,phi=None,t=0.):
+    """Class that represents a vertical potential derived from a 3D Potential:
+    phi(z,t;R,phi)= phi(R,z,phi,t)-phi(R,0.,phi,t0)"""
+    def __init__(self,Pot,R=1.,phi=None,t0=0.):
         """
         NAME:
            __init__
@@ -21,7 +21,7 @@ class verticalPotential(linearPotential):
            Pot - Potential instance
            R  - Galactocentric radius at which to create the vertical potential
            phi= (None) Galactocentric azimuth at which to create the vertical potential (rad); necessary for 
-           t= (0.) time at which to create the vertical potential
+           t0= (0.) time at which to create the vertical potential
         OUTPUT:
            verticalPotential instance
         HISTORY:
@@ -39,9 +39,7 @@ class verticalPotential(linearPotential):
         else:
             self._phi= phi
         self._midplanePot= self._Pot(self._R,0.,phi=self._phi,
-                                     t=t,use_physical=False)
-        self._midplaneForce= self._Pot.zforce(self._R,0.,phi=self._phi,
-                                              t=t,use_physical=False)
+                                     t=t0,use_physical=False)
         self.hasC= Pot.hasC
         # Also transfer roSet and voSet
         self._roSet= Pot._roSet
@@ -58,7 +56,7 @@ class verticalPotential(linearPotential):
            z
            t
         OUTPUT:
-          Pot(z,t;R)
+          Pot(z,t;R,phi)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
@@ -77,14 +75,13 @@ class verticalPotential(linearPotential):
            z
            t
         OUTPUT:
-          F_z(z,t;R)
+          F_z(z,t;R,phi)
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
         tR= self._R if not hasattr(z,'__len__') else self._R*numpy.ones_like(z)
         tphi= self._phi if not hasattr(z,'__len__') else self._phi*numpy.ones_like(z)
-        return self._Pot.zforce(tR,z,phi=tphi,t=t,use_physical=False)\
-            -self._midplaneForce
+        return self._Pot.zforce(tR,z,phi=tphi,t=t,use_physical=False)
 
 def RZToverticalPotential(RZPot,R):
     """
@@ -138,7 +135,7 @@ def RZToverticalPotential(RZPot,R):
     else:
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
 
-def toVerticalPotential(Pot,R,phi=None,t=0.):
+def toVerticalPotential(Pot,R,phi=None,t0=0.):
     """
     NAME:
 
@@ -156,7 +153,7 @@ def toVerticalPotential(Pot,R,phi=None,t=0.):
 
        phi= (None) Galactocentric azimuth at which to evaluate the vertical potential (can be Quantity); required if Pot is non-axisymmetric
 
-       phi= (0.) time at which to evaluate the vertical potential (can be Quantity)
+       t0= (0.) time at which to evaluate the vertical potential (can be Quantity)
 
     OUTPUT:
 
@@ -176,12 +173,12 @@ def toVerticalPotential(Pot,R,phi=None,t=0.):
                 R= R.to(units.kpc).value/Pot[0]._ro
         if isinstance(phi,units.Quantity):
             phi= phi.to(units.rad).value
-        if isinstance(t,units.Quantity):
+        if isinstance(t0,units.Quantity):
             if hasattr(Pot,'_ro'):
-                t= t.to(units.Gyr).value/bovy_conversion.time_in_Gyr(Pot._vo,
-                                                                     Pot._ro)
+                t0= t0.to(units.Gyr).value/bovy_conversion.time_in_Gyr(Pot._vo,
+                                                                       Pot._ro)
             else:
-                t= t.to(units.Gyr).value\
+                t0= t0.to(units.Gyr).value\
                     /bovy_conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(Pot,list):
         out= []
@@ -189,14 +186,14 @@ def toVerticalPotential(Pot,R,phi=None,t=0.):
             if isinstance(pot,linearPotential):
                 out.append(pot)
             elif isinstance(pot,Potential):
-                out.append(verticalPotential(pot,R,phi=phi,t=t))
+                out.append(verticalPotential(pot,R,phi=phi,t0=t0))
             elif isinstance(pot,planarPotential):
                 raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
             else:
                 raise PotentialError("Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
-        return verticalPotential(Pot,R,phi=phi,t=t)
+        return verticalPotential(Pot,R,phi=phi,t0=t0)
     elif isinstance(Pot,linearPotential):
         return Pot
     elif isinstance(Pot,planarPotential):
