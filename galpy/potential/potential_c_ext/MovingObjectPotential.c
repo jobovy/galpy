@@ -4,8 +4,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
 // MovingObjectPotential
-// 5 fixed arguments: amp, t0, tf, nsteps, ndim
-// Followed by <nsteps> time values and <ndim>*<nsteps> coordinates
+// 3 arguments: amp, t0, tf
 void constrain_range(double * d) {
   // Constrains index to be within interpolation range
   if (*d < 0) *d = 0.0;
@@ -18,9 +17,6 @@ void constrain_range(double * d) {
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
 
   double d_ind = ((t-t0)/(tf-t0));
 
@@ -49,9 +45,6 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
 
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);
@@ -78,9 +71,6 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
 
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);
@@ -107,9 +97,6 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
 
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);
@@ -136,9 +123,6 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   double amp= *args;
   double t0= *(args+1);
   double tf= *(args+2);
-  int n_steps= (int) *(args+3);
-  int n_dim= (int) *(args+4);
-  double * o = (args+5);
 
   double d_ind = ((t-t0)/(tf-t0));
   double x = R*cos(phi);

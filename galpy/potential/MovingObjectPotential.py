@@ -162,8 +162,6 @@ class MovingObjectPotential(Potential):
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
         (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
             R, phi, z)
-        x = self._orb.R(t)*nu.cos(self._orb.phi(t))
-        y = self._orb.R(t)*nu.sin(self._orb.phi(t))
         #Evaluate cylindrical radial force.
         RF = evaluateRforces(self._pot, Rdist, zd, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location

@@ -353,6 +353,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case -6: //MovingObjectPotential
       potentialArgs->planarRforce= &MovingObjectPotentialPlanarRforce;
       potentialArgs->planarphiforce= &MovingObjectPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) 3;
       break;
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
@@ -623,18 +624,18 @@ void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
 
   gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
   gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
-  int nPts = (int) *(*pot_args+3);
+  int nPts = (int) **pot_args;
 
   gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
   gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
 
-  double * t_arr = *pot_args+5;
+  double * t_arr = *pot_args+1;
   double * x_arr = t_arr+1*nPts;
   double * y_arr = t_arr+2*nPts;
 
   double * t= (double *) malloc ( nPts * sizeof (double) );
-  double tf = *(*pot_args+2);
-  double to = *(*pot_args+1);
+  double tf = *(t_arr+3*nPts+2);
+  double to = *(t_arr+3*nPts+1);
 
   int i;
   for (i=0; i<nPts; i++) *(t+i) = (t_arr[i]-to)/(tf-to);
@@ -647,6 +648,6 @@ void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
   potentialArgs->ySpline = y_spline;
   potentialArgs->accy = y_accel_ptr;
 
-  potentialArgs->nargs= (int) 5+(1+*(*pot_args+4))*nPts;
+  *pot_args = *pot_args+ (int) (1+3*nPts);
   free(t);
 }

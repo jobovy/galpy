@@ -322,12 +322,12 @@ def _parse_pot(pot):
             pot_args.extend(wrap_pot_args)
             o = p._orb
             t = p._orb.time()
+            pot_args.extend([o.getOrbit().shape[0]]) # N_steps
+            pot_args.extend(o.t)
+            pot_args.extend(o.x(o.t))
+            pot_args.extend(o.y(o.t))
             pot_args.extend([p._amp])
             pot_args.extend([t[0], t[-1]]) #t_0, t_f
-            pot_args.extend([o.getOrbit().shape[0], 2]) # N_steps, N_dim
-            pot_args.extend(o.t)
-            pot_args.extend(nu.array([o.x(t) for t in o.t]))
-            pot_args.extend(nu.array([o.y(t) for t in o.t]))
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
