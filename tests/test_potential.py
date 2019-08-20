@@ -1048,7 +1048,7 @@ def test_potential_array_input():
     rmpots.append('HenonHeilesPotential')
     rmpots.append('TransientLogSpiralPotential')
     rmpots.append('SteadyLogSpiralPotential')
-    # 2D ones that cannot use this test
+    # 1D ones that cannot use this test
     rmpots.append('IsothermalDiskPotential')
     rmpots.append('KGPotential')
     for p in rmpots:
@@ -1111,6 +1111,66 @@ def test_potential_array_input():
         tpevals= numpy.array([tp.dens(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
         assert numpy.all(numpy.fabs(tp.dens(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
             '{} dens evaluation does not work as expected for array inputs'.format(p)
+    return None
+
+# Test that 1D potentials created using toVertical can handle array input if
+# their 3D versions can
+def test_toVertical_array():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+    rmpots.append('FerrersPotential')
+    rmpots.append('PerfectEllipsoidPotential')
+    rmpots.append('TriaxialHernquistPotential')
+    rmpots.append('TriaxialJaffePotential')
+    rmpots.append('TriaxialNFWPotential')
+    rmpots.append('TwoPowerTriaxialPotential')
+    rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('SphericalShellPotential')
+    # These cannot be setup without arguments
+    rmpots.append('MovingObjectPotential')
+    rmpots.append('SnapshotRZPotential')
+    rmpots.append('InterpSnapshotRZPotential')
+    for p in rmpots:
+        pots.remove(p)
+    xs= numpy.linspace(-2.,2.,11)
+    ts= numpy.linspace(0.,10.,11)
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        # Only do 3D --> 1D potentials
+        if not isinstance(tp,potential.Potential): continue
+        tp= potential.toVerticalPotential(tp,0.8,phi=0.2)
+        #Potential itself
+        tpevals= numpy.array([tp(x,t=t) for (x,t) in zip(xs,ts)])
+        assert numpy.all(numpy.fabs(tp(xs,t=ts)-tpevals) < 10.**-10.), \
+            '{} evaluation does not work as expected for array inputs for toVerticalPotential potentials'.format(p)
+        #force
+        tpevals= numpy.array([tp.force(x,t=t) for (x,t) in zip(xs,ts)])
+        assert numpy.all(numpy.fabs(tp.force(xs,t=ts)-tpevals) < 10.**-10.), \
+            '{} force evaluation does not work as expected for array inputs for toVerticalPotential'.format(p)
+    # Also test Morgan's example
+    pot= potential.toVerticalPotential(potential.MWPotential2014,1.)
+    #Potential itself
+    tpevals= numpy.array([potential.evaluatelinearPotentials(pot,x,t=t) for (x,t) in zip(xs,ts)])
+    assert numpy.all(numpy.fabs(potential.evaluatelinearPotentials(pot,xs,t=ts)-tpevals) < 10.**-10.), \
+        '{} evaluation does not work as expected for array inputs for toVerticalPotential potentials'.format(p)
+    #Rforce
+    tpevals= numpy.array([potential.evaluatelinearForces(pot,x,t=t) for (x,t) in zip(xs,ts)])
+    assert numpy.all(numpy.fabs(potential.evaluatelinearForces(pot,xs,t=ts)-tpevals) < 10.**-10.), \
+        '{} force evaluation does not work as expected for array inputs for toVerticalPotential'.format(p)
     return None
 
 # Test that the amplitude for potentials with a finite mass and amp=mass is 
