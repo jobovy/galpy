@@ -749,7 +749,7 @@ class Potential(Force):
         from galpy.potential import toPlanarPotential
         return toPlanarPotential(self)
 
-    def toVertical(self,R,phi=None):
+    def toVertical(self,R,phi=None,t=0.):
         """
         NAME:
 
@@ -765,21 +765,19 @@ class Potential(Force):
 
            phi= (None) Galactocentric azimuth at which to create the vertical potential (can be Quantity); required for non-axisymmetric potential
 
+           t= (0.) time at which to create the vertical potential (can be Quantity)
+
         OUTPUT:
 
-           linear (vertical) potential
+           linear (vertical) potential: Phi(z,phi,t) = Phi(R,z,phi,t)-Phi(R,0.,phi0,t0) where phi0 and t0 are the phi and t inputs
 
         HISTORY
 
            unknown
 
         """
-        if _APY_LOADED and isinstance(R,units.Quantity):
-            R= R.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(phi,units.Quantity):
-            phi= phi.to(units.rad).value
         from galpy.potential import toVerticalPotential
-        return toVerticalPotential(self,R,phi=phi)
+        return toVerticalPotential(self,R,phi=phi,t=t)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
              effective=False,Lz=None,phi=None,xy=False,

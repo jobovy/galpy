@@ -1,6 +1,8 @@
+import numpy
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
 from .Potential import PotentialError, Potential, flatten
+from ..util import bovy_conversion
 _APY_LOADED= True
 try:
     from astropy import units
@@ -9,7 +11,7 @@ except ImportError:
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a RZPotential:
     phi(z;R)= phi(R,z)-phi(R,0.)"""
-    def __init__(self,Pot,R=1.,phi=None):
+    def __init__(self,Pot,R=1.,phi=None,t=0.):
         """
         NAME:
            __init__
@@ -19,11 +21,13 @@ class verticalPotential(linearPotential):
            Pot - Potential instance
            R  - Galactocentric radius at which to create the vertical potential
            phi= (None) Galactocentric azimuth at which to create the vertical potential (rad); necessary for 
+           t= (0.) time at which to create the vertical potential
         OUTPUT:
            verticalPotential instance
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
            2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
+           2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
         """
         linearPotential.__init__(self,amp=1.,ro=Pot._ro,vo=Pot._vo)
         self._Pot= Pot
@@ -34,6 +38,10 @@ class verticalPotential(linearPotential):
             self._phi= 0.
         else:
             self._phi= phi
+        self._midplanePot= self._Pot(self._R,0.,phi=self._phi,
+                                     t=t,use_physical=False)
+        self._midplaneForce= self._Pot.zforce(self._R,0.,phi=self._phi,
+                                              t=t,use_physical=False)
         self.hasC= Pot.hasC
         # Also transfer roSet and voSet
         self._roSet= Pot._roSet
@@ -54,8 +62,10 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._Pot(self._R,z,phi=self._phi,t=t,use_physical=False)\
-            -self._Pot(self._R,0.,phi=self._phi,t=t,use_physical=False)
+        tR= self._R if not hasattr(z,'__len__') else self._R*numpy.ones_like(z)
+        tphi= self._phi if not hasattr(z,'__len__') else self._phi*numpy.ones_like(z)
+        return self._Pot(tR,z,phi=tphi,t=t,use_physical=False)\
+            -self._midplanePot
             
     def _force(self,z,t=0.):
         """
@@ -71,8 +81,10 @@ class verticalPotential(linearPotential):
         HISTORY:
            2010-07-13 - Written - Bovy (NYU)
         """
-        return self._Pot.zforce(self._R,z,phi=self._phi,t=t,use_physical=False)\
-            -self._Pot.zforce(self._R,0.,phi=self._phi,t=t,use_physical=False)
+        tR= self._R if not hasattr(z,'__len__') else self._R*numpy.ones_like(z)
+        tphi= self._phi if not hasattr(z,'__len__') else self._phi*numpy.ones_like(z)
+        return self._Pot.zforce(tR,z,phi=tphi,t=t,use_physical=False)\
+            -self._midplaneForce
 
 def RZToverticalPotential(RZPot,R):
     """
@@ -126,7 +138,7 @@ def RZToverticalPotential(RZPot,R):
     else:
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
 
-def toVerticalPotential(Pot,R,phi=None):
+def toVerticalPotential(Pot,R,phi=None,t=0.):
     """
     NAME:
 
@@ -134,7 +146,7 @@ def toVerticalPotential(Pot,R,phi=None):
 
     PURPOSE:
 
-       convert a Potential to a vertical potential at a given R
+       convert a Potential to a vertical potential at a given R: Phi(z,phi,t) = Phi(R,z,phi,t)-Phi(R,0.,phi0,t0) where phi0 and t0 are the phi and t inputs
 
     INPUT:
 
@@ -143,6 +155,8 @@ def toVerticalPotential(Pot,R,phi=None):
        R - Galactocentric radius at which to evaluate the vertical potential (can be Quantity)
 
        phi= (None) Galactocentric azimuth at which to evaluate the vertical potential (can be Quantity); required if Pot is non-axisymmetric
+
+       phi= (0.) time at which to evaluate the vertical potential (can be Quantity)
 
     OUTPUT:
 
@@ -162,20 +176,27 @@ def toVerticalPotential(Pot,R,phi=None):
                 R= R.to(units.kpc).value/Pot[0]._ro
         if isinstance(phi,units.Quantity):
             phi= phi.to(units.rad).value
+        if isinstance(t,units.Quantity):
+            if hasattr(Pot,'_ro'):
+                t= t.to(units.Gyr).value/bovy_conversion.time_in_Gyr(Pot._vo,
+                                                                     Pot._ro)
+            else:
+                t= t.to(units.Gyr).value\
+                    /bovy_conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(Pot,list):
         out= []
         for pot in Pot:
             if isinstance(pot,linearPotential):
                 out.append(pot)
             elif isinstance(pot,Potential):
-                out.append(verticalPotential(pot,R,phi=phi))
+                out.append(verticalPotential(pot,R,phi=phi,t=t))
             elif isinstance(pot,planarPotential):
                 raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
             else:
                 raise PotentialError("Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
-        return verticalPotential(Pot,R,phi=phi)
+        return verticalPotential(Pot,R,phi=phi,t=t)
     elif isinstance(Pot,linearPotential):
         return Pot
     elif isinstance(Pot,planarPotential):
