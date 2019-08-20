@@ -132,7 +132,12 @@ class DoubleExponentialDiskPotential(Potential):
                 R= nu.array([R])
                 z= nu.array([z])
             else:
+                if isinstance(z,float):
+                    z= z*nu.ones_like(R)
                 floatIn= False
+                outShape= R.shape # this code can't do arbitrary shapes
+                R= R.flatten()
+                z= z.flatten()
             out= nu.empty(len(R))
             indx= (R <= 6.)
             if nu.sum(True^indx) > 0:
@@ -148,7 +153,7 @@ class DoubleExponentialDiskPotential(Potential):
                 evalInt= special.jn(0,ks*R[jj])*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z[jj]))-ks*nu.exp(-self._beta*nu.fabs(z[jj])))/(self._beta**2.-ks**2.)
                 out[jj]= -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
             if floatIn: return out[0]
-            else: return out
+            else: return nu.reshape(out,outShape)
     
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
