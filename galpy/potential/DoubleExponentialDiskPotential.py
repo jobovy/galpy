@@ -135,7 +135,8 @@ class DoubleExponentialDiskPotential(Potential):
                 floatIn= False
             out= nu.empty(len(R))
             indx= (R <= 6.)
-            out[True^indx]= self._kp(R[True^indx],z[True^indx])
+            if nu.sum(True^indx) > 1:
+                out[True^indx]= self._kp(R[True^indx],z[True^indx])
             R4max= nu.copy(R)
             R4max[(R < 1.)]= 1.
             kmax= self._kmaxFac*self._beta
