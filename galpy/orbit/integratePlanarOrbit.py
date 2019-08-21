@@ -320,10 +320,10 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
-            pot_args.extend([p._orb.getOrbit().shape[0]]) # N_steps
+            pot_args.extend([len(p._orb.t)])
             pot_args.extend(p._orb.t)
-            pot_args.extend(p._orb.x(p._orb.t))
-            pot_args.extend(p._orb.y(p._orb.t))
+            pot_args.extend(p._orb.x(p._orb.t,use_physical=False))
+            pot_args.extend(p._orb.y(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
