@@ -309,6 +309,23 @@ def _parse_pot(pot):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_args.extend([p._amp,p._to,p._sigma2])
+        elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.MovingObjectPotential)) \
+              or isinstance(p,potential.MovingObjectPotential):
+            if not isinstance(p,potential.MovingObjectPotential):
+                p= p._Pot
+            pot_type.append(-6)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                    _parse_pot(potential.toPlanarPotential(p._pot))
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._orb.getOrbit().shape[0]]) # N_steps
+            pot_args.extend(p._orb.t)
+            pot_args.extend(p._orb.x(p._orb.t))
+            pot_args.extend(p._orb.y(p._orb.t))
+            pot_args.extend([p._amp])
+            pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -417,7 +434,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     pot_type,
                     pot_args,
                     ctypes.c_double(dt),                    
-                    ctypes.c_double(rtol),ctypes.c_double(atol),
+                    ctypes.c_double(rtol),
+                    ctypes.c_double(atol),
                     result,
                     err,
                     ctypes.c_int(int_method_c))

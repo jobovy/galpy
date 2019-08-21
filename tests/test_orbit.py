@@ -5071,3 +5071,58 @@ def test_integrate_method_warning():
     t = numpy.arange(0.0, 10.0, 0.001)
     with pytest.raises(ValueError):
         o.integrate(t, MWPotential2014, method='rk4')
+
+def test_MovingObjectPotential_orbit():
+    # Test integration of an object with a MovingObjectPotential
+    # Test that orbits integrated by C and Python are the same
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, HernquistPotential, MovingObjectPotential
+
+    tmax = 5.
+    times = numpy.linspace(0, tmax, 101)
+
+    orbit_pot = HernquistPotential(amp=1E-1, a=1E-1, ro=8, vo=220)
+    o = Orbit([1., 0.03, 1., 0.05, 0.03, 0.0])
+    o.integrate(times, MWPotential2014)
+    orbit_potential = MovingObjectPotential(o, pot=orbit_pot)
+
+    total_potential = [MWPotential2014, orbit_potential]
+
+    oc = Orbit([0.5, 0.5, 0.5, 0.05, 0.03, 0.0])
+    op = Orbit([0.5, 0.5, 0.5, 0.05, 0.03, 0.0])
+    oc.integrate(times, total_potential, method='leapfrog_c')
+    op.integrate(times, total_potential, method='leapfrog')
+    assert numpy.fabs(oc.x(tmax)-op.x(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a MovingObjectPotential is too large'
+    assert numpy.fabs(oc.y(tmax)-op.y(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a MovingObjectPotential is too large'
+    assert numpy.fabs(oc.z(tmax)-op.z(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a MovingObjectPotential is too large'
+    assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a MovingObjectPotential is too large'
+    assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a MovingObjectPotential is too large'
+    assert numpy.fabs(oc.vz(tmax)-op.vz(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a MovingObjectPotential is too large'
+    return None
+
+def test_MovingObjectPotential_planar_orbit():
+    # Test integration of an object with a MovingObjectPotential
+    # Test that orbits integrated by C and Python are the same
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, HernquistPotential, MovingObjectPotential
+
+    tmax = 5.
+    times = numpy.linspace(0, tmax, 101)
+
+    orbit_pot = HernquistPotential(amp=0.1, a=0.1, ro=8., vo=220.)
+    o = Orbit([0.4, 0.1, 0.6, 0.])
+    o.integrate(times, MWPotential2014)
+    orbit_potential = MovingObjectPotential(o, pot=orbit_pot)
+
+    total_potential = [MWPotential2014, orbit_potential]
+
+    oc = Orbit([0.5, -0.1, 0.5, 1.])
+    op = Orbit([0.5, -0.1, 0.5, 1.])
+    oc.integrate(times, total_potential, method='leapfrog_c')
+    op.integrate(times, total_potential, method='leapfrog')
+
+    assert numpy.fabs(oc.x(tmax)-op.x(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a planar MovingObjectPotential is too large'
+    assert numpy.fabs(oc.y(tmax)-op.y(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a planar MovingObjectPotential is too large'
+    assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
+    assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
+    return None

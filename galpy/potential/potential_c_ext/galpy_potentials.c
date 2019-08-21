@@ -5,6 +5,7 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
+    (potentialArgs+ii)->accz= NULL;
     (potentialArgs+ii)->i2drforce= NULL;
     (potentialArgs+ii)->accxrforce= NULL;
     (potentialArgs+ii)->accyrforce= NULL;
@@ -12,6 +13,9 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->accxzforce= NULL;
     (potentialArgs+ii)->accyzforce= NULL;
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
+    (potentialArgs+ii)->xSpline= NULL;
+    (potentialArgs+ii)->ySpline= NULL;
+    (potentialArgs+ii)->zSpline= NULL;
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
@@ -23,6 +27,8 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
       gsl_interp_accel_free ((potentialArgs+ii)->accx);
     if ( (potentialArgs+ii)->accy )
       gsl_interp_accel_free ((potentialArgs+ii)->accy);
+    if ( (potentialArgs+ii)->accz )
+      gsl_interp_accel_free ((potentialArgs+ii)->accz);
     if ( (potentialArgs+ii)->i2drforce )
       interp_2d_free((potentialArgs+ii)->i2drforce) ;
     if ( (potentialArgs+ii)->accxrforce )
@@ -40,6 +46,12 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
 			 (potentialArgs+ii)->wrappedPotentialArg);
       free((potentialArgs+ii)->wrappedPotentialArg);
     }
+    if ( (potentialArgs+ii)->xSpline )
+      gsl_spline_free((potentialArgs+ii)->xSpline);
+    if ( (potentialArgs+ii)->ySpline )
+      gsl_spline_free ((potentialArgs+ii)->ySpline);
+    if ( (potentialArgs+ii)->zSpline )
+      gsl_spline_free ((potentialArgs+ii)->zSpline);
     free((potentialArgs+ii)->args);
   }
 }

@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
 #include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <leung_dop853.h>
@@ -49,6 +51,7 @@ void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -357,7 +360,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &GaussianAmplitudeWrapperPotentialphiforce;
       potentialArgs->nargs= (int) 3;
       break;
+    case -6: //MovingObjectPotential
+      potentialArgs->Rforce= &MovingObjectPotentialRforce;
+      potentialArgs->zforce= &MovingObjectPotentialzforce;
+      potentialArgs->phiforce= &MovingObjectPotentialphiforce;
+      potentialArgs->nargs= (int) 3;
+      break;
     }
+    int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -367,6 +377,7 @@ void parse_leapFuncArgs_Full(int npot,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
     }
+    if (setupSplines) initMovingObjectSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -586,6 +597,45 @@ void evalRectDeriv(double t, double *q, double *a,
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
+}
+
+void initMovingObjectSplines(struct potentialArg * potentialArgs,
+			     double ** pot_args){
+  gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
+  gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
+  gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
+  int nPts = (int) **pot_args;
+
+  gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+  gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+  gsl_spline *z_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+
+  double * t_arr = *pot_args+1;
+  double * x_arr = t_arr+1*nPts;
+  double * y_arr = t_arr+2*nPts;
+  double * z_arr = t_arr+3*nPts;
+
+  double * t= (double *) malloc ( nPts * sizeof (double) );
+  double tf = *(t_arr+4*nPts+2);
+  double to = *(t_arr+4*nPts+1);
+
+  int ii;
+  for (ii=0; ii < nPts; ii++)
+    *(t+ii) = (t_arr[ii]-to)/(tf-to);
+
+  gsl_spline_init(x_spline, t, x_arr, nPts);
+  gsl_spline_init(y_spline, t, y_arr, nPts);
+  gsl_spline_init(z_spline, t, z_arr, nPts);
+
+  potentialArgs->xSpline = x_spline;
+  potentialArgs->accx = x_accel_ptr;
+  potentialArgs->ySpline = y_spline;
+  potentialArgs->accy = y_accel_ptr;
+  potentialArgs->zSpline = z_spline;
+  potentialArgs->accz = z_accel_ptr;
+
+  *pot_args = *pot_args + (int) (1+4*nPts);
+  free(t);
 }
 
 // LCOV_EXCL_START
