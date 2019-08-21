@@ -36,7 +36,7 @@ void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
-void initPlanarSplines(struct potentialArg *, double ** pot_args);
+void initPlanarMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -366,7 +366,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 potentialArgs->wrappedPotentialArg,
 			 pot_type,pot_args);
     }
-    if (setupSplines) initPlanarSplines(potentialArgs, pot_args);
+    if (setupSplines) initPlanarMovingObjectSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -620,7 +620,7 @@ void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
   *a= dFydx * *(q+4) + dFydy * *(q+5);
 }
 
-void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
+void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double ** pot_args){
 
   gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
   gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
@@ -637,8 +637,9 @@ void initPlanarSplines(struct potentialArg * potentialArgs, double ** pot_args){
   double tf = *(t_arr+3*nPts+2);
   double to = *(t_arr+3*nPts+1);
 
-  int i;
-  for (i=0; i<nPts; i++) *(t+i) = (t_arr[i]-to)/(tf-to);
+  int ii;
+  for (ii=0; ii < nPts; ii++)
+    *(t+ii) = (t_arr[ii]-to)/(tf-to);
 
   gsl_spline_init(x_spline, t, x_arr, nPts);
   gsl_spline_init(y_spline, t, y_arr, nPts);

@@ -8,15 +8,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
 #include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <leung_dop853.h>
 #include <bovy_rk.h>
 #include <integrateFullOrbit.h>
-
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_spline.h>
-
 //Potentials
 #include <galpy_potentials.h>
 #ifndef M_PI
@@ -53,7 +51,7 @@ void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
-void initSplines(struct potentialArg *, double ** pot_args);
+void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -379,7 +377,7 @@ void parse_leapFuncArgs_Full(int npot,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
     }
-    if (setupSplines) initSplines(potentialArgs, pot_args);
+    if (setupSplines) initMovingObjectSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -390,7 +388,6 @@ void parse_leapFuncArgs_Full(int npot,
   }
   potentialArgs-= npot;
 }
-
 EXPORT void integrateFullOrbit(int nobj,
 			       double *yo,
 			       int nt, 
@@ -411,7 +408,6 @@ EXPORT void integrateFullOrbit(int nobj,
   int * thread_pot_type;
   double * thread_pot_args;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
-
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
 #pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
@@ -603,7 +599,8 @@ void evalRectDeriv(double t, double *q, double *a,
   *a= zforce;
 }
 
-void initSplines(struct potentialArg * potentialArgs, double ** pot_args){
+void initMovingObjectSplines(struct potentialArg * potentialArgs,
+			     double ** pot_args){
   gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
   gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
   gsl_interp_accel *z_accel_ptr = gsl_interp_accel_alloc();
@@ -622,8 +619,9 @@ void initSplines(struct potentialArg * potentialArgs, double ** pot_args){
   double tf = *(t_arr+4*nPts+2);
   double to = *(t_arr+4*nPts+1);
 
-  int i;
-  for (i=0; i<nPts; i++) *(t+i) = (t_arr[i]-to)/(tf-to);
+  int ii;
+  for (ii=0; ii < nPts; ii++)
+    *(t+ii) = (t_arr[ii]-to)/(tf-to);
 
   gsl_spline_init(x_spline, t, x_arr, nPts);
   gsl_spline_init(y_spline, t, y_arr, nPts);
