@@ -320,14 +320,12 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
-            o = p._orb
-            t = p._orb.time()
-            pot_args.extend([o.getOrbit().shape[0]]) # N_steps
-            pot_args.extend(o.t)
-            pot_args.extend(o.x(o.t))
-            pot_args.extend(o.y(o.t))
+            pot_args.extend([p._orb.getOrbit().shape[0]]) # N_steps
+            pot_args.extend(p._orb.t)
+            pot_args.extend(p._orb.x(p._orb.t))
+            pot_args.extend(p._orb.y(p._orb.t))
             pot_args.extend([p._amp])
-            pot_args.extend([t[0], t[-1]]) #t_0, t_f
+            pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
     pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
     pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -426,6 +424,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
     result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
     err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
+
     #Run the C code
     integrationFunc(ctypes.c_int(nobj),
                     yo,
@@ -435,7 +434,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     pot_type,
                     pot_args,
                     ctypes.c_double(dt),                    
-                    ctypes.c_double(rtol),ctypes.c_double(atol),
+                    ctypes.c_double(rtol),
+                    ctypes.c_double(atol),
                     result,
                     err,
                     ctypes.c_int(int_method_c))
