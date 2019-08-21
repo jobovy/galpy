@@ -162,11 +162,11 @@ Ellipsoidal triaxial  potentials
 
 ``galpy`` has very general support for implementing triaxial (or the
 oblate and prolate special cases) of ellipsoidal potentials through
-the general ``EllipsoidalPotential`` class. These potentials have
-densities that are uniform on ellipsoids, thus only functions of
-:math:`m^2 = x^2 + \frac{y^2}{b^2}+\frac{z^2}{c^2}`. New potentials
-of this type can be implemented by inheriting from this class and
-implementing the ``_mdens(self,m)``, ``_psi(self,m)``, and
+the general :ref:`EllipsoidalPotential <ellipsoidal>` class. These
+potentials have densities that are uniform on ellipsoids, thus only
+functions of :math:`m^2 = x^2 + \frac{y^2}{b^2}+\frac{z^2}{c^2}`. New
+potentials of this type can be implemented by inheriting from this
+class and implementing the ``_mdens(self,m)``, ``_psi(self,m)``, and
 ``_mdens_deriv`` functions for the density, its integral with respect
 to :math:`m^2`, and its derivative with respect to m,
 respectively. For adding a C implementation, follow similar steps (use

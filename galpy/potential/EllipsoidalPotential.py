@@ -18,15 +18,21 @@ from .Potential import Potential, _APY_LOADED, \
 if _APY_LOADED:
     from astropy import units
 class EllipsoidalPotential(Potential):
-    """Base class for potentials corresponding to density profiles that are stratified on ellipsoids: 
+    """Base class for potentials corresponding to density profiles that are stratified on ellipsoids:
 
     .. math::
 
-        \\rho(x,y,z) \\equiv \\rho(m)
+        \\rho(x,y,z) \\equiv \\rho(m^2)
 
     where :math:`m^2 = x^2+y^2/b^2+z^2/c^2`. Note that :math:`b` and :math:`c` are defined to be the axis ratios (rather than using :math:`m^2 = x^2/a^2+y^2/b^2+z^2/c^2` as is common).
 
-    Implement a specific density distribution with this form by inheriting from this class and defining the functions: _psi(self,m) = -\int_m^\infty d m^2 \rho(m^2), _mdens = \rho(m), and _mdens_deriv= d \rho(m) / d m. See PerfectEllipsoidPotential for an example.
+    Implement a specific density distribution with this form by inheriting from this class and defining functions ``_mdens(self,m)`` (the density as a function of ``m``), ``_mdens_deriv(self,m)`` (the derivative of the density as a function of ``m``), and ``_psi(self,m)``, which is:
+
+    .. math::
+
+        \psi(m) = -\\int_{m^2}^\\infty d m^2 \\rho(m^2)
+
+    See PerfectEllipsoidPotential for an example and `Merritt & Fridman (1996) <http://adsabs.harvard.edu/abs/1996ApJ...460..136M>`_ for the formalism.
     """
     def __init__(self,amp=1.,
                  b=1.,c=1.,
