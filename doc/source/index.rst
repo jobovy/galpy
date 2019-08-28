@@ -97,6 +97,9 @@ functionality is introduced in separate papers:
 * ``galpy.actionAngle.actionAngleIsochroneApprox``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamdf``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamgapdf``: please cite `Sanders, Bovy, & Erkal (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.457.3817S>`__.
+* ``galpy.potential.ttensor`` and ``galpy.potential.rtide``: please cite `Webb et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.5748W/abstract>`__.
+
+* ``galpy.potential.to_amuse``: please cite Webb et al. (2019; in prep).
 
 Please also send me a reference to the paper or send a pull request
 including your paper in the list of galpy papers on this page (this
@@ -444,6 +447,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Origin and Status of Low-Mass Candidate Hypervelocity Stars*, Bum-Suk Yeom, Young Sun Lee, Jae-Rim Koo, Timothy C. Beers, & Young Kwang Kim (2019) *J. Kor. Astron. Soc.*, in press (`arXiv/1905.07879 <http://arxiv.org/abs/1905.07879>`_)
 
+#. *Life in the fast lane: a direct view of the dynamics, formation, and evolution of the Milky Way's bar*, Jo Bovy, Henry W. Leung, Jason A. S. Hunt, J. Ted Mackereth, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1905.11404 <http://arxiv.org/abs/1905.11404>`_)
+
 #. *On the Oosterhoff dichotomy in the Galactic bulge: II. kinematical distribution*, Z. Prudil, I. Dékany, E. K. Grebel, M. Catelan, M. Skarka, & R. Smolec (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1905.11870 <http://arxiv.org/abs/1905.11870>`_)
 
 #. *The Ophiuchus stream progenitor: a new type of globular cluster and its possible Sagittarius connection*, James M. M. Lane, Julio F. Navarro, Azadeh Fattahi, Kyle A. Oman, & Jo Bovy (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1905.12633 <http://arxiv.org/abs/1905.12633>`_)
@@ -465,6 +470,19 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *High-resolution spectroscopic study of dwarf stars in the northern sky: Na to Zn abundances in two fields with radii of 20 degrees*, Šarūnas Mikolaitis, Arnas Drazdauskas, Renata Minkevičiūtė, et al. (2019) *Astron. & Astrophys.*, submitted (`arXiv/1907.09157 <http://arxiv.org/abs/1907.09157>`_)
 
 #. *When Cold Radial Migration is Hot: Constraints from Resonant Overlap*, Kathryne J. Daniel, David A. Schaffner, Fiona McCluskey, Codie Fiedler Kawaguchi, & Sarah Loebman (2019) *Astrophys. J.*, submitted (`arXiv/1907.10100 <http://arxiv.org/abs/1907.10100>`_)
+
+#. *In the Galactic disk, stellar [Fe/H] and age predict orbits and precise [X/Fe]*, Melissa K. Ness, Kathryn V. Johnston, Kirsten Blancato, Hans-Walter Rix, Angus Beane, Jonathan C. Bird, & Keith Hawkins (2019) *Astrophys. J.*, submitted (`arXiv/1907.10606 <http://arxiv.org/abs/1907.10606>`_)
+
+#. *General relativistic orbital decay in a seven-minute-orbital-period eclipsing binary system*, Kevin B. Burdge, Michael W. Coughlin, Jim Fuller, et al. (2019) *Nature*, in press (`arXiv/1907.11291 <http://arxiv.org/abs/1907.11291>`_)
+
+#. *Modelling the Effects of Dark Matter Substructure on Globular Cluster Evolution with the Tidal Approximation*, Jeremy J. Webb, Jo Bovy, Raymond G. Carlberg, & Mark Gieles (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1907.13132 <http://arxiv.org/abs/1907.13132>`_)
+
+#. *Kinematic study of the association Cyg OB3 with Gaia DR2*, Anjali Rao, Poshak Gandhi, Christian Knigge, John A. Paice, Nathan W. C. Leigh, & Douglas Boubert (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1908.00810 <http://arxiv.org/abs/1908.00810>`_)
+
+#. *Gravitational Potential from small-scale clustering in action space: Application to Gaia DR2*, T. Yang, S. S. Boruah, & N. Afshordi(2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1908.02336 <http://arxiv.org/abs/1908.02336>`_)
+
+#. *The Intrinsic Scatter of the Radial Acceleration Relation*, Connor Stone & Stephane Courteau (2019) *Astrophys. J.*, in press (`arXiv/1908.06105 <http://arxiv.org/abs/1908.06105>`_)
+
 
 Indices and tables
 ==================
