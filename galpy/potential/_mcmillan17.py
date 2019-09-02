@@ -5,6 +5,7 @@ from ..potential import NFWPotential
 from ..potential import DiskSCFPotential
 from ..potential import SCFPotential
 from ..potential import scf_compute_coeffs_axi
+from ..potential import mwpot_helpers
 from ..util import bovy_conversion
 # Suppress the numpy floating-point warnings that this code generates...
 old_error_settings= numpy.seterr(all='ignore')
@@ -39,25 +40,17 @@ rho0_halo= 0.00854/rhoo
 rh= 19.6/ro
 
 def gas_dens(R,z):
-    if R == 0.:
-        return 0.
-    HI_dens= Sigma0_HI/(4*zd_HI)\
-        *numpy.exp(-Rm_HI/R-R/Rd_HI)*1./numpy.cosh(z/(2*zd_HI))**2
-    H2_dens= Sigma0_H2/(4*zd_H2)\
-        *numpy.exp(-Rm_H2/R-R/Rd_H2)*1./numpy.cosh(z/(2*zd_H2))**2
-    return HI_dens+H2_dens
+    return \
+        mwpot_helpers.expsech2_dens_with_hole(R,z,Rd_HI,Rm_HI,zd_HI,Sigma0_HI)\
+        +mwpot_helpers.expsech2_dens_with_hole(R,z,Rd_H2,Rm_H2,zd_H2,Sigma0_H2)
 
 def stellar_dens(R,z):
-    thin_dens= Sigma0_thin/(2*zd_thin)\
-        *numpy.exp(-numpy.fabs(z)/zd_thin-R/Rd_thin)
-    thick_dens= Sigma0_thick/(2*zd_thick)\
-        *numpy.exp(-numpy.fabs(z)/zd_thick-R/Rd_thick)
-    return thin_dens+thick_dens
+    return mwpot_helpers.expexp_dens(R,z,Rd_thin,zd_thin,Sigma0_thin)\
+        +mwpot_helpers.expexp_dens(R,z,Rd_thick,zd_thick,Sigma0_thick)
 
 def bulge_dens(R,z):
-    rdash= numpy.sqrt(R**2+(z/0.5)**2)
-    dens= rho0_bulge/(1+rdash/r0_bulge)**1.8*numpy.exp(-(rdash/rcut)**2)
-    return dens
+    return mwpot_helpers.pow_dens_with_cut(R,z,1.8,r0_bulge,rcut,rho0_bulge,
+                                           0.5)
 
 #dicts used in DiskSCFPotential 
 sigmadict = [{'type':'exp','h':Rd_HI,'amp':Sigma0_HI, 'Rhole':Rm_HI},
