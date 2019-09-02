@@ -483,6 +483,13 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The Intrinsic Scatter of the Radial Acceleration Relation*, Connor Stone & Stephane Courteau (2019) *Astrophys. J.*, in press (`arXiv/1908.06105 <http://arxiv.org/abs/1908.06105>`_)
 
+#. *Radial Velocity Discovery of an Eccentric Jovian World Orbiting at 18 au*, Sarah Blunt, Michael Endl, Lauren M. Weiss, et al. (2019) *Astron. J.*, in press (`arXiv/1908.09925 <http://arxiv.org/abs/1908.09925>`_)
+
+#. *CCD UBVRI photometry of the open cluster Berkeley 8*, Hikmet Çakmak, Raúl Michel, Yüksel Karataş (2019) *Turkish J. Phys.*, in press (`arXiv/1908.05479 <http://arxiv.org/abs/1908.05479>`_)
+
+#. *The kinematical and space structures of IC 2391 open cluster and moving group with Gaia-DR2*, E. S. Postnikova, W. H. Elsanhoury, Devesh P. Sariya, N. V. Chupina, S. V. Vereshchagin, Ing-Guey Jiang (2019) *Research in Astron. Astrophys.*, submitted (`arXiv/1908.10094 <http://arxiv.org/abs/1908.10094>`_)
+
+#. *Flares of accretion activity of the 20 Myr old UXOR RZ Psc*, I.S. Potravnov, V.P. Grinin, N.A. Serebriakova (2019) *Astron. & Astrophys.*, submitted (`arXiv/1908.08673 <http://arxiv.org/abs/1908.08673>`_)
 
 Indices and tables
 ==================
