@@ -47,7 +47,7 @@ class _ExpensivePotentials(object):
         if not self._mcmillan17:
             # In python 3 this can be a relative import, but for some reason
             # in python 2 it cannot
-            from galpy.potential._mcmillan17 import McMillan17 as _McMillan17
+            from galpy.potential.McMillan17 import McMillan17 as _McMillan17
             self._mcmillan17= _McMillan17
         return self._mcmillan17
 
