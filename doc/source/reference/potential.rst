@@ -294,6 +294,7 @@ from the literature in the ``galpy.potential.mwpotentials`` module
 * ``McMillan17``: the potential model from `McMillan (2017) <https://ui.adsabs.harvard.edu/abs/2017MNRAS.465...76M>`_
 * ``Irrgang13I``: model I from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_, which is an updated version of the classic `Allen & Santillan (1991) <https://ui.adsabs.harvard.edu/abs/1991RMxAA..22..255A>`_
 * ``Irrgang13II`` and ``Irrgang13III``: model II and III from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_
+* ``DehnenBinney98I``, ``DehnenBinney98II``, ``DehnenBinney98III``, and ``DehnenBinney98IV`` for models 1 through 4 from `Dehnen & Binney (1998) <https://ui.adsabs.harvard.edu/abs/1998MNRAS.294..429D/abstract>`__.
 
 Unlike ``MWPotential2014``, these potentials have physical units
 turned on, using as the unit scaling parameters ``ro`` and ``vo`` the
@@ -311,7 +312,8 @@ so they can be easily passed to other functions. For example, when
 integrating an orbit in these potentials and either initializing the
 orbit using observed coordinates or converting the integrated orbit to
 observed coordinates, it is important to use the same unit-conversion
-parameters (otherwise an error will be raised). For example, to obtain the orbit of the Sun in the ``McMillan17`` potential, we do
+parameters (otherwise an error will be raised). For example, to obtain
+the orbit of the Sun in the ``McMillan17`` potential, we do
 
 >>> from galpy.orbit import Orbit
 >>> o= Orbit(**get_physical(McMillan17))
