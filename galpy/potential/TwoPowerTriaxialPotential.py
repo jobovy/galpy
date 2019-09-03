@@ -88,7 +88,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
             a= a.to(units.kpc).value/self._ro
         self.a= a
         self._scale= self.a
-        if beta <= 2. or alpha < 0. or alpha >= 3.:
+        if beta <= 2. or alpha >= 3.:
             raise IOError('TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2')
         self.alpha= alpha
         self.beta= beta

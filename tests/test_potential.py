@@ -2519,10 +2519,6 @@ def test_TwoPowerTriaxialPotential_vs_TwoPowerSphericalPotential():
 
 # Test that TwoPowerTriaxial setup raises an error for bad values of alpha
 # and beta
-def test_TwoPowerTriaxialPotential_alphalowerror():
-    with pytest.raises(IOError) as excinfo:
-        dummy= potential.TwoPowerTriaxialPotential(alpha=-1.)
-    return None
 def test_TwoPowerTriaxialPotential_alphahigherror():
     with pytest.raises(IOError) as excinfo:
         dummy= potential.TwoPowerTriaxialPotential(alpha=3.5)
