@@ -2099,6 +2099,53 @@ def test_Irrgang13():
     # Oort B
     assert numpy.fabs(-0.5*(potential.vcirc(Irrgang13III,1.,use_physical=False)+potential.dvcircdR(Irrgang13III,1.,use_physical=False))*vo/ro+14.08) < 1e-1, 'Oort B in Irrgang13III does not agree with what it should be'
     return None
+
+# Test that the Dehnen & Binney (1998) models are what they are supposed to be
+def test_DehnenBinney98():
+    from galpy.potential.mwpotentials import DehnenBinney98I, \
+        DehnenBinney98II, DehnenBinney98III, DehnenBinney98IV
+    check_DehnenBinney98_model(DehnenBinney98I,model='model 1')
+    check_DehnenBinney98_model(DehnenBinney98II,model='model 2')
+    check_DehnenBinney98_model(DehnenBinney98III,model='model 3')
+    check_DehnenBinney98_model(DehnenBinney98IV,model='model 4')
+    return None
+
+def check_DehnenBinney98_model(pot,model='model 1'):
+    from galpy.util import bovy_conversion
+    truth= {'model 1':
+                {'SigmaR0':43.3,
+                 'vc':222.,
+                 'Fz':68.,
+                 'A':14.4,
+                 'B':-13.3},
+            'model 2':
+                {'SigmaR0':52.1,
+                 'vc':217.,
+                 'Fz':72.2,
+                 'A':14.3,
+                 'B':-12.9},
+            'model 3':
+                {'SigmaR0':52.7,
+                 'vc':217.,
+                 'Fz':72.5,
+                 'A':14.1,
+                 'B':-13.1},
+            'model 4':
+                {'SigmaR0':50.7,
+                 'vc':220.,
+                 'Fz':72.1,
+                 'A':13.8,
+                 'B':-13.6}
+            }
+    phys_kwargs= bovy_conversion.get_physical(pot) 
+    ro= phys_kwargs.get('ro') 
+    vo= phys_kwargs.get('vo')
+    assert numpy.fabs(pot[1].surfdens(1.,10./ro)-truth[model]['SigmaR0']) < 0.2, 'Surface density at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(potential.vcirc(pot,1.)-truth[model]['vc']) < 0.5, 'Circular velocity at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(-potential.evaluatezforces(pot,1.,1.1/ro,use_physical=False)*bovy_conversion.force_in_2piGmsolpc2(vo,ro)-truth[model]['Fz']) < 0.2, 'Vertical force at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(0.5*(potential.vcirc(pot,1.,use_physical=False)-potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['A']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(-0.5*(potential.vcirc(pot,1.,use_physical=False)+potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['B']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    return None
     
 # Test that the virial setup of NFW works
 def test_NFW_virialsetup_wrtmeanmatter():
