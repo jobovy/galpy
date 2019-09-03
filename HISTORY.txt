@@ -16,8 +16,9 @@ v1.5 (????-??-??)
 
 - Added the galpy.potentials.mwpotentials module with various
   Milky-Way-like potentials. Currently included are MWPotential2014,
-  McMillan17 for the potential from McMillan (2017), and the three
-  models from Irrgang et al. (2013). See PR #395.
+  McMillan17 for the potential from McMillan (2017), models 1 through
+  4 from Dehnen & Binney (1998), and the three models from Irrgang et
+  al. (2013). See PR #395.
 
 - Added potential.to_amuse to create an AMUSE
   (http://www.amusecode.org) representation of any galpy potential,

@@ -7,6 +7,7 @@ from . import HernquistPotential
 from . import MiyamotoNagaiPotential
 from . import NFWPotential
 from . import PowerSphericalPotentialwCutoff
+from .DehnenBinney98 import define_dehnenbinney98_models
 
 ############################ MILKY WAY MODELS #################################
 # galpy's first version of a MW-like potential, kept for backwards 
@@ -34,13 +35,19 @@ class _ExpensivePotentials(object):
         self._irrgang13i= None
         self._irrgang13ii= None
         self._irrgang13iii= None
+        self._dehnenbinney98i= None
+        self._dehnenbinney98ii= None
+        self._dehnenbinney98iii= None
+        self._dehnenbinney98iv= None
         # This is necessary to transfer *all* globals in Py2
         self.__globals__= _setup_globals()
         return None
 
     # For tab completion
     def __dir__(self):  # pragma: no cover
-        return ['McMillan17','Irrgang13I','Irrgang13II','Irrgang13III']
+        return ['McMillan17','Irrgang13I','Irrgang13II','Irrgang13III',
+                'DehnenBinney98I','DehnenBinney98II','DehnenBinney98III',
+                'DehnenBinney98IV']
 
     @property
     def McMillan17(self):
@@ -77,6 +84,30 @@ class _ExpensivePotentials(object):
             from galpy.potential.Irrgang13 import Irrgang13III as _Irrgang13III
             self._irrgang13iii= _Irrgang13III
         return self._irrgang13iii
+
+    @property
+    def DehnenBinney98I(self):
+        if not self._dehnenbinney98i:
+            self._dehnenbinney98i= define_dehnenbinney98_models(model=1)
+        return self._dehnenbinney98i
+
+    @property
+    def DehnenBinney98II(self):
+        if not self._dehnenbinney98ii:
+            self._dehnenbinney98ii= define_dehnenbinney98_models(model=2)
+        return self._dehnenbinney98ii
+
+    @property
+    def DehnenBinney98III(self):
+        if not self._dehnenbinney98iii:
+            self._dehnenbinney98iii= define_dehnenbinney98_models(model=3)
+        return self._dehnenbinney98iii
+
+    @property
+    def DehnenBinney98IV(self):
+        if not self._dehnenbinney98iv:
+            self._dehnenbinney98iv= define_dehnenbinney98_models(model=4)
+        return self._dehnenbinney98iv
 
     def __getattr__(self,name):
         try:

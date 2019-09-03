@@ -7,12 +7,17 @@ def expexp_dens(R,z,Rd,zd,Sigma0):
     """rho(R,z) = Sigma_0/(2zd) exp(-|z|/zd-R/Rd)"""
     return Sigma0/(2*zd)*numpy.exp(-numpy.fabs(z)/zd-R/Rd)
 
+def expexp_dens_with_hole(R,z,Rd,Rm,zd,Sigma0):
+    """rho(R,z) = Sigma0 / (4zd) exp(-Rm/R-R/Rd-|z|/zd)"""
+    if R == 0.:
+        return 0.
+    return Sigma0/(2*zd)*numpy.exp(-Rm/R-R/Rd-numpy.fabs(z)/zd)
+
 def expsech2_dens_with_hole(R,z,Rd,Rm,zd,Sigma0):
     """rho(R,z) = Sigma0 / (4zd) exp(-Rm/R-R/Rd)*sech(z/[2zd])^2"""
     if R == 0.:
         return 0.
-    return Sigma0/(4*zd)\
-        *numpy.exp(-Rm/R-R/Rd)/numpy.cosh(z/(2*zd))**2
+    return Sigma0/(4*zd)*numpy.exp(-Rm/R-R/Rd)/numpy.cosh(z/(2*zd))**2
 
 def core_pow_dens_with_cut(R,z,alpha,r0,rcut,rho0,q):
     """rho(R,z) = rho0(1+r'/r0)^-alpha exp(-[r'/rcut]^2)
