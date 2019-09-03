@@ -7,7 +7,6 @@ from . import HernquistPotential
 from . import MiyamotoNagaiPotential
 from . import NFWPotential
 from . import PowerSphericalPotentialwCutoff
-from .DehnenBinney98 import define_dehnenbinney98_models
 
 ############################ MILKY WAY MODELS #################################
 # galpy's first version of a MW-like potential, kept for backwards 
@@ -87,24 +86,36 @@ class _ExpensivePotentials(object):
 
     @property
     def DehnenBinney98I(self):
+        # In python 3 this can be a relative import, but for some reason
+        # in python 2 it cannot
+        from galpy.potential.DehnenBinney98 import define_dehnenbinney98_models
         if not self._dehnenbinney98i:
             self._dehnenbinney98i= define_dehnenbinney98_models(model=1)
         return self._dehnenbinney98i
 
     @property
     def DehnenBinney98II(self):
+        # In python 3 this can be a relative import, but for some reason
+        # in python 2 it cannot
+        from galpy.potential.DehnenBinney98 import define_dehnenbinney98_models
         if not self._dehnenbinney98ii:
             self._dehnenbinney98ii= define_dehnenbinney98_models(model=2)
         return self._dehnenbinney98ii
 
     @property
     def DehnenBinney98III(self):
+        # In python 3 this can be a relative import, but for some reason
+        # in python 2 it cannot
+        from galpy.potential.DehnenBinney98 import define_dehnenbinney98_models
         if not self._dehnenbinney98iii:
             self._dehnenbinney98iii= define_dehnenbinney98_models(model=3)
         return self._dehnenbinney98iii
 
     @property
     def DehnenBinney98IV(self):
+        # In python 3 this can be a relative import, but for some reason
+        # in python 2 it cannot
+        from galpy.potential.DehnenBinney98 import define_dehnenbinney98_models
         if not self._dehnenbinney98iv:
             self._dehnenbinney98iv= define_dehnenbinney98_models(model=4)
         return self._dehnenbinney98iv
