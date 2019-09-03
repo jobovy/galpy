@@ -14,8 +14,14 @@ def expsech2_dens_with_hole(R,z,Rd,Rm,zd,Sigma0):
     return Sigma0/(4*zd)\
         *numpy.exp(-Rm/R-R/Rd)/numpy.cosh(z/(2*zd))**2
 
-def pow_dens_with_cut(R,z,alpha,r0,rcut,rho0,q):
+def core_pow_dens_with_cut(R,z,alpha,r0,rcut,rho0,q):
     """rho(R,z) = rho0(1+r'/r0)^-alpha exp(-[r'/rcut]^2)
     r' = sqrt(R^2+z^2/q^2"""
     rdash= numpy.sqrt(R**2+(z/q)**2)
     return rho0/(1+rdash/r0)**alpha*numpy.exp(-(rdash/rcut)**2)
+
+def pow_dens_with_cut(R,z,alpha,r0,rcut,rho0,q):
+    """rho(R,z) = rho0(1+r'/r0)^-alpha exp(-[r'/rcut]^2)
+    r' = sqrt(R^2+z^2/q^2"""
+    rdash= numpy.sqrt(R**2+(z/q)**2)
+    return rho0/(rdash/r0)**alpha*numpy.exp(-(rdash/rcut)**2)

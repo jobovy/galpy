@@ -49,8 +49,8 @@ def stellar_dens(R,z):
         +mwpot_helpers.expexp_dens(R,z,Rd_thick,zd_thick,Sigma0_thick)
 
 def bulge_dens(R,z):
-    return mwpot_helpers.pow_dens_with_cut(R,z,1.8,r0_bulge,rcut,rho0_bulge,
-                                           0.5)
+    return mwpot_helpers.core_pow_dens_with_cut(R,z,1.8,r0_bulge,rcut,
+                                                rho0_bulge,0.5)
 
 #dicts used in DiskSCFPotential 
 sigmadict = [{'type':'exp','h':Rd_HI,'amp':Sigma0_HI, 'Rhole':Rm_HI},
