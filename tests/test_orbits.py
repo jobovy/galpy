@@ -611,6 +611,25 @@ def test_initialize_listorbits_error():
                Orbit([[1.,0.1],[1.,0.1]])])
     return None
                
+# Test that initializing Orbits with an array of the wrong shape raises an error, that is, the phase-space dim part is > 6 or 1
+def test_initialize_wrongshape():
+    from galpy.orbit import Orbit
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(2,12)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(3,12)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(4,12)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(2,1)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(5,12)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(6,12)))
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(numpy.random.uniform(size=(7,12)))
+    return None
+
 def test_orbits_consistentro():
     from galpy.orbit import Orbit
     ro= 7.

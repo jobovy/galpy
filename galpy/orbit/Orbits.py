@@ -284,6 +284,13 @@ class Orbit(object):
         #: Tuple of Orbit dimensions
         self.shape= input_shape
         self._setup_parse_vxvv(vxvv,radec,lb,uvw)
+        # Check that we have a valid phase-space dim (often messed up by not 
+        # transposing the input array to the correct shape)
+        if self.phasedim() < 2 or self.phasedim() > 6:
+            if len(self.vxvv) > 1 and len(self.vxvv) < 7:
+                raise RuntimeError("Invalid phase-space dimension {:d} for {:d} objects; perhaps you meant to transpose the input?".format(self.phasedim(),len(self.vxvv)))
+            else:
+                raise RuntimeError("Invalid phase-space dimension: phasedim = {:d}, but should be between 2 and 6".format(self.phasedim()))
         #: Total number of elements in the Orbit instance
         self.size= 1 if self.shape == () else len(self.vxvv)
         if self.dim() == 1:
