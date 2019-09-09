@@ -491,6 +491,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Flares of accretion activity of the 20 Myr old UXOR RZ Psc*, I.S. Potravnov, V.P. Grinin, N.A. Serebriakova (2019) *Astron. & Astrophys.*, submitted (`arXiv/1908.08673 <http://arxiv.org/abs/1908.08673>`_)
 
+#. *An extended Pal 5 stream in Gaia DR2*, Nathaniel Starkman, Jo Bovy, & Jeremy Webb (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1909.03048 <http://arxiv.org/abs/1909.03048>`_)
+
 Indices and tables
 ==================
 
