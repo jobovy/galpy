@@ -5,6 +5,65 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.5
++++++
+
+This version will be the last to support Python 2.7 as this version of Python is `reaching end-of-life on January 1 2020 <https://python3statement.org/>`__.
+
+* This version's highlight is a fully re-written implementation of
+  ``galpy.orbit.Orbit`` such that it can now contain and manipulate
+  multiple objects at once. ``galpy.orbit.Orbit`` can be initialized
+  with an arbitrary shape of input objects in a :ref:`variety of ways
+  <orbmultinit>`, manipulated in a manner similar to Numpy arrays, and
+  all ``Orbit`` methods work efficiently on ``Orbit`` instances
+  containing multiple objects. Some methods, such as :ref:`orbit
+  integration <orbintegration>` and those for :ref:`fast orbital
+  characterization <fastchar>` are parallelized on multi-core
+  machines. ``Orbit`` instances can contain and manipulate millions of
+  objects simultaneously now.
+
+* Added the ``galpy.potentials.mwpotentials`` module with various
+  Milky-Way-like potentials. Currently included are MWPotential2014,
+  McMillan17 for the potential from McMillan (2017), models 1 through
+  4 from Dehnen & Binney (1998), and the three models from Irrgang et
+  al. (2013). See :ref:`this section of the API documentation
+  <potential-mw>` for details.
+
+* Added a (JSON) list with the phase-space coordinates of known
+  objects (mainly Milky Way globular clusters and dwarf galaxies) for
+  easy :ref:`Orbit.from_name initialization <orbfromname>`. For
+  ease of use, Orbit.from_name also supports tab completion for known
+  objects in this list in IPython/Jupyter.
+
+* Added ``galpy.potential.to_amuse`` to create an `AMUSE
+  <http://www.amusecode.org>`__ representation of any galpy potential,
+  :ref:`allowing galpy potentials to be used as external gravitational
+  fields in AMUSE N-body simulations <amusepot>`.
+
+* New or improved potentials and :ref:`potential wrappers <potwrappers>`:
+
+  * `MovingObjectPotential <reference/potentialmovingobj.html>`__: Re-wrote ``potential.MovingObjectPotential`` to allow general mass distributions for the moving object, implemented now as standard galpy potentials. Also added a C implementation of this potential for fast orbit integration.
+
+  * `IsothermalDiskPotential <reference/potentialisodisk.html>`__: The one-dimensional potential of an isothermal self-gravitating disk (sech^2 profile).
+
+  * `NumericalPotentialDerivativesMixin <reference/potentialnumericalpotentialderivsmixin.html>`__: a Mixin class to add numerically-computed forces and second derivatives to any Potential class, allowing new potentials to be implmented quickly by only implementing the potential itself and obtaining all forces and second derivatives numerically.
+
+  * `DehnenSmoothWrapperPotential <reference/potentialdehnensmoothwrapper.html>`__: Can now decay rather than grow a potential by setting ``decay=True``.
+
+  * Added support to combine Potential instances or lists thereof through the addition operator. E.g., ``pot= pot1+pot2+pot3`` to create the combined potential of the three component potentials (pot1,pot2,pot3). Each of these components can be a combined potential itself. As before, combined potentials are simply lists of potentials, so this is simply an alternative (and perhaps more intuitive) way to create these lists.
+
+  * Added support to adjust the amplitude of a Potential instance through multiplication of the instance by a number or through division by a numer. E.g., ``pot= 2.*pot1`` returns a Potential instance that is the same as pot1, except that the amplitude is twice larger. Similarly, ``pot= pot1/2.`` decreases the amplitude by a factor of two. This is useful, for example, to quickly change the mass of a potential. Only works for Potential instances, not for lists of Potential instances.
+
+* New or improved ``galpy.orbit.Orbit`` functionality and methods:
+
+  * Added support for 1D orbit integration in C.
+
+  * Added support to plot arbitrary combinations of the basic Orbit attributes by giving them as an expresion (e.g., ``orb.plot(d2='vR*R/r+vz*z/r')``); requires the `numexpr <https://github.com/pydata/numexpr>`__ package.
+
+  * Switched default Sun's vertical height zo parameter for Orbit initialization to be the value of 20.8 pc from `Bennett & Bovy (2019) <http://adsabs.harvard.edu/abs/2019MNRAS.482.1417B>`__.
+
+  * Add Python and C implementation of Dormand-Prince 8(5,3) integrator.
+
 v1.4
 +++++
 

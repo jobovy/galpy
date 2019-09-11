@@ -192,6 +192,8 @@ natural coordinates, you can turn this behavior off by doing
 
 All outputs will then be specified in galpy's natural coordinates.
 
+.. _orbmultinit:
+
 **NEW in v1.5**: Initializing multiple objects at once
 *******************************************************
 
@@ -353,6 +355,8 @@ supports tab completion in IPython/Jupyter for this list of objects
 
 .. WARNING::
    Orbits initialized using ``Orbit.from_name`` have physical output *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
+
+.. _orbintegration:
 
 Orbit integration
 ------------------
