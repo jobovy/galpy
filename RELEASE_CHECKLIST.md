@@ -6,7 +6,7 @@
 
 - [ ] Remove previous version’s **NEW IN vX.X**
 
-- [ ] Update the version number in ``galpy/__init__.py``, ``setup.py``, and ``doc/source/conf.py``
+- [ ] Update the version number in ``galpy/__init__.py``, ``setup.py``, and ``doc/source/conf.py``; format the version number as X.X.X
 
 - [ ] Check whether any new files need to go in MANIFEST.in (check which files are added with ``git diff --name-status PREV_RELEASE_HASH | grep ^A``)
 
