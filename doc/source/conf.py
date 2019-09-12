@@ -47,7 +47,7 @@ copyright = u'2010 - 2019, Jo Bovy'
 # The short X.Y version.
 version = '1.5'
 # The full version, including alpha/beta/rc tags.
-release = '1.5.dev'
+release = '1.5'
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if on_rtd:
     version= 'v'+version

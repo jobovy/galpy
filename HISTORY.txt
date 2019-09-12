@@ -1,4 +1,4 @@
-v1.5 (????-??-??)
+v1.5 (2019-09-12)
 =================
 
 - Added support for holding multiple objects in an Orbit instance,
