@@ -8,7 +8,7 @@
 
 - [ ] Update the version number in ``galpy/__init__.py``, ``setup.py``, and ``doc/source/conf.py``
 
-- [ ] Check whether any new files need to go in MANIFEST.in
+- [ ] Check whether any new files need to go in MANIFEST.in (check which files are added with ``git diff --name-status PREV_RELEASE_HASH | grep ^A``)
 
 - [ ] Make sure everything is committed and pushed, make sure tests run and pass
 
