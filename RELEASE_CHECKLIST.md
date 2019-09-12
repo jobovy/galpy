@@ -32,6 +32,10 @@
 
 - [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
 
+- [ ] Switch default readthedocs version to the latest version
+
+- [ ] Create maintenance branch if major version update
+
 - [ ] Bump master version to next X.dev version
 
 - [ ] Start on next version changes in HISTORY file
