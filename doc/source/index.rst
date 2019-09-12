@@ -493,6 +493,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *An extended Pal 5 stream in Gaia DR2*, Nathaniel Starkman, Jo Bovy, & Jeremy Webb (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1909.03048 <http://arxiv.org/abs/1909.03048>`_)
 
+#. *The Biggest Splash*, Vasily Belokurov, Jason L. Sanders, Azadeh Fattahi, Martin C. Smith, Alis J. Deason, N. Wyn Evans, & Robert J. J. Grand (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1909.04679 <http://arxiv.org/abs/1909.04679>`_)
+
+#. *Dark Shards: velocity substructure from Gaia and direct searches for dark matter*, Ciaran A. J. O'Hare, N. Wyn Evans, Christopher McCabe, GyuChul Myeong, & Vasily Belokurov (2019) *Phys. Rev. D*, submitted (`arXiv/1909.04684 <http://arxiv.org/abs/1909.04684>`_)
+
+#. *Disentangling the Arcturus stream*, Iryna Kushniruk & Thomas Bensby (2019) *Astron. & Astrophys.*, in press (`arXiv/1909.04949 <http://arxiv.org/abs/1909.04949>`_)
+
 Indices and tables
 ==================
 
