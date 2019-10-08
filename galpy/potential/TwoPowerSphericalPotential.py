@@ -221,6 +221,87 @@ class TwoPowerSphericalPotential(Potential):
         else: r= numpy.sqrt(R**2.+z**2.)
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
+
+class DehnenSphericalPotential(TwoPowerSphericalPotential):
+    """Class that implements the Dehnen Spherical Potential from Dehnen 1993
+
+    .. math::
+
+          \\rho(r) = \\frac{\\mathrm{amp}(3-\\alpha)}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^{\\alpha}\\,(1+r/a)^{4-\\alpha}}
+    """
+    def __new__(cls, amp=1., a=5., alpha=1.,normalize=False,allow_evolve=False,
+                ro=None, vo=None):
+        # restricting range of alpha
+        if (alpha < 0.) | (alpha >= 3.):
+            raise ValueError('alpha should be in range [0, 3)')
+        # potentials static, check for speedups
+        if not allow_evolve:
+            if alpha == 1:
+                return HernquistPotential(amp=amp*(3-alpha),a=a,
+                                          normalize=normalize,ro=ro,vo=vo)
+            elif alpha == 2:
+                return JaffePotential(amp=amp,a=a,normalize=normalize,
+                                      ro=ro,vo=vo)
+        # no speedups, return a full DehnenSphericalPotential
+        return super(DehnenSphericalPotential, cls).__new__(cls)
+
+    def __init__(self,amp=1.,a=5.,alpha=1.,normalize=False,allow_evolve=False,
+                 ro=None,vo=None):
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           initialize a Dehnen Spherical Potential
+
+        INPUT:
+
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass will be rescaled to amp*(3-alpha) (except for Jaffe, which is already scaled)
+
+           a - scale radius (can be Quantity)
+
+           alpha - inner power, restricted to [0, 3)
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+
+           allow_evolve - allow alpha to change. If False, parameters are considered fixed and if the parameters allow a HernquistPotential or JaffePotential will be returned instead
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
+        OUTPUT:
+
+           (none)
+
+        HISTORY:
+
+           2019-10-07 - Started - Starkman (UofT)
+
+        """
+        object.__setattr__(self, '_locked', False)  # temporary, for instantiation
+        # instantiate
+        amp= amp*(3-alpha)  # difference between bovy and Dehnen implementation
+        super(DehnenSphericalPotential, self).__init__(
+            amp=amp,a=a,alpha=alpha,beta=4,
+            normalize=normalize,ro=ro,vo=vo
+        )
+        # set properties
+        self._nemo_accname= 'Dehnen'
+        self._allow_evolve= allow_evolve  # whether can modify alpha
+        self._locked= True  # locked, so cannot modify beta
+        return None
+
+    def __setattr__(self, name, value):
+        """setattr, with protected variables"""
+        if self._locked:
+            if (name == 'beta'):  # beta always fixed
+                raise Exception('cannot modify beta')
+            elif (name == 'alpha') and not self._allow_evolve:
+                raise Exception('cannot modify alpha')
+        super(DehnenSphericalPotential, self).__setattr__(name, value)
+
+
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
     the case of integer powers"""
