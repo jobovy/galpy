@@ -229,7 +229,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
           \\rho(r) = \\frac{\\mathrm{amp}(3-\\alpha)}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^{\\alpha}\\,(1+r/a)^{4-\\alpha}}
     """
-    def __new__(cls, amp=1., a=5., alpha=1.,normalize=False,allow_evolve=False,
+    def __new__(cls, amp=1., a=5., alpha=1.5,normalize=False,allow_evolve=False,
                 ro=None, vo=None):
         # restricting range of alpha
         if (alpha < 0.) | (alpha >= 3.):
@@ -245,7 +245,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # no speedups, return a full DehnenSphericalPotential
         return super(DehnenSphericalPotential, cls).__new__(cls)
 
-    def __init__(self,amp=1.,a=5.,alpha=1.,normalize=False,allow_evolve=False,
+    def __init__(self,amp=1.,a=5.,alpha=1.5,normalize=False,allow_evolve=False,
                  ro=None,vo=None):
         """
         NAME:
@@ -300,6 +300,58 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             elif (name == 'alpha') and not self._allow_evolve:
                 raise Exception('cannot modify alpha')
         super(DehnenSphericalPotential, self).__setattr__(name, value)
+
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2019-10-11 - Written - Starkman (UofT)
+        """
+        a = self.a
+        alpha = self.alpha
+        r = numpy.sqrt(R**2. + z**2.)
+
+        p = (1. + a/r)**alpha * (2.*R**4. - (z**2. + a*r) * z**2. +
+                                 (z**2. + (alpha - 1.)*a*r) * R**2.)
+        p = ((1. + a/r)**alpha *
+             (2.*R**4. - (z**2. + a*r) * z**2. +
+              (z**2. + (alpha - 1.)*a*r) * R**2.))
+        q = (alpha - 3.) * r**3. * (a+r)**4.
+
+        return p / q
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed R,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           d2phi/dR/dz
+        HISTORY:
+           2013-08-28 - Written - Bovy (IAS)
+           2019-10-11 - Written - Starkman (UofT)
+        """
+        a, alpha= self.a, self.alpha
+        sqrtRz= numpy.sqrt(R**2.+z**2.)
+        p= R * z * (1 + a / sqrtRz)**alpha * (3 * sqrtRz**2 + a * alpha * sqrtRz)
+        q= sqrtRz**3. * (a + sqrtRz)**4. * (alpha - 3)
+        return p / q
 
 
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
