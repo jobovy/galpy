@@ -8,11 +8,14 @@
 ###############################################################################
 import math as m
 import numpy
-from scipy import special, optimize, integrate
+from numpy import sqrt, pi
+from scipy import optimize, integrate
+from scipy.special import gamma as Gamma, hyp2f1
 from galpy.util import bovy_conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
+
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
@@ -21,8 +24,8 @@ class TwoPowerSphericalPotential(Potential):
 
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^\\alpha\\,(1+r/a)^{\\beta-\\alpha}}
     """
-    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,normalize=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,
+                 normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -53,29 +56,62 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
 
            2010-07-09 - Started - Bovy (NYU)
+           2019-10-20 - Updated - Starkman (UofT)
 
         """
-        if alpha == round(alpha) and beta == round(beta):
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            integerSelf= TwoPowerIntegerSphericalPotential(amp=1.,a=a,
-                                                           alpha=int(alpha),
-                                                           beta=int(beta),
-                                                           normalize=False)
-            self.integerSelf= integerSelf
+        # instantiate
+        super(TwoPowerSphericalPotential, self).__init__(amp=amp,ro=ro,vo=vo,amp_units='mass')
+        # integerSelf
+        if ((self.__class__ == TwoPowerSphericalPotential) &
+            (alpha == round(alpha)) & (beta == round(beta))):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=a,alpha=round(alpha),beta=round(beta),
+                normalize=False,ro=None,vo=None)
         else:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
             self.integerSelf= None
+        # correcting quantities
         if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
+        # setting properties
         self.a= a
         self._scale= self.a
-        self.alpha= alpha
-        self.beta= beta
+        self._alpha= alpha
+        self._beta= beta
+        # normalizing
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
+
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self, alpha):
+        # checking if alpha allowed to change
+        self._alpha = alpha  # setting alpha
+        # update .integerSelf
+        if alpha == round(alpha) and self._beta == round(self._beta):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=self.a,alpha=round(alpha),beta=round(self._beta),
+                normalize=False)
+        else:
+            self.integerSelf= None
+
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self, beta):
+        self._beta = beta  # setting alpha
+        # update .integerSelf
+        if self._alpha == round(self._alpha) and beta == round(beta):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=self.a,alpha=round(self._alpha),beta=round(beta),
+                normalize=False)
+        else:
+            self.integerSelf= None
 
     def _evaluate(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
@@ -93,25 +129,21 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if not _forceFloatEval and not self.integerSelf == None:
+        if not _forceFloatEval and self.integerSelf is not None:
             return self.integerSelf._evaluate(R,z,phi=phi,t=t)
         elif self.beta == 3.:
-            r= numpy.sqrt(R**2.+z**2.)
-            return (1./self.a)\
-                *(r-self.a*(r/self.a)**(3.-self.alpha)/(3.-self.alpha)\
-                      *special.hyp2f1(3.-self.alpha,
-                                      2.-self.alpha,
-                                      4.-self.alpha,
-                                      -r/self.a))/(self.alpha-2.)/r
-        else:
-            r= numpy.sqrt(R**2.+z**2.)
-            return special.gamma(self.beta-3.)\
-                *((r/self.a)**(3.-self.beta)/special.gamma(self.beta-1.)\
-                      *special.hyp2f1(self.beta-3.,
-                                      self.beta-self.alpha,
-                                      self.beta-1.,
-                                      -self.a/r)
-                  -special.gamma(3.-self.alpha)/special.gamma(self.beta-self.alpha))/r
+            a, alpha, beta = self.a, self.alpha, self.beta
+            r= sqrt(R**2.+z**2.)
+            return (1./a)\
+                *(r-a*(r/a)**(3.-alpha)/(3.-alpha)\
+                      *hyp2f1(3.-alpha, 2.-alpha, 4.-alpha, -r/a))/(alpha-2.)/r
+        # else:
+        a, alpha, beta = self.a, self._alpha, self._beta
+        r= sqrt(R**2.+z**2.)
+        return Gamma(beta-3.)\
+            *((r/a)**(3.-beta)/Gamma(beta-1.)\
+                  *hyp2f1(beta-3., beta-alpha, beta-1., -a/r)
+              -Gamma(3.-alpha)/Gamma(beta-alpha))/r
 
     def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
@@ -129,15 +161,13 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not _forceFloatEval and not self.integerSelf == None:
+        if not _forceFloatEval and self.integerSelf is not None:
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
-        else:
-            r= numpy.sqrt(R**2.+z**2.)
-            return -R/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
-                *special.hyp2f1(3.-self.alpha,
-                                self.beta-self.alpha,
-                                4.-self.alpha,
-                                -r/self.a)
+        # else:
+        a, alpha, beta = self.a, self._alpha, self._beta
+        r= sqrt(R**2.+z**2.)
+        return -R/r**alpha*a**(alpha-3.)/(3.-alpha)\
+            *hyp2f1(3.-alpha, beta-alpha, 4.-alpha, -r/a)
 
     def _zforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
@@ -155,15 +185,119 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not _forceFloatEval and not self.integerSelf == None:
+        if not _forceFloatEval and self.integerSelf is not None:
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
-        else:
-            r= numpy.sqrt(R**2.+z**2.)
-            return -z/r**self.alpha*self.a**(self.alpha-3.)/(3.-self.alpha)\
-                *special.hyp2f1(3.-self.alpha,
-                                self.beta-self.alpha,
-                                4.-self.alpha,
-                                -r/self.a)
+        # else:
+        a, alpha, beta = self.a, self._alpha, self._beta
+        r= sqrt(R**2.+z**2.)
+        return -z/r**alpha*a**(alpha-3.)/(3.-alpha)\
+            *hyp2f1(3.-alpha, beta-alpha, 4.-alpha, -r/a)
+
+    # def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    #     """
+    #     NAME:
+    #         _R2deriv
+    #     PURPOSE:
+    #         evaluate the second radial derivative for this potential
+    #     INPUT:
+    #         R - Galactocentric cylindrical radius
+    #         z - vertical height
+    #         phi - azimuth
+    #         t- time
+    #     OUTPUT:
+    #         the second radial derivative
+    #     HISTORY:
+    #         2019-10-20 - Written - Starkman (UofT)
+    #     """
+    #     if not _forceFloatEval and self.integerSelf is not None:
+    #         return self.integerSelf._R2deriv(R,z,phi=phi,t=t)
+    #     # else:
+    #     a, alpha, beta = self.a, self.alpha, self.beta
+    #     r= sqrt(R**2.+z**2.)
+
+    #     if beta == 3.:
+    #         # Need to have derivatives of hyp2f1
+    #         raise ValueError('Not yet implemented')
+
+    #     if beta == 5.:
+    #         # Need to have derivatives of hyp2f1
+    #         raise ValueError('Not yet implemented')
+
+    #     return (Gamma(beta - 3) / r**5 *
+    #             (((z**2 - 2 * R**2) * Gamma(3 - alpha)) / Gamma(beta - alpha) +
+    #              a**(-3 + beta) * (R**2 + z**2)**(1 - beta / 2.) *
+    #              ((z**2 * (a * (alpha - beta) - r * (beta - 2)) +
+    #                R**2 * (r * (beta - 2) *
+    #                        (beta - 1) + 2 * a * (beta - alpha))
+    #                ) * hyp2f1(-2 + beta, beta - alpha + 1, beta,
+    #                           -(a / r)) / Gamma(beta) +
+    #               (a * (R**2 * (2 + alpha * (-3 + beta)) - z**2 * (beta - 2)) +
+    #                r * (-z**2 + R**2 * (beta - 1)) * (beta - 2)) *
+    #               (-2 + beta) * hyp2f1(beta - 1, beta - alpha + 1, beta,
+    #                                    -(a / r)) / Gamma(beta))))
+
+    def _z2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2012-07-26 - Written - Bovy (IAS@MPIA)
+           2019-10-20 - Edited - Starkman (UofT)
+        """
+        return self._R2deriv(numpy.fabs(z),R,phi=phi,t=t,
+                             _forceFloatEval=_forceFloatEval) #Spherical potential
+
+
+    # def _Rzderiv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    #     """
+    #     NAME:
+    #        _Rzderiv
+    #     PURPOSE:
+    #        evaluate the mixed R,z derivative for this potential
+    #     INPUT:
+    #        R - Galactocentric cylindrical radius
+    #        z - vertical height
+    #        phi - azimuth
+    #        t - time
+    #     OUTPUT:
+    #        d2phi/dR/dz
+    #     HISTORY:
+    #        2019-10-20 - Written - Starkman (UofT)
+    #     """
+    #     if not _forceFloatEval and self.integerSelf is not None:
+    #         return self.integerSelf._Rzderiv(R,z,phi=phi,t=t)
+    #     # else:
+    #     a, alpha, beta = self.a, self.alpha, self.beta
+    #     r= sqrt(R**2.+z**2.)
+
+    #     if beta == 3.:
+    #         # Need to have derivatives of hyp2f1
+    #         raise ValueError('Not yet implemented')
+
+    #     if beta == 5.:
+    #         # Need to have derivatives of hyp2f1
+    #         raise ValueError('Not yet implemented')
+
+    #     return (R * z * Gamma(beta - 3) / r**5 *
+    #             ((-3 * Gamma(3 - alpha)) / Gamma(beta - alpha) +
+    #              a**(beta - 3) * r**(2 - beta) *
+    #              ((r * (beta - 2) * beta + 3 * a * (-alpha + beta)) *
+    #               hyp2f1(beta - 2, beta - alpha + 1, beta,
+    #                      -(a / r)) / Gamma(beta) +
+    #               (-2 + beta) * (r * (-2 + beta) * beta +
+    #                              a * (alpha * (-3 + beta) + beta)) *
+    #               hyp2f1(beta - 1, beta - alpha + 1, beta,
+    #                      -(a / r)) / Gamma(beta))))
+
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -181,26 +315,9 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
-
-    def _z2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2012-07-26 - Written - Bovy (IAS@MPIA)
-        """
-        return self._R2deriv(numpy.fabs(z),R) #Spherical potential
+        a, alpha, beta = self.a, self._alpha, self._beta
+        r= sqrt(R**2.+z**2.)
+        return (a/r)**alpha/(1.+r/a)**(beta-alpha)/4./m.pi/a**3.
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -217,9 +334,13 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2014-04-01 - Written - Erkal (IoA)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
+        a, alpha, beta = self.a, self._alpha, self._beta
+        r= R if z is None else sqrt(R**2.+z**2.)
+        # if z is None:
+        #     r= R
+        # else:
+        #     r= sqrt(R**2.+z**2.)
+        return (r/a)**(3.-alpha)/(3.-alpha)*hyp2f1(3.-alpha,-alpha+beta,4.-alpha,-r/a)
 
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
@@ -229,24 +350,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
           \\rho(r) = \\frac{\\mathrm{amp}(3-\\alpha)}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^{\\alpha}\\,(1+r/a)^{4-\\alpha}}
     """
-    def __new__(cls, amp=1., a=5., alpha=1.5,normalize=False,allow_evolve=False,
-                ro=None, vo=None):
-        # restricting range of alpha
-        if (alpha < 0.) | (alpha >= 3.):
-            raise ValueError('alpha should be in range [0, 3)')
-        # potentials static, check for speedups
-        if not allow_evolve:
-            if alpha == 1:
-                return HernquistPotential(amp=amp*(3-alpha),a=a,
-                                          normalize=normalize,ro=ro,vo=vo)
-            elif alpha == 2:
-                return JaffePotential(amp=amp,a=a,normalize=normalize,
-                                      ro=ro,vo=vo)
-        # no speedups, return a full DehnenSphericalPotential
-        return super(DehnenSphericalPotential, cls).__new__(cls)
-
-    def __init__(self,amp=1.,a=5.,alpha=1.5,normalize=False,allow_evolve=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=1.,alpha=1.5,dehnen_amp=False,
+                 normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -264,9 +369,9 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
            alpha - inner power, restricted to [0, 3)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+           dehnen_amp - if True, use dehnen normalization, amp -> amp * (3 - alpha)
 
-           allow_evolve - allow alpha to change. If False, parameters are considered fixed and if the parameters allow a HernquistPotential or JaffePotential will be returned instead
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -279,29 +384,49 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
            2019-10-07 - Started - Starkman (UofT)
 
         """
-        object.__setattr__(self, '_locked', False)  # temporary, for instantiation
         # instantiate
-        amp= amp*(3-alpha)  # difference between bovy and Dehnen implementation
+        if dehnen_amp:
+            amp= amp*(3-alpha)  # difference between bovy and Dehnen implementation
         super(DehnenSphericalPotential, self).__init__(
             amp=amp,a=a,alpha=alpha,beta=4,
             normalize=normalize,ro=ro,vo=vo
         )
+        if ((self.__class__ == DehnenSphericalPotential) &
+            (alpha == round(alpha))):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=a,alpha=round(alpha),beta=4,
+                normalize=False,ro=None,vo=None)
+        else:
+            self.integerSelf= None
         # set properties
+        self.hasC= True
+        self.hasC_dxdv= True
         self._nemo_accname= 'Dehnen'
-        self._allow_evolve= allow_evolve  # whether can modify alpha
-        self._locked= True  # locked, so cannot modify beta
         return None
 
-    def __setattr__(self, name, value):
-        """setattr, with protected variables"""
-        if self._locked:
-            if (name == 'beta'):  # beta always fixed
-                raise Exception('cannot modify beta')
-            elif (name == 'alpha') and not self._allow_evolve:
-                raise Exception('cannot modify alpha')
-        super(DehnenSphericalPotential, self).__setattr__(name, value)
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self, alpha):
+        # checking if alpha allowed to change
+        self._alpha = alpha  # setting alpha
+        # checking if should update .integerSelf
+        if alpha == round(alpha):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=self.a,alpha=round(alpha),beta=4,
+                normalize=False,)
+        else:
+            self.integerSelf= None
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self, value):
+        raise Exception('cannot modify beta')
+
+    def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
            _R2deriv
@@ -317,18 +442,39 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-10-11 - Written - Starkman (UofT)
         """
-        a = self.a
-        alpha = self.alpha
-        r = numpy.sqrt(R**2. + z**2.)
+        if not _forceFloatEval and self.integerSelf is not None:
+            return self.integerSelf._R2deriv(self, R, z, phi=phi, t=t)
+        # else:
+        a, alpha = self.a, self._alpha
+        r = sqrt(R**2. + z**2.)
 
-        p = (1. + a/r)**alpha * (2.*R**4. - (z**2. + a*r) * z**2. +
-                                 (z**2. + (alpha - 1.)*a*r) * R**2.)
-        p = ((1. + a/r)**alpha *
-             (2.*R**4. - (z**2. + a*r) * z**2. +
-              (z**2. + (alpha - 1.)*a*r) * R**2.))
-        q = (alpha - 3.) * r**3. * (a+r)**4.
+        return (((1 + a / r)**alpha *
+                 (2 * R**4 - z**2 * (z**2 + a * r) +
+                  R**2 * (z**2 + a * r * (-1 + alpha)))) /
+                (r**3 * (a + r)**4 * (-3 + alpha)))
 
-        return p / q
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2019-10-20 - Written - Starkman (UofT)
+        """
+        a, alpha = self.a, self._alpha
+        r = sqrt(R**2. + z**2.)
+        return (((1 + a / r)**alpha *
+                 (R**4 - 2 * z**4 + R**2 * (-z**2 + a * r) -
+                  a * z**2 * r * (-1 + alpha))) /
+                (r**3 * (a + r)**4 * (3 - alpha)))
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -344,74 +490,116 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         OUTPUT:
            d2phi/dR/dz
         HISTORY:
-           2013-08-28 - Written - Bovy (IAS)
            2019-10-11 - Written - Starkman (UofT)
         """
-        a, alpha= self.a, self.alpha
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        p= R * z * (1 + a / sqrtRz)**alpha * (3 * sqrtRz**2 + a * alpha * sqrtRz)
-        q= sqrtRz**3. * (a + sqrtRz)**4. * (alpha - 3)
+        if self.integerSelf is not None:
+            return self.integerSelf._Rzderiv(self, R, z, phi=phi, t=t)
+        # else:
+        a, alpha= self.a, self._alpha
+        r= sqrt(R**2.+z**2.)
+        p= R * z * (1 + a / r)**alpha * (3 * r**2 + a * alpha * r)
+        q= r**3. * (a + r)**4. * (alpha - 3)
         return p / q
 
 
 class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the two-power-density spherical potentials in 
     the case of integer powers"""
-    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,normalize=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=1.,alpha=1,beta=3,
+                 normalize=False,ro=None,vo=None):
         """
         NAME:
+
            __init__
+
         PURPOSE:
+
            initialize a two-power-density potential for integer powers
+
         INPUT:
+
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+
            a - scale radius (can be Quantity)
+
            alpha - inner power (default: NFW)
+
            beta - outer power (default: NFW)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if 
                        given as a number, such that the force is this fraction 
                        of the force necessary to make vc(1.,0.)=1.
+
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
         OUTPUT:
+
            (none)
+
         HISTORY:
+
            2010-07-09 - Started - Bovy (NYU)
         """
+        Potential.__init__(self, amp=amp,ro=ro,vo=vo,amp_units='mass')
+
+        # integerSelf
         if alpha == 1 and beta == 4:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            HernquistSelf= HernquistPotential(amp=1.,a=a,normalize=False)
-            self.HernquistSelf= HernquistSelf
-            self.JaffeSelf= None
-            self.NFWSelf= None
+            self.integerSelf= HernquistPotential(amp=1.,a=a,normalize=False)
         elif alpha == 2 and beta == 4:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            JaffeSelf= JaffePotential(amp=1.,a=a,normalize=False)
-            self.HernquistSelf= None
-            self.JaffeSelf= JaffeSelf
-            self.NFWSelf= None
+            self.integerSelf= JaffePotential(amp=1.,a=a,normalize=False)
         elif alpha == 1 and beta == 3:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            NFWSelf= NFWPotential(amp=1.,a=a,normalize=False)
-            self.HernquistSelf= None
-            self.JaffeSelf= None
-            self.NFWSelf= NFWSelf
+            self.integerSelf= NFWPotential(amp=1.,a=a,normalize=False)
         else:
-            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-            self.HernquistSelf= None
-            self.JaffeSelf= None
-            self.NFWSelf= None
+            self.integerSelf= None
+        # astropy
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
-        self.alpha= alpha
-        self.beta= beta
+        # setting properties
         self.a= a
         self._scale= self.a
+        self._alpha= alpha
+        self._beta= beta
+        # normalizing
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
+
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self,alpha):
+        # checking if alpha is an integer
+        if alpha != int(alpha):
+            raise ValueError('alpha must be an integer')
+        self._alpha= int(alpha)  # setting alpha
+        # update .integerSelf
+        if alpha == int(alpha) and self._beta == int(self._beta):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=self.a,alpha=int(alpha),beta=int(self._beta),
+                normalize=False)
+        else:
+            self.integerSelf= None
+
+
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self,beta):
+        # checking if beta is an integer
+        if beta != int(beta):
+            raise ValueError('beta must be an integer')
+        self._beta= int(beta)  # setting alpha
+        # update .integerSelf
+        if self._alpha == int(self._alpha) and beta == int(beta):
+            self.integerSelf= TwoPowerIntegerSphericalPotential(
+                amp=1.,a=self.a,alpha=int(self._alpha),beta=int(beta),
+                normalize=False)
+        else:
+            self.integerSelf= None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -429,16 +617,11 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._evaluate(R,z,phi=phi,t=t)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._evaluate(R,z,phi=phi,t=t)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._evaluate(R,z,phi=phi,t=t)
+        if self.integerSelf is not None:
+            return self.integerSelf._evaluate(R,z,phi=phi,t=t)
         else:
-            return TwoPowerSphericalPotential._evaluate(self,R,z,
-                                                        phi=phi,t=t,
-                                                        _forceFloatEval=True)
+            return super(TwoPowerIntegerSphericalPotential, self)._evaluate(
+                R,z, phi=phi,t=t, _forceFloatEval=True)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -456,16 +639,11 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._Rforce(R,z,phi=phi,t=t)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._Rforce(R,z,phi=phi,t=t)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._Rforce(R,z,phi=phi,t=t)
+        if self.integerSelf is not None:
+            return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
-            return TwoPowerSphericalPotential._Rforce(self,R,z,
-                                                      phi=phi,t=t,
-                                                      _forceFloatEval=True)
+            return super(TwoPowerIntegerSphericalPotential, self)._Rforce(
+                R,z,phi=phi,t=t,_forceFloatEval=True)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -483,18 +661,49 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not self.HernquistSelf == None:
-            return self.HernquistSelf._zforce(R,z,phi=phi,t=t)
-        elif not self.JaffeSelf == None:
-            return self.JaffeSelf._zforce(R,z,phi=phi,t=t)
-        elif not self.NFWSelf == None:
-            return self.NFWSelf._zforce(R,z,phi=phi,t=t)
+        if self.integerSelf is not None:
+            return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
-            return TwoPowerSphericalPotential._zforce(self,R,z,
-                                                      phi=phi,t=t,
-                                                      _forceFloatEval=True)
+            return super(TwoPowerIntegerSphericalPotential, self)._zforce(
+                R,z,phi=phi,t=t,_forceFloatEval=True)
 
-class HernquistPotential(TwoPowerIntegerSphericalPotential):
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+            _R2deriv
+        PURPOSE:
+            evaluate the second radial derivative for this potential
+        INPUT:
+            R - Galactocentric cylindrical radius
+            z - vertical height
+            phi - azimuth
+            t- time
+        OUTPUT:
+            the second radial derivative
+        HISTORY:
+            2019-10-20 - Written - Starkman (UofT)
+        """
+        if self.integerSelf is not None:
+            return self.integerSelf._R2deriv(R,z,phi=phi,t=t)
+        # else:
+        a, alpha, beta = self.a, self.alpha, self.beta
+        r= sqrt(R**2.+z**2.)
+
+        return (Gamma(beta - 3) / r**5 *
+                (((z**2 - 2 * R**2) * Gamma(3 - alpha)) / Gamma(beta - alpha) +
+                 a**(-3 + beta) * (R**2 + z**2)**(1 - beta / 2.) *
+                 ((z**2 * (a * (alpha - beta) - r * (beta - 2)) +
+                   R**2 * (r * (beta - 2) *
+                           (beta - 1) + 2 * a * (beta - alpha))
+                   ) * hyp2f1(-2 + beta, beta - alpha + 1, beta,
+                              -(a / r)) / Gamma(beta) +
+                  (a * (R**2 * (2 + alpha * (-3 + beta)) - z**2 * (beta - 2)) +
+                   r * (-z**2 + R**2 * (beta - 1)) * (beta - 2)) *
+                  (-2 + beta) * hyp2f1(beta - 1, beta - alpha + 1, beta,
+                                       -(a / r)) / Gamma(beta))))
+
+
+class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
 
     .. math::
@@ -502,8 +711,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)\\,(1+r/a)^{3}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=1.,dehnen_amp=False,normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -519,6 +727,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
            a - scale radius (can be Quantity)
 
+           dehnen_amp - if True, use dehnen normalization, amp -> amp * (3 - alpha)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -532,21 +742,27 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
-        self.a= a
-        self._scale= self.a
-        self.alpha= 1
-        self.beta= 4
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
-            self.normalize(normalize)
+        super(HernquistPotential, self).__init__(
+            amp=amp,a=a,alpha=1,dehnen_amp=dehnen_amp,
+            normalize=normalize,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         self._nemo_accname= 'Dehnen'
         return None
+
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self, value):
+        raise Exception('cannot modify alpha')
+
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self, value):
+        raise Exception('cannot modify beta')
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -564,7 +780,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -1./(1.+numpy.sqrt(R**2.+z**2.)/self.a)/2./self.a
+        a= self.a
+        return -1./(1.+sqrt(R**2.+z**2.)/a)/2./a
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -582,8 +799,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -R/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        return -R/a/r/(1.+r/a)**2./2./a
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -600,8 +818,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        return -z/a/r/(1.+r/a)**2./2./a
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -619,9 +838,10 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return (self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
-            /(self.a+sqrtRz)**3./2.
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        return (a*z**2.+(z**2.-2.*R**2.)*r)/r**3.\
+            /(a+r)**3./2.
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -639,8 +859,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -R*z*(self.a+3.*sqrtRz)*(sqrtRz*(self.a+sqrtRz))**-3./2.
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        return -R*z*(a+3.*r)*(r*(a+r))**-3./2.
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -658,21 +879,22 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        Rma= sqrt(R**2.-a**2.+0j)
         if Rma == 0.:
-            return (-12.*self.a**3-5.*self.a*z**2
-                      +numpy.sqrt(1.+z**2/self.a**2)\
-                         *(12.*self.a**3-self.a*z**2+2/self.a*z**4))\
-                          /30./numpy.pi*z**-5.
+            return (-12.*a**3-5.*a*z**2
+                      +sqrt(1.+z**2/a**2)\
+                         *(12.*a**3-a*z**2+2/a*z**4))\
+                          /30./pi*z**-5.
         else:
-            return self.a*((2.*self.a**2.+R**2.)*Rma**-5\
-                               *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
-                           +z*(5.*self.a**3.*r-4.*self.a**4
-                               +self.a**2*(2.*r**2.+R**2)
-                               -self.a*r*(5.*R**2.+3.*z**2.)+R**2.*r**2.)
-                           /(self.a**2.-R**2.)**2.
-                           /(r**2-self.a**2.)**2.).real/4./numpy.pi
+            return a*((2.*a**2.+R**2.)*Rma**-5\
+                               *(numpy.arctan(z/Rma)-numpy.arctan(a*z/r/Rma))
+                           +z*(5.*a**3.*r-4.*a**4
+                               +a**2*(2.*r**2.+R**2)
+                               -a*r*(5.*R**2.+3.*z**2.)+R**2.*r**2.)
+                           /(a**2.-R**2.)**2.
+                           /(r**2-a**2.)**2.).real/4./pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -688,9 +910,9 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**2./2./(1.+r/self.a)**2.
+        a= self.a
+        r= R if z is None else sqrt(R**2.+z**2.)
+        return (r/a)**2./2./(1.+r/a)**2.
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
@@ -721,7 +943,8 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
         GM= self._amp*vo**2.*ro/2.
         return "0,1,%s,%s,0" % (GM,self.a*ro)
 
-class JaffePotential(TwoPowerIntegerSphericalPotential):
+
+class JaffePotential(DehnenSphericalPotential):
     """Class that implements the Jaffe potential
 
     .. math::
@@ -729,8 +952,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^2\\,(1+r/a)^{2}}
 
     """
-    def __init__(self,amp=1.,a=1.,normalize=False,
-                 ro=None,vo=None):
+    def __init__(self,amp=1.,a=1.,dehnen_amp=False,normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -746,6 +968,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
            a - scale radius (can be Quantity)
 
+           dehnen_amp - if True, use dehnen normalization, amp -> amp * (3 - alpha)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -759,20 +983,27 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
-        self.a= a
-        self._scale= self.a
-        self.alpha= 2
-        self.beta= 4
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
-            self.normalize(normalize)
+        super(JaffePotential, self).__init__(
+            amp=amp,a=a,alpha=2,dehnen_amp=dehnen_amp,
+            normalize=normalize,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
+        del self._nemo_accname  # TODO implement as None
         return None
+
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self, value):
+        raise Exception('cannot modify alpha')
+
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self, value):
+        raise Exception('cannot modify beta')
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -790,7 +1021,8 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -numpy.log(1.+self.a/numpy.sqrt(R**2.+z**2.))/self.a
+        a= self.a
+        return -numpy.log(1.+a/sqrt(R**2.+z**2.))/a
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -808,7 +1040,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
+        sqrtRz= sqrt(R**2.+z**2.)
         return -R/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -827,7 +1059,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
+        sqrtRz= sqrt(R**2.+z**2.)
         return -z/sqrtRz**3./(1.+self.a/sqrtRz)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -846,9 +1078,10 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return (self.a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
-            /sqrtRz**4./(self.a+sqrtRz)**2.
+        a= self.a
+        sqrtRz= sqrt(R**2.+z**2.)
+        return (a*(z**2.-R**2.)+(z**2.-2.*R**2.)*sqrtRz)\
+            /sqrtRz**4./(a+sqrtRz)**2.
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -866,9 +1099,10 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        sqrtRz= numpy.sqrt(R**2.+z**2.)
-        return -R*z*(2.*self.a+3.*sqrtRz)*sqrtRz**-4.\
-            *(self.a+sqrtRz)**-2.
+        a= self.a
+        sqrtRz= sqrt(R**2.+z**2.)
+        return -R*z*(2.*a+3.*sqrtRz)*sqrtRz**-4.\
+            *(a+sqrtRz)**-2.
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -886,20 +1120,21 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        a= self.a
+        r= sqrt(R**2.+z**2.)
+        Rma= sqrt(R**2.-a**2.+0j)
         if Rma == 0.:
-            return (3.*z**2.-2.*self.a**2.
-                    +2.*numpy.sqrt(1.+(z/self.a)**2.)\
-                        *(self.a**2.-2.*z**2.)
-                    +3.*z**3./self.a*numpy.arctan(z/self.a))\
-                    /self.a/z**3./6./numpy.pi
+            return (3.*z**2.-2.*a**2.
+                    +2.*sqrt(1.+(z/a)**2.)\
+                        *(a**2.-2.*z**2.)
+                    +3.*z**3./a*numpy.arctan(z/a))\
+                    /a/z**3./6./pi
         else:
-            return ((2.*self.a**2.-R**2.)*Rma**-3\
-                        *(numpy.arctan(z/Rma)-numpy.arctan(self.a*z/r/Rma))
+            return ((2.*a**2.-R**2.)*Rma**-3\
+                        *(numpy.arctan(z/Rma)-numpy.arctan(a*z/r/Rma))
                     +numpy.arctan(z/R)/R
-                    -self.a*z/(R**2-self.a**2)/(r+self.a)).real\
-                    /self.a/2./numpy.pi
+                    -a*z/(R**2-a**2)/(r+a)).real\
+                    /a/2./pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -915,11 +1150,14 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return r/self.a/(1.+r/self.a)
+        a= self.a
+        r= R if z is None else sqrt(R**2.+z**2.)
+        # if z is None: r= R
+        # else: r= sqrt(R**2.+z**2.)
+        return r/a/(1.+r/a)
 
-class NFWPotential(TwoPowerIntegerSphericalPotential):
+
+class NFWPotential(TwoPowerSphericalPotential):
     """Class that implements the NFW potential
 
     .. math::
@@ -978,17 +1216,11 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')  # need to initialize some params
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         if conc is None:
-            self.a= a
-            self.alpha= 1
-            self.beta= 3
-            if normalize or \
-                    (isinstance(normalize,(int,float)) \
-                         and not isinstance(normalize,bool)):
-                self.normalize(normalize)
+            pass
         else:
             if wrtcrit:
                 od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
@@ -999,14 +1231,33 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
                                                                     H=H,Om=Om)
             mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
                                                                     self._ro)
-            rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
-            self.a= rvir/conc
-            self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
-        self._scale= self.a
+            rvir= (3.*mvirNatural/od/4./pi)**(1./3.)
+            amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
+            a= rvir/conc
+
+        # reinitialize, properly now
+        self.integerSelf=None
+        super(NFWPotential, self).__init__(
+            amp=amp,a=a,alpha=1,beta=3,
+            normalize=normalize,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
         self._nemo_accname= 'NFW'
         return None
+
+    @property
+    def alpha(self):
+        return self._alpha
+    @alpha.setter
+    def alpha(self, value):
+        raise Exception('cannot modify alpha')
+
+    @property
+    def beta(self):
+        return self._beta
+    @beta.setter
+    def beta(self, value):
+        raise Exception('cannot modify beta')
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -1024,7 +1275,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        r= numpy.sqrt(R**2.+z**2.)
+        r= sqrt(R**2.+z**2.)
         return -numpy.log(1.+r/self.a)/r
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -1044,7 +1295,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         Rz= R**2.+z**2.
-        sqrtRz= numpy.sqrt(Rz)
+        sqrtRz= sqrt(Rz)
         return R*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -1064,10 +1315,10 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2010-07-09 - Written - Bovy (NYU)
         """
         Rz= R**2.+z**2.
-        sqrtRz= numpy.sqrt(Rz)
+        sqrtRz= sqrt(Rz)
         return z*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=True):
         """
         NAME:
            _R2deriv
@@ -1078,13 +1329,14 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            z - vertical height
            phi - azimuth
            t - time
+           _forceFloatEval: always true
         OUTPUT:
            the second radial derivative
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
         Rz= R**2.+z**2.
-        sqrtRz= numpy.sqrt(Rz)
+        sqrtRz= sqrt(Rz)
         return (3.*R**4.+2.*R**2.*(z**2.+self.a*sqrtRz)\
                     -z**2.*(z**2.+self.a*sqrtRz)\
                     -(2.*R**2.-z**2.)*(self.a**2.+R**2.+z**2.+2.*self.a*sqrtRz)\
@@ -1108,7 +1360,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2013-08-28 - Written - Bovy (IAS)
         """
         Rz= R**2.+z**2.
-        sqrtRz= numpy.sqrt(Rz)
+        sqrtRz= sqrt(Rz)
         return -R*z*(-4.*Rz-3.*self.a*sqrtRz+3.*(self.a**2.+Rz+2.*self.a*sqrtRz)*numpy.log(1.+sqrtRz/self.a))*Rz**-2.5*(self.a+sqrtRz)**-2.
 
     def _surfdens(self,R,z,phi=0.,t=0.):
@@ -1127,15 +1379,15 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        r= sqrt(R**2.+z**2.)
+        Rma= sqrt(R**2.-self.a**2.+0j)
         if Rma == 0.:
             za2= (z/self.a)**2
-            return self.a*(2.+numpy.sqrt(za2+1.)*(za2-2.))/6./numpy.pi/z**3
+            return self.a*(2.+sqrt(za2+1.)*(za2-2.))/6./pi/z**3
         else:
             return (self.a*Rma**-3\
                         *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
-                    +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
+                    +z/(r+self.a)/(R**2.-self.a**2.)).real/2./pi
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -1152,7 +1404,7 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
            2014-01-29 - Written - Bovy (IAS)
         """
         if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
+        else: r= sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
     @bovy_conversion.physical_conversion('position',pop=False)
@@ -1229,5 +1481,5 @@ class NFWPotential(TwoPowerIntegerSphericalPotential):
 
         """
         ampl= self._amp*vo**2.*ro
-        vmax= numpy.sqrt(ampl/self.a/ro*0.2162165954) #Take that factor directly from gyrfalcon
+        vmax= sqrt(ampl/self.a/ro*0.2162165954) #Take that factor directly from gyrfalcon
         return "0,%s,%s" % (self.a*ro,vmax)

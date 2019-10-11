@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 #include <interp_2d.h>
+#include <sf_math.h>
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
 			  struct potentialArg *);
@@ -183,6 +184,17 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    struct potentialArg *);
+//DehnenSphericalPotential
+double DehnenSphericalPotentialEval(double ,double , double, double,
+			      struct potentialArg *);
+double DehnenSphericalPotentialRforce(double ,double , double, double,
+				struct potentialArg *);
+double DehnenSphericalPotentialPlanarRforce(double ,double, double,
+				      struct potentialArg *);
+double DehnenSphericalPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
 //HernquistPotential
 double HernquistPotentialEval(double ,double , double, double,
 			      struct potentialArg *);
