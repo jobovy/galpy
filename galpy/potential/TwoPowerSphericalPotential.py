@@ -229,15 +229,17 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
           \\rho(r) = \\frac{\\mathrm{amp}(3-\\alpha)}{4\\,\\pi\\,a^3}\\,\\frac{1}{(r/a)^{\\alpha}\\,(1+r/a)^{4-\\alpha}}
     """
-    def __new__(cls, amp=1., a=5., alpha=1.5,normalize=False,allow_evolve=False,
+    def __new__(cls, amp=1., a=5., alpha=1.5,dehnen_amp=False,normalize=False,allow_evolve=False,
                 ro=None, vo=None):
         # restricting range of alpha
         if (alpha < 0.) | (alpha >= 3.):
             raise ValueError('alpha should be in range [0, 3)')
         # potentials static, check for speedups
         if not allow_evolve:
+            if dehnen_amp:
+                amp = amp * (3 - alpha)
             if alpha == 1:
-                return HernquistPotential(amp=amp*(3-alpha),a=a,
+                return HernquistPotential(amp=amp,a=a,
                                           normalize=normalize,ro=ro,vo=vo)
             elif alpha == 2:
                 return JaffePotential(amp=amp,a=a,normalize=normalize,
@@ -245,7 +247,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # no speedups, return a full DehnenSphericalPotential
         return super(DehnenSphericalPotential, cls).__new__(cls)
 
-    def __init__(self,amp=1.,a=5.,alpha=1.5,normalize=False,allow_evolve=False,
+    def __init__(self,amp=1.,a=5.,alpha=1.5,dehnen_amp=False,normalize=False,allow_evolve=False,
                  ro=None,vo=None):
         """
         NAME:
@@ -264,6 +266,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
            alpha - inner power, restricted to [0, 3)
 
+           dehnen_amp - if True, use dehnen normalization, amp -> amp * (3 - alpha)
+
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            allow_evolve - allow alpha to change. If False, parameters are considered fixed and if the parameters allow a HernquistPotential or JaffePotential will be returned instead
@@ -281,7 +285,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         """
         object.__setattr__(self, '_locked', False)  # temporary, for instantiation
         # instantiate
-        amp= amp*(3-alpha)  # difference between bovy and Dehnen implementation
+        if dehnen_amp:
+            amp = amp * (3 - alpha)  # difference between bovy and Dehnen implementation
         super(DehnenSphericalPotential, self).__init__(
             amp=amp,a=a,alpha=alpha,beta=4,
             normalize=normalize,ro=ro,vo=vo
