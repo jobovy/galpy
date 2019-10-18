@@ -1333,6 +1333,32 @@ def rect_to_spher(X,Y,Z):
     r = numpy.sqrt(X**2.+Y**2.+Z**2.)
     return (r,numpy.arccos(Z/r),numpy.arctan(Y/X))
 
+def rect_to_spher(X,Y,Z):
+    """
+    NAME:
+
+       rect_to_spher
+
+    PURPOSE:
+
+       convert from rectangular to spherical coordinates
+
+    INPUT:
+
+       X, Y, Z - rectangular coordinates
+
+    OUTPUT:
+
+       R,theta,phi
+
+    HISTORY:
+
+       2019-10-19 - Written - Mackereth (UoB)
+
+    """
+    r = numpy.sqrt(X**2.+Y**2.+Z**2.)
+    return (r,numpy.arccos(Z/r),numpy.arctan(Y/X))
+
 def cyl_to_rect(R,phi,Z):
     """
     NAME:
