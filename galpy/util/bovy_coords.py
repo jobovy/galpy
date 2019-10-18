@@ -1198,6 +1198,32 @@ def rect_to_cyl(X,Y,Z):
     """
     return (sc.sqrt(X**2.+Y**2.),sc.arctan2(Y,X),Z)
 
+def rect_to_spher(X,Y,Z):
+    """
+    NAME:
+
+       rect_to_spher
+
+    PURPOSE:
+
+       convert from rectangular to spherical coordinates
+
+    INPUT:
+
+       X, Y, Z - rectangular coordinates
+
+    OUTPUT:
+
+       R,theta,phi
+
+    HISTORY:
+
+       2019-10-19 - Written - Mackereth (UoB)
+
+    """
+    r = numpy.sqrt(X**2.+Y**2.+Z**2.)
+    return (r,numpy.arccos(Z/r),numpy.arctan(Y/X))
+
 def cyl_to_rect(R,phi,Z):
     """
     NAME:
@@ -1452,6 +1478,56 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
         rect_to_cyl_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,cyl=galcen)).T
 
 @scalarDecorator
+def vxvyvz_to_galcenspher(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
+                        galcen=False,_extra_rot=True):
+    """
+    NAME:
+
+       vxvyvz_to_galcenspher
+
+    PURPOSE:
+
+       transform velocities in XYZ coordinates (wrt Sun) to spherical Galactocentric coordinates for velocities
+
+    INPUT:
+
+       vx - U
+
+       vy - V
+
+       vz - W
+
+       X - X in Galactocentric rectangular coordinates
+
+       Y - Y in Galactocentric rectangular coordinates
+
+       Z - Z in Galactocentric rectangular coordinates
+
+       vsun - velocity of the sun in the GC frame ndarray[3]
+
+       Xsun - cylindrical distance to the GC
+
+       Zsun - Sun's height above the midplane
+
+       galcen - if True, then X,Y,Z are in spherical Galactocentric coordinates rather than rectangular coordinates
+
+       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
+
+    OUTPUT:
+
+       vr, vtheta, vphi
+
+    HISTORY:
+
+       2010-10-19 - Written - Mackereth (UoB)
+
+    """
+    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
+                               _extra_rot=_extra_rot)
+    return nu.array(\
+        rect_to_spher_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,spher=galcen)).T
+
+@scalarDecorator
 def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
                          _extra_rot=True):
     """
@@ -1694,6 +1770,51 @@ def cyl_to_rect_jac(*args):
         out= out[:3,outIndx]
         out[:,[1,2]]= out[:,[2,1]]
     return out
+
+def rect_to_spher_vec(vx, vy, vz, X, Y, Z, spher=False):
+    """
+    NAME:
+
+       rect_to_spher_vec
+
+    PURPOSE:
+
+       transform vectors from rectangular to spherical coordinates vectors
+
+    INPUT:
+
+       vx -
+
+       vy -
+
+       vz -
+
+       X - X
+
+       Y - Y
+
+       Z - Z
+
+       spher - if True, X,Y,Z are already cylindrical
+
+    OUTPUT:
+
+       vr,vtheta,vphi
+
+    HISTORY:
+
+       2019-10-19 - Written - Mackereth (UoB)
+
+    """
+    if not spher:
+        r,theta,phi= rect_to_spher(X,Y,Z)
+    else:
+        r,theta,phi = X, Y, Z
+    vr = vx*nu.sin(theta)*nu.sin(phi)+vy*nu.sin(theta)*nu.sin(phi)+vz*nu.cos(theta)
+    vtheta = vx*nu.cos(theta)*nu.cos(phi)+vy*nu.cos(theta)*nu.sin(phi)-vz*nu.sin(theta)
+    vphi = -vx*nu.sin(theta)+vy*nu.cos(phi)
+    return (vr, vtheta, vphi)
+
 
 def galcenrect_to_XYZ_jac(*args,**kwargs):
     """
