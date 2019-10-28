@@ -4857,6 +4857,47 @@ def test_noDeprecationWarning_timeInCall():
         assert not raisedWarning, "Orbit evaluation with array times raises the DeprecationWarning 'elementwise == comparison failed; this will raise an error in the future.'"
     return None
 
+# Test that issue 402 is resolved: initialization with a SkyCoord when radec=True should work fine
+def test_SkyCoord_init_with_radecisTrue():
+    from galpy.orbit import Orbit
+    from astropy import units as u
+    from astropy.coordinates import SkyCoord
+    # Example is for NGC5466 from @jjensen4571
+    rv_ngc5466= 106.93
+    pmra_ngc5466= -5.41
+    pmdec_ngc5466= -0.79
+    ra_ngc5466= 211.363708
+    dec_ngc5466= 28.534445
+    rhel_ngc5466= 16.0
+    mean_ngc5466= SkyCoord(ra =ra_ngc5466*u.deg,
+                           dec=dec_ngc5466*u.deg,
+                           distance=rhel_ngc5466*u.kpc,
+                           pm_ra_cosdec=pmra_ngc5466*u.mas/u.yr,
+                           pm_dec=pmdec_ngc5466*u.mas/u.yr,
+                           radial_velocity=rv_ngc5466*u.km/u.s)
+    o_sky= Orbit(mean_ngc5466,radec=True,ro=8.1,vo=229.0,
+                 solarmotion="schoenrich" )
+    o_radec= Orbit([ra_ngc5466,dec_ngc5466,rhel_ngc5466,
+                    pmra_ngc5466,pmdec_ngc5466,rv_ngc5466],
+                   radec=True,ro=8.1,vo=229.0,
+                   solarmotion = "schoenrich")
+    assert numpy.fabs(o_sky.ra()-o_radec.ra()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    assert numpy.fabs(o_sky.dec()-o_radec.dec()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    assert numpy.fabs(o_sky.dist()-o_radec.dist()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    assert numpy.fabs(o_sky.pmra()-o_radec.pmra()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    assert numpy.fabs(o_sky.pmdec()-o_radec.pmdec()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    assert numpy.fabs(o_sky.vlos()-o_radec.vlos()) < 1e-8, 'Orbit setup with SkyCoord and radec=True does not agree with Orbit setup directly with radec'
+    # Let's also test lb=True for good measure
+    o_sky= Orbit(mean_ngc5466,lb=True,ro=8.1,vo=229.0,
+                 solarmotion="schoenrich" )
+    assert numpy.fabs(o_sky.ra()-o_radec.ra()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    assert numpy.fabs(o_sky.dec()-o_radec.dec()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    assert numpy.fabs(o_sky.dist()-o_radec.dist()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    assert numpy.fabs(o_sky.pmra()-o_radec.pmra()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    assert numpy.fabs(o_sky.pmdec()-o_radec.pmdec()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    assert numpy.fabs(o_sky.vlos()-o_radec.vlos()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
