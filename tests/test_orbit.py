@@ -4859,6 +4859,7 @@ def test_noDeprecationWarning_timeInCall():
 
 # Test that issue 402 is resolved: initialization with a SkyCoord when radec=True should work fine
 def test_SkyCoord_init_with_radecisTrue():
+    if not _APY3: return None # not done in python 2
     from galpy.orbit import Orbit
     from astropy import units as u
     from astropy.coordinates import SkyCoord
