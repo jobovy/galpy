@@ -411,17 +411,17 @@ class Potential(Force):
                               ", specify z)",galpyWarning)
                 return 4.*nu.pi\
                     *integrate.quad(lambda x: x**2.\
-                                        *self.dens(x,0.,
+                                        *self.dens(x,0.,t=t,
                                                   use_physical=False),
                                     0.,R)[0]
             else:
                 return 4.*nu.pi\
                     *integrate.dblquad(lambda y,x: x\
-                                           *self.dens(x,y,use_physical=False),
+                                           *self.dens(x,y,t=t,use_physical=False),
                                        0.,R,lambda x: 0., lambda x: z)[0]
 
     @physical_conversion('mass',pop=False)
-    def mvir(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
+    def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
              forceint=False,ro=None,vo=None,
              use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
@@ -464,11 +464,11 @@ class Potential(Force):
         if vo is None: vo= self._vo
         #Evaluate the virial radius
         try:
-            rvir= self.rvir(H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,
+            rvir= self.rvir(H=H,Om=Om,t=t,overdens=overdens,wrtcrit=wrtcrit,
                             use_physical=False,ro=ro,vo=vo)
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
-        return self.mass(rvir,forceint=forceint,use_physical=False,ro=ro,vo=vo)
+        return self.mass(rvir,t=t,forceint=forceint,use_physical=False,ro=ro,vo=vo)
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -578,7 +578,7 @@ class Potential(Force):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rzderiv' function not implemented for this potential")      
 
-    def normalize(self,norm,t=0.):
+    def normalize(self,norm):
         """
         NAME:
 
@@ -603,7 +603,7 @@ class Potential(Force):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,t=t,use_physical=False))
+        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
@@ -905,7 +905,7 @@ class Potential(Force):
                                 cntrls='-',
                                 justcontours=justcontours,
                                 levels=levels,cntrcolors=cntrcolors)
-        
+
     def plotDensity(self,t=0.,
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     phi=None,xy=False,
@@ -965,7 +965,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vcirc(self,R,phi=None):
+    def vcirc(self,R,phi=None,t=0.):
         """
         
         NAME:
@@ -982,6 +982,8 @@ class Potential(Force):
         
             phi= (None) azimuth to use for non-axisymmetric potentials
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
         
             circular rotation velocity
@@ -993,11 +995,11 @@ class Potential(Force):
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """  
-        return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,use_physical=False))
+        return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def dvcircdR(self,R,phi=None):
+    def dvcircdR(self,R,phi=None,t=0.):
         """
         
         NAME:
@@ -1015,6 +1017,8 @@ class Potential(Force):
         
             phi= (None) azimuth to use for non-axisymmetric potentials
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
         
             derivative of the circular rotation velocity wrt R
@@ -1026,13 +1030,13 @@ class Potential(Force):
             2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return 0.5*(-self.Rforce(R,0.,phi=phi,use_physical=False)\
-                         +R*self.R2deriv(R,0.,phi=phi,use_physical=False))\
-                         /self.vcirc(R,phi=phi,use_physical=False)
+        return 0.5*(-self.Rforce(R,0.,phi=phi,t=t,use_physical=False)\
+                         +R*self.R2deriv(R,0.,phi=phi,t=t,use_physical=False))\
+                         /self.vcirc(R,phi=phi,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def omegac(self,R):
+    def omegac(self,R,t=0.):
         """
         
         NAME:
@@ -1046,6 +1050,8 @@ class Potential(Force):
         INPUT:
         
             R - Galactocentric radius (can be Quantity)
+
+            t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1056,11 +1062,11 @@ class Potential(Force):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,0.,use_physical=False)/R)
+        return nu.sqrt(-self.Rforce(R,0.,t=t,use_physical=False)/R)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def epifreq(self,R):
+    def epifreq(self,R,t=0.):
         """
         
         NAME:
@@ -1074,6 +1080,8 @@ class Potential(Force):
         INPUT:
         
            R - Galactocentric radius (can be Quantity)
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1084,12 +1092,12 @@ class Potential(Force):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,0.,use_physical=False)\
-                           -3./R*self.Rforce(R,0.,use_physical=False))
+        return nu.sqrt(self.R2deriv(R,0.,t=t,use_physical=False)\
+                           -3./R*self.Rforce(R,0.,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def verticalfreq(self,R):
+    def verticalfreq(self,R,t=0.):
         """
         
         NAME:
@@ -1103,6 +1111,8 @@ class Potential(Force):
         INPUT:
         
            R - Galactocentric radius (can be Quantity)
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1113,10 +1123,10 @@ class Potential(Force):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         
         """
-        return nu.sqrt(self.z2deriv(R,0.,use_physical=False))
+        return nu.sqrt(self.z2deriv(R,0.,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
-    def lindbladR(self,OmegaP,m=2,**kwargs):
+    def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
         """
         
         NAME:
@@ -1134,6 +1144,8 @@ class Potential(Force):
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1146,11 +1158,11 @@ class Potential(Force):
         """
         if _APY_LOADED and isinstance(OmegaP,units.Quantity):
             OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
-        return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
+        return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vesc(self,R):
+    def vesc(self,R,t=0.):
         """
 
         NAME:
@@ -1165,6 +1177,8 @@ class Potential(Force):
 
             R - Galactocentric radius (can be Quantity)
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
 
             escape velocity
@@ -1174,11 +1188,11 @@ class Potential(Force):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,0.,use_physical=False)\
-                               -self(R,0.,use_physical=False)))
+        return nu.sqrt(2.*(self(_INF,0.,t=t,use_physical=False)\
+                               -self(R,0.,t=t,use_physical=False)))
         
     @physical_conversion('position',pop=True)
-    def rl(self,lz):
+    def rl(self,lz,t=0.):
         """
         NAME:
         
@@ -1192,6 +1206,8 @@ class Potential(Force):
         
         
             lz - Angular momentum (can be Quantity)
+
+            t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1209,11 +1225,11 @@ class Potential(Force):
         """
         if _APY_LOADED and isinstance(lz,units.Quantity):
             lz= lz.to(units.km/units.s*units.kpc).value/self._vo/self._ro
-        return rl(self,lz,use_physical=False)
+        return rl(self,lz,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
-    def flattening(self,R,z):
+    def flattening(self,R,z,t=0.):
         """
         
         NAME:
@@ -1229,6 +1245,8 @@ class Potential(Force):
            R - Galactocentric radius (can be Quantity)
 
            z - height (can be Quantity)
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -1239,11 +1257,11 @@ class Potential(Force):
            2012-09-13 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z,use_physical=False)\
-                                   /self.zforce(R,z,use_physical=False)))
+        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z,t=t,use_physical=False)\
+                                   /self.zforce(R,z,t=t,use_physical=False)))
 
     @physical_conversion('velocity',pop=True)
-    def vterm(self,l,deg=True):
+    def vterm(self,l,t=0.,deg=True):
         """
         
         NAME:
@@ -1257,6 +1275,8 @@ class Potential(Force):
         INPUT:
         
             l - Galactic longitude [deg/rad; can be Quantity)
+
+            t - time (optional; can be Quantity)
 
             deg= if True (default), l in deg
         
@@ -1276,8 +1296,8 @@ class Potential(Force):
             sinl= nu.sin(l/180.*nu.pi)
         else:
             sinl= nu.sin(l)
-        return sinl*(self.omegac(nu.fabs(sinl),use_physical=False)\
-                         -self.omegac(1.,use_physical=False))
+        return sinl*(self.omegac(nu.fabs(sinl),t=t,use_physical=False)\
+                         -self.omegac(1.,t=t,use_physical=False))
 
     def plotRotcurve(self,*args,**kwargs):
         """
@@ -1343,7 +1363,7 @@ class Potential(Force):
         """
         return plotEscapecurve(self.toPlanar(),*args,**kwargs)
 
-    def conc(self,H=70.,Om=0.3,overdens=200.,wrtcrit=False,
+    def conc(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
              ro=None,vo=None):
         """
         NAME:
@@ -1359,6 +1379,8 @@ class Potential(Force):
            H= (default: 70) Hubble constant in km/s/Mpc
            
            Om= (default: 0.3) Omega matter
+
+           t - time (optional; can be Quantity)
        
            overdens= (200) overdensity which defines the virial radius
 
@@ -1380,7 +1402,7 @@ class Potential(Force):
         if ro is None: ro= self._ro
         if vo is None: vo= self._vo
         try:
-            return self.rvir(H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,
+            return self.rvir(H=H,Om=Om,t=t,overdens=overdens,wrtcrit=wrtcrit,
                              ro=ro,vo=vo,use_physical=False)/self._scale
         except AttributeError:
             raise AttributeError("This potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius")
@@ -2502,7 +2524,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def epifreq(Pot,R):
+def epifreq(Pot,R,t=0.):
     """
     
     NAME:
@@ -2518,6 +2540,8 @@ def epifreq(Pot,R):
         Pot - Potential instance or list thereof
     
         R - Galactocentric radius (can be Quantity)
+
+        t - time (optional; can be Quantity)
     
     OUTPUT:
     
@@ -2530,21 +2554,21 @@ def epifreq(Pot,R):
     """
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
-        return Pot.epifreq(R,use_physical=False)
+        return Pot.epifreq(R,t=t,use_physical=False)
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(evaluateplanarR2derivs(Pot,R,use_physical=False)
-                       -3./R*evaluateplanarRforces(Pot,R,use_physical=False))
+        return nu.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
+                       -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(evaluateplanarR2derivs(Pot,R,use_physical=False)
-                       -3./R*evaluateplanarRforces(Pot,R,use_physical=False))
+        return nu.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
+                       -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def verticalfreq(Pot,R):
+def verticalfreq(Pot,R,t=0.):
     """
     
     NAME:
@@ -2560,6 +2584,8 @@ def verticalfreq(Pot,R):
        Pot - Potential instance or list thereof
     
        R - Galactocentric radius (can be Quantity)
+
+       t - time (optional; can be Quantity)
     
     OUTPUT:
     
@@ -2572,12 +2598,12 @@ def verticalfreq(Pot,R):
     """
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
-        return Pot.verticalfreq(R,use_physical=False)
-    return nu.sqrt(evaluatez2derivs(Pot,R,0.,use_physical=False))
+        return Pot.verticalfreq(R,t=t,use_physical=False)
+    return nu.sqrt(evaluatez2derivs(Pot,R,0.,t=t,use_physical=False))
 
 @potential_physical_input
 @physical_conversion('dimensionless',pop=True)
-def flattening(Pot,R,z):
+def flattening(Pot,R,z,t=0.):
     """
     
     NAME:
@@ -2595,6 +2621,8 @@ def flattening(Pot,R,z):
         R - Galactocentric radius (can be Quantity)
         
         z - height (can be Quantity)
+
+        t - time (optional; can be Quantity)
     
     OUTPUT:
     
@@ -2605,11 +2633,11 @@ def flattening(Pot,R,z):
         2012-09-13 - Written - Bovy (IAS)
     
     """
-    return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,use_physical=False)\
-                               /evaluatezforces(Pot,R,z,use_physical=False)))
+    return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,t=t,use_physical=False)\
+                               /evaluatezforces(Pot,R,z,t=t,use_physical=False)))
 
 @physical_conversion('velocity',pop=True)
-def vterm(Pot,l,deg=True):
+def vterm(Pot,l,t=0.,deg=True):
     """
     
     NAME:
@@ -2625,6 +2653,8 @@ def vterm(Pot,l,deg=True):
         Pot - Potential instance
     
         l - Galactic longitude [deg/rad; can be Quantity)
+
+        t - time (optional; can be Quantity)
         
         deg= if True (default), l in deg
         
@@ -2645,11 +2675,11 @@ def vterm(Pot,l,deg=True):
         sinl= nu.sin(l/180.*nu.pi)
     else:
         sinl= nu.sin(l)
-    return sinl*(omegac(Pot,sinl,use_physical=False)
-                 -omegac(Pot,1.,use_physical=False))
+    return sinl*(omegac(Pot,sinl,t=t,use_physical=False)
+                 -omegac(Pot,1.,t=t,use_physical=False))
 
 @physical_conversion('position',pop=True)
-def rl(Pot,lz):
+def rl(Pot,lz,t=0.):
     """
     NAME:
 
@@ -2664,6 +2694,8 @@ def rl(Pot,lz):
        Pot - Potential instance or list thereof
 
        lz - Angular momentum (can be Quantity)
+
+       t - time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -2688,30 +2720,31 @@ def rl(Pot,lz):
     #Find interval
     rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
                          math.fabs(lz),
-                         Pot)
+                         Pot, t=t)
     try:
         return optimize.brentq(_rlfunc,10.**-5.,rstart,
                                args=(math.fabs(lz),
-                                     Pot),
+                                     Pot,
+                                     t),
                                maxiter=200,disp=False)
     except ValueError: #Probably lz small and starting lz to great
         rlower= _rlFindStart(10.**-5.,
                              math.fabs(lz),
-                             Pot,lower=True)
+                             Pot,t=t,lower=True)
         return optimize.brentq(_rlfunc,rlower,rstart,
                                args=(math.fabs(lz),
-                                     Pot))
+                                     Pot,t))
         
 
-def _rlfunc(rl,lz,pot):
+def _rlfunc(rl,lz,pot,t=0.):
     """Function that gives rvc-lz"""
-    thisvcirc= vcirc(pot,rl,use_physical=False)
+    thisvcirc= vcirc(pot,rl,t=t,use_physical=False)
     return rl*thisvcirc-lz
 
-def _rlFindStart(rl,lz,pot,lower=False):
+def _rlFindStart(rl,lz,pot,t=0.,lower=False):
     """find a starting interval for rl"""
     rtry= 2.*rl
-    while (2.*lower-1.)*_rlfunc(rtry,lz,pot) > 0.:
+    while (2.*lower-1.)*_rlfunc(rtry,lz,pot,t=t) > 0.:
         if lower:
             rtry/= 2.
         else:
@@ -2719,7 +2752,7 @@ def _rlFindStart(rl,lz,pot,lower=False):
     return rtry
 
 @physical_conversion('position',pop=True)
-def lindbladR(Pot,OmegaP,m=2,**kwargs):
+def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """
     NAME:
 
@@ -2738,6 +2771,8 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
        m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
           use m='corotation' for corotation
        +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+
+       t - time (optional; can be Quantity)
 
     OUTPUT:
 
@@ -2765,7 +2800,7 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
     if corotation:
         try:
             out= optimize.brentq(_corotationR_eq,0.0000001,1000.,
-                                 args=(Pot,OmegaP),**kwargs)
+                                 args=(Pot,OmegaP,t),**kwargs)
         except ValueError:
             return None
         except RuntimeError: #pragma: no cover 
@@ -2774,22 +2809,22 @@ def lindbladR(Pot,OmegaP,m=2,**kwargs):
     else:
         try:
             out= optimize.brentq(_lindbladR_eq,0.0000001,1000.,
-                                 args=(Pot,OmegaP,m),**kwargs)
+                                 args=(Pot,OmegaP,m,t),**kwargs)
         except ValueError:
             return None
         except RuntimeError: #pragma: no cover 
             raise
         return out
 
-def _corotationR_eq(R,Pot,OmegaP):
-    return omegac(Pot,R,use_physical=False)-OmegaP
-def _lindbladR_eq(R,Pot,OmegaP,m):
-    return m*(omegac(Pot,R,use_physical=False)-OmegaP)\
-        -epifreq(Pot,R,use_physical=False)
+def _corotationR_eq(R,Pot,OmegaP,t=0.):
+    return omegac(Pot,R,t=t,use_physical=False)-OmegaP
+def _lindbladR_eq(R,Pot,OmegaP,m,t=0.):
+    return m*(omegac(Pot,R,t=t,use_physical=False)-OmegaP)\
+        -epifreq(Pot,R,t=t,use_physical=False)
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def omegac(Pot,R):
+def omegac(Pot,R,t=0.):
     """
 
     NAME:
@@ -2806,6 +2841,8 @@ def omegac(Pot,R):
 
        R - Galactocentric radius (can be Quantity)
 
+       t - time (optional; can be Quantity)
+
     OUTPUT:
 
        circular angular speed
@@ -2817,11 +2854,11 @@ def omegac(Pot,R):
     """
     from galpy.potential import evaluateplanarRforces
     try:
-        return nu.sqrt(-evaluateplanarRforces(Pot,R,use_physical=False)/R)
+        return nu.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(-evaluateplanarRforces(Pot,R,use_physical=False)/R)
+        return nu.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
 
 def nemo_accname(Pot):
     """
