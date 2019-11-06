@@ -13,6 +13,28 @@ from amuse.lab import *
 from amuse.couple import bridge
 from amuse.datamodel import Particles
 
+from astropy import units as apy_u
+
+def test_amuse_potential_with_physical():
+    ro, vo=8., 220.
+
+    amp= 1e8 / bovy_conversion.mass_in_msol(ro=ro, vo=vo)
+    a= 0.8 / ro
+    pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot1= to_amuse(pot1)
+    ax1, ay1, az1= amuse_pot1.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    amp= 1e8 * apy_u.solMass
+    a= 0.8 * apy_u.kpc
+    pot2= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot2= to_amuse(pot2)
+    ax1, ay2, az2= amuse_pot2.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    assert np.abs(ax1 - ax2) < 1e-10
+    assert np.abs(ay1 - ay2) < 1e-10
+    assert np.abs(az1 - az2) < 1e-10
+    return None
+
 def test_amuse_MN3ExponentialDiskPotential():
     mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=0.5,hz=0.1)
     tmax= 3.

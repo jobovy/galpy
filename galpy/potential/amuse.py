@@ -119,18 +119,22 @@ class galpy_profile(LiteratureReferencesMixIn):
            ax,ay,az
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
         # Cylindrical force
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy)
+                                          phi=phi,t=self.tgalpy,
+                                          use_physical=False)
         phiforce= potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,
-                                              phi=phi,t=self.tgalpy)\
+                                              phi=phi,t=self.tgalpy,
+                                              use_physical=False)\
                                               /(R/self.ro)
         zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,
-                                         phi=phi,t=self.tgalpy)
+                                         phi=phi,t=self.tgalpy,
+                                         use_physical=False)
         # Convert cylindrical force --> rectangular
         cp, sp= numpy.cos(phi), numpy.sin(phi)
         ax= (Rforce*cp - phiforce*sp)\
@@ -181,7 +185,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         """
         return potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                                t=self.tgalpy,ro=self.ro,vo=self.vo) | units.kms
-        
+
     def enclosed_mass(self,r):
         """
         NAME:
