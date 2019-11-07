@@ -14,8 +14,31 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
+try:
+    from inspect import Signature
+except ImportError:
+    from funcsigs import Signature  # python2 backport
 class Force(object):
     """Top-level class for any force, conservative or dissipative"""
+
+    def __new__(cls, *args, **kwargs):
+        self = object.__new__(cls)  # a clean instance of cls
+        # signature
+        sig = Signature.from_function(cls.__init__)
+        # don't include self
+        params = list(sig.parameters.values())[1:]
+        sig = sig.replace(parameters=params)
+        # correcting defaults for passed values
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if i < len(args):  # get arguments
+                params[i] = param.replace(default=args[i])
+            elif param.name in kwargs.keys():  # get kwargs
+                params[i] = param.replace(default=kwargs[param.name])
+        sig = sig.replace(parameters=params)  # apply to signature
+        self._init_args = sig
+        return self
+
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """
         NAME:
@@ -146,6 +169,22 @@ class Force(object):
                 self._voSet= True
         return None
 
+    @property
+    def init_args(self):
+        """Arguments used to initialize class.
+        make bound argument for easy application
+        ba = sig.bind(**{n: p.default for n, p in sig.parameters.items()})
+        storing
+        allows any potential to be reconstructed
+        if want to use do
+        >>> potential(*potential._init_args.args, **potential._init_args.kwargs)
+        """
+        # enforce shallow copy
+        sig = self._init_args
+        sig = sig.replace(parameters=list(sig.parameters.values()))
+        # return a bound argument
+        return sig.bind(**{n: p.default for n, p in sig.parameters.items()})
+
     def __mul__(self,b):
         """
         NAME:
@@ -212,6 +251,32 @@ class Force(object):
             return b+[self]
         else:
             raise TypeError("Can only add a Force or Potential instance to another instance or to a list of such instances")
+
+    def copy(self):
+        """
+        NAME:
+
+           copy
+
+        PURPOSE:
+
+           make a copy of this potential
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           Potential
+
+        HISTORY:
+
+           2019-11-07 - Written - Starkman (UofT)
+
+        """
+        ba = self._init_args.bind(self.__init__)
+        return self.__class__(*ba.args, **ba.kwargs)
 
     def turn_physical_off(self):
         """
