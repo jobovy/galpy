@@ -123,7 +123,7 @@ def plotRotcurve(Pot,*args,**kwargs):
     return plot.bovy_plot(Rs,rotcurve,*args,
                           **kwargs)
 
-def calcRotcurve(Pot,Rs,phi=None):
+def calcRotcurve(Pot,Rs,phi=None,t=0.):
     """
     NAME:
 
@@ -141,6 +141,8 @@ def calcRotcurve(Pot,Rs,phi=None):
        Rs - (array of) radius(i)
 
        phi= (None) azimuth to use for non-axisymmetric potentials
+
+       ts - instantaneous time (optional)
 
     OUTPUT:
 
@@ -160,12 +162,12 @@ def calcRotcurve(Pot,Rs,phi=None):
         Rs= nu.array([Rs])
     rotcurve= nu.zeros(grid)
     for ii in range(grid):
-        rotcurve[ii]= vcirc(Pot,Rs[ii],phi=phi,use_physical=False)
+        rotcurve[ii]= vcirc(Pot,Rs[ii],phi=phi,t=t,use_physical=False)
     return rotcurve
 
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
-def vcirc(Pot,R,phi=None):
+def vcirc(Pot,R,phi=None,t=0.):
     """
 
     NAME:
@@ -184,6 +186,8 @@ def vcirc(Pot,R,phi=None):
 
        phi= (None) azimuth to use for non-axisymmetric potentials
 
+       t= time (optional; can be Quantity)
+
     OUTPUT:
 
        circular rotation velocity
@@ -198,17 +202,17 @@ def vcirc(Pot,R,phi=None):
     from galpy.potential import evaluateplanarRforces
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,
+        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
     except PotentialError:
         from galpy.potential import toPlanarPotential
         Pot= toPlanarPotential(Pot)
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,
+        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def dvcircdR(Pot,R,phi=None):
+def dvcircdR(Pot,R,phi=None,t=0.):
     """
 
     NAME:
@@ -227,6 +231,8 @@ def dvcircdR(Pot,R,phi=None):
 
        phi= (None) azimuth to use for non-axisymmetric potentials
 
+       t= time (optional; can be Quantity)
+
     OUTPUT:
 
        derivative of the circular rotation velocity wrt R
@@ -240,11 +246,11 @@ def dvcircdR(Pot,R,phi=None):
     """
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
-    tvc= vcirc(Pot,R,phi=phi,use_physical=False)
+    tvc= vcirc(Pot,R,phi=phi,t=t,use_physical=False)
     try:
-        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
 
