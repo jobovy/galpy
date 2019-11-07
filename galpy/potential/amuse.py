@@ -1,10 +1,13 @@
 # galpy.potential.amuse: AMUSE representation of galpy potentials
 import numpy
-from amuse.units import units
+from amuse.units import units as u
 from amuse.units.quantities import ScalarQuantity
 from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
 from ..util import bovy_conversion
+from .Force import _APY_LOADED
+if _APY_LOADED:
+    from astropy import units as apy_u
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
@@ -54,10 +57,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         else:
             self.model_time= \
                 t*bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
-                | units.Gyr
+                | u.Gyr
         #Initialize galpy time
         if isinstance(tgalpy,ScalarQuantity):
-            self.tgalpy= tgalpy.value_in(units.Gyr)\
+            self.tgalpy= tgalpy.value_in(u.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
             self.tgalpy= tgalpy
@@ -78,10 +81,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         dt= time-self.model_time
         self.model_time= time  
         if self.reverse:
-            self.tgalpy-= dt.value_in(units.Gyr)\
+            self.tgalpy-= dt.value_in(u.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
-            self.tgalpy+= dt.value_in(units.Gyr)\
+            self.tgalpy+= dt.value_in(u.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
 
     def get_potential_at_point(self,eps,x,y,z):
@@ -98,13 +101,14 @@ class galpy_profile(LiteratureReferencesMixIn):
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
+        zed= z.value_in(u.kpc)
+        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
         return potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
                                             phi=phi,t=self.tgalpy,
-                                            ro=self.ro,vo=self.vo) \
-                                            | units.km**2*units.s**-2
+                                            ro=self.ro,vo=self.vo,
+                                            use_physical=False
+                                            ) | u.km**2*u.s**-2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -121,9 +125,9 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
+        zed= z.value_in(u.kpc)
+        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
         # Cylindrical force
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
@@ -139,13 +143,13 @@ class galpy_profile(LiteratureReferencesMixIn):
         cp, sp= numpy.cos(phi), numpy.sin(phi)
         ax= (Rforce*cp - phiforce*sp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | u.kms * u.myr**-1
         ay= (Rforce*sp + phiforce*cp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | u.kms * u.myr**-1
         az= zforce\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | u.kms * u.myr**-1
         return ax,ay,az
 
     def mass_density(self,x,y,z):
@@ -162,13 +166,14 @@ class galpy_profile(LiteratureReferencesMixIn):
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
+        zed= z.value_in(u.kpc)
+        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
         return potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
                                            phi=phi,t=self.tgalpy,
-                                           ro=self.ro,vo=self.vo) \
-                                           | units.MSun/(units.parsec**3.)
+                                           ro=self.ro,vo=self.vo,
+                                           use_physical=False
+                                           ) | u.MSun/(u.parsec**3.)
 
     def circular_velocity(self,r):
         """
@@ -183,8 +188,9 @@ class galpy_profile(LiteratureReferencesMixIn):
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
         """
-        return potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                               t=self.tgalpy,ro=self.ro,vo=self.vo) | units.kms
+        return potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+                               t=self.tgalpy,ro=self.ro,vo=self.vo,
+                               use_physical=False) | u.kms
 
     def enclosed_mass(self,r):
         """
@@ -199,9 +205,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
         """
-        vc2= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                             t=self.tgalpy,ro=self.ro,vo=self.vo)**2.
-        return vc2*r.value_in(units.kpc)/bovy_conversion._G*1000. | units.MSun
+        vc2= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+                            t=self.tgalpy,ro=self.ro,vo=self.vo,
+                            use_physical=False)**2.
+        return vc2*r.value_in(u.kpc)/bovy_conversion._G*1000.|u.MSun
 
     def stop(self):
         """

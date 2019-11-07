@@ -17,22 +17,70 @@ from astropy import units as apy_u
 
 def test_amuse_potential_with_physical():
     ro, vo=8., 220.
-
     amp= 1e8 / bovy_conversion.mass_in_msol(ro=ro, vo=vo)
     a= 0.8 / ro
+
+    amp_u= 1e8 * apy_u.solMass
+    a_u= 0.8 * apy_u.kpc
+    ro_u, vo_u= 8.* apy_u.kpc, 220.* apy_u.km / apy_u.s
+
+    # get_potential_at_point
+    pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot1= to_amuse(pot1)
+    g1= amuse_pot1.get_potential_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    amuse_pot2= to_amuse(pot2)
+    g2= amuse_pot2.get_potential_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    assert np.abs(g1 - g2) < 1e-10|u.kms**2
+
+    # test get_gravity_at_point
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
     amuse_pot1= to_amuse(pot1)
     ax1, ay1, az1= amuse_pot1.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
 
-    amp= 1e8 * apy_u.solMass
-    a= 0.8 * apy_u.kpc
-    pot2= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
     amuse_pot2= to_amuse(pot2)
-    ax1, ay2, az2= amuse_pot2.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+    ax2, ay2, az2= amuse_pot2.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
 
-    assert np.abs(ax1 - ax2) < 1e-10
-    assert np.abs(ay1 - ay2) < 1e-10
-    assert np.abs(az1 - az2) < 1e-10
+    assert np.abs(ax1 - ax2) < 1e-10|u.kms/u.Myr
+    assert np.abs(ay1 - ay2) < 1e-10|u.kms/u.Myr
+    assert np.abs(az1 - az2) < 1e-10|u.kms/u.Myr
+
+    # test mass_density
+    pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot1= to_amuse(pot1)
+    rho1= amuse_pot1.mass_density(1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    amuse_pot2= to_amuse(pot2)
+    rho2= amuse_pot2.mass_density(1|units.kpc, .2|units.kpc, 3|units.kpc)
+
+    assert np.abs(rho1 - rho2) < 1e-10|u.MSun/u.pc**3
+
+    # test circular_velocity
+    pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot1= to_amuse(pot1)
+    v1= amuse_pot1.circular_velocity(1|units.kpc)
+
+    pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    amuse_pot2= to_amuse(pot2)
+    v2= amuse_pot2.circular_velocity(1|units.kpc)
+
+    assert np.abs(v1 - v2) < 1e-10|u.kms
+
+    # test enclosed_mass
+    pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    amuse_pot1= to_amuse(pot1)
+    m1= amuse_pot1.enclosed_mass(1|units.kpc)
+
+    pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    amuse_pot2= to_amuse(pot2)
+    m2= amuse_pot2.enclosed_mass(1|units.kpc)
+
+    assert np.abs(m1 - m2) < 1e-10|u.MSun
+
     return None
 
 def test_amuse_MN3ExponentialDiskPotential():
