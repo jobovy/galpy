@@ -450,6 +450,9 @@ class Orbit(object):
                     equivalencies=units.dimensionless_angles()).value/self._vo
             vz= vxvvg.d_z.to(units.km/units.s).value/self._vo
             vxvv= numpy.array([R,vR,vT,z,vz,phi])
+            # Make sure radec and lb are False (issue #402)
+            radec= False
+            lb= False
         elif not isinstance(vxvv,list):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
         if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):

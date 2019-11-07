@@ -3281,6 +3281,18 @@ def test_add_potentials_error():
         3+pot
     return None
 
+# Test that the amplitude of the isothermal disk potential is set correctly (issue #400)
+def test_isodisk_amplitude_issue400():
+    # Morgan's example
+    z= numpy.linspace(-0.1,0.1,10001)
+    pot= potential.IsothermalDiskPotential(amp=0.1,sigma=20.5/220.)
+    # Density at z=0 should be 0.1, no density or 2nd deriv for 1D at this
+    # point, so manually compute
+    z= numpy.linspace(-2e-4,2e-4,5)
+    dens_at_0= 1./(numpy.pi*4)*numpy.gradient(numpy.gradient(pot(z),z),z)[2]
+    assert numpy.fabs(dens_at_0-0.1) < 1e-7, 'Density at z=0 for IsothermalDiskPotential is not correct'
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail

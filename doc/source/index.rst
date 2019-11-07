@@ -27,12 +27,12 @@ to `contribute to the code
 please head over to `galpy's GitHub page
 <https://github.com/jobovy/galpy>`_ for more information.
 
-As a preview of the kinds of things you can do with galpy, here's an
-:ref:`animation <orbanim>` of the orbit of the Sun in galpy's
-``MWPotential2014`` potential over 7 Gyr:
+As a preview of the kinds of things you can do with galpy, here's a
+video introducing some of the new features in galpy v1.5:
 
 .. raw:: html
-   :file: orbitsun.html
+
+   <blockquote class="twitter-tweet"><p lang="en" dir="ltr">Excited to announce the new version (v1.5) of galpy!<a href="https://t.co/sVlP7utkc6">https://t.co/sVlP7utkc6</a><br>Many new features, see them all here:<a href="https://t.co/KZ6ZaQCNvv">https://t.co/KZ6ZaQCNvv</a><br>Watch the video below for a quick intro to some of the most exciting new capabilities: <a href="https://t.co/HqUgAeVz24">pic.twitter.com/HqUgAeVz24</a></p>&mdash; Jo Bovy (@jobovy) <a href="https://twitter.com/jobovy/status/1173590198225125376?ref_src=twsrc%5Etfw">September 16, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 Quick-start guide
 -----------------
