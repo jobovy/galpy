@@ -5,6 +5,7 @@
 ###############################################################################
 import copy
 import numpy
+from funcsigs import Signature  # python2 backport
 from galpy.util import config
 from galpy.util import bovy_conversion
 from galpy.util.bovy_conversion import physical_conversion, \
@@ -14,10 +15,7 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
-try:
-    from inspect import Signature
-except ImportError:
-    from funcsigs import Signature  # python2 backport
+
 class Force(object):
     """Top-level class for any force, conservative or dissipative"""
 
@@ -37,7 +35,7 @@ class Force(object):
                 params[i] = param.replace(default=kwargs[param.name])
         sig = sig.replace(parameters=params)  # apply to signature
         self._init_args = sig
-        return self
+        return self  # send to init
 
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """
@@ -171,13 +169,13 @@ class Force(object):
 
     @property
     def init_args(self):
-        """Arguments used to initialize class.
+        """Arguments used to initialize Potential.
         make bound argument for easy application
         ba = sig.bind(**{n: p.default for n, p in sig.parameters.items()})
         storing
         allows any potential to be reconstructed
-        if want to use do
-        >>> potential(*potential._init_args.args, **potential._init_args.kwargs)
+        if want to use, do
+        >>> potential(*potential.init_args.args, **potential.init_args.kwargs)
         """
         # enforce shallow copy
         sig = self._init_args
@@ -275,8 +273,8 @@ class Force(object):
            2019-11-07 - Written - Starkman (UofT)
 
         """
-        ba = self._init_args.bind(self.__init__)
-        return self.__class__(*ba.args, **ba.kwargs)
+        # ba = self._init_args.bind(self.__init__)
+        return self.__class__(*self.init_args.args, **self.init_args.kwargs)
 
     def turn_physical_off(self):
         """
