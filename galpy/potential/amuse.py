@@ -212,8 +212,10 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        return (self.circular_velocity(r)**2. *
-                r.value_in(u.pc) / bovy_conversion._G) | u.MSun
+        vc= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+                            t=self.tgalpy,ro=self.ro,vo=self.vo,
+                            use_physical=False) * self.vo
+        return (vc**2.)*r.value_in(u.pc)/bovy_conversion._G | u.MSun
 
     def stop(self):
         """
