@@ -100,15 +100,18 @@ class galpy_profile(LiteratureReferencesMixIn):
            Phi(x,y,z)
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
         zed= z.value_in(u.kpc)
         phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
-        return potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
-                                            phi=phi,t=self.tgalpy,
-                                            ro=self.ro,vo=self.vo,
-                                            use_physical=False
-                                            ) | u.km**2*u.s**-2
+
+        res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
+                                          phi=phi,t=self.tgalpy,
+                                          ro=self.ro,vo=self.vo)
+        if hasattr(res, 'unit'):
+            res= res.to_value(apy_u.km**2 / apy_u.s**2)
+        return res | u.kms**2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -165,15 +168,17 @@ class galpy_profile(LiteratureReferencesMixIn):
            the density
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
         zed= z.value_in(u.kpc)
         phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
-        return potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
-                                           phi=phi,t=self.tgalpy,
-                                           ro=self.ro,vo=self.vo,
-                                           use_physical=False
-                                           ) | u.MSun/(u.parsec**3.)
+        res= potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
+                                         phi=phi,t=self.tgalpy,
+                                         ro=self.ro,vo=self.vo)
+        if hasattr(res, 'unit'):
+            res= res.to_value(apy_u.solMass/(apy_u.pc**3))
+        return res | u.MSun/(u.parsec**3.)
 
     def circular_velocity(self,r):
         """
@@ -187,10 +192,13 @@ class galpy_profile(LiteratureReferencesMixIn):
            the circular velocity
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        return potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
-                               t=self.tgalpy,ro=self.ro,vo=self.vo,
-                               use_physical=False) | u.kms
+        res= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+                             t=self.tgalpy,ro=self.ro,vo=self.vo)
+        if hasattr(res, 'unit'):
+            res= res.to_value(apy_u.km / apy_u.s)
+        return res | u.kms
 
     def enclosed_mass(self,r):
         """
@@ -204,11 +212,13 @@ class galpy_profile(LiteratureReferencesMixIn):
            the mass enclosed
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        vc2= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
-                            t=self.tgalpy,ro=self.ro,vo=self.vo,
-                            use_physical=False)**2.
-        return vc2*r.value_in(u.kpc)/bovy_conversion._G*1000.|u.MSun
+        vc= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+                            t=self.tgalpy,ro=self.ro,vo=self.vo)
+        if hasattr(vc, 'unit'):
+            vc= vc.to_value(apy_u.km / apy_u.s)
+        return (vc**2.)*r.value_in(u.kpc)/bovy_conversion._G*1000.|u.MSun
 
     def stop(self):
         """

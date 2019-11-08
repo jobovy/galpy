@@ -24,62 +24,100 @@ def test_amuse_potential_with_physical():
     a_u= 0.8 * apy_u.kpc
     ro_u, vo_u= 8.* apy_u.kpc, 220.* apy_u.km / apy_u.s
 
+    # ------------------------------------
     # get_potential_at_point
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    gg1 = pot1(5/ro, 2/ro)
+    gg1 = gg1.to_value(apy_u.km**2 / apy_u.s**2) if hasattr(gg1, 'unit') else gg1
     amuse_pot1= to_amuse(pot1)
-    g1= amuse_pot1.get_potential_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+    ag1= amuse_pot1.get_potential_at_point(0, 3|u.kpc, 4|u.kpc, 2|u.kpc)
+
+    assert np.abs(gg1 - ag1.value_in(u.kms**2)) < 1e-10
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    gg2 = pot1(5*apy_u.kpc, 2*apy_u.kpc)
+    gg2 = gg2.to_value(apy_u.km**2 / apy_u.s**2) if hasattr(gg2, 'unit') else gg2
     amuse_pot2= to_amuse(pot2)
-    g2= amuse_pot2.get_potential_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+    ag2= amuse_pot2.get_potential_at_point(0, 3|u.kpc, 4|u.kpc, 2|u.kpc)
 
-    assert np.abs(g1 - g2) < 1e-10|u.kms**2
+    assert np.abs(gg2 - ag2.value_in(u.kms**2)) < 1e-10
 
+    assert np.abs(ag1 - ag2) < 1e-10|u.kms**2
+
+    # ------------------------------------
     # test get_gravity_at_point
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
     amuse_pot1= to_amuse(pot1)
-    ax1, ay1, az1= amuse_pot1.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+    ax1, ay1, az1= amuse_pot1.get_gravity_at_point(0, 3|u.kpc, 4|u.kpc, 2|u.kpc)
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
     amuse_pot2= to_amuse(pot2)
-    ax2, ay2, az2= amuse_pot2.get_gravity_at_point(0, 1|units.kpc, .2|units.kpc, 3|units.kpc)
+    ax2, ay2, az2= amuse_pot2.get_gravity_at_point(0, 3|u.kpc, 4|u.kpc, 2|u.kpc)
 
     assert np.abs(ax1 - ax2) < 1e-10|u.kms/u.Myr
     assert np.abs(ay1 - ay2) < 1e-10|u.kms/u.Myr
     assert np.abs(az1 - az2) < 1e-10|u.kms/u.Myr
 
+    # ------------------------------------
     # test mass_density
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    grho1 = pot1.dens(5/ro, 2/ro)
+    grho1 = grho1.to_value(apy_u.solMass/apy_u.pc**3) if hasattr(grho1, 'unit') else grho1
     amuse_pot1= to_amuse(pot1)
-    rho1= amuse_pot1.mass_density(1|units.kpc, .2|units.kpc, 3|units.kpc)
+    arho1= amuse_pot1.mass_density(3|u.kpc, 4|u.kpc, 2|u.kpc)
+
+    assert np.abs(grho1 - arho1.value_in(u.MSun/u.pc**3)) < 1e-10
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    grho2= pot2.dens(5*apy_u.kpc, 2*apy_u.kpc)
+    grho2= grho2.to_value(apy_u.solMass/apy_u.pc**3) if hasattr(grho2, 'unit') else grho2
     amuse_pot2= to_amuse(pot2)
-    rho2= amuse_pot2.mass_density(1|units.kpc, .2|units.kpc, 3|units.kpc)
+    arho2= amuse_pot2.mass_density(3|u.kpc, 4|u.kpc, 2|u.kpc)
 
-    assert np.abs(rho1 - rho2) < 1e-10|u.MSun/u.pc**3
+    assert np.abs(grho2 - arho2.value_in(u.MSun/u.pc**3)) < 1e-10
 
+    assert np.abs(arho1 - arho2) < 1e-10|u.MSun/u.pc**3
+
+    # ------------------------------------
     # test circular_velocity
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    gv1= pot1.vcirc(1/ro)
+    gv1=  gv1.to_value(apy_u.km/apy_u.s) if hasattr(gv1, 'unit') else gv1
     amuse_pot1= to_amuse(pot1)
-    v1= amuse_pot1.circular_velocity(1|units.kpc)
+    av1= amuse_pot1.circular_velocity(1|u.kpc)
+
+    assert np.abs(gv1 - av1.value_in(u.kms)) < 1e10
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    gv2= pot2.vcirc(1*apy_u.kpc)
+    gv2=  gv2.to_value(apy_u.km/apy_u.s) if hasattr(gv2, 'unit') else gv2
     amuse_pot2= to_amuse(pot2)
-    v2= amuse_pot2.circular_velocity(1|units.kpc)
+    av2= amuse_pot2.circular_velocity(1|u.kpc)
 
-    assert np.abs(v1 - v2) < 1e-10|u.kms
+    assert np.abs(gv2 - av2.value_in(u.kms)) < 1e10
 
+    assert np.abs(av1 - av2) < 1e-10|u.kms
+
+    # ------------------------------------
     # test enclosed_mass
+
     pot1= potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
+    gm1= pot1.mass(1/ro)
+    gm1= gm1.to_value(apy_u.solMass) if hasattr(gm1, 'unit') else gm1
     amuse_pot1= to_amuse(pot1)
-    m1= amuse_pot1.enclosed_mass(1|units.kpc)
+    am1= amuse_pot1.enclosed_mass(1|u.kpc)    
+
+    assert np.abs(gm1 - am1.value_in(u.MSun)) < 1e10
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
+    gm2= pot2.mass(1*apy_u.kpc)
+    gm2= gm2.to_value(apy_u.solMass) if hasattr(gm2, 'unit') else gm2
     amuse_pot2= to_amuse(pot2)
-    m2= amuse_pot2.enclosed_mass(1|units.kpc)
+    am2= amuse_pot2.enclosed_mass(1|u.kpc)
 
-    assert np.abs(m1 - m2) < 1e-10|u.MSun
+    assert np.abs(gm2 - am2.value_in(u.MSun)) < 1e10
+
+    assert np.abs(am1 - am2) < 1e-10|u.MSun
 
     return None
 
