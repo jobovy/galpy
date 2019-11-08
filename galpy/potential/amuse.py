@@ -108,10 +108,9 @@ class galpy_profile(LiteratureReferencesMixIn):
 
         res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
-                                          ro=self.ro,vo=self.vo)
-        if hasattr(res, 'unit'):
-            res= res.to_value(apy_u.km**2 / apy_u.s**2)
-        return res | u.kms**2
+                                          ro=self.ro,vo=self.vo,
+                                          use_physical=False)
+        return res * self.vo**2 | u.kms**2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -173,11 +172,11 @@ class galpy_profile(LiteratureReferencesMixIn):
         R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
         zed= z.value_in(u.kpc)
         phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
-        res= potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
-                                         phi=phi,t=self.tgalpy,
-                                         ro=self.ro,vo=self.vo)
-        if hasattr(res, 'unit'):
-            res= res.to_value(apy_u.solMass/(apy_u.pc**3))
+        res= (potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
+                                          phi=phi,t=self.tgalpy,
+                                          ro=self.ro,vo=self.vo,
+                                          use_physical=False) *
+              bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
         return res | u.MSun/(u.parsec**3.)
 
     def circular_velocity(self,r):
@@ -195,10 +194,9 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         res= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
-                             t=self.tgalpy,ro=self.ro,vo=self.vo)
-        if hasattr(res, 'unit'):
-            res= res.to_value(apy_u.km / apy_u.s)
-        return res | u.kms
+                             t=self.tgalpy,ro=self.ro,vo=self.vo,
+                             use_physical=False)
+        return res * self.vo | u.kms
 
     def enclosed_mass(self,r):
         """
@@ -215,10 +213,11 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         vc= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
-                            t=self.tgalpy,ro=self.ro,vo=self.vo)
-        if hasattr(vc, 'unit'):
-            vc= vc.to_value(apy_u.km / apy_u.s)
-        return (vc**2.)*r.value_in(u.kpc)/bovy_conversion._G*1000.|u.MSun
+                            t=self.tgalpy,ro=self.ro,vo=self.vo,
+                            use_physical=False) * self.vo
+        # if hasattr(vc, 'unit'):
+        #     vc= vc.to_value(apy_u.km / apy_u.s)
+        return (vc**2.)*r.value_in(u.pc)/bovy_conversion._G|u.MSun
 
     def stop(self):
         """
