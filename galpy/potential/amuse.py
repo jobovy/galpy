@@ -1,13 +1,10 @@
 # galpy.potential.amuse: AMUSE representation of galpy potentials
 import numpy
-from amuse.units import units as u
+from amuse.units import units
 from amuse.units.quantities import ScalarQuantity
 from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
 from ..util import bovy_conversion
-from .Force import _APY_LOADED
-if _APY_LOADED:
-    from astropy import units as apy_u
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
@@ -57,10 +54,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         else:
             self.model_time= \
                 t*bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
-                | u.Gyr
+                | units.Gyr
         #Initialize galpy time
         if isinstance(tgalpy,ScalarQuantity):
-            self.tgalpy= tgalpy.value_in(u.Gyr)\
+            self.tgalpy= tgalpy.value_in(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
             self.tgalpy= tgalpy
@@ -81,10 +78,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         dt= time-self.model_time
         self.model_time= time  
         if self.reverse:
-            self.tgalpy-= dt.value_in(u.Gyr)\
+            self.tgalpy-= dt.value_in(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
-            self.tgalpy+= dt.value_in(u.Gyr)\
+            self.tgalpy+= dt.value_in(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
 
     def get_potential_at_point(self,eps,x,y,z):
@@ -102,15 +99,15 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
-        zed= z.value_in(u.kpc)
-        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
 
         res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
                                           ro=self.ro,vo=self.vo,
                                           use_physical=False)
-        return res * self.vo**2 | u.kms**2
+        return res * self.vo**2 | units.kms**2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -127,9 +124,9 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
-        zed= z.value_in(u.kpc)
-        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
         # Cylindrical force
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
@@ -145,13 +142,13 @@ class galpy_profile(LiteratureReferencesMixIn):
         cp, sp= numpy.cos(phi), numpy.sin(phi)
         ax= (Rforce*cp - phiforce*sp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | u.kms * u.myr**-1
+            | units.kms / units.Myr
         ay= (Rforce*sp + phiforce*cp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | u.kms * u.myr**-1
+            | units.kms / units.Myr
         az= zforce\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | u.kms * u.myr**-1
+            | units.kms / units.Myr
         return ax,ay,az
 
     def mass_density(self,x,y,z):
@@ -169,15 +166,15 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(u.kpc)**2.+y.value_in(u.kpc)**2.)
-        zed= z.value_in(u.kpc)
-        phi= numpy.arctan2(y.value_in(u.kpc),x.value_in(u.kpc))
+        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
+        zed= z.value_in(units.kpc)
+        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
         res= (potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
                                           ro=self.ro,vo=self.vo,
                                           use_physical=False) *
               bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
-        return res | u.MSun / u.parsec**3.
+        return res | units.MSun / units.parsec**3.
 
     def circular_velocity(self,r):
         """
@@ -193,10 +190,10 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        res= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+        res= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                              t=self.tgalpy,ro=self.ro,vo=self.vo,
                              use_physical=False)
-        return res * self.vo | u.kms
+        return res * self.vo | units.kms
 
     def enclosed_mass(self,r):
         """
@@ -212,10 +209,10 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        vc= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
+        vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                             t=self.tgalpy,ro=self.ro,vo=self.vo,
                             use_physical=False) * self.vo
-        return (vc**2.)*r.value_in(u.pc)/bovy_conversion._G | u.MSun
+        return (vc**2.)*r.value_in(units.pc)/bovy_conversion._G | units.MSun
 
     def stop(self):
         """
