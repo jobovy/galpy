@@ -177,7 +177,7 @@ class galpy_profile(LiteratureReferencesMixIn):
                                           ro=self.ro,vo=self.vo,
                                           use_physical=False) *
               bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
-        return res | u.MSun/(u.parsec**3.)
+        return res | u.MSun / u.parsec**3.
 
     def circular_velocity(self,r):
         """
@@ -212,12 +212,8 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        vc= potential.vcirc(self.pot,r.value_in(u.kpc)/self.ro,phi=0,
-                            t=self.tgalpy,ro=self.ro,vo=self.vo,
-                            use_physical=False) * self.vo
-        # if hasattr(vc, 'unit'):
-        #     vc= vc.to_value(apy_u.km / apy_u.s)
-        return (vc**2.)*r.value_in(u.pc)/bovy_conversion._G|u.MSun
+        return (self.circular_velocity(r)**2. *
+                r.value_in(u.pc) / bovy_conversion._G) | u.MSun
 
     def stop(self):
         """
