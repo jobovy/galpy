@@ -447,7 +447,7 @@ def test_2ndDeriv_potential():
                     if p == 'TwoPowerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'mockTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'specialTwoPowerSphericalPotential': continue #Not implemented, or badly defined
-                    if p == 'DehnenTwoPowerSphericalPotential': continue #Not implemented, or badly defined
+                    if p == 'DehnenTwoPowerSphericalPotential': continue  # Not implemented, or badly defined
                     if p == 'HernquistTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'JaffeTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'NFWTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
