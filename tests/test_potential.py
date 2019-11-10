@@ -5,7 +5,7 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
-from funcsigs import Signature  # python2 backport
+from funcsigs import signature  # python2 backport
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
@@ -33,16 +33,16 @@ def test_copy_potential():
             tclass= getattr(potential,p)
         except AttributeError:
             tclass= getattr(sys.modules[__name__],p)
-        
+
         try:
             signature(tclass.__init__)
         except ValueError:
             break  # skip this potential
         else:
             sig = signature(tclass.__init__)
-        
+
         keys = list(sig.parameters.keys())[1:]  # don't include self
-        
+
         # do without units
         # input options for all the potentials
         bind_opts = {'amp': 1.3, 'a': 3., 'normalize': True, 'ro': 7., 'vo': 115.,
