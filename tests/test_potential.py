@@ -5,6 +5,7 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
+from funcsigs import Signature  # python2 backport
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
@@ -14,6 +15,103 @@ except ImportError:
 from galpy import potential
 from galpy.util import bovy_coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
+
+# Test whether copying potentials works
+# Test whether copying potentials works
+def test_copy_potential():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        
+        try:
+            signature(tclass.__init__)
+        except ValueError:
+            break  # skip this potential
+        else:
+            sig = signature(tclass.__init__)
+        
+        keys = list(sig.parameters.keys())[1:]  # don't include self
+        
+        # do without units
+        # input options for all the potentials
+        bind_opts = {'amp': 1.3, 'a': 3., 'normalize': True, 'ro': 7., 'vo': 115.,
+                     'phib': 4., 'p': .2, 'phio': .3, 'm': 15., 'r1': 2.4, 'cp': 1.1, 'sp': 3.1,
+                     'omegab': 6., 'rb': 3.31, 'chi': 1.3,
+                     'alpha': 2, 'beta': 3.1, 'dehnen_amp': True}
+
+        # make potential
+        tp= tclass(**{k: v for k, v in bind_opts.items() if k in keys}) # test potential
+        init_sig = tp.init_args
+
+        # copy potential
+        ctp = tp.copy()
+        c_init_sig = ctp.init_args
+
+        assert init_sig.arguments.keys() == c_init_sig.arguments.keys()
+        assert init_sig.arguments.values() == c_init_sig.arguments.values()
+
+        return
+        
+
+def test_modify_potential():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+
+    for p in pots:
+        #if not 'NFW' in p: continue #For testing the test
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        
+        try:
+            signature(tclass.__init__)
+        except ValueError:
+            break  # skip this potential
+        else:
+            sig = signature(tclass.__init__)
+        
+        keys = list(sig.parameters.keys())[1:]  # don't include self
+        
+        # do without units
+        # input options for all the potentials
+        bind_opts = {'amp': 1.3, 'a': 3., 'normalize': False, 'ro': 7., 'vo': 115.,
+                     'phib': 4., 'p': .2, 'phio': .3, 'm': 15., 'r1': 2.4, 'cp': 1.1, 'sp': 3.1,
+                     'omegab': 6., 'rb': 3.31, 'chi': 1.3,
+                     'alpha': 2, 'beta': 3.1, 'dehnen_amp': True}
+
+        # make potential
+        tp= tclass(**{k: v for k, v in bind_opts.items() if k in keys}) # test potential
+        init_sig = tp.init_args
+        
+        # modify amp in new potential
+        new_init = tp.init_args
+        new_init.arguments['amp'] = 1.3
+
+        ctp = tclass(*new_init.args, **new_init.kwargs)
+        c_init_sig = ctp.init_args
+
+        assert tp._amp / init_sig.arguments['amp'] == ctp._amp / c_init_sig.arguments['amp'], 'failed for {}'.format(tp)  # checking relative normalization
+        assert list(init_sig.arguments.keys())[1:] == list(c_init_sig.arguments.keys())[1:]  # not amp
+        assert list(init_sig.arguments.values())[1:] == list(c_init_sig.arguments.values())[1:]  # not amp
+        
+        return
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
