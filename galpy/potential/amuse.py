@@ -102,7 +102,6 @@ class galpy_profile(LiteratureReferencesMixIn):
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-
         res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
                                           ro=self.ro,vo=self.vo,
@@ -174,7 +173,7 @@ class galpy_profile(LiteratureReferencesMixIn):
                                           ro=self.ro,vo=self.vo,
                                           use_physical=False) *
               bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
-        return res | units.MSun / units.parsec**3.
+        return res | units.MSun / units.parsec**3
 
     def circular_velocity(self,r):
         """
@@ -212,7 +211,8 @@ class galpy_profile(LiteratureReferencesMixIn):
         vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                             t=self.tgalpy,ro=self.ro,vo=self.vo,
                             use_physical=False) * self.vo
-        return (vc**2.)*r.value_in(units.parsec)/bovy_conversion._G | units.MSun
+        return (vc**2.)*r.value_in(units.parsec)/bovy_conversion._G \
+            | units.MSun
 
     def stop(self):
         """

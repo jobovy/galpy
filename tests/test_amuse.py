@@ -69,7 +69,7 @@ def test_amuse_potential_with_physical():
     amuse_pot1= to_amuse(pot1)
     arho1= amuse_pot1.mass_density(x, y, z)
 
-    assert numpy.abs(grho1 - arho1.value_in(units.MSun/units.pc**3)) < 1e-10
+    assert numpy.abs(grho1 - arho1.value_in(units.MSun/units.parsec**3)) < 1e-10
 
     pot2= potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
     grho2= pot2.dens(5*apy_u.kpc, 2*apy_u.kpc)
@@ -77,9 +77,9 @@ def test_amuse_potential_with_physical():
     amuse_pot2= to_amuse(pot2)
     arho2= amuse_pot2.mass_density(x, y, z)
 
-    assert numpy.abs(grho2 - arho2.value_in(units.MSun/units.pc**3)) < 1e-10
+    assert numpy.abs(grho2 - arho2.value_in(units.MSun/units.parsec**3)) < 1e-10
 
-    assert numpy.abs(arho1 - arho2) < 1e-10|units.MSun/units.pc**3
+    assert numpy.abs(arho1 - arho2) < 1e-10|units.MSun/units.parsec**3
 
     # ------------------------------------
     # test circular_velocity
