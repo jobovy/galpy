@@ -471,7 +471,7 @@ class planarAxiPotential(planarPotential):
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vcirc(self,R,phi=None):
+    def vcirc(self,R,phi=None,t=0.):
         """
         
         NAME:
@@ -490,6 +490,8 @@ class planarAxiPotential(planarPotential):
         
             phi= (None) azimuth to use for non-axisymmetric potentials
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
         
             circular rotation velocity
@@ -501,11 +503,11 @@ class planarAxiPotential(planarPotential):
             2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return nu.sqrt(R*-self.Rforce(R,phi=phi,use_physical=False))
+        return nu.sqrt(R*-self.Rforce(R,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def omegac(self,R):
+    def omegac(self,R,t=0.):
         """
         
         NAME:
@@ -521,6 +523,8 @@ class planarAxiPotential(planarPotential):
             Pot - Potential instance or list of such instances
         
             R - Galactocentric radius (can be Quantity)
+
+            t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -531,11 +535,11 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,use_physical=False)/R)       
+        return nu.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)       
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def epifreq(self,R):
+    def epifreq(self,R,t=0.):
         """
         
         NAME:
@@ -549,6 +553,8 @@ class planarAxiPotential(planarPotential):
         INPUT:
         
            R - Galactocentric radius (can be Quantity)
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -559,11 +565,11 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,use_physical=False)
-                       -3./R*self.Rforce(R,use_physical=False))
+        return nu.sqrt(self.R2deriv(R,t=t,use_physical=False)
+                       -3./R*self.Rforce(R,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
-    def lindbladR(self,OmegaP,m=2,**kwargs):
+    def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
         """
         
         NAME:
@@ -581,6 +587,8 @@ class planarAxiPotential(planarPotential):
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -593,11 +601,11 @@ class planarAxiPotential(planarPotential):
         """
         if _APY_LOADED and isinstance(OmegaP,units.Quantity):
             OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
-        return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
+        return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vesc(self,R):
+    def vesc(self,R,t=0.):
         """
 
         NAME:
@@ -614,6 +622,8 @@ class planarAxiPotential(planarPotential):
 
             R - Galactocentric radius (can be Quantity)
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
 
             escape velocity
@@ -623,8 +633,8 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,use_physical=False)
-                           -self(R,use_physical=False)))
+        return nu.sqrt(2.*(self(_INF,t=t,use_physical=False)
+                           -self(R,t=t,use_physical=False)))
         
     def plotRotcurve(self,*args,**kwargs):
         """

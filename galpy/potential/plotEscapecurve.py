@@ -120,7 +120,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
     return plot.bovy_plot(Rs,esccurve,*args,
                           **kwargs)
 
-def calcEscapecurve(Pot,Rs):
+def calcEscapecurve(Pot,Rs,t=0.):
     """
     NAME:
        calcEscapecurve
@@ -131,6 +131,9 @@ def calcEscapecurve(Pot,Rs):
        Pot - Potential or list of Potential instances
 
        Rs - (array of) radius(i)
+
+       t - instantaneous time (optional)
+
     OUTPUT:
        array of v_esc
     HISTORY:
@@ -147,12 +150,12 @@ def calcEscapecurve(Pot,Rs):
         Rs= nu.array([Rs])
     esccurve= nu.zeros(grid)
     for ii in range(grid):
-        esccurve[ii]= vesc(Pot,Rs[ii],use_physical=False)
+        esccurve[ii]= vesc(Pot,Rs[ii],t=t,use_physical=False)
     return esccurve
 
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
-def vesc(Pot,R):
+def vesc(Pot,R,t=0.):
     """
 
     NAME:
@@ -169,6 +172,8 @@ def vesc(Pot,R):
 
        R - Galactocentric radius (can be Quantity)
 
+       t - time (optional; can be Quantity)
+
     OUTPUT:
 
        escape velocity
@@ -181,9 +186,9 @@ def vesc(Pot,R):
     from galpy.potential import evaluateplanarPotentials
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
+        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
+        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
         
