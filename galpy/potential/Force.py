@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 import numpy
-from funcsigs import Signature  # python2 backport
+from funcsigs import signature  # python2 backport
 from galpy.util import config
 from galpy.util import bovy_conversion
 from galpy.util.bovy_conversion import physical_conversion, \
@@ -22,7 +22,7 @@ class Force(object):
     def __new__(cls, *args, **kwargs):
         self = object.__new__(cls)  # a clean instance of cls
         # signature
-        sig = Signature.from_function(cls.__init__)
+        sig = signature(cls.__init__)
         # don't include self
         params = list(sig.parameters.values())[1:]
         sig = sig.replace(parameters=params)

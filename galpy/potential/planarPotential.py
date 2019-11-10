@@ -4,7 +4,7 @@ import os
 import copy
 import pickle
 import numpy as nu
-from funcsigs import Signature
+from funcsigs import signature
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
@@ -24,7 +24,7 @@ class planarPotential(object):
     def __new__(cls, *args, **kwargs):
         self = object.__new__(cls)  # a clean instance of cls
         # signature
-        sig = Signature.from_function(cls.__init__)
+        sig = signature.from_function(cls.__init__)
         # don't include self
         params = list(sig.parameters.values())[1:]
         sig = sig.replace(parameters=params)
