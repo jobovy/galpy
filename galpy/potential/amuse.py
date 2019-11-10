@@ -212,7 +212,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                             t=self.tgalpy,ro=self.ro,vo=self.vo,
                             use_physical=False) * self.vo
-        return (vc**2.)*r.value_in(units.pc)/bovy_conversion._G | units.MSun
+        return (vc**2.)*r.value_in(units.parsec)/bovy_conversion._G | units.MSun
 
     def stop(self):
         """
