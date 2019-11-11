@@ -97,14 +97,16 @@ class galpy_profile(LiteratureReferencesMixIn):
            Phi(x,y,z)
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-        return potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
-                                            phi=phi,t=self.tgalpy,
-                                            ro=self.ro,vo=self.vo) \
-                                            | units.km**2*units.s**-2
+        res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
+                                          phi=phi,t=self.tgalpy,
+                                          ro=self.ro,vo=self.vo,
+                                          use_physical=False)
+        return res * self.vo**2 | units.kms**2
 
     def get_gravity_at_point(self,eps,x,y,z):
         """
@@ -119,29 +121,33 @@ class galpy_profile(LiteratureReferencesMixIn):
            ax,ay,az
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
         # Cylindrical force
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy)
+                                          phi=phi,t=self.tgalpy,
+                                          use_physical=False)
         phiforce= potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,
-                                              phi=phi,t=self.tgalpy)\
+                                              phi=phi,t=self.tgalpy,
+                                              use_physical=False)\
                                               /(R/self.ro)
         zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,
-                                         phi=phi,t=self.tgalpy)
+                                         phi=phi,t=self.tgalpy,
+                                         use_physical=False)
         # Convert cylindrical force --> rectangular
         cp, sp= numpy.cos(phi), numpy.sin(phi)
         ax= (Rforce*cp - phiforce*sp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | units.kms / units.Myr
         ay= (Rforce*sp + phiforce*cp)\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | units.kms / units.Myr
         az= zforce\
             *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms * units.myr**-1
+            | units.kms / units.Myr
         return ax,ay,az
 
     def mass_density(self,x,y,z):
@@ -157,14 +163,17 @@ class galpy_profile(LiteratureReferencesMixIn):
            the density
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-        return potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
-                                           phi=phi,t=self.tgalpy,
-                                           ro=self.ro,vo=self.vo) \
-                                           | units.MSun/(units.parsec**3.)
+        res= (potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
+                                          phi=phi,t=self.tgalpy,
+                                          ro=self.ro,vo=self.vo,
+                                          use_physical=False) *
+              bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
+        return res | units.MSun / units.parsec**3
 
     def circular_velocity(self,r):
         """
@@ -178,10 +187,13 @@ class galpy_profile(LiteratureReferencesMixIn):
            the circular velocity
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        return potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                               t=self.tgalpy,ro=self.ro,vo=self.vo) | units.kms
-        
+        res= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
+                             t=self.tgalpy,ro=self.ro,vo=self.vo,
+                             use_physical=False)
+        return res * self.vo | units.kms
+
     def enclosed_mass(self,r):
         """
         NAME:
@@ -194,10 +206,13 @@ class galpy_profile(LiteratureReferencesMixIn):
            the mass enclosed
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
+           2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        vc2= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                             t=self.tgalpy,ro=self.ro,vo=self.vo)**2.
-        return vc2*r.value_in(units.kpc)/bovy_conversion._G*1000. | units.MSun
+        vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
+                            t=self.tgalpy,ro=self.ro,vo=self.vo,
+                            use_physical=False) * self.vo
+        return (vc**2.)*r.value_in(units.parsec)/bovy_conversion._G \
+            | units.MSun
 
     def stop(self):
         """
