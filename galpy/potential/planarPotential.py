@@ -24,7 +24,7 @@ class planarPotential(object):
     def __new__(cls, *args, **kwargs):
         self = object.__new__(cls)  # a clean instance of cls
         # signature
-        sig = signature.from_function(cls.__init__)
+        sig = signature(cls.__init__)
         # don't include self
         params = list(sig.parameters.values())[1:]
         sig = sig.replace(parameters=params)
