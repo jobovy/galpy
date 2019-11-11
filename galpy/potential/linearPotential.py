@@ -158,7 +158,7 @@ class linearPotential(object):
 
         OUTPUT:
 
-           Potential
+           copy of current potential
 
         HISTORY:
 

@@ -266,7 +266,7 @@ class Force(object):
 
         OUTPUT:
 
-           Potential
+           copy of current potential
 
         HISTORY:
 

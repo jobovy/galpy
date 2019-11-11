@@ -164,7 +164,7 @@ class planarPotential(object):
 
         OUTPUT:
 
-           Potential
+           copy of current potential
 
         HISTORY:
 

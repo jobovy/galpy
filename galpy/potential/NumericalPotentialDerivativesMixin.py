@@ -83,7 +83,7 @@ class NumericalPotentialDerivativesMixin(object):
 
         OUTPUT:
 
-           Potential
+           copy of current potential
 
         HISTORY:
 
