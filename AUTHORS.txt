@@ -25,7 +25,7 @@ Mathew Bub (from_name class method of Orbit)
 Samuel Wong (sampleV_interpolate method of quasiisothermaldf)
 James Lane (General mass distributions in MovingObjectPotential)
 Henry Leung (addition of Python and C implementation of Dormand-Prince 8(5,3) integrator)
-Nathaniel Starkman (custom coordinates in bovy_coords, DehnenSphericalPotential, time dependences in Potential)
+Nathaniel Starkman (custom coordinates in bovy_coords, DehnenSphericalPotential, time dependences in potential, amuse-astropy Potential compatibility)
 
 General help:
 ==============
