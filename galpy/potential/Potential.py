@@ -70,7 +70,7 @@ class Potential(Force):
         OUTPUT:
         HISTORY:
         """
-        super(Potential, self).__init__(amp=amp,ro=ro,vo=vo,amp_units=amp_units)
+        Force.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=amp_units)
         self.dim= 3
         self.isRZ= True
         self.isNonAxi= False

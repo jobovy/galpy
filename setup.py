@@ -165,7 +165,7 @@ if WIN32:
     pot_libraries.remove('m')
 
 orbit_include_dirs= ['galpy/util',
-					 'galpy/util/sf_math',
+                     'galpy/util/sf_math',
                      'galpy/util/interp_2d',
                      'galpy/orbit/orbit_c_ext',
                      'galpy/potential/potential_c_ext']
@@ -284,7 +284,7 @@ interppotential_c_src.extend(glob.glob('galpy/util/sf_math/*.c'))
 interppotential_c_src.extend(glob.glob('galpy/util/interp_2d/*.c'))
 
 interppotential_include_dirs= ['galpy/potential/potential_c_ext',
-							   'galpy/util/sf_math',
+                               'galpy/util/sf_math',
                                'galpy/util/interp_2d',
                                'galpy/util/',
                                'galpy/actionAngle/actionAngle_c_ext',

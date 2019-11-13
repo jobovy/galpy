@@ -11,13 +11,13 @@ double DehnenSphericalPotentialEval(double R,double Z, double phi,
   double amp= *args++;
   double a= *args++;
   double alpha= *args;
-  // See if Hernquist or Jaffe
-  if (alpha == 1.) {
-    return HernquistPotentialEval(R, Z, phi, t, potentialArgs);
-  }
-  else if (alpha == 2.) {
-    return JaffePotentialEval(R, Z, phi, t, potentialArgs);
-  }
+  // // See if Hernquist or Jaffe
+  // if (alpha == 1.) {
+  //   return HernquistPotentialEval(R, Z, phi, t, potentialArgs);
+  // }
+  // else if (alpha == 2.) {
+  //   return JaffePotentialEval(R, Z, phi, t, potentialArgs);
+  // }
   // else, calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
   return amp * (
@@ -34,13 +34,13 @@ double DehnenSphericalPotentialRforce(double R,double Z, double phi,
   double amp= *args++;
   double a= *args++;
   double alpha= *args;
-  // See if Hernquist or Jaffe
-  if (alpha == 1.) {
-    return HernquistPotentialRforce(R, Z, phi, t, potentialArgs);
-  }
-  else if (alpha == 2.) {
-    return JaffePotentialRforce(R, Z, phi, t, potentialArgs);
-  }
+  // // See if Hernquist or Jaffe
+  // if (alpha == 1.) {
+  //   return HernquistPotentialRforce(R, Z, phi, t, potentialArgs);
+  // }
+  // else if (alpha == 2.) {
+  //   return JaffePotentialRforce(R, Z, phi, t, potentialArgs);
+  // }
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
   return - amp * (R / pow(sqrtRz, alpha) *
@@ -56,13 +56,13 @@ double DehnenSphericalPotentialPlanarRforce(double R,double phi,
   double amp= *args++;
   double a= *args++;
   double alpha= *args;
-  // See if Hernquist or Jaffe
-  if (alpha == 1.) {
-    return HernquistPotentialPlanarRforce(R, phi, t, potentialArgs);
-  }
-  else if (alpha == 2.) {
-    return JaffePotentialPlanarRforce(R, phi, t, potentialArgs);
-  }
+  // // See if Hernquist or Jaffe
+  // if (alpha == 1.) {
+  //   return HernquistPotentialPlanarRforce(R, phi, t, potentialArgs);
+  // }
+  // else if (alpha == 2.) {
+  //   return JaffePotentialPlanarRforce(R, phi, t, potentialArgs);
+  // }
   //Calculate Rforce
   double sqrtRz= pow(R*R,0.5);
   return - amp * (pow(sqrtRz, 1.-alpha) *
@@ -78,13 +78,13 @@ double DehnenSphericalPotentialzforce(double R,double Z,double phi,
   double amp= *args++;
   double a= *args++;
   double alpha= *args;
-  // See if Hernquist or Jaffe
-  if (alpha == 1.) {
-    return HernquistPotentialzforce(R, Z, phi, t, potentialArgs);
-  }
-  else if (alpha == 2.) {
-   return JaffePotentialzforce(R, Z, phi, t, potentialArgs);
-  }
+  // // See if Hernquist or Jaffe
+  // if (alpha == 1.) {
+  //   return HernquistPotentialzforce(R, Z, phi, t, potentialArgs);
+  // }
+  // else if (alpha == 2.) {
+  //  return JaffePotentialzforce(R, Z, phi, t, potentialArgs);
+  // }
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
   return - amp * (Z / pow(sqrtRz, alpha) * pow(a, alpha-3.) / (3.-alpha) *
@@ -99,13 +99,13 @@ double DehnenSphericalPotentialPlanarR2deriv(double R,double phi,
   double amp= *args++;
   double a= *args++;
   double alpha= *args;
-  // See if Hernquist or Jaffe
-  if (alpha == 1.) {
-    return HernquistPotentialPlanarR2deriv(R, phi, t, potentialArgs);
-  }
-  else if (alpha == 2.) {
-    return JaffePotentialPlanarR2deriv(R, phi, t, potentialArgs);
-  }
+  // // See if Hernquist or Jaffe
+  // if (alpha == 1.) {
+  //   return HernquistPotentialPlanarR2deriv(R, phi, t, potentialArgs);
+  // }
+  // else if (alpha == 2.) {
+  //   return JaffePotentialPlanarR2deriv(R, phi, t, potentialArgs);
+  // }
   // Calculate R2deri
   return amp * (
     pow(R, -alpha) * pow(a+R, alpha-4.) * (2.*R + a*(alpha-1.))

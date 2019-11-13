@@ -116,7 +116,7 @@ def _parse_pot(pot):
         elif isinstance(p, planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DehnenSphericalPotential):
             pot_type.append(33)
-            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot._alpha])
+            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         elif isinstance(p,planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.HernquistPotential):
             pot_type.append(8)
