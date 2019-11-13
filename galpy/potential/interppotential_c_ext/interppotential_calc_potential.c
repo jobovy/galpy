@@ -17,6 +17,7 @@
 #include <actionAngle.h>
 #include <integrateFullOrbit.h>
 #include <interp_2d.h>
+#include <sf_math.h>
 #include <cubic_bspline_2d_coeffs.h>
 #ifdef _WIN32
 // On Windows, *need* to define this function to allow the package to be imported

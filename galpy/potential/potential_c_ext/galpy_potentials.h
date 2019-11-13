@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 #include <interp_2d.h>
+#include <sf_math.h>
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
 			  struct potentialArg *);
