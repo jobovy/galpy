@@ -83,35 +83,6 @@ class TwoPowerSphericalPotential(Potential):
             self.normalize(normalize)
         return None
 
-    # @property
-    # def alpha(self):
-    #     return self.alpha
-    # @alpha.setter
-    # def alpha(self, alpha):
-    #     # checking if alpha allowed to change
-    #     self.alpha = alpha  # setting alpha
-    #     # update .integerSelf
-    #     if alpha == round(alpha) and self._beta == round(self._beta):
-    #         self.integerSelf= TwoPowerIntegerSphericalPotential(
-    #             amp=1.,a=self.a,alpha=round(alpha),beta=round(self._beta),
-    #             normalize=False)
-    #     else:
-    #         self.integerSelf= None
-
-    # @property
-    # def beta(self):
-    #     return self._beta
-    # @beta.setter
-    # def beta(self, beta):
-    #     self._beta = beta  # setting alpha
-    #     # update .integerSelf
-    #     if self.alpha == round(self.alpha) and beta == round(beta):
-    #         self.integerSelf= TwoPowerIntegerSphericalPotential(
-    #             amp=1.,a=self.a,alpha=round(self.alpha),beta=round(beta),
-    #             normalize=False)
-    #     else:
-    #         self.integerSelf= None
-
     def _evaluate(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
@@ -407,28 +378,6 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         self._nemo_accname= 'Dehnen'
         return None
 
-    # @property
-    # def alpha(self):
-    #     return self.alpha
-    # @alpha.setter
-    # def alpha(self, alpha):
-    #     # checking if alpha allowed to change
-    #     self.alpha = alpha  # setting alpha
-    #     # checking if should update .integerSelf
-    #     if alpha == round(alpha):
-    #         self.integerSelf= TwoPowerIntegerSphericalPotential(
-    #             amp=1.,a=self.a,alpha=round(alpha),beta=4,
-    #             normalize=False,)
-    #     else:
-    #         self.integerSelf= None
-
-    # @property
-    # def beta(self):
-    #     return self._beta
-    # @beta.setter
-    # def beta(self, value):
-    #     raise Exception('cannot modify beta')
-
     def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
@@ -552,48 +501,13 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         self.a= a
         self._scale= self.a
         self.alpha= alpha
-        self._beta= beta
+        self.beta= beta
         # normalizing
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
-
-    # @property
-    # def alpha(self):
-    #     return self.alpha
-    # @alpha.setter
-    # def alpha(self,alpha):
-    #     # checking if alpha is an integer
-    #     if alpha != int(alpha):
-    #         raise ValueError('alpha must be an integer')
-    #     self.alpha= int(alpha)  # setting alpha
-    #     # update .integerSelf
-    #     if alpha == int(alpha) and self._beta == int(self._beta):
-    #         self.integerSelf= TwoPowerIntegerSphericalPotential(
-    #             amp=1.,a=self.a,alpha=int(alpha),beta=int(self._beta),
-    #             normalize=False)
-    #     else:
-    #         self.integerSelf= None
-
-
-    # @property
-    # def beta(self):
-    #     return self._beta
-    # @beta.setter
-    # def beta(self,beta):
-    #     # checking if beta is an integer
-    #     if beta != int(beta):
-    #         raise ValueError('beta must be an integer')
-    #     self._beta= int(beta)  # setting alpha
-    #     # update .integerSelf
-    #     if self.alpha == int(self.alpha) and beta == int(beta):
-    #         self.integerSelf= TwoPowerIntegerSphericalPotential(
-    #             amp=1.,a=self.a,alpha=int(self.alpha),beta=int(beta),
-    #             normalize=False)
-    #     else:
-    #         self.integerSelf= None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -614,8 +528,8 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         if self.integerSelf is not None:
             return self.integerSelf._evaluate(R,z,phi=phi,t=t)
         else:
-            return super(TwoPowerIntegerSphericalPotential, self)._evaluate(
-                R,z, phi=phi,t=t, _forceFloatEval=True)
+            return TwoPowerSphericalPotential._evaluate(
+              self,R,z, phi=phi,t=t, _forceFloatEval=True)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -636,8 +550,8 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         if self.integerSelf is not None:
             return self.integerSelf._Rforce(R,z,phi=phi,t=t)
         else:
-            return super(TwoPowerIntegerSphericalPotential, self)._Rforce(
-                R,z,phi=phi,t=t,_forceFloatEval=True)
+            return TwoPowerSphericalPotential._Rforce(
+                self,R,z,phi=phi,t=t,_forceFloatEval=True)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -658,8 +572,8 @@ class TwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
         if self.integerSelf is not None:
             return self.integerSelf._zforce(R,z,phi=phi,t=t)
         else:
-            return super(TwoPowerIntegerSphericalPotential, self)._zforce(
-                R,z,phi=phi,t=t,_forceFloatEval=True)
+            return TwoPowerSphericalPotential._zforce(
+                self,R,z,phi=phi,t=t,_forceFloatEval=True)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -751,7 +665,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
     # @property
     # def beta(self):
-    #     return self._beta
+    #     return self.beta
     # @beta.setter
     # def beta(self, value):
     #     raise Exception('cannot modify beta')
@@ -992,7 +906,7 @@ class JaffePotential(DehnenSphericalPotential):
 
     # @property
     # def beta(self):
-    #     return self._beta
+    #     return self.beta
     # @beta.setter
     # def beta(self, value):
     #     raise Exception('cannot modify beta')
@@ -1244,7 +1158,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     # @property
     # def beta(self):
-    #     return self._beta
+    #     return self.beta
     # @beta.setter
     # def beta(self, value):
     #     raise Exception('cannot modify beta')
