@@ -20,7 +20,7 @@ class Force(object):
     """Top-level class for any force, conservative or dissipative"""
 
     def __new__(cls, *args, **kwargs):
-        self = object.__new__(cls)  # a clean instance of cls
+        self = object.__new__(cls, *args, **kwargs)  # a clean instance of cls
         # signature
         sig = signature(cls.__init__)
         # don't include self

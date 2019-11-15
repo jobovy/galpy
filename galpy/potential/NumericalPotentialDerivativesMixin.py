@@ -24,7 +24,7 @@ class NumericalPotentialDerivativesMixin(object):
 
     The step used to compute the first (force) and second derivatives can be controlled at object instantiation by the keyword arguments ``dR``, ``dz``, ``dphi`` (for the forces; 1e-8 default) and ``dR2``, ``dz2``, and ``dphi2`` (for the second derivaives; 1e-4 default)"""
     def __new__(cls, *args, **kwargs):
-        self = object.__new__(cls)  # a clean instance of cls
+        self = object.__new__(cls, *args, **kwargs)  # a clean instance of cls
         # signature
         sig = signature(cls.__init__)
         # don't include self
