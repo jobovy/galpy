@@ -58,8 +58,8 @@ def test_copy_potential():
         ctp = tp.copy()
         c_init_sig = ctp.init_args
 
-        assert init_sig.arguments.keys() == c_init_sig.arguments.keys()
-        assert init_sig.arguments.values() == c_init_sig.arguments.values()
+        assert [(k1 == k2) for k1, k2 in zip(init_sig.arguments.keys(), c_init_sig.arguments.keys())]
+        assert [(k1 == k2) for k1, k2 in zip(init_sig.arguments.values(), c_init_sig.arguments.values())]
 
         return
         
@@ -108,9 +108,9 @@ def test_modify_potential():
         c_init_sig = ctp.init_args
 
         assert tp._amp / init_sig.arguments['amp'] == ctp._amp / c_init_sig.arguments['amp'], 'failed for {}'.format(tp)  # checking relative normalization
-        assert list(init_sig.arguments.keys())[1:] == list(c_init_sig.arguments.keys())[1:]  # not amp
-        assert list(init_sig.arguments.values())[1:] == list(c_init_sig.arguments.values())[1:]  # not amp
-        
+        assert [(k1 == k2) for k1, k2 in zip(list(init_sig.arguments.keys())[1:], list(c_init_sig.arguments.keys())[1:])]  # not amp
+        assert [(k1 == k2) for k1, k2 in zip(list(init_sig.arguments.values())[1:], list(c_init_sig.arguments.values())[1:])]  # not amp
+
         return
 
 #Test whether the normalization of the potential works
