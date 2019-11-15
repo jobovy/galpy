@@ -18,7 +18,7 @@ except ImportError:
 class linearPotential(object):
     """Class representing 1D potentials"""
     def __new__(cls, *args, **kwargs):
-        self = object.__new__(cls, *args, **kwargs)  # a clean instance of cls
+        self = object.__new__(cls)  # a clean instance of cls
         # signature
         sig = signature(cls.__init__)
         # don't include self
