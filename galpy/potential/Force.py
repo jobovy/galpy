@@ -38,7 +38,7 @@ class Force(object):
         return self  # send to init
 
     def __getnewargs__(self):
-        return (Force.__str__(self),)
+        return (self.__class__.__str__(self),)
 
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """

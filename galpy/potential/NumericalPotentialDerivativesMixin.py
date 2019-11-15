@@ -42,7 +42,7 @@ class NumericalPotentialDerivativesMixin(object):
         return self  # send to init
 
     def __getnewargs__(self):
-        return (NumericalPotentialDerivativesMixin.__str__(self),)
+        return (self.__class__.__str__(self),)
 
     def __init__(self,kwargs): # no **kwargs to get a reference, not a copy!
         # For first derivatives
