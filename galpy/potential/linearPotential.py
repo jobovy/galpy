@@ -35,6 +35,9 @@ class linearPotential(object):
         self._init_args = sig
         return self  # send to init
 
+    def __getnewargs__(self):
+        return (linearPotential.__str__(self),)
+
     def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp
         self.dim= 1

@@ -39,6 +39,9 @@ class planarPotential(object):
         self._init_args = sig
         return self  # send to init
 
+    def __getnewargs__(self):
+        return (planarPotential.__str__(self),)
+
     def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp
         self.dim= 2

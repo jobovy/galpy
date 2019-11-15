@@ -41,6 +41,9 @@ class NumericalPotentialDerivativesMixin(object):
         self._init_args = sig
         return self  # send to init
 
+    def __getnewargs__(self):
+        return (NumericalPotentialDerivativesMixin.__str__(self),)
+
     def __init__(self,kwargs): # no **kwargs to get a reference, not a copy!
         # For first derivatives
         self._dR= kwargs.pop('dR',1e-8)
