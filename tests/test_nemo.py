@@ -30,6 +30,14 @@ def test_nemo_NFWPotential():
     run_orbitIntegration_comparison(o,np,tmax,vo,ro)
     return None
 
+def test_nemo_DehnenSphericalPotential():
+    hp= potential.DehnenSphericalPotential(normalize=1.,a=3.,alpha=2.5)
+    tmax= 3.
+    vo,ro= 210.,7.5
+    o= Orbit([1.,0.25,1.4,0.3,-0.1,0.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison(o,hp,tmax,vo,ro)
+    return None
+
 def test_nemo_HernquistPotential():
     hp= potential.HernquistPotential(normalize=1.,a=3.)
     tmax= 3.
