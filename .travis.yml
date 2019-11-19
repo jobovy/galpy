@@ -1,9 +1,9 @@
 dist: xenial
 sudo: false
 language: python
+# Working towards support https://numpy.org/neps/nep-0029-deprecation_policy.html
 python:
   - "3.7"
-  - "2.7"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
@@ -18,8 +18,10 @@ env: #split tests
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
-matrix: # only run crucial tests for python 3.6
+matrix: # only run crucial tests for python 2.7, 3.6
   include:
+    - python: "2.7"
+      env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
     - python: "3.6"
       env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
@@ -93,7 +95,7 @@ script:
  - if [[ $TEST_FILES == 'tests/test_orbit.py tests/test_orbits.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.7/galpy/ --no-external --output-file coverage_full.info; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
  # Codecov, need to edit bash uploader for incorrect TRAVIS_PYTHON_VERSION environment variable matching, at least until codecov/codecov-bash#133 is resolved
  - curl -s https://codecov.io/bash > .codecov
