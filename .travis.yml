@@ -41,17 +41,6 @@ before_install:
  - mkdir $HOME/usr
  - export PATH=$HOME/usr/bin:$PATH
  - make -C lcov-1.11/ install PREFIX=$HOME
-# Install GSLv2
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then wget ftp://ftp.gnu.org/gnu/gsl/gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then tar xf gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd gsl-2.4; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then ./configure --prefix=$HOME/usr; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make install; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd -; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export CFLAGS=-I$HOME/usr/include; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LDFLAGS=-L$HOME/usr/lib; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LD_LIBRARY_PATH=$HOME/usr/lib; fi
  #Setup conda for faster installs
  - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
@@ -69,6 +58,7 @@ before_install:
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
 # command to install dependencies
 install:
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then conda install gsl; fi
  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
  - pip install pytest-cov
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then pip install coveralls-merge; fi
