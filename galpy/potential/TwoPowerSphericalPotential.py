@@ -382,7 +382,7 @@ class HernquistPotential(TwoPowerIntegerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass (note that amp is 2 x [total mass] for the chosen definition of the Hernquist potential)
 
            a - scale radius (can be Quantity)
 
