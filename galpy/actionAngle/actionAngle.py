@@ -3,8 +3,8 @@ import types
 import copy
 import math as m
 import numpy
-from galpy.util import config
-from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
+from ..util import config
+from ..util.bovy_conversion import physical_conversion_actionAngle, \
     actionAngle_physical_input
 _APY_LOADED= True
 try:

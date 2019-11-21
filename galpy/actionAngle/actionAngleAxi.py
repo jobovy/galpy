@@ -16,11 +16,11 @@
 import math as m
 import numpy as nu
 from scipy import optimize, integrate
-from .actionAngle import *
+from .actionAngle import UnboundError
 from .actionAngleVertical import actionAngleVertical
-from galpy.potential.planarPotential import _evaluateplanarPotentials
-from galpy.potential.Potential import epifreq
-from galpy.potential import vcirc
+from ..potential.planarPotential import _evaluateplanarPotentials
+from ..potential.Potential import epifreq
+from ..potential import vcirc
 _EPS= 10.**-15.
 class actionAngleAxi(actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""

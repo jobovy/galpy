@@ -16,10 +16,10 @@ import numpy
 from scipy import interpolate
 from .actionAngleAdiabatic import actionAngleAdiabatic
 from .actionAngle import actionAngle, UnboundError
-import galpy.potential
-from galpy.potential.Potential import _evaluatePotentials
-from galpy.potential.Potential import flatten as flatten_potential
-from galpy.util import multi
+from .. import potential
+from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import flatten as flatten_potential
+from ..util import multi
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
@@ -126,8 +126,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         self._Lzmin= 0.01
         self._Lzs= numpy.linspace(self._Lzmin,
                                   self._Rmax\
-                                      *galpy.potential.vcirc(self._pot,
-                                                             self._Rmax),
+                                      *potential.vcirc(self._pot,self._Rmax),
                                   nLz)
         self._Lzmax= self._Lzs[-1]
         #Calculate ER(vr=0,R=RL)

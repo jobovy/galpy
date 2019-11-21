@@ -14,20 +14,19 @@ import copy
 import warnings
 import numpy as nu
 from scipy import optimize, integrate
-from galpy.potential import evaluateR2derivs, evaluatez2derivs, \
+from ..potential import evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, epifreq, omegac, verticalfreq, MWPotential
-from galpy.potential.Potential import _evaluatePotentials, \
+from ..potential.Potential import _evaluatePotentials, \
     _evaluateRforces, _evaluatezforces
-from galpy.potential.Potential import flatten as flatten_potential
-from galpy.util import bovy_coords #for prolate confocal transforms
-from galpy.util import galpyWarning
-from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input, physical_conversion_actionAngle, \
-    actionAngle_physical_input
+from ..potential.Potential import flatten as flatten_potential
+from ..util import bovy_coords #for prolate confocal transforms
+from ..util import galpyWarning
+from ..util.bovy_conversion import physical_conversion, \
+    potential_physical_input
 from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
-from galpy.potential.Potential import _check_c
+from ..potential.Potential import _check_c
 _APY_LOADED= True
 try:
     from astropy import units

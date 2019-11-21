@@ -13,10 +13,10 @@ import copy
 import math as m
 import numpy as nu
 from scipy import integrate
-from galpy.potential import epifreq, omegac, _dim
-from galpy.potential.Potential import _evaluatePotentials
-from galpy.potential.Potential import flatten as flatten_potential
-from .actionAngle import *
+from ..potential import epifreq, omegac, _dim
+from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import flatten as flatten_potential
+from .actionAngle import actionAngle
 from .actionAngleAxi import actionAngleAxi, potentialAxi
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""

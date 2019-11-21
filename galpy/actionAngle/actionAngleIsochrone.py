@@ -15,8 +15,8 @@ import copy
 import warnings
 import numpy as nu
 from .actionAngle import actionAngle
-from galpy.potential import IsochronePotential
-from galpy.util import galpyWarning
+from ..potential import IsochronePotential
+from ..util import galpyWarning
 _APY_LOADED= True
 try:
     from astropy import units

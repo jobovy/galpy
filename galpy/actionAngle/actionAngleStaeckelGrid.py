@@ -16,12 +16,10 @@ from . import actionAngleStaeckel
 from .actionAngle import actionAngle
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
-import galpy.potential
-from galpy.potential.Potential import _evaluatePotentials
-from galpy.potential.Potential import flatten as flatten_potential
-from galpy.util import multi, bovy_coords
-from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input
+from .. import potential
+from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import flatten as flatten_potential
+from ..util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
 _APY_LOADED= True
 try:
@@ -125,7 +123,7 @@ class actionAngleStaeckelGrid(actionAngle):
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
         thisy= (numpy.tile(y,(nLz,1))).flatten()
         thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
-        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+        if isinstance(self._pot,potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             u0pot= self._pot._origPot
         else:
             u0pot= self._pot
@@ -168,7 +166,7 @@ class actionAngleStaeckelGrid(actionAngle):
                                          thisLzs/thisR, #vT
                                          numpy.zeros(len(thisR)), #z
                                          thisv*numpy.sin(thispsi)) #vz
-        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+        if isinstance(self._pot,potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             #Interpolated potentials have problems with extreme orbits
             indx= (mjr == 9999.99)
             indx+= (mjz == 9999.99)

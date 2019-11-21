@@ -19,13 +19,13 @@ import warnings
 import numpy as nu
 import numpy.linalg as linalg
 from scipy import optimize
-from galpy.potential import dvcircdR, vcirc, _isNonAxi
-from galpy.potential.Potential import flatten as flatten_potential
+from ..potential import dvcircdR, vcirc, _isNonAxi
+from ..potential.Potential import flatten as flatten_potential
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
-from galpy.potential import IsochronePotential, MWPotential
-from galpy.util import bovy_plot, galpyWarning
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..potential import IsochronePotential, MWPotential
+from ..util import bovy_plot, galpyWarning
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 _TWOPI= 2.*nu.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
@@ -225,7 +225,7 @@ class actionAngleIsochroneApprox(actionAngle):
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        from galpy.orbit import Orbit
+        from ..orbit import Orbit
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
         if isinstance(args[0],Orbit) and hasattr(args[0],'orbit') \
@@ -575,7 +575,7 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
-        from galpy.orbit import Orbit
+        from ..orbit import Orbit
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3: #pragma: no cover
