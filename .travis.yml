@@ -1,9 +1,9 @@
 dist: xenial
 sudo: false
 language: python
+# Working towards support https://numpy.org/neps/nep-0029-deprecation_policy.html
 python:
   - "3.7"
-  - "2.7"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
@@ -18,8 +18,10 @@ env: #split tests
     - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
     - TEST_FILES='tests/test_streamdf.py'
-matrix: # only run crucial tests for python 3.6
+matrix: # only run crucial tests for python 2.7, 3.6
   include:
+    - python: "2.7"
+      env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
     - python: "3.6"
       env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
@@ -39,17 +41,6 @@ before_install:
  - mkdir $HOME/usr
  - export PATH=$HOME/usr/bin:$PATH
  - make -C lcov-1.11/ install PREFIX=$HOME
-# Install GSLv2
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then wget ftp://ftp.gnu.org/gnu/gsl/gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then tar xf gsl-2.4.tar.gz; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd gsl-2.4; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then ./configure --prefix=$HOME/usr; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then make install; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then cd -; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export CFLAGS=-I$HOME/usr/include; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LDFLAGS=-L$HOME/usr/lib; fi
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then export LD_LIBRARY_PATH=$HOME/usr/lib; fi
  #Setup conda for faster installs
  - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
  - bash miniconda.sh -b -p $HOME/miniconda
@@ -67,12 +58,15 @@ before_install:
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
 # command to install dependencies
 install:
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then conda install gsl; fi
  - pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
  - pip install pytest-cov
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then pip install coveralls-merge; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then gem install coveralls-lcov; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade requests; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
+# pynbody, install deps with conda as much as possible
+ - if $REQUIRES_PYNBODY; then conda install h5py pandas pytz; fi
  - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
@@ -93,7 +87,7 @@ script:
  - if [[ $TEST_FILES == 'tests/test_orbit.py tests/test_orbits.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
  # Generate lcov output 
- - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-3.7/galpy/ --no-external --output-file coverage_full.info; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info; fi
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info; fi
  # Codecov, need to edit bash uploader for incorrect TRAVIS_PYTHON_VERSION environment variable matching, at least until codecov/codecov-bash#133 is resolved
  - curl -s https://codecov.io/bash > .codecov
