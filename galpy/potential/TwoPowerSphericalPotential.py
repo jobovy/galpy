@@ -6,9 +6,8 @@
 #                             rho(r)= ------------------------------------
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
-import math as m
 import numpy
-from scipy import special, optimize, integrate
+from scipy import special, optimize
 from galpy.util import bovy_conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
@@ -182,7 +181,7 @@ class TwoPowerSphericalPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
+        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """

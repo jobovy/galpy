@@ -2,12 +2,12 @@
 #   EllipticalDiskPotential: Kuijken & Tremaine (1994)'s elliptical disk 
 #   potential
 ###############################################################################
-import math as m
+import numpy
 from galpy.util import bovy_conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-_degtorad= m.pi/180.
+_degtorad= numpy.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
 
@@ -88,8 +88,8 @@ class EllipticalDiskPotential(planarPotential):
             self._phib= phib
             self._twophio= twophio
         else:
-            self._twophio= m.sqrt(cp*cp+sp*sp)
-            self._phib= m.atan2(sp,cp)/2.
+            self._twophio= numpy.sqrt(cp*cp+sp*sp)
+            self._phib= numpy.atan2(sp,cp)/2.
         self._p= p
         if not tform is None:
             self._tform= tform
@@ -129,7 +129,7 @@ class EllipticalDiskPotential(planarPotential):
         else:
             smooth= 1.
         return smooth*self._twophio/2.*R**self._p\
-            *m.cos(2.*(phi-self._phib))
+            *numpy.cos(2.*(phi-self._phib))
         
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -159,7 +159,7 @@ class EllipticalDiskPotential(planarPotential):
         else:
             smooth= 1.
         return -smooth*self._p*self._twophio/2.*R**(self._p-1.)\
-            *m.cos(2.*(phi-self._phib))
+            *numpy.cos(2.*(phi-self._phib))
         
     def _phiforce(self,R,phi=0.,t=0.):
         """
@@ -188,7 +188,7 @@ class EllipticalDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return smooth*self._twophio*R**self._p*m.sin(2.*(phi-self._phib))
+        return smooth*self._twophio*R**self._p*numpy.sin(2.*(phi-self._phib))
 
     def _R2deriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
@@ -204,7 +204,7 @@ class EllipticalDiskPotential(planarPotential):
         else:
             smooth= 1.
         return smooth*self._p*(self._p-1.)/2.*self._twophio*R**(self._p-2.)\
-            *m.cos(2.*(phi-self._phib))
+            *numpy.cos(2.*(phi-self._phib))
         
     def _phi2deriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
@@ -219,7 +219,7 @@ class EllipticalDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return -2.*smooth*self._twophio*R**self._p*m.cos(2.*(phi-self._phib))
+        return -2.*smooth*self._twophio*R**self._p*numpy.cos(2.*(phi-self._phib))
 
     def _Rphideriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
@@ -234,7 +234,7 @@ class EllipticalDiskPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return -smooth*self._p*self._twophio*R**(self._p-1.)*m.sin(2.*(phi-self._phib))
+        return -smooth*self._p*self._twophio*R**(self._p-1.)*numpy.sin(2.*(phi-self._phib))
 
     def tform(self): #pragma: no cover
         """

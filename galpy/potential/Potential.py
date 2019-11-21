@@ -19,7 +19,6 @@ import os, os.path
 import pickle
 from functools import wraps
 import warnings
-import math
 import numpy as nu
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
@@ -2718,21 +2717,21 @@ def rl(Pot,lz,t=0.):
         elif hasattr(Pot[0],'_ro'):
             lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
     #Find interval
-    rstart= _rlFindStart(math.fabs(lz),#assumes vo=1.
-                         math.fabs(lz),
+    rstart= _rlFindStart(nu.fabs(lz),#assumes vo=1.
+                         nu.fabs(lz),
                          Pot, t=t)
     try:
         return optimize.brentq(_rlfunc,10.**-5.,rstart,
-                               args=(math.fabs(lz),
+                               args=(nu.fabs(lz),
                                      Pot,
                                      t),
                                maxiter=200,disp=False)
     except ValueError: #Probably lz small and starting lz to great
         rlower= _rlFindStart(10.**-5.,
-                             math.fabs(lz),
+                             nu.fabs(lz),
                              Pot,t=t,lower=True)
         return optimize.brentq(_rlfunc,rlower,rstart,
-                               args=(math.fabs(lz),
+                               args=(nu.fabs(lz),
                                      Pot,t))
         
 
