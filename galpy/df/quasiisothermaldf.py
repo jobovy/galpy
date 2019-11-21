@@ -1,8 +1,7 @@
 #A 'Binney' quasi-isothermal DF
-import math
 import warnings
-import numpy
 import hashlib
+import numpy
 from scipy import optimize, interpolate, integrate
 from galpy import potential
 from galpy import actionAngle
@@ -101,8 +100,8 @@ class quasiisothermaldf(df):
         self._hsz= hsz
         self._refr= refr
         self._lo= lo
-        self._lnsr= math.log(self._sr)
-        self._lnsz= math.log(self._sz)
+        self._lnsr= nu.log(self._sr)
+        self._lnsz= nu.log(self._sz)
         self._maxVT_hash= None
         self._maxVT_ip= None
         if pot is None:
@@ -265,11 +264,11 @@ class quasiisothermaldf(df):
             else:
                 funcFactor= 1.            
         if log:
-            lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-math.log(math.pi)\
+            lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-nu.log(nu.pi)\
                 -numpy.log(kappa)\
                 +numpy.log(1.+numpy.tanh(lz/self._lo))\
                 -kappa*jr*numpy.exp(-2.*lnsr)
-            lnfsz= numpy.log(nu)-math.log(2.*math.pi)\
+            lnfsz= numpy.log(nu)-nu.log(2.*nu.pi)\
                 -2.*lnsz-nu*jz*numpy.exp(-2.*lnsz)
             out= lnfsr+lnfsz+funcTerm
             if isinstance(lz,numpy.ndarray):
@@ -278,11 +277,11 @@ class quasiisothermaldf(df):
             elif numpy.isnan(out): out= -numpy.finfo(numpy.dtype(numpy.float64)).max
         else:
             srm2= numpy.exp(-2.*lnsr)
-            fsr= Omega*numpy.exp(lnsurfmass)*srm2/math.pi/kappa\
+            fsr= Omega*numpy.exp(lnsurfmass)*srm2/nu.pi/kappa\
                 *(1.+numpy.tanh(lz/self._lo))\
                 *numpy.exp(-kappa*jr*srm2)
             szm2= numpy.exp(-2.*lnsz)
-            fsz= nu/2./math.pi*szm2*numpy.exp(-nu*jz*szm2)
+            fsz= nu/2./nu.pi*szm2*numpy.exp(-nu*jz*szm2)
             out= fsr*fsz*funcFactor
             if isinstance(lz,numpy.ndarray):
                 out[numpy.isnan(out)]= 0.
@@ -610,7 +609,7 @@ class quasiisothermaldf(df):
         va= sigmaR1**2./2./thisvc\
             *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if nu.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -824,7 +823,7 @@ class quasiisothermaldf(df):
         va= sigmaR1**2./2./thisvc\
             *(gamma**2.-1. #Assume close to flat rotation curve, sigphi2/sigR2 =~ 0.5
                +R*(1./self._hr+2./self._hsr))
-        if math.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if nu.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if mc:
             mvT= (thisvc-va)/gamma/sigmaR1
             if _vrs is None:

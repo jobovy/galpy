@@ -11,7 +11,6 @@ _NSIGMA= 4.
 _NTS= 1000
 _PROFILE= False
 import sys
-import math
 import copy
 import time as time_module
 import warnings
@@ -28,8 +27,8 @@ from galpy.util.bovy_conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 if _APY_LOADED:
     from astropy import units
-_DEGTORAD= math.pi/180.
-_RADTODEG= 180./math.pi
+_DEGTORAD= nu.pi/180.
+_RADTODEG= 180./nu.pi
 _NAN= nu.nan
 class evolveddiskdf(df):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
@@ -1916,7 +1915,7 @@ class evolveddiskdf(df):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*math.sin(phi+l)
+        vcirclos= vcirc*nu.sin(phi+l)
         #Marginalize
         alphalos= phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
@@ -1926,27 +1925,27 @@ class evolveddiskdf(df):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
-        if math.fabs(math.sin(alphalos)) < math.sqrt(1./2.):
+        if nu.fabs(nu.sin(alphalos)) < nu.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
                                                   use_physical=False)) #Slight abuse
-            cosalphalos= math.cos(alphalos)
-            tanalphalos= math.tan(alphalos)
+            cosalphalos= nu.cos(alphalos)
+            tanalphalos= nu.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -nsigma,nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(cosalphalos)*sigmaR1
+                                  **kwargs)[0]/nu.fabs(cosalphalos)*sigmaR1
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
                                                   use_physical=False))
-            sinalphalos= math.sin(alphalos)
-            cotalphalos= 1./math.tan(alphalos)
+            sinalphalos= nu.sin(alphalos)
+            cotalphalos= 1./nu.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(sinalphalos)*sigmaR1
+                                  **kwargs)[0]/nu.fabs(sinalphalos)*sigmaR1
         
     def _call_marginalizevlos(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
@@ -1961,21 +1960,21 @@ class evolveddiskdf(df):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcircperp= vcirc*math.cos(phi+l) 
+        vcircperp= vcirc*nu.cos(phi+l) 
         #Marginalize
-        alphaperp= math.pi/2.+phi+l
+        alphaperp= nu.pi/2.+phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
                                           kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        if math.fabs(math.sin(alphaperp)) < math.sqrt(1./2.):
+        if nu.fabs(nu.sin(alphaperp)) < nu.sqrt(1./2.):
             sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
                                                   use_physical=False)) #slight abuse
             va= vcirc-self._initdf.meanvT(R,phi=phi,use_physical=False)
-            cosalphaperp= math.cos(alphaperp)
-            tanalphaperp= math.tan(alphaperp)
+            cosalphaperp= nu.cos(alphaperp)
+            tanalphaperp= nu.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -va/sigmaR1-nsigma,
@@ -1983,18 +1982,18 @@ class evolveddiskdf(df):
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(cosalphaperp)*sigmaR1
+                                  **kwargs)[0]/nu.fabs(cosalphaperp)*sigmaR1
         else:
             sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
                                                   use_physical=False))
-            sinalphaperp= math.sin(alphaperp)
-            cotalphaperp= 1./math.tan(alphaperp)
+            sinalphaperp= nu.sin(alphaperp)
+            cotalphaperp= 1./nu.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/math.fabs(sinalphaperp)*sigmaR1
+                                  **kwargs)[0]/nu.fabs(sinalphaperp)*sigmaR1
 
     def _vmomentsurfacemassHierarchicalGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a 
