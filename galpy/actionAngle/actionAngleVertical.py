@@ -10,8 +10,7 @@
 #              calczmax
 #              calcEz
 ###############################################################################
-import math as m
-import numpy as nu
+import numpy
 from scipy import optimize, integrate
 from .actionAngle import actionAngle
 from ..potential.linearPotential import evaluatelinearPotentials
@@ -57,11 +56,11 @@ class actionAngleVertical(actionAngle):
         if hasattr(self,'_Jz'):
             return self._Jz
         zmax= self.calczmax()
-        if zmax == -9999.99: return nu.array([9999.99,nu.nan])
+        if zmax == -9999.99: return numpy.array([9999.99,numpy.nan])
         Ez= calcEz(self._z,self._vz,self._verticalpot)
         self._Jz= 2.*integrate.quad(_JzIntegrand,0.,zmax,
                                     args=(Ez,self._verticalpot),
-                                    **kwargs)[0]/nu.pi
+                                    **kwargs)[0]/numpy.pi
         return self._Jz
 
     def Tz(self,**kwargs): #pragma: no cover
@@ -104,17 +103,17 @@ class actionAngleVertical(actionAngle):
         zmax= self.calczmax()
         Ez= calcEz(self._z,self._vz,self._verticalpot)
         Tz= self.Tz(**kwargs)
-        self._anglez= 2.*nu.pi*(nu.array(integrate.quad(_TzIntegrand,0.,nu.fabs(self._z),
+        self._anglez= 2.*numpy.pi*(numpy.array(integrate.quad(_TzIntegrand,0.,numpy.fabs(self._z),
                                                         args=(Ez,self._verticalpot),
                                                         **kwargs)))/Tz[0]
         if self._z >= 0. and self._vz >= 0.:
             pass
         elif self._z >= 0. and self._vz < 0.:
-            self._anglez[0]= nu.pi-self._anglez[0]
+            self._anglez[0]= numpy.pi-self._anglez[0]
         elif self._z < 0. and self._vz <= 0.:
-            self._anglez[0]= nu.pi+self._anglez[0]
+            self._anglez[0]= numpy.pi+self._anglez[0]
         else:
-            self._anglez[0]= 2.*nu.pi-self._anglez[0]
+            self._anglez[0]= 2.*numpy.pi-self._anglez[0]
         return self._anglez
 
     def calczmax(self):
@@ -133,7 +132,7 @@ class actionAngleVertical(actionAngle):
             return self._zmax
         Ez= calcEz(self._z,self._vz,self._verticalpot)
         if self._vz == 0.: #We are exactly at the maximum height
-            zmax= nu.fabs(self._z)
+            zmax= numpy.fabs(self._z)
         else:
             zstart= self._z
             try:
@@ -185,7 +184,7 @@ def potentialVertical(z,pot):
 
 def _JzIntegrand(z,Ez,pot):
     """The J_z integrand"""
-    return nu.sqrt(2.*(Ez-potentialVertical(z,pot)))
+    return numpy.sqrt(2.*(Ez-potentialVertical(z,pot)))
 
 def _TzIntegrand(z,Ez,pot): #pragma: no cover
     """The T_z integrand"""
@@ -207,7 +206,7 @@ def _zmaxFindStart(z,Ez,pot):
        2012-06-01 - Written - Bovy (IAS)
     """
     if z == 0.: ztry= 0.00001
-    else: ztry= 2.*nu.fabs(z)
+    else: ztry= 2.*numpy.fabs(z)
     while (Ez-potentialVertical(ztry,pot)) > 0.:
         ztry*= 2.
         if ztry > 100.: #pragma: no cover

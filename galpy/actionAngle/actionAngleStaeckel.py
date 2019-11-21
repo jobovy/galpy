@@ -12,7 +12,7 @@
 ###############################################################################
 import copy
 import warnings
-import numpy as nu
+import numpy
 from scipy import optimize, integrate
 from ..potential import evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, epifreq, omegac, verticalfreq, MWPotential
@@ -129,11 +129,11 @@ class actionAngleStaeckel(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -141,9 +141,9 @@ class actionAngleStaeckel(actionAngle):
             if self._useu0:
                 #First calculate u0
                 if 'u0' in kwargs:
-                    u0= nu.asarray(kwargs['u0'])
+                    u0= numpy.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                    E= numpy.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
                         E,Lz,self._pot,delta)[0]
@@ -161,9 +161,9 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
             if len(R) > 1:
-                ojr= nu.zeros((len(R)))
-                olz= nu.zeros((len(R)))
-                ojz= nu.zeros((len(R)))
+                ojr= numpy.zeros((len(R)))
+                olz= numpy.zeros((len(R)))
+                ojz= numpy.zeros((len(R)))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
@@ -181,9 +181,9 @@ class actionAngleStaeckel(actionAngle):
                 aASingle= actionAngleStaeckelSingle(R[0],vR[0],vT[0],
                                                     z[0],vz[0],pot=self._pot,
                                                     delta=delta)
-                return (nu.atleast_1d(aASingle.JR(**copy.copy(kwargs))),
-                        nu.atleast_1d(aASingle._R*aASingle._vT),
-                        nu.atleast_1d(aASingle.Jz(**copy.copy(kwargs))))
+                return (numpy.atleast_1d(aASingle.JR(**copy.copy(kwargs))),
+                        numpy.atleast_1d(aASingle._R*aASingle._vT),
+                        numpy.atleast_1d(aASingle.Jz(**copy.copy(kwargs))))
 
     def _actionsFreqs(self,*args,**kwargs):
         """
@@ -226,18 +226,18 @@ class actionAngleStaeckel(actionAngle):
                 z= self._eval_z
                 vz= self._eval_vz
             if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
+                R= numpy.array([R])
+                vR= numpy.array([vR])
+                vT= numpy.array([vT])
+                z= numpy.array([z])
+                vz= numpy.array([vz])
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
                 if 'u0' in kwargs:
-                    u0= nu.asarray(kwargs['u0'])
+                    u0= numpy.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                    E= numpy.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
                         E,Lz,self._pot,delta)[0]
@@ -247,8 +247,8 @@ class actionAngleStaeckel(actionAngle):
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
-            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
-            if nu.sum(indx) > 0:
+            indx= numpy.isnan(Omegar)*(jr < 10.**-3.)+numpy.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if numpy.sum(indx) > 0:
                 Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
                 Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
                 Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
@@ -303,19 +303,19 @@ class actionAngleStaeckel(actionAngle):
                 vz= self._eval_vz
                 phi= self._eval_phi
             if isinstance(R,float):
-                R= nu.array([R])
-                vR= nu.array([vR])
-                vT= nu.array([vT])
-                z= nu.array([z])
-                vz= nu.array([vz])
-                phi= nu.array([phi])
+                R= numpy.array([R])
+                vR= numpy.array([vR])
+                vT= numpy.array([vT])
+                z= numpy.array([z])
+                vz= numpy.array([vz])
+                phi= numpy.array([phi])
             Lz= R*vT
             if self._useu0:
                 #First calculate u0
                 if 'u0' in kwargs:
-                    u0= nu.asarray(kwargs['u0'])
+                    u0= numpy.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                    E= numpy.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
                         E,Lz,self._pot,delta)[0]
@@ -325,8 +325,8 @@ class actionAngleStaeckel(actionAngle):
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
                 self._pot,delta,R,vR,vT,z,vz,phi,u0=u0,order=order)
             # Adjustements for close-to-circular orbits
-            indx= nu.isnan(Omegar)*(jr < 10.**-3.)+nu.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
-            if nu.sum(indx) > 0:
+            indx= numpy.isnan(Omegar)*(jr < 10.**-3.)+numpy.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
+            if numpy.sum(indx) > 0:
                 Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
                 Omegaphi[indx]= [omegac(self._pot,r,use_physical=False) for r in R[indx]]
                 Omegaz[indx]= [verticalfreq(self._pot,r,use_physical=False) for r in R[indx]]
@@ -361,9 +361,9 @@ class actionAngleStaeckel(actionAngle):
         """
         delta= kwargs.get('delta',self._delta)
         umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
-        rperi= bovy_coords.uv_to_Rz(umin,nu.pi/2.,delta=delta)[0]
+        rperi= bovy_coords.uv_to_Rz(umin,numpy.pi/2.,delta=delta)[0]
         rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=delta)
-        rap= nu.sqrt(rap_tmp**2.+zmax**2.)
+        rap= numpy.sqrt(rap_tmp**2.+zmax**2.)
         e= (rap-rperi)/(rap+rperi)
         return (e,zmax,rperi,rap)
 
@@ -397,11 +397,11 @@ class actionAngleStaeckel(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -409,9 +409,9 @@ class actionAngleStaeckel(actionAngle):
             if self._useu0:
                 #First calculate u0
                 if 'u0' in kwargs:
-                    u0= nu.asarray(kwargs['u0'])
+                    u0= numpy.asarray(kwargs['u0'])
                 else:
-                    E= nu.array([_evaluatePotentials(self._pot,R[ii],z[ii])
+                    E= numpy.array([_evaluatePotentials(self._pot,R[ii],z[ii])
                                  +vR[ii]**2./2.+vz[ii]**2./2.+vT[ii]**2./2. for ii in range(len(R))])
                     u0= actionAngleStaeckel_c.actionAngleStaeckel_calcu0(\
                         E,Lz,self._pot,delta)[0]
@@ -430,9 +430,9 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
             if len(R) > 1:
-                oumin= nu.zeros((len(R)))
-                oumax= nu.zeros((len(R)))
-                ovmin= nu.zeros((len(R)))
+                oumin= numpy.zeros((len(R)))
+                oumax= numpy.zeros((len(R)))
+                ovmin= numpy.zeros((len(R)))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
@@ -452,9 +452,9 @@ class actionAngleStaeckel(actionAngle):
                                                     delta=delta)
                 umin, umax= aASingle.calcUminUmax()
                 vmin= aASingle.calcVmin()
-                return (nu.atleast_1d(umin),
-                        nu.atleast_1d(umax),
-                        nu.atleast_1d(vmin))
+                return (numpy.atleast_1d(umin),
+                        numpy.atleast_1d(umax),
+                        numpy.atleast_1d(vmin))
 
 class actionAngleStaeckelSingle(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
@@ -489,10 +489,10 @@ class actionAngleStaeckelSingle(actionAngle):
         #Pre-calculate everything
         self._ux, self._vx= bovy_coords.Rz_to_uv(self._R,self._z,
                                                  delta=self._delta)
-        self._sinvx= nu.sin(self._vx)
-        self._cosvx= nu.cos(self._vx)
-        self._coshux= nu.cosh(self._ux)
-        self._sinhux= nu.sinh(self._ux)
+        self._sinvx= numpy.sin(self._vx)
+        self._cosvx= numpy.cos(self._vx)
+        self._coshux= numpy.cosh(self._ux)
+        self._sinhux= numpy.sinh(self._ux)
         self._pux= self._delta*(self._vR*self._coshux*self._sinvx
                                 +self._vz*self._sinhux*self._cosvx)
         self._pvx= self._delta*(self._vR*self._sinhux*self._cosvx
@@ -503,12 +503,12 @@ class actionAngleStaeckelSingle(actionAngle):
         #Determine umin and umax
         self._u0= kwargs.pop('u0',self._ux) #u0 as defined by Binney does not matter for a 
         #single action evaluation, so we don't determine it here
-        self._sinhu0= nu.sinh(self._u0)
+        self._sinhu0= numpy.sinh(self._u0)
         self._potu0v0= potentialStaeckel(self._u0,self._vx,
                                          self._pot,self._delta)
         self._I3U= self._E*self._sinhux**2.-self._pux**2./2./self._delta**2.\
             -self._Lz**2./2./self._delta**2./self._sinhux**2.
-        self._potupi2= potentialStaeckel(self._ux,nu.pi/2.,
+        self._potupi2= potentialStaeckel(self._ux,numpy.pi/2.,
                                          self._pot,self._delta)
         dV= (self._coshux**2.*self._potupi2
              -(self._sinhux**2.+self._sinvx**2.)
@@ -614,11 +614,11 @@ class actionAngleStaeckelSingle(actionAngle):
             return self._JR
         umin, umax= self.calcUminUmax()
         #print self._ux, self._pux, (umax-umin)/umax
-        if (umax-umin)/umax < 10.**-6: return nu.array([0.])
+        if (umax-umin)/umax < 10.**-6: return numpy.array([0.])
         order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
-            self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
+            self._JR= 1./numpy.pi*numpy.sqrt(2.)*self._delta\
                 *integrate.fixed_quad(_JRStaeckelIntegrand,
                                       umin,umax,
                                       args=(self._E,self._Lz,self._I3U,
@@ -629,7 +629,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                       n=order,
                                       **kwargs)[0]
         else:
-            self._JR= 1./nu.pi*nu.sqrt(2.)*self._delta\
+            self._JR= 1./numpy.pi*numpy.sqrt(2.)*self._delta\
                 *integrate.quad(_JRStaeckelIntegrand,
                                 umin,umax,
                                 args=(self._E,self._Lz,self._I3U,
@@ -657,13 +657,13 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_JZ'): #pragma: no cover
             return self._JZ
         vmin= self.calcVmin()
-        if (nu.pi/2.-vmin) < 10.**-7: return nu.array([0.])
+        if (numpy.pi/2.-vmin) < 10.**-7: return numpy.array([0.])
         order= kwargs.pop('order',10)
         if kwargs.pop('fixed_quad',False):
             # factor in next line bc integrand=/2delta^2
-            self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
+            self._JZ= 2./numpy.pi*numpy.sqrt(2.)*self._delta \
                 *integrate.fixed_quad(_JzStaeckelIntegrand,
-                                      vmin,nu.pi/2,
+                                      vmin,numpy.pi/2,
                                       args=(self._E,self._Lz,self._I3V,
                                             self._delta,
                                             self._ux,self._coshux**2.,
@@ -673,9 +673,9 @@ class actionAngleStaeckelSingle(actionAngle):
                                       **kwargs)[0]
         else:
             # factor in next line bc integrand=/2delta^2
-            self._JZ= 2./nu.pi*nu.sqrt(2.)*self._delta \
+            self._JZ= 2./numpy.pi*numpy.sqrt(2.)*self._delta \
                 *integrate.quad(_JzStaeckelIntegrand,
-                                vmin,nu.pi/2,
+                                vmin,numpy.pi/2,
                                 args=(self._E,self._Lz,self._I3V,
                                       self._delta,
                                       self._ux,self._coshux**2.,
@@ -716,7 +716,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'): #pragma: no cover
             return self._uminumax
         E, L= self._E, self._Lz
-        if nu.fabs(self._pux) < 10.**-7.: #We are at umin or umax
+        if numpy.fabs(self._pux) < 10.**-7.: #We are at umin or umax
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
@@ -773,7 +773,7 @@ class actionAngleStaeckelSingle(actionAngle):
                                              self._potu0v0,self._pot)
             if rstart == 0.: umin= 0.
             else: 
-                if nu.fabs(prevr-self._ux) < 10.**-2.: rup= self._ux
+                if numpy.fabs(prevr-self._ux) < 10.**-2.: rup= self._ux
                 else: rup= prevr
                 try:
                     umin= optimize.brentq(_JRStaeckelIntegrandSquared,
@@ -816,7 +816,7 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_vmin'): #pragma: no cover
             return self._vmin
         E, L= self._E, self._Lz
-        if nu.fabs(self._pvx) < 10.**-7.: #We are at vmin or vmax
+        if numpy.fabs(self._pvx) < 10.**-7.: #We are at vmin or vmax
             eps= 10.**-8.
             peps= _JzStaeckelIntegrandSquared(self._vx+eps,
                                               E,L,self._I3V,self._delta,
@@ -949,7 +949,7 @@ def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                          potu0v0,pot):
-    return nu.sqrt(_JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,
+    return numpy.sqrt(_JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,
                                                v0,sin2v0,
                                                potu0v0,pot))
 
@@ -957,7 +957,7 @@ def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
                                 potu0v0,pot):
     #potu0v0= potentialStaeckel(u0,v0,pot,delta)
     """The J_R integrand: p^2_u(u)/2/delta^2"""
-    sinh2u= nu.sinh(u)**2.
+    sinh2u= numpy.sinh(u)**2.
     dU= (sinh2u+sin2v0)*potentialStaeckel(u,v0,
                                           pot,delta)\
         -(sinh2u0+sin2v0)*potu0v0
@@ -965,14 +965,14 @@ def _JRStaeckelIntegrandSquared(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,
 
 def _JzStaeckelIntegrand(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                          potu0pi2,pot):
-    return nu.sqrt(_JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,
+    return numpy.sqrt(_JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,
                                                sinh2u0,
                                                potu0pi2,pot))
 def _JzStaeckelIntegrandSquared(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
                                 potu0pi2,pot):
-    #potu0pi2= potentialStaeckel(u0,nu.pi/2.,pot,delta)
+    #potu0pi2= potentialStaeckel(u0,numpy.pi/2.,pot,delta)
     """The J_z integrand: p_v(v)/2/delta^2"""
-    sin2v= nu.sin(v)**2.
+    sin2v= numpy.sin(v)**2.
     dV= cosh2u0*potu0pi2\
         -(sinh2u0+sin2v)*potentialStaeckel(u0,v,pot,delta)
     return E*sin2v+I3V+dV-Lz**2./2./delta**2./sin2v
@@ -1053,8 +1053,8 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
        2013-08-28 - Written - Bovy (IAS)
        2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
     """
-    if isinstance(R,nu.ndarray):
-        delta2= nu.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
+    if isinstance(R,numpy.ndarray):
+        delta2= numpy.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
                              -3.*z[ii]*_evaluateRforces(pot,R[ii],z[ii])
                              +R[ii]*z[ii]*(evaluateR2derivs(pot,R[ii],z[ii],
@@ -1064,7 +1064,7 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
         indx= (delta2 < 0.)*(delta2 > -10.**-10.)
         delta2[indx]= 0.
         if not no_median:
-        	delta2= nu.median(delta2[True^nu.isnan(delta2)])
+        	delta2= numpy.median(delta2[True^numpy.isnan(delta2)])
     else:
         delta2= (z**2.-R**2. #eqn. (9) has a sign error
                  +(3.*R*_evaluatezforces(pot,R,z)
@@ -1072,4 +1072,4 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
                    +R*z*(evaluateR2derivs(pot,R,z,use_physical=False)
                          -evaluatez2derivs(pot,R,z,use_physical=False)))/evaluateRzderivs(pot,R,z,use_physical=False))
         if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
-    return nu.sqrt(delta2)
+    return numpy.sqrt(delta2)

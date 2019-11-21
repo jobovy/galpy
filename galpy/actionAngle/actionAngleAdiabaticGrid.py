@@ -11,7 +11,6 @@
 #
 ###############################################################################
 from __future__ import print_function
-import math
 import numpy
 from scipy import interpolate
 from .actionAngleAdiabatic import actionAngleAdiabatic
@@ -99,7 +98,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         else:
             if numcores > 1:
                 jz= multi.parallel_map((lambda x: self._aA(thisRs[x],0.,1.,#these two r dummies
-                                                              0.,math.sqrt(2.*thisy[x]*thisEzZmaxs[x]),
+                                                              0.,numpy.sqrt(2.*thisy[x]*thisEzZmaxs[x]),
                                                            _justjz=True,
                                                            **kwargs)[2]),
                                        range(nR*nEz),numcores=numcores)
@@ -130,7 +129,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                   nLz)
         self._Lzmax= self._Lzs[-1]
         #Calculate ER(vr=0,R=RL)
-        self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
+        self._RL= numpy.array([potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
         self._ERRL= _evaluatePotentials(self._pot,self._RL,numpy.zeros(nLz)) +self._Lzs**2./2./self._RL**2.
@@ -261,7 +260,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 if _PRINTOUTSIDEGRID: #pragma: no cover
                     print("Outside of grid in Ez", R > self._Rmax , R < self._Rmin , (Ez != 0 and numpy.log(Ez) > thisEzZmax))
                 jz= self._aA(R,0.,1.,#these two r dummies
-                             0.,math.sqrt(2.*Ez),
+                             0.,numpy.sqrt(2.*Ez),
                              _justjz=True,
                              **kwargs)[2]
             else:
@@ -352,7 +351,7 @@ class actionAngleAdiabaticGrid(actionAngle):
             if _PRINTOUTSIDEGRID: #pragma: no cover
                 print("Outside of grid in Ez")
             jz= self._aA(self._eval_R,0.,1.,#these two r dummies
-                         0.,math.sqrt(2.*Ez),
+                         0.,numpy.sqrt(2.*Ez),
                          _justjz=True,
                          **kwargs)[2]
         else:

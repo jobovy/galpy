@@ -13,8 +13,7 @@
 #              calcRapRperi
 #              calcEL
 ###############################################################################
-import math as m
-import numpy as nu
+import numpy
 from scipy import optimize, integrate
 from .actionAngle import UnboundError
 from .actionAngleVertical import actionAngleVertical
@@ -80,29 +79,29 @@ class actionAngleAxi(actionAngleVertical):
         TR= self.TR(**kwargs)[0]
         EL= self.calcEL(**kwargs)
         E, L= EL
-        Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+        Rmean= numpy.exp((numpy.log(rperi)+numpy.log(rap))/2.)
         if self._R < Rmean:
             if self._R > rperi:
-                wR= (2.*m.pi/TR*
-                     nu.array(integrate.quadrature(_TRAxiIntegrandSmall,
-                                                   0.,m.sqrt(self._R-rperi),
+                wR= (2.*numpy.pi/TR*
+                     numpy.array(integrate.quadrature(_TRAxiIntegrandSmall,
+                                                   0.,numpy.sqrt(self._R-rperi),
                                                    args=(E,L,self._pot,rperi),
                                                    **kwargs)))\
-                                                   +nu.array([m.pi,0.])
+                                                   +numpy.array([numpy.pi,0.])
             else:
-                wR= nu.array([m.pi,0.])
+                wR= numpy.array([numpy.pi,0.])
         else:
             if self._R < rap:
-                wR= -(2.*m.pi/TR*
-                      nu.array(integrate.quadrature(_TRAxiIntegrandLarge,
-                                                    0.,m.sqrt(rap-self._R),
+                wR= -(2.*numpy.pi/TR*
+                      numpy.array(integrate.quadrature(_TRAxiIntegrandLarge,
+                                                    0.,numpy.sqrt(rap-self._R),
                                                     args=(E,L,self._pot,rap),
                                                     **kwargs)))
             else:
-                wR= nu.array([0.,0.])
+                wR= numpy.array([0.,0.])
         if self._vR < 0.:
-            wR[0]+= m.pi
-        self._angleR= nu.array([wR[0] % (2.*m.pi),wR[1]])
+            wR[0]+= numpy.pi
+        self._angleR= numpy.array([wR[0] % (2.*numpy.pi),wR[1]])
         return self._angleR
 
     def TR(self,**kwargs): #pragma: no cover
@@ -121,21 +120,21 @@ class actionAngleAxi(actionAngleVertical):
         if hasattr(self,'_TR'):
             return self._TR
         (rperi,rap)= self.calcRapRperi(**kwargs)
-        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
-            self._TR= 2.*m.pi/epifreq(self._pot,self._R,use_physical=False)
+        if numpy.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
+            self._TR= 2.*numpy.pi/epifreq(self._pot,self._R,use_physical=False)
             return self._TR
-        Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+        Rmean= numpy.exp((numpy.log(rperi)+numpy.log(rap))/2.)
         EL= self.calcEL(**kwargs)
         E, L= EL
         TR= 0.
         if Rmean > rperi:
             TR+= integrate.quadrature(_TRAxiIntegrandSmall,
-                                      0.,m.sqrt(Rmean-rperi),
+                                      0.,numpy.sqrt(Rmean-rperi),
                                       args=(E,L,self._pot,rperi),
                                       **kwargs)[0]
         if Rmean < rap:
             TR+= integrate.quadrature(_TRAxiIntegrandLarge,
-                                      0.,m.sqrt(rap-Rmean),
+                                      0.,numpy.sqrt(rap-Rmean),
                                       args=(E,L,self._pot,rap),
                                       **kwargs)[0]
         self._TR= 2.*TR
@@ -158,10 +157,10 @@ class actionAngleAxi(actionAngleVertical):
             return self._Tphi
         (rperi,rap)= self.calcRapRperi(**kwargs)
         if rap == rperi:#Circular orbit
-            return 2.*m.pi*self._R/self._vT
+            return 2.*numpy.pi*self._R/self._vT
         TR= self.TR(**kwargs)
         I= self.I(**kwargs)
-        Tphi= TR/I*m.pi
+        Tphi= TR/I*numpy.pi
         self._Tphi= Tphi
         return self._Tphi
 
@@ -181,23 +180,23 @@ class actionAngleAxi(actionAngleVertical):
         if hasattr(self,'_I'):
             return self._I
         (rperi,rap)= self.calcRapRperi(**kwargs)
-        Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
-        if nu.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
+        Rmean= numpy.exp((numpy.log(rperi)+numpy.log(rap))/2.)
+        if numpy.fabs(rap-rperi)/rap < 10.**-4.: #Rough limit
             TR= self.TR()[0]
             Tphi= self.Tphi()[0]
-            self._I= TR/Tphi*m.pi
+            self._I= TR/Tphi*numpy.pi
             return self._I
         EL= self.calcEL(**kwargs)
         E, L= EL
         I= 0.
         if Rmean > rperi:
             I+= integrate.quadrature(_IAxiIntegrandSmall,
-                                     0.,m.sqrt(Rmean-rperi),
+                                     0.,numpy.sqrt(Rmean-rperi),
                                      args=(E,L,self._pot,rperi),
                                      **kwargs)[0]
         if Rmean < rap:
             I+= integrate.quadrature(_IAxiIntegrandLarge,
-                                     0.,m.sqrt(rap-Rmean),
+                                     0.,numpy.sqrt(rap-Rmean),
                                      args=(E,L,self._pot,rap),
                                      **kwargs)[0]
         self._I= I*self._R*self._vT
@@ -235,7 +234,7 @@ class actionAngleAxi(actionAngleVertical):
         (rperi,rap)= self.calcRapRperi(**kwargs)
         EL= self.calcEL(**kwargs)
         E, L= EL
-        self._JR= 1./nu.pi*integrate.quad(_JRAxiIntegrand,rperi,rap,
+        self._JR= 1./numpy.pi*integrate.quad(_JRAxiIntegrand,rperi,rap,
                                           args=(E,L,self._pot),
                                           **kwargs)[0]
         return self._JR
@@ -257,7 +256,7 @@ class actionAngleAxi(actionAngleVertical):
         if self._gamma != 0.:
             #Adjust E
             E-= self._vT**2./2.
-            L= m.fabs(L)+self._gamma*self.Jz(**kwargs)
+            L= numpy.fabs(L)+self._gamma*self.Jz(**kwargs)
             E+= L**2./2./self._R**2.
         return (E,L)
 
@@ -277,14 +276,14 @@ class actionAngleAxi(actionAngleVertical):
             return self._rperirap
         EL= self.calcEL(**kwargs)
         E, L= EL
-        if self._vR == 0. and m.fabs(self._vT - vcirc(self._pot,self._R,use_physical=False)) < _EPS: #We are on a circular orbit
+        if self._vR == 0. and numpy.fabs(self._vT - vcirc(self._pot,self._R,use_physical=False)) < _EPS: #We are on a circular orbit
             rperi= self._R
             rap = self._R
         elif self._vR == 0. and self._vT > vcirc(self._pot,self._R,use_physical=False): #We are exactly at pericenter
             rperi= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R+10.**-8.,E,L,self._pot)
-                startsign/= m.fabs(startsign)
+                startsign/= numpy.fabs(startsign)
             else: startsign= 1.
             rend= _rapRperiAxiFindStart(self._R,E,L,self._pot,rap=True,
                                         startsign=startsign)
@@ -295,7 +294,7 @@ class actionAngleAxi(actionAngleVertical):
             rap= self._R
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R-10.**-8.,E,L,self._pot)
-                startsign/= m.fabs(startsign)
+                startsign/= numpy.fabs(startsign)
             else: startsign= 1.
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
                                           startsign=startsign)
@@ -307,7 +306,7 @@ class actionAngleAxi(actionAngleVertical):
         else:
             if self._gamma != 0.:
                 startsign= _rapRperiAxiEq(self._R,E,L,self._pot)
-                startsign/= m.fabs(startsign)
+                startsign/= numpy.fabs(startsign)
             else:
                 startsign= 1.
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
@@ -366,7 +365,7 @@ def potentialAxi(R,pot,vc=1.,ro=1.):
 
 def _JRAxiIntegrand(r,E,L,pot):
     """The J_R integrand"""
-    return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
+    return numpy.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
 
 def _TRAxiIntegrandSmall(t,E,L,pot,rperi): #pragma: no cover
     r= rperi+t**2.#part of the transformation

@@ -10,8 +10,7 @@
 #
 ###############################################################################
 import copy
-import math as m
-import numpy as nu
+import numpy
 from scipy import integrate
 from ..potential import epifreq, omegac, _dim
 from ..potential.Potential import _evaluatePotentials
@@ -103,11 +102,11 @@ class actionAngleSpherical(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if self._c: #pragma: no cover
             pass
         else:
@@ -117,13 +116,13 @@ class actionAngleSpherical(actionAngle):
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= _evaluatePotentials(self._pot,R,z)\
                 +vR**2./2.+vT**2./2.+vz**2./2.
-            L= nu.sqrt(L2)
+            L= numpy.sqrt(L2)
             #Actions
             Jphi= Lz
-            Jz= L-nu.fabs(Lz)
+            Jz= L-numpy.fabs(Lz)
             #Jr requires some more work
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
+            axiR= numpy.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
             Jr= []
@@ -134,7 +133,7 @@ class actionAngleSpherical(actionAngle):
                 EL= axiaA.calcEL()
                 E, L= EL
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
-            return (nu.array(Jr),Jphi,Jz)
+            return (numpy.array(Jr),Jphi,Jz)
 
     def _actionsFreqs(self,*args,**kwargs):
         """
@@ -168,11 +167,11 @@ class actionAngleSpherical(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if self._c: #pragma: no cover
             pass
         else:
@@ -181,13 +180,13 @@ class actionAngleSpherical(actionAngle):
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
-            L= nu.sqrt(L2)
+            L= numpy.sqrt(L2)
             #Actions
             Jphi= Lz
-            Jz= L-nu.fabs(Lz)
+            Jz= L-numpy.fabs(Lz)
             #Jr requires some more work
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
+            axiR= numpy.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
             Jr= []
@@ -205,13 +204,13 @@ class actionAngleSpherical(actionAngle):
                     Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
                     Op.append(omegac(self._pot,axiR[ii],use_physical=False))
                     continue
-                Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+                Rmean= numpy.exp((numpy.log(rperi)+numpy.log(rap))/2.)
                 Or.append(self._calc_or(Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
                 Op.append(self._calc_op(Or[-1],Rmean,rperi,rap,E,L,fixed_quad,**kwargs))
-            Op= nu.array(Op)
+            Op= numpy.array(Op)
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
-            return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz)
+            return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz)
     
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -247,12 +246,12 @@ class actionAngleSpherical(actionAngle):
             vz= self._eval_vz
             phi= self._eval_phi
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
-            phi= nu.array([phi])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
+            phi= numpy.array([phi])
         if self._c: #pragma: no cover
             pass
         else:
@@ -261,13 +260,13 @@ class actionAngleSpherical(actionAngle):
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
             E= _evaluatePotentials(self._pot,R,z)+vR**2./2.+vT**2./2.+vz**2./2.
-            L= nu.sqrt(L2)
+            L= numpy.sqrt(L2)
             #Actions
             Jphi= Lz
-            Jz= L-nu.fabs(Lz)
+            Jz= L-numpy.fabs(Lz)
             #Jr requires some more work
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
+            axiR= numpy.sqrt(R**2.+z**2.)
             axivT= L/axiR #these are really spherical coords, called axi bc they go in actionAngleAxi
             axivR= (R*vR+z*vz)/axiR
             axivz= (z*vR-R*vz)/axiR
@@ -286,7 +285,7 @@ class actionAngleSpherical(actionAngle):
                 E, L= EL
                 Jr.append(self._calc_jr(rperi,rap,E,L,fixed_quad,**kwargs))
                 #Radial period
-                Rmean= m.exp((m.log(rperi)+m.log(rap))/2.)
+                Rmean= numpy.exp((numpy.log(rperi)+numpy.log(rap))/2.)
                 if Jr[-1] < 10.**-9.: #Circular orbit
                     Or.append(epifreq(self._pot,axiR[ii],use_physical=False))
                     Op.append(omegac(self._pot,axiR[ii],use_physical=False))
@@ -301,18 +300,18 @@ class actionAngleSpherical(actionAngle):
                                             Rmean,rperi,rap,E,L,Lz[ii],
                                             axivR[ii],axivz[ii],
                                             fixed_quad,**kwargs))
-            Op= nu.array(Op)
+            Op= numpy.array(Op)
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
             ap= copy.copy(asc)
-            ar= nu.array(ar)
-            az= nu.array(az)
+            ar= numpy.array(ar)
+            az= numpy.array(az)
             ap[vT < 0.]-= az[vT < 0.]
             ap[vT >= 0.]+= az[vT >= 0.]
-            ar= ar % (2.*nu.pi)
-            ap= ap % (2.*nu.pi)
-            az= az % (2.*nu.pi)
-            return (nu.array(Jr),Jphi,Jz,nu.array(Or),Op,Oz,
+            ar= ar % (2.*numpy.pi)
+            ap= ap % (2.*numpy.pi)
+            az= az % (2.*numpy.pi)
+            return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz,
                     ar,ap,az)
     
     def _EccZmaxRperiRap(self,*args,**kwargs):
@@ -344,11 +343,11 @@ class actionAngleSpherical(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if self._c: #pragma: no cover
             pass
         else:
@@ -356,9 +355,9 @@ class actionAngleSpherical(actionAngle):
             Lx= -z*vT
             Ly= z*vR-R*vz
             L2= Lx*Lx+Ly*Ly+Lz*Lz
-            L= nu.sqrt(L2)
+            L= numpy.sqrt(L2)
             #Set up an actionAngleAxi object for EL and rap/rperi calculations
-            axiR= nu.sqrt(R**2.+z**2.)
+            axiR= numpy.sqrt(R**2.+z**2.)
             axivT= L/axiR
             axivR= (R*vR+z*vz)/axiR
             rperi, rap= [], []
@@ -368,9 +367,9 @@ class actionAngleSpherical(actionAngle):
                 trperi,trap= axiaA.calcRapRperi()
                 rperi.append(trperi)
                 rap.append(trap)
-            rperi= nu.array(rperi)
-            rap= nu.array(rap)
-            return ((rap-rperi)/(rap+rperi),rap*nu.sqrt(1.-Lz**2./L2),
+            rperi= numpy.array(rperi)
+            rap= numpy.array(rap)
+            return ((rap-rperi)/(rap+rperi),rap*numpy.sqrt(1.-Lz**2./L2),
                     rperi,rap)
 
     def _calc_jr(self,rperi,rap,E,L,fixed_quad,**kwargs):
@@ -379,139 +378,139 @@ class actionAngleSpherical(actionAngle):
                                         rperi,rap,
                                         args=(E,L,self._2dpot),
                                         n=10,
-                                        **kwargs)[0]/nu.pi
+                                        **kwargs)[0]/numpy.pi
         else:
-            return (nu.array(integrate.quad(_JrSphericalIntegrand,
+            return (numpy.array(integrate.quad(_JrSphericalIntegrand,
                                             rperi,rap,
                                             args=(E,L,self._2dpot),
-                                            **kwargs)))[0]/nu.pi
+                                            **kwargs)))[0]/numpy.pi
     def _calc_or(self,Rmean,rperi,rap,E,L,fixed_quad,**kwargs):
         Tr= 0.
         if Rmean > rperi and not fixed_quad:
-            Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandSmall,
-                                               0.,m.sqrt(Rmean-rperi),
+            Tr+= numpy.array(integrate.quadrature(_TrSphericalIntegrandSmall,
+                                               0.,numpy.sqrt(Rmean-rperi),
                                                args=(E,L,self._2dpot,
                                                      rperi),
                                                **kwargs))[0]
         elif Rmean > rperi and fixed_quad:
             Tr+= integrate.fixed_quad(_TrSphericalIntegrandSmall,
-                                      0.,m.sqrt(Rmean-rperi),
+                                      0.,numpy.sqrt(Rmean-rperi),
                                       args=(E,L,self._2dpot,
                                             rperi),
                                       n=10,**kwargs)[0]
         if Rmean < rap and not fixed_quad:
-            Tr+= nu.array(integrate.quadrature(_TrSphericalIntegrandLarge,
-                                               0.,m.sqrt(rap-Rmean),
+            Tr+= numpy.array(integrate.quadrature(_TrSphericalIntegrandLarge,
+                                               0.,numpy.sqrt(rap-Rmean),
                                                args=(E,L,self._2dpot,
                                                      rap),
                                                **kwargs))[0]
         elif Rmean < rap and fixed_quad:
             Tr+= integrate.fixed_quad(_TrSphericalIntegrandLarge,
-                                      0.,m.sqrt(rap-Rmean),
+                                      0.,numpy.sqrt(rap-Rmean),
                                       args=(E,L,self._2dpot,
                                             rap),
                                       n=10,**kwargs)[0]
         Tr= 2.*Tr
-        return 2.*nu.pi/Tr
+        return 2.*numpy.pi/Tr
 
     def _calc_op(self,Or,Rmean,rperi,rap,E,L,fixed_quad,**kwargs):
         #Azimuthal period
         I= 0.
         if Rmean > rperi and not fixed_quad:
-            I+= nu.array(integrate.quadrature(_ISphericalIntegrandSmall,
-                                              0.,m.sqrt(Rmean-rperi),
+            I+= numpy.array(integrate.quadrature(_ISphericalIntegrandSmall,
+                                              0.,numpy.sqrt(Rmean-rperi),
                                               args=(E,L,self._2dpot,
                                                     rperi),
                                               **kwargs))[0]
         elif Rmean > rperi and fixed_quad:
             I+= integrate.fixed_quad(_ISphericalIntegrandSmall,
-                                     0.,m.sqrt(Rmean-rperi),
+                                     0.,numpy.sqrt(Rmean-rperi),
                                      args=(E,L,self._2dpot,rperi),
                                      n=10,**kwargs)[0]
         if Rmean < rap and not fixed_quad:
-            I+= nu.array(integrate.quadrature(_ISphericalIntegrandLarge,
-                                              0.,m.sqrt(rap-Rmean),
+            I+= numpy.array(integrate.quadrature(_ISphericalIntegrandLarge,
+                                              0.,numpy.sqrt(rap-Rmean),
                                               args=(E,L,self._2dpot,
                                                     rap),
                                               **kwargs))[0]
         elif Rmean < rap and fixed_quad:
             I+= integrate.fixed_quad(_ISphericalIntegrandLarge,
-                                     0.,m.sqrt(rap-Rmean),
+                                     0.,numpy.sqrt(rap-Rmean),
                                      args=(E,L,self._2dpot,rap),
                                      n=10,**kwargs)[0]
         I*= 2*L
-        return I*Or/2./nu.pi
+        return I*Or/2./numpy.pi
 
     def _calc_long_asc(self,z,R,axivz,phi,Lz,L):
-        i= nu.arccos(Lz/L)
-        sinu= z/R/nu.tan(i)
+        i= numpy.arccos(Lz/L)
+        sinu= z/R/numpy.tan(i)
         pindx= (sinu > 1.)*(sinu < (1.+10.**-7.))
         sinu[pindx]= 1.
         pindx= (sinu < -1.)*(sinu > (-1.-10.**-7.))
         sinu[pindx]= -1.           
-        u= nu.arcsin(sinu)
+        u= numpy.arcsin(sinu)
         vzindx= axivz > 0.
-        u[vzindx]= nu.pi-u[vzindx]
+        u[vzindx]= numpy.pi-u[vzindx]
         return phi-u
     
     def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
         if r < Rmean:
             if r > rperi and not fixed_quad:
                 wr= Or*integrate.quadrature(_TrSphericalIntegrandSmall,
-                                            0.,m.sqrt(r-rperi),
+                                            0.,numpy.sqrt(r-rperi),
                                             args=(E,L,self._2dpot,rperi),
                                             **kwargs)[0]
             elif r > rperi and fixed_quad:
                 wr= Or*integrate.fixed_quad(_TrSphericalIntegrandSmall,
-                                            0.,m.sqrt(r-rperi),
+                                            0.,numpy.sqrt(r-rperi),
                                             args=(E,L,self._2dpot,rperi),
                                             n=10,**kwargs)[0]
             else:
                 wr= 0.
-            if vr < 0.: wr= 2*m.pi-wr
+            if vr < 0.: wr= 2*numpy.pi-wr
         else:
             if r < rap and not fixed_quad:
                 wr= Or*integrate.quadrature(_TrSphericalIntegrandLarge,
-                                            0.,m.sqrt(rap-r),
+                                            0.,numpy.sqrt(rap-r),
                                             args=(E,L,self._2dpot,rap),
                                             **kwargs)[0]
             elif r < rap and fixed_quad:
                 wr= Or*integrate.fixed_quad(_TrSphericalIntegrandLarge,
-                                            0.,m.sqrt(rap-r),
+                                            0.,numpy.sqrt(rap-r),
                                             args=(E,L,self._2dpot,rap),
                                             n=10,**kwargs)[0]
             else:
-                wr= m.pi
+                wr= numpy.pi
             if vr < 0.:
-                wr= m.pi+wr
+                wr= numpy.pi+wr
             else:
-                wr= m.pi-wr
+                wr= numpy.pi-wr
         return wr
         
     def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,
                      fixed_quad,**kwargs):
         #First calculate psi
-        i= nu.arccos(Lz/L)
-        sinpsi= z/r/nu.sin(i)
+        i= numpy.arccos(Lz/L)
+        sinpsi= z/r/numpy.sin(i)
         if sinpsi > 1. and sinpsi < (1.+10.**-7.):
             sinpsi= 1.
         if sinpsi < -1. and sinpsi > (-1.-10.**-7.):
             sinpsi= -1.
-        psi= nu.arcsin(sinpsi)
-        if axivz > 0.: psi= nu.pi-psi
-        psi= psi % (2.*nu.pi)
+        psi= numpy.arcsin(sinpsi)
+        if axivz > 0.: psi= numpy.pi-psi
+        psi= psi % (2.*numpy.pi)
         #Calculate dSr/dL
-        dpsi= Op/Or*2.*nu.pi #this is the full I integral
+        dpsi= Op/Or*2.*numpy.pi #this is the full I integral
         if r < Rmean:
             if not fixed_quad:
                 wz= L*integrate.quadrature(_ISphericalIntegrandSmall,
-                                           0.,m.sqrt(r-rperi),
+                                           0.,numpy.sqrt(r-rperi),
                                            args=(E,L,self._2dpot,
                                                  rperi),
                                            **kwargs)[0]
             elif fixed_quad:
                 wz= L*integrate.fixed_quad(_ISphericalIntegrandSmall,
-                                           0.,m.sqrt(r-rperi),
+                                           0.,numpy.sqrt(r-rperi),
                                            args=(E,L,self._2dpot,
                                                  rperi),
                                            n=10,**kwargs)[0]
@@ -519,13 +518,13 @@ class actionAngleSpherical(actionAngle):
         else:
             if not fixed_quad:
                 wz= L*integrate.quadrature(_ISphericalIntegrandLarge,
-                                           0.,m.sqrt(rap-r),
+                                           0.,numpy.sqrt(rap-r),
                                            args=(E,L,self._2dpot,
                                                  rap),
                                            **kwargs)[0]
             elif fixed_quad:
                 wz= L*integrate.fixed_quad(_ISphericalIntegrandLarge,
-                                           0.,m.sqrt(rap-r),
+                                           0.,numpy.sqrt(rap-r),
                                            args=(E,L,self._2dpot,
                                                  rap),
                                            n=10,**kwargs)[0]
@@ -539,7 +538,7 @@ class actionAngleSpherical(actionAngle):
 
 def _JrSphericalIntegrand(r,E,L,pot):
     """The J_r integrand"""
-    return nu.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
+    return numpy.sqrt(2.*(E-potentialAxi(r,pot))-L**2./r**2.)
 
 def _TrSphericalIntegrandSmall(t,E,L,pot,rperi):
     r= rperi+t**2.#part of the transformation

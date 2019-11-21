@@ -87,13 +87,12 @@ class actionAngleStaeckelGrid(actionAngle):
         self._Lzmin= 0.01
         self._Lzs= numpy.linspace(self._Lzmin,
                                   self._Rmax\
-                                      *galpy.potential.vcirc(self._pot,
-                                                             self._Rmax),
+                                      *potential.vcirc(self._pot,self._Rmax),
                                   nLz)
         self._Lzmax= self._Lzs[-1]
         self._nLz= nLz
         #Calculate E_c(R=RL), energy of circular orbit
-        self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
+        self._RL= numpy.array([potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
         self._ERL= _evaluatePotentials(self._pot,self._RL,
@@ -104,7 +103,7 @@ class actionAngleStaeckelGrid(actionAngle):
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
         self._ERa= _evaluatePotentials(self._pot,self._Ramax,0.) +self._Lzs**2./2./self._Ramax**2.
-        #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
+        #self._EEsc= numpy.array([self._ERL[ii]+potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERa-self._ERamax)),k=3)

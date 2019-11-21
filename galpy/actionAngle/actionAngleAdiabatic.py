@@ -12,8 +12,7 @@
 ###############################################################################
 import copy
 import warnings
-import math as m
-import numpy as nu
+import numpy
 from ..util import galpyWarning
 from ..potential import MWPotential
 from ..potential.Potential import flatten as flatten_potential
@@ -105,11 +104,11 @@ class actionAngleAdiabatic(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
@@ -125,9 +124,9 @@ class actionAngleAdiabatic(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
             if len(R) > 1:
-                ojr= nu.zeros((len(R)))
-                olz= nu.zeros((len(R)))
-                ojz= nu.zeros((len(R)))
+                ojr= numpy.zeros((len(R)))
+                olz= numpy.zeros((len(R)))
+                ojz= numpy.zeros((len(R)))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
@@ -145,16 +144,16 @@ class actionAngleAdiabatic(actionAngle):
                                        gamma=self._gamma)
                 if kwargs.get('_justjr',False):
                     kwargs.pop('_justjr')
-                    return (aAAxi.JR(**kwargs),nu.nan,nu.nan)
+                    return (aAAxi.JR(**kwargs),numpy.nan,numpy.nan)
                 elif kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
-                    return (nu.atleast_1d(nu.nan),
-                            nu.atleast_1d(nu.nan),
-                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
+                    return (numpy.atleast_1d(numpy.nan),
+                            numpy.atleast_1d(numpy.nan),
+                            numpy.atleast_1d(aAAxi.Jz(**kwargs)))
                 else:
-                    return (nu.atleast_1d(aAAxi.JR(**kwargs)),
-                            nu.atleast_1d(aAAxi._R*aAAxi._vT),
-                            nu.atleast_1d(aAAxi.Jz(**kwargs)))
+                    return (numpy.atleast_1d(aAAxi.JR(**kwargs)),
+                            numpy.atleast_1d(aAAxi._R*aAAxi._vT),
+                            numpy.atleast_1d(aAAxi.Jz(**kwargs)))
 
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
@@ -186,18 +185,18 @@ class actionAngleAdiabatic(actionAngle):
             z= self._eval_z
             vz= self._eval_vz
         if isinstance(R,float):
-            R= nu.array([R])
-            vR= nu.array([vR])
-            vT= nu.array([vT])
-            z= nu.array([z])
-            vz= nu.array([vz])
+            R= numpy.array([R])
+            vR= numpy.array([vR])
+            vT= numpy.array([vT])
+            z= numpy.array([z])
+            vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
                 or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
                 and _check_c(self._pot):
             rperi,Rap,zmax, err= actionAngleAdiabatic_c.actionAngleRperiRapZmaxAdiabatic_c(\
                 self._pot,self._gamma,R,vR,vT,z,vz)
             if err == 0:
-                rap= nu.sqrt(Rap**2.+zmax**2.)
+                rap= numpy.sqrt(Rap**2.+zmax**2.)
                 ecc= (rap-rperi)/(rap+rperi)
                 return (ecc,zmax,rperi,rap)
             else: #pragma: no cover
@@ -207,10 +206,10 @@ class actionAngleAdiabatic(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
             if len(R) > 1:
-                oecc= nu.zeros((len(R)))
-                orperi= nu.zeros((len(R)))
-                orap= nu.zeros((len(R)))
-                ozmax= nu.zeros((len(R)))
+                oecc= numpy.zeros((len(R)))
+                orperi= numpy.zeros((len(R)))
+                orap= numpy.zeros((len(R)))
+                ozmax= numpy.zeros((len(R)))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tecc, tzmax, trperi,trap= self._EccZmaxRperiRap(\
@@ -230,10 +229,10 @@ class actionAngleAdiabatic(actionAngle):
                                        gamma=self._gamma)
                 rperi,Rap= aAAxi.calcRapRperi(**kwargs)
                 zmax= aAAxi.calczmax(**kwargs)
-                rap= nu.sqrt(Rap**2.+zmax**2.)
-                return (nu.atleast_1d((rap-rperi)/(rap+rperi)),
-                        nu.atleast_1d(zmax),nu.atleast_1d(rperi),
-                        nu.atleast_1d(rap))
+                rap= numpy.sqrt(Rap**2.+zmax**2.)
+                return (numpy.atleast_1d((rap-rperi)/(rap+rperi)),
+                        numpy.atleast_1d(zmax),numpy.atleast_1d(rperi),
+                        numpy.atleast_1d(rap))
 
     def calcRapRperi(self,*args,**kwargs):
         """
