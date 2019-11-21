@@ -1,12 +1,12 @@
+import os
 import sys
 import distutils.sysconfig as sysconfig
 import warnings
-import numpy as nu
-from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
-import os
+import numpy
+from scipy import integrate
 from galpy import potential
 from galpy.util import galpyWarning
 from ..util.multi import parallel_map
@@ -90,12 +90,12 @@ def _parse_pot(pot):
                 if stype == 'exp' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([3,0,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._Pot._amp,
                                      Sigma.get('h',1./3.)])
                 elif stype == 'expwhole' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([4,1,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._Pot._amp,
                                      Sigma.get('h',1./3.),
                                      Sigma.get('Rhole',0.5)])
                 hztype= hz.get('type','exp')
@@ -117,8 +117,8 @@ def _parse_pot(pot):
             pot_args.extend(pa)
             pot_args.append(p._R)
             pot_args.append(p._phi)
-    pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
-    pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+    pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
+    pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
 
 def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
@@ -146,7 +146,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
-    yo= nu.atleast_2d(yo)
+    yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
@@ -155,33 +155,33 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
         dt= -9999.99
 
     #Set up result array
-    result= nu.empty((nobj,len(t),2))
-    err= nu.zeros(nobj,dtype=nu.int32)
+    result= numpy.empty((nobj,len(t),2))
+    err= numpy.zeros(nobj,dtype=numpy.int32)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateLinearOrbit
     integrationFunc.argtypes= [ctypes.c_int,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS']]
-    yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
-    t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
-    err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
+    yo= numpy.require(yo,dtype=numpy.float64,requirements=['C','W'])
+    t= numpy.require(t,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
+    err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(ctypes.c_int(nobj),
@@ -197,12 +197,12 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     err,
                     ctypes.c_int(int_method_c))
     
-    if nu.any(err == -10): #pragma: no cover
+    if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
-    if f_cont[0]: yo= nu.asfortranarray(yo)
-    if f_cont[1]: t= nu.asfortranarray(t)
+    if f_cont[0]: yo= numpy.asfortranarray(yo)
+    if f_cont[1]: t= numpy.asfortranarray(t)
 
     if single_obj: return (result[0],err[0])
     else: return (result,err)
@@ -238,7 +238,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
         def integrate_for_map(vxvv):
             return symplecticode.leapfrog(lambda x,t=t: \
                                               _evaluatelinearForces(pot,x,t=t),
-                                          nu.array(vxvv),
+                                          numpy.array(vxvv),
                                           t,rtol=rtol)
     elif int_method.lower() == 'dop853':
         if rtol is None: rtol= 1e-8
@@ -250,13 +250,13 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
             return integrate.odeint(_linearEOM,vxvv,t,args=(pot,),rtol=rtol)
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integrateLinearOrbit_c(pot,nu.copy(vxvv),
+            return integrateLinearOrbit_c(pot,numpy.copy(vxvv),
                                           t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
-        return nu.atleast_3d(integrate_for_map(yo[0]).T).T, 0
+        return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0
     else:
-        return (nu.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
-                nu.zeros(len(yo)))
+        return (numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
+                numpy.zeros(len(yo)))
 
 def _linearEOM(y,t,pot):
     """

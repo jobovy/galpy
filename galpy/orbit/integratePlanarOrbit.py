@@ -1,12 +1,12 @@
+import os
 import sys
 import distutils.sysconfig as sysconfig
 import warnings
-import numpy as nu
-from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
-import os
+import numpy
+from scipy import integrate
 from galpy import potential
 from galpy.potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
@@ -202,12 +202,12 @@ def _parse_pot(pot):
             if not p._Pot._aligned:
                 pot_args.extend(list(p._Pot._rot.flatten()))
             else:
-                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+                pot_args.extend(list(numpy.eye(3).flatten())) # not actually used
             pot_args.append(p._Pot._glorder)
             pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-4.*nu.pi*p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
-                            /nu.sqrt(( 1.+(p._Pot._b2-1.)*p._Pot._glx[ii]**2.)
+            pot_args.extend([-4.*numpy.pi*p._Pot._glw[ii]*p._Pot._b*p._Pot._c\
+                            /numpy.sqrt(( 1.+(p._Pot._b2-1.)*p._Pot._glx[ii]**2.)
                                      *(1.+(p._Pot._c2-1.)*p._Pot._glx[ii]**2.))
                              for ii in range(p._Pot._glorder)])
         elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
@@ -237,12 +237,12 @@ def _parse_pot(pot):
                 if stype == 'exp' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([3,0,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._Pot._amp,
                                      Sigma.get('h',1./3.)])
                 elif stype == 'expwhole' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([4,1,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._Pot._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._Pot._amp,
                                      Sigma.get('h',1./3.),
                                      Sigma.get('Rhole',0.5)])
                 hztype= hz.get('type','exp')
@@ -326,8 +326,8 @@ def _parse_pot(pot):
             pot_args.extend(p._orb.y(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
-    pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
-    pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+    pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
+    pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
 
 def _parse_integrator(int_method):
@@ -353,13 +353,13 @@ def _parse_tol(rtol,atol):
     """Parse the tolerance keywords"""
     #Process atol and rtol
     if rtol is None:
-        rtol= -12.*nu.log(10.)
+        rtol= -12.*numpy.log(10.)
     else: #pragma: no cover
-        rtol= nu.log(rtol)
+        rtol= numpy.log(rtol)
     if atol is None:
-        atol= -12.*nu.log(10.)
+        atol= -12.*numpy.log(10.)
     else: #pragma: no cover
-        atol= nu.log(atol)
+        atol= numpy.log(atol)
     return (rtol,atol)
 
 def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
@@ -388,7 +388,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
-    yo= nu.atleast_2d(yo)
+    yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
@@ -397,33 +397,33 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
         dt= -9999.99
 
     #Set up result array
-    result= nu.empty((nobj,len(t),4))
-    err= nu.zeros(nobj,dtype=nu.int32)
+    result= numpy.empty((nobj,len(t),4))
+    err= numpy.zeros(nobj,dtype=numpy.int32)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integratePlanarOrbit
     integrationFunc.argtypes= [ctypes.c_int,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS']]
-    yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
-    t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
-    err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
+    yo= numpy.require(yo,dtype=numpy.float64,requirements=['C','W'])
+    t= numpy.require(t,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
+    err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(ctypes.c_int(nobj),
@@ -440,12 +440,12 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     err,
                     ctypes.c_int(int_method_c))
 
-    if nu.any(err == -10): #pragma: no cover
+    if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
-    if f_cont[0]: yo= nu.asfortranarray(yo)
-    if f_cont[1]: t= nu.asfortranarray(t)
+    if f_cont[0]: yo= numpy.asfortranarray(yo)
+    if f_cont[1]: t= numpy.asfortranarray(t)
 
     if single_obj: return (result[0],err[0])
     else: return (result,err)
@@ -479,34 +479,34 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     int_method_c= _parse_integrator(int_method)
     if dt is None: 
         dt= -9999.99
-    yo= nu.concatenate((yo,dyo))
+    yo= numpy.concatenate((yo,dyo))
 
     #Set up result array
-    result= nu.empty((len(t),8))
+    result= numpy.empty((len(t),8))
     err= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integratePlanarOrbit_dxdv
-    integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+    integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS']]
-    yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
-    t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
+    yo= numpy.require(yo,dtype=numpy.float64,requirements=['C','W'])
+    t= numpy.require(t,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(yo,
@@ -525,8 +525,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
-    if f_cont[0]: yo= nu.asfortranarray(yo)
-    if f_cont[1]: t= nu.asfortranarray(t)
+    if f_cont[0]: yo= numpy.asfortranarray(yo)
+    if f_cont[1]: t= numpy.asfortranarray(t)
 
     return (result,err.value)
 
@@ -560,27 +560,27 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
         if len(yo[0]) == 3:
             nophi= True
             #We hack this by putting in a dummy phi=0
-            yo= nu.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+            yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
     if int_method.lower() == 'leapfrog':
         if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             #go to the rectangular frame
-            this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[3]),
-                                 vxvv[0]*nu.sin(vxvv[3]),
-                                 vxvv[1]*nu.cos(vxvv[3])
-                                     -vxvv[2]*nu.sin(vxvv[3]),
-                                 vxvv[2]*nu.cos(vxvv[3])
-                                     +vxvv[1]*nu.sin(vxvv[3])])
+            this_vxvv= numpy.array([vxvv[0]*numpy.cos(vxvv[3]),
+                                 vxvv[0]*numpy.sin(vxvv[3]),
+                                 vxvv[1]*numpy.cos(vxvv[3])
+                                     -vxvv[2]*numpy.sin(vxvv[3]),
+                                 vxvv[2]*numpy.cos(vxvv[3])
+                                     +vxvv[1]*numpy.sin(vxvv[3])])
             #integrate
             tmp_out= symplecticode.leapfrog(_planarRectForce,this_vxvv,
                                             t,args=(pot,),rtol=rtol)
             #go back to the cylindrical frame
-            R= nu.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
-            phi= nu.arccos(tmp_out[:,0]/R)
-            phi[(tmp_out[:,1] < 0.)]= 2.*nu.pi-phi[(tmp_out[:,1] < 0.)]
-            vR= tmp_out[:,2]*nu.cos(phi)+tmp_out[:,3]*nu.sin(phi)
-            vT= tmp_out[:,3]*nu.cos(phi)-tmp_out[:,2]*nu.sin(phi)
-            out= nu.zeros((len(t),4))
+            R= numpy.sqrt(tmp_out[:,0]**2.+tmp_out[:,1]**2.)
+            phi= numpy.arccos(tmp_out[:,0]/R)
+            phi[(tmp_out[:,1] < 0.)]= 2.*numpy.pi-phi[(tmp_out[:,1] < 0.)]
+            vR= tmp_out[:,2]*numpy.cos(phi)+tmp_out[:,3]*numpy.sin(phi)
+            vT= tmp_out[:,3]*numpy.cos(phi)-tmp_out[:,2]*numpy.sin(phi)
+            out= numpy.zeros((len(t),4))
             out[:,0]= R
             out[:,1]= vR
             out[:,2]= vT
@@ -601,7 +601,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 init= [vxvv[0],vxvv[1]]
                 intOut= integrator(_planarREOM,init,t=t,args=(pot,l2),
                                    **extra_kwargs)
-                out= nu.zeros((len(t),3))
+                out= numpy.zeros((len(t),3))
                 out[:,0]= intOut[:,0]
                 out[:,1]= intOut[:,1]
                 out[:,2]= l/out[:,0]
@@ -615,7 +615,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 init= [vxvv[0],vxvv[1],vxvv[3],vphi]
                 intOut= integrator(_planarEOM,init,t=t,args=(pot,),
                                    **extra_kwargs)
-                out= nu.zeros((len(t),4))
+                out= numpy.zeros((len(t),4))
                 out[:,0]= intOut[:,0]
                 out[:,1]= intOut[:,1]
                 out[:,3]= intOut[:,2]
@@ -623,19 +623,19 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 #post-process to remove negative radii
                 neg_radii= (out[:,0] < 0.)
                 out[neg_radii,0]= -out[neg_radii,0]
-                out[neg_radii,3]+= nu.pi
+                out[neg_radii,3]+= numpy.pi
                 return out
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integratePlanarOrbit_c(pot,nu.copy(vxvv),
+            return integratePlanarOrbit_c(pot,numpy.copy(vxvv),
                                           t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= nu.atleast_3d(integrate_for_map(yo[0]).T).T
+        out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= nu.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
     if nophi:
         out= out[:,:,:3]
-    return out, nu.zeros(len(yo))
+    return out, numpy.zeros(len(yo))
 
 def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
                               rectIn,rectOut,
@@ -668,28 +668,28 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
        2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
     """
     #go to the rectangular frame
-    this_yo= nu.array([yo[:,0]*nu.cos(yo[:,3]),
-                         yo[:,0]*nu.sin(yo[:,3]),
-                         yo[:,1]*nu.cos(yo[:,3])
-                           -yo[:,2]*nu.sin(yo[:,3]),
-                         yo[:,2]*nu.cos(yo[:,3])
-                           +yo[:,1]*nu.sin(yo[:,3])]).T
+    this_yo= numpy.array([yo[:,0]*numpy.cos(yo[:,3]),
+                         yo[:,0]*numpy.sin(yo[:,3]),
+                         yo[:,1]*numpy.cos(yo[:,3])
+                           -yo[:,2]*numpy.sin(yo[:,3]),
+                         yo[:,2]*numpy.cos(yo[:,3])
+                           +yo[:,1]*numpy.sin(yo[:,3])]).T
     if not rectIn:
-        this_dyo= nu.array([nu.cos(yo[:,3])*dyo[:,0]
-                              -yo[:,0]*nu.sin(yo[:,3])*dyo[:,3],
-                            nu.sin(yo[:,3])*dyo[:,0]
-                              +yo[:,0]*nu.cos(yo[:,3])*dyo[:,3],
-                            -(yo[:,1]*nu.sin(yo[:,3])
-                              +yo[:,2]*nu.cos(yo[:,3]))*dyo[:,3]
-                              +nu.cos(yo[:,3])*dyo[:,1]
-                              -nu.sin(yo[:,3])*dyo[:,2],
-                            (yo[:,1]*nu.cos(yo[:,3])
-                              -yo[:,2]*nu.sin(yo[:,3]))*dyo[:,3]
-                              +nu.sin(yo[:,3])*dyo[:,1]
-                              +nu.cos(yo[:,3])*dyo[:,2]]).T
+        this_dyo= numpy.array([numpy.cos(yo[:,3])*dyo[:,0]
+                              -yo[:,0]*numpy.sin(yo[:,3])*dyo[:,3],
+                            numpy.sin(yo[:,3])*dyo[:,0]
+                              +yo[:,0]*numpy.cos(yo[:,3])*dyo[:,3],
+                            -(yo[:,1]*numpy.sin(yo[:,3])
+                              +yo[:,2]*numpy.cos(yo[:,3]))*dyo[:,3]
+                              +numpy.cos(yo[:,3])*dyo[:,1]
+                              -numpy.sin(yo[:,3])*dyo[:,2],
+                            (yo[:,1]*numpy.cos(yo[:,3])
+                              -yo[:,2]*numpy.sin(yo[:,3]))*dyo[:,3]
+                              +numpy.sin(yo[:,3])*dyo[:,1]
+                              +numpy.cos(yo[:,3])*dyo[:,2]]).T
     else:
         this_dyo= dyo
-    this_yo= nu.hstack((this_yo,this_dyo))
+    this_yo= numpy.hstack((this_yo,this_dyo))
     if int_method.lower() == 'dop853' or int_method.lower() == 'odeint':
         if rtol is None: rtol= 1e-8
         if int_method.lower() == 'dop853':
@@ -703,23 +703,23 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
                               **extra_kwargs)
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integratePlanarOrbit_dxdv_c(pot,nu.copy(vxvv[:4]),
-                                               nu.copy(vxvv[4:]),
+            return integratePlanarOrbit_dxdv_c(pot,numpy.copy(vxvv[:4]),
+                                               numpy.copy(vxvv[4:]),
                                                t,int_method,dt=dt,
                                                rtol=rtol,atol=atol)[0]
     if len(this_yo) == 1: # Can't map a single value...
-        out= nu.atleast_3d(integrate_for_map(this_yo[0]).T).T
+        out= numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
     else:
-        out= nu.array((parallel_map(integrate_for_map,this_yo,
+        out= numpy.array((parallel_map(integrate_for_map,this_yo,
                                     numcores=numcores)))
     #go back to the cylindrical frame
-    R= nu.sqrt(out[...,0]**2.+out[...,1]**2.)
-    phi= nu.arccos(out[...,0]/R)
-    phi[(out[...,1] < 0.)]= 2.*nu.pi-phi[(out[...,1] < 0.)]
-    vR= out[...,2]*nu.cos(phi)+out[...,3]*nu.sin(phi)
-    vT= out[...,3]*nu.cos(phi)-out[...,2]*nu.sin(phi)
-    cp= nu.cos(phi)
-    sp= nu.sin(phi)
+    R= numpy.sqrt(out[...,0]**2.+out[...,1]**2.)
+    phi= numpy.arccos(out[...,0]/R)
+    phi[(out[...,1] < 0.)]= 2.*numpy.pi-phi[(out[...,1] < 0.)]
+    vR= out[...,2]*numpy.cos(phi)+out[...,3]*numpy.sin(phi)
+    vT= out[...,3]*numpy.cos(phi)-out[...,2]*numpy.sin(phi)
+    cp= numpy.cos(phi)
+    sp= numpy.sin(phi)
     out[...,0]= R
     out[...,1]= vR
     out[...,2]= vT
@@ -735,7 +735,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
         out[...,7]= dphi
         out[...,5]= dvR
         out[...,6]= dvT
-    return out, nu.zeros(len(yo))
+    return out, numpy.zeros(len(yo))
 
 def _planarREOM(y,t,pot,l2):
     """
@@ -798,11 +798,11 @@ def _planarEOM_dxdv(x,t,pot):
        2011-10-18 - Written - Bovy (IAS)
     """
     #x is rectangular so calculate R and phi
-    R= nu.sqrt(x[0]**2.+x[1]**2.)
-    phi= nu.arccos(x[0]/R)
+    R= numpy.sqrt(x[0]**2.+x[1]**2.)
+    phi= numpy.arccos(x[0]/R)
     sinphi= x[1]/R
     cosphi= x[0]/R
-    if x[1] < 0.: phi= 2.*nu.pi-phi
+    if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
     phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
@@ -830,7 +830,7 @@ def _planarEOM_dxdv(x,t,pot):
            -2.*sinphi*cosphi/R*Rphideriv\
            +cosphi**2./R*Rforce\
            -cosphi**2./R**2.*phi2deriv
-    return nu.array([x[2],x[3],
+    return numpy.array([x[2],x[3],
                      cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      x[6],x[7],
@@ -853,14 +853,14 @@ def _planarRectForce(x,pot,t=0.):
        2011-02-02 - Written - Bovy (NYU)
     """
     #x is rectangular so calculate R and phi
-    R= nu.sqrt(x[0]**2.+x[1]**2.)
-    phi= nu.arccos(x[0]/R)
+    R= numpy.sqrt(x[0]**2.+x[1]**2.)
+    phi= numpy.arccos(x[0]/R)
     sinphi= x[1]/R
     cosphi= x[0]/R
-    if x[1] < 0.: phi= 2.*nu.pi-phi
+    if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
     phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
+    return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
 

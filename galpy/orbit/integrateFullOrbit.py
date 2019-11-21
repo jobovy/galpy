@@ -1,12 +1,12 @@
+import os
 import sys
 import distutils.sysconfig as sysconfig
 import warnings
-import numpy as nu
-from scipy import integrate
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
-import os
+import numpy
+from scipy import integrate
 from galpy import potential
 from galpy.util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
@@ -105,19 +105,19 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             else: # pragma: no cover
                 warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the potential itself; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpPot=True",
                       galpyWarning)
-                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+                pot_args.extend(list(numpy.ones(len(p._rgrid)*len(p._zgrid))))
             if hasattr(p,'_rforceGrid_splinecoeffs'):
                 pot_args.extend([x for x in p._rforceGrid_splinecoeffs.flatten(order='C')])
             else: # pragma: no cover
                 warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the Rforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpRforce=True",
                       galpyWarning)
-                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+                pot_args.extend(list(numpy.ones(len(p._rgrid)*len(p._zgrid))))
             if hasattr(p,'_zforceGrid_splinecoeffs'):
                 pot_args.extend([x for x in p._zforceGrid_splinecoeffs.flatten(order='C')])
             else: # pragma: no cover
                 warnings.warn("You are attempting to use the C implementation of interpRZPotential, but have not interpolated the zforce; if you think this is needed for what you want to do, initialize the interpRZPotential instance with interpzforce=True",
                       galpyWarning)
-                pot_args.extend(list(nu.ones(len(p._rgrid)*len(p._zgrid))))
+                pot_args.extend(list(numpy.ones(len(p._rgrid)*len(p._zgrid))))
             pot_args.extend([p._amp,int(p._logR)])
         elif isinstance(p,potential.IsochronePotential):
             pot_type.append(14)
@@ -170,12 +170,12 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             if not p._aligned:
                 pot_args.extend(list(p._rot.flatten()))
             else:
-                pot_args.extend(list(nu.eye(3).flatten())) # not actually used
+                pot_args.extend(list(numpy.eye(3).flatten())) # not actually used
             pot_args.append(p._glorder)
             pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
             # this adds some common factors to the integration weights
-            pot_args.extend([-4.*nu.pi*p._glw[ii]*p._b*p._c\
-                                  /nu.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
+            pot_args.extend([-4.*numpy.pi*p._glw[ii]*p._b*p._c\
+                                  /numpy.sqrt(( 1.+(p._b2-1.)*p._glx[ii]**2.)
                                            *(1.+(p._c2-1.)*p._glx[ii]**2.))
                              for ii in range(p._glorder)])
         elif isinstance(p,potential.SCFPotential):
@@ -202,12 +202,12 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                 if stype == 'exp' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([3,0,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._amp,
                                      Sigma.get('h',1./3.)])
                 elif stype == 'expwhole' \
                         or (stype == 'exp' and 'Rhole' in Sigma):
                     pot_args.extend([4,1,
-                                     4.*nu.pi*Sigma.get('amp',1.)*p._amp,
+                                     4.*numpy.pi*Sigma.get('amp',1.)*p._amp,
                                      Sigma.get('h',1./3.),
                                      Sigma.get('Rhole',0.5)])
                 hztype= hz.get('type','exp')
@@ -275,8 +275,8 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend(p._orb.z(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
-    pot_type= nu.array(pot_type,dtype=nu.int32,order='C')
-    pot_args= nu.array(pot_args,dtype=nu.float64,order='C')
+    pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
+    pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
 
 def _parse_scf_pot(p,extra_amp=1.):
@@ -315,7 +315,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
-    yo= nu.atleast_2d(yo)
+    yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
@@ -324,33 +324,33 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
         dt= -9999.99
 
     #Set up result array
-    result= nu.empty((nobj,len(t),6))
-    err= nu.zeros(nobj,dtype=nu.int32)
+    result= numpy.empty((nobj,len(t),6))
+    err= numpy.zeros(nobj,dtype=numpy.int32)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateFullOrbit
     integrationFunc.argtypes= [ctypes.c_int,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS']]
-    yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
-    t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
-    err= nu.require(err,dtype=nu.int32,requirements=['C','W'])
+    yo= numpy.require(yo,dtype=numpy.float64,requirements=['C','W'])
+    t= numpy.require(t,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
+    err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(ctypes.c_int(nobj),
@@ -367,12 +367,12 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     err,
                     ctypes.c_int(int_method_c))
     
-    if nu.any(err == -10): #pragma: no cover
+    if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
-    if f_cont[0]: yo= nu.asfortranarray(yo)
-    if f_cont[1]: t= nu.asfortranarray(t)
+    if f_cont[0]: yo= numpy.asfortranarray(yo)
+    if f_cont[1]: t= numpy.asfortranarray(t)
 
     if single_obj: return (result[0],err[0])
     else: return (result,err)
@@ -402,33 +402,33 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    yo= nu.concatenate((yo,dyo))
+    yo= numpy.concatenate((yo,dyo))
 
     #Set up result array
-    result= nu.empty((len(t),12))
+    result= numpy.empty((len(t),12))
     err= ctypes.c_int(0)
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateFullOrbit_dxdv
-    integrationFunc.argtypes= [ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+    integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,                             
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
-                               ndpointer(dtype=nu.int32,flags=ndarrayFlags),
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_double,
                                ctypes.c_double,
-                               ndpointer(dtype=nu.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.POINTER(ctypes.c_int),
                                ctypes.c_int]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
              t.flags['F_CONTIGUOUS']]
-    yo= nu.require(yo,dtype=nu.float64,requirements=['C','W'])
-    t= nu.require(t,dtype=nu.float64,requirements=['C','W'])
-    result= nu.require(result,dtype=nu.float64,requirements=['C','W'])
+    yo= numpy.require(yo,dtype=numpy.float64,requirements=['C','W'])
+    t= numpy.require(t,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
 
     #Run the C code
     integrationFunc(yo,
@@ -446,8 +446,8 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
     #Reset input arrays
-    if f_cont[0]: yo= nu.asfortranarray(yo)
-    if f_cont[1]: t= nu.asfortranarray(t)
+    if f_cont[0]: yo= numpy.asfortranarray(yo)
+    if f_cont[1]: t= numpy.asfortranarray(t)
 
     return (result,err.value)
 
@@ -481,28 +481,28 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
         if len(yo[0]) == 5:
             nophi= True
             #We hack this by putting in a dummy phi=0
-            yo= nu.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+            yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
     if int_method.lower() == 'leapfrog':
         if rtol is None: rtol= 1e-8
         def integrate_for_map(vxvv):
             #go to the rectangular frame
-            this_vxvv= nu.array([vxvv[0]*nu.cos(vxvv[5]),
-                                 vxvv[0]*nu.sin(vxvv[5]),
+            this_vxvv= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
+                                 vxvv[0]*numpy.sin(vxvv[5]),
                                  vxvv[3],
-                                 vxvv[1]*nu.cos(vxvv[5])
-                                     -vxvv[2]*nu.sin(vxvv[5]),
-                                 vxvv[2]*nu.cos(vxvv[5])
-                                     +vxvv[1]*nu.sin(vxvv[5]),
+                                 vxvv[1]*numpy.cos(vxvv[5])
+                                     -vxvv[2]*numpy.sin(vxvv[5]),
+                                 vxvv[2]*numpy.cos(vxvv[5])
+                                     +vxvv[1]*numpy.sin(vxvv[5]),
                                  vxvv[4]])
             #integrate
             out= symplecticode.leapfrog(_rectForce,this_vxvv,
                                         t,args=(pot,),rtol=rtol)
             #go back to the cylindrical frame
-            R= nu.sqrt(out[:,0]**2.+out[:,1]**2.)
-            phi= nu.arccos(out[:,0]/R)
-            phi[(out[:,1] < 0.)]= 2.*nu.pi-phi[(out[:,1] < 0.)]
-            vR= out[:,3]*nu.cos(phi)+out[:,4]*nu.sin(phi)
-            vT= out[:,4]*nu.cos(phi)-out[:,3]*nu.sin(phi)
+            R= numpy.sqrt(out[:,0]**2.+out[:,1]**2.)
+            phi= numpy.arccos(out[:,0]/R)
+            phi[(out[:,1] < 0.)]= 2.*numpy.pi-phi[(out[:,1] < 0.)]
+            vR= out[:,3]*numpy.cos(phi)+out[:,4]*numpy.sin(phi)
+            vT= out[:,4]*numpy.cos(phi)-out[:,3]*numpy.sin(phi)
             out[:,3]= out[:,2]
             out[:,4]= out[:,5]
             out[:,0]= R
@@ -525,7 +525,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 init= [vxvv[0],vxvv[1],vxvv[3],vxvv[4]]
                 intOut= integrator(_RZEOM,init,t=t,args=(pot,l2),
                                    **extra_kwargs)
-                out= nu.zeros((len(t),5))
+                out= numpy.zeros((len(t),5))
                 out[:,0]= intOut[:,0]
                 out[:,1]= intOut[:,1]
                 out[:,3]= intOut[:,2]
@@ -540,7 +540,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 vphi= vxvv[2]/vxvv[0]
                 init= [vxvv[0],vxvv[1],vxvv[5],vphi,vxvv[3],vxvv[4]]
                 intOut= integrator(_EOM,init,t=t,args=(pot,))
-                out= nu.zeros((len(t),6))
+                out= numpy.zeros((len(t),6))
                 out[:,0]= intOut[:,0]
                 out[:,1]= intOut[:,1]
                 out[:,2]= out[:,0]*intOut[:,3]
@@ -550,19 +550,19 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
                 #post-process to remove negative radii
                 neg_radii= (out[:,0] < 0.)
                 out[neg_radii,0]= -out[neg_radii,0]
-                out[neg_radii,3]+= nu.pi
+                out[neg_radii,3]+= numpy.pi
                 return out
     else: # Assume we are forcing parallel_mapping of a C integrator...
         def integrate_for_map(vxvv):
-            return integrateFullOrbit_c(pot,nu.copy(vxvv),
+            return integrateFullOrbit_c(pot,numpy.copy(vxvv),
                                         t,int_method,dt=dt)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= nu.atleast_3d(integrate_for_map(yo[0]).T).T
+        out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= nu.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
     if nophi:
         out= out[:,:,:5]
-    return out, nu.zeros(len(yo))
+    return out, numpy.zeros(len(yo))
 
 def _RZEOM(y,t,pot,l2):
     """
@@ -630,15 +630,15 @@ def _rectForce(x,pot,t=0.):
        2011-02-02 - Written - Bovy (NYU)
     """
     #x is rectangular so calculate R and phi
-    R= nu.sqrt(x[0]**2.+x[1]**2.)
-    phi= nu.arccos(x[0]/R)
+    R= numpy.sqrt(x[0]**2.+x[1]**2.)
+    phi= numpy.arccos(x[0]/R)
     sinphi= x[1]/R
     cosphi= x[0]/R
-    if x[1] < 0.: phi= 2.*nu.pi-phi
+    if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
     phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
-    return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
+    return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
 
