@@ -21,31 +21,31 @@ import copy
 import re
 import os, os.path
 import pickle
-import numpy as nu
-import scipy as sc
+import numpy
+import scipy
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from scipy import stats
 from scipy import optimize
-from .surfaceSigmaProfile import *
-from galpy.orbit import Orbit
-from galpy.util.bovy_ars import bovy_ars
-from galpy.util import save_pickles
-from galpy.util.bovy_conversion import physical_conversion, \
+from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
+from ..orbit import Orbit
+from ..util.bovy_ars import bovy_ars
+from ..util import save_pickles
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
-from galpy.potential import PowerSphericalPotential
-from galpy.actionAngle import actionAngleAdiabatic, actionAngleAxi
+from ..potential import PowerSphericalPotential
+from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
 from .df import df, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 #scipy version
 try:
-    sversion=re.split(r'\.',sc.__version__)
+    sversion=re.split(r'\.',scipy.__version__)
     _SCIPYVERSION=float(sversion[0])+float(sversion[1])/10.
 except: #pragma: no cover
     raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
-_DEGTORAD= nu.pi/180.
+_DEGTORAD= numpy.pi/180.
 class diskdf(df):
     """Class that represents a disk DF"""
     def __init__(self,dftype='dehnen',
@@ -92,7 +92,7 @@ class diskdf(df):
                 profileParams= newprofileParams
             self._surfaceSigmaProfile= surfaceSigma(profileParams)
         self._beta= beta
-        self._gamma= sc.sqrt(2./(1.+self._beta))
+        self._gamma= numpy.sqrt(2./(1.+self._beta))
         if correct or 'corrections' in kwargs or 'rmax' in kwargs \
                 or 'niter' in kwargs or 'npoints' in kwargs:
             self._correct= True
@@ -161,38 +161,38 @@ class diskdf(df):
                 elif kwargs.pop('marginalizeVlos',False):
                     return self._call_marginalizevlos(args[0],**kwargs)
                 else:
-                    return sc.real(self.eval(*vRvTRToEL(\
+                    return numpy.real(self.eval(*vRvTRToEL(\
                                 args[0].vR(use_physical=False),
                                 args[0].vT(use_physical=False),
                                 args[0].R(use_physical=False),
                                 self._beta,self._dftype)))
             else:
                 no= args[0](args[1])
-                return sc.real(self.eval(*vRvTRToEL(no.vR(use_physical=False),
+                return numpy.real(self.eval(*vRvTRToEL(no.vR(use_physical=False),
                                                     no.vT(use_physical=False),
                                                     no.R(use_physical=False),
                                                     self._beta,
                                                     self._dftype)))
         elif isinstance(args[0],list) \
                  and isinstance(args[0][0],Orbit):
-            if nu.any([len(no) > 1 for no in args[0]]):
+            if numpy.any([len(no) > 1 for no in args[0]]):
                 raise RuntimeError('Only single-object Orbit instances can be passed to DF instances at this point') #pragma: no cover
             #Grab all of the vR, vT, and R
-            vR= nu.array([o.vR(use_physical=False) for o in args[0]])
-            vT= nu.array([o.vT(use_physical=False) for o in args[0]])
-            R= nu.array([o.R(use_physical=False) for o in args[0]])
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
-                                                self._dftype)))
-        elif isinstance(args[0],nu.ndarray) and \
+            vR= numpy.array([o.vR(use_physical=False) for o in args[0]])
+            vT= numpy.array([o.vT(use_physical=False) for o in args[0]])
+            R= numpy.array([o.R(use_physical=False) for o in args[0]])
+            return numpy.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                   self._dftype)))
+        elif isinstance(args[0],numpy.ndarray) and \
                 not (hasattr(args[0],'isscalar') and args[0].isscalar):
             #Grab all of the vR, vT, and R
             vR= args[0][1]
             vT= args[0][2]
             R= args[0][0]
-            return sc.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
-                                                self._dftype)))
+            return numpy.real(self.eval(*vRvTRToEL(vR,vT,R,self._beta,
+                                                   self._dftype)))
         else:
-            return sc.real(self.eval(*args))
+            return numpy.real(self.eval(*args))
 
     def _call_marginalizevperp(self,o,**kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
@@ -203,7 +203,7 @@ class diskdf(df):
         phi= o.phi(use_physical=False)
         #Get local circular velocity, projected onto the los
         vcirc= R**self._beta
-        vcirclos= vcirc*nu.sin(phi+l)
+        vcirclos= vcirc*numpy.sin(phi+l)
         #Marginalize
         alphalos= phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
@@ -213,31 +213,31 @@ class diskdf(df):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         sigmaR2= self.targetSigma2(R,use_physical=False)
-        sigmaR1= sc.sqrt(sigmaR2)
+        sigmaR1= numpy.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if nu.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if nu.fabs(nu.sin(alphalos)) < nu.sqrt(1./2.):
-            cosalphalos= nu.cos(alphalos)
-            tanalphalos= nu.tan(alphalos)            
+        if numpy.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if numpy.fabs(numpy.sin(alphalos)) < numpy.sqrt(1./2.):
+            cosalphalos= numpy.cos(alphalos)
+            tanalphalos= numpy.tan(alphalos)            
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
                                   -self._gamma*va/sigmaR1+nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/nu.fabs(cosalphalos)\
+                                  **kwargs)[0]/numpy.fabs(cosalphalos)\
                                   *sigmaR1/self._gamma
         else:
-            sinalphalos= nu.sin(alphalos)
-            cotalphalos= 1./nu.tan(alphalos)
+            sinalphalos= numpy.sin(alphalos)
+            cotalphalos= 1./numpy.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1),
-                                  **kwargs)[0]/nu.fabs(sinalphalos)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(sinalphalos)*sigmaR1
         
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
@@ -249,9 +249,9 @@ class diskdf(df):
         #Get local circular velocity, projected onto the perpendicular 
         #direction
         vcirc= R**self._beta
-        vcircperp= vcirc*nu.cos(phi+l)
+        vcircperp= vcirc*numpy.cos(phi+l)
         #Marginalize
-        alphaperp= nu.pi/2.+phi+l
+        alphaperp= numpy.pi/2.+phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
                                           kwargs['nsigma'] is None):
             nsigma= _NSIGMA
@@ -259,15 +259,15 @@ class diskdf(df):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         sigmaR2= self.targetSigma2(R,use_physical=False)
-        sigmaR1= sc.sqrt(sigmaR2)
+        sigmaR1= numpy.sqrt(sigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if nu.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
-        if nu.fabs(nu.sin(alphaperp)) < nu.sqrt(1./2.):
-            cosalphaperp= nu.cos(alphaperp)
-            tanalphaperp= nu.tan(alphaperp)
+        if numpy.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if numpy.fabs(numpy.sin(alphaperp)) < numpy.sqrt(1./2.):
+            cosalphaperp= numpy.cos(alphaperp)
+            tanalphaperp= numpy.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
@@ -275,17 +275,17 @@ class diskdf(df):
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1/self._gamma),
-                                  **kwargs)[0]/nu.fabs(cosalphaperp)\
+                                  **kwargs)[0]/numpy.fabs(cosalphaperp)\
                                   *sigmaR1/self._gamma
         else:
-            sinalphaperp= nu.sin(alphaperp)
-            cotalphaperp= 1./nu.tan(alphaperp)
+            sinalphaperp= numpy.sin(alphaperp)
+            cotalphaperp= 1./numpy.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1),
-                                  **kwargs)[0]/nu.fabs(sinalphaperp)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(sinalphaperp)*sigmaR1
         
     @potential_physical_input
     @physical_conversion('velocity2',pop=True)        
@@ -387,7 +387,7 @@ class diskdf(df):
         R, phi= _dlToRphi(d,lrad)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +nu.log(d)
+                +numpy.log(d)
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *d
@@ -505,16 +505,16 @@ class diskdf(df):
         out= []
         while len(out) < n:
             #sample
-            prop= nu.random.random()*maxd
+            prop= numpy.random.random()*maxd
             if target:
                 surfmassatprop= self.targetSurfacemassLOS(prop,l,deg=False,
                                                           use_physical=False)
             else:
                 surfmassatprop= self.surfacemassLOS(prop,l,deg=False,
                                                     use_physical=False)
-            if surfmassatprop/maxSM > nu.random.random(): #accept
+            if surfmassatprop/maxSM > numpy.random.random(): #accept
                 out.append(prop)
-        return nu.array(out)
+        return numpy.array(out)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
@@ -560,18 +560,18 @@ class diskdf(df):
             nsigma= _NSIGMA
         out= []
         if target:
-            sigma= nu.sqrt(self.targetSigma2(R,use_physical=False))
+            sigma= numpy.sqrt(self.targetSigma2(R,use_physical=False))
         else:
-            sigma= nu.sqrt(self.sigma2(R,use_physical=False))
+            sigma= numpy.sqrt(self.sigma2(R,use_physical=False))
         while len(out) < n:
             #sample
-            vrg, vtg= nu.random.normal(), nu.random.normal()
+            vrg, vtg= numpy.random.normal(), numpy.random.normal()
             propvR= vrg*nsigma*sigma
             propvT= vtg*nsigma*sigma/self._gamma+maxVT
             VDatprop= self(Orbit([R,propvR,propvT]))
-            if VDatprop/maxVD > nu.random.uniform()*nu.exp(-0.5*(vrg**2.+vtg**2.)): #accept
-                out.append(sc.array([propvR,propvT]))
-        return nu.array(out)
+            if VDatprop/maxVD > numpy.random.uniform()*numpy.exp(-0.5*(vrg**2.+vtg**2.)): #accept
+                out.append(numpy.array([propvR,propvT]))
+        return numpy.array(out)
 
     def sampleLOS(self,los,n=1,deg=True,maxd=None,nsigma=None,
                   targetSurfmass=True,targetSigma2=True):
@@ -698,25 +698,25 @@ class diskdf(df):
             nsigma= _NSIGMA
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
+        sigmaR1= numpy.sqrt(sigmaR2)
+        logsigmaR2= numpy.log(sigmaR2)
         if relative:
             norm= 1.
         else:
-            norm= sc.exp(logSigmaR)
+            norm= numpy.exp(logSigmaR)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if nu.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
+        if numpy.fabs(va) > sigmaR1: va = 0.#To avoid craziness near the center
         if romberg:
-            return sc.real(bovy_dblquad(_surfaceIntegrand,
+            return numpy.real(bovy_dblquad(_surfaceIntegrand,
                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                         lambda x: 0., lambda x: nsigma,
                                         [R,self,logSigmaR,logsigmaR2,sigmaR1,
                                          self._gamma],
-                                        tol=10.**-8)/sc.pi*norm)
+                                        tol=10.**-8)/numpy.pi*norm)
         else:
             return integrate.dblquad(_surfaceIntegrand,
                                      self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -724,7 +724,7 @@ class diskdf(df):
                                      lambda x: 0., lambda x: nsigma,
                                      (R,self,logSigmaR,logsigmaR2,sigmaR1,
                                       self._gamma),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
+                                     epsrel=_EPSREL)[0]/numpy.pi*norm
 
     @potential_physical_input
     @physical_conversion('velocity2surfacedensity',pop=True)
@@ -765,25 +765,25 @@ class diskdf(df):
             nsigma= _NSIGMA
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
+        sigmaR1= numpy.sqrt(sigmaR2)
+        logsigmaR2= numpy.log(sigmaR2)
         if relative:
             norm= 1.
         else:
-            norm= sc.exp(logSigmaR+logsigmaR2)
+            norm= numpy.exp(logSigmaR+logsigmaR2)
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if nu.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if numpy.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if romberg:
-            return sc.real(bovy_dblquad(_sigma2surfaceIntegrand,
+            return numpy.real(bovy_dblquad(_sigma2surfaceIntegrand,
                                         self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
                                         self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                         lambda x: 0., lambda x: nsigma,
                                         [R,self,logSigmaR,logsigmaR2,sigmaR1,
                                          self._gamma],
-                                        tol=10.**-8)/sc.pi*norm)
+                                        tol=10.**-8)/numpy.pi*norm)
         else:
             return integrate.dblquad(_sigma2surfaceIntegrand,
                                      self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -791,7 +791,7 @@ class diskdf(df):
                                      lambda x: 0., lambda x: nsigma,
                                      (R,self,logSigmaR,logsigmaR2,sigmaR1,
                                       self._gamma),
-                                     epsrel=_EPSREL)[0]/sc.pi*norm
+                                     epsrel=_EPSREL)[0]/numpy.pi*norm
 
     def vmomentsurfacemass(self,*args,**kwargs):
         """
@@ -864,26 +864,26 @@ class diskdf(df):
             nsigma= _NSIGMA
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
-        sigmaR1= sc.sqrt(sigmaR2)
-        logsigmaR2= sc.log(sigmaR2)
+        sigmaR1= numpy.sqrt(sigmaR2)
+        logsigmaR2= numpy.log(sigmaR2)
         if relative:
             norm= 1.
         else:
-            norm= sc.exp(logSigmaR+logsigmaR2*(n+m)/2.)/self._gamma**m
+            norm= numpy.exp(logSigmaR+logsigmaR2*(n+m)/2.)/self._gamma**m
         #Use the asymmetric drift equation to estimate va
         va= sigmaR2/2./R**self._beta*(1./self._gamma**2.-1.
                                       -R*self._surfaceSigmaProfile.surfacemassDerivative(R,log=True)
                                       -R*self._surfaceSigmaProfile.sigma2Derivative(R,log=True))
-        if nu.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
+        if numpy.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if deriv is None:
             if romberg:
-                return sc.real(bovy_dblquad(_vmomentsurfaceIntegrand,
+                return numpy.real(bovy_dblquad(_vmomentsurfaceIntegrand,
                                             self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
                                             self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                             lambda x: -nsigma, lambda x: nsigma,
                                             [R,self,logSigmaR,logsigmaR2,sigmaR1,
                                              self._gamma,n,m],
-                                            tol=10.**-8)/sc.pi*norm/2.)
+                                            tol=10.**-8)/numpy.pi*norm/2.)
             else:
                 return integrate.dblquad(_vmomentsurfaceIntegrand,
                                          self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -891,16 +891,16 @@ class diskdf(df):
                                          lambda x: -nsigma, lambda x: nsigma,
                                          (R,self,logSigmaR,logsigmaR2,sigmaR1,
                                           self._gamma,n,m),
-                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
+                                         epsrel=_EPSREL)[0]/numpy.pi*norm/2.
         else:
             if romberg:
-                return sc.real(bovy_dblquad(_vmomentderivsurfaceIntegrand,
+                return numpy.real(bovy_dblquad(_vmomentderivsurfaceIntegrand,
                                             self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
                                             self._gamma*(R**self._beta-va)/sigmaR1+nsigma,
                                             lambda x: -nsigma, lambda x: nsigma,
                                             [R,self,logSigmaR,logsigmaR2,sigmaR1,
                                              self._gamma,n,m,deriv],
-                                            tol=10.**-8)/sc.pi*norm/2.)
+                                            tol=10.**-8)/numpy.pi*norm/2.)
             else:
                 return integrate.dblquad(_vmomentderivsurfaceIntegrand,
                                          self._gamma*(R**self._beta-va)/sigmaR1-nsigma,
@@ -908,7 +908,7 @@ class diskdf(df):
                                          lambda x: -nsigma, lambda x: nsigma,
                                          (R,self,logSigmaR,logsigmaR2,sigmaR1,
                                           self._gamma,n,m,deriv),
-                                         epsrel=_EPSREL)[0]/sc.pi*norm/2.
+                                         epsrel=_EPSREL)[0]/numpy.pi*norm/2.
 
     @potential_physical_input
     @physical_conversion('frequency-kmskpc',pop=True)
@@ -1481,7 +1481,7 @@ class diskdf(df):
            2010-07-11 - Written - Bovy (NYU)
         """
         if self._beta == 0.:
-            xE= sc.exp(E-.5)
+            xE= numpy.exp(E-.5)
         else: #non-flat rotation curve                                      
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
         rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
@@ -1490,7 +1490,7 @@ class diskdf(df):
                            pot=PowerSphericalPotential(normalize=1.,
                                                        alpha=2.-2.*self._beta).toPlanar())
         TR= aA.TR()
-        return (2.*nu.pi/TR,rap,rperi)
+        return (2.*numpy.pi/TR,rap,rperi)
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
@@ -1615,7 +1615,7 @@ class diskdf(df):
         """
         if log:
             return self.targetSigma2(R,log=log,use_physical=False)\
-                -2.*nu.log(self._gamma)
+                -2.*numpy.log(self._gamma)
         else:
             return self.targetSigma2(R,log=log,use_physical=False)\
                 /self._gamma**2.
@@ -1696,18 +1696,18 @@ class dehnendf(diskdf):
             L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
-            xE= sc.exp(E-.5)
-            logOLLE= sc.log(L/xE-1.)
+            xE= numpy.exp(E-.5)
+            logOLLE= numpy.log(L/xE-1.)
         else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-            logOLLE= self._beta*sc.log(xE)+sc.log(L/xE-xE**self._beta)
+            logOLLE= self._beta*numpy.log(xE)+numpy.log(L/xE-xE**self._beta)
         if _PROFILE: #pragma: no cover
             one_time= (time.time()-start)
             start= time.time()
         if self._correct: 
             correction= self._corr.correct(xE,log=True)
         else:
-            correction= sc.zeros(2)
+            correction= numpy.zeros(2)
         if _PROFILE: #pragma: no cover
             corr_time= (time.time()-start)
             start= time.time()
@@ -1715,13 +1715,13 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             targSigma_time= (time.time()-start)
             start= time.time()
-            out= self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            out= self._gamma*numpy.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+numpy.exp(logOLLE-SRE2)+correction[0])/2./numpy.pi
             out_time= (time.time()-start)
             tot_time= one_time+corr_time+targSigma_time+out_time
             print(one_time/tot_time, corr_time/tot_time, targSigma_time/tot_time, out_time/tot_time, tot_time)
             return out
         else:
-            return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+sc.exp(logOLLE-SRE2)+correction[0])/2./nu.pi
+            return self._gamma*numpy.exp(logsigmaR2-SRE2+self.targetSurfacemass(xE,log=True,use_physical=False)-logSigmaR+numpy.exp(logOLLE-SRE2)+correction[0])/2./numpy.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
@@ -1760,24 +1760,24 @@ class dehnendf(diskdf):
                                   targetSigma2=targetSigma2)
         #First sample xE
         if self._correct:
-            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+            xE= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
                                   _ars_hpx,nsamples=n,
                                   hxparams=(self._surfaceSigmaProfile,
                                             self._corr)))
         else:
-            xE= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+            xE= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
                                   _ars_hpx,nsamples=n,
                                   hxparams=(self._surfaceSigmaProfile,
                                             None)))
         #Calculate E
         if self._beta == 0.:
-            E= sc.log(xE)+0.5
+            E= numpy.log(xE)+0.5
         else: #non-flat rotation curve
             E= .5*xE**(2.*self._beta)*(1.+1./self._beta)
         #Then sample Lz
         LCE= xE**(self._beta+1.)
         OR= xE**(self._beta-1.)
-        Lz= self._surfaceSigmaProfile.sigma2(xE)*sc.log(stats.uniform.rvs(size=n))/OR
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*numpy.log(stats.uniform.rvs(size=n))/OR
         if self._correct:
             Lz*= self._corr.correct(xE,log=False)[1,:]
         Lz+= LCE
@@ -1796,19 +1796,19 @@ class dehnendf(diskdf):
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
                 except ValueError:
                     continue
-                TR= 2.*nu.pi/wR
+                TR= 2.*numpy.pi/wR
                 tr= stats.uniform.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
                 else:
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
-                thisOrbit.integrate(sc.array([0.,tr]),self._psp)
+                thisOrbit.integrate(numpy.array([0.,tr]),self._psp)
                 if returnOrbit:
                     vxvv= thisOrbit(tr).vxvv[0]
-                    thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
+                    thisOrbit= Orbit(vxvv=numpy.array([vxvv[0],vxvv[1],vxvv[2],
                                                     stats.uniform.rvs()\
-                                                        *nu.pi*2.])\
+                                                        *numpy.pi*2.])\
                                          .reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
@@ -1817,13 +1817,13 @@ class dehnendf(diskdf):
                     if thisOrbit.vxvv[0,0] < rrange[0] \
                             or thisOrbit.vxvv[0,0] > rrange[1]:
                         continue
-                mult= sc.ceil(kappa/wR*nphi)-1.
+                mult= numpy.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
                 while mult > 0:
                     if returnOrbit:
-                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
+                        out.append(Orbit(vxvv=numpy.array([vxvv[0],vxvv[1],
                                                             vxvv[2],
-                                                            stats.uniform.rvs()*nu.pi*2.]).reshape(4)))
+                                                            stats.uniform.rvs()*numpy.pi*2.]).reshape(4)))
                     else:
                         out.append(thisOrbit)
                     mult-= 1
@@ -1848,8 +1848,8 @@ class dehnendf(diskdf):
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+sc.log(R)
-            xE= sc.exp(E-.5)
+            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
             dRedR= xE/R
@@ -1865,8 +1865,8 @@ class dehnendf(diskdf):
     def _dlnfdvR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+sc.log(R)
-            xE= sc.exp(E-.5)
+            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
             dRedvR= xE*vR
@@ -1881,8 +1881,8 @@ class dehnendf(diskdf):
     def _dlnfdvT(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+sc.log(R)
-            xE= sc.exp(E-.5)
+            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
             dRedvT= xE*vT
@@ -1900,8 +1900,8 @@ class dehnendf(diskdf):
         #Calculate a bunch of stuff that we need
         if E is None or xE is None or OE is None or LCE is None:
             if self._beta == 0.:
-                E= vR**2./2.+vT**2./2.+sc.log(R)
-                xE= sc.exp(E-.5)
+                E= vR**2./2.+vT**2./2.+numpy.log(R)
+                xE= numpy.exp(E-.5)
                 OE= xE**-1.
                 LCE= xE
             else: #non-flat rotation curve
@@ -1920,8 +1920,8 @@ class dehnendf(diskdf):
         #Calculate a bunch of stuff that we need
         if E is None or xE is None or OE is None:
             if self._beta == 0.:
-                E= vR**2./2.+vT**2./2.+sc.log(R)
-                xE= sc.exp(E-.5)
+                E= vR**2./2.+vT**2./2.+numpy.log(R)
+                xE= numpy.exp(E-.5)
                 OE= xE**-1.
             else: #non-flat rotation curve
                 E= vR**2./2.+vT**2./2.+1./2./self._beta*R**(2.*self._beta)
@@ -2002,18 +2002,18 @@ class shudf(diskdf):
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
-            logECLE= sc.log(-sc.log(xL)-0.5+E)
+            logECLE= numpy.log(-numpy.log(xL)-0.5+E)
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
-            logECLE= sc.log(-0.5*(1./self._beta+1.)*xL**(2.*self._beta)+E)
+            logECLE= numpy.log(-0.5*(1./self._beta+1.)*xL**(2.*self._beta)+E)
         if xL < 0.: #We must remove counter-rotating mass
             return 0.
         if self._correct: 
             correction= self._corr.correct(xL,log=True)
         else:
-            correction= sc.zeros(2)
+            correction= numpy.zeros(2)
         SRE2= self.targetSigma2(xL,log=True,use_physical=False)+correction[1]
-        return self._gamma*sc.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True,use_physical=False)-logSigmaR-sc.exp(logECLE-SRE2)+correction[0])/2./nu.pi
+        return self._gamma*numpy.exp(logsigmaR2-SRE2+self.targetSurfacemass(xL,log=True,use_physical=False)-logSigmaR-numpy.exp(logECLE-SRE2)+correction[0])/2./numpy.pi
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
@@ -2051,12 +2051,12 @@ class shudf(diskdf):
                                   targetSigma2=targetSigma2)
         #First sample xL
         if self._correct:
-            xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+            xL= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
                                   _ars_hpx,nsamples=n,
                                   hxparams=(self._surfaceSigmaProfile,
                                             self._corr)))
         else:
-            xL= sc.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+            xL= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
                                   _ars_hpx,nsamples=n,
                                   hxparams=(self._surfaceSigmaProfile,
                                             None)))
@@ -2064,10 +2064,10 @@ class shudf(diskdf):
         Lz= xL**(self._beta+1.)
         #Then sample E
         if self._beta == 0.:
-            ECL= sc.log(xL)+0.5
+            ECL= numpy.log(xL)+0.5
         else:
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
-        E= -self._surfaceSigmaProfile.sigma2(xL)*sc.log(stats.uniform.rvs(size=n))
+        E= -self._surfaceSigmaProfile.sigma2(xL)*numpy.log(stats.uniform.rvs(size=n))
         if self._correct:
             E*= self._corr.correct(xL,log=False)[1,:]
         E+= ECL
@@ -2086,18 +2086,18 @@ class shudf(diskdf):
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
                 except ValueError: #pragma: no cover
                     continue
-                TR= 2.*nu.pi/wR
+                TR= 2.*numpy.pi/wR
                 tr= stats.uniform.rvs()*TR
                 if tr > TR/2.:
                     tr-= TR/2.
                     thisOrbit= Orbit([rperi,0.,Lz[ii]/rperi])
                 else:
                     thisOrbit= Orbit([rap,0.,Lz[ii]/rap])
-                thisOrbit.integrate(sc.array([0.,tr]),self._psp)
+                thisOrbit.integrate(numpy.array([0.,tr]),self._psp)
                 if returnOrbit:
                     vxvv= thisOrbit(tr).vxvv[0]
-                    thisOrbit= Orbit(vxvv=sc.array([vxvv[0],vxvv[1],vxvv[2],
-                                                    stats.uniform.rvs()*nu.pi*2.]).reshape(4))
+                    thisOrbit= Orbit(vxvv=numpy.array([vxvv[0],vxvv[1],vxvv[2],
+                                                    stats.uniform.rvs()*numpy.pi*2.]).reshape(4))
                 else:
                     thisOrbit= thisOrbit(tr)
                 kappa= _kappa(thisOrbit.vxvv[0,0],self._beta)
@@ -2105,13 +2105,13 @@ class shudf(diskdf):
                     if thisOrbit.vxvv[0,0] < rrange[0] \
                             or thisOrbit.vxvv[0,0] > rrange[1]:
                         continue
-                mult= sc.ceil(kappa/wR*nphi)-1.
+                mult= numpy.ceil(kappa/wR*nphi)-1.
                 kappawR= kappa/wR*nphi-mult
                 while mult > 0:
                     if returnOrbit:
-                        out.append(Orbit(vxvv=sc.array([vxvv[0],vxvv[1],
+                        out.append(Orbit(vxvv=numpy.array([vxvv[0],vxvv[1],
                                                         vxvv[2],
-                                                        stats.uniform.rvs()*nu.pi*2.]).reshape(4)))
+                                                        stats.uniform.rvs()*numpy.pi*2.]).reshape(4)))
                     else:
                         out.append(thisOrbit)
                     mult-= 1
@@ -2137,7 +2137,7 @@ class shudf(diskdf):
         if self._beta == 0.:
             xL= L
             dRldR= vT
-            ECL= sc.log(xL)+0.5
+            ECL= numpy.log(xL)+0.5
             dECLEdR= 0.
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
@@ -2167,7 +2167,7 @@ class shudf(diskdf):
         if self._beta == 0.:
             xL= L
             dRldvT= R
-            ECL= sc.log(xL)+0.5
+            ECL= numpy.log(xL)+0.5
             dECLEdvT= 1./vT-vT
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
@@ -2239,20 +2239,20 @@ class schwarzschilddf(shudf):
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
-    return df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
+    return df.eval(E,L,logSigmaR,logsigmaR2)*2.*numpy.pi/df._gamma #correct
 
 def _sigma2surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the sigma-squared times
     surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
-    return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
+    return vR**2.*df.eval(E,L,logSigmaR,logsigmaR2)*2.*numpy.pi/df._gamma #correct
 
 def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
                              n,m):
     """Internal function that is the integrand for the velocity moment times
     surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
-    return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma #correct
+    return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*numpy.pi/df._gamma #correct
 
 def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
                                   gamma,n,m,deriv):
@@ -2260,7 +2260,7 @@ def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
     moment times surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     if deriv.lower() == 'r':
-        return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*nu.pi/df._gamma*df._dlnfdR(R,vR*sigmaR1,vT*sigmaR1/gamma) #correct
+        return vR**n*vT**m*df.eval(E,L,logSigmaR,logsigmaR2)*2.*numpy.pi/df._gamma*df._dlnfdR(R,vR*sigmaR1,vT*sigmaR1/gamma) #correct
     else:
         return 0.
 
@@ -2332,7 +2332,7 @@ class DFcorrection(object):
             self._npoints= kwargs['npoints']
         self._dftype= kwargs.get('dftype',dehnendf)
         self._beta= kwargs.get('beta',0.)
-        self._rs= sc.linspace(_RMIN,self._rmax,self._npoints)
+        self._rs= numpy.linspace(_RMIN,self._rmax,self._npoints)
         self._interp_k= kwargs.get('interp_k',_INTERPDEGREE)
         if 'corrections' in kwargs:
             self._corrections= kwargs['corrections']
@@ -2343,22 +2343,22 @@ class DFcorrection(object):
             self._savefilename= self._createSavefilename(self._niter)
             if os.path.exists(self._savefilename):
                 savefile= open(self._savefilename,'rb')
-                self._corrections= sc.array(pickle.load(savefile))
+                self._corrections= numpy.array(pickle.load(savefile))
                 savefile.close()
             else: #Calculate the corrections
                 self._corrections= self._calc_corrections()
         #Interpolation; smoothly go to zero
-        interpRs= sc.append(self._rs,2.*self._rmax)
+        interpRs= numpy.append(self._rs,2.*self._rmax)
         self._surfaceInterpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
-                                                       sc.log(sc.append(self._corrections[:,0],1.)),
+                                                       numpy.log(numpy.append(self._corrections[:,0],1.)),
                                                        k=self._interp_k)
         self._sigma2Interpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
-                                                      sc.log(sc.append(self._corrections[:,1],1.)),
+                                                      numpy.log(numpy.append(self._corrections[:,1],1.)),
                                                       k=self._interp_k)
         #Interpolation for R < _RMIN
-        surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],sc.log(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
+        surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpy.log(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
         self._surfaceDerivSmallR= surfaceInterpolateSmallR.derivatives(interpRs[0])[1]
-        sigma2InterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],sc.log(self._corrections[0:_INTERPDEGREE+2,1]),k=_INTERPDEGREE)
+        sigma2InterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpy.log(self._corrections[0:_INTERPDEGREE+2,1]),k=_INTERPDEGREE)
         self._sigma2DerivSmallR= sigma2InterpolateSmallR.derivatives(interpRs[0])[1]
         return None
 
@@ -2389,42 +2389,42 @@ class DFcorrection(object):
         HISTORY:
            2010-03-10 - Written - Bovy (NYU)
         """
-        if isinstance(R,nu.ndarray):
-            out= nu.empty((2,len(R)))
+        if isinstance(R,numpy.ndarray):
+            out= numpy.empty((2,len(R)))
             #R < _RMIN
             rmin_indx= (R < _RMIN)
-            if nu.sum(rmin_indx) > 0:
-                out[0,rmin_indx]= nu.log(self._corrections[0,0])\
+            if numpy.sum(rmin_indx) > 0:
+                out[0,rmin_indx]= numpy.log(self._corrections[0,0])\
                                   +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
-                out[1,rmin_indx]= nu.log(self._corrections[0,1])\
+                out[1,rmin_indx]= numpy.log(self._corrections[0,1])\
                                   +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
             #R > 2rmax
             rmax_indx= (R > (2.*self._rmax))
-            if nu.sum(rmax_indx) > 0:
+            if numpy.sum(rmax_indx) > 0:
                 out[:,rmax_indx]= 0.
             #'normal' R
             r_indx= (R >= _RMIN)*(R <= (2.*self._rmax))
-            if nu.sum(r_indx) > 0:
+            if numpy.sum(r_indx) > 0:
                 out[0,r_indx]= self._surfaceInterpolate(R[r_indx])
                 out[1,r_indx]= self._sigma2Interpolate(R[r_indx])
             if log: return out
-            else: return nu.exp(out)
+            else: return numpy.exp(out)
         if R < _RMIN:
-            out= sc.array([sc.log(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
-                           sc.log(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
+            out= numpy.array([numpy.log(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
+                           numpy.log(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
         elif R > (2.*self._rmax):
-            out= sc.array([0.,0.])
+            out= numpy.array([0.,0.])
         else:
             if _SCIPYVERSION >= 0.9:
-                out= sc.array([self._surfaceInterpolate(R),
+                out= numpy.array([self._surfaceInterpolate(R),
                                self._sigma2Interpolate(R)])
             else: #pragma: no cover
-                out= sc.array([self._surfaceInterpolate(R)[0],
+                out= numpy.array([self._surfaceInterpolate(R)[0],
                                self._sigma2Interpolate(R)[0]])
         if log:
             return out
         else:
-            return sc.exp(out)
+            return numpy.exp(out)
             
 
     def derivLogcorrect(self,R):
@@ -2442,16 +2442,16 @@ class DFcorrection(object):
            2010-03-10 - Written - Bovy (NYU)
         """
         if R < _RMIN:
-            out= sc.array([self._surfaceDerivSmallR,
+            out= numpy.array([self._surfaceDerivSmallR,
                            self._sigma2DerivSmallR])
         elif R > (2.*self._rmax):
-            out= sc.array([0.,0.])
+            out= numpy.array([0.,0.])
         else:
             if _SCIPYVERSION >= 0.9:
-                out= sc.array([self._surfaceInterpolate(R,nu=1),
+                out= numpy.array([self._surfaceInterpolate(R,nu=1),
                                self._sigma2Interpolate(R,nu=1)])
             else: #pragma: no cover
-                out= sc.array([self._surfaceInterpolate(R,nu=1)[0],
+                out= numpy.array([self._surfaceInterpolate(R,nu=1)[0],
                                self._sigma2Interpolate(R,nu=1)[0]])
         return out
             
@@ -2463,13 +2463,13 @@ class DFcorrection(object):
             trySavefilename= self._createSavefilename(searchIter)
             if os.path.exists(trySavefilename):
                 trySavefile= open(trySavefilename,'rb')
-                corrections= sc.array(pickle.load(trySavefile))
+                corrections= numpy.array(pickle.load(trySavefile))
                 trySavefile.close()
                 break
             else:
                 searchIter-= 1
         if searchIter == 0:
-            corrections= sc.ones((self._npoints,2))
+            corrections= numpy.ones((self._npoints,2))
         for ii in range(searchIter,self._niter):
             if ii == 0:
                 currentDF= self._dftype(surfaceSigma=self._surfaceSigmaProfile,
@@ -2482,7 +2482,7 @@ class DFcorrection(object):
                                         rmax=self._rmax,
                                         savedir=self._savedir,
                                         interp_k=self._interp_k)
-            newcorrections= sc.zeros((self._npoints,2))
+            newcorrections= numpy.zeros((self._npoints,2))
             for jj in range(self._npoints):
                 thisSurface= currentDF.surfacemass(self._rs[jj],
                                                    use_physical=False)
@@ -2521,7 +2521,7 @@ def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
     """
     if dftype == 'schwarzschild':
         # Compute E in the epicycle approximation
-        gamma= sc.sqrt(2./(1.+beta))
+        gamma= numpy.sqrt(2./(1.+beta))
         L= R*vT
         if beta == 0.:
             xL= L
@@ -2548,13 +2548,13 @@ def axipotential(R,beta=0.):
        2010-03-01 - Written - Bovy (NYU)
     """
     if beta == 0.:
-        if nu.any(R == 0.):
-            out= nu.empty(R.shape)
-            out[R == 0.]= nu.log(_RMIN)
-            out[R != 0.]= nu.log(R[R != 0.])
+        if numpy.any(R == 0.):
+            out= numpy.empty(R.shape)
+            out[R == 0.]= numpy.log(_RMIN)
+            out[R != 0.]= numpy.log(R[R != 0.])
             return out
         else:
-            return nu.log(R)
+            return numpy.log(R)
     else: #non-flat rotation curve
         return R**(2.*beta)/2./beta
 
@@ -2576,9 +2576,9 @@ def _ars_hx(x,args):
     """
     surfaceSigma, dfcorr= args
     if dfcorr is None:
-        return nu.log(x)+surfaceSigma.surfacemass(x,log=True)
+        return numpy.log(x)+surfaceSigma.surfacemass(x,log=True)
     else:
-        return nu.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
+        return numpy.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
 
 def _ars_hpx(x,args):
     """
@@ -2604,26 +2604,26 @@ def _ars_hpx(x,args):
 
 def _kappa(R,beta):
     """Internal function to give kappa(r)"""
-    return nu.sqrt(2.*(1.+beta))*R**(beta-1)
+    return numpy.sqrt(2.*(1.+beta))*R**(beta-1)
 
 def _dlToRphi(d,l):
     """Convert d and l to R and phi, l is in radians"""
-    R= nu.sqrt(1.+d**2.-2.*d*nu.cos(l))
+    R= numpy.sqrt(1.+d**2.-2.*d*numpy.cos(l))
     if R == 0.:
         R+= 0.0001
         d+= 0.0001
-    if 1./nu.cos(l) < d and nu.cos(l) > 0.:
-        theta= nu.pi-nu.asin(d/R*nu.sin(l))
+    if 1./numpy.cos(l) < d and numpy.cos(l) > 0.:
+        theta= numpy.pi-numpy.asin(d/R*numpy.sin(l))
     else:
-        theta= nu.asin(d/R*nu.sin(l))
+        theta= numpy.asin(d/R*numpy.sin(l))
     return (R,theta)
     
 def _vtmaxEq(vT,R,diskdf):
     """Equation to solve to find the max vT at R"""
     #Calculate a bunch of stuff that we need
     if diskdf._beta == 0.:
-        E= vT**2./2.+sc.log(R)
-        xE= sc.exp(E-.5)
+        E= vT**2./2.+numpy.log(R)
+        xE= numpy.exp(E-.5)
         OE= xE**-1.
         LCE= xE
         dxEdvT= xE*vT

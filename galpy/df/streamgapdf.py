@@ -5,16 +5,16 @@ import numpy
 import warnings
 import multiprocessing
 from scipy import integrate, interpolate, special
-from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
-from galpy.util import _rotate_to_arbitrary_vector
-from galpy.orbit import Orbit
-from galpy.potential import evaluateRforces, MovingObjectPotential, \
+from ..util import galpyWarning, bovy_coords, multi, bovy_conversion
+from ..util import _rotate_to_arbitrary_vector
+from ..orbit import Orbit
+from ..potential import evaluateRforces, MovingObjectPotential, \
     PlummerPotential
 from .df import df, _APY_LOADED
-from galpy.util.bovy_conversion import physical_conversion
+from ..util.bovy_conversion import physical_conversion
 from . import streamdf
 from .streamdf import _determine_stream_track_single
-from galpy.potential import flatten as flatten_potential
+from ..potential import flatten as flatten_potential
 if _APY_LOADED:
     from astropy import units
 def impact_check_range(func):

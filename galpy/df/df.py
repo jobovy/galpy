@@ -1,4 +1,4 @@
-from galpy.util import config
+from ..util import config
 _APY_LOADED= True
 try:
     from astropy import units

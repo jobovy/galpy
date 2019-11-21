@@ -1,10 +1,10 @@
 # jeans.py: utilities related to the Jeans equations
 import numpy
 from scipy import integrate
-from galpy.potential.Potential import evaluateDensities, \
+from ..potential.Potential import evaluateDensities, \
     evaluaterforces, evaluateSurfaceDensities
-from galpy.potential.Potential import flatten as flatten_pot
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..potential.Potential import flatten as flatten_pot
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 @potential_physical_input

@@ -3,15 +3,15 @@ import warnings
 import hashlib
 import numpy
 from scipy import optimize, interpolate, integrate
-from galpy import potential
-from galpy import actionAngle
-from galpy.actionAngle import actionAngleIsochrone
-from galpy.potential import IsochronePotential
-from galpy.potential import flatten as flatten_potential
-from galpy.orbit import Orbit
+from .. import potential
+from .. import actionAngle
+from ..actionAngle import actionAngleIsochrone
+from ..potential import IsochronePotential
+from ..potential import flatten as flatten_potential
+from ..orbit import Orbit
 from .df import df, _APY_LOADED
-from galpy.util import galpyWarning
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..util import galpyWarning
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input, actionAngle_physical_input, _APY_UNITS
 if _APY_LOADED:
     from astropy import units

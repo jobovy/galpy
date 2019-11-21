@@ -12,15 +12,15 @@ elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from galpy.orbit import Orbit
+from ..orbit import Orbit
 from .df import df, _APY_LOADED
-from galpy.util import bovy_coords, fast_cholesky_invert, \
+from ..util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from galpy.util.bovy_conversion import physical_conversion, _APY_UNITS
-from galpy.actionAngle.actionAngleIsochroneApprox import dePeriod
-from galpy.potential import flatten as flatten_potential
+from ..util.bovy_conversion import physical_conversion, _APY_UNITS
+from ..actionAngle.actionAngleIsochroneApprox import dePeriod
+from ..potential import flatten as flatten_potential
 import warnings
-from galpy.util import galpyWarning
+from ..util import galpyWarning
 if _APY_LOADED:
     from astropy import units
 _INTERPDURINGSETUP= True

@@ -14,22 +14,22 @@ import sys
 import copy
 import time as time_module
 import warnings
-import numpy as nu
+import numpy
 from scipy import integrate
-from galpy.util import galpyWarning
-from galpy.orbit import Orbit
-from galpy.potential import calcRotcurve
+from ..util import galpyWarning
+from ..orbit import Orbit
+from ..potential import calcRotcurve
 from .df import df, _APY_LOADED
-from galpy.potential.Potential import _check_c
-from galpy.util.bovy_quadpack import dblquad
-from galpy.util import bovy_plot
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..potential.Potential import _check_c
+from ..util.bovy_quadpack import dblquad
+from ..util import bovy_plot
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 if _APY_LOADED:
     from astropy import units
-_DEGTORAD= nu.pi/180.
-_RADTODEG= 180./nu.pi
-_NAN= nu.nan
+_DEGTORAD= numpy.pi/180.
+_RADTODEG= 180./numpy.pi
+_NAN= numpy.nan
 class evolveddiskdf(df):
     """Class that represents a diskdf as initial DF + subsequent secular evolution"""
     def __init__(self,initdf,pot,to=0.):
@@ -132,9 +132,9 @@ class evolveddiskdf(df):
         else:
             raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
         if isinstance(t,list):
-            t= nu.array(t)
+            t= numpy.array(t)
             tlist= True
-        elif isinstance(t,nu.ndarray) and \
+        elif isinstance(t,numpy.ndarray) and \
                 not (hasattr(t,'isscalar') and t.isscalar):
             tlist= True
         else: tlist= False
@@ -143,20 +143,20 @@ class evolveddiskdf(df):
         if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):
-                return nu.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
+                return numpy.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
         elif kwargs.pop('marginalizeVlos',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
             if kwargs.pop('log',False):
-                return nu.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
+                return numpy.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs)   
         #Integrate back
         if tlist:
             if self._to == t[0]:
                 if kwargs.get('log',False):
-                    return nu.log([self._initdf(args[0],use_physical=False)])
+                    return numpy.log([self._initdf(args[0],use_physical=False)])
                 else:
                     return [self._initdf(args[0],use_physical=False)]
             ts= self._create_ts_tlist(t,integrate_method)
@@ -178,8 +178,8 @@ class evolveddiskdf(df):
                     msg= o.integrate_dxdv([0.,0.,0.,dderiv],ts,self._pot,method=integrate_method)
                 if not msg is None and msg > 0.: # pragma: no cover
                     print("Warning: dxdv integration inaccurate, returning zero everywhere ... result might not be correct ...")
-                    if kwargs.get('log',False) and deriv is None: return nu.zeros(len(t))-nu.finfo(nu.dtype(nu.float64)).max
-                    else: return nu.zeros(len(t))
+                    if kwargs.get('log',False) and deriv is None: return numpy.zeros(len(t))-numpy.finfo(numpy.dtype(numpy.float64)).max
+                    else: return numpy.zeros(len(t))
             else:
                 o.integrate(ts,self._pot,method=integrate_method)
             if _PROFILE: #pragma: no cover
@@ -190,7 +190,7 @@ class evolveddiskdf(df):
             if integrate_method == 'odeint':
                 retval= []
                 os= [o(self._to+t[0]-ti,use_physical=False) for ti in t]
-                retval= nu.array(self._initdf(os,use_physical=False))
+                retval= numpy.array(self._initdf(os,use_physical=False))
             else:
                 if len(t) == 1:
                     orb_array= o.getOrbit().T
@@ -199,10 +199,10 @@ class evolveddiskdf(df):
                     orb_array= o.getOrbit().T
                 retval= self._initdf(orb_array,use_physical=False)
                 if (isinstance(retval,float) or len(retval.shape) == 0) \
-                        and nu.isnan(retval):
+                        and numpy.isnan(retval):
                     retval= 0.
                 elif not isinstance(retval,float) and len(retval.shape) > 0:
-                    retval[(nu.isnan(retval))]= 0.
+                    retval[(numpy.isnan(retval))]= 0.
                 if len(t) > 1: retval= retval[::-1]
             if _PROFILE: #pragma: no cover
                 df_time= (time_module.time()-start)
@@ -210,21 +210,21 @@ class evolveddiskdf(df):
                 print(int_time/tot_time, df_time/tot_time, tot_time)
             if not deriv is None:
                 if integrate_method == 'odeint':
-                    dlnfdRo= nu.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti,use_physical=False),
+                    dlnfdRo= numpy.array([self._initdf._dlnfdR(o.R(self._to+t[0]-ti,use_physical=False),
                                                             o.vR(self._to+t[0]-ti,use_physical=False),
                                                             o.vT(self._to+t[0]-ti,use_physical=False))
                                        for ti in t])
-                    dlnfdvRo= nu.array([self._initdf._dlnfdvR(o.R(self._to+t[0]-ti,use_physical=False),
+                    dlnfdvRo= numpy.array([self._initdf._dlnfdvR(o.R(self._to+t[0]-ti,use_physical=False),
                                                               o.vR(self._to+t[0]-ti,use_physical=False),
                                                               o.vT(self._to+t[0]-ti,use_physical=False))
                                         for ti in t])
-                    dlnfdvTo= nu.array([self._initdf._dlnfdvT(o.R(self._to+t[0]-ti,use_physical=False),
+                    dlnfdvTo= numpy.array([self._initdf._dlnfdvT(o.R(self._to+t[0]-ti,use_physical=False),
                                                               o.vR(self._to+t[0]-ti,use_physical=False),
                                                               o.vT(self._to+t[0]-ti,use_physical=False))
                                         for ti in t])
-                    dRo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),0] for ti in t])/dderiv
-                    dvRo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),1] for ti in t])/dderiv
-                    dvTo= nu.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),2] for ti in t])/dderiv
+                    dRo= numpy.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),0] for ti in t])/dderiv
+                    dvRo= numpy.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),1] for ti in t])/dderiv
+                    dvTo= numpy.array([o.getOrbit_dxdv()[list(ts).index(self._to+t[0]-ti),2] for ti in t])/dderiv
                     #print(dRo, dvRo, dvTo)
                     dlnfderiv= dlnfdRo*dRo+dlnfdvRo*dvRo+dlnfdvTo*dvTo
                     retval*= dlnfderiv
@@ -240,15 +240,15 @@ class evolveddiskdf(df):
                                                         orb_array[1],
                                                         orb_array[2])
                     else:
-                        dlnfdRo= nu.array([self._initdf._dlnfdR(orb_array[0,ii],
+                        dlnfdRo= numpy.array([self._initdf._dlnfdR(orb_array[0,ii],
                                                                 orb_array[1,ii],
                                                                 orb_array[2,ii])
                                            for ii in range(len(t))])
-                        dlnfdvRo= nu.array([self._initdf._dlnfdvR(orb_array[0,ii],
+                        dlnfdvRo= numpy.array([self._initdf._dlnfdvR(orb_array[0,ii],
                                                                   orb_array[1,ii],
                                                                   orb_array[2,ii])
                                             for ii in range(len(t))])
-                        dlnfdvTo= nu.array([self._initdf._dlnfdvT(orb_array[0,ii],
+                        dlnfdvTo= numpy.array([self._initdf._dlnfdvT(orb_array[0,ii],
                                                                   orb_array[1,ii],
                                                                   orb_array[2,ii])
                                             for ii in range(len(t))])
@@ -264,7 +264,7 @@ class evolveddiskdf(df):
         else:
             if self._to == t and deriv is None:
                 if kwargs.get('log',False):
-                    return nu.log(self._initdf(args[0],use_physical=False))
+                    return numpy.log(self._initdf(args[0],use_physical=False))
                 else:
                     return self._initdf(args[0],use_physical=False)
             elif self._to == t and not deriv is None:
@@ -276,13 +276,13 @@ class evolveddiskdf(df):
                 elif deriv.lower() == 'phi':
                     return 0.
             if integrate_method == 'odeint':
-                ts= nu.linspace(t,self._to,_NTS)
+                ts= numpy.linspace(t,self._to,_NTS)
             else:
-                ts= nu.linspace(t,self._to,2)
+                ts= numpy.linspace(t,self._to,2)
             o= args[0]
             #integrate orbit
             if not deriv is None:
-                ts= nu.linspace(t,self._to,_NTS)
+                ts= numpy.linspace(t,self._to,_NTS)
                 #Also calculate the derivative of the initial df with respect to R, phi, vR, and vT, and the derivative of Ro wrt R/phi etc., to calculate the derivative; in this case we also integrate a small area of phase space
                 if deriv.lower() == 'r':
                     dderiv= 10.**-10.
@@ -300,14 +300,14 @@ class evolveddiskdf(df):
             #Now evaluate the DF
             if o.R(self._to-t,use_physical=False) <= 0.: 
                 if kwargs.get('log',False):
-                    return -nu.finfo(nu.dtype(nu.float64)).max
+                    return -numpy.finfo(numpy.dtype(numpy.float64)).max
                 else:
-                    return nu.finfo(nu.dtype(nu.float64)).eps
+                    return numpy.finfo(numpy.dtype(numpy.float64)).eps
             #start= time.time()
             retval= self._initdf(o(self._to-t,use_physical=False),
                                  use_physical=False)
             #print( int_time/(time.time()-start))
-            if nu.isnan(retval): print(retval, o.vxvv, o(self._to-t).vxvv)
+            if numpy.isnan(retval): print(retval, o.vxvv, o(self._to-t).vxvv)
             if not deriv is None:
                 thisorbit= o(self._to-t).vxvv[0]
                 dlnfdRo= self._initdf._dlnfdR(thisorbit[0],
@@ -327,11 +327,11 @@ class evolveddiskdf(df):
                 retval*= dlnfderiv
         if kwargs.get('log',False) and deriv is None:
             if tlist:
-                out= nu.log(retval)
-                out[retval == 0.]= -nu.finfo(nu.dtype(nu.float64)).max
+                out= numpy.log(retval)
+                out[retval == 0.]= -numpy.finfo(numpy.dtype(numpy.float64)).max
             else:
-                if retval == 0.: out= -nu.finfo(nu.dtype(nu.float64)).max
-                else: out= nu.log(retval)
+                if retval == 0.: out= -numpy.finfo(numpy.dtype(numpy.float64)).max
+                else: out= numpy.log(retval)
             return out
         else:
             return retval
@@ -422,15 +422,15 @@ class evolveddiskdf(df):
            and hasattr(self._initdf,'_estimatemeanvT') \
            and hasattr(self._initdf,'_estimateSigmaR2') \
            and hasattr(self._initdf,'_estimateSigmaT2'):
-            sigmaR1= nu.sqrt(self._initdf._estimateSigmaR2(R,phi=az))
-            sigmaT1= nu.sqrt(self._initdf._estimateSigmaT2(R,phi=az))
+            sigmaR1= numpy.sqrt(self._initdf._estimateSigmaR2(R,phi=az))
+            sigmaT1= numpy.sqrt(self._initdf._estimateSigmaT2(R,phi=az))
             meanvR= self._initdf._estimatemeanvR(R,phi=az)
             meanvT= self._initdf._estimatemeanvT(R,phi=az)
         else:
             warnings.warn("No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                           galpyWarning)
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=az,use_physical=False))
-            sigmaT1= nu.sqrt(self._initdf.sigmaT2(R,phi=az,use_physical=False))
+            sigmaR1= numpy.sqrt(self._initdf.sigmaR2(R,phi=az,use_physical=False))
+            sigmaT1= numpy.sqrt(self._initdf.sigmaT2(R,phi=az,use_physical=False))
             meanvR= self._initdf.meanvR(R,phi=az,use_physical=False)
             meanvT= self._initdf.meanvT(R,phi=az,use_physical=False)
         if _PROFILE: #pragma: no cover
@@ -469,15 +469,15 @@ class evolveddiskdf(df):
                                                      phi=phi)
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
-        if isinstance(t,(list,nu.ndarray)):
+        if isinstance(t,(list,numpy.ndarray)):
             raise IOError("list of times is only supported with grid-based calculation")            
         return dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
                                  lambda x: meanvR/sigmaR1
-                                 -nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
+                                 -numpy.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
                                  lambda x: meanvR/sigmaR1
-                                 +nu.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
+                                 +numpy.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
@@ -588,9 +588,9 @@ class evolveddiskdf(df):
         if returnGrid and ((isinstance(grid,bool) and grid) or 
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
-            return (-nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.,grido)
+            return (-numpy.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.,grido)
         else:
-            return -nu.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.
+            return -numpy.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
@@ -1832,11 +1832,11 @@ class evolveddiskdf(df):
             nt= grid.df.shape[2]
             out= []
             for ii in range(nt):
-                out.append(nu.dot(grid.vRgrid**n,nu.dot(grid.df[:,:,ii],grid.vTgrid**m))*\
+                out.append(numpy.dot(grid.vRgrid**n,numpy.dot(grid.df[:,:,ii],grid.vTgrid**m))*\
                     (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0]))
-            return nu.array(out)
+            return numpy.array(out)
         else:
-            return nu.dot(grid.vRgrid**n,nu.dot(grid.df,grid.vTgrid**m))*\
+            return numpy.dot(grid.vRgrid**n,numpy.dot(grid.df,grid.vTgrid**m))*\
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
         
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
@@ -1847,13 +1847,13 @@ class evolveddiskdf(df):
         out.sigmaT1= sigmaT1
         out.meanvR= meanvR
         out.meanvT= meanvT
-        out.vRgrid= nu.linspace(meanvR-nsigma*sigmaR1,meanvR+nsigma*sigmaR1,
+        out.vRgrid= numpy.linspace(meanvR-nsigma*sigmaR1,meanvR+nsigma*sigmaR1,
                                 gridpoints)
-        out.vTgrid= nu.linspace(meanvT-nsigma*sigmaT1,meanvT+nsigma*sigmaT1,
+        out.vTgrid= numpy.linspace(meanvT-nsigma*sigmaT1,meanvT+nsigma*sigmaT1,
                                 gridpoints)
-        if isinstance(t,(list,nu.ndarray)):
+        if isinstance(t,(list,numpy.ndarray)):
             nt= len(t)
-            out.df= nu.zeros((gridpoints,gridpoints,nt))
+            out.df= numpy.zeros((gridpoints,gridpoints,nt))
             for ii in range(gridpoints):
                 for jj in range(gridpoints-1,-1,-1):#Reverse, so we get the peak before we get to the extreme lags NOT NECESSARY
                     if print_progress: #pragma: no cover
@@ -1861,13 +1861,13 @@ class evolveddiskdf(df):
                                              (jj+ii*gridpoints+1,gridpoints*gridpoints))
                         sys.stdout.flush()
                     thiso= Orbit([R,out.vRgrid[ii],out.vTgrid[jj],phi])
-                    out.df[ii,jj,:]= self(thiso,nu.array(t).flatten(),
+                    out.df[ii,jj,:]= self(thiso,numpy.array(t).flatten(),
                                           integrate_method=integrate_method,
                                           deriv=deriv,use_physical=False)
-                    out.df[ii,jj,nu.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
+                    out.df[ii,jj,numpy.isnan(out.df[ii,jj,:])]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
-            out.df= nu.zeros((gridpoints,gridpoints))
+            out.df= numpy.zeros((gridpoints,gridpoints))
             for ii in range(gridpoints):
                 for jj in range(gridpoints):
                     if print_progress: #pragma: no cover
@@ -1878,7 +1878,7 @@ class evolveddiskdf(df):
                     out.df[ii,jj]= self(thiso,t,
                                         integrate_method=integrate_method,
                                         deriv=deriv,use_physical=False)
-                    if nu.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
+                    if numpy.isnan(out.df[ii,jj]): out.df[ii,jj]= 0. #BOVY: for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         return out
 
@@ -1888,20 +1888,20 @@ class evolveddiskdf(df):
         #Initialize
         if integrate_method == 'odeint':
             _NTS= 1000
-            tmax= nu.amax(t)
-            ts= nu.linspace(tmax,self._to,_NTS)
+            tmax= numpy.amax(t)
+            ts= numpy.linspace(tmax,self._to,_NTS)
             #Add other t
             ts= list(ts)
             ts.extend([self._to+tmax-ti for ti in t if ti != tmax])
         else:
             if len(t) == 1: #Special case this because it is confusing
-                ts= nu.array([t[0],self._to])
+                ts= numpy.array([t[0],self._to])
             else:
-                ts= -t+self._to+nu.amax(t)
+                ts= -t+self._to+numpy.amax(t)
         #sort
         ts= list(ts)
         ts.sort(reverse=True)
-        return nu.array(ts)
+        return numpy.array(ts)
 
     def _call_marginalizevperp(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
@@ -1915,7 +1915,7 @@ class evolveddiskdf(df):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcirclos= vcirc*nu.sin(phi+l)
+        vcirclos= vcirc*numpy.sin(phi+l)
         #Marginalize
         alphalos= phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
@@ -1925,27 +1925,27 @@ class evolveddiskdf(df):
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
         #BOVY: add asymmetric drift here?
-        if nu.fabs(nu.sin(alphalos)) < nu.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+        if numpy.fabs(numpy.sin(alphalos)) < numpy.sqrt(1./2.):
+            sigmaR1= numpy.sqrt(self._initdf.sigmaT2(R,phi=phi,
                                                   use_physical=False)) #Slight abuse
-            cosalphalos= nu.cos(alphalos)
-            tanalphalos= nu.tan(alphalos)
+            cosalphalos= numpy.cos(alphalos)
+            tanalphalos= numpy.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -nsigma,nsigma,
                                   args=(self,R,cosalphalos,tanalphalos,
                                         vlos-vcirclos,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/nu.fabs(cosalphalos)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(cosalphalos)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+            sigmaR1= numpy.sqrt(self._initdf.sigmaR2(R,phi=phi,
                                                   use_physical=False))
-            sinalphalos= nu.sin(alphalos)
-            cotalphalos= 1./nu.tan(alphalos)
+            sinalphalos= numpy.sin(alphalos)
+            cotalphalos= 1./numpy.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/nu.fabs(sinalphalos)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(sinalphalos)*sigmaR1
         
     def _call_marginalizevlos(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
@@ -1960,21 +1960,21 @@ class evolveddiskdf(df):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcircperp= vcirc*nu.cos(phi+l) 
+        vcircperp= vcirc*numpy.cos(phi+l) 
         #Marginalize
-        alphaperp= nu.pi/2.+phi+l
+        alphaperp= numpy.pi/2.+phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
                                           kwargs['nsigma'] is None):
             nsigma= _NSIGMA
         else:
             nsigma= kwargs['nsigma']
         kwargs.pop('nsigma',None)
-        if nu.fabs(nu.sin(alphaperp)) < nu.sqrt(1./2.):
-            sigmaR1= nu.sqrt(self._initdf.sigmaT2(R,phi=phi,
+        if numpy.fabs(numpy.sin(alphaperp)) < numpy.sqrt(1./2.):
+            sigmaR1= numpy.sqrt(self._initdf.sigmaT2(R,phi=phi,
                                                   use_physical=False)) #slight abuse
             va= vcirc-self._initdf.meanvT(R,phi=phi,use_physical=False)
-            cosalphaperp= nu.cos(alphaperp)
-            tanalphaperp= nu.tan(alphaperp)
+            cosalphaperp= numpy.cos(alphaperp)
+            tanalphaperp= numpy.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -va/sigmaR1-nsigma,
@@ -1982,18 +1982,18 @@ class evolveddiskdf(df):
                                   args=(self,R,cosalphaperp,tanalphaperp,
                                         vperp-vcircperp,vcirc,
                                         sigmaR1,phi),
-                                  **kwargs)[0]/nu.fabs(cosalphaperp)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(cosalphaperp)*sigmaR1
         else:
-            sigmaR1= nu.sqrt(self._initdf.sigmaR2(R,phi=phi,
+            sigmaR1= numpy.sqrt(self._initdf.sigmaR2(R,phi=phi,
                                                   use_physical=False))
-            sinalphaperp= nu.sin(alphaperp)
-            cotalphaperp= 1./nu.tan(alphaperp)
+            sinalphaperp= numpy.sin(alphaperp)
+            cotalphaperp= 1./numpy.tan(alphaperp)
             #we can reuse the VperpIntegrand, since it is just another angle
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaLarge,
                                   -nsigma,nsigma,
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1,phi),
-                                  **kwargs)[0]/nu.fabs(sinalphaperp)*sigmaR1
+                                  **kwargs)[0]/numpy.fabs(sinalphaperp)*sigmaR1
 
     def _vmomentsurfacemassHierarchicalGrid(self,n,m,grid):
         """Internal function to evaluate vmomentsurfacemass using a 
@@ -2069,10 +2069,10 @@ class evolveddiskdfHierarchicalGrid(object):
         self.meanvR= meanvR
         self.meanvT= meanvT
         self.gridpoints= gridpoints
-        self.vRgrid= nu.linspace(self.meanvR-nsigma*self.sigmaR1,
+        self.vRgrid= numpy.linspace(self.meanvR-nsigma*self.sigmaR1,
                                  self.meanvR+nsigma*self.sigmaR1,
                                  self.gridpoints)
-        self.vTgrid= nu.linspace(self.meanvT-nsigma*self.sigmaT1,
+        self.vTgrid= numpy.linspace(self.meanvT-nsigma*self.sigmaT1,
                                  self.meanvT+nsigma*self.sigmaT1,
                                  self.gridpoints)
         self.t= t
@@ -2080,9 +2080,9 @@ class evolveddiskdfHierarchicalGrid(object):
             nlevelsTotal= nlevels
         self.nlevels= nlevels
         self.nlevelsTotal= nlevelsTotal
-        if isinstance(t,(list,nu.ndarray)):
+        if isinstance(t,(list,numpy.ndarray)):
             nt= len(t)
-            self.df= nu.zeros((gridpoints,gridpoints,nt))
+            self.df= numpy.zeros((gridpoints,gridpoints,nt))
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
@@ -2103,9 +2103,9 @@ class evolveddiskdfHierarchicalGrid(object):
                             and jj >= ysubmin and jj < ysubmax:
                         continue
                     thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
-                    self.df[ii,jj,:]= edf(thiso,nu.array(t).flatten(),
+                    self.df[ii,jj,:]= edf(thiso,numpy.array(t).flatten(),
                                           deriv=deriv)
-                    self.df[ii,jj,nu.isnan(self.df[ii,jj,:])]= 0.#BOVY: for now
+                    self.df[ii,jj,numpy.isnan(self.df[ii,jj,:])]= 0.#BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
                                                  and jj != 0 
@@ -2121,7 +2121,7 @@ class evolveddiskdfHierarchicalGrid(object):
                         self.df[ii,jj,:]*= 2.25*dxdy/2.25 #turn this off for now
             if print_progress: sys.stdout.write('\n') #pragma: no cover
         else:
-            self.df= nu.zeros((gridpoints,gridpoints))
+            self.df= numpy.zeros((gridpoints,gridpoints))
             dxdy= (self.vRgrid[1]-self.vRgrid[0])\
                 *(self.vTgrid[1]-self.vTgrid[0])
             if nlevels > 0:
@@ -2143,7 +2143,7 @@ class evolveddiskdfHierarchicalGrid(object):
                         continue
                     thiso= Orbit([R,self.vRgrid[ii],self.vTgrid[jj],phi])
                     self.df[ii,jj]= edf(thiso,t,deriv=deriv)
-                    if nu.isnan(self.df[ii,jj]): self.df[ii,jj]= 0. #BOVY: for now
+                    if numpy.isnan(self.df[ii,jj]): self.df[ii,jj]= 0. #BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
                                                  and jj != 0 
@@ -2179,21 +2179,21 @@ class evolveddiskdfHierarchicalGrid(object):
                 
     def __call__(self,n,m):
         """Call"""
-        if isinstance(self.t,(list,nu.ndarray)): tlist= True
+        if isinstance(self.t,(list,numpy.ndarray)): tlist= True
         else: tlist= False
         if tlist: 
             nt= self.df.shape[2]
             out= []
             for ii in range(nt):
                 #We already multiplied in the area
-                out.append(nu.dot(self.vRgrid**n,nu.dot(self.df[:,:,ii],
+                out.append(numpy.dot(self.vRgrid**n,numpy.dot(self.df[:,:,ii],
                                                         self.vTgrid**m)))
 
-            if self.subgrid is None: return nu.array(out)
-            else: return nu.array(out)+ self.subgrid(n,m)
+            if self.subgrid is None: return numpy.array(out)
+            else: return numpy.array(out)+ self.subgrid(n,m)
         else:
            #We already multiplied in the area
-            thislevel= nu.dot(self.vRgrid**n,nu.dot(self.df,self.vTgrid**m))
+            thislevel= numpy.dot(self.vRgrid**n,numpy.dot(self.df,self.vTgrid**m))
             if self.subgrid is None: return thislevel
             else: return thislevel+self.subgrid(n,m)
 
@@ -2220,7 +2220,7 @@ class evolveddiskdfHierarchicalGrid(object):
         nUpperLevels= self.nlevelsTotal-self.nlevels
         nvRTot= nvR*2**nUpperLevels
         nvTTot= nvT*2**nUpperLevels
-        plotthis= nu.zeros((nvRTot,nvTTot))
+        plotthis= numpy.zeros((nvRTot,nvTTot))
         if len(self.df.shape) == 3:
             plotdf= copy.copy(self.df[:,:,tt])
         else:
@@ -2267,16 +2267,16 @@ class evolveddiskdfHierarchicalGrid(object):
     def max(self,tt=0):
         if not self.subgrid is None:
             if len(self.df.shape) == 3:
-                return nu.amax([nu.amax(self.df[:,:,tt]),
+                return numpy.amax([numpy.amax(self.df[:,:,tt]),
                                 self.subgrid.max(tt)])
             else:
-                return nu.amax([nu.amax(self.df[:,:]),
+                return numpy.amax([numpy.amax(self.df[:,:]),
                                 self.subgrid.max()])
         else:
             if len(self.df.shape) == 3:
-                return nu.amax(self.df[:,:,tt])
+                return numpy.amax(self.df[:,:,tt])
             else:
-                return nu.amax(self.df[:,:])
+                return numpy.amax(self.df[:,:])
 
 
 def _vmomentsurfaceIntegrand(vR,vT,R,az,df,n,m,sigmaR1,sigmaT1,t,initvmoment):
