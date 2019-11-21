@@ -4,10 +4,10 @@ import os, os.path
 import copy
 import pickle
 import numpy
-import galpy.util.bovy_plot as plot
-from galpy.util import config
+from ..util import bovy_plot as plot
+from ..util import config
 from .Potential import PotentialError, flatten
-from galpy.util.bovy_conversion import physical_conversion,\
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:

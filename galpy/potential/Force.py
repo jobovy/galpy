@@ -5,9 +5,9 @@
 ###############################################################################
 import copy
 import numpy
-from galpy.util import config
-from galpy.util import bovy_conversion
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..util import config
+from ..util import bovy_conversion
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input
 _APY_LOADED= True
 try:

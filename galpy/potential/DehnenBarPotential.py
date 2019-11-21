@@ -2,7 +2,7 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import numpy
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

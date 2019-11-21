@@ -3,8 +3,8 @@ from __future__ import division, print_function
 import os
 import pickle
 import numpy
-import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion,\
+from ..util import bovy_plot as plot
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:
@@ -183,12 +183,12 @@ def vesc(Pot,R,t=0.):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from galpy.potential import evaluateplanarPotentials
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarPotentials
+    from ..potential import PotentialError
     try:
         return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
         

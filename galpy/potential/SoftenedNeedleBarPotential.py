@@ -7,7 +7,7 @@ import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from galpy.util import bovy_coords, bovy_conversion
+from ..util import bovy_coords, bovy_conversion
 class SoftenedNeedleBarPotential(Potential):
     """Class that implements the softened needle bar potential from `Long & Murali (1992) <http://adsabs.harvard.edu/abs/1992ApJ...397...44L>`__
 

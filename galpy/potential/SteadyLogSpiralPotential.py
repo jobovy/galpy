@@ -2,7 +2,7 @@
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import numpy
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

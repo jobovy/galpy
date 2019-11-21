@@ -9,7 +9,7 @@
 
 from __future__ import division
 from .Potential import Potential, _APY_LOADED
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 import numpy as np
 
 if _APY_LOADED:

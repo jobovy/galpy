@@ -11,8 +11,8 @@
 import numpy
 import hashlib
 from scipy import integrate
-from galpy.util import bovy_coords
-from galpy.util import _rotate_to_arbitrary_vector
+from ..util import bovy_coords
+from ..util import _rotate_to_arbitrary_vector
 from .Potential import Potential, _APY_LOADED, \
     check_potential_inputs_not_arrays
 if _APY_LOADED:

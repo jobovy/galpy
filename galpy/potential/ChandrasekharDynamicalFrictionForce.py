@@ -6,7 +6,7 @@ import copy
 import hashlib
 import numpy
 from scipy import special, interpolate
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .DissipativeForce import DissipativeForce
 from .Potential import _APY_LOADED, evaluateDensities
 from .Potential import flatten as flatten_pot
@@ -111,7 +111,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                                                       R,z,phi=phi,t=t,
                                                       use_physical=False)
         if sigmar is None:
-            from galpy.df import jeans
+            from ..df import jeans
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
         sigmar_rs= numpy.linspace(self._minr,self._maxr,nr)
@@ -290,7 +290,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         if self._dens_kwarg is None and self._sigmar_kwarg is None:
             self.sigmar_orig= lambda x: _INVSQRTTWO
         else:
-            from galpy.df import jeans
+            from ..df import jeans
             self.sigmar_orig= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                                      use_physical=False)
         return None

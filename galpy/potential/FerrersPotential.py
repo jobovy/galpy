@@ -11,7 +11,7 @@ import numpy as np
 import hashlib
 from scipy import integrate
 from scipy.special import gamma
-from galpy.util import bovy_conversion, bovy_coords
+from ..util import bovy_conversion, bovy_coords
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

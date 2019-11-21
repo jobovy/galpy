@@ -1,5 +1,5 @@
 import scipy as sc
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .linearPotential import linearPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

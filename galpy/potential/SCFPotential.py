@@ -6,7 +6,7 @@ from scipy.special import gammaln
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from galpy.util import bovy_coords
+from ..util import bovy_coords
 
 from .NumericalPotentialDerivativesMixin import \
     NumericalPotentialDerivativesMixin

@@ -7,7 +7,7 @@ import numpy
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from galpy.util import galpyWarning
+from ..util import galpyWarning
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential

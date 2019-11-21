@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 from .Force import Force
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input
 class DissipativeForce(Force):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""

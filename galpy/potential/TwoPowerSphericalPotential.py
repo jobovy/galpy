@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy
 from scipy import special, optimize
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

@@ -3,8 +3,8 @@ from __future__ import division, print_function
 import os
 import pickle
 import numpy
-import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion,\
+from ..util import bovy_plot as plot
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:
@@ -199,13 +199,13 @@ def vcirc(Pot,R,phi=None,t=0.):
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from galpy.potential import evaluateplanarRforces
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarRforces
+    from ..potential import PotentialError
     try:
         return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
     except PotentialError:
-        from galpy.potential import toPlanarPotential
+        from ..potential import toPlanarPotential
         Pot= toPlanarPotential(Pot)
         return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
@@ -244,13 +244,13 @@ def dvcircdR(Pot,R,phi=None,t=0.):
        2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from ..potential import PotentialError
     tvc= vcirc(Pot,R,phi=phi,t=t,use_physical=False)
     try:
         return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
 

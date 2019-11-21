@@ -21,12 +21,11 @@ from functools import wraps
 import warnings
 import numpy
 from scipy import optimize, integrate
-import galpy.util.bovy_plot as plot
-from galpy.util import bovy_coords
+from ..util import bovy_plot as plot
+from ..util import bovy_coords
 from ..util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical
-from ..util import config
 from ..util import galpyWarning
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
@@ -745,7 +744,7 @@ class Potential(Force):
            unknown
 
         """
-        from galpy.potential import toPlanarPotential
+        from ..potential import toPlanarPotential
         return toPlanarPotential(self)
 
     def toVertical(self,R,phi=None,t0=0.):
@@ -775,7 +774,7 @@ class Potential(Force):
            unknown
 
         """
-        from galpy.potential import toVerticalPotential
+        from ..potential import toVerticalPotential
         return toVerticalPotential(self,R,phi=phi,t0=t0)
 
     def plot(self,t=0.,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -2554,13 +2553,13 @@ def epifreq(Pot,R,t=0.):
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R,t=t,use_physical=False)
-    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from ..potential import PotentialError
     try:
         return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
@@ -2851,11 +2850,11 @@ def omegac(Pot,R,t=0.):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from galpy.potential import evaluateplanarRforces
+    from ..potential import evaluateplanarRforces
     try:
         return numpy.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return numpy.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
 
@@ -3105,7 +3104,7 @@ def _check_c(Pot,dxdv=False):
 
     """
     Pot= flatten(Pot)
-    from galpy.potential import planarPotential, linearPotential
+    from ..potential import planarPotential, linearPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
@@ -3138,7 +3137,7 @@ def _dim(Pot):
 
        2016-04-19 - Written - Bovy (UofT)
     """
-    from galpy.potential import planarPotential, linearPotential
+    from ..potential import planarPotential, linearPotential
     if isinstance(Pot,list):
         return numpy.amin(numpy.array([_dim(p) for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential,

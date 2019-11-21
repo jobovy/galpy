@@ -395,7 +395,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         if conc is None:
             self.a= a
         else:
-            from galpy.potential import NFWPotential
+            from ..potential import NFWPotential
             dum= NFWPotential(mvir=mvir,conc=conc,ro=self._ro,vo=self._vo,
                               H=H,Om=Om,wrtcrit=wrtcrit,overdens=overdens)
             self.a= dum.a

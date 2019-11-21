@@ -10,7 +10,7 @@ import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from galpy.util import bovy_coords #for prolate spherical coordinate transforms
+from ..util import bovy_coords #for prolate spherical coordinate transforms
 class KuzminKutuzovStaeckelPotential(Potential):
     """Class that implements the Kuzmin-Kutuzov Staeckel potential
 

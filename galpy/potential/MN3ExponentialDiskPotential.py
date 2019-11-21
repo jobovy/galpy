@@ -6,7 +6,7 @@
 ###############################################################################
 import numpy
 import warnings
-from galpy.util import galpyWarning
+from ..util import galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

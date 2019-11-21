@@ -5,9 +5,9 @@ import copy
 import pickle
 import numpy
 from scipy import integrate
-import galpy.util.bovy_plot as plot
-from galpy.util import config
-from galpy.util.bovy_conversion import physical_conversion,\
+from ..util import bovy_plot as plot
+from ..util import config
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr
 from .Potential import Potential, PotentialError, lindbladR, flatten
 from .plotRotcurve import plotRotcurve
@@ -1264,7 +1264,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
     """
     axiPot= flatten(axiPot)
-    from galpy.potential import omegac, epifreq
+    from ..potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
         raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
     elif not nonaxiPot is None:
