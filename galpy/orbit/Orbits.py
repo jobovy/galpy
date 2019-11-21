@@ -26,7 +26,7 @@ from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
-import galpy.util.bovy_plot as plot
+from ..util import bovy_plot as plot
 from ..util import bovy_conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
@@ -56,7 +56,7 @@ try:
     from astroquery.simbad import Simbad
 except ImportError:
     _ASTROQUERY_LOADED= False
-from galpy.util import config
+from ..util import config
 _APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
@@ -1108,7 +1108,7 @@ class Orbit(object):
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
             dt= dt.to(units.Gyr).value\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-        from galpy.potential import MWPotential
+        from ..potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
@@ -1908,7 +1908,7 @@ class Orbit(object):
                                                           delta=delta,
                                                           **kwargs)
         elif self._aAType.lower() == 'isochroneapprox':
-            from galpy.actionAngle import actionAngleIsochroneApprox
+            from ..actionAngle import actionAngleIsochroneApprox
             self._aA= actionAngleIsochroneApprox(pot=self._aAPot,b=b,
                                                  **kwargs)
         elif self._aAType.lower() == 'spherical':
@@ -5863,7 +5863,7 @@ def _check_integrate_dt(t,dt):
         return False
 
 def _check_potential_dim(orb,pot):
-    from galpy.potential import _dim
+    from ..potential import _dim
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
 

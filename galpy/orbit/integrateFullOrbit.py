@@ -7,8 +7,8 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
-from galpy import potential
-from galpy.util import galpyWarning
+from .. import potential
+from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
     _evaluatephiforces
 from .integratePlanarOrbit import _parse_integrator, _parse_tol

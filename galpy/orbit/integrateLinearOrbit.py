@@ -7,14 +7,13 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
-from galpy import potential
-from galpy.util import galpyWarning
+from .. import potential
+from ..util import galpyWarning
 from ..util.multi import parallel_map
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from ..potential.linearPotential import _evaluatelinearForces
-from galpy.potential.verticalPotential import verticalPotential
-from galpy.potential.WrapperPotential import parentWrapperPotential
+from ..potential.verticalPotential import verticalPotential
 from ..util.leung_dop853 import dop853
 from ..util import bovy_symplecticode as symplecticode
 #Find and load the library

@@ -7,13 +7,13 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
-from galpy import potential
-from galpy.potential.planarPotential import planarPotentialFromFullPotential, \
+from .. import potential
+from ..potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
 from ..potential.planarPotential import _evaluateplanarRforces,\
     _evaluateplanarphiforces, _evaluateplanarPotentials
-from galpy.potential.WrapperPotential import parentWrapperPotential
-from galpy.util import galpyWarning
+from ..potential.WrapperPotential import parentWrapperPotential
+from ..util import galpyWarning
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import bovy_symplecticode as symplecticode
