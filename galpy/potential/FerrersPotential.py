@@ -7,8 +7,8 @@
 #
 #       m^2 = x^2 + y^2/b^2 + z^2/c^2
 ########################################################################
-import numpy as np
 import hashlib
+import numpy
 from scipy import integrate
 from scipy.special import gamma
 from ..util import bovy_conversion, bovy_coords
@@ -92,12 +92,12 @@ class FerrersPotential(Potential):
         self._c2= self._c**2.
         self._force_hash= None
         self._pa = pa
-        self._rhoc_M = gamma(n+2.5)/gamma(n+1) / np.pi**1.5/a**3/b/c
+        self._rhoc_M = gamma(n+2.5)/gamma(n+1) / numpy.pi**1.5/a**3/b/c
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        if np.fabs(self._b-1.) > 10.**-10.:
+        if numpy.fabs(self._b-1.) > 10.**-10.:
             self.isNonAxi= True
         return None
 
@@ -118,14 +118,14 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi= 0.
         x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
-        xy= np.dot(self.rot(t),np.array([x,y]))
+        xy= numpy.dot(self.rot(t),numpy.array([x,y]))
         x,y= xy[0],xy[1]
         return self._evaluate_xyz(x,y,z)
 
     def _evaluate_xyz(self,x,y,z=0.):
         """Evaluation of the potential as a function of (x,y,z) in the 
         aligned coordinate frame"""
-        return -np.pi * self._rhoc_M /(self.n+1.)*self.a**3*self._b*self._c * \
+        return -numpy.pi * self._rhoc_M /(self.n+1.)*self.a**3*self._b*self._c * \
             _potInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -145,7 +145,7 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi= 0.
         self._compute_xyzforces(R,z,phi,t)
-        return np.cos(phi)*self._cached_Fx+np.sin(phi)*self._cached_Fy
+        return numpy.cos(phi)*self._cached_Fx+numpy.sin(phi)*self._cached_Fy
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -164,8 +164,8 @@ class FerrersPotential(Potential):
         if not self.isNonAxi:
             phi= 0.
         self._compute_xyzforces(R,z,phi,t)
-        return R*(-np.sin(phi)*self._cached_Fx\
-                       +np.cos(phi)*self._cached_Fy)
+        return R*(-numpy.sin(phi)*self._cached_Fx\
+                       +numpy.cos(phi)*self._cached_Fy)
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -191,7 +191,7 @@ class FerrersPotential(Potential):
 
     def _compute_xyzforces(self,R,z,phi,t):
         # Compute all rectangular forces
-        new_hash= hashlib.md5(np.array([R,phi,z,t])).hexdigest()
+        new_hash= hashlib.md5(numpy.array([R,phi,z,t])).hexdigest()
         if new_hash == self._force_hash:
             Fx= self._cached_Fx
             Fy= self._cached_Fy
@@ -203,7 +203,7 @@ class FerrersPotential(Potential):
             Fz= self._zforce_xyz(x,y,z)
             self._force_hash= new_hash
             tp= self._pa+self._omegab*t
-            cp, sp= np.cos(tp), np.sin(tp)
+            cp, sp= numpy.cos(tp), numpy.sin(tp)
             self._cached_Fx= cp*Fx-sp*Fy
             self._cached_Fy= sp*Fx+cp*Fy
             self._cached_Fz= Fz
@@ -211,19 +211,19 @@ class FerrersPotential(Potential):
     def _xforce_xyz(self,x,y,z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
+        return -2.*numpy.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 0)
 
     def _yforce_xyz(self,x,y,z):
         """Evaluation of the y force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
+        return -2.*numpy.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 1)
 
     def _zforce_xyz(self,x,y,z):
         """Evaluation of the z force as a function of (x,y,z) in the aligned
         coordinate frame"""
-        return -2.*np.pi*self._rhoc_M * self.a**3*self._b*self._c * \
+        return -2.*numpy.pi*self._rhoc_M * self.a**3*self._b*self._c * \
             _forceInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n, 2)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -247,12 +247,12 @@ class FerrersPotential(Potential):
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
         ang = self._omegab*t + self._pa
-        c, s = np.cos(ang), np.sin(ang)
+        c, s = numpy.cos(ang), numpy.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
         phiyy = s**2*phixxa - 2.*c*s*phixya + c**2*phiyya
-        return np.cos(phi)**2.*phixx + np.sin(phi)**2.*phiyy + \
-            2.*np.cos(phi)*np.sin(phi)*phixy
+        return numpy.cos(phi)**2.*phixx + numpy.sin(phi)**2.*phiyy + \
+            2.*numpy.cos(phi)*numpy.sin(phi)*phixy
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -274,10 +274,10 @@ class FerrersPotential(Potential):
         phixza= self._2ndderiv_xyz(x,y,z,0,2)
         phiyza= self._2ndderiv_xyz(x,y,z,1,2)
         ang = self._omegab*t + self._pa
-        c, s = np.cos(ang), np.sin(ang)
+        c, s = numpy.cos(ang), numpy.sin(ang)
         phixz = c*phixza + s*phiyza
         phiyz = -s*phixza + c*phiyza
-        return np.cos(phi)*phixz + np.sin(phi)*phiyz
+        return numpy.cos(phi)*phixz + numpy.sin(phi)*phiyz
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -317,19 +317,19 @@ class FerrersPotential(Potential):
         x,y,z= self._compute_xyz(R,phi,z,t)
         Fx= self._xforce_xyz(x,y,z)
         Fy= self._yforce_xyz(x,y,z)
-        Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
+        Fxy= numpy.dot(self.rot(t, transposed = True),numpy.array([Fx,Fy]))
         Fx, Fy= Fxy[0], Fxy[1]
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
         ang = self._omegab*t + self._pa
-        c, s = np.cos(ang), np.sin(ang)
+        c, s = numpy.cos(ang), numpy.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
         phiyy = s**2*phixxa - 2.*c*s*phixya + c**2*phiyya
-        return R**2.*(np.sin(phi)**2.*phixx+np.cos(phi)**2.*phiyy\
-                          -2.*np.cos(phi)*np.sin(phi)*phixy)\
-                          +R*(np.cos(phi)*Fx+np.sin(phi)*Fy)
+        return R**2.*(numpy.sin(phi)**2.*phixx+numpy.cos(phi)**2.*phiyy\
+                          -2.*numpy.cos(phi)*numpy.sin(phi)*phixy)\
+                          +R*(numpy.cos(phi)*Fx+numpy.sin(phi)*Fy)
 
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         """
@@ -350,24 +350,24 @@ class FerrersPotential(Potential):
         x,y,z= self._compute_xyz(R,phi,z,t)
         Fx= self._xforce_xyz(x,y,z)
         Fy= self._yforce_xyz(x,y,z)
-        Fxy= np.dot(self.rot(t, transposed = True),np.array([Fx,Fy]))
+        Fxy= numpy.dot(self.rot(t, transposed = True),numpy.array([Fx,Fy]))
         Fx, Fy= Fxy[0], Fxy[1]
         phixxa= self._2ndderiv_xyz(x,y,z,0,0)
         phixya= self._2ndderiv_xyz(x,y,z,0,1)
         phiyya= self._2ndderiv_xyz(x,y,z,1,1)
         ang = self._omegab*t + self._pa
-        c, s = np.cos(ang), np.sin(ang)
+        c, s = numpy.cos(ang), numpy.sin(ang)
         phixx = c**2*phixxa + 2.*c*s*phixya + s**2*phiyya
         phixy = (c**2-s**2)*phixya + c*s*(phiyya - phixxa)
         phiyy = s**2*phixxa - 2.*c*s*phixya + c**2*phiyya
-        return R*np.cos(phi)*np.sin(phi)*\
-            (phiyy-phixx)+R*np.cos(2.*(phi))*phixy\
-            +np.sin(phi)*Fx-np.cos(phi)*Fy
+        return R*numpy.cos(phi)*numpy.sin(phi)*\
+            (phiyy-phixx)+R*numpy.cos(2.*(phi))*phixy\
+            +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
 
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""
-        return -np.pi*self._rhoc_M*self.a**3*self._b*self._c *\
+        return -numpy.pi*self._rhoc_M*self.a**3*self._b*self._c *\
             _2ndDerivInt(x,y,z,self._a2,self._b2*self._a2,self._c2*self._a2,self.n,i,j)
 
     def _dens(self,R,z,phi=0.,t=0.):
@@ -408,9 +408,9 @@ class FerrersPotential(Potential):
         """2D Rotation matrix for non-zero pa or pattern speed
            to goto the aligned coordinates
         """
-        rotmat = np.array(
-            [[np.cos(self._pa+self._omegab*t),np.sin(self._pa+self._omegab*t)],
-             [-np.sin(self._pa+self._omegab*t),np.cos(self._pa+self._omegab*t)]])
+        rotmat = numpy.array(
+            [[numpy.cos(self._pa+self._omegab*t),numpy.sin(self._pa+self._omegab*t)],
+             [-numpy.sin(self._pa+self._omegab*t),numpy.cos(self._pa+self._omegab*t)]])
         if transposed:
             return rotmat.T
         else:
@@ -425,7 +425,7 @@ def _potInt(x,y,z,a2,b2,c2,n):
     """
     def integrand(tau):
         return _FracInt(x, y, z, a2, b2, c2, tau, n+1)
-    return integrate.quad(integrand, lowerlim(x**2,y**2,z**2,a2,b2,c2), np.inf)[0]
+    return integrate.quad(integrand, lowerlim(x**2,y**2,z**2,a2,b2,c2), numpy.inf)[0]
 
 def _forceInt(x,y,z,a2,b2,c2,n,i):
     """Integral involved in the force at (x,y,z)
@@ -437,7 +437,7 @@ def _forceInt(x,y,z,a2,b2,c2,n,i):
     def integrand(tau):
         return (x*(i==0) + y*(i==1) + z*(i==2))/(a2*(i==0) + b2*(i==1) + c2*(i==2) + tau) * \
             _FracInt(x, y, z, a2, b2, c2, tau, n)
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), np.inf, epsabs=1e-12)[0]
+    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf, epsabs=1e-12)[0]
 
 def _2ndDerivInt(x,y,z,a2,b2,c2,n,i,j):
     """Integral involved in second derivatives d^\Phi/(dx_i dx_j)
@@ -462,7 +462,7 @@ def _2ndDerivInt(x,y,z,a2,b2,c2,n,i,j):
             coef2 = a2*(i==0) + b2*(i==1) + c2*(i==2)
             return _FracInt(x,y,z,a2,b2,c2,tau,n-1)*n*(4.*var2)/(tau+coef2)**2 +\
                 _FracInt(x,y,z,a2,b2,c2,tau,n)*(-2./(tau+coef2))
-    return integrate.quad(integrand, lowerlim(x**2,y**2,z**2,a2,b2,c2), np.inf)[0]
+    return integrate.quad(integrand, lowerlim(x**2,y**2,z**2,a2,b2,c2), numpy.inf)[0]
 
 def _FracInt(x,y,z,a,b,c,tau,n):
     """Returns
@@ -470,7 +470,7 @@ def _FracInt(x,y,z,a,b,c,tau,n):
     -------------------------- (1 - ------- - ------- - -------)^n
     sqrt(tau+a)(tau+b)(tau+c))       tau+a     tau+b     tau+c
     """
-    denom = np.sqrt((a + tau)*(b + tau)*(c + tau))
+    denom = numpy.sqrt((a + tau)*(b + tau)*(c + tau))
     return (1. - x**2/(a + tau) - y**2/(b + tau) - z**2/(c + tau))**n / denom
 
 def lowerlim(x, y, z, a, b, c):
@@ -482,8 +482,8 @@ def lowerlim(x, y, z, a, b, c):
         B = a + b + c - x - y - z
         C = a*b + a*c + b*c - a*y - a*z - b*x - b*z - c*x - c*y
         D = a*b*c - a*b*z - a*c*y - b*c*x
-        r = np.roots([1,B,C,D])
-        ll = r[~np.iscomplex(r) & (r>0.)]
+        r = numpy.roots([1,B,C,D])
+        ll = r[~numpy.iscomplex(r) & (r>0.)]
         return ll[0].real
     else:
         return 0.
