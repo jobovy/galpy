@@ -88,7 +88,7 @@ class CosmphiDiskPotential(planarPotential):
             self._mphio= phio*self._m
         else:
             self._mphio= numpy.sqrt(cp*cp+sp*sp)
-            self._phib= numpy.atan(sp/cp)/self._m
+            self._phib= numpy.arctan(sp/cp)/self._m
             if m < 2. and cp < 0.:
                 self._phib= numpy.pi+self._phib
         self._p= p

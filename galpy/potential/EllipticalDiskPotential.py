@@ -89,7 +89,7 @@ class EllipticalDiskPotential(planarPotential):
             self._twophio= twophio
         else:
             self._twophio= numpy.sqrt(cp*cp+sp*sp)
-            self._phib= numpy.atan2(sp,cp)/2.
+            self._phib= numpy.arctan2(sp,cp)/2.
         self._p= p
         if not tform is None:
             self._tform= tform
