@@ -5,7 +5,7 @@
 #                          rho(r)= ---------   e^{-(r/rc)^2}
 #                                   r^\alpha
 ###############################################################################
-import numpy as nu
+import numpy
 from scipy import special, integrate
 from .Potential import Potential, kms_to_kpcGyrDecorator, \
     _APY_LOADED
@@ -88,8 +88,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Started - Bovy (IAS)
         """
-        r= nu.sqrt(R**2.+z**2.)
-        return 2.*nu.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+        r= numpy.sqrt(R**2.+z**2.)
+        return 2.*numpy.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -107,7 +107,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-26 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R*R+z*z)
+        r= numpy.sqrt(R*R+z*z)
         return -self._mass(r)*R/r**3.
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -126,7 +126,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-26 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R*R+z*z)
+        r= numpy.sqrt(R*R+z*z)
         return -self._mass(r)*z/r**3.
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -145,8 +145,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R*R+z*z)
-        return 4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)*R**2.\
+        r= numpy.sqrt(R*R+z*z)
+        return 4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)*R**2.\
             +self._mass(r)/r**5.*(z**2.-2.*R**2.)
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
@@ -165,8 +165,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R*R+z*z)
-        return 4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)*z**2.\
+        r= numpy.sqrt(R*R+z*z)
+        return 4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)*z**2.\
             +self._mass(r)/r**5.*(R**2.-2.*z**2.)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
@@ -185,8 +185,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R*R+z*z)
-        return R*z*(4.*nu.pi*r**(-2.-self.alpha)*nu.exp(-(r/self.rc)**2.)
+        r= numpy.sqrt(R*R+z*z)
+        return R*z*(4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)
                     -3.*self._mass(r)/r**5.)
 
     def _dens(self,R,z,phi=0.,t=0.):
@@ -205,8 +205,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R**2.+z**2.)
-        return 1./r**self.alpha*nu.exp(-(r/self.rc)**2.)
+        r= numpy.sqrt(R**2.+z**2.)
+        return 1./r**self.alpha*numpy.exp(-(r/self.rc)**2.)
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -224,8 +224,8 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-XX-XX - Written - Bovy (IAS)
         """
         if z is None: r= R
-        else: r= nu.sqrt(R**2.+z**2.)
-        return 2.*nu.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+        else: r= numpy.sqrt(R**2.+z**2.)
+        return 2.*numpy.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

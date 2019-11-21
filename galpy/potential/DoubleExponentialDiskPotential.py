@@ -4,10 +4,8 @@
 #
 #                                      rho(R,z) = rho_0 e^-R/h_R e^-|z|/h_z
 ###############################################################################
-import numpy as nu
-import warnings
-from scipy import special, integrate
-from galpy.util import galpyWarning
+import numpy
+from scipy import special
 from .PowerSphericalPotential import KeplerPotential
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -80,29 +78,29 @@ class DoubleExponentialDiskPotential(Potential):
         self._tol= tol
         self._zforceNotSetUp= True #We have not calculated a typical Kz yet
         #Setup j0 zeros etc.
-        self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
+        self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
         self._nzeros=100
         #j0 for potential and z
-        self._j0zeros= nu.zeros(self._nzeros+1)
+        self._j0zeros= numpy.zeros(self._nzeros+1)
         self._j0zeros[1:self._nzeros+1]= special.jn_zeros(0,self._nzeros)
-        self._dj0zeros= self._j0zeros-nu.roll(self._j0zeros,1)
+        self._dj0zeros= self._j0zeros-numpy.roll(self._j0zeros,1)
         self._dj0zeros[0]= self._j0zeros[0]
         #j1 for R
-        self._j1zeros= nu.zeros(self._nzeros+1)
+        self._j1zeros= numpy.zeros(self._nzeros+1)
         self._j1zeros[1:self._nzeros+1]= special.jn_zeros(1,self._nzeros)
-        self._dj1zeros= self._j1zeros-nu.roll(self._j1zeros,1)
+        self._dj1zeros= self._j1zeros-numpy.roll(self._j1zeros,1)
         self._dj1zeros[0]= self._j1zeros[0]
         #j2 for R2deriv
-        self._j2zeros= nu.zeros(self._nzeros+1)
+        self._j2zeros= numpy.zeros(self._nzeros+1)
         self._j2zeros[1:self._nzeros+1]= special.jn_zeros(2,self._nzeros)
-        self._dj2zeros= self._j2zeros-nu.roll(self._j2zeros,1)
+        self._dj2zeros= self._j2zeros-numpy.roll(self._j2zeros,1)
         self._dj2zeros[0]= self._j2zeros[0]
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         #Load Kepler potential for large R
-        self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)
+        self._kp= KeplerPotential(normalize=4.*numpy.pi/self._alpha**2./self._beta)
 
     def _evaluate(self,R,z,phi=0.,t=0.,dR=0,dphi=0):
         """
@@ -129,31 +127,31 @@ class DoubleExponentialDiskPotential(Potential):
         if True:
             if isinstance(R,float):
                 floatIn= True
-                R= nu.array([R])
-                z= nu.array([z])
+                R= numpy.array([R])
+                z= numpy.array([z])
             else:
                 if isinstance(z,float):
-                    z= z*nu.ones_like(R)
+                    z= z*numpy.ones_like(R)
                 floatIn= False
                 outShape= R.shape # this code can't do arbitrary shapes
                 R= R.flatten()
                 z= z.flatten()
-            out= nu.empty(len(R))
+            out= numpy.empty(len(R))
             indx= (R <= 6.)
-            if nu.sum(True^indx) > 0:
+            if numpy.sum(True^indx) > 0:
                 out[True^indx]= self._kp(R[True^indx],z[True^indx])
-            R4max= nu.copy(R)
+            R4max= numpy.copy(R)
             R4max[(R < 1.)]= 1.
             kmax= self._kmaxFac*self._beta
             for jj in range(len(R)):
                 if not indx[jj]: continue
-                maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max[jj])**2.) #close enough
-                ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
-                weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
-                evalInt= special.jn(0,ks*R[jj])*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z[jj]))-ks*nu.exp(-self._beta*nu.fabs(z[jj])))/(self._beta**2.-ks**2.)
-                out[jj]= -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
+                maxj0zeroIndx= numpy.argmin((self._j0zeros-kmax*R4max[jj])**2.) #close enough
+                ks= numpy.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+                weights= numpy.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+                evalInt= special.jn(0,ks*R[jj])*(self._alpha**2.+ks**2.)**-1.5*(self._beta*numpy.exp(-ks*numpy.fabs(z[jj]))-ks*numpy.exp(-self._beta*numpy.fabs(z[jj])))/(self._beta**2.-ks**2.)
+                out[jj]= -2.*numpy.pi*self._alpha*numpy.sum(weights*evalInt)
             if floatIn: return out[0]
-            else: return nu.reshape(out,outShape)
+            else: return numpy.reshape(out,outShape)
     
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -173,20 +171,20 @@ class DoubleExponentialDiskPotential(Potential):
         DOCTEST:
         """
         if True:
-            if isinstance(R,nu.ndarray):
-                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
-                out= nu.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
+            if isinstance(R,numpy.ndarray):
+                if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
+                out= numpy.array([self._Rforce(rr,zz) for rr,zz in zip(R,z)])
                 return out
             if (R > 16.*self._hr or R > 6.) and hasattr(self,'_kp'): return self._kp.Rforce(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta
             kmax= 2.*self._kmaxFac*self._beta
-            maxj1zeroIndx= nu.argmin((self._j1zeros-kmax*R4max)**2.) #close enough
-            ks= nu.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
-            weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
-            evalInt= ks*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*nu.exp(-ks*nu.fabs(z))-ks*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
-            return -2.*nu.pi*self._alpha*nu.sum(weights*evalInt)
+            maxj1zeroIndx= numpy.argmin((self._j1zeros-kmax*R4max)**2.) #close enough
+            ks= numpy.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
+            weights= numpy.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
+            evalInt= ks*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(self._beta*numpy.exp(-ks*numpy.fabs(z))-ks*numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks**2.)
+            return -2.*numpy.pi*self._alpha*numpy.sum(weights*evalInt)
     
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -206,22 +204,22 @@ class DoubleExponentialDiskPotential(Potential):
         DOCTEST:
         """
         if True:
-            if isinstance(R,nu.ndarray):
-                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
-                out= nu.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
+            if isinstance(R,numpy.ndarray):
+                if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
+                out= numpy.array([self._zforce(rr,zz) for rr,zz in zip(R,z)])
                 return out
             if R > 16.*self._hr or R > 6.: return self._kp.zforce(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta
-            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
-            ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
-            weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
-            evalInt= ks*special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(nu.exp(-ks*nu.fabs(z))-nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
+            maxj0zeroIndx= numpy.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
+            ks= numpy.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+            weights= numpy.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+            evalInt= ks*special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(numpy.exp(-ks*numpy.fabs(z))-numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks**2.)
             if z > 0.:
-                return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+                return -2.*numpy.pi*self._alpha*self._beta*numpy.sum(weights*evalInt)
             else:
-                return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+                return 2.*numpy.pi*self._alpha*self._beta*numpy.sum(weights*evalInt)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -240,24 +238,24 @@ class DoubleExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         if True:
-            if isinstance(R,nu.ndarray):
-                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
-                out= nu.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
+            if isinstance(R,numpy.ndarray):
+                if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
+                out= numpy.array([self._R2deriv(rr,zz) for rr,zz in zip(R,z)])
                 return out
             if R > 16.*self._hr or R > 6.: return self._kp.R2deriv(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= 2.*self._kmaxFac*self._beta
-            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
-            maxj2zeroIndx= nu.argmin((self._j2zeros-kmax*R4max)**2.) #close enough
-            ks0= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
-            weights0= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
-            ks2= nu.array([0.5*(self._glx+1.)*self._dj2zeros[ii+1] + self._j2zeros[ii] for ii in range(maxj2zeroIndx)]).flatten()
-            weights2= nu.array([self._glw*self._dj2zeros[ii+1] for ii in range(maxj2zeroIndx)]).flatten()
-            evalInt0= ks0**2.*special.jn(0,ks0*R)*(self._alpha**2.+ks0**2.)**-1.5*(self._beta*nu.exp(-ks0*nu.fabs(z))-ks0*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks0**2.)
-            evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*nu.exp(-ks2*nu.fabs(z))-ks2*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks2**2.)
-            return nu.pi*self._alpha*(nu.sum(weights0*evalInt0)
-                                      -nu.sum(weights2*evalInt2))
+            maxj0zeroIndx= numpy.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
+            maxj2zeroIndx= numpy.argmin((self._j2zeros-kmax*R4max)**2.) #close enough
+            ks0= numpy.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+            weights0= numpy.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+            ks2= numpy.array([0.5*(self._glx+1.)*self._dj2zeros[ii+1] + self._j2zeros[ii] for ii in range(maxj2zeroIndx)]).flatten()
+            weights2= numpy.array([self._glw*self._dj2zeros[ii+1] for ii in range(maxj2zeroIndx)]).flatten()
+            evalInt0= ks0**2.*special.jn(0,ks0*R)*(self._alpha**2.+ks0**2.)**-1.5*(self._beta*numpy.exp(-ks0*numpy.fabs(z))-ks0*numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks0**2.)
+            evalInt2= ks2**2.*special.jn(2,ks2*R)*(self._alpha**2.+ks2**2.)**-1.5*(self._beta*numpy.exp(-ks2*numpy.fabs(z))-ks2*numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks2**2.)
+            return numpy.pi*self._alpha*(numpy.sum(weights0*evalInt0)
+                                      -numpy.sum(weights2*evalInt2))
     
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -276,19 +274,19 @@ class DoubleExponentialDiskPotential(Potential):
            2012-12-26 - Written - Bovy (IAS)
         """
         if True:
-            if isinstance(R,nu.ndarray):
-                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
-                out= nu.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
+            if isinstance(R,numpy.ndarray):
+                if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
+                out= numpy.array([self._z2deriv(rr,zz) for rr,zz in zip(R,z)])
                 return out
             if R > 16.*self._hr or R > 6.: return self._kp.z2deriv(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= self._kmaxFac*self._beta
-            maxj0zeroIndx= nu.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
-            ks= nu.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
-            weights= nu.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
-            evalInt= ks*special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(ks*nu.exp(-ks*nu.fabs(z))-self._beta*nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
-            return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+            maxj0zeroIndx= numpy.argmin((self._j0zeros-kmax*R4max)**2.) #close enough
+            ks= numpy.array([0.5*(self._glx+1.)*self._dj0zeros[ii+1] + self._j0zeros[ii] for ii in range(maxj0zeroIndx)]).flatten()
+            weights= numpy.array([self._glw*self._dj0zeros[ii+1] for ii in range(maxj0zeroIndx)]).flatten()
+            evalInt= ks*special.jn(0,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(ks*numpy.exp(-ks*numpy.fabs(z))-self._beta*numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks**2.)
+            return -2.*numpy.pi*self._alpha*self._beta*numpy.sum(weights*evalInt)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -307,22 +305,22 @@ class DoubleExponentialDiskPotential(Potential):
            2013-08-28 - Written - Bovy (IAS)
         """
         if True:
-            if isinstance(R,nu.ndarray):
-                if not isinstance(z,nu.ndarray): z= nu.ones_like(R)*z
-                out= nu.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
+            if isinstance(R,numpy.ndarray):
+                if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
+                out= numpy.array([self._Rzderiv(rr,zz) for rr,zz in zip(R,z)])
                 return out
             if R > 6.: return self._kp.Rzderiv(R,z)
             if R < 1.: R4max= 1.
             else: R4max= R
             kmax= 2.*self._kmaxFac*self._beta
-            maxj1zeroIndx= nu.argmin((self._j1zeros-kmax*R4max)**2.) #close enough
-            ks= nu.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
-            weights= nu.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
-            evalInt= ks**2.*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(nu.exp(-ks*nu.fabs(z))-nu.exp(-self._beta*nu.fabs(z)))/(self._beta**2.-ks**2.)
+            maxj1zeroIndx= numpy.argmin((self._j1zeros-kmax*R4max)**2.) #close enough
+            ks= numpy.array([0.5*(self._glx+1.)*self._dj1zeros[ii+1] + self._j1zeros[ii] for ii in range(maxj1zeroIndx)]).flatten()
+            weights= numpy.array([self._glw*self._dj1zeros[ii+1] for ii in range(maxj1zeroIndx)]).flatten()
+            evalInt= ks**2.*special.jn(1,ks*R)*(self._alpha**2.+ks**2.)**-1.5*(numpy.exp(-ks*numpy.fabs(z))-numpy.exp(-self._beta*numpy.fabs(z)))/(self._beta**2.-ks**2.)
             if z >= 0.:
-                return -2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+                return -2.*numpy.pi*self._alpha*self._beta*numpy.sum(weights*evalInt)
             else:
-                return 2.*nu.pi*self._alpha*self._beta*nu.sum(weights*evalInt)
+                return 2.*numpy.pi*self._alpha*self._beta*numpy.sum(weights*evalInt)
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -340,7 +338,7 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        return nu.exp(-self._alpha*R-self._beta*nu.fabs(z))
+        return numpy.exp(-self._alpha*R-self._beta*numpy.fabs(z))
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -358,5 +356,5 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        return 2.*nu.exp(-self._alpha*R)/self._beta\
-            *(1.-nu.exp(-self._beta*nu.fabs(z)))
+        return 2.*numpy.exp(-self._alpha*R)/self._beta\
+            *(1.-numpy.exp(-self._beta*numpy.fabs(z)))

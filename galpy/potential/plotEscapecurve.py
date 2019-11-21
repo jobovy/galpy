@@ -2,7 +2,7 @@ from __future__ import division, print_function
 
 import os
 import pickle
-import numpy as nu
+import numpy
 import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
@@ -92,7 +92,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
         Rs= pickle.load(savefile)
         savefile.close()
     else:
-        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+        Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
         esccurve= calcEscapecurve(Pot,Rs)
         if not savefilename == None:
             print("Writing savefile "+savefilename+" ...")
@@ -113,7 +113,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
         kwargs['xrange']= Rrange
     if not 'yrange' in kwargs:
         kwargs['yrange']=\
-            [0.,1.2*nu.amax(esccurve[True^nu.isnan(esccurve)])]
+            [0.,1.2*numpy.amax(esccurve[True^numpy.isnan(esccurve)])]
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)
@@ -147,8 +147,8 @@ def calcEscapecurve(Pot,Rs,t=0.):
         grid= len(Rs)
     except TypeError:
         grid=1
-        Rs= nu.array([Rs])
-    esccurve= nu.zeros(grid)
+        Rs= numpy.array([Rs])
+    esccurve= numpy.zeros(grid)
     for ii in range(grid):
         esccurve[ii]= vesc(Pot,Rs[ii],t=t,use_physical=False)
     return esccurve
@@ -186,9 +186,9 @@ def vesc(Pot,R,t=0.):
     from galpy.potential import evaluateplanarPotentials
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
+        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
+        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
         

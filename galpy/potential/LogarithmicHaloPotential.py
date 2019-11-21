@@ -3,7 +3,7 @@
 #                            potential Phi(r) = vc**2 ln(r)
 ###############################################################################
 import warnings
-import numpy as nu
+import numpy
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -95,10 +95,10 @@ class LogarithmicHaloPotential(Potential):
            2010-04-30 - Adapted for R,z - Bovy (NYU)
         """
         if self.isNonAxi:
-            return 1./2.*nu.log(R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            return 1./2.*numpy.log(R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
                                 +(z/self._q)**2.+self._core2)
         else:
-            return 1./2.*nu.log(R**2.+(z/self._q)**2.+self._core2)
+            return 1./2.*numpy.log(R**2.+(z/self._q)**2.+self._core2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -116,7 +116,7 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             return -Rt2/R/(Rt2+(z/self._q)**2.+self._core2)
         else:
             return -R/(R**2.+(z/self._q)**2.+self._core2)
@@ -137,7 +137,7 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             return -z/self._q**2./(Rt2+(z/self._q)**2.+self._core2)
         else:
             return -z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)
@@ -158,9 +158,9 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             return R**2./(Rt2+(z/self._q)**2.+self._core2)\
-                *nu.sin(2.*phi)*self._1m1overb2/2.
+                *numpy.sin(2.*phi)*self._1m1overb2/2.
         else:
             return 0
 
@@ -181,17 +181,17 @@ class LogarithmicHaloPotential(Potential):
         """
         if self.isNonAxi:
             R2= R**2.
-            Rt2= R2*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R2*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             denom2= denom**2.
-            return 1./4./nu.pi\
+            return 1./4./numpy.pi\
                 *(2.*Rt2/R2*(denom-Rt2*denom2)\
                       +denom/self._q**2.-2.*z**2.*denom**2./self._q**4.\
                       -self._1m1overb2\
-                      *(2.*R2*nu.sin(2.*phi)**2./4.*self._1m1overb2\
-                            *denom**2.+denom*nu.cos(2.*phi)))
+                      *(2.*R2*numpy.sin(2.*phi)**2./4.*self._1m1overb2\
+                            *denom**2.+denom*numpy.cos(2.*phi)))
         else:
-            return 1./4./nu.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
+            return 1./4./numpy.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
                                                 +(2.-self._q**-2.)*z**2.)/\
                                                 (R**2.+(z/self._q)**2.+self._core2)**2.
 
@@ -212,7 +212,7 @@ class LogarithmicHaloPotential(Potential):
            2011-10-09 - Written - Bovy (IAS)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             return (denom-2.*Rt2*denom**2.)*Rt2/R**2.
         else:
@@ -236,7 +236,7 @@ class LogarithmicHaloPotential(Potential):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             return denom/self._q**2.-2.*z**2.*denom**2./self._q**4.
         else:
@@ -260,7 +260,7 @@ class LogarithmicHaloPotential(Potential):
            2013-08-28 - Written - Bovy (IAS)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             return -2.*Rt2/R*z/self._q**2./(Rt2+(z/self._q)**2.+self._core2)**2.
         else:
             return -2.*R*z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)**2.
@@ -282,12 +282,12 @@ class LogarithmicHaloPotential(Potential):
            2017-10-15 - Written - Bovy (UofT)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             return -self._1m1overb2\
-                *(R**4.*nu.sin(2.*phi)**2./2.*self._1m1overb2\
+                *(R**4.*numpy.sin(2.*phi)**2./2.*self._1m1overb2\
                       *denom**2.
-                  +R**2.*denom*nu.cos(2.*phi))
+                  +R**2.*denom*numpy.cos(2.*phi))
         else:
             return 0.
 
@@ -308,9 +308,9 @@ class LogarithmicHaloPotential(Potential):
            2017-10-15 - Written - Bovy (UofT)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*nu.sin(phi)**2.)
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return -(denom-Rt2*denom**2.)*R*nu.sin(2.*phi)*self._1m1overb2 
+            return -(denom-Rt2*denom**2.)*R*numpy.sin(2.*phi)*self._1m1overb2 
         else:
             return 0.
 

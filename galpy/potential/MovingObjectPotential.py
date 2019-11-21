@@ -3,7 +3,7 @@
 #                             a moving object
 ###############################################################################
 import copy
-import numpy as nu
+import numpy
 from .Potential import Potential, _isNonAxi, flatten, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities, _check_c
 from .PlummerPotential import PlummerPotential
@@ -111,7 +111,7 @@ class MovingObjectPotential(Potential):
         RF = evaluateRforces(self._pot,Rdist,zd, use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
-        return -RF*(nu.cos(phi)*xd+nu.sin(phi)*yd)/Rdist
+        return -RF*(numpy.cos(phi)*xd+numpy.sin(phi)*yd)/Rdist
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -165,7 +165,7 @@ class MovingObjectPotential(Potential):
         #Evaluate cylindrical radial force.
         RF = evaluateRforces(self._pot, Rdist, zd, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
-        return -RF*R*(nu.cos(phi)*yd-nu.sin(phi)*xd)/Rdist
+        return -RF*R*(numpy.cos(phi)*yd-numpy.sin(phi)*xd)/Rdist
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -193,10 +193,10 @@ class MovingObjectPotential(Potential):
         return evaluateDensities(self._pot, Rdist, zd, use_physical=False)
 
 def _cylR(R1,phi1,R2,phi2):
-    return nu.sqrt(R1**2.+R2**2.-2.*R1*R2*nu.cos(phi1-phi2)) # Cosine law
+    return numpy.sqrt(R1**2.+R2**2.-2.*R1*R2*numpy.cos(phi1-phi2)) # Cosine law
 
 def _cyldiff(R1,phi1,z1,R2,phi2,z2):
-    dx = R1*nu.cos(phi1)-R2*nu.cos(phi2)
-    dy = R1*nu.sin(phi1)-R2*nu.sin(phi2)
+    dx = R1*numpy.cos(phi1)-R2*numpy.cos(phi2)
+    dy = R1*numpy.sin(phi1)-R2*numpy.sin(phi2)
     dz = z1-z2
     return (dx,dy,dz)

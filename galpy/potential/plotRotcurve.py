@@ -2,7 +2,7 @@ from __future__ import division, print_function
 
 import os
 import pickle
-import numpy as nu
+import numpy
 import galpy.util.bovy_plot as plot
 from galpy.util.bovy_conversion import physical_conversion,\
     potential_physical_input
@@ -96,7 +96,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         Rs= pickle.load(savefile)
         savefile.close()
     else:
-        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+        Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
         rotcurve= calcRotcurve(Pot,Rs,phi=phi)
         if not savefilename == None:
             print("Writing savefile "+savefilename+" ...")
@@ -116,7 +116,7 @@ def plotRotcurve(Pot,*args,**kwargs):
     if not 'xrange' in kwargs:
         kwargs['xrange']= Rrange
     if not 'yrange' in kwargs:
-        kwargs['yrange']= [0.,1.2*nu.amax(rotcurve)]
+        kwargs['yrange']= [0.,1.2*numpy.amax(rotcurve)]
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)
@@ -159,8 +159,8 @@ def calcRotcurve(Pot,Rs,phi=None,t=0.):
         grid= len(Rs)
     except TypeError:
         grid=1
-        Rs= nu.array([Rs])
-    rotcurve= nu.zeros(grid)
+        Rs= numpy.array([Rs])
+    rotcurve= numpy.zeros(grid)
     for ii in range(grid):
         rotcurve[ii]= vcirc(Pot,Rs[ii],phi=phi,t=t,use_physical=False)
     return rotcurve
@@ -202,12 +202,12 @@ def vcirc(Pot,R,phi=None,t=0.):
     from galpy.potential import evaluateplanarRforces
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
+        return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
     except PotentialError:
         from galpy.potential import toPlanarPotential
         Pot= toPlanarPotential(Pot)
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
+        return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
 
 @potential_physical_input

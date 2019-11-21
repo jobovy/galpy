@@ -6,7 +6,7 @@
 #                          rho(r)= ---------
 #                                   r^\alpha
 ###############################################################################
-import numpy as nu
+import numpy
 from scipy import special
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -57,7 +57,7 @@ class PowerSphericalPotential(Potential):
         self.alpha= alpha
         # Back to old definition
         if self.alpha != 3.:
-            self._amp*= r1**(self.alpha-3.)*4.*nu.pi/(3.-self.alpha)
+            self._amp*= r1**(self.alpha-3.)*4.*numpy.pi/(3.-self.alpha)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
@@ -82,7 +82,7 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Started - Bovy (NYU)
         """
         if self.alpha == 2.:
-            return nu.log(R**2.+z**2.)/2. 
+            return numpy.log(R**2.+z**2.)/2. 
         else:
             return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
 
@@ -193,8 +193,8 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2013-01-09 - Written - Bovy (IAS)
         """
-        r= nu.sqrt(R**2.+z**2.)
-        return (3.-self.alpha)/4./nu.pi/r**self.alpha
+        r= numpy.sqrt(R**2.+z**2.)
+        return (3.-self.alpha)/4./numpy.pi/r**self.alpha
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -212,7 +212,7 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        return (3.-self.alpha)/2./nu.pi*z*R**-self.alpha\
+        return (3.-self.alpha)/2./numpy.pi*z*R**-self.alpha\
             *special.hyp2f1(0.5,self.alpha/2.,1.5,-(z/R)**2)
 
 class KeplerPotential(PowerSphericalPotential):

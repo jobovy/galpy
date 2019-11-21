@@ -5,7 +5,7 @@
 #                          Phi(r)= ---------------------
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -78,7 +78,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return -1./(self.b+rb)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -98,7 +98,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         dPhidrr= -1./rb/(self.b+rb)**2.
         return dPhidrr*R
 
@@ -119,7 +119,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         dPhidrr= -1./rb/(self.b+rb)**2.
         return dPhidrr*z
 
@@ -140,7 +140,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return -(-self.b**3.-self.b*z**2.+(2.*R**2.-z**2.-self.b**2.)*rb)/\
             rb**3./(self.b+rb)**3.
 
@@ -161,7 +161,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return -(-self.b**3.-self.b*R**2.-(R**2.-2.*z**2.+self.b**2.)*rb)/\
             rb**3./(self.b+rb)**3.
 
@@ -182,7 +182,7 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return -R*z*(self.b+3.*rb)/\
             rb**3./(self.b+rb)**3.
 
@@ -203,9 +203,9 @@ class IsochronePotential(Potential):
            2013-09-08 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return (3.*(self.b+rb)*rb**2.-r2*(self.b+3.*rb))/\
-            rb**3./(self.b+rb)**3./4./nu.pi
+            rb**3./(self.b+rb)**3./4./numpy.pi
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -224,8 +224,8 @@ class IsochronePotential(Potential):
            2018-08-19 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= nu.sqrt(r2+self.b2)
+        rb= numpy.sqrt(r2+self.b2)
         return self.b*((R*z)/r2-(self.b*R*z*(self.b**2+2.*R**2+z**2))
                        /((self.b**2+R**2)*r2*rb)
-                       +nu.arctan(z/R)-nu.arctan(self.b*z/R/rb))/R**3/2./nu.pi
+                       +numpy.arctan(z/R)-numpy.arctan(self.b*z/R/rb))/R**3/2./numpy.pi
 

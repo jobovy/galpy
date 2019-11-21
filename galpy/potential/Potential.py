@@ -19,7 +19,7 @@ import os, os.path
 import pickle
 from functools import wraps
 import warnings
-import numpy as nu
+import numpy
 from scipy import optimize, integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import bovy_coords
@@ -243,7 +243,7 @@ class Potential(Force):
 
         """
        
-        r= nu.sqrt(R**2.+z**2.)       
+        r= numpy.sqrt(R**2.+z**2.)       
         return (self.R2deriv(R,z,phi=phi,t=t,use_physical=False)*R/r\
             +self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*z/r)*R/r\
             +(self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*R/r\
@@ -292,7 +292,7 @@ class Potential(Force):
             return (-self.Rforce(R,z,phi=phi,t=t,use_physical=False)/R
                      +self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
                      +self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)/R**2.
-                     +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./nu.pi
+                     +self.z2deriv(R,z,phi=phi,t=t,use_physical=False))/4./numpy.pi
 
     @potential_physical_input
     @physical_conversion('surfacedensity',pop=True)
@@ -334,12 +334,12 @@ class Potential(Force):
             return self._amp*self._surfdens(R,z,phi=phi,t=t)
         except AttributeError:
             #Use the Poisson equation to get the surface density
-            return (-self.zforce(R,nu.fabs(z),phi=phi,t=t,use_physical=False)
+            return (-self.zforce(R,numpy.fabs(z),phi=phi,t=t,use_physical=False)
                     +integrate.quad(\
                 lambda x: -self.Rforce(R,x,phi=phi,t=t,use_physical=False)/R
                 +self.R2deriv(R,x,phi=phi,t=t,use_physical=False)
                 +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
-                0.,nu.fabs(z))[0])/2./nu.pi
+                0.,numpy.fabs(z))[0])/2./numpy.pi
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -408,13 +408,13 @@ class Potential(Force):
                               "calculation...assuming spherical potential"
                               " (for the mass of axisymmetric potentials"
                               ", specify z)",galpyWarning)
-                return 4.*nu.pi\
+                return 4.*numpy.pi\
                     *integrate.quad(lambda x: x**2.\
                                         *self.dens(x,0.,t=t,
                                                   use_physical=False),
                                     0.,R)[0]
             else:
-                return 4.*nu.pi\
+                return 4.*numpy.pi\
                     *integrate.dblquad(lambda y,x: x\
                                            *self.dens(x,y,t=t,use_physical=False),
                                        0.,R,lambda x: 0., lambda x: z)[0]
@@ -602,7 +602,7 @@ class Potential(Force):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._amp*= norm/nu.fabs(self.Rforce(1.,0.,use_physical=False))
+        self._amp*= norm/numpy.fabs(self.Rforce(1.,0.,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
@@ -860,9 +860,9 @@ class Potential(Force):
         else:
             if effective and Lz is None:
                 raise RuntimeError("When effective=True, you need to specify Lz=")
-            Rs= nu.linspace(xrange[0],xrange[1],nrs)
-            zs= nu.linspace(yrange[0],yrange[1],nzs)
-            potRz= nu.zeros((nrs,nzs))
+            Rs= numpy.linspace(xrange[0],xrange[1],nrs)
+            zs= numpy.linspace(yrange[0],yrange[1],nzs)
+            potRz= numpy.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
@@ -875,10 +875,10 @@ class Potential(Force):
                 if effective:
                     potRz[ii,:]+= 0.5*Lz**2/Rs[ii]**2.
             #Don't plot outside of the desired range
-            potRz[Rs < rmin,:]= nu.nan
-            potRz[Rs > rmax,:]= nu.nan
-            potRz[:,zs < zmin]= nu.nan
-            potRz[:,zs > zmax]= nu.nan
+            potRz[Rs < rmin,:]= numpy.nan
+            potRz[Rs > rmax,:]= numpy.nan
+            potRz[:,zs < zmin]= numpy.nan
+            potRz[:,zs > zmax]= numpy.nan
             if not savefilename == None:
                 print("Writing savefile "+savefilename+" ...")
                 savefile= open(savefilename,'wb')
@@ -893,7 +893,7 @@ class Potential(Force):
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
         if levels is None:
-            levels= nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),ncontours)
+            levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
@@ -994,7 +994,7 @@ class Potential(Force):
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """  
-        return nu.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
+        return numpy.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
@@ -1061,7 +1061,7 @@ class Potential(Force):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,0.,t=t,use_physical=False)/R)
+        return numpy.sqrt(-self.Rforce(R,0.,t=t,use_physical=False)/R)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
@@ -1091,7 +1091,7 @@ class Potential(Force):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,0.,t=t,use_physical=False)\
+        return numpy.sqrt(self.R2deriv(R,0.,t=t,use_physical=False)\
                            -3./R*self.Rforce(R,0.,t=t,use_physical=False))
 
     @potential_physical_input
@@ -1122,7 +1122,7 @@ class Potential(Force):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         
         """
-        return nu.sqrt(self.z2deriv(R,0.,t=t,use_physical=False))
+        return numpy.sqrt(self.z2deriv(R,0.,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
@@ -1187,7 +1187,7 @@ class Potential(Force):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,0.,t=t,use_physical=False)\
+        return numpy.sqrt(2.*(self(_INF,0.,t=t,use_physical=False)\
                                -self(R,0.,t=t,use_physical=False)))
         
     @physical_conversion('position',pop=True)
@@ -1256,7 +1256,7 @@ class Potential(Force):
            2012-09-13 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(nu.fabs(z/R*self.Rforce(R,z,t=t,use_physical=False)\
+        return numpy.sqrt(numpy.fabs(z/R*self.Rforce(R,z,t=t,use_physical=False)\
                                    /self.zforce(R,z,t=t,use_physical=False)))
 
     @physical_conversion('velocity',pop=True)
@@ -1292,10 +1292,10 @@ class Potential(Force):
             l= l.to(units.rad).value
             deg= False
         if deg:
-            sinl= nu.sin(l/180.*nu.pi)
+            sinl= numpy.sin(l/180.*numpy.pi)
         else:
-            sinl= nu.sin(l)
-        return sinl*(self.omegac(nu.fabs(sinl),t=t,use_physical=False)\
+            sinl= numpy.sin(l)
+        return sinl*(self.omegac(numpy.fabs(sinl),t=t,use_physical=False)\
                          -self.omegac(1.,t=t,use_physical=False))
 
     def plotRotcurve(self,*args,**kwargs):
@@ -1507,7 +1507,7 @@ class Potential(Force):
         if M is None:
             #Make sure an object mass is given
             raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-        r= nu.sqrt(R**2.+z**2.)
+        r= numpy.sqrt(R**2.+z**2.)
         omegac2= -self.rforce(R,z,phi=phi,t=t,use_physical=False)/r
         d2phidr2= self.r2deriv(R,z,phi=phi,t=t,use_physical=False)
         return (M/(omegac2-d2phidr2))**(1./3.)
@@ -1558,8 +1558,8 @@ class Potential(Force):
         Rphideriv= self.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
         #Temporarily set zphideriv to zero until zphideriv is added to Class
         zphideriv=0.0
-        cosphi=nu.cos(phi)
-        sinphi=nu.sin(phi)
+        cosphi=numpy.cos(phi)
+        sinphi=numpy.sin(phi)
         cos2phi=cosphi**2.0
         sin2phi=sinphi**2.0
         R2=R**2.0
@@ -1578,9 +1578,9 @@ class Potential(Force):
         txz=tzx
         tyz=tzy
         tzz=z2deriv
-        tij=-nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
+        tij=-numpy.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
         if eigenval:
-           return nu.linalg.eigvals(tij)
+           return numpy.linalg.eigvals(tij)
         else:
             return tij
 
@@ -2365,16 +2365,16 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         else:
             if effective and Lz is None:
                 raise RuntimeError("When effective=True, you need to specify Lz=")
-            Rs= nu.linspace(rmin,rmax,nrs)
-            zs= nu.linspace(zmin,zmax,nzs)
-            potRz= nu.zeros((nrs,nzs))
+            Rs= numpy.linspace(rmin,rmax,nrs)
+            zs= numpy.linspace(zmin,zmax,nzs)
+            potRz= numpy.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
                         R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
-                    potRz[ii,jj]= evaluatePotentials(Pot,nu.fabs(R),
+                    potRz[ii,jj]= evaluatePotentials(Pot,numpy.fabs(R),
                                                      z,phi=phi,t=t,
                                                      use_physical=False)
                 if effective:
@@ -2395,7 +2395,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
         if levels is None:
-            levels= nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),ncontours)
+            levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
         return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
@@ -2481,16 +2481,16 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             zs= pickle.load(savefile)
             savefile.close()
         else:
-            Rs= nu.linspace(rmin,rmax,nrs)
-            zs= nu.linspace(zmin,zmax,nzs)
-            potRz= nu.zeros((nrs,nzs))
+            Rs= numpy.linspace(rmin,rmax,nrs)
+            zs= numpy.linspace(zmin,zmax,nzs)
+            potRz= numpy.zeros((nrs,nzs))
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
                         R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
-                    potRz[ii,jj]= evaluateDensities(Pot,nu.fabs(R),z,phi=phi,
+                    potRz[ii,jj]= evaluateDensities(Pot,numpy.fabs(R),z,phi=phi,
                                                     t=t,
                                                     use_physical=False)
             if not savefilename == None:
@@ -2503,7 +2503,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         if aspect is None:
             aspect=.75*(rmax-rmin)/(zmax-zmin)
         if log:
-            potRz= nu.log(potRz)
+            potRz= numpy.log(potRz)
         if xy:
             xlabel= r'$x/R_0$'
             ylabel= r'$y/R_0$'
@@ -2518,7 +2518,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 yrange=[zmin,zmax],
                                 cntrls='-',
                                 justcontours=justcontours,
-                                levels=nu.linspace(nu.nanmin(potRz),nu.nanmax(potRz),
+                                levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
                                                    ncontours))
 
 @potential_physical_input
@@ -2557,12 +2557,12 @@ def epifreq(Pot,R,t=0.):
     from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
     from galpy.potential import PotentialError
     try:
-        return nu.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
+        return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
+        return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
 
 @potential_physical_input
@@ -2598,7 +2598,7 @@ def verticalfreq(Pot,R,t=0.):
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.verticalfreq(R,t=t,use_physical=False)
-    return nu.sqrt(evaluatez2derivs(Pot,R,0.,t=t,use_physical=False))
+    return numpy.sqrt(evaluatez2derivs(Pot,R,0.,t=t,use_physical=False))
 
 @potential_physical_input
 @physical_conversion('dimensionless',pop=True)
@@ -2632,7 +2632,7 @@ def flattening(Pot,R,z,t=0.):
         2012-09-13 - Written - Bovy (IAS)
     
     """
-    return nu.sqrt(nu.fabs(z/R*evaluateRforces(Pot,R,z,t=t,use_physical=False)\
+    return numpy.sqrt(numpy.fabs(z/R*evaluateRforces(Pot,R,z,t=t,use_physical=False)\
                                /evaluatezforces(Pot,R,z,t=t,use_physical=False)))
 
 @physical_conversion('velocity',pop=True)
@@ -2671,9 +2671,9 @@ def vterm(Pot,l,t=0.,deg=True):
         l= l.to(units.rad).value
         deg= False
     if deg:
-        sinl= nu.sin(l/180.*nu.pi)
+        sinl= numpy.sin(l/180.*numpy.pi)
     else:
-        sinl= nu.sin(l)
+        sinl= numpy.sin(l)
     return sinl*(omegac(Pot,sinl,t=t,use_physical=False)
                  -omegac(Pot,1.,t=t,use_physical=False))
 
@@ -2717,21 +2717,21 @@ def rl(Pot,lz,t=0.):
         elif hasattr(Pot[0],'_ro'):
             lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
     #Find interval
-    rstart= _rlFindStart(nu.fabs(lz),#assumes vo=1.
-                         nu.fabs(lz),
+    rstart= _rlFindStart(numpy.fabs(lz),#assumes vo=1.
+                         numpy.fabs(lz),
                          Pot, t=t)
     try:
         return optimize.brentq(_rlfunc,10.**-5.,rstart,
-                               args=(nu.fabs(lz),
+                               args=(numpy.fabs(lz),
                                      Pot,
                                      t),
                                maxiter=200,disp=False)
     except ValueError: #Probably lz small and starting lz to great
         rlower= _rlFindStart(10.**-5.,
-                             nu.fabs(lz),
+                             numpy.fabs(lz),
                              Pot,t=t,lower=True)
         return optimize.brentq(_rlfunc,rlower,rstart,
-                               args=(nu.fabs(lz),
+                               args=(numpy.fabs(lz),
                                      Pot,t))
         
 
@@ -2853,11 +2853,11 @@ def omegac(Pot,R,t=0.):
     """
     from galpy.potential import evaluateplanarRforces
     try:
-        return nu.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
+        return numpy.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
     except PotentialError:
         from galpy.potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
+        return numpy.sqrt(-evaluateplanarRforces(Pot,R,t=t,use_physical=False)/R)
 
 def nemo_accname(Pot):
     """
@@ -3110,7 +3110,7 @@ def _check_c(Pot,dxdv=False):
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
     if isinstance(Pot,list):
-        return nu.all(nu.array([_check_c(p,dxdv=dxdv) for p in Pot],
+        return numpy.all(numpy.array([_check_c(p,dxdv=dxdv) for p in Pot],
                                dtype='bool'))
     elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
@@ -3140,7 +3140,7 @@ def _dim(Pot):
     """
     from galpy.potential import planarPotential, linearPotential
     if isinstance(Pot,list):
-        return nu.amin(nu.array([_dim(p) for p in Pot],dtype='int'))
+        return numpy.amin(numpy.array([_dim(p) for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential,
                          DissipativeForce)):
         return Pot.dim
@@ -3171,7 +3171,7 @@ def _isNonAxi(Pot):
     isList= isinstance(Pot,list)
     if isList:
         isAxis= [not _isNonAxi(p) for p in Pot]
-        nonAxi= not nu.prod(nu.array(isAxis))
+        nonAxi= not numpy.prod(numpy.array(isAxis))
     else:
         nonAxi= Pot.isNonAxi
     return nonAxi
@@ -3229,7 +3229,7 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
     if M is None:
         #Make sure an object mass is given
         raise PotentialError("Mass parameter M= needs to be set to compute tidal radius")
-    r= nu.sqrt(R**2.+z**2.)
+    r= numpy.sqrt(R**2.+z**2.)
     omegac2=-evaluaterforces(Pot,R,z,phi=phi,t=t,use_physical=False)/r
     d2phidr2= evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     return (M/(omegac2-d2phidr2))**(1./3.)
@@ -3282,8 +3282,8 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     Rphideriv= evaluateRphiderivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     #Temporarily set zphideriv to zero until zphideriv is added to Class
     zphideriv=0.0
-    cosphi=nu.cos(phi)
-    sinphi=nu.sin(phi)
+    cosphi=numpy.cos(phi)
+    sinphi=numpy.sin(phi)
     cos2phi=cosphi**2.0
     sin2phi=sinphi**2.0
     R2=R**2.0
@@ -3301,8 +3301,8 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     txz= tzx
     tyz= tzy
     tzz=z2deriv
-    tij= -nu.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
+    tij= -numpy.array([[txx,txy,txz],[tyx,tyy,tyz],[tzx,tzy,tzz]])
     if eigenval:
-       return nu.linalg.eigvals(tij)
+       return numpy.linalg.eigvals(tij)
     else:
        return tij

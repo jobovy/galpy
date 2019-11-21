@@ -1,7 +1,7 @@
 ###############################################################################
 #   RingPotential.py: The gravitational potential of a thin, circular ring
 ###############################################################################
-import numpy as nu
+import numpy
 from scipy import special
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
@@ -49,7 +49,7 @@ class RingPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         self.a= a
         self.a2= self.a**2
-        self._amp/= 2.*nu.pi*self.a
+        self._amp/= 2.*numpy.pi*self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
@@ -76,7 +76,7 @@ class RingPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         m= 4.*R*self.a/((R+self.a)**2+z**2)
-        return -4.*self.a/nu.sqrt((R+self.a)**2+z**2)*special.ellipk(m)
+        return -4.*self.a/numpy.sqrt((R+self.a)**2+z**2)*special.ellipk(m)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -95,7 +95,7 @@ class RingPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         m= 4.*R*self.a/((R+self.a)**2+z**2)
-        return -2.*self.a/R/nu.sqrt((R+self.a)**2+z**2)\
+        return -2.*self.a/R/numpy.sqrt((R+self.a)**2+z**2)\
             *(m*(R**2-self.a2-z**2)/4./(1.-m)/self.a/R*special.ellipe(m)
               +special.ellipk(m))
 
@@ -135,7 +135,7 @@ class RingPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         Raz2= (R+self.a)**2+z**2
-        Raz= nu.sqrt(Raz2)
+        Raz= numpy.sqrt(Raz2)
         m= 4.*R*self.a/Raz2
         R2ma2mz2o4aR1m= (R**2-self.a2-z**2)/4./self.a/R/(1.-m)
         return (2*R**2+self.a2+3*R*self.a+z**2)/R/Raz2*self._Rforce(R,z)\

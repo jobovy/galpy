@@ -6,7 +6,7 @@
 #               Phi(r)=  ---------------------------
 #                        \sqrt{lambda} + \sqrt{nu}  
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -84,7 +84,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
             2015-02-15 - Written - Trick (MPIA)
         """
         l,n = bovy_coords.Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
-        return -1./(nu.sqrt(l) + nu.sqrt(n))
+        return -1./(numpy.sqrt(l) + numpy.sqrt(n))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -237,7 +237,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        return 0.5/nu.sqrt(l)/(nu.sqrt(l)+nu.sqrt(n))**2
+        return 0.5/numpy.sqrt(l)/(numpy.sqrt(l)+numpy.sqrt(n))**2
 
     def _nderiv(self,l,n):
         """
@@ -253,7 +253,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """ 
-        return 0.5/nu.sqrt(n)/(nu.sqrt(l)+nu.sqrt(n))**2
+        return 0.5/numpy.sqrt(n)/(numpy.sqrt(l)+numpy.sqrt(n))**2
 
     def _l2deriv(self,l,n):
         """
@@ -269,8 +269,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -3.*nu.sqrt(l) - nu.sqrt(n)
-        denom = 4. * l**1.5 * (nu.sqrt(l)+nu.sqrt(n))**3
+        numer = -3.*numpy.sqrt(l) - numpy.sqrt(n)
+        denom = 4. * l**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
         return numer / denom
 
     def _n2deriv(self,l,n):
@@ -287,8 +287,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -nu.sqrt(l) - 3.*nu.sqrt(n)
-        denom = 4. * n**1.5 * (nu.sqrt(l)+nu.sqrt(n))**3
+        numer = -numpy.sqrt(l) - 3.*numpy.sqrt(n)
+        denom = 4. * n**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
         return numer / denom
 
     def _lnderiv(self,l,n):
@@ -305,5 +305,5 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        return -0.5/(nu.sqrt(l) * nu.sqrt(n) * (nu.sqrt(l)+nu.sqrt(n))**3)
+        return -0.5/(numpy.sqrt(l) * numpy.sqrt(n) * (numpy.sqrt(l)+numpy.sqrt(n))**3)
 

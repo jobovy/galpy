@@ -2,7 +2,7 @@
 #   PseudoIsothermalPotential.py: class that implements the pseudo-isothermal
 #                                 halo potential
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -75,9 +75,9 @@ class PseudoIsothermalPotential(Potential):
            2015-12-04 - Started - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
-        return (0.5*nu.log(1+r2/self._a2)\
-                    +self._a/r*nu.arctan(r/self._a))/self._a
+        r= numpy.sqrt(r2)
+        return (0.5*numpy.log(1+r2/self._a2)\
+                    +self._a/r*numpy.arctan(r/self._a))/self._a
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -96,8 +96,8 @@ class PseudoIsothermalPotential(Potential):
            2015-12-04 - Started - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
-        return -(1./r-self._a/r2*nu.arctan(r/self._a))/self._a*R/r
+        r= numpy.sqrt(r2)
+        return -(1./r-self._a/r2*numpy.arctan(r/self._a))/self._a*R/r
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -116,8 +116,8 @@ class PseudoIsothermalPotential(Potential):
            2015-12-04 - Started - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
-        return -(1./r-self._a/r2*nu.arctan(r/self._a))/self._a*z/r
+        r= numpy.sqrt(r2)
+        return -(1./r-self._a/r2*numpy.arctan(r/self._a))/self._a*z/r
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -135,7 +135,7 @@ class PseudoIsothermalPotential(Potential):
         HISTORY:
            2015-12-04 - Started - Bovy (UofT)
         """
-        return 1./(1.+(R**2.+z**2.)/self._a2)/4./nu.pi/self._a3
+        return 1./(1.+(R**2.+z**2.)/self._a2)/4./numpy.pi/self._a3
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -154,9 +154,9 @@ class PseudoIsothermalPotential(Potential):
            2011-10-09 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
+        r= numpy.sqrt(r2)
         return (1./r2*(1.-R**2./r2*(3.*self._a2+2.*r2)/(self._a2+r2))\
-                    +self._a/r2/r*(3.*R**2./r2-1.)*nu.arctan(r/self._a))\
+                    +self._a/r2/r*(3.*R**2./r2-1.)*numpy.arctan(r/self._a))\
                     /self._a
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
@@ -176,9 +176,9 @@ class PseudoIsothermalPotential(Potential):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
+        r= numpy.sqrt(r2)
         return (1./r2*(1.-z**2./r2*(3.*self._a2+2.*r2)/(self._a2+r2))\
-                    +self._a/r2/r*(3.*z**2./r2-1.)*nu.arctan(r/self._a))\
+                    +self._a/r2/r*(3.*z**2./r2-1.)*numpy.arctan(r/self._a))\
                     /self._a
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
@@ -198,8 +198,8 @@ class PseudoIsothermalPotential(Potential):
            2013-08-28 - Written - Bovy (IAS)
         """
         r2= R**2.+z**2.
-        r= nu.sqrt(r2)
-        return (3.*self._a/r2/r2*nu.arctan(r/self._a)\
+        r= numpy.sqrt(r2)
+        return (3.*self._a/r2/r2*numpy.arctan(r/self._a)\
                     -1./r2/r*((3.*self._a2+2.*r2)/(r2+self._a2)))*R*z/r\
                     /self._a
 

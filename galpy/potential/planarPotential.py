@@ -3,7 +3,7 @@ from __future__ import division, print_function
 import os
 import copy
 import pickle
-import numpy as nu
+import numpy
 from scipy import integrate
 import galpy.util.bovy_plot as plot
 from galpy.util import config
@@ -503,7 +503,7 @@ class planarAxiPotential(planarPotential):
             2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return nu.sqrt(R*-self.Rforce(R,phi=phi,t=t,use_physical=False))
+        return numpy.sqrt(R*-self.Rforce(R,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
@@ -535,7 +535,7 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)       
+        return numpy.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)       
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
@@ -565,7 +565,7 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,t=t,use_physical=False)
+        return numpy.sqrt(self.R2deriv(R,t=t,use_physical=False)
                        -3./R*self.Rforce(R,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
@@ -633,7 +633,7 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,t=t,use_physical=False)
+        return numpy.sqrt(2.*(self(_INF,t=t,use_physical=False)
                            -self(R,t=t,use_physical=False)))
         
     def plotRotcurve(self,*args,**kwargs):
@@ -1043,7 +1043,7 @@ def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isList and nu.all([isinstance(p,planarPotential) for p in Pot]):
+    if isList and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1100,7 +1100,7 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1156,7 +1156,7 @@ def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1209,7 +1209,7 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1274,10 +1274,10 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
     tepif= epifreq(axiPot,R)
     s= m*(OmegaP-omegac(axiPot,R))/tepif
     chi= sigmar**2.*k**2./tepif**2.
-    return (1.-s**2.)/nu.sin(nu.pi*s)\
-        *integrate.quad(lambda t: nu.exp(-chi*(1.+nu.cos(t)))\
-                            *nu.sin(s*t)*nu.sin(t),
-                        0.,nu.pi)[0]
+    return (1.-s**2.)/numpy.sin(numpy.pi*s)\
+        *integrate.quad(lambda t: numpy.exp(-chi*(1.+numpy.cos(t)))\
+                            *numpy.sin(s*t)*numpy.sin(t),
+                        0.,numpy.pi)[0]
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
@@ -1351,22 +1351,22 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         savefile.close()
     else:
         if nonAxi:
-            xs= nu.linspace(xrange[0],xrange[1],gridx)
-            ys= nu.linspace(yrange[0],yrange[1],gridy)
-            potR= nu.zeros((gridx,gridy))
+            xs= numpy.linspace(xrange[0],xrange[1],gridx)
+            ys= numpy.linspace(yrange[0],yrange[1],gridy)
+            potR= numpy.zeros((gridx,gridy))
             for ii in range(gridx):
                 for jj in range(gridy):
-                    thisR= nu.sqrt(xs[ii]**2.+ys[jj]**2.)
+                    thisR= numpy.sqrt(xs[ii]**2.+ys[jj]**2.)
                     if xs[ii] >= 0.:
-                        thisphi= nu.arcsin(ys[jj]/thisR)
+                        thisphi= numpy.arcsin(ys[jj]/thisR)
                     else:
-                        thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
+                        thisphi= -numpy.arcsin(ys[jj]/thisR)+numpy.pi
                     potR[ii,jj]= evaluateplanarPotentials(Pot,thisR,
                                                           phi=thisphi,
                                                           use_physical=False)
         else:
-            Rs= nu.linspace(Rrange[0],Rrange[1],grid)
-            potR= nu.zeros(grid)
+            Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
+            potR= numpy.zeros(grid)
             for ii in range(grid):
                 potR[ii]= evaluateplanarPotentials(Pot,Rs[ii],
                                                    use_physical=False)
@@ -1397,7 +1397,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
             kwargs['cntrls']= '-'
         ncontours= kwargs.pop('ncontours',10)
         if not 'levels' in kwargs:
-            kwargs['levels']= nu.linspace(nu.nanmin(potR),nu.nanmax(potR),ncontours)
+            kwargs['levels']= numpy.linspace(numpy.nanmin(potR),numpy.nanmax(potR),ncontours)
         return plot.bovy_dens2d(potR.T,
                                 xrange=xrange,
                                 yrange=yrange,**kwargs)

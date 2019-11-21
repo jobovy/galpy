@@ -2,7 +2,7 @@
 #   SphericalShellPotential.py: The gravitational potential of a thin, 
 #                               spherical shell
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -78,7 +78,7 @@ class SphericalShellPotential(Potential):
         if r2 <= self.a2:
             return -1./self.a
         else:
-            return -1./nu.sqrt(r2)
+            return -1./numpy.sqrt(r2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -96,7 +96,7 @@ class SphericalShellPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        r= nu.sqrt(R**2+z**2)
+        r= numpy.sqrt(R**2+z**2)
         if r <= self.a:
             return 0.
         else:
@@ -118,7 +118,7 @@ class SphericalShellPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        r= nu.sqrt(R**2+z**2)
+        r= numpy.sqrt(R**2+z**2)
         if r <= self.a:
             return 0.
         else:
@@ -140,7 +140,7 @@ class SphericalShellPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        r= nu.sqrt(R**2+z**2)
+        r= numpy.sqrt(R**2+z**2)
         if r <= self.a:
             return 0.
         else:
@@ -180,7 +180,7 @@ class SphericalShellPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        r= nu.sqrt(R**2+z**2)
+        r= numpy.sqrt(R**2+z**2)
         if r <= self.a:
             return 0.
         else:
@@ -206,7 +206,7 @@ class SphericalShellPotential(Potential):
         if r2 != self.a2:
             return 0.
         else: # pragma: no cover
-            return nu.infty
+            return numpy.infty
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -225,6 +225,6 @@ class SphericalShellPotential(Potential):
            2018-08-04 - Written - Bovy (UofT)
         """
         if R > self.a: return 0.
-        h= nu.sqrt(self.a2-R**2)
+        h= numpy.sqrt(self.a2-R**2)
         if z < h: return 0.
-        else: return 1./(2.*nu.pi*self.a*h)
+        else: return 1./(2.*numpy.pi*self.a*h)

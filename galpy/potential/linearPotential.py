@@ -3,7 +3,7 @@ from __future__ import division, print_function
 import os, os.path
 import copy
 import pickle
-import numpy as nu
+import numpy
 import galpy.util.bovy_plot as plot
 from galpy.util import config
 from .Potential import PotentialError, flatten
@@ -279,8 +279,8 @@ class linearPotential(object):
             xs= pickle.load(savefile)
             savefile.close()
         else:
-            xs= nu.linspace(min,max,ns)
-            potx= nu.zeros(ns)
+            xs= numpy.linspace(min,max,ns)
+            potx= numpy.zeros(ns)
             for ii in range(ns):
                 potx[ii]= self._evaluate(xs[ii],t=t)
             if not savefilename == None:
@@ -418,8 +418,8 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         xs= pickle.load(savefile)
         savefile.close()
     else:
-        xs= nu.linspace(min,max,ns)
-        potx= nu.zeros(ns)
+        xs= numpy.linspace(min,max,ns)
+        potx= numpy.zeros(ns)
         for ii in range(ns):
             potx[ii]= evaluatelinearPotentials(Pot,xs[ii],t=t)
         if not savefilename == None:
