@@ -45,12 +45,10 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import re
-import math as m
 import scipy as sc
 from scipy import special
 from scipy import interpolate
 from scipy import ndimage
-import matplotlib
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
 import matplotlib.cm as cm
@@ -58,7 +56,6 @@ from matplotlib import rc
 from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
-from mpl_toolkits.mplot3d import Axes3D
 from galpy.util.config import __config__
 if __config__.getboolean('plot','seaborn-bovy-defaults'):
     try:
@@ -662,8 +659,8 @@ def bovy_dens2d(X,**kwargs):
             return cntrThis
         else:
             return out
-    histx= sc.nansum(X.T,axis=1)*m.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
-    histy= sc.nansum(X.T,axis=0)*m.fabs(xlimits[1]-xlimits[0])/X.shape[0]
+    histx= sc.nansum(X.T,axis=1)*sc.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
+    histy= sc.nansum(X.T,axis=0)*sc.fabs(xlimits[1]-xlimits[0])/X.shape[0]
     histx[sc.isnan(histx)]= 0.
     histy[sc.isnan(histy)]= 0.
     dx= (extent[1]-extent[0])/float(len(histx))

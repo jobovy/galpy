@@ -73,7 +73,6 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 from functools import wraps
-import math as m
 import numpy as nu
 import scipy as sc
 from galpy.util import _rotate_to_arbitrary_vector
@@ -86,7 +85,7 @@ try:
 except ImportError:
     _APY_LOADED= False
 _APY_COORDS*= _APY_LOADED
-_DEGTORAD= m.pi/180.
+_DEGTORAD= nu.pi/180.
 if _APY_LOADED:
     _K= (1.*units.mas/units.yr).to(units.km/units.s/units.kpc,
                                    equivalencies=units.dimensionless_angles())\
@@ -780,25 +779,25 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
     """
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec*_DEGTORAD)
-        cosdec= m.cos(dec*_DEGTORAD)
-        sinrarangp= m.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= m.cos(ra*_DEGTORAD-ra_ngp)
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec*_DEGTORAD)
+        cosdec= nu.cos(dec*_DEGTORAD)
+        sinrarangp= nu.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= nu.cos(ra*_DEGTORAD-ra_ngp)
     else:
-        sindec_ngp= m.sin(dec_ngp)
-        cosdec_ngp= m.cos(dec_ngp)
-        sindec= m.sin(dec)
-        cosdec= m.cos(dec)
-        sinrarangp= m.sin(ra-ra_ngp)
-        cosrarangp= m.cos(ra-ra_ngp)
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec)
+        cosdec= nu.cos(dec)
+        sinrarangp= nu.sin(ra-ra_ngp)
+        cosrarangp= nu.cos(ra-ra_ngp)
     #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     #sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
     sinphi= sinrarangp*cosdec_ngp
-    norm= m.sqrt(cosphi**2.+sinphi**2.)
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
     P= sc.array([[cosphi,sinphi],[-sinphi,cosphi]])
@@ -897,9 +896,9 @@ def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
     cov_vrvlvb= sc.zeros((3,3))
     cov_vrvlvb[0,0]= e_vr**2.
     cov_vrvlvb[1:3,1:3]= cov_vlvb
-    R= sc.array([[m.cos(l)*m.cos(b), m.sin(l)*m.cos(b), m.sin(b)],
-                 [-m.sin(l),m.cos(l),0.],
-                 [-m.cos(l)*m.sin(b),-m.sin(l)*m.sin(b), m.cos(b)]])
+    R= sc.array([[nu.cos(l)*nu.cos(b), nu.sin(l)*nu.cos(b), nu.sin(b)],
+                 [-nu.sin(l),nu.cos(l),0.],
+                 [-nu.cos(l)*nu.sin(b),-nu.sin(l)*nu.sin(b), nu.cos(b)]])
     return sc.dot(R.T,sc.dot(cov_vrvlvb,R))
 
 @scalarDecorator
