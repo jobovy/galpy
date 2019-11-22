@@ -23,6 +23,7 @@ import os, os.path
 import pickle
 import numpy
 import scipy
+numpy.log= scipy.log # somehow, this code produces log(negative), which scipy implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 from scipy import stats
@@ -2613,9 +2614,9 @@ def _dlToRphi(d,l):
         R+= 0.0001
         d+= 0.0001
     if 1./numpy.cos(l) < d and numpy.cos(l) > 0.:
-        theta= numpy.pi-numpy.asin(d/R*numpy.sin(l))
+        theta= numpy.pi-numpy.arcsin(d/R*numpy.sin(l))
     else:
-        theta= numpy.asin(d/R*numpy.sin(l))
+        theta= numpy.arcsin(d/R*numpy.sin(l))
     return (R,theta)
     
 def _vtmaxEq(vT,R,diskdf):
