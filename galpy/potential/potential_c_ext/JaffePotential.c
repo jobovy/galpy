@@ -53,5 +53,5 @@ double JaffePotentialPlanarR2deriv(double R,double phi,
   double amp= *args++;
   double a= *args;
   //Calculate R2deriv
-  return - amp * (a + 2. * R) * pow(R,-4.) * pow(1.+a/R,-2.);
+  return - amp * (a + 2. * R) * pow(R,-2.) * pow(a+R,-2.);
 }
