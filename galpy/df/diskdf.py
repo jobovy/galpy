@@ -24,10 +24,7 @@ import pickle
 import numpy
 import scipy
 numpy.log= scipy.log # somehow, this code produces log(negative), which scipy implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
-import scipy.integrate as integrate
-import scipy.interpolate as interpolate
-from scipy import stats
-from scipy import optimize
+from scipy import integrate, interpolate, stats, optimize
 from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
 from ..orbit import Orbit
 from ..util.bovy_ars import bovy_ars

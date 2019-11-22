@@ -16,7 +16,7 @@
 ###############################################################################
 import warnings
 import numpy
-import numpy.linalg as linalg
+from numpy import linalg
 from scipy import optimize
 from ..potential import dvcircdR, vcirc, _isNonAxi
 from ..potential.Potential import flatten as flatten_potential

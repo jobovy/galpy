@@ -6,7 +6,7 @@
 #                                   r^\alpha
 ###############################################################################
 import numpy
-from scipy import special, integrate
+from scipy import special
 from .Potential import Potential, kms_to_kpcGyrDecorator, \
     _APY_LOADED
 if _APY_LOADED:

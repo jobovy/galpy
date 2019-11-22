@@ -1,7 +1,8 @@
 #The DF of a tidal stream
 import copy
-import numpy
 import multiprocessing
+import warnings
+import numpy
 import scipy
 from scipy import special, interpolate, integrate, optimize
 _SCIPY_VERSION= [int(v.split('rc')[0])
@@ -19,7 +20,6 @@ from ..util import bovy_coords, fast_cholesky_invert, \
 from ..util.bovy_conversion import physical_conversion, _APY_UNITS
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
-import warnings
 from ..util import galpyWarning
 if _APY_LOADED:
     from astropy import units

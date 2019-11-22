@@ -8,8 +8,8 @@
 #                            with m^2 = x^2+y^2/b^2+z^2/c^2
 #
 ###############################################################################
-import numpy
 import hashlib
+import numpy
 from scipy import integrate
 from ..util import bovy_coords
 from ..util import _rotate_to_arbitrary_vector

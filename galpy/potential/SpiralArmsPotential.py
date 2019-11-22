@@ -6,17 +6,12 @@
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
-
 from __future__ import division
 from .Potential import Potential, _APY_LOADED
 from ..util import bovy_conversion
 import numpy
-
 if _APY_LOADED:
     from astropy import units
-
-
-
 class SpiralArmsPotential(Potential):
     """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside).
     

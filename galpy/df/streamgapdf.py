@@ -1,9 +1,9 @@
 # The DF of a gap in a tidal stream
 from functools import wraps
 import copy
-import numpy
 import warnings
 import multiprocessing
+import numpy
 from scipy import integrate, interpolate, special
 from ..util import galpyWarning, bovy_coords, multi, bovy_conversion
 from ..util import _rotate_to_arbitrary_vector

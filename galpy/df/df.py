@@ -1,9 +1,9 @@
-from ..util import config
 _APY_LOADED= True
 try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
+from ..util import config
 class df(object):
     """Top-level class for DF classes"""
     def __init__(self,ro=None,vo=None):
