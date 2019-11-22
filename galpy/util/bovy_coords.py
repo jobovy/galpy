@@ -74,8 +74,8 @@
 #############################################################################
 from functools import wraps
 import numpy
-from galpy.util import _rotate_to_arbitrary_vector
-from galpy.util.config import __config__
+from ..util import _rotate_to_arbitrary_vector
+from ..util.config import __config__
 _APY_COORDS= __config__.getboolean('astropy','astropy-coords')
 _APY_LOADED= True
 try:

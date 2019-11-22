@@ -8,8 +8,7 @@ from functools import wraps
 import warnings
 import copy
 import math as m
-from galpy.util import galpyWarning
-from galpy.util.config import __config__
+from ..util.config import __config__
 _APY_UNITS= __config__.getboolean('astropy','astropy-units')
 _APY_LOADED= True
 try:
@@ -567,7 +566,7 @@ def physical_conversion(quantity,pop=False):
             if use_physical and \
                     not (_voNecessary[quantity.lower()] and vo is None) and \
                     not (_roNecessary[quantity.lower()] and ro is None):
-                from galpy.orbit import Orbit
+                from ..orbit import Orbit
                 if quantity.lower() == 'time':
                     fac= time_in_Gyr(vo,ro)
                     if _apy_units:
@@ -695,7 +694,7 @@ def potential_physical_input(method):
     to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
-        from galpy.potential import flatten as flatten_potential
+        from ..potential import flatten as flatten_potential
         Pot= flatten_potential(args[0])
         ro= kwargs.get('ro',None)
         if ro is None and hasattr(Pot,'_ro'):
