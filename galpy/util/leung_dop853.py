@@ -30,9 +30,7 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
-
-import numpy as np
-
+import numpy
 # time increment coefficients
 c2 = 0.526001519587677318785587544488e-1
 c3 = 0.789002279381515978178381316732e-1
@@ -200,40 +198,40 @@ er11 = 0.8192320648511571246570742613e-1
 er12 = -0.2235530786388629525884427845e-1
 
 # machine limit related info from numpy
-unsigned_int_max = np.iinfo(np.int32).max
-uround = np.finfo(np.float).eps
+unsigned_int_max = numpy.iinfo(numpy.int32).max
+uround = numpy.finfo(numpy.float).eps
 
 
 def custom_sign(a, b):
-    return np.fabs(a) if b > 0.0 else -np.fabs(a)
+    return numpy.fabs(a) if b > 0.0 else -numpy.fabs(a)
 
 
 def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
     """
     Estimate initial step size
     """
-    sk = atol + rtol * np.fabs(x)
-    dnf = np.sum(np.square(f0 / sk), axis=0)
-    dny = np.sum(np.square(x / sk), axis=0)
+    sk = atol + rtol * numpy.fabs(x)
+    dnf = numpy.sum(numpy.square(f0 / sk), axis=0)
+    dny = numpy.sum(numpy.square(x / sk), axis=0)
 
-    h = np.sqrt(dny / dnf) * 0.01
+    h = numpy.sqrt(dny / dnf) * 0.01
 
-    h = np.min([h, np.fabs(hmax)])
+    h = numpy.min([h, numpy.fabs(hmax)])
     h = custom_sign(h, pos_neg)
 
     # perform an explicit Euler step
     xx1 = x + h * f0
-    f1 = np.array(func(xx1, t[0] + h, *args))
+    f1 = numpy.array(func(xx1, t[0] + h, *args))
 
     # estimate the second derivative of the solution
-    der2 = np.sum(np.square((f1 - f0) / sk), axis=0)
-    der2 = np.sqrt(der2) / h
+    der2 = numpy.sum(numpy.square((f1 - f0) / sk), axis=0)
+    der2 = numpy.sqrt(der2) / h
 
     # step size is computed such that h ** iord * max_d(norm(f0), norm(der2)) = 0.01
-    der12 = np.max([np.fabs(der2), np.sqrt(dnf)])
-    h1 = np.power(0.01 / der12, 1.0 / iord)
+    der12 = numpy.max([numpy.fabs(der2), numpy.sqrt(dnf)])
+    h1 = numpy.power(0.01 / der12, 1.0 / iord)
 
-    h = np.min([100.0 * np.fabs(h), np.min([np.fabs(h1), np.fabs(hmax)])])
+    h = numpy.min([100.0 * numpy.fabs(h), numpy.min([numpy.fabs(h1), numpy.fabs(hmax)])])
 
     return custom_sign(h, pos_neg), f0, f1, xx1
 
@@ -255,7 +253,7 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     Core of DOP8(5, 3) integration
     """
     # array to store the result
-    result = np.zeros((len(t), n))
+    result = numpy.zeros((len(t), n))
 
     # initial preparations
     facold = 1.0e-4
@@ -263,8 +261,8 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     facc1 = 1.0 / fac1
     facc2 = 1.0 / fac2
 
-    k1 = np.array(func(x, t[0], *args))
-    hmax = np.fabs(hmax)
+    k1 = numpy.array(func(x, t[0], *args))
+    hmax = numpy.fabs(hmax)
     iord = 8
 
     if h == 0.0:  # estimate initial time step
@@ -280,83 +278,83 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
     # basic integration step
     while finished_user_t_ii < len(t) - 1:  # check if the current computed time indices less than total inices needed
         # keep time step not too small
-        h = pos_neg * np.max([np.fabs(h), 1e3 * uround])
+        h = pos_neg * numpy.max([numpy.fabs(h), 1e3 * uround])
 
         # the twelve stages
         xx1 = x + h * a21 * k1
-        k2 = np.array(func(xx1, t_current + c2 * h, *args))
+        k2 = numpy.array(func(xx1, t_current + c2 * h, *args))
 
         xx1 = x + h * (a31 * k1 + a32 * k2)
-        k3 = np.array(func(xx1, t_current + c3 * h, *args))
+        k3 = numpy.array(func(xx1, t_current + c3 * h, *args))
 
         xx1 = x + h * (a41 * k1 + a43 * k3)
-        k4 = np.array(func(xx1, t_current + c4 * h, *args))
+        k4 = numpy.array(func(xx1, t_current + c4 * h, *args))
 
         xx1 = x + h * (a51 * k1 + a53 * k3 + a54 * k4)
-        k5 = np.array(func(xx1, t_current + c5 * h, *args))
+        k5 = numpy.array(func(xx1, t_current + c5 * h, *args))
 
         xx1 = x + h * (a61 * k1 + a64 * k4 + a65 * k5)
-        k6 = np.array(func(xx1, t_current + c6 * h, *args))
+        k6 = numpy.array(func(xx1, t_current + c6 * h, *args))
 
         xx1 = x + h * (a71 * k1 + a74 * k4 + a75 * k5 + a76 * k6)
-        k7 = np.array(func(xx1, t_current + c7 * h, *args))
+        k7 = numpy.array(func(xx1, t_current + c7 * h, *args))
 
         xx1 = x + h * (a81 * k1 + a84 * k4 + a85 * k5 + a86 * k6 + a87 * k7)
-        k8 = np.array(func(xx1, t_current + c8 * h, *args))
+        k8 = numpy.array(func(xx1, t_current + c8 * h, *args))
 
         xx1 = x + h * (a91 * k1 + a94 * k4 + a95 * k5 + a96 * k6 + a97 * k7 + a98 * k8)
-        k9 = np.array(func(xx1, t_current + c9 * h, *args))
+        k9 = numpy.array(func(xx1, t_current + c9 * h, *args))
 
         xx1 = x + h * (a101 * k1 + a104 * k4 + a105 * k5 + a106 * k6 + a107 * k7 + a108 * k8 + a109 * k9)
-        k10 = np.array(func(xx1, t_current + c10 * h, *args))
+        k10 = numpy.array(func(xx1, t_current + c10 * h, *args))
 
         xx1 = x + h * (a111 * k1 + a114 * k4 + a115 * k5 + a116 * k6 + a117 * k7 + a118 * k8 + a119 * k9 + a1110 * k10)
-        k2 = np.array(func(xx1, t_current + c11 * h, *args))
+        k2 = numpy.array(func(xx1, t_current + c11 * h, *args))
 
         xx1 = x + h * (
                 a121 * k1 + a124 * k4 + a125 * k5 + a126 * k6 + a127 * k7 + a128 * k8 + a129 * k9 + a1210 * k10 + a1211 * k2)
 
-        t_old_older = np.copy(t_old)
-        t_old = np.copy(t_current)
+        t_old_older = numpy.copy(t_old)
+        t_old = numpy.copy(t_current)
         t_current += h
 
-        k3 = np.array(func(xx1, t_current, *args))
+        k3 = numpy.array(func(xx1, t_current, *args))
 
         k4 = b1 * k1 + b6 * k6 + b7 * k7 + b8 * k8 + b9 * k9 + b10 * k10 + b11 * k2 + b12 * k3
         k5 = x + h * k4
 
         # error estimation
-        sk = atol + rtol * np.max([np.fabs(x), np.fabs(k5)], axis=0)
+        sk = atol + rtol * numpy.max([numpy.fabs(x), numpy.fabs(k5)], axis=0)
         erri = k4 - bhh1 * k1 - bhh2 * k9 - bhh3 * k3
-        err2 = np.sum(np.square(erri / sk), axis=0)
+        err2 = numpy.sum(numpy.square(erri / sk), axis=0)
         erri = er1 * k1 + er6 * k6 + er7 * k7 + er8 * k8 + er9 * k9 + er10 * k10 + er11 * k2 + er12 * k3
-        err = np.sum(np.square(erri / sk), axis=0)
+        err = numpy.sum(numpy.square(erri / sk), axis=0)
 
         deno = err + 0.01 * err2
         deno = 1.0 if deno <= 0.0 else deno
-        err = np.fabs(h) * err * np.sqrt(1.0 / (deno * n))
+        err = numpy.fabs(h) * err * numpy.sqrt(1.0 / (deno * n))
 
         # computation of hnew
-        fac11 = np.power(err, expo1)
+        fac11 = numpy.power(err, expo1)
 
         # Lund-stabilization
         fac = fac11 / pow(facold, beta)
 
         # we require fac1 <= hnew / h <= fac2
-        fac = np.max([facc2, np.min([facc1, fac / safe])])
+        fac = numpy.max([facc2, numpy.min([facc1, fac / safe])])
         hnew = h / fac
 
         if err <= 1.0:
             # step accepted
-            facold = np.max([err, 1.0e-4])
-            k4 = np.array(func(k5, t_current, *args))
+            facold = numpy.max([err, 1.0e-4])
+            k4 = numpy.array(func(k5, t_current, *args))
 
             # final preparation for dense output
-            rcont1 = np.copy(x)
+            rcont1 = numpy.copy(x)
             xdiff = k5 - x
             rcont2 = xdiff
             bspl = h * k1 - xdiff
-            rcont3 = np.copy(bspl)
+            rcont3 = numpy.copy(bspl)
             rcont4 = xdiff - h * k4 - bspl
             rcont5 = d41 * k1 + d46 * k6 + d47 * k7 + d48 * k8 + d49 * k9 + d410 * k10 + d411 * k2 + d412 * k3
             rcont6 = d51 * k1 + d56 * k6 + d57 * k7 + d58 * k8 + d59 * k9 + d510 * k10 + d511 * k2 + d512 * k3
@@ -366,13 +364,13 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
             # the next three function evaluations
             xx1 = x + h * (
                     a141 * k1 + a147 * k7 + a148 * k8 + a149 * k9 + a1410 * k10 + a1411 * k2 + a1412 * k3 + a1413 * k4)
-            k10 = np.array(func(xx1, t_old + c14 * h, *args))
+            k10 = numpy.array(func(xx1, t_old + c14 * h, *args))
             xx1 = x + h * (
                     a151 * k1 + a156 * k6 + a157 * k7 + a158 * k8 + a1511 * k2 + a1512 * k3 + a1513 * k4 + a1514 * k10)
-            k2 = np.array(func(xx1, t_old + c15 * h, *args))
+            k2 = numpy.array(func(xx1, t_old + c15 * h, *args))
             xx1 = x + h * (
                     a161 * k1 + a166 * k6 + a167 * k7 + a168 * k8 + a169 * k9 + a1613 * k4 + a1614 * k10 + a1615 * k2)
-            k3 = np.array(func(xx1, t_old + c16 * h, *args))
+            k3 = numpy.array(func(xx1, t_old + c16 * h, *args))
 
             # final preparation
             rcont5 = h * (rcont5 + d413 * k4 + d414 * k10 + d415 * k2 + d416 * k3)
@@ -380,8 +378,8 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
             rcont7 = h * (rcont7 + d613 * k4 + d614 * k10 + d615 * k2 + d616 * k3)
             rcont8 = h * (rcont8 + d713 * k4 + d714 * k10 + d715 * k2 + d716 * k3)
 
-            k1 = np.copy(k4)
-            x = np.copy(k5)
+            k1 = numpy.copy(k4)
+            x = numpy.copy(k5)
 
             # loop for dense output in this time slot
             while (finished_user_t_ii < len(t) - 1) and (pos_neg * t[finished_user_t_ii + 1] < pos_neg * t_current):
@@ -391,22 +389,22 @@ def dopri853core(n, func, x, t, hmax, h, rtol, atol, nmax, safe, beta, fac1, fac
                                                                   rcont8])
                 finished_user_t_ii += 1
 
-            if np.fabs(hnew) > hmax:
+            if numpy.fabs(hnew) > hmax:
                 hnew = pos_neg * hmax
             if reject:
-                hnew = pos_neg * np.min([np.fabs(hnew), np.fabs(h)])
+                hnew = pos_neg * numpy.min([numpy.fabs(hnew), numpy.fabs(h)])
 
             reject = 0
         else:
             # step rejected since error too big
-            hnew = h / np.min([facc1, fac11 / safe])
+            hnew = h / numpy.min([facc1, fac11 / safe])
             reject = 1
 
             # reverse time increment since error rejected
-            t_current = np.copy(t_old)
-            t_old = np.copy(t_old_older)
+            t_current = numpy.copy(t_old)
+            t_old = numpy.copy(t_old_older)
 
-        h = np.copy(hnew)  # current h
+        h = numpy.copy(hnew)  # current h
 
     return result
 
