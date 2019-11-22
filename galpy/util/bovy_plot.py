@@ -56,6 +56,7 @@ from matplotlib import rc
 from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
+from mpl_toolkits.mplot3d import Axes3D # Necessary for 3D plotting (projection = '3d')
 from ..util.config import __config__
 if __config__.getboolean('plot','seaborn-bovy-defaults'):
     try:
