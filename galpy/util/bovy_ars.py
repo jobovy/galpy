@@ -186,7 +186,7 @@ def sampleone(hull,hx,hpx,domain,isDomainFinite,maxn,nupdates,hxparams):
         #Sample a candidate from the upper hull
         candidate= sample_hull(thishull,domain,isDomainFinite)
         thishux, thishlx= evaluate_hull(candidate,thishull)
-        u= stats.unifornumpy.rvs()
+        u= stats.uniform.rvs()
         if u < numpy.exp(thishlx-thishux):
             thissample= candidate
             noSampleYet= False
@@ -216,7 +216,7 @@ def sample_hull(hull,domain,isDomainFinite):
     History:
        2009-05-21 - Written - Bovy
     """
-    u= stats.unifornumpy.rvs()
+    u= stats.uniform.rvs()
     #Find largest zs[jj] such that scum[jj] < u
     #The first bin is a special case
     if hull[5][0] >= u:
