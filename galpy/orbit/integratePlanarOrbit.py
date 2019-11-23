@@ -114,12 +114,8 @@ def _parse_pot(pot):
             pot_type.append(7)
             pot_args.extend([p._Pot._amp,p._Pot.alpha])
         elif isinstance(p, planarPotentialFromRZPotential) \
-                and isinstance(p._Pot,potential.DehnenSphericalPotential):
-            pot_type.append(33)
-            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
-        elif isinstance(p, planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DehnenCoreSphericalPotential):
-            pot_type.append(34)
+            pot_type.append(33)
             pot_args.extend([p._Pot._amp,p._Pot.a])
         elif isinstance(p,planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.HernquistPotential):
@@ -133,6 +129,10 @@ def _parse_pot(pot):
                  and isinstance(p._Pot,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._Pot._amp,p._Pot.a])
+        elif isinstance(p, planarPotentialFromRZPotential) \
+                and isinstance(p._Pot,potential.DehnenSphericalPotential):
+            pot_type.append(34)
+            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)

@@ -333,17 +333,7 @@ void parse_leapFuncArgs_Full(int npot,
       break;
     // 31: KGPotential
     // 32: IsothermalDiskPotential
-    case 33: //DehnenSphericalPotential, 3 arguments
-      potentialArgs->potentialEval= &DehnenSphericalPotentialEval;
-      potentialArgs->Rforce= &DehnenSphericalPotentialRforce;
-      potentialArgs->zforce= &DehnenSphericalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
-      //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
-      potentialArgs->nargs= 3;
-      break;
-    case 34: //DehnenCoreSphericalPotential, 2 arguments
+    case 33: //DehnenCoreSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &DehnenCoreSphericalPotentialEval;
       potentialArgs->Rforce= &DehnenCoreSphericalPotentialRforce;
       potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
@@ -352,6 +342,16 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      break;
+    case 34: //DehnenSphericalPotential, 3 arguments
+      potentialArgs->potentialEval= &DehnenSphericalPotentialEval;
+      potentialArgs->Rforce= &DehnenSphericalPotentialRforce;
+      potentialArgs->zforce= &DehnenSphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 3;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
