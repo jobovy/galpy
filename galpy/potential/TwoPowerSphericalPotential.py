@@ -185,7 +185,7 @@ class TwoPowerSphericalPotential(Potential):
            2010-08-08 - Written - Bovy (NYU)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./m.pi/self.a**3.
+        return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -439,7 +439,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return (self.a/r)**self.alpha/(1.+r/self.a)**(4.-self.alpha)/4./m.pi/self.a**3.
+        return (self.a/r)**self.alpha/(1.+r/self.a)**(4.-self.alpha)/4./numpy.pi/self.a**3.
 
     def _mass(self,R,z=0.,t=0.):
         """
@@ -821,7 +821,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return 1./(1.+r/self.a)**4./4./m.pi/self.a**3.
+        return 1./(1.+r/self.a)**4./4./numpy.pi/self.a**3.
 
     def _mass(self,R,z=0.,t=0.):
         """
