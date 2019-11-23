@@ -53,7 +53,6 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
 
            2010-07-09 - Started - Bovy (NYU)
-           2019-10-20 - Updated - Starkman (UofT)
 
         """
         # instantiate
@@ -1091,7 +1090,7 @@ class JaffePotential(TwoPowerIntegerSphericalPotential):
 
         HISTORY:
 
-            2010-07-09 - Written - Bovy (NYU)
+           2010-07-09 - Written - Bovy (NYU)
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
