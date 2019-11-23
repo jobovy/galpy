@@ -72,6 +72,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.DehnenSphericalPotential):
             pot_type.append(33)
             pot_args.extend([p._amp,p.a,p.alpha])
+        elif isinstance(p,potential.DehnenCoreSphericalPotential):
+            pot_type.append(34)
+            pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential.HernquistPotential):
             pot_type.append(8)
             pot_args.extend([p._amp,p.a])

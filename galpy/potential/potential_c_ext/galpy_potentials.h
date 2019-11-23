@@ -194,6 +194,17 @@ double DehnenSphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+//DehnenCoreSphericalPotential
+double DehnenCoreSphericalPotentialEval(double ,double , double, double,
+			      struct potentialArg *);
+double DehnenCoreSphericalPotentialRforce(double ,double , double, double,
+				struct potentialArg *);
+double DehnenCoreSphericalPotentialPlanarRforce(double ,double, double,
+				      struct potentialArg *);
+double DehnenCoreSphericalPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double DehnenCoreSphericalPotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
 //HernquistPotential
 double HernquistPotentialEval(double ,double , double, double,
 			      struct potentialArg *);

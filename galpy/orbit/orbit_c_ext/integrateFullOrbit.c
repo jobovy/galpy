@@ -343,6 +343,16 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
       break;
+    case 34: //DehnenCoreSphericalPotential, 2 arguments
+      potentialArgs->potentialEval= &DehnenCoreSphericalPotentialEval;
+      potentialArgs->Rforce= &DehnenCoreSphericalPotentialRforce;
+      potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
