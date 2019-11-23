@@ -267,7 +267,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         """
         if (alpha < 0.) or (alpha >= 3.):
-            raise ValueError('alpha must be [0, 3)')
+            raise IOError('DehnenSphericalPotential requires 0 <= alpha < 3')
         # instantiate
         TwoPowerSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=alpha,beta=4,
