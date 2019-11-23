@@ -2583,6 +2583,14 @@ def test_TwoPowerTriaxialPotential_betalowerror():
         dummy= potential.TwoPowerTriaxialPotential(beta=1.)
     return None
 
+# Test that DehnenSphericalPotential setup raises an error for bad values of alpha
+def test_DehnenSphericalPotential_alphalowhigherror():
+    with pytest.raises(IOError) as excinfo:
+        dummy= potential.DehnenSphericalPotential(alpha=-.5)
+    with pytest.raises(IOError) as excinfo:
+        dummy= potential.DehnenSphericalPotential(alpha=3.5)
+    return None
+
 # Test that FerrersPotential raises a value error for n < 0
 def test_FerrersPotential_nNegative():
     with pytest.raises(ValueError) as excinfo:
