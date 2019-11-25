@@ -116,7 +116,8 @@ def test_TwoPowerSphericalPotentialIntegerSelf():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
     kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-    
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
 
     pot = potential.TwoPowerSphericalPotential(alpha=0, beta=4,**kw)
     comp = potential.DehnenCoreSphericalPotential(**kw)
