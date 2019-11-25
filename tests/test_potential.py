@@ -145,7 +145,7 @@ def test_TwoPowerSphericalPotentialIntegerSelf():
 
     # Not covered
     tol = 1e-10
-    pot = potential.TwoPowerSphericalPotential(alpha=0, beta=3,**kw)
+    pot = potential.DehnenSphericalPotential(alpha=0,**kw)
     assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - pot._evaluate(Rs, Zs)) < tol)
     assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - pot._Rforce(Rs, Zs)) < tol)
     assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - pot._zforce(Rs, Zs)) < tol)
