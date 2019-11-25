@@ -88,27 +88,28 @@ def test_forceFloatEval():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
 
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
     Rs= numpy.array([0.5,1.,2.])
     Zs= numpy.array([0.,.125,-.125])
 
     # TwoPowerSphericalPotential
-    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4)
-    comp = potential.HernquistPotential()
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4, **kw)
+    comp = potential.HernquistPotential(**kw)
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
     # DehnenSphericalPotential
-    pot = potential.DehnenSphericalPotential(alpha=1)
-    comp = potential.HernquistPotential()
+    pot = potential.DehnenSphericalPotential(alpha=1, **kw)
+    comp = potential.HernquistPotential(**kw)
     assert (pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert (pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
     assert (pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
 
     # TwoPowerIntegerSphericalPotential
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4)
-    comp = potential.HernquistPotential()
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4,**kw)
+    comp = potential.HernquistPotential(**kw)
     assert (pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
 
     return None
@@ -117,30 +118,30 @@ def test_forceFloatEval():
 def test_TwoPowerSphericalPotentialIntegerSelf():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
-
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
     Rs= numpy.array([0.5,1.,2.])
     Zs= numpy.array([0.,.125,-.125])
 
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=0, beta=4)
-    comp = potential.DehnenCoreSphericalPotential()
+    pot = potential.TwoPowerSphericalPotential(alpha=0, beta=4,**kw)
+    comp = potential.DehnenCoreSphericalPotential(**kw)
     assert (pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert (pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4)
-    comp = potential.HernquistPotential()
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4,**kw)
+    comp = potential.HernquistPotential(**kw)
     assert (pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert (pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=2, beta=4)
-    comp = potential.JaffePotential()
+    pot = potential.TwoPowerSphericalPotential(alpha=2, beta=4,**kw)
+    comp = potential.JaffePotential(**kw)
     assert (pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert (pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=2, beta=4)
-    comp = potential.JaffePotential()
+    pot = potential.TwoPowerSphericalPotential(alpha=2, beta=4,**kw)
+    comp = potential.JaffePotential(**kw)
     assert (pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert (pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert (pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
