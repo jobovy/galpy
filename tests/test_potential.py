@@ -107,11 +107,6 @@ def test_forceFloatEval():
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
     assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
 
-    # TwoPowerIntegerSphericalPotential
-    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4,**kw)
-    comp = potential.HernquistPotential(**kw)
-    assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
-
     return None
 
 # test integerself
