@@ -688,7 +688,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         # self._nemo_accname= 'Dehnen'
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _evaluate(self,R,z,phi=0.,t=0.):
       """
       NAME:
          _evaluate
@@ -707,7 +707,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
       r= numpy.sqrt(R**2.+z**2.)
       return -((1.-numpy.square(r/(r+self.a))) / (6. * self.a))
 
-    def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -725,7 +725,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         """
         return -R/numpy.power(numpy.sqrt(R**2.+z**2.)+self.a,3.)/3.
 
-    def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _R2deriv
@@ -745,7 +745,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         return - (((2.*R**2.-z**2.) - self.a*r) /
                   (3.*r*numpy.power(r+self.a,4.)))
 
-    def _zforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce

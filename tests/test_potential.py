@@ -5,6 +5,7 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
+import funcsigs
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
@@ -83,6 +84,69 @@ def test_normalize_potential():
         "Normalization of %s potential fails" % p
     return None
 
+# test derivatives with _forceFloatEval options in methods
+def test_forceFloatEval():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
+
+    # TwoPowerSphericalPotential
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4)
+    comp = potential.HernquistPotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+
+    # DehnenSphericalPotential
+    pot = potential.DehnenSphericalPotential(alpha=1)
+    comp = potential.HernquistPotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+    assert pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs)
+
+    # TwoPowerIntegerSphericalPotential
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4)
+    comp = potential.HernquistPotential()
+    assert pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs)
+
+    return None
+
+# test integerself
+def test_TwoPowerSphericalPotentialIntegerSelf():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
+
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=0, beta=4)
+    comp = potential.DehnenCoreSphericalPotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=1, beta=4)
+    comp = potential.HernquistPotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=2, beta=4)
+    comp = potential.JaffePotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+
+    pot = potential.TwoPowerIntegerSphericalPotential(alpha=2, beta=4)
+    comp = potential.JaffePotential()
+    assert pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs)
+    assert pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs)
+    assert pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs)
+
+    return None
 
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
@@ -2306,6 +2370,11 @@ def test_nemoaccname():
     # Hernquist
     hp= potential.HernquistPotential(normalize=1.)
     assert hp.nemo_accname() == 'Dehnen', "HernquistPotential's NEMO name incorrect"
+    # Dehnen
+    # dp= potential.DehhnenCoreSphericalPotential(normalize=1.)
+    # assert dp.nemo_accname() == 'Dehnen', "DehhnenCoreSphericalPotential's NEMO name incorrect"
+    # dp= potential.DehhnenSphericalPotential(normalize=1.)
+    # assert dp.nemo_accname() == 'Dehnen', "DehhnenSphericalPotential's NEMO name incorrect"
     return None
 
 def test_nemoaccnamepars_attributeerror():
