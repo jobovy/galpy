@@ -91,21 +91,23 @@ def test_forceFloatEval():
     kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
     Rs= numpy.array([0.5,1.,2.])
     Zs= numpy.array([0.,.125,-.125])
+    tol = 1e-10
 
     # TwoPowerSphericalPotential
     pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4, **kw)
     comp = potential.HernquistPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+    assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - comp._evaluate(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - comp._Rforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - comp._zforce(Rs, Zs)) < tol)
 
     # DehnenSphericalPotential
     pot = potential.DehnenSphericalPotential(alpha=1, **kw)
     comp = potential.HernquistPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-    assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
+    assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - comp._evaluate(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - comp._Rforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - comp._zforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._R2deriv(Rs, Zs, _forceFloatEval=True) - comp._R2deriv(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._Rzderiv(Rs, Zs, _forceFloatEval=True) - comp._Rzderiv(Rs, Zs)) < tol)
 
     return None
 
@@ -135,11 +137,38 @@ def test_TwoPowerSphericalPotentialIntegerSelf():
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.TwoPowerSphericalPotential(alpha=2, beta=4,**kw)
-    comp = potential.JaffePotential(**kw)
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=3,**kw)
+    comp = potential.NFWPotential(**kw)
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    # Not covered
+    tol = 1e-10
+    pot = potential.TwoPowerSphericalPotential(alpha=0, beta=1,**kw)
+    assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - pot._evaluate(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - pot._Rforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - pot._zforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._R2deriv(Rs, Zs, _forceFloatEval=True) - pot._R2deriv(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot._Rzderiv(Rs, Zs, _forceFloatEval=True) - pot._Rzderiv(Rs, Zs)) < tol)
+
+    return None
+
+# test methods that accept z=None
+def test_zisNone():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
+    Rs= numpy.array([0.5,1.,2.])
+
+    # DehnenSphericalPotential
+    pot = potential.DehnenSphericalPotential(alpha=1, beta=4, **kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # DehnenCoreSphericalPotential
+    pot = potential.DehnenCoreSphericalPotential(alpha=1, beta=4, **kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
 
     return None
 

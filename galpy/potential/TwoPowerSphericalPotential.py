@@ -397,7 +397,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         """
         return self._R2deriv(z, R, phi=phi,t=t)
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
         """
         NAME:
            _Rzderiv
@@ -413,7 +413,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-10-11 - Written - Starkman (UofT)
         """
-        if self.integerSelf is not None:
+        if not _forceFloatEval and self.integerSelf is not None:
             return self.integerSelf._Rzderiv(R, z, phi=phi, t=t)
         a, alpha= self.a, self.alpha
         r= numpy.sqrt(R**2.+z**2.)
