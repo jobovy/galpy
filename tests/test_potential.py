@@ -146,11 +146,11 @@ def test_TwoPowerSphericalPotentialIntegerSelf():
     # Not covered
     tol = 1e-10
     pot = potential.DehnenSphericalPotential(alpha=0,**kw)
-    assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - pot._evaluate(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - pot._Rforce(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - pot._zforce(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot._R2deriv(Rs, Zs, _forceFloatEval=True) - pot._R2deriv(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot._Rzderiv(Rs, Zs, _forceFloatEval=True) - pot._Rzderiv(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._evaluate(Rs, Zs) - pot._evaluate(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._Rforce(Rs, Zs) - pot._Rforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._zforce(Rs, Zs) - pot._zforce(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._R2deriv(Rs, Zs) - pot._R2deriv(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._Rzderiv(Rs, Zs) - pot._Rzderiv(Rs, Zs)) < tol)
 
     return None
 
