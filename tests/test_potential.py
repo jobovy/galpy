@@ -167,7 +167,19 @@ def test_zisNone():
     assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
 
     # DehnenCoreSphericalPotential
-    pot = potential.DehnenCoreSphericalPotential(alpha=1, **kw)
+    pot = potential.DehnenCoreSphericalPotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # HernquistPotential
+    pot = potential.HernquistPotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # JaffePotential
+    pot = potential.JaffePotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # NFWPotential
+    pot = potential.NFWPotential(**kw)
     assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
 
     return None
