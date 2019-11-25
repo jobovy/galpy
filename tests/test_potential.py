@@ -5,7 +5,6 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
-import funcsigs
 from galpy.util.bovy_conversion import velocity_in_kpcGyr
 try:
     import pynbody
