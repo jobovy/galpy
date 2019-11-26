@@ -3651,7 +3651,6 @@ class specialTwoPowerSphericalPotential(TwoPowerSphericalPotential):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.5,beta=3.)
         return None
 class DehnenTwoPowerSphericalPotential(TwoPowerSphericalPotential):
-    class DehnenTwoPowerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.5,beta=4.)
         return None
