@@ -85,7 +85,7 @@ class TwoPowerSphericalPotential(Potential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _evaluate
@@ -101,7 +101,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._evaluate(R,z,phi=phi,t=t)
         elif self.beta == 3.:
             r= numpy.sqrt(R**2.+z**2.)
@@ -121,7 +121,7 @@ class TwoPowerSphericalPotential(Potential):
                                       -self.a/r)
                   -special.gamma(3.-self.alpha)/special.gamma(self.beta-self.alpha))/r
 
-    def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -137,7 +137,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
@@ -147,7 +147,7 @@ class TwoPowerSphericalPotential(Potential):
                                 4.-self.alpha,
                                 -r/self.a)
 
-    def _zforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -163,7 +163,7 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
@@ -298,7 +298,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # self._nemo_accname= 'Dehnen'
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _evaluate(self,R,z,phi=0.,t=0.):
       """
       NAME:
          _evaluate
@@ -314,14 +314,14 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
       HISTORY:
          2019-11-20 - Written - Starkman (UofT)
       """
-      if not _forceFloatEval and self._specialSelf is not None:
+      if self._specialSelf is not None:
           return self._specialSelf._evaluate(R,z,phi=phi,t=t)
       else:  # valid for alpha != 2, 3
         r= numpy.sqrt(R**2.+z**2.)
         return -((1.-(r/(r+self.a))**(2.-self.alpha))/
                  (self.a * (2.-self.alpha) * (3.-self.alpha)))
 
-    def _Rforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rforce
@@ -337,13 +337,13 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-11-20 - Written - Starkman (UofT)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._Rforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
             return -R/r**self.alpha*(self.a+r)**(self.alpha-3.)/(3.-self.alpha)
 
-    def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _R2deriv
@@ -359,7 +359,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-10-11 - Written - Starkman (UofT)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._R2deriv(R, z, phi=phi, t=t)
         a, alpha = self.a, self.alpha
         r = numpy.sqrt(R**2. + z**2.)
@@ -368,7 +368,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
                 (-a*r**2. + (2.*R**2.-z**2.)*r + a*alpha*R**2.)/
                 (alpha - 3.))
 
-    def _zforce(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _zforce
@@ -384,7 +384,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-11-21 - Written - Starkman (UofT)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._zforce(R,z,phi=phi,t=t)
         else:
             r= numpy.sqrt(R**2.+z**2.)
@@ -408,7 +408,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         """
         return self._R2deriv(z, R, phi=phi,t=t)
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
            _Rzderiv
@@ -424,7 +424,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-10-11 - Written - Starkman (UofT)
         """
-        if not _forceFloatEval and self._specialSelf is not None:
+        if self._specialSelf is not None:
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
         a, alpha= self.a, self.alpha
         r= numpy.sqrt(R**2.+z**2.)
@@ -588,7 +588,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 #                                                       phi=phi,t=t,
 #                                                       _forceFloatEval=True)
 
-#     def _R2deriv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+#     def _R2deriv(self,R,z,phi=0.,t=0.):
 #         """
 #         NAME:
 #             _R2deriv
@@ -621,7 +621,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 #                   (-2 + beta) * special.hyp2f1(beta - 1, beta - alpha + 1, beta,
 #                                        -(a / r)) / special.gamma(beta))))
 
-#     def _Rzderiv(self,R,z,phi=0.,t=0.,_forceFloatEval=False):
+#     def _Rzderiv(self,R,z,phi=0.,t=0.):
 #         """
 #         NAME:
 #             _Rzderiv
