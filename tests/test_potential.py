@@ -146,6 +146,33 @@ def test_TwoPowerSphericalPotentialSpecialSelf():
 
     return None
 
+def test_DehnenSphericalPotentialSpecialSelf():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
+
+    pot = potential.DehnenSphericalPotential(alpha=0, beta=4,**kw)
+    comp = potential.DehnenCoreSphericalPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.DehnenSphericalPotential(alpha=1, beta=4,**kw)
+    comp = potential.HernquistPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.DehnenSphericalPotential(alpha=2, beta=4,**kw)
+    comp = potential.JaffePotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    return None
+
 # test methods that accept z=None
 def test_ZisNone():
     # TODO replace manual additions with an automatic method
