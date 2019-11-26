@@ -11,12 +11,8 @@ double DehnenSphericalPotentialEval(double R,double Z, double phi,
   double alpha= *args;
   //Calculate Rforce
   double sqrtRz= pow(R*R+Z*Z,0.5);
-  if (alpha == 2.) {
-    return -amp * R * pow( sqrtRz , -3. ) / ( 1. + a / sqrtRz );
-  }
-  else {
-    return -amp * (1. - pow(sqrtRz/(sqrtRz+a), 2.-alpha)) / (a * (2. - alpha) * (3. - alpha));
-  }
+  // if (alpha == 2.) {return -amp * R * pow( sqrtRz , -3. ) / ( 1. + a / sqrtRz );}  // not needed b/c Jaffe
+  return -amp * (1. - pow(sqrtRz/(sqrtRz+a), 2.-alpha)) / (a * (2. - alpha) * (3. - alpha));
 }
 
 double DehnenSphericalPotentialRforce(double R,double Z, double phi,
