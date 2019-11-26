@@ -84,34 +84,6 @@ def test_normalize_potential():
         "Normalization of %s potential fails" % p
     return None
 
-# # test derivatives with _forceFloatEval options in methods
-# def test_forceFloatEval():
-#     # TODO replace manual additions with an automatic method
-#     # that checks the signatures all methods in all potentials
-
-#     kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-#     Rs= numpy.array([0.5,1.,2.])
-#     Zs= numpy.array([0.,.125,-.125])
-#     tol = 1e-10
-
-#     # TwoPowerSphericalPotential
-#     pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4, **kw)
-#     comp = potential.HernquistPotential(**kw)
-#     assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - comp._evaluate(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - comp._Rforce(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - comp._zforce(Rs, Zs)) < tol)
-
-#     # DehnenSphericalPotential
-#     pot = potential.DehnenSphericalPotential(alpha=1, **kw)
-#     comp = potential.HernquistPotential(**kw)
-#     assert all(numpy.fabs(pot._evaluate(Rs, Zs, _forceFloatEval=True) - comp._evaluate(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._Rforce(Rs, Zs, _forceFloatEval=True) - comp._Rforce(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._zforce(Rs, Zs, _forceFloatEval=True) - comp._zforce(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._R2deriv(Rs, Zs, _forceFloatEval=True) - comp._R2deriv(Rs, Zs)) < tol)
-#     assert all(numpy.fabs(pot._Rzderiv(Rs, Zs, _forceFloatEval=True) - comp._Rzderiv(Rs, Zs)) < tol)
-
-#     return None
-
 # test integerself
 def test_TwoPowerSphericalPotentialSpecialSelf():
     # TODO replace manual additions with an automatic method
