@@ -146,17 +146,18 @@ def test_TwoPowerSphericalPotentialIntegerSelf():
 
     # Not covered
     tol = 1e-10
-    pot = potential.DehnenSphericalPotential(alpha=0,**kw)
+    pot = potential.TwoPowerSphericalPotential(alpha=0,beta=5,**kw)
     assert all(numpy.fabs(pot.integerSelf._evaluate(Rs, Zs) - pot._evaluate(Rs, Zs)) < tol)
     assert all(numpy.fabs(pot.integerSelf._Rforce(Rs, Zs) - pot._Rforce(Rs, Zs)) < tol)
     assert all(numpy.fabs(pot.integerSelf._zforce(Rs, Zs) - pot._zforce(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot.integerSelf._R2deriv(Rs, Zs) - pot._R2deriv(Rs, Zs)) < tol)
-    assert all(numpy.fabs(pot.integerSelf._Rzderiv(Rs, Zs) - pot._Rzderiv(Rs, Zs)) < tol)
+    pot = potential.DehnenSphericalPotential(alpha=0,**kw)  # b/c TwoPowerSphericalPotential does not have derivs
+    assert all(numpy.fabs(pot.integerSelf._R2deriv(Rs, Zs, _forceFloatEval=True) - pot._R2deriv(Rs, Zs)) < tol)
+    assert all(numpy.fabs(pot.integerSelf._Rzderiv(Rs, Zs, _forceFloatEval=True) - pot._Rzderiv(Rs, Zs)) < tol)
 
     return None
 
 # test methods that accept z=None
-def test_zisNone():
+def test_ZIsNone():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
 
