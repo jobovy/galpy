@@ -153,19 +153,19 @@ def test_DehnenSphericalPotentialSpecialSelf():
     Rs= numpy.array([0.5,1.,2.])
     Zs= numpy.array([0.,.125,-.125])
 
-    pot = potential.DehnenSphericalPotential(alpha=0, beta=4,**kw)
+    pot = potential.DehnenSphericalPotential(alpha=0,**kw)
     comp = potential.DehnenCoreSphericalPotential(**kw)
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.DehnenSphericalPotential(alpha=1, beta=4,**kw)
+    pot = potential.DehnenSphericalPotential(alpha=1,**kw)
     comp = potential.HernquistPotential(**kw)
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
 
-    pot = potential.DehnenSphericalPotential(alpha=2, beta=4,**kw)
+    pot = potential.DehnenSphericalPotential(alpha=2,**kw)
     comp = potential.JaffePotential(**kw)
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
