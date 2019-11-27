@@ -38,6 +38,22 @@ def test_nemo_HernquistPotential():
     run_orbitIntegration_comparison(o,hp,tmax,vo,ro)
     return None
 
+def test_nemo_DehnenCoreSphericalPotential():
+    dp= potential.DehnenCoreSphericalPotential(normalize=1.,a=3.)
+    tmax= 3.
+    vo,ro= 210., 7.5
+    o= Orbit([1.,0.25,1.4,0.3,-0.1,0.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison(o,dp,tmax,vo,ro)
+    return None
+
+# def test_nemo_DehnenSphericalPotential():
+#     dp= potential.DehnenSphericalPotential(normalize=1.,a=3.,alpha=1.5)
+#     tmax= 3.
+#     vo,ro= 210., 7.5
+#     o= Orbit([1.,0.25,1.4,0.3,-0.1,0.4],ro=ro,vo=vo)
+#     run_orbitIntegration_comparison(o,dp,tmax,vo,ro)
+#     return None
+
 def test_nemo_PowerSphericalPotentialwCutoffPotential():
     pp= potential.PowerSphericalPotentialwCutoff(normalize=1.,alpha=1.,rc=0.4)
     tmax= 2.

@@ -330,9 +330,29 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
 					    + (int) (*(*pot_args+7) + 20)));
-      break;    
-      // 31: KGPotential
-      // 32: IsothermalDiskPotential
+      break;
+    // 31: KGPotential
+    // 32: IsothermalDiskPotential
+    case 33: //DehnenCoreSphericalPotential, 2 arguments
+      potentialArgs->potentialEval= &DehnenCoreSphericalPotentialEval;
+      potentialArgs->Rforce= &DehnenCoreSphericalPotentialRforce;
+      potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 34: //DehnenSphericalPotential, 3 arguments
+      potentialArgs->potentialEval= &DehnenSphericalPotentialEval;
+      potentialArgs->Rforce= &DehnenSphericalPotentialRforce;
+      potentialArgs->zforce= &DehnenSphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
+      //potentialArgs->planarphi2deriv= &ZeroForce;
+      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->nargs= 3;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

@@ -69,6 +69,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.PowerSphericalPotential):
             pot_type.append(7)
             pot_args.extend([p._amp,p.alpha])
+        elif isinstance(p,potential.DehnenCoreSphericalPotential):
+            pot_type.append(33)
+            pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential.HernquistPotential):
             pot_type.append(8)
             pot_args.extend([p._amp,p.a])
@@ -78,6 +81,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.DehnenSphericalPotential):
+            pot_type.append(34)
+            pot_args.extend([p._amp,p.a,p.alpha])
         elif isinstance(p,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
             pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,

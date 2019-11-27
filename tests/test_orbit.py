@@ -1298,6 +1298,8 @@ def test_analytic_ecc_rperi_rap():
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -8. #these are more difficult
     tol['IsochronePotential']= -6. #these are more difficult
+    tol['DehnenSphericalPotential']= -8. #these are more difficult
+    tol['DehnenCoreSphericalPotential']= -8. #these are more difficult
     tol['JaffePotential']= -6. #these are more difficult
     tol['TriaxialHernquistPotential']= -8. #these are more difficult
     tol['TriaxialJaffePotential']= -8. #these are more difficult
@@ -1619,6 +1621,8 @@ def test_analytic_zmax():
     tol['KuzminKutuzovStaeckelPotential']= -4. #these are more difficult
     tol['PlummerPotential']= -4. #these are more difficult
     tol['PseudoIsothermalPotential']= -4. #these are more difficult
+    tol['DehnenSphericalPotential']= -8. #these are more difficult
+    tol['DehnenCoreSphericalPotential']= -8. #these are more difficult
     tol['HernquistPotential']= -8. #these are more difficult
     tol['TriaxialHernquistPotential']= -8. #these are more difficult
     tol['JaffePotential']= -8. #these are more difficult
