@@ -54,16 +54,19 @@ class TwoPowerSphericalPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        # instantiate
+        # Instantiate
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        # _specialSelf
+        # _specialSelf for special cases (Dehnen class, Dehnen core, Hernquist, Jaffe, NFW)
         self._specialSelf= None
         if ((self.__class__ == TwoPowerSphericalPotential) &
             (alpha == round(alpha)) & (beta == round(beta))):
             if int(alpha) == 0 and int(beta) == 4:
-                self._specialSelf= DehnenCoreSphericalPotential(amp=1.,a=a,normalize=False)
+                self._specialSelf=\
+                        DehnenCoreSphericalPotential(amp=1.,a=a,
+                                                     normalize=False)
             elif int(alpha) == 1 and int(beta) == 4:
-                self._specialSelf= HernquistPotential(amp=1.,a=a,normalize=False)
+                self._specialSelf=\
+                        HernquistPotential(amp=1.,a=a,normalize=False)
             elif int(alpha) == 2 and int(beta) == 4:
                 self._specialSelf= JaffePotential(amp=1.,a=a,normalize=False)
             elif int(alpha) == 1 and int(beta) == 3:
@@ -226,9 +229,7 @@ class TwoPowerSphericalPotential(Potential):
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from Dehnen 1993
-
-    https://doi.org/10.1093/mnras/265.1.250
+    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_
 
     .. math::
 
@@ -243,14 +244,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential
-
-           note that the amplitude does NOT match that of Dehnen 1992.
-           to match amplitude, use amp * (3 - alpha).
+           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen 1993
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass will be rescaled to amp*(3-alpha) (except for Jaffe, which is already scaled)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
            a - scale radius (can be Quantity)
 
@@ -274,22 +272,23 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # instantiate
         TwoPowerSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=alpha,beta=4,
-            normalize=normalize,ro=ro,vo=vo
-        )
-        # make integer-self and protect subclasses
+            normalize=normalize,ro=ro,vo=vo)
+        # make special-self and protect subclasses
         self._specialSelf= None
         if ((self.__class__ == DehnenSphericalPotential) &
             (alpha == round(alpha))):
             if round(alpha) == 0:
-                self._specialSelf= DehnenCoreSphericalPotential(amp=1.,a=a,normalize=False)
+                self._specialSelf=\
+                        DehnenCoreSphericalPotential(amp=1.,a=a,
+                                                     normalize=False)
             elif round(alpha) == 1:
-                self._specialSelf= HernquistPotential(amp=1.,a=a,normalize=False)
+                self._specialSelf=\
+                        HernquistPotential(amp=1.,a=a,normalize=False)
             elif round(alpha) == 2:
                 self._specialSelf= JaffePotential(amp=1.,a=a,normalize=False)
         # set properties
         self.hasC= True
         self.hasC_dxdv= True
-        # self._nemo_accname= 'Dehnen'  # unknown if works
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -400,7 +399,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-10-20 - Written - Starkman (UofT)
         """
-        return self._R2deriv(z, R, phi=phi,t=t)
+        return self._R2deriv(z,R,phi=phi,t=t)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -422,8 +421,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
         a, alpha= self.a, self.alpha
         r= numpy.sqrt(R**2.+z**2.)
-        return ((R * z * numpy.power(r,-2.-alpha)*numpy.power(a+r,alpha-4.)*(3*r+a*alpha))/
-                (alpha-3))
+        return ((R*z*numpy.power(r,-2.-alpha)*numpy.power(a+r,alpha-4.)
+                 *(3*r+a*alpha))/(alpha-3))
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -460,12 +459,10 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**(3.-self.alpha) / (3.-self.alpha)
+        return (r/(r+self.a))**(3.-self.alpha)/(3.-self.alpha)
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from Dehnen 1993 with alpha=0
-
-    https://doi.org/10.1093/mnras/265.1.250
+    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_ with alpha=0 (corresponding to an inner core)
 
     .. math::
 
@@ -480,14 +477,11 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential
-
-           note that the amplitude does NOT match that of Dehnen 1992.
-           to match amplitude, use amp * (3 - alpha).
+           initialize a cored Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen 1993
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass will be rescaled to amp*(3-alpha) (except for Jaffe, which is already scaled)
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
            a - scale radius (can be Quantity)
 
@@ -509,7 +503,6 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         DehnenSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=0,
             normalize=normalize,ro=ro,vo=vo)
-        # self._nemo_accname= 'Dehnen'
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -529,7 +522,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
          2019-11-20 - Written - Starkman (UofT)
       """
       r= numpy.sqrt(R**2.+z**2.)
-      return -((1.-numpy.square(r/(r+self.a))) / (6. * self.a))
+      return -((1.-numpy.square(r/(r+self.a)))/(6.*self.a))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -565,9 +558,8 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         HISTORY:
            2019-10-11 - Written - Starkman (UofT)
         """
-        r = numpy.sqrt(R**2. + z**2.)
-        return - (((2.*R**2.-z**2.) - self.a*r) /
-                  (3.*r*numpy.power(r+self.a,4.)))
+        r = numpy.sqrt(R**2.+z**2.)
+        return -(((2.*R**2.-z**2.)-self.a*r)/(3.*r*numpy.power(r+self.a,4.)))
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -604,7 +596,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         HISTORY:
            2019-10-20 - Written - Starkman (UofT)
         """
-        return self._R2deriv(z, R, phi=phi,t=t)
+        return self._R2deriv(z,R,phi=phi,t=t)
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -624,7 +616,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         """
         a= self.a
         r= numpy.sqrt(R**2.+z**2.)
-        return -(R * z / r / numpy.power(a+r,4.))
+        return -(R * z/r/numpy.power(a+r,4.))
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -661,7 +653,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**3. / 3.
+        return (r/(r+self.a))**3./3.
 
 class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
@@ -780,7 +772,7 @@ class HernquistPotential(DehnenSphericalPotential):
         """
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return (self.a*z**2.+(z**2.-2.*R**2.)*sqrtRz)/sqrtRz**3.\
-            /((self.a+sqrtRz)**3.)/2.
+            /(self.a+sqrtRz)**3./2.
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
