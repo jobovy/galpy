@@ -113,10 +113,6 @@ def _parse_pot(pot):
                  and isinstance(p._Pot,potential.PowerSphericalPotential):
             pot_type.append(7)
             pot_args.extend([p._Pot._amp,p._Pot.alpha])
-        elif isinstance(p, planarPotentialFromRZPotential) \
-                and isinstance(p._Pot,potential.DehnenCoreSphericalPotential):
-            pot_type.append(33)
-            pot_args.extend([p._Pot._amp,p._Pot.a])
         elif isinstance(p,planarPotentialFromRZPotential) \
                  and isinstance(p._Pot,potential.HernquistPotential):
             pot_type.append(8)
@@ -129,10 +125,6 @@ def _parse_pot(pot):
                  and isinstance(p._Pot,potential.JaffePotential):
             pot_type.append(10)
             pot_args.extend([p._Pot._amp,p._Pot.a])
-        elif isinstance(p, planarPotentialFromRZPotential) \
-                and isinstance(p._Pot,potential.DehnenSphericalPotential):
-            pot_type.append(34)
-            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
@@ -272,6 +264,16 @@ def _parse_pot(pot):
             pot_type.append(29)
             pot_args.extend([p._amp])
         # 30: PerfectEllipsoidPotential, done with other EllipsoidalPotentials above
+        # 31: KGPotential
+        # 32: IsothermalDiskPotential
+        elif isinstance(p, planarPotentialFromRZPotential) \
+                and isinstance(p._Pot,potential.DehnenCoreSphericalPotential):
+            pot_type.append(33)
+            pot_args.extend([p._Pot._amp,p._Pot.a])
+        elif isinstance(p, planarPotentialFromRZPotential) \
+                and isinstance(p._Pot,potential.DehnenSphericalPotential):
+            pot_type.append(34)
+            pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
