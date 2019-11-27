@@ -130,6 +130,8 @@ def test_DehnenSphericalPotentialSpecialSelf():
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+    assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
+    assert all(pot._Rzderiv(Rs, Zs) == comp._Rzderiv(Rs, Zs))
 
     pot = potential.DehnenSphericalPotential(alpha=1,**kw)
     comp = potential.HernquistPotential(**kw)
