@@ -23,7 +23,6 @@ def test_normalize_potential():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
@@ -84,98 +83,6 @@ def test_normalize_potential():
         "Normalization of %s potential fails" % p
     return None
 
-# test integerself
-def test_TwoPowerSphericalPotentialSpecialSelf():
-    # TODO replace manual additions with an automatic method
-    # that checks the signatures all methods in all potentials
-    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-    Rs= numpy.array([0.5,1.,2.])
-    Zs= numpy.array([0.,.125,-.125])
-
-    pot = potential.TwoPowerSphericalPotential(alpha=0, beta=4,**kw)
-    comp = potential.DehnenCoreSphericalPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4,**kw)
-    comp = potential.HernquistPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    pot = potential.TwoPowerSphericalPotential(alpha=2, beta=4,**kw)
-    comp = potential.JaffePotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=3,**kw)
-    comp = potential.NFWPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    return None
-
-def test_DehnenSphericalPotentialSpecialSelf():
-    # TODO replace manual additions with an automatic method
-    # that checks the signatures all methods in all potentials
-    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-    Rs= numpy.array([0.5,1.,2.])
-    Zs= numpy.array([0.,.125,-.125])
-
-    pot = potential.DehnenSphericalPotential(alpha=0,**kw)
-    comp = potential.DehnenCoreSphericalPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-    assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
-    assert all(pot._Rzderiv(Rs, Zs) == comp._Rzderiv(Rs, Zs))
-
-    pot = potential.DehnenSphericalPotential(alpha=1,**kw)
-    comp = potential.HernquistPotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    pot = potential.DehnenSphericalPotential(alpha=2,**kw)
-    comp = potential.JaffePotential(**kw)
-    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
-    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
-    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    return None
-
-# test methods that accept z=None
-def test_ZisNone():
-    # TODO replace manual additions with an automatic method
-    # that checks the signatures all methods in all potentials
-    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-    Rs= numpy.array([0.5,1.,2.])
-
-    # DehnenSphericalPotential
-    pot = potential.DehnenSphericalPotential(alpha=1, **kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # DehnenCoreSphericalPotential
-    pot = potential.DehnenCoreSphericalPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # HernquistPotential
-    pot = potential.HernquistPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # JaffePotential
-    pot = potential.JaffePotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # NFWPotential
-    pot = potential.NFWPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    return None
-
 #Test whether the derivative of the potential is minus the force
 def test_forceAsDeriv_potential():
     #Grab all of the potentials
@@ -184,7 +91,6 @@ def test_forceAsDeriv_potential():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
@@ -370,7 +276,6 @@ def test_2ndDeriv_potential():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
@@ -541,7 +446,6 @@ def test_2ndDeriv_potential():
                 for jj in range(len(Zs)):
                     if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     if p == 'TwoPowerSphericalPotential': continue #Not implemented, or badly defined
-                    # if p == 'mockTwoPowerIntegerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'specialTwoPowerSphericalPotential': continue #Not implemented, or badly defined
                     if p == 'DehnenTwoPowerSphericalPotential': continue  # Not implemented, or badly defined
                     if p == 'DehnenCoreTwoPowerSphericalPotential': continue  # Not implemented, or badly defined
@@ -615,7 +519,6 @@ def test_poisson_potential():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
@@ -720,7 +623,6 @@ def test_poisson_surfdens_potential():
                and not 'toVertical' in p)]
     pots.append('testMWPotential')
     """
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
@@ -826,7 +728,6 @@ def test_evaluateAndDerivs_potential():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
@@ -1017,7 +918,6 @@ def test_amp_mult_divide():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
-    # pots.append('mockTwoPowerIntegerSphericalPotential')
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
@@ -2124,6 +2024,98 @@ def test_MovingObject_density():
     assert numpy.fabs(mp.dens(5.,0.)) < 10.**-8., 'Density far away from MovingObject is not close to zero'
     return None
 
+# test specialSelf for TwoPowerSphericalPotential
+def test_TwoPowerSphericalPotentialSpecialSelf():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
+
+    pot = potential.TwoPowerSphericalPotential(alpha=0, beta=4,**kw)
+    comp = potential.DehnenCoreSphericalPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=4,**kw)
+    comp = potential.HernquistPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.TwoPowerSphericalPotential(alpha=2, beta=4,**kw)
+    comp = potential.JaffePotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.TwoPowerSphericalPotential(alpha=1, beta=3,**kw)
+    comp = potential.NFWPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    return None
+
+def test_DehnenSphericalPotentialSpecialSelf():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
+    Rs= numpy.array([0.5,1.,2.])
+    Zs= numpy.array([0.,.125,-.125])
+
+    pot = potential.DehnenSphericalPotential(alpha=0,**kw)
+    comp = potential.DehnenCoreSphericalPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+    assert all(pot._R2deriv(Rs, Zs) == comp._R2deriv(Rs, Zs))
+    assert all(pot._Rzderiv(Rs, Zs) == comp._Rzderiv(Rs, Zs))
+
+    pot = potential.DehnenSphericalPotential(alpha=1,**kw)
+    comp = potential.HernquistPotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    pot = potential.DehnenSphericalPotential(alpha=2,**kw)
+    comp = potential.JaffePotential(**kw)
+    assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
+    assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
+    assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
+
+    return None
+
+# test methods that accept z=None
+def test_ZisNone_mass():
+    # TODO replace manual additions with an automatic method
+    # that checks the signatures all methods in all potentials
+    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
+    Rs= numpy.array([0.5,1.,2.])
+
+    # DehnenSphericalPotential
+    pot = potential.DehnenSphericalPotential(alpha=1, **kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # DehnenCoreSphericalPotential
+    pot = potential.DehnenCoreSphericalPotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # HernquistPotential
+    pot = potential.HernquistPotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # JaffePotential
+    pot = potential.JaffePotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    # NFWPotential
+    pot = potential.NFWPotential(**kw)
+    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
+
+    return None
+
 # Test that MWPotential is what it's supposed to be
 def test_MWPotential2014():
     pot= potential.MWPotential2014
@@ -2412,11 +2404,6 @@ def test_nemoaccname():
     # Hernquist
     hp= potential.HernquistPotential(normalize=1.)
     assert hp.nemo_accname() == 'Dehnen', "HernquistPotential's NEMO name incorrect"
-    # Dehnen
-    # dp= potential.DehhnenCoreSphericalPotential(normalize=1.)
-    # assert dp.nemo_accname() == 'Dehnen', "DehhnenCoreSphericalPotential's NEMO name incorrect"
-    # dp= potential.DehhnenSphericalPotential(normalize=1.)
-    # assert dp.nemo_accname() == 'Dehnen', "DehhnenSphericalPotential's NEMO name incorrect"
     return None
 
 def test_nemoaccnamepars_attributeerror():
@@ -3633,10 +3620,6 @@ class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
         x,y,z= self._compute_xyz(R,phi,z,t)
         Tp, Tm= self._compute_TpTm(x,y,z)
         return numpy.log((x-self._a+Tm)/(x+self._a+Tp))/2./self._a
-# class mockTwoPowerIntegerSphericalPotential(TwoPowerSphericalPotential):
-#     def __init__(self):
-#         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=5.)
-#         return None
 class specialTwoPowerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self,amp=1.,a=5.,alpha=1.5,beta=3.)
