@@ -127,9 +127,11 @@ Spherical potentials
 
    potentialburkert.rst
    potentialdoublepowerspher.rst
-   potentialjaffe.rst
+   potentialcoredehnen.rst
+   potentialdehnen.rst
    potentialhernquist.rst
    potentialisochrone.rst
+   potentialjaffe.rst
    potentialkepler.rst
    potentialnfw.rst
    potentialplummer.rst

@@ -221,6 +221,14 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._Rs, p._H, p._omega])
             pot_args.extend(p._Cs)
         # 30: PerfectEllipsoidPotential, done with others above
+        # 31: KGPotential
+        # 32: IsothermalDiskPotential
+        elif isinstance(p,potential.DehnenCoreSphericalPotential):
+            pot_type.append(33)
+            pot_args.extend([p._amp,p.a])
+        elif isinstance(p,potential.DehnenSphericalPotential):
+            pot_type.append(34)
+            pot_args.extend([p._amp,p.a,p.alpha])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
