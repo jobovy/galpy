@@ -97,9 +97,9 @@ functionality is introduced in separate papers:
 * ``galpy.actionAngle.actionAngleIsochroneApprox``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamdf``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamgapdf``: please cite `Sanders, Bovy, & Erkal (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.457.3817S>`__.
-* ``galpy.potential.ttensor`` and ``galpy.potential.rtide``: please cite `Webb et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.5748W/abstract>`__.
+* ``galpy.potential.ttensor`` and ``galpy.potential.rtide``: please cite `Webb et al. (2019a) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.5748W/abstract>`__.
 
-* ``galpy.potential.to_amuse``: please cite Webb et al. (2019; in prep).
+* ``galpy.potential.to_amuse``: please cite `Webb et al. (2019b) <http://arxiv.org/abs/1910.01646>`_.
 
 Please also send me a reference to the paper or send a pull request
 including your paper in the list of galpy papers on this page (this
@@ -265,7 +265,7 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
      Uses ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbit of the cluster 47 Tuc from a newly measured proper motion, finding that the orbit has an eccentricity of about 0.2 and reaches up to 3.6 kpc above the Galactic midplane.
 #. *Characterising Open Clusters in the solar neighbourhood with the Tycho-Gaia Astrometric Solution*, T. Cantat-Gaudin, A. Vallenari, R. Sordo, F. Pensabene, A. Krone-Martins, A. Moitinho, C. Jordi, L. Casamiquela, L. Balaguer-Núnez, C. Soubiran, N. Brouillet (2018) *Astron. & Astrophys.*, submitted (`arXiv/1801.10042 <http://arxiv.org/abs/1801.10042>`_):
      Employs ``galpy.orbit`` integration in ``MWPotential2014`` to investigate the orbits of a sample of 128 open clusters with astrometry from the Tycho-*Gaia* Astrometric Solution.
-#. *Fast estimation of orbital parameters in Milky-Way-like potentials*, J. Ted Mackereth & Jo Bovy (2018) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1802.02592 <http://arxiv.org/abs/1802.02592>`_):
+#. *Fast estimation of orbital parameters in Milky-Way-like potentials*, J. Ted Mackereth & Jo Bovy (2018) *Pub. Astron.Soc. Pac.*, in press (`arXiv/1802.02592 <http://arxiv.org/abs/1802.02592>`_):
      Introduces the ``galpy.actionAngle.EccZmaxRperiRap`` and related ``galpy.orbit.Orbit`` methods for the fast estimation of the orbital parameters (eccentricity, maximum vertical excursion, and peri/apocenter) in Milky-Way potentials. See :ref:`this section <fastchar>` of the documentation for more info.
 #. *HI Kinematics Along The Minor Axis of M82*, Paul Martini, Adam K. Leroy, Jeffrey G. Mangum, Alberto Bolatto, Katie M. Keating, Karin Sandstrom, & Fabian Walter (2018) *Astrophys. J.*, in press (`arXiv/1802.04359 <http://arxiv.org/abs/1802.04359>`_):
      Use ``galpy.potential`` components to create a mass model for M82 that consists of a ``HernquistPotential`` bulge, ``MN3ExponentialDiskPotential`` disk, and ``NFWPotential`` dark-matter halo by matching photometric and rotation-curve data.
@@ -425,6 +425,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Origin of the excess of high-energy retrograde stars in the Galactic halo*, Tadafumi Matsuno, Wako Aoki, & Takuma Suda (2019) *Astrophys. J. Lett.*, in press (`arXiv/1903.09456 <http://arxiv.org/abs/1903.09456>`_)
 
+#. *The Virgo Overdensity Explained*, Thomas Donlon II, Heidi Jo Newberg, Jake Weiss, Paul Amy, & Jeffery Thompson (2019) *Astrophys. J.*, submitted (`arXiv/1903.10136 <http://arxiv.org/abs/1903.10136>`_)
+
 #. *Gaia DR2 orbital properties for field stars with globular cluster-like CN band strengths*, A. Savino & L. Posti (2019) *Astron. & Astrophys. Lett.*, in press (`arXiv/1904.01021 <http://arxiv.org/abs/1904.01021>`_)
 
 #. *Dissecting the Phase Space Snail Shell*, Zhao-Yu Li & Juntai Shen (2019) *Astrophys. J.*, submitted (`arXiv/1904.03314 <http://arxiv.org/abs/1904.03314>`_)
@@ -489,6 +491,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *The kinematical and space structures of IC 2391 open cluster and moving group with Gaia-DR2*, E. S. Postnikova, W. H. Elsanhoury, Devesh P. Sariya, N. V. Chupina, S. V. Vereshchagin, Ing-Guey Jiang (2019) *Research in Astron. Astrophys.*, submitted (`arXiv/1908.10094 <http://arxiv.org/abs/1908.10094>`_)
 
+#. *Potential Kick Velocity distribution of black hole X-ray binaries and implications for natal kicks*, P. Atri, J. C. A. Miller-Jones, A. Bahramian, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1908.07199 <http://arxiv.org/abs/1908.07199>`_)
+
 #. *Flares of accretion activity of the 20 Myr old UXOR RZ Psc*, I.S. Potravnov, V.P. Grinin, N.A. Serebriakova (2019) *Astron. & Astrophys.*, submitted (`arXiv/1908.08673 <http://arxiv.org/abs/1908.08673>`_)
 
 #. *An extended Pal 5 stream in Gaia DR2*, Nathaniel Starkman, Jo Bovy, & Jeremy Webb (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1909.03048 <http://arxiv.org/abs/1909.03048>`_)
@@ -498,6 +502,46 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Dark Shards: velocity substructure from Gaia and direct searches for dark matter*, Ciaran A. J. O'Hare, N. Wyn Evans, Christopher McCabe, GyuChul Myeong, & Vasily Belokurov (2019) *Phys. Rev. D*, submitted (`arXiv/1909.04684 <http://arxiv.org/abs/1909.04684>`_)
 
 #. *Disentangling the Arcturus stream*, Iryna Kushniruk & Thomas Bensby (2019) *Astron. & Astrophys.*, in press (`arXiv/1909.04949 <http://arxiv.org/abs/1909.04949>`_)
+
+#. *The Inside-out Growth of the Galactic Disk*, Neige Frankel, Jason Sanders, Hans-Walter Rix, Yuan-Sen Ting, & Melissa Ness (2019) *Astrophys. J.*, in press (`arXiv/1909.07118 <http://arxiv.org/abs/1909.07118>`_)
+
+#. *Detailed study of the Milky Way globular cluster Laevens 3*, Nicolas Longeard, Nicolas Martin, Rodrigo A. Ibata, Michelle L.M. Collins, Benjamin P.M. Laevens, Eric Bell, Dougal Mackey (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1909.08622 <http://arxiv.org/abs/1909.08622>`_)
+
+#. *Dependence of Galactic Halo Kinematics on the Adopted Galactic Potential*, Young Kwang Kim, Young Sun Lee, & Timothy C. Beers (2019) *Astrophys. J.*, in press (`arXiv/1909.11250 <http://arxiv.org/abs/1909.11250>`_)
+
+#. *Chemodynamics of outer halo dwarf stars, including potential members of Gaia-Enceladus and Gaia-Sequoia*, Stephanie Monty, Kim A. Venn, James M. M. Lane, Deborah Lokhorst, & David Yong (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1909.11969 <http://arxiv.org/abs/1909.11969>`_)
+
+#. *Correcting for the dynamical effects in the observed second derivative of the spin frequency of radio pulsars*, Dhruv Pathak & Manjari Bagchi (2019)  (`arXiv/1909.13113 <http://arxiv.org/abs/1909.13113>`_)
+
+#. *Searching for Solar Siblings in APOGEE and Gaia DR2 with N-body Simulations*, Jeremy J. Webb, Natalie Price-Jones, Jo Bovy, Simon Portegies Zwart, Jason A. S. Hunt, J. Ted Mackereth, & Henry W. Leung (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1910.01646 <http://arxiv.org/abs/1910.01646>`_)
+
+#. *Compact-Object Mergers in the Galactic Center: Evolution in Triaxial Clusters*, Mathew W. Bub & Cristobal Petrovich (2019) *Astrophys. J.*, submitted (`arXiv/1910.02079 <http://arxiv.org/abs/1910.02079>`_)
+
+#. *Weighing the stellar constituents of the Galactic halo with APOGEE red giant stars*, J. Ted Mackereth & Jo Bovy (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1910.03590 <http://arxiv.org/abs/1910.03590>`_)
+
+#. *Forward Modeling of Double Neutron Stars: Insights from Highly-Offset Short Gamma-Ray Bursts*, Michael Zevin, Luke Zoltan Kelley, Anya Nugent, Wen-fai Fong, Christopher P. L. Berry, Vicky Kalogera (2019) *Astrophys. J.*, submitted (`arXiv/1910.03598 <http://arxiv.org/abs/1910.03598>`_)
+
+#. *Annual parallax and galactic orbit of Y Librae (IRAS 15090-0549) Mira variable star—GALORB release*, James O. Chibueze, Toshihiro Omodaka, Riku Urago, et al. (2019) *Pub. Astron.Soc. Jap.*, in press (`2019PASJ...71...92C <https://ui.adsabs.harvard.edu/abs/2019PASJ...71...92C>`_)
+
+#. *Pristine IX: CFHT ESPaDOnS Spectroscopic Analysis of 115 Bright Metal-Poor Candidate Stars*, Kim Venn, Collin Kielty, Federico Sestito, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1910.06340 <http://arxiv.org/abs/1910.06340>`_)
+
+#. *Triangulum-Andromeda overdensity: a region with a complex stellar population*, J. V. Sales Silva, H. D. Perottoni, K. Cunha, H. J. Rocha-Pinto, F. Almeida-Fernandes, D. Souto, & S. R. Majewski (2019) *Astrophys. J.*, in press (`arXiv/1910.06457 <http://arxiv.org/abs/1910.06457>`_)
+
+#. *Evidence of a population of dark subhalos from Gaia and Pan-STARRS observations of the GD-1 stream*, Nilanjan Banik, Jo Bovy, Gianfranco Bertone, Denis Erkal, & T.J.L. de Boer (2019) *Phys. Rev. D*, submitted (`arXiv/1911.02662 <http://arxiv.org/abs/1911.02662>`_)
+
+#. *The Pristine survey X: a large population of low-metallicity stars permeates the Galactic disk*, Federico Sestito, Nicolas F. Martin, Else Starkenburg, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1911.08491 <http://arxiv.org/abs/1911.08491>`_)
+
+#. *Birds of a Feather? Magellan/IMACS Spectroscopy of the Ultra-Faint Satellites Grus II, Tucana IV, and Tucana V*, J. D. Simon, T. S. Li, D. Erkal, et al. (2019) *Astrophys. J.*, submitted (`arXiv/1911.08493 <http://arxiv.org/abs/1911.08493>`_)
+
+#. *Properties of carbon stars in the Solar neighbourhood based on Gaia DR2 astrometry*, C. Abia, P. de Laverny, S. Cristallo, G. Kordopatis, & O. Straniero (2019) *Astron. & Astrophys.*, in press (`arXiv/1911.09413 <http://arxiv.org/abs/1911.09413>`_)
+
+#. *The Inconsistency of Superfluid Dark Matter with Milky Way Dynamics*, Mariangela Lisanti, Matthew Moschella, Nadav Joseph Outmezguine, & Oren Slone (2019) *Phys. Rev. Lett.*, submitted (`arXiv/1911.12365 <http://arxiv.org/abs/1911.12365>`_)
+
+#. *Super Metal-rich Stars in the LAMOST Survey: A Test on Radial Migration*, Y. Q. Chen, G. Zhao, J. K. Zhao, et al. (2019) *Astron. J.*, in press (`2019AJ....158..249C <https://ui.adsabs.harvard.edu/abs/2019AJ....158..249C>`_)
+
+#. *On the origin of the asymmetric dwarf galaxy distribution around Andromeda*, Zhen Wan, William H. Oliver, Geraint F. Lewis, Justin I. Read, & Michelle L. M. Collins (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1912.02393 <http://arxiv.org/abs/1912.02393>`_)
+
+
 
 Indices and tables
 ==================
