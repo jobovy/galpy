@@ -2,7 +2,7 @@ galpy.util.bovy_coords
 =======================
 
 .. WARNING::
-   ``galpy`` uses a left-handed coordinate frame, as is common in studies of the kinematics of the Milky Way. Care should be taken when using the coordinate transformation routines below for coordinates in a right-handed frame, the routines do not always apply and are only tested for the standard ``galpy`` left-handed frame.
+   ``galpy`` uses a left-handed Galactocentric coordinate frame, as is common in studies of the kinematics of the Milky Way. Care should be taken when using the coordinate transformation routines below for coordinates in a right-handed frame, the routines do not always apply and are only tested for the standard ``galpy`` left-handed frame.
 
 Various coordinate transformation routines with fairly
 self-explanatory names:

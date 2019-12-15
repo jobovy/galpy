@@ -300,7 +300,7 @@ Orbit integration
 -----------------
 
 .. WARNING::
-   ``galpy`` uses a left-handed coordinate frame, as is common in studies of the kinematics of the Milky Way. This means that in particular cross-products, like the angular momentum :math:`\vec{L} = \vec{r}\times\vec{p}`, behave differently than in a right-handed coordinate frame.
+   ``galpy`` uses a left-handed Galactocentric coordinate frame, as is common in studies of the kinematics of the Milky Way. This means that in particular cross-products, like the angular momentum :math:`\vec{L} = \vec{r}\times\vec{p}`, behave differently than in a right-handed coordinate frame.
 
 We can also integrate orbits in all galpy potentials. Going back to a
 simple Miyamoto-Nagai potential, we initialize an orbit as follows
