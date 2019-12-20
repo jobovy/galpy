@@ -1,24 +1,23 @@
 ###############################################################################
-#   IsochronePotential.py: The isochrone potential
-#
-#                                     - amp
-#                          Phi(r)= ---------------------
-#                                   b + sqrt{b^2+r^2}
+#   HomogeneousSpherePotential.py: The potential of a homogeneous sphere
 ###############################################################################
 import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-class IsochronePotential(Potential):
-    """Class that implements the Isochrone potential
+class HomogeneousSpherePotential(Potential):
+    """Class that implements the homogeneous sphere potential for :math:`\\rho(r) = \\rho_0 = \\mathrm{constant}` for all :math:``r < R`` and zero otherwise. The potential is given by
 
     .. math::
 
-        \\Phi(r) = -\\frac{\\mathrm{amp}}{b+\\sqrt{b^2+r^2}}
+        \\Phi(r) = \\mathrm{amp}\\times\\left\\{\\begin{array}{lr}
+        (r^2-3R^2), & \\text{for } r < R\\\\
+        -\\frac{2R^3}{r} & \\text{for } r \\geq R
+        \\end{array}\\right.
 
-    with :math:`\\mathrm{amp} = GM` the total mass.
+    We have that :math:`\\rho_0 = 3\\,\\mathrm{amp}/[2\\pi G]`.
     """
-    def __init__(self,amp=1.,b=1.,normalize=False,
+    def __init__(self,amp=1.,R=1.2,normalize=False,
                  ro=None,vo=None):
         """
         NAME:
@@ -27,13 +26,13 @@ class IsochronePotential(Potential):
 
         PURPOSE:
 
-           initialize an isochrone potential
+           initialize a homogeneous sphere potential
 
         INPUT:
 
-           amp= amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass
+           amp= amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
 
-           b= scale radius of the isochrone potential (can be Quantity)
+           R= size of the sphere (can be Quantity)
 
            normalize= if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -45,15 +44,15 @@ class IsochronePotential(Potential):
 
         HISTORY:
 
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
-        self.b= b
-        self._scale= self.b
-        self.b2= self.b**2.
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        if _APY_LOADED and isinstance(R,units.Quantity):
+            R= R.to(units.kpc).value/self._ro
+        self.R= R
+        self._R2= self.R**2.
+        self._R3= self.R**3.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -75,11 +74,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            Phi(R,z)
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return -1./(self.b+rb)
+        if r2 < self._R2:
+            return r2-3.*self._R2
+        else:
+            return -2.*self._R3/numpy.sqrt(r2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -95,12 +96,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            the radial force
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        dPhidrr= -1./rb/(self.b+rb)**2.
-        return dPhidrr*R
+        if r2 < self._R2:
+            return -2.*R
+        else:
+            return -2.*self._R3*R/r2**1.5
 
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -116,12 +118,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            the vertical force
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        dPhidrr= -1./rb/(self.b+rb)**2.
-        return dPhidrr*z
+        if r2 < self._R2:
+            return -2.*z
+        else:
+            return -2.*self._R3*z/r2**1.5
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -137,12 +140,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            the second radial derivative
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return -(-self.b**3.-self.b*z**2.+(2.*R**2.-z**2.-self.b**2.)*rb)/\
-            rb**3./(self.b+rb)**3.
+        if r2 < self._R2:
+            return 2.
+        else:
+            return 2.*self._R3/r2**1.5-6.*self._R3*R**2./r2**2.5
 
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -158,12 +162,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            the second vertical derivative
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return -(-self.b**3.-self.b*R**2.-(R**2.-2.*z**2.+self.b**2.)*rb)/\
-            rb**3./(self.b+rb)**3.
+        if r2 < self._R2:
+            return 2.
+        else:
+            return 2.*self._R3/r2**1.5-6.*self._R3*z**2./r2**2.5
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -179,12 +184,13 @@ class IsochronePotential(Potential):
         OUTPUT:
            d2phi/dR/dz
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return -R*z*(self.b+3.*rb)/\
-            rb**3./(self.b+rb)**3.
+        if r2 < self._R2:
+            return 0.
+        else:
+            return -6.*self._R3*R*z/r2**2.5
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -200,32 +206,10 @@ class IsochronePotential(Potential):
         OUTPUT:
            the density
         HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+           2019-12-20 - Written - Bovy (UofT)
         """
         r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return (3.*(self.b+rb)*rb**2.-r2*(self.b+3.*rb))/\
-            rb**3./(self.b+rb)**3./4./numpy.pi
-
-    def _surfdens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
-        r2= R**2.+z**2.
-        rb= numpy.sqrt(r2+self.b2)
-        return self.b*((R*z)/r2-(self.b*R*z*(self.b**2+2.*R**2+z**2))
-                       /((self.b**2+R**2)*r2*rb)
-                       +numpy.arctan(z/R)-numpy.arctan(self.b*z/R/rb))/R**3/2./numpy.pi
-
+        if r2 < self._R2:
+            return 1.5/numpy.pi
+        else:
+            return 0.
