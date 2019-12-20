@@ -130,6 +130,7 @@ Spherical potentials
    potentialcoredehnen.rst
    potentialdehnen.rst
    potentialhernquist.rst
+   potentialhomogsphere.rst
    potentialisochrone.rst
    potentialjaffe.rst
    potentialkepler.rst
