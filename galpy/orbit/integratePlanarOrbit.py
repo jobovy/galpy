@@ -274,6 +274,11 @@ def _parse_pot(pot):
                 and isinstance(p._Pot,potential.DehnenSphericalPotential):
             pot_type.append(34)
             pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
+        # 35: HomogeneousSpherePotential
+        elif isinstance(p,planarPotentialFromRZPotential) \
+                 and isinstance(p._Pot,potential.HomogeneousSpherePotential):
+            pot_type.append(35)
+            pot_args.extend([p._Pot._amp,p._Pot._R2,p._Pot._R3])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

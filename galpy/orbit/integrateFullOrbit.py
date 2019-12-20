@@ -229,6 +229,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.DehnenSphericalPotential):
             pot_type.append(34)
             pot_args.extend([p._amp,p.a,p.alpha])
+        elif isinstance(p,potential.HomogeneousSpherePotential):
+            pot_type.append(35)
+            pot_args.extend([p._amp,p._R2,p._R3])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)

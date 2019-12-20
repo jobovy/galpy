@@ -452,6 +452,18 @@ double KGPotentialLinearForce(double,double,struct potentialArg *);
 //IsothermalDiskPotential
 double IsothermalDiskPotentialLinearForce(double,double,struct potentialArg *);
 
+//HomogeneousSpherePotential
+double HomogeneousSpherePotentialEval(double ,double , double, double,
+				      struct potentialArg *);
+double HomogeneousSpherePotentialRforce(double ,double , double, double,
+					struct potentialArg *);
+double HomogeneousSpherePotentialPlanarRforce(double ,double, double,
+					      struct potentialArg *);
+double HomogeneousSpherePotentialzforce(double,double,double,double,
+					struct potentialArg *);
+double HomogeneousSpherePotentialPlanarR2deriv(double ,double, double,
+					       struct potentialArg *);
+
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
 double DehnenSmoothWrapperPotentialEval(double,double,double,double,

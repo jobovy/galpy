@@ -353,6 +353,13 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
       break;
+    case 35: //HomogeneousSpherePotential, 3 arguments
+      potentialArgs->potentialEval= &HomogeneousSpherePotentialEval;
+      potentialArgs->Rforce= &HomogeneousSpherePotentialRforce;
+      potentialArgs->zforce= &HomogeneousSpherePotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->nargs= 3;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
