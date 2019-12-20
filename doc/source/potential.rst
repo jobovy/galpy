@@ -322,8 +322,11 @@ We can also for example easily make the diagram of :math:`\Omega-n
 \kappa /m` that is important for understanding kinematic spiral
 density waves. For example, for ``MWPotential2014``
 
->>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.): # ro,vo for physical units
-        return omegac(pot,Rs,ro=ro,vo=vo)-n/m*epifreq(pot,Rs,ro=ro,vo=vo)
+>>> from galpy.potential import MWPotential2014, omegac, epifreq
+>>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.):
+    	# ro,vo for physical units, Rs in units of ro
+        return omegac(pot,Rs/ro,ro=ro,vo=vo)-n/m*epifreq(pot,Rs/ro,ro=ro,vo=vo)
+>>> Rs= numpy.linspace(0.,16.,101) # kpc
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,0,1))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,2))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,1))
