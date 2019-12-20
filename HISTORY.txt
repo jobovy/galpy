@@ -1,6 +1,9 @@
 v2.0 (????-??-??)
 =================
 
+- Added HomogeneousSpherePotential, the potential of a constant
+  density sphere out to some radius R.
+
 - Standardized the way packages are imported: numpy as 'import numpy',
   avoid use of math, don't use scipy's numpy interface, internal
   imports for all galpy imports.
