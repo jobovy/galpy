@@ -1116,11 +1116,7 @@ set up your new potential (in the **parse_leapFuncArgs_Full** function).
 7. Edit the code in ``orbit/integrateFullOrbit.py`` to set up your
 new potential (in the **_parse_pot** function).
 
-8. (for using the actionAngleStaeckel methods in C) Edit the code in
-``actionAngle/actionAngle_c_ext/actionAngle.c`` to parse the new
-potential (in the **parse_actionAngleArgs** function).
-
-9. Finally, add ``self.hasC= True`` to the initialization of the
+8. Finally, add ``self.hasC= True`` to the initialization of the
 potential in question (after the initialization of the super class, or
 otherwise it will be undone). If you have implemented the necessary
 second derivatives for integrating phase-space volumes, also add
