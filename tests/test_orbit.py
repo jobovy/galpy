@@ -695,6 +695,7 @@ def test_liouville_planar():
     tol['TriaxialNFWPotential']= -4. #more difficult
     tol['triaxialLogarithmicHaloPotential']= -7. #more difficult
     tol['FerrersPotential']= -2.
+    tol['HomogeneousSpherePotential']= -4.
     tol['mockFlatCosmphiDiskwBreakPotential']= -7. # more difficult
     tol['mockFlatTrulyCorotatingRotationSpiralArmsPotential']= -5. # more difficult
     firstTest= True

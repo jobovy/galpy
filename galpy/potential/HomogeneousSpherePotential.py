@@ -17,7 +17,7 @@ class HomogeneousSpherePotential(Potential):
 
     We have that :math:`\\rho_0 = 3\\,\\mathrm{amp}/[2\\pi G]`.
     """
-    def __init__(self,amp=1.,R=1.2,normalize=False,
+    def __init__(self,amp=1.,R=1.1,normalize=False,
                  ro=None,vo=None):
         """
         NAME:
