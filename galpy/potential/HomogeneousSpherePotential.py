@@ -6,7 +6,7 @@ from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 class HomogeneousSpherePotential(Potential):
-    """Class that implements the homogeneous sphere potential for :math:`\\rho(r) = \\rho_0 = \\mathrm{constant}` for all :math:``r < R`` and zero otherwise. The potential is given by
+    """Class that implements the homogeneous sphere potential for :math:`\\rho(r) = \\rho_0 = \\mathrm{constant}` for all :math:`r < R` and zero otherwise. The potential is given by
 
     .. math::
 
