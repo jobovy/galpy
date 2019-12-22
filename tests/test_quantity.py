@@ -2501,6 +2501,14 @@ def test_potential_ampunits():
         b=1.3,c=0.4)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"
+    # HomogeneousSpherePotential
+    pot= potential.HomogeneousSpherePotential(amp=0.1*units.Msun/units.pc**3.,
+                                              R=2.,ro=ro,vo=vo)
+    pot_nounits= potential.HomogeneousSpherePotential(\
+        amp=0.1/bovy_conversion.dens_in_msolpc3(vo,ro),
+        R=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -2675,6 +2683,14 @@ def test_potential_ampunits_altunits():
         b=1.3,c=0.4)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
+    # HomogeneousSpherePotential
+    pot= potential.HomogeneousSpherePotential(amp=0.1*units.Msun/units.pc**3.*constants.G,
+                                              R=2.,ro=ro,vo=vo)
+    pot_nounits= potential.HomogeneousSpherePotential(\
+        amp=0.1/bovy_conversion.dens_in_msolpc3(vo,ro),
+        R=2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -2802,6 +2818,10 @@ def test_potential_ampunits_wrongunits():
         potential.PerfectEllipsoidPotential(amp=40.*units.Msun/units.pc**2,
                                             a=2.,ro=ro,vo=vo,
                                             b=1.3,c=0.4)
+    # HomogeneousSpherePotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.HomogeneousSpherePotential(amp=40.*units.Msun,
+                                             R=2.,ro=ro,vo=vo)
     return None
 
 def test_potential_paramunits():
@@ -3165,6 +3185,17 @@ def test_potential_paramunits():
         b=1.3,c=0.4)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
+    # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
+    # HomogeneousSpherePotential
+    pot= potential.HomogeneousSpherePotential(amp=0.1*units.Msun/units.pc**3,
+                                              R=10.*units.kpc,
+                                             ro=ro,vo=vo)
+    pot_nounits= potential.HomogeneousSpherePotential(\
+        amp=0.1*units.Msun/units.pc**3,
+        R=10./ro,
+        ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
