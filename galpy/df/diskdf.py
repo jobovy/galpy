@@ -23,7 +23,7 @@ import os, os.path
 import pickle
 import numpy
 import scipy
-numpy.log= scipy.log # somehow, this code produces log(negative), which scipy implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
+numpylog= numpy.lib.scimath.log # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
 from scipy import integrate, interpolate, stats, optimize
 from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
 from ..orbit import Orbit
@@ -385,7 +385,7 @@ class diskdf(df):
         R, phi= _dlToRphi(d,lrad)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
-                +numpy.log(d)
+                +numpylog(d)
         else:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *d
@@ -697,7 +697,7 @@ class diskdf(df):
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= numpy.sqrt(sigmaR2)
-        logsigmaR2= numpy.log(sigmaR2)
+        logsigmaR2= numpylog(sigmaR2)
         if relative:
             norm= 1.
         else:
@@ -764,7 +764,7 @@ class diskdf(df):
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= numpy.sqrt(sigmaR2)
-        logsigmaR2= numpy.log(sigmaR2)
+        logsigmaR2= numpylog(sigmaR2)
         if relative:
             norm= 1.
         else:
@@ -863,7 +863,7 @@ class diskdf(df):
         logSigmaR= self.targetSurfacemass(R,log=True,use_physical=False)
         sigmaR2= self.targetSigma2(R,use_physical=False)
         sigmaR1= numpy.sqrt(sigmaR2)
-        logsigmaR2= numpy.log(sigmaR2)
+        logsigmaR2= numpylog(sigmaR2)
         if relative:
             norm= 1.
         else:
@@ -1613,7 +1613,7 @@ class diskdf(df):
         """
         if log:
             return self.targetSigma2(R,log=log,use_physical=False)\
-                -2.*numpy.log(self._gamma)
+                -2.*numpylog(self._gamma)
         else:
             return self.targetSigma2(R,log=log,use_physical=False)\
                 /self._gamma**2.
@@ -1695,10 +1695,10 @@ class dehnendf(diskdf):
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
             xE= numpy.exp(E-.5)
-            logOLLE= numpy.log(L/xE-1.)
+            logOLLE= numpylog(L/xE-1.)
         else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-            logOLLE= self._beta*numpy.log(xE)+numpy.log(L/xE-xE**self._beta)
+            logOLLE= self._beta*numpylog(xE)+numpylog(L/xE-xE**self._beta)
         if _PROFILE: #pragma: no cover
             one_time= (time.time()-start)
             start= time.time()
@@ -1769,13 +1769,13 @@ class dehnendf(diskdf):
                                             None)))
         #Calculate E
         if self._beta == 0.:
-            E= numpy.log(xE)+0.5
+            E= numpylog(xE)+0.5
         else: #non-flat rotation curve
             E= .5*xE**(2.*self._beta)*(1.+1./self._beta)
         #Then sample Lz
         LCE= xE**(self._beta+1.)
         OR= xE**(self._beta-1.)
-        Lz= self._surfaceSigmaProfile.sigma2(xE)*numpy.log(stats.uniform.rvs(size=n))/OR
+        Lz= self._surfaceSigmaProfile.sigma2(xE)*numpylog(stats.uniform.rvs(size=n))/OR
         if self._correct:
             Lz*= self._corr.correct(xE,log=False)[1,:]
         Lz+= LCE
@@ -1846,7 +1846,7 @@ class dehnendf(diskdf):
     def _dlnfdR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            E= vR**2./2.+vT**2./2.+numpylog(R)
             xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
@@ -1863,7 +1863,7 @@ class dehnendf(diskdf):
     def _dlnfdvR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            E= vR**2./2.+vT**2./2.+numpylog(R)
             xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
@@ -1879,7 +1879,7 @@ class dehnendf(diskdf):
     def _dlnfdvT(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
-            E= vR**2./2.+vT**2./2.+numpy.log(R)
+            E= vR**2./2.+vT**2./2.+numpylog(R)
             xE= numpy.exp(E-.5)
             OE= xE**-1.
             LCE= xE
@@ -1898,7 +1898,7 @@ class dehnendf(diskdf):
         #Calculate a bunch of stuff that we need
         if E is None or xE is None or OE is None or LCE is None:
             if self._beta == 0.:
-                E= vR**2./2.+vT**2./2.+numpy.log(R)
+                E= vR**2./2.+vT**2./2.+numpylog(R)
                 xE= numpy.exp(E-.5)
                 OE= xE**-1.
                 LCE= xE
@@ -1918,7 +1918,7 @@ class dehnendf(diskdf):
         #Calculate a bunch of stuff that we need
         if E is None or xE is None or OE is None:
             if self._beta == 0.:
-                E= vR**2./2.+vT**2./2.+numpy.log(R)
+                E= vR**2./2.+vT**2./2.+numpylog(R)
                 xE= numpy.exp(E-.5)
                 OE= xE**-1.
             else: #non-flat rotation curve
@@ -2000,10 +2000,10 @@ class shudf(diskdf):
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
-            logECLE= numpy.log(-numpy.log(xL)-0.5+E)
+            logECLE= numpylog(-numpylog(xL)-0.5+E)
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
-            logECLE= numpy.log(-0.5*(1./self._beta+1.)*xL**(2.*self._beta)+E)
+            logECLE= numpylog(-0.5*(1./self._beta+1.)*xL**(2.*self._beta)+E)
         if xL < 0.: #We must remove counter-rotating mass
             return 0.
         if self._correct: 
@@ -2062,10 +2062,10 @@ class shudf(diskdf):
         Lz= xL**(self._beta+1.)
         #Then sample E
         if self._beta == 0.:
-            ECL= numpy.log(xL)+0.5
+            ECL= numpylog(xL)+0.5
         else:
             ECL= 0.5*(1./self._beta+1.)*xL**(2.*self._beta)
-        E= -self._surfaceSigmaProfile.sigma2(xL)*numpy.log(stats.uniform.rvs(size=n))
+        E= -self._surfaceSigmaProfile.sigma2(xL)*numpylog(stats.uniform.rvs(size=n))
         if self._correct:
             E*= self._corr.correct(xL,log=False)[1,:]
         E+= ECL
@@ -2135,7 +2135,7 @@ class shudf(diskdf):
         if self._beta == 0.:
             xL= L
             dRldR= vT
-            ECL= numpy.log(xL)+0.5
+            ECL= numpylog(xL)+0.5
             dECLEdR= 0.
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
@@ -2165,7 +2165,7 @@ class shudf(diskdf):
         if self._beta == 0.:
             xL= L
             dRldvT= R
-            ECL= numpy.log(xL)+0.5
+            ECL= numpylog(xL)+0.5
             dECLEdvT= 1./vT-vT
         else: #non-flat rotation curve
             xL= L**(1./(self._beta+1.))
@@ -2348,15 +2348,15 @@ class DFcorrection(object):
         #Interpolation; smoothly go to zero
         interpRs= numpy.append(self._rs,2.*self._rmax)
         self._surfaceInterpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
-                                                       numpy.log(numpy.append(self._corrections[:,0],1.)),
+                                                       numpylog(numpy.append(self._corrections[:,0],1.)),
                                                        k=self._interp_k)
         self._sigma2Interpolate= interpolate.InterpolatedUnivariateSpline(interpRs,
-                                                      numpy.log(numpy.append(self._corrections[:,1],1.)),
+                                                      numpylog(numpy.append(self._corrections[:,1],1.)),
                                                       k=self._interp_k)
         #Interpolation for R < _RMIN
-        surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpy.log(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
+        surfaceInterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpylog(self._corrections[0:_INTERPDEGREE+2,0]),k=_INTERPDEGREE)
         self._surfaceDerivSmallR= surfaceInterpolateSmallR.derivatives(interpRs[0])[1]
-        sigma2InterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpy.log(self._corrections[0:_INTERPDEGREE+2,1]),k=_INTERPDEGREE)
+        sigma2InterpolateSmallR= interpolate.UnivariateSpline(interpRs[0:_INTERPDEGREE+2],numpylog(self._corrections[0:_INTERPDEGREE+2,1]),k=_INTERPDEGREE)
         self._sigma2DerivSmallR= sigma2InterpolateSmallR.derivatives(interpRs[0])[1]
         return None
 
@@ -2392,9 +2392,9 @@ class DFcorrection(object):
             #R < _RMIN
             rmin_indx= (R < _RMIN)
             if numpy.sum(rmin_indx) > 0:
-                out[0,rmin_indx]= numpy.log(self._corrections[0,0])\
+                out[0,rmin_indx]= numpylog(self._corrections[0,0])\
                                   +self._surfaceDerivSmallR*(R[rmin_indx]-_RMIN)
-                out[1,rmin_indx]= numpy.log(self._corrections[0,1])\
+                out[1,rmin_indx]= numpylog(self._corrections[0,1])\
                                   +self._sigma2DerivSmallR*(R[rmin_indx]-_RMIN)
             #R > 2rmax
             rmax_indx= (R > (2.*self._rmax))
@@ -2408,8 +2408,8 @@ class DFcorrection(object):
             if log: return out
             else: return numpy.exp(out)
         if R < _RMIN:
-            out= numpy.array([numpy.log(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
-                           numpy.log(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
+            out= numpy.array([numpylog(self._corrections[0,0])+self._surfaceDerivSmallR*(R-_RMIN),
+                           numpylog(self._corrections[0,1])+self._sigma2DerivSmallR*(R-_RMIN)])
         elif R > (2.*self._rmax):
             out= numpy.array([0.,0.])
         else:
@@ -2548,11 +2548,11 @@ def axipotential(R,beta=0.):
     if beta == 0.:
         if numpy.any(R == 0.):
             out= numpy.empty(R.shape)
-            out[R == 0.]= numpy.log(_RMIN)
-            out[R != 0.]= numpy.log(R[R != 0.])
+            out[R == 0.]= numpylog(_RMIN)
+            out[R != 0.]= numpylog(R[R != 0.])
             return out
         else:
-            return numpy.log(R)
+            return numpylog(R)
     else: #non-flat rotation curve
         return R**(2.*beta)/2./beta
 
@@ -2574,9 +2574,9 @@ def _ars_hx(x,args):
     """
     surfaceSigma, dfcorr= args
     if dfcorr is None:
-        return numpy.log(x)+surfaceSigma.surfacemass(x,log=True)
+        return numpylog(x)+surfaceSigma.surfacemass(x,log=True)
     else:
-        return numpy.log(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
+        return numpylog(x)+surfaceSigma.surfacemass(x,log=True)+dfcorr.correct(x)[0]
 
 def _ars_hpx(x,args):
     """
@@ -2620,7 +2620,7 @@ def _vtmaxEq(vT,R,diskdf):
     """Equation to solve to find the max vT at R"""
     #Calculate a bunch of stuff that we need
     if diskdf._beta == 0.:
-        E= vT**2./2.+numpy.log(R)
+        E= vT**2./2.+numpylog(R)
         xE= numpy.exp(E-.5)
         OE= xE**-1.
         LCE= xE
