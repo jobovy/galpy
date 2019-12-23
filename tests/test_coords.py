@@ -11,7 +11,7 @@ def test_radec_to_lb_ngp():
     ra, dec= 192.25, 27.4
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
     assert not bovy_coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
-    assert numpy.fabs(lb[1]-90.) < 10.**-7., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]-90.) < 10.**-6., 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)
@@ -104,7 +104,7 @@ def test_radec_to_lb_sgp():
     ra, dec= 12.25, -27.4
     assert not bovy_coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
     lb= bovy_coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
-    assert numpy.fabs(lb[1]+90.) < 10.**-7., 'Galactic latitude of the SGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]+90.) < 10.**-6., 'Galactic latitude of the SGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= bovy_coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)
