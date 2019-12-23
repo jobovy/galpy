@@ -169,7 +169,7 @@ class actionAngleStaeckel(actionAngle):
                     tkwargs= copy.copy(kwargs)
                     try:
                         tkwargs['delta']= delta[ii]
-                    except TypeError:
+                    except (TypeError,IndexError):
                         tkwargs['delta']= delta
                     tjr,tlz,tjz= self(*targs,**tkwargs)
                     ojr[ii]= tjr
