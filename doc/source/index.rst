@@ -527,6 +527,8 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Triangulum-Andromeda overdensity: a region with a complex stellar population*, J. V. Sales Silva, H. D. Perottoni, K. Cunha, H. J. Rocha-Pinto, F. Almeida-Fernandes, D. Souto, & S. R. Majewski (2019) *Astrophys. J.*, in press (`arXiv/1910.06457 <http://arxiv.org/abs/1910.06457>`_)
 
+#. *Jellyfish: Resolving the kinematics of extreme ram-pressure stripping at z∼0.3*, Boris S. Kalita & Harald Ebeling (2019) *Astrophys. J.*, in press (`arXiv/1910.11898 <http://arxiv.org/abs/1910.11898>`_)
+
 #. *Evidence of a population of dark subhalos from Gaia and Pan-STARRS observations of the GD-1 stream*, Nilanjan Banik, Jo Bovy, Gianfranco Bertone, Denis Erkal, & T.J.L. de Boer (2019) *Phys. Rev. D*, submitted (`arXiv/1911.02662 <http://arxiv.org/abs/1911.02662>`_)
 
 #. *The Pristine survey X: a large population of low-metallicity stars permeates the Galactic disk*, Federico Sestito, Nicolas F. Martin, Else Starkenburg, et al. (2019) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/1911.08491 <http://arxiv.org/abs/1911.08491>`_)
@@ -541,6 +543,9 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *On the origin of the asymmetric dwarf galaxy distribution around Andromeda*, Zhen Wan, William H. Oliver, Geraint F. Lewis, Justin I. Read, & Michelle L. M. Collins (2019) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/1912.02393 <http://arxiv.org/abs/1912.02393>`_)
 
+#. *Diagnosing the Stellar Population and Tidal Structure of the Blanco1 Star Cluster*, Yu Zhang, Shih-Yun Tang, W. P. Chen, Xiaoying Pang, & J. Z. Liu (2019) *Astrophys. J.*, in press (`arXiv/1912.06657 <http://arxiv.org/abs/1912.06657>`_)
+
+#. *Vilnius Photometry and Gaia Astrometry of Melotte 105*, Timothy Banks, Talar Yontan, Selcuk Bilir, & Remziye Canbay (2019) *J. Astron. Astrophys.*, in press (`arXiv/1912.08760 <http://arxiv.org/abs/1912.08760>`_)
 
 
 Indices and tables
