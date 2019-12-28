@@ -26,10 +26,10 @@ for path in sys.path:
         break
 if _lib is None: #pragma: no cover
     if not outerr is None:
-        warnings.warn("libactionAngleTorus C extension module not loaded, because of error '%s' " % outerr,
+        warnings.warn("libgalpy_actionAngleTorus C extension module not loaded, because of error '%s' " % outerr,
                       galpyWarningVerbose)
     else:
-        warnings.warn("libactionAngleTorus C extension module not loaded, because libgalpy_actionAngleTorus%s image was not found" % _ext_suffix,
+        warnings.warn("libgalpy_actionAngleTorus C extension module not loaded, because libgalpy_actionAngleTorus%s image was not found" % _ext_suffix,
                       galpyWarningVerbose)
     _ext_loaded= False
 else:
