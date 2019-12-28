@@ -18,7 +18,6 @@ _RMIN=10.**-10.
 _MAXD_REJECTLOS= 4.
 _PROFILE= False
 import copy
-import re
 import os, os.path
 import pickle
 import numpy
@@ -37,11 +36,9 @@ from .df import df, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 #scipy version
-try:
-    sversion=re.split(r'\.',scipy.__version__)
-    _SCIPYVERSION=float(sversion[0])+float(sversion[1])/10.
-except: #pragma: no cover
-    raise ImportError( "scipy.__version__ not understood, contact galpy developer, send scipy.__version__")
+from pkg_resources import parse_version
+_SCIPY_VERSION= parse_version(scipy.__version__)
+_SCIPY_VERSION_BREAK= parse_version('0.9')
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
 _DEGTORAD= numpy.pi/180.
 class diskdf(df):
@@ -2413,7 +2410,7 @@ class DFcorrection(object):
         elif R > (2.*self._rmax):
             out= numpy.array([0.,0.])
         else:
-            if _SCIPYVERSION >= 0.9:
+            if _SCIPY_VERSION >= _SCIPY_VERSION_BREAK:
                 out= numpy.array([self._surfaceInterpolate(R),
                                self._sigma2Interpolate(R)])
             else: #pragma: no cover
@@ -2445,7 +2442,7 @@ class DFcorrection(object):
         elif R > (2.*self._rmax):
             out= numpy.array([0.,0.])
         else:
-            if _SCIPYVERSION >= 0.9:
+            if _SCIPY_VERSION >= _SCIPY_VERSION_BREAK:
                 out= numpy.array([self._surfaceInterpolate(R,nu=1),
                                self._sigma2Interpolate(R,nu=1)])
             else: #pragma: no cover

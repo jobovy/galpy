@@ -5,20 +5,19 @@ import sys
 _PY3= sys.version > '3'
 import json
 import copy
-import json
 import string
 from functools import wraps
 from random import choice
 from string import ascii_lowercase
+from pkg_resources import parse_version
 import warnings
 import numpy
 from scipy import interpolate, optimize
 import scipy
-_SCIPY_VERSION= [int(v.split('rc')[0])
-                 for v in scipy.__version__.split('.')]
-if _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 10: #pragma: no cover
+_SCIPY_VERSION= parse_version(scipy.__version__)
+if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover
     from scipy.maxentropy import logsumexp
-elif _SCIPY_VERSION[0] < 1 and _SCIPY_VERSION[1] < 19: #pragma: no cover
+elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
@@ -49,8 +48,8 @@ except ImportError:
 if _APY_LOADED:
     from astropy import units, coordinates
     import astropy
-    _APY3= astropy.__version__ > '3'
-    _APY_GE_31= tuple(map(int,(astropy.__version__.split('.')))) > (3,0,5)
+    _APY3= parse_version(astropy.__version__) > parse_version('3')
+    _APY_GE_31= parse_version(astropy.__version__) > parse_version('3.0.5')
 _ASTROQUERY_LOADED= True
 try:
     from astroquery.simbad import Simbad

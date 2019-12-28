@@ -332,7 +332,7 @@ setup(name='galpy',
                     "": ["README.rst","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
       install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six',
-                        'future'],
+                        'future','setuptools'],
       ext_modules=ext_modules if not no_compiler else None,
       classifiers=[
         "Development Status :: 6 - Mature",
