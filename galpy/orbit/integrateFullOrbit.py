@@ -25,19 +25,19 @@ else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+        _lib = ctypes.CDLL(os.path.join(path,'libgalpy%s' % _ext_suffix))
     except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
+        if os.path.exists(os.path.join(path,'libgalpy%s' % _ext_suffix)): #pragma: no cover
             outerr= e
         _lib = None
     else:
         break
 if _lib is None: #pragma: no cover
     if not outerr is None:
-        warnings.warn("integrateFullOrbit_c extension module not loaded, because of error '%s' " % outerr,
+        warnings.warn("libgalpy C extension module not loaded, because of error '%s' " % outerr,
                       galpyWarning)
     else:
-        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c%s image was not found" % _ext_suffix,
+        warnings.warn("libgalpy C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
                       galpyWarning)
     _ext_loaded= False
 else:
