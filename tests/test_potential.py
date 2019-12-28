@@ -2978,6 +2978,15 @@ def test_WrapperPotential_serialization():
     for R,z,phi,t in zip(testRs,testzs,testphis,testts):
         assert dwp(R,z,phi,t) == unpickled_dwp(R,z,phi,t), 'Deserialized WrapperPotential does not agree with original WrapperPotential'
 
+def test_WrapperPotential_print():
+    dp= potential.DehnenBarPotential()
+    dwp= potential.DehnenSmoothWrapperPotential(pot=dp)
+    assert print(dwp) is None, 'Printing a 3D wrapper potential fails'
+    dp= potential.DehnenBarPotential().toPlanar()
+    dwp= potential.DehnenSmoothWrapperPotential(pot=dp)
+    assert print(dwp) is None, 'Printing a 2D wrapper potential fails'
+    return None
+
 def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     # Test that dissipative forces are ignored when they are included in lists
     # given to evaluatePotentials, evaluateDensities, and evaluate2ndDerivs

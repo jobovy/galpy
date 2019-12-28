@@ -74,6 +74,11 @@ class WrapperPotential(Potential):
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
 
+    def __repr__(self):
+        wrapped_repr= repr(self._pot)
+        return Potential.__repr__(self) + ', wrapper of' \
+            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
+
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
                 or attribute == '_Rforce' or attribute == '_zforce' \
@@ -142,6 +147,11 @@ class planarWrapperPotential(planarPotential):
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
+
+    def __repr__(self):
+        wrapped_repr= repr(self._pot)
+        return Potential.__repr__(self) + ', wrapper of' \
+            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
 
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
