@@ -270,3 +270,121 @@ class drift_without_gravity(object):
         return numpy.cross(self.particles.position,self.particles.velocity)
     def stop(self):
         pass
+
+def test_amuse_ChandrasekharDynamicalFrictionForce():
+    mp= potential.MWPotential2014
+    cdf= potential.ChandrasekharDynamicalFrictionForce(GMs=0.001,rhm=0.,dens=mp)
+    tmax= 3.5
+    vo,ro= 220., 8.
+    o= Orbit([1.,0.1,1.1,0.2,0.1,1.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison_with_friction(o,mp,cdf,tmax,vo,ro)
+    return None
+
+def run_orbitIntegration_comparison_with_friction(orb,pot,cdf,tmax,vo,ro,tol=0.03):
+    # Integrate in galpy
+    ts= numpy.linspace(0.,tmax/bovy_conversion.time_in_Gyr(vo,ro),1001)
+    orb.integrate(ts,pot+cdf)
+
+    # Integrate with amuse
+    x,y,z,vx,vy,vz=integrate_amuse_with_friction(orb,pot,cdf,tmax | units.Gyr, vo,ro)
+
+    # Read and compare
+
+    xdiff= numpy.fabs((x-orb.x(ts[-1]))/x)
+    ydiff= numpy.fabs((y-orb.y(ts[-1]))/y)
+    zdiff= numpy.fabs((z-orb.z(ts[-1]))/z)
+    vxdiff= numpy.fabs((vx-orb.vx(ts[-1]))/vx)
+    vydiff= numpy.fabs((vy-orb.vy(ts[-1]))/vy)
+    vzdiff= numpy.fabs((vz-orb.vz(ts[-1]))/vz)
+    assert xdiff < tol, 'galpy and amuse orbit integration inconsistent for x by %g' % xdiff
+    assert ydiff < tol, 'galpy and amuse orbit integration inconsistent for y by %g' % ydiff
+    assert zdiff < tol, 'galpy and amuse orbit integration inconsistent for z by %g' % zdiff
+    assert vxdiff < tol, 'galpy and amuse orbit integration inconsistent for vx by %g' % vxdiff
+    assert vydiff < tol, 'galpy and amuse orbit integration inconsistent for vy by %g' % vydiff
+    assert vzdiff < tol, 'galpy and amuse orbit integration inconsistent for vz by %g' % vzdiff
+
+    return None
+
+def integrate_amuse_with_friction(orb,pot,cdf,tmax,vo,ro):
+    """Integrate a snapshot in infile until tmax in Gyr, save to outfile"""
+
+    time=0.0 | tmax.unit
+    dt = tmax/10001.
+
+    orbit = Particles(1)
+
+    orbit.mass= 1. | units.MSun
+    orbit.radius = 1. |units.RSun
+
+    orbit.position=[orb.x(),orb.y(),orb.z()] | units.kpc
+    orbit.velocity=[orb.vx(),orb.vy(),orb.vz()] | units.kms
+    galaxy_code = to_amuse(pot,ro=ro,vo=vo)
+    cdf_code=amuse_chandrasekhar_dynamical_friction(cdf)
+    cdf_code.set_rv(orbit.x[0],orbit.y[0],orbit.z[0],orbit.vx[0],orbit.vy[0],orbit.vz[0])
+
+    orbit_gravity=drift_without_gravity(orbit)
+    orbit_gravity.particles.add_particles(orbit)
+    channel_from_gravity_to_orbit= orbit_gravity.particles.new_channel_to(orbit)
+
+    gravity = bridge.Bridge(use_threading=False)
+    gravity.add_system(orbit_gravity, (galaxy_code,cdf_code,))
+    gravity.add_system(galaxy_code,)
+    gravity.timestep = dt
+
+    while time <= tmax:
+        time += dt
+        gravity.evolve_model(time)
+
+        channel_from_gravity_to_orbit.copy()
+        cdf_code.set_rv(orbit.x[0],orbit.y[0],orbit.z[0],orbit.vx[0],orbit.vy[0],orbit.vz[0])
+
+    channel_from_gravity_to_orbit.copy()
+    gravity.stop()
+
+    return orbit.x[0].value_in(units.kpc),orbit.y[0].value_in(units.kpc),orbit.z[0].value_in(units.kpc),orbit.vx[0].value_in(units.kms),orbit.vy[0].value_in(units.kms),orbit.vz[0].value_in(units.kms)
+
+class amuse_chandrasekhar_dynamical_friction(object):
+    def __init__(self, cdf, rmin=0.0008 | units.kpc, time= 0 |units.Myr ):
+        self.model_time= time
+
+        self.cdf= potential.to_amuse(cdf)
+
+        self.rmin=rmin
+
+    def set_rv(self,x,y,z,vx,vy,vz):
+        self.x=x
+        self.y=y
+        self.z=z
+        
+        self.r=numpy.sqrt(self.x**2.+self.y**2.+self.z**2.)
+        
+        self.vx=vx
+        self.vy=vy
+        self.vz=vz
+
+    def evolve_model(self, t_end):
+        self.cdf.evolve_model(t_end)
+
+    def get_potential_at_point(self,eps,x,y,z):
+        return self.cdf.get_potential_at_point(eps,self.x,self.y,self.z)
+    
+    def get_gravity_at_point(self,eps,x,y,z):
+
+        if self.r < self.rmin:
+            self.ax,self.ay,self.az=[0. | units.kms/units.Myr,0. | units.kms/units.Myr,0. | units.kms/units.Myr]
+        else:
+            self.ax,self.ay,self.az=self.cdf.get_gravity_at_point(eps,self.x,self.y,self.z,self.vx,self.vy,self.vz)
+
+        return self.ax,self.ay,self.az
+    
+    def mass_density(self,x,y,z):
+        return self.cdf.mass_density(eps,self.x,self.y,self.z)
+    
+    def circular_velocity(self,r):
+        return self.cdf.circular_velocity(r)
+    
+    def enclosed_mass(self,r):
+        return self.cdf.enclosed_mass(r)
+    
+    def stop(self):
+        pass

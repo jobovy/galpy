@@ -4,7 +4,7 @@ from amuse.units import units
 from amuse.units.quantities import ScalarQuantity
 from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
-from ..util import bovy_conversion
+from ..util import bovy_conversion,bovy_coords
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
@@ -108,7 +108,7 @@ class galpy_profile(LiteratureReferencesMixIn):
                                           use_physical=False)
         return res * self.vo**2 | units.kms**2
 
-    def get_gravity_at_point(self,eps,x,y,z):
+    def get_gravity_at_point(self,eps,x,y,z,vx=None,vy=None,vz=None):
         """
         NAME:
            get_gravity_at_point
@@ -117,6 +117,8 @@ class galpy_profile(LiteratureReferencesMixIn):
         INPUT:
            eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential
+           vx,vy,vz - velocity in the potential (default: None, only called if potential is dissipative)
+
         OUTPUT:
            ax,ay,az
         HISTORY:
@@ -126,16 +128,26 @@ class galpy_profile(LiteratureReferencesMixIn):
         R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
         zed= z.value_in(units.kpc)
         phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+
+        if potential.DissipativeForce._isDissipative(self.pot):
+            vR,vT,vz=bovy_coords.rect_to_cyl_vec(vx.value_in(units.kms),
+                                     vy.value_in(units.kms),
+                                     vz.value_in(units.kms),
+                                    R,phi,zed,True)
+            v=[vR/self.vo,vT/self.vo,vz/self.vo]
+        else:
+            v= None
+
         # Cylindrical force
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy,
+                                          phi=phi,t=self.tgalpy,v=v,
                                           use_physical=False)
         phiforce= potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,
-                                              phi=phi,t=self.tgalpy,
+                                              phi=phi,t=self.tgalpy,v=v,
                                               use_physical=False)\
                                               /(R/self.ro)
         zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,
-                                         phi=phi,t=self.tgalpy,
+                                         phi=phi,t=self.tgalpy,v=v,
                                          use_physical=False)
         # Convert cylindrical force --> rectangular
         cp, sp= numpy.cos(phi), numpy.sin(phi)
