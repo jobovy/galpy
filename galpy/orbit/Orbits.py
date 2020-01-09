@@ -4757,6 +4757,8 @@ class Orbit(object):
 
            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
 
+           staticPlot= (False) if True, create a static plot that doesn't allow zooming, panning, etc.
+
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
@@ -4923,6 +4925,10 @@ class Orbit(object):
         button_width= 419.51+4.*10.
         button_margin_left= int(numpy.round((width-button_width)/2.))
         if button_margin_left < 0: button_margin_left= 0
+        # Configuration options
+        config= """{{staticPlot: {staticPlot}}}"""\
+            .format(staticPlot='true' if kwargs.pop('staticPlot',False) 
+                    else 'false')
         # Layout for multiple plots
         if len(d1s) == 1:
             xmin= [0,0,0]
@@ -5389,7 +5395,7 @@ require(['Plotly'], function (Plotly) {{
 
     {setup_trace3}
 
-    Plotly.plot('{divid}',traces,layout);
+    Plotly.plot('{divid}',traces,layout,{config});
   }}
 
   function animate_trace() {{
@@ -5415,7 +5421,7 @@ require(['Plotly'], function (Plotly) {{
 {close_json_code}}});
 </script>""".format(json_code=json_code,close_json_code=close_json_code,
                     divid=self.divid,width=width,height=height,
-                    button_margin_left=button_margin_left,
+                    button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3,delete_trace2=delete_trace2,
