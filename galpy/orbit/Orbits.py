@@ -4588,12 +4588,16 @@ class Orbit(object):
         kwargs.pop('quantity',None)
         auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
             and not kwargs.get('overplot',False)
+        labels= kwargs.pop('label',['Orbit {}'.format(ii+1) 
+                                    for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels,str): labels= [labels]
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
-        for tx,ty in zip(x,y):
+        for ii,(tx,ty) in enumerate(zip(x,y)):
+            kwargs['label']= labels[ii]
             line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
             kwargs['overplot']= True
         if auto_scale: line2d.axes.autoscale(enable=True)
