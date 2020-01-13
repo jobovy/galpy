@@ -4586,6 +4586,8 @@ class Orbit(object):
         kwargs.pop('pot',None)
         kwargs.pop('OmegaP',None)
         kwargs.pop('quantity',None)
+        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
+            and not kwargs.get('overplot',False)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
@@ -4594,7 +4596,7 @@ class Orbit(object):
         for tx,ty in zip(x,y):
             line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
             kwargs['overplot']= True
-        line2d.axes.autoscale(enable=True)
+        if auto_scale: line2d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line2d]
 
@@ -4717,6 +4719,8 @@ class Orbit(object):
         kwargs.pop('obs',None)
         kwargs.pop('use_physical',None)
         kwargs.pop('quantity',None)
+        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
+            and not 'zrange' in kwargs and not kwargs.get('overplot',False)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
@@ -4727,7 +4731,7 @@ class Orbit(object):
         for tx,ty,tz in zip(x,y,z):
             line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
             kwargs['overplot']= True
-        line3d.axes.autoscale(enable=True)
+        if auto_scale: line3d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line3d]
 
