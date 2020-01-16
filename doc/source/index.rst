@@ -547,6 +547,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 
 #. *Vilnius Photometry and Gaia Astrometry of Melotte 105*, Timothy Banks, Talar Yontan, Selcuk Bilir, & Remziye Canbay (2019) *J. Astron. Astrophys.*, in press (`arXiv/1912.08760 <http://arxiv.org/abs/1912.08760>`_)
 
+#. *Evidence for Galactic disc RR~Lyrae stars in the Solar neighbourhood*, Z. Prudil, I. Dékány, E. K. Grebel, & A. Kunder (2020) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/2001.02486 <http://arxiv.org/abs/2001.02486>`_)
+
+#. *The Chemical Compositions of Accreted and in situ Galactic Globular Clusters According to SDSS/APOGEE*, Danny Horta, Ricardo P. Schiavon, J. Ted Mackereth, et al. (2020) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/2001.03177 <http://arxiv.org/abs/2001.03177>`_)
+
+#. *Age dating of an early Milky Way merger via asteroseismology of the naked-eye star ν Indi*, William J. Chaplin, Aldo M. Serenelli, Andrea Miglio, et al. (2020) *Nature Astron.*, in press (`arXiv/2001.04653 <http://arxiv.org/abs/2001.04653>`_)
+
 
 Indices and tables
 ==================
