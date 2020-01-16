@@ -50,7 +50,7 @@ before_install:
  - conda update conda
  - conda config --add channels conda-forge
 # setuptools >= 45 no longer supports Python 2
- - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then SETUPTOOLS_VERSION="<44"; else SETUPTOOLS_VERSION=""; fi
+ - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then SETUPTOOLS_VERSION="<45"; else SETUPTOOLS_VERSION=""; fi
  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib numexpr "setuptools$SETUPTOOLS_VERSION" pip "cython>=0.20" pytest
  - source activate test-environment
 #Switch to conda defaults python, because conda-forge python has issues with gcc compiler similar to https://github.com/conda/conda/issues/6030
