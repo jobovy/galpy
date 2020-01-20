@@ -5036,34 +5036,26 @@ class Orbit(object):
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
            line_color=line_colors[ii])
             traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2))
-        update_trace12= """
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [0]);
-      trace_slice_begin-= trace_slice_len;
-      trace2= {{
-        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
-      }};
-      Plotly.restyle('{divid}',trace2,[1]);
-""".format(divid=self.divid)
-        for ii in range(1,self.size):
-            update_trace12+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }};
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),trace_num_1=str(2*ii+1),
-           trace_num_2=str(2*ii+2),trace_num_10=str(2*ii+1-1),
-           trace_num_20=str(2*ii+2-1))
+        x_data_list = """"""
+        y_data_list = """"""
+        trace_num_10_list = """"""
+        trace_num_20_list = """"""
+        for ii in range(0,self.size):
+            x_data_list += """data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(divid=self.divid,trace_indx=str(ii))
+            y_data_list += """data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(divid=self.divid,trace_indx=str(ii))
+            trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*ii+1-1))
+            trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*ii+2-1))
+
+        master_traces = """
+        traces = {{x: [{x_data_list}], y: [{y_data_list}]
+        }}
+        """.format(x_data_list=x_data_list, y_data_list=y_data_list)
+        update_trace12 = """
+        {master_traces}
+        trace_slice_begin+= trace_slice_len;
+        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+        trace_slice_begin-= trace_slice_len;
+        """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list)
         delete_trace2= ""
         delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         for ii in range(self.size-1,0,-1):
@@ -5132,41 +5124,29 @@ class Orbit(object):
            trace_num_1=str(2*self.size+2*ii+1),
            trace_num_2=str(2*self.size+2*ii+2))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
-            update_trace34= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
+            x_data_list = """"""
+            y_data_list = """"""
+            trace_num_10_list = """"""
+            trace_num_20_list = """"""
+            for ii in range(0, self.size):
+                x_data_list += """data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    divid=self.divid, trace_indx=str(ii))
+                y_data_list += """data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    divid=self.divid, trace_indx=str(ii))
+                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*self.size+2*ii+1-1))
+                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*self.size+2*ii+2-1))
 
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(2*self.size+2),
-           trace_num_10=str(2*self.size+1-1),
-           trace_num_20=str(2*self.size+2-1))
-            for ii in range(1,self.size):
-                update_trace34+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),
-           trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2),
-           trace_num_10=str(2*self.size+2*ii+1-1),
-           trace_num_20=str(2*self.size+2*ii+2-1))
+            master_traces = """
+            traces = {{x: [{x_data_list}], y: [{y_data_list}]
+            }}
+            """.format(x_data_list=x_data_list, y_data_list=y_data_list)
+            update_trace34 = """
+            {master_traces}
+            trace_slice_begin+= trace_slice_len;
+            Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+            trace_slice_begin-= trace_slice_len;
+            """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
+                       trace_num_20_list=trace_num_20_list)
             delete_trace4= ""
             delete_trace3= ""
             for ii in range(self.size-1,-1,-1):
@@ -5246,43 +5226,32 @@ class Orbit(object):
            trace_num_10=str(4*self.size+2*ii+1-1),
            trace_num_20=str(4*self.size+2*ii+2-1))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+2*ii+1),trace_num_2=str(4*self.size+2*ii+2))
-            setup_trace3+= """
-    let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
-            update_trace56= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
+            setup_trace3 += """
+            let traces= [{traces_cumul}];
+            """.format(traces_cumul=traces_cumul)
+            x_data_list = """"""
+            y_data_list = """"""
+            trace_num_10_list = """"""
+            trace_num_20_list = """"""
+            for ii in range(0, self.size):
+                x_data_list += """data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    divid=self.divid, trace_indx=str(ii))
+                y_data_list += """data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    divid=self.divid, trace_indx=str(ii))
+                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(4 * self.size + 2 * ii + 1 - 1))
+                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(4 * self.size + 2 * ii + 2 - 1))
 
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(4*self.size+2),
-           trace_num_10=str(4*self.size+1-1),
-           trace_num_20=str(4*self.size+2-1))
-            for ii in range(1,self.size):
-                update_trace56+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),
-           trace_num_2=str(4*self.size+2*ii+2),
-           trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1))
+            master_traces = """
+            traces = {{x: [{x_data_list}], y: [{y_data_list}]
+            }}
+            """.format(x_data_list=x_data_list, y_data_list=y_data_list)
+            update_trace56 = """
+            {master_traces}
+            trace_slice_begin+= trace_slice_len;
+            Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+            trace_slice_begin-= trace_slice_len;
+            """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
+                       trace_num_20_list=trace_num_20_list)
             delete_trace6= ""
             delete_trace5= ""
             for ii in range(self.size-1,-1,-1):
