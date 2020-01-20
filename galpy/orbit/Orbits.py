@@ -4904,10 +4904,9 @@ class Orbit(object):
         height= kwargs.pop('height',400)
         load_jslibs= kwargs.pop('load_jslibs',True)
         if load_jslibs:
-            load_jslibs_code= """</script>
+            load_jslibs_code= """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script>
 """
         else:
             load_jslibs_code= ""
@@ -5342,6 +5341,7 @@ class Orbit(object):
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Replay</button></div>
+{load_jslibs_code}
 
 <script>
 require.config({{
@@ -5349,7 +5349,9 @@ require.config({{
     Plotly: 'https://cdn.plot.ly/plotly-latest.min',
   }}
 }});
-{load_jslibs_code}
+</script>
+
+<script>
 require(['Plotly'], function (Plotly) {{
 {json_code}
   let layout = {layout};
