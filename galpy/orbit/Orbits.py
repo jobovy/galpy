@@ -5233,7 +5233,7 @@ class Orbit(object):
             delete_trace6= ""
             update_trace56= ""
 
-        return """
+        return HTML("""
 <style>
 .galpybutton {{
     background-color:#ffffff;
@@ -5372,7 +5372,7 @@ require(['Plotly'], function (Plotly) {{
                     delete_trace5=delete_trace5,
                     update_trace12=update_trace12,
                     update_trace34=update_trace34,
-                    update_trace56=update_trace56)
+                    update_trace56=update_trace56))
 
 class _1DInterp(object): 
     """Class to simulate 2D interpolation when using a single orbit"""
