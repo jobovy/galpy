@@ -5040,11 +5040,14 @@ class Orbit(object):
         y_data_list = """"""
         trace_num_10_list = """"""
         trace_num_20_list = """"""
-        for ii in range(0,self.size):
-            x_data_list += """data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(divid=self.divid,trace_indx=str(ii))
-            y_data_list += """data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(divid=self.divid,trace_indx=str(ii))
-            trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*ii+1-1))
-            trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*ii+2-1))
+        for jj in range(len(d1s)):
+            for ii in range(0, self.size):
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*jj*self.size + 2 * ii + 1 - 1))
+                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*jj*self.size + 2 * ii + 2 - 1))
 
         master_traces = """
         traces = {{x: [{x_data_list}], y: [{y_data_list}]
@@ -5125,28 +5128,7 @@ class Orbit(object):
            trace_num_1=str(2*self.size+2*ii+1),
            trace_num_2=str(2*self.size+2*ii+2))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
-            x_data_list = """"""
-            y_data_list = """"""
-            trace_num_10_list = """"""
-            trace_num_20_list = """"""
-            for ii in range(0, self.size):
-                x_data_list += """data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
-                    divid=self.divid, trace_indx=str(ii))
-                y_data_list += """data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
-                    divid=self.divid, trace_indx=str(ii))
-                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*self.size+2*ii+1-1))
-                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*self.size+2*ii+2-1))
-
-            master_traces = """
-            traces = {{x: [{x_data_list}], y: [{y_data_list}]
-            }}
-            """.format(x_data_list=x_data_list, y_data_list=y_data_list)
             update_trace34 = """
-            {master_traces}
-            trace_slice_begin+= trace_slice_len;
-            Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
-            trace_slice_begin-= trace_slice_len;
-            Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
             """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
                        trace_num_20_list=trace_num_20_list)
             delete_trace4= ""
@@ -5231,30 +5213,8 @@ class Orbit(object):
             setup_trace3 += """
             let traces= [{traces_cumul}];
             """.format(traces_cumul=traces_cumul)
-            x_data_list = """"""
-            y_data_list = """"""
-            trace_num_10_list = """"""
-            trace_num_20_list = """"""
-            for ii in range(0, self.size):
-                x_data_list += """data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
-                    divid=self.divid, trace_indx=str(ii))
-                y_data_list += """data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
-                    divid=self.divid, trace_indx=str(ii))
-                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(4 * self.size + 2 * ii + 1 - 1))
-                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(4 * self.size + 2 * ii + 2 - 1))
-
-            master_traces = """
-            traces = {{x: [{x_data_list}], y: [{y_data_list}]
-            }}
-            """.format(x_data_list=x_data_list, y_data_list=y_data_list)
             update_trace56 = """
-            {master_traces}
-            trace_slice_begin+= trace_slice_len;
-            Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
-            trace_slice_begin-= trace_slice_len;
-            Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
-            """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
-                       trace_num_20_list=trace_num_20_list)
+            """
             delete_trace6= ""
             delete_trace5= ""
             for ii in range(self.size-1,-1,-1):
@@ -5273,7 +5233,7 @@ class Orbit(object):
             delete_trace6= ""
             update_trace56= ""
 
-        return HTML("""
+        return """
 <style>
 .galpybutton {{
     background-color:#ffffff;
@@ -5412,7 +5372,7 @@ require(['Plotly'], function (Plotly) {{
                     delete_trace5=delete_trace5,
                     update_trace12=update_trace12,
                     update_trace34=update_trace34,
-                    update_trace56=update_trace56))
+                    update_trace56=update_trace56)
 
 class _1DInterp(object): 
     """Class to simulate 2D interpolation when using a single orbit"""
