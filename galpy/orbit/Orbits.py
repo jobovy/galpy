@@ -4934,7 +4934,7 @@ class Orbit(object):
         if button_margin_left < 0: button_margin_left= 0
         # Configuration options
         config= """{{staticPlot: {staticPlot}}}"""\
-            .format(staticPlot='true' if kwargs.pop('staticPlot',False) 
+            .format(staticPlot='true' if kwargs.pop('staticPlot',False)
                     else 'false')
         # Layout for multiple plots
         if len(d1s) == 1:
@@ -5055,6 +5055,7 @@ class Orbit(object):
         trace_slice_begin+= trace_slice_len;
         Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
         trace_slice_begin-= trace_slice_len;
+        Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
         """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list)
         delete_trace2= ""
         delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
@@ -5145,6 +5146,7 @@ class Orbit(object):
             trace_slice_begin+= trace_slice_len;
             Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
             trace_slice_begin-= trace_slice_len;
+            Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
             """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
                        trace_num_20_list=trace_num_20_list)
             delete_trace4= ""
@@ -5250,6 +5252,7 @@ class Orbit(object):
             trace_slice_begin+= trace_slice_len;
             Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
             trace_slice_begin-= trace_slice_len;
+            Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
             """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
                        trace_num_20_list=trace_num_20_list)
             delete_trace6= ""
