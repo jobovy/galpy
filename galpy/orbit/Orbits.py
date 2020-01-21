@@ -5048,24 +5048,6 @@ class Orbit(object):
                     divid=self.divid, trace_indx=str(ii))
                 trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*jj*self.size + 2 * ii + 1 - 1))
                 trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*jj*self.size + 2 * ii + 2 - 1))
-
-        master_traces = """
-        traces = {{x: [{x_data_list}], y: [{y_data_list}]
-        }}
-        """.format(x_data_list=x_data_list, y_data_list=y_data_list)
-        update_trace12 = """
-        {master_traces}
-        trace_slice_begin+= trace_slice_len;
-        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
-        trace_slice_begin-= trace_slice_len;
-        Plotly.restyle('{divid}', traces,[{trace_num_20_list}]);
-        """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list)
-        delete_trace2= ""
-        delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
-        for ii in range(self.size-1,0,-1):
-            delete_trace2+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*ii+2-1))
-            delete_trace1+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
-        delete_trace2+= """\n        Plotly.deleteTraces('{divid}',1);""".format(divid=self.divid)
         # Additional traces for additional plots
         if len(d1s) > 1:
             setup_trace2= """
@@ -5128,25 +5110,10 @@ class Orbit(object):
            trace_num_1=str(2*self.size+2*ii+1),
            trace_num_2=str(2*self.size+2*ii+2))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
-            update_trace34 = """
-            """.format(divid=self.divid, master_traces=master_traces, trace_num_10_list=trace_num_10_list,
-                       trace_num_20_list=trace_num_20_list)
-            delete_trace4= ""
-            delete_trace3= ""
-            for ii in range(self.size-1,-1,-1):
-                delete_trace4+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*self.size+2*ii+2-1))
-                delete_trace3+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
     let traces= [{traces_cumul}];
 """.format(traces_cumul=traces_cumul)
-            delete_trace4= ""
-            delete_trace3= ""
-            update_trace34= ""
-
-
-
-
         if len(d1s) > 2:
             setup_trace3= """
     let trace{trace_num_1}= {{
@@ -5213,26 +5180,12 @@ class Orbit(object):
             setup_trace3 += """
             let traces= [{traces_cumul}];
             """.format(traces_cumul=traces_cumul)
-            update_trace56 = """
-            """
-            delete_trace6= ""
-            delete_trace5= ""
-            for ii in range(self.size-1,-1,-1):
-                delete_trace6+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(4*self.size+2*ii+2-1))
-                delete_trace5+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         elif len(d1s) > 1: # elif for "if there is a 3rd panel
             setup_trace3= """
     let traces= [{traces_cumul}];
 """.format(traces_cumul=traces_cumul)
-            delete_trace5= ""
-            delete_trace6= ""
-            update_trace56= ""
         else: # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
             setup_trace3= ""
-            delete_trace5= ""
-            delete_trace6= ""
-            update_trace56= ""
-
         return HTML("""
 <style>
 .galpybutton {{
@@ -5315,15 +5268,11 @@ require(['Plotly'], function (Plotly) {{
     else if ( button_type === '{divid}-replay' ) {{
       cnt= 1;
       try {{ // doesn't exist if animation has already ended
-        {delete_trace6}
-        {delete_trace4}
-        {delete_trace2}
+        Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
       }}
       catch (err) {{
       }}
-      {delete_trace1}
-      {delete_trace3}
-      {delete_trace5}
+        Plotly.deleteTraces('{divid}', {trace_num_list});
       clearInterval(interval);
       setup_trace();
       interval= animate_trace();
@@ -5348,15 +5297,13 @@ require(['Plotly'], function (Plotly) {{
       if ( trace_slice_len < 1) trace_slice_len= 1;
       trace_slice_begin= Math.floor(cnt*numPerFrame);
       trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-      {update_trace12}
-      {update_trace34}
-      {update_trace56}
+        traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+        Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
       if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
           clearInterval(interval);
-          {delete_trace6}
-          {delete_trace4}
-          {delete_trace2}
+          Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
       }}
     }}, 30);
     }}
@@ -5365,14 +5312,10 @@ require(['Plotly'], function (Plotly) {{
                     divid=self.divid,width=width,height=height,
                     button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
+                    x_data_list=x_data_list, y_data_list=y_data_list,
+                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
-                    setup_trace3=setup_trace3,delete_trace2=delete_trace2,
-                    delete_trace4=delete_trace4,delete_trace6=delete_trace6,
-                    delete_trace1=delete_trace1,delete_trace3=delete_trace3,
-                    delete_trace5=delete_trace5,
-                    update_trace12=update_trace12,
-                    update_trace34=update_trace34,
-                    update_trace56=update_trace56))
+                    setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
 class _1DInterp(object): 
     """Class to simulate 2D interpolation when using a single orbit"""
