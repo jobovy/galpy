@@ -833,7 +833,7 @@ class streamgapdf(streamdf.streamdf):
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
-            self._gap_trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunksImpact-1)
+            self._gap_trackts= numpy.linspace(0.,-2.*dt,2*self._nTrackChunksImpact-1)
             #Flip velocities before integrating
             auxiliaryTrack= auxiliaryTrack.flip()
         auxiliaryTrack.integrate(self._gap_trackts,self._pot)
