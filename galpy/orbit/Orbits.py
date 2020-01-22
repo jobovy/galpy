@@ -5297,9 +5297,11 @@ require(['Plotly'], function (Plotly) {{
       if ( trace_slice_len < 1) trace_slice_len= 1;
       trace_slice_begin= Math.floor(cnt*numPerFrame);
       trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-        traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
-        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
-        Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
+      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+      trace_slice_begin-= trace_slice_len;
+      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
       if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
           clearInterval(interval);
