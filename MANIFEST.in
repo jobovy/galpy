@@ -1,4 +1,4 @@
-include README.rst README.dev README.nemo LICENSE HISTORY.txt AUTHORS.txt
+include README.md README.dev README.nemo LICENSE HISTORY.txt AUTHORS.txt
 include gsl-config.bat
 include galpy/df/data/*.sav
 include galpy/orbit/named_objects.json
