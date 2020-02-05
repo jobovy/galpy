@@ -5,7 +5,7 @@
 
 [galpy](http://www.galpy.org) is a Python 2 and 3 package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials. `galpy` is an [astropy](http://www.astropy.org/) [affiliated package](http://www.astropy.org/affiliated/) and provides full support for astropy’s [Quantity](http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html) framework for variables with units.
 
-[![image](https://travis-ci.org/jobovy/galpy.svg?branch=master)](http://travis-ci.org/jobovy/galpy) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](https://img.shields.io/coveralls/jobovy/galpy.svg)](https://coveralls.io/r/jobovy/galpy?branch=master) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master)](http://codecov.io/github/jobovy/galpy?branch=master) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://galpy.readthedocs.io/en/latest/) [![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/master/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://slackin-galpy.herokuapp.com/badge.svg)](https://galpy.slack.com/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://slackin-galpy.herokuapp.com)
+[![image](https://travis-ci.org/jobovy/galpy.svg?branch=master)](http://travis-ci.org/jobovy/galpy) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](https://img.shields.io/coveralls/jobovy/galpy.svg)](https://coveralls.io/r/jobovy/galpy?branch=master) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master)](http://codecov.io/github/jobovy/galpy?branch=master) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/) [![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/master/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://slackin-galpy.herokuapp.com/badge.svg)](https://galpy.slack.com/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://slackin-galpy.herokuapp.com)
 
 AUTHOR
 ======
@@ -20,18 +20,18 @@ If you find this code useful in your research, please let me know. **If
 you use galpy in a publication, please cite** [Bovy
 (2015)](http://adsabs.harvard.edu/abs/2015ApJS..216...29B) **and link to
 http://github.com/jobovy/galpy**. See [the acknowledgement documentation
-section](http://galpy.readthedocs.io/en/latest/index.html#acknowledging-galpy)
+section](http://docs.galpy.org/en/latest/index.html#acknowledging-galpy)
 for a more detailed guide to citing parts of the code. Please also send
 me a reference to the paper or send a pull request including your paper
 in the list of galpy papers on [this
-page](http://galpy.readthedocs.io/en/latest/) (this page is at
+page](http://docs.galpy.org/en/latest/) (this page is at
 doc/source/index.rst). Thanks!
 
 LOOKING FOR HELP?
 =================
 
 The latest documentation can be found
-[here](http://galpy.readthedocs.io/en/latest/). You can also join the
+[here](http://docs.galpy.org/en/latest/). You can also join the
 [galpy slack community](https://galpy.slack.com/) for any questions
 related to `galpy`; join
 [here](https://slackin-galpy.herokuapp.com).
@@ -42,7 +42,7 @@ slack community](https://galpy.slack.com/).
 
 If you are having issues with the installation of `galpy`, please first
 consult the [Installation
-FAQ](http://galpy.readthedocs.io/en/latest/installation.html#installation-faq).
+FAQ](http://docs.galpy.org/en/latest/installation.html#installation-faq).
 
 PYTHON VERSIONS AND DEPENDENCIES
 ================================
