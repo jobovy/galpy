@@ -4929,6 +4929,45 @@ def test_SkyCoord_init_with_radecisTrue():
     assert numpy.fabs(o_sky.vlos()-o_radec.vlos()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
     return None
 
+# Test related to issue #415: calling an Orbit with a single int time does not 
+# work properly
+# Test from @jamesmlane
+@pytest.mark.xfail(strict=True,raises=TypeError)
+def test_orbit_call_single_time_as_int():
+    from galpy import potential, orbit
+    pot = potential.MWPotential2014
+    o= orbit.Orbit()
+    times = numpy.array([0,1,2])
+    o.integrate(times,pot)
+    # Make sure this does not raise TypeErrpr
+    try:
+        o.x(times[0])
+    except TypeError:
+        raise
+    # Test that the value makes sense
+    assert numpy.fabs(o.x(times[0])-o.x()) < 1e-10
+    return None
+
+# Test related to issue #415: calling an Orbit with a single Quantity time 
+# does not work properly
+# Test from @jamesmlane
+@pytest.mark.xfail(strict=True,raises=TypeError)
+def test_orbit_call_single_time_as_Quantity():
+    from galpy import potential, orbit
+    from astropy import units as u
+    pot = potential.MWPotential2014
+    o= orbit.Orbit()
+    times = numpy.array([0,1,2])*u.Gyr
+    o.integrate(times,pot)
+    # Make sure this does not raise TypeErrpr
+    try:
+        o.x(times[0])
+    except TypeError:
+        raise
+    # Test that the value makes sense
+    assert numpy.fabs(o.x(times[0])-o.x()) < 1e-10
+    return None
+
 # Setup the orbit for the energy test
 def setup_orbit_energy(tp,axi=False,henon=False):
     # Need to treat Henon sep. here, bc cannot be scaled to be reasonable
