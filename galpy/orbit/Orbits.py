@@ -4236,7 +4236,8 @@ class Orbit(object):
         # 2nd line: scalar Quantities have __len__, but raise TypeError 
         # for scalars
         t_exact_integration_times= hasattr(t,'__len__') \
-            and not (isinstance(t,units.Quantity) and t.isscalar) \
+            and not (_APY_LOADED and isinstance(t,units.Quantity) 
+                     and t.isscalar) \
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
