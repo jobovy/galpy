@@ -4233,7 +4233,10 @@ class Orbit(object):
             t= args[0]
         # Parse t, first check whether we are dealing with the common case 
         # where one wants all integrated times
+        # 2nd line: scalar Quantities have __len__, but raise TypeError 
+        # for scalars
         t_exact_integration_times= hasattr(t,'__len__') \
+            and not (isinstance(t,units.Quantity) and t.isscalar) \
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
@@ -4250,11 +4253,11 @@ class Orbit(object):
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if t_exact_integration_times: # Common case where one wants all integrated times
             return self.orbit.T
-        elif isinstance(t,(int,float)) and hasattr(self,'t') \
+        elif isinstance(t,(int,float,numpy.number)) and hasattr(self,'t') \
                 and t in list(self.t):
             return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
         else:
-            if isinstance(t,(int,float)): 
+            if isinstance(t,(int,float,numpy.number)): 
                 nt= 1
                 t= numpy.atleast_1d(t)
             else: 

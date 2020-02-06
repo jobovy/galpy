@@ -4932,7 +4932,6 @@ def test_SkyCoord_init_with_radecisTrue():
 # Test related to issue #415: calling an Orbit with a single int time does not 
 # work properly
 # Test from @jamesmlane
-@pytest.mark.xfail(strict=True,raises=TypeError)
 def test_orbit_call_single_time_as_int():
     from galpy import potential, orbit
     pot = potential.MWPotential2014
@@ -4951,7 +4950,6 @@ def test_orbit_call_single_time_as_int():
 # Test related to issue #415: calling an Orbit with a single Quantity time 
 # does not work properly
 # Test from @jamesmlane
-@pytest.mark.xfail(strict=True,raises=TypeError)
 def test_orbit_call_single_time_as_Quantity():
     from galpy import potential, orbit
     from astropy import units as u
