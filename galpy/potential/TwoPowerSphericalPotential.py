@@ -1350,6 +1350,59 @@ class NFWPotential(TwoPowerSphericalPotential):
                            0.01,100.)
         return x*self.a
 
+    @bovy_conversion.physical_conversion('position',pop=True)
+    def rmax(self):
+        """
+        NAME:
+
+           rmax
+
+        PURPOSE:
+
+           calculate the radius at which the rotation curve peaks
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+        
+           Radius at which the rotation curve peaks
+        
+        HISTORY:
+
+           2020-02-05 - Written - Bovy (UofT)
+
+        """
+        # Magical number, solve(derivative (ln(1+x)-x/(1+x))/x wrt x=0,x)
+        return 2.1625815870646098349*self.a
+
+    @bovy_conversion.physical_conversion('velocity',pop=True)
+    def vmax(self):
+        """
+        NAME:
+
+           vmax
+
+        PURPOSE:
+
+           calculate the maximum rotation curve velocity
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+        
+           Peak velocity in the rotation curve
+        
+        HISTORY:
+
+           2020-02-05 - Written - Bovy (UofT)
+
+        """
+        return self.vcirc(self.rmax(use_physical=False),use_physical=False)
+
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """
