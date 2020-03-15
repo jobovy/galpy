@@ -3900,7 +3900,7 @@ def test_orbit_c_sigint_full():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        time.sleep(8)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         cnt= 0
@@ -3935,7 +3935,7 @@ def test_orbit_c_sigint_planar():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        time.sleep(8)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         cnt= 0
@@ -3966,7 +3966,7 @@ def test_orbit_c_sigint_planardxdv():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        time.sleep(8)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(4)
         cnt= 0
