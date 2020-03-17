@@ -16,8 +16,13 @@ if PY3:
 else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
+    if not os.path.isdir(path): continue
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix))
+        if sys.platform == 'win32' and sys.version_info >= (3,8):
+            with os.add_dll_directory(path):
+                _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+        else:
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix))
     except OSError as e:
         if os.path.exists(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
