@@ -3900,9 +3900,12 @@ def test_orbit_c_sigint_full():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(8)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(1)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3935,9 +3938,12 @@ def test_orbit_c_sigint_planar():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(8)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(1)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3966,9 +3972,12 @@ def test_orbit_c_sigint_planardxdv():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(8)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(1)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
