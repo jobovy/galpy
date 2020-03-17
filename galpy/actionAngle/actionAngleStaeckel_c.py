@@ -20,8 +20,8 @@ for path in sys.path:
     if not os.path.isdir(path): continue
     try:
         if sys.platform == 'win32' and sys.version_info >= (3,8):
-            with os.add_dll_directory(path):
-                _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+            # winmode=0x008 is easy-going way to call LoadLibraryExA
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix),winmode=0x008)
         else:
             _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix))
     except OSError as e:
