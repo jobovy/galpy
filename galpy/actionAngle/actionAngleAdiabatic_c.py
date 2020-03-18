@@ -18,7 +18,7 @@ else: #pragma: no cover
 for path in sys.path:
     if not os.path.isdir(path): continue
     try:
-        if sys.platform == 'win32' and sys.version_info >= (3,8):
+        if sys.platform == 'win32' and sys.version_info >= (3,8): # pragma: no cover
             # winmode=0x008 is easy-going way to call LoadLibraryExA
             _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix),winmode=0x008)
         else:
