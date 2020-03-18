@@ -149,7 +149,9 @@ void leapfrog(void (*func)(double t, double *q, double *a,
 #ifdef USING_COVERAGE;
       __gcov_flush();
 #endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift half
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
@@ -272,7 +274,9 @@ void symplec4(void (*func)(double t, double *q, double *a,
 #ifdef USING_COVERAGE;
       __gcov_flush();
 #endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
@@ -430,7 +434,9 @@ void symplec6(void (*func)(double t, double *q, double *a,
 #ifdef USING_COVERAGE;
       __gcov_flush();
 #endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);

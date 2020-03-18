@@ -340,7 +340,9 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 #ifdef USING_COVERAGE;
 			__gcov_flush();
 #endif
+// LCOV_EXCL_START
 			break;
+// LCOV_EXCL_STOP
 		}
 		h = pos_neg * max(fabs(h), 1e3 * uround);  // keep time step not too small
 
