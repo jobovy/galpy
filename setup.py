@@ -56,7 +56,7 @@ except ValueError:
     extra_link_args= []
 else:
     del sys.argv[coverage_pos]
-    extra_compile_args.extend(["-O0","--coverage"])
+    extra_compile_args.extend(["-O0","--coverage","-D USING_COVERAGE"])
     extra_link_args= ["--coverage"]
 
 #Option to compile everything into a single extension

@@ -3903,7 +3903,7 @@ def test_orbit_c_sigint_full():
         for line in iter(p.stdout.readline, b''):
             if line.startswith(b"Starting long C integration ..."):
                 break
-        time.sleep(1)
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(1)
         cnt= 0
@@ -3941,7 +3941,7 @@ def test_orbit_c_sigint_planar():
         for line in iter(p.stdout.readline, b''):
             if line.startswith(b"Starting long C integration ..."):
                 break
-        time.sleep(1)
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(1)
         cnt= 0
@@ -3975,7 +3975,7 @@ def test_orbit_c_sigint_planardxdv():
         for line in iter(p.stdout.readline, b''):
             if line.startswith(b"Starting long C integration ..."):
                 break
-        time.sleep(1)
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
         time.sleep(1)
         cnt= 0

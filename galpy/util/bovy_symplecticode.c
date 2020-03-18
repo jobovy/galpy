@@ -146,6 +146,9 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     //drift half
@@ -266,6 +269,9 @@ void symplec4(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     //drift for c1*dt
@@ -421,6 +427,9 @@ void symplec6(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     //drift for c1*dt

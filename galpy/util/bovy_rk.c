@@ -104,6 +104,9 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     for (jj=0; jj < (ndt-1); jj++) {
@@ -208,6 +211,9 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     for (jj=0; jj < (ndt-1); jj++) {
@@ -534,6 +540,9 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE;
+      __gcov_flush();
+#endif
       break;
     }
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
