@@ -41,5 +41,4 @@ install:
   - python setup.py develop --single_ext
 
 test_script:
-  - pytest -v %TEST_FILES% --cov galpy --cov-config .coveragerc_travis
-# --disable-pytest-warnings
+  - pytest -v %TEST_FILES% --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
