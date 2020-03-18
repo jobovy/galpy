@@ -3900,9 +3900,12 @@ def test_orbit_c_sigint_full():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3910,7 +3913,7 @@ def test_orbit_c_sigint_full():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
@@ -3935,9 +3938,12 @@ def test_orbit_c_sigint_planar():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3945,7 +3951,7 @@ def test_orbit_c_sigint_planar():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
@@ -3966,9 +3972,12 @@ def test_orbit_c_sigint_planardxdv():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3976,7 +3985,7 @@ def test_orbit_c_sigint_planardxdv():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))

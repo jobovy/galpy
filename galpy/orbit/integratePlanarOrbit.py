@@ -26,8 +26,13 @@ if PY3:
 else: #pragma: no cover
     _ext_suffix= '.so'
 for path in sys.path:
+    if not os.path.isdir(path): continue
     try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
+        if sys.platform == 'win32' and sys.version_info >= (3,8): # pragma: no cover
+            # winmode=0x008 is easy-going way to call LoadLibraryExA
+            _lib = ctypes.CDLL(os.path.abspath(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)),winmode=0x8)
+        else:
+            _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))            
     except OSError as e:
         if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
             outerr= e
