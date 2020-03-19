@@ -24,11 +24,11 @@
 
 - [ ] Push to testpypi: ``twine upload -r pypitest dist/*`` and can test with ``pip install -i https://testpypi.python.org/pypi galpy``
 
+- [ ] Download Windows wheels from AppVeyor from tagged build and put in ``dist/``.
+
+- [ ] Build Mac wheels for different python versions and put in ``dist/``. (note that Linux wheels are not supported)
+
 - [ ] Push to pypi: ``twine upload -r pypi dist/*``
-
-- [ ] Build wheels for different python versions: ``python setup.py bdist_wheel`` and upload with ``twine upload -r pypi dist/*.whl``
-
-- [ ] Create wheels for different python versions on other platforms and upload with ``twine upload dist/*.whl`` (note that Linux wheels are not supported)
 
 - [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
 
