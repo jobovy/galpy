@@ -51,7 +51,7 @@ after_test:
   - ps: |
       if ($env:BUILD_WHEELS -eq "true") {
         # Build wheels for different python versions
-	conda deactivate
+        conda deactivate
         # Python 3.8
         conda create -n py38 python=3.8 numpy scipy matplotlib setuptools pip pytest gsl
         conda activate py38
