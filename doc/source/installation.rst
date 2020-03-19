@@ -88,6 +88,9 @@ to, for example, install the ``dev`` branch.
 Installing from source on Windows
 ---------------------------------
 
+.. TIP::
+   You can install a pre-compiled Windows "wheel" of the latest ``master`` version that is automatically built on ``AppVeyor`` for all recent Python versions. Navigate to `the latest master build <http://ci.appveyor.com/project/jobovy/galpy?branch=master>`__, click on the first job and then on "Artifacts", download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``.
+
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 
     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
