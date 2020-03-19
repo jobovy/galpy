@@ -5,7 +5,7 @@ environment:
   MINICONDA: C:\\Miniconda37-x64
 
   matrix:
-    - TEST_FILES: tests\test_orbits.py #tests\test_orbit.py 
+    - TEST_FILES: tests\test_orbit.py tests\test_orbits.py
       ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: 
       BUILD_WHEELS: "true"
