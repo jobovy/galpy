@@ -8,18 +8,17 @@ environment:
     - TEST_FILES: tests\test_orbits.py #tests\test_orbit.py 
       ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: 
-      ARTIFACT_WHEELS: "true"
-      APPVEYOR_JOB_NAME : "wheels"
+      BUILD_WHEELS: "true"
 
     - TEST_FILES: "tests\\ --ignore=tests\\test_actionAngleTorus.py --ignore=tests\\test_snapshotpotential.py --ignore=tests\\test_qdf.py --ignore=tests\\test_pv2qdf.py --ignore=tests\\test_diskdf.py --ignore=tests\\test_orbit.py --ignore=tests\\test_orbits.py --ignore=tests\\test_streamdf.py --ignore=tests\\test_streamgapdf.py --ignore=tests\\test_evolveddiskdf.py --ignore=tests\\test_quantity.py --ignore=tests\\test_nemo.py --ignore=tests\\test_amuse.py --ignore=tests\\test_coords.py"
       ADDL_CONDA_PKGS: 
       COMPILE_NOOPENMP: 
-      ARTIFACT_WHEELS: "false"
+      BUILD_WHEELS: "false"
 
     - TEST_FILES: tests\test_quantity.py tests\test_coords.py
       ADDL_CONDA_PKGS: astropy
       COMPILE_NOOPENMP: "--no-openmp"
-      ARTIFACT_WHEELS: "false"
+      BUILD_WHEELS: "false"
 
 platform:
     - x64
@@ -48,7 +47,11 @@ test_script:
   - pytest -v %TEST_FILES% --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
 
 after_test:
-  # Build wheels for different python versions
+  # Build wheels for different python versions of BUILD_WHEELS, otherwise done
+  - ps: |
+      if ($env:BUILD_WHEELS -eq "false") {
+        Exit-AppVeyorBuild
+      }
   - conda deactivate
   - conda remove --name test-environment --all
   # Python 3.8
@@ -80,18 +83,8 @@ after_test:
   - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
   - python setup.py bdist_wheel
   - conda deactivate
-  # Python 2.7
-  - conda create -n py27 python=2.7 numpy scipy matplotlib setuptools pip pytest gsl
-  - conda activate py27
-  - conda remove --name py36 --all
-  - pip install wheel
-  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
-  - python setup.py bdist_wheel
-  - conda deactivate
   # Upload as artifacts
   - ps: |
-      if ($env:ARTIFACT_WHEELS -eq "true") {
+      if ($env:BUILD_WHEELS -eq "true") {
         Get-ChildItem dist\*.whl | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
       }
