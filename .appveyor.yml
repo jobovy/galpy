@@ -9,6 +9,7 @@ environment:
       ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: 
       BUILD_WHEELS: "true"
+      APPVEYOR_JOB_NAME : "wheels"
 
     - TEST_FILES: "tests\\ --ignore=tests\\test_actionAngleTorus.py --ignore=tests\\test_snapshotpotential.py --ignore=tests\\test_qdf.py --ignore=tests\\test_pv2qdf.py --ignore=tests\\test_diskdf.py --ignore=tests\\test_orbit.py --ignore=tests\\test_orbits.py --ignore=tests\\test_streamdf.py --ignore=tests\\test_streamgapdf.py --ignore=tests\\test_evolveddiskdf.py --ignore=tests\\test_quantity.py --ignore=tests\\test_nemo.py --ignore=tests\\test_amuse.py --ignore=tests\\test_coords.py"
       ADDL_CONDA_PKGS: 
@@ -51,18 +52,23 @@ after_test:
       if ($env:BUILD_WHEELS -eq "true") {
         # Build wheels for different python versions
         # Python 3.8
-        conda create -n p38 python=3.8 numpy scipy matplotlib setuptools pip pytest gsl
+        conda create -n py38 python=3.8 numpy scipy matplotlib setuptools pip pytest gsl
         activate py38
         pip install wheel
         python setup.py bdist_wheel
         # Python 3.7
-        conda create -n p37 python=3.7 numpy scipy matplotlib setuptools pip pytest gsl
+        conda create -n py37 python=3.7 numpy scipy matplotlib setuptools pip pytest gsl
         activate py37
         pip install wheel
         python setup.py bdist_wheel
         # Python 3.6
-        conda create -n p36 python=3.6 numpy scipy matplotlib setuptools pip pytest gsl
+        conda create -n py36 python=3.6 numpy scipy matplotlib setuptools pip pytest gsl
         activate py36
+        pip install wheel
+        python setup.py bdist_wheel
+        # Python 2.7
+        conda create -n py27 python=2.7 numpy scipy matplotlib setuptools pip pytest gsl
+        activate py27
         pip install wheel
         python setup.py bdist_wheel
         # Done! Save as artifacts
