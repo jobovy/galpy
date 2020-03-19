@@ -5,7 +5,7 @@ environment:
   MINICONDA: C:\\Miniconda37-x64
 
   matrix:
-    - TEST_FILES: tests\test_orbit.py tests\test_orbits.py
+    - TEST_FILES: tests\test_orbits.py #tests\test_orbit.py 
       ADDL_CONDA_PKGS: astropy astroquery
       COMPILE_NOOPENMP: 
       BUILD_WHEELS: "true"
@@ -51,22 +51,22 @@ after_test:
   - ps: |
       if ($env:BUILD_WHEELS -eq "true") {
         # Build wheels for different python versions
+	conda deactivate
         # Python 3.8
         conda create -n py38 python=3.8 numpy scipy matplotlib setuptools pip pytest gsl
-        activate py38
+        conda activate py38
         conda remove --name test-environment --all
         pip install wheel
-        rm -rf build/
         $env:INCLUDE="$env:CONDA_PREFIX\Library\include;$env:INCLUDE"
         $env:LIB="$env:CONDA_PREFIX\Library\lib;$env:LIB"
         $env:LIBPATH="$env:CONDA_PREFIX\Library\lib;$env:LIBPATH"
         python setup.py bdist_wheel
+	conda deactivate
         # Python 3.7
         conda create -n py37 python=3.7 numpy scipy matplotlib setuptools pip pytest gsl
         activate py37
         conda remove --name py38 --all
         pip install wheel
-        rm -rf build/
         $env:INCLUDE="$env:CONDA_PREFIX\Library\include;$env:INCLUDE"
         $env:LIB="$env:CONDA_PREFIX\Library\lib;$env:LIB"
         $env:LIBPATH="$env:CONDA_PREFIX\Library\lib;$env:LIBPATH"
@@ -76,7 +76,6 @@ after_test:
         activate py36
         conda remove --name py37 --all
         pip install wheel
-        rm -rf build/
         $env:INCLUDE="$env:CONDA_PREFIX\Library\include;$env:INCLUDE"
         $env:LIB="$env:CONDA_PREFIX\Library\lib;$env:LIB"
         $env:LIBPATH="$env:CONDA_PREFIX\Library\lib;$env:LIBPATH"
@@ -86,7 +85,6 @@ after_test:
         activate py27
         conda remove --name py36 --all
         pip install wheel
-        rm -rf build/
         $env:INCLUDE="$env:CONDA_PREFIX\Library\include;$env:INCLUDE"
         $env:LIB="$env:CONDA_PREFIX\Library\lib;$env:LIB"
         $env:LIBPATH="$env:CONDA_PREFIX\Library\lib;$env:LIBPATH"
