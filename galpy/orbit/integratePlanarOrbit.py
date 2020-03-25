@@ -1,7 +1,3 @@
-import os
-import sys
-import distutils.sysconfig as sysconfig
-import warnings
 import ctypes
 import ctypes.util
 from numpy.ctypeslib import ndpointer
@@ -13,42 +9,12 @@ from ..potential.planarPotential import planarPotentialFromFullPotential, \
 from ..potential.planarPotential import _evaluateplanarRforces,\
     _evaluateplanarphiforces, _evaluateplanarPotentials
 from ..potential.WrapperPotential import parentWrapperPotential
-from ..util import galpyWarning
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import bovy_symplecticode as symplecticode
-#Find and load the library
-_lib= None
-outerr= None
-PY3= sys.version > '3'
-if PY3:
-    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else: #pragma: no cover
-    _ext_suffix= '.so'
-for path in sys.path:
-    if not os.path.isdir(path): continue
-    try:
-        if sys.platform == 'win32' and sys.version_info >= (3,8): # pragma: no cover
-            # winmode=0x008 is easy-going way to call LoadLibraryExA
-            _lib = ctypes.CDLL(os.path.join(path,'libgalpy%s' % _ext_suffix),winmode=0x8)
-        else:
-            _lib = ctypes.CDLL(os.path.join(path,'libgalpy%s' % _ext_suffix))            
-    except OSError as e:
-        if os.path.exists(os.path.join(path,'libgalpy%s' % _ext_suffix)): #pragma: no cover
-            outerr= e
-        _lib = None
-    else:
-        break
-if _lib is None: #pragma: no cover
-    if not outerr is None:
-        warnings.warn("libgalpy C extension module not loaded, because of error '%s' " % outerr,
-                      galpyWarning)
-    else:
-        warnings.warn("libgalpy C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
-                      galpyWarning)
-    _ext_loaded= False
-else:
-    _ext_loaded= True
+from ..util import _load_extension_libs
+
+_lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
