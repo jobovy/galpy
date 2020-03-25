@@ -10,13 +10,13 @@
 Welcome to galpy's documentation
 =================================
 
-galpy is a Python 2 and 3 package for galactic dynamics. It supports
-orbit integration in a variety of potentials, evaluating and sampling
-various distribution functions, and the calculation of action-angle
-coordinates for all static potentials. galpy is an `astropy
-<http://www.astropy.org/>`_ `affiliated package
-<http://www.astropy.org/affiliated/>`_ and provides full support for
-astropy's `Quantity
+`galpy <http://www.galpy.org>`__ is a Python 2 and 3 package for
+galactic dynamics. It supports orbit integration in a variety of
+potentials, evaluating and sampling various distribution functions,
+and the calculation of action-angle coordinates for all static
+potentials. galpy is an `astropy <http://www.astropy.org/>`_
+`affiliated package <http://www.astropy.org/affiliated/>`_ and
+provides full support for astropy's `Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`_
 framework for variables with units.
 
@@ -546,6 +546,12 @@ The following is a list of publications using ``galpy``; please let me (bovy at 
 #. *Diagnosing the Stellar Population and Tidal Structure of the Blanco1 Star Cluster*, Yu Zhang, Shih-Yun Tang, W. P. Chen, Xiaoying Pang, & J. Z. Liu (2019) *Astrophys. J.*, in press (`arXiv/1912.06657 <http://arxiv.org/abs/1912.06657>`_)
 
 #. *Vilnius Photometry and Gaia Astrometry of Melotte 105*, Timothy Banks, Talar Yontan, Selcuk Bilir, & Remziye Canbay (2019) *J. Astron. Astrophys.*, in press (`arXiv/1912.08760 <http://arxiv.org/abs/1912.08760>`_)
+
+#. *Evidence for Galactic disc RR~Lyrae stars in the Solar neighbourhood*, Z. Prudil, I. Dékány, E. K. Grebel, & A. Kunder (2020) *Mon. Not. Roy. Astron. Soc.*, in press (`arXiv/2001.02486 <http://arxiv.org/abs/2001.02486>`_)
+
+#. *The Chemical Compositions of Accreted and in situ Galactic Globular Clusters According to SDSS/APOGEE*, Danny Horta, Ricardo P. Schiavon, J. Ted Mackereth, et al. (2020) *Mon. Not. Roy. Astron. Soc.*, submitted (`arXiv/2001.03177 <http://arxiv.org/abs/2001.03177>`_)
+
+#. *Age dating of an early Milky Way merger via asteroseismology of the naked-eye star ν Indi*, William J. Chaplin, Aldo M. Serenelli, Andrea Miglio, et al. (2020) *Nature Astron.*, in press (`arXiv/2001.04653 <http://arxiv.org/abs/2001.04653>`_)
 
 
 Indices and tables

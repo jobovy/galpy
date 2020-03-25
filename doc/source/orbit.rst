@@ -305,7 +305,7 @@ orbits from the name of an object. For example, for the star `Lacaille 8760 <htt
 >>> [o.ra(), o.dec(), o.dist(), o.pmra(), o.pmdec(), o.vlos()]
 # [319.31362023999276, -38.86736390000036, 0.003970940656277758, -3258.5529999996584, -1145.3959999996205, 20.560000000006063]
 
-but this also works for some globular clusters, e.g., to obtain `Omega Cen <https://en.wikipedia.org/wiki/Omega_Centauri>`__'s orbit and current location in the Milky Way do:
+but this also works for globular clusters, e.g., to obtain `Omega Cen <https://en.wikipedia.org/wiki/Omega_Centauri>`__'s orbit and current location in the Milky Way do:
 
 >>> o= Orbit.from_name('Omega Cen')
 >>> from galpy.potential import MWPotential2014
@@ -317,7 +317,7 @@ but this also works for some globular clusters, e.g., to obtain `Omega Cen <http
 .. image:: images/mwp14-orbit-integration-omegacen.png
 	:scale: 40 %
 
-We see that Omega Cen is currently close to its maximum distance from both the Galactic center and from the Galactic midplane.
+We see that Omega Cen is currently close to its maximum distance from both the Galactic center and from the Galactic midplane (note that Omega Cen's phase-space coordinates were updated internally in ``galpy`` after this plot was made and the orbit is now slightly different).
 
 Similarly, you can do:
 
@@ -349,6 +349,101 @@ supports tab completion in IPython/Jupyter for this list of objects
 
 .. image:: images/orbit-fromname-tabcomplete.png
    :scale: 50 %
+
+The ``Orbit.from_name`` method also allows you to load some
+collections of objects in a simple manner. Currently, three
+collections are supported: 'MW globular clusters', 'MW satellite
+galaxies', and 'solar system'. Specifying 'MW globular clusters' loads
+all of the Milky-Way globular clusters with data from Gaia DR2 (using the
+`Vasiliev 2019
+<https://ui.adsabs.harvard.edu/abs/2019MNRAS.484.2832V>`__ catalog):
+
+>>> o= Orbit.from_name('MW globular clusters')
+>>> print(len(o))
+# 150
+>>> print(o.name)
+# ['NGC5286', 'Terzan12', 'Arp2', 'NGC5024', ... ]
+>>> print(o.r())
+# [  8.86999028   3.33270877  21.42173795  18.41411889, ...]
+
+It is then easy to, for example, integrate the orbits of all Milky-Way globular clusters in ``MWPotential2014`` and plot them in 3D:
+
+>>> ts= numpy.linspace(0.,300.,1001)
+>>> o.integrate(ts,MWPotential2014)
+>>> o.plot3d(alpha=0.4)
+>>> xlim(-100.,100.)
+>>> ylim(-100.,100)
+>>> gca().set_zlim3d(-100.,100);
+
+.. image:: images/orbit-fromname-mwglobsorbits.png
+   :scale: 65 %
+
+Similarly, 'MW satellite galaxies' loads all of the Milky-Way satellite galaxies from `Fritz et al. (2018) <https://ui.adsabs.harvard.edu/abs/2018A%26A...619A.103F>`__:
+
+>>> o= Orbit.from_name('MW satellite galaxies')
+>>> print(len(o))
+# 40
+>>> print(o.name)
+# ['AquariusII', 'BootesI', 'BootesII', 'CanesVenaticiI', 'CanesVenaticiII', 'Carina',
+   'CarinaII', 'CarinaIII', 'ComaBerenices', 'CraterII', 'Draco', 'DracoII', 'EridanusII', 
+   'Fornax', 'GrusI', 'Hercules', 'HorologiumI', 'HydraII', 'HydrusI', 'LeoI', 'LeoII', 
+   'LeoIV', 'LeoV', 'LMC', 'PhoenixI', 'PiscesII', 'ReticulumII', 'Sgr', 'Sculptor',
+   'Segue1', 'Segue2', 'SMC', 'Sextans', 'TriangulumII', 'TucanaII', 'TucanaIII',
+   'UrsaMajorI', 'UrsaMajorII', 'UrsaMinor', 'Willman1']
+>>> print(o.r())
+# [105.11517882  64.02897066  39.72074174 210.66938806 160.60529059
+ 105.36807259  37.01725917  28.92738515  43.43084545 111.15279646
+  79.06498854  23.70062857 364.87901007 141.29780146 116.28700298
+ 128.81345239  83.47228672 147.90512269  25.68800918 272.93146472
+ 227.39435987 154.7574384  173.77516411  49.60813235 418.76813979
+ 181.9540996   32.92030664  19.06561359  84.81046251  27.67609888
+  42.13122436  60.28760354  88.86197382  34.58139798  53.79147743
+  21.05413655 101.85224099  40.70060809  77.72601419  42.65853777] kpc
+
+and we can integrate and plot them in 3D as above:
+
+>>> o.plot3d(alpha=0.4)
+>>> xlim(-400.,400.)
+>>> ylim(-400.,400)
+>>> gca().set_zlim3d(-400.,400)
+
+.. image:: images/orbit-fromname-mwsatsorbits.png
+   :scale: 65 %
+
+Because ``MWPotential2014`` has a relatively low-mass dark-matter halo, a bunch of the satellites are unbound (to make them bound, you can increase the mass of the halo by, for example, multiplying it by 1.5, as in ``MWPotential2014[2]*= 1.5``).
+
+Finally, for illustrative purposes, the solar system is included as a
+collection as well. The solar system is set up such that the center of
+what is normally the Galactocentric coordinate frame in ``galpy`` is
+now the solar system barycenter and the coordinate frame is a
+heliocentric one. The solar system data are taken from `Bovy et
+al. (2010) <https://ui.adsabs.harvard.edu/abs/2010ApJ...711.1157B>`__
+and they represent the positions and planets on April 1, 2009. To load
+the solar system do:
+
+>>> o= Orbit.from_name('solar system') 
+
+Giving for example:
+
+>>> print(o.name) 
+# ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
+
+You can then, for example, integrate the solar system for 10 years as follows
+
+>>> import astropy.units as u
+>>> from galpy.potential import KeplerPotential
+>>> from galpy.util.bovy_conversion import get_physical
+>>> kp= KeplerPotential(amp=1.*u.Msun,**get_physical(o)) # Need to use **get_physical to get the ro= and vo= parameters, which differ from the default for the solar system
+>>> ts= numpy.linspace(0.,10.,1001)*u.yr
+>>> o.integrate(ts,kp)
+>>> o.plot(d1='x',d2='y')
+
+which gives
+
+.. image:: images/orbit-fromname-solarsyst.png
+   :scale: 75 %
+
+Note that, as usual, physical outputs are in kpc, leading to very small numbers! 
 
 .. TIP::
    Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.

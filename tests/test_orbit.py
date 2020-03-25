@@ -3900,9 +3900,12 @@ def test_orbit_c_sigint_full():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3910,7 +3913,7 @@ def test_orbit_c_sigint_full():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
@@ -3935,9 +3938,12 @@ def test_orbit_c_sigint_planar():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3945,7 +3951,7 @@ def test_orbit_c_sigint_planar():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
@@ -3966,9 +3972,12 @@ def test_orbit_c_sigint_planardxdv():
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
-        time.sleep(4)
+        for line in iter(p.stdout.readline, b''):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
         os.kill(p.pid,signal.SIGINT)
-        time.sleep(4)
+        time.sleep(1)
         cnt= 0
         while p.poll() is None and cnt < ntries: # wait a little longer
             time.sleep(4)
@@ -3976,7 +3985,7 @@ def test_orbit_c_sigint_planardxdv():
 
         if p.poll() == 2 and WIN32: break
 
-        if p.poll() is None or p.poll() != 1:
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
             if p.poll() is None: msg= -100
             else: msg= p.poll()
             raise AssertionError("Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i" % (integrator,msg))
@@ -4779,6 +4788,29 @@ def test_from_name_collections():
                                          named_data[individual_obj][attr])
     return None    
 
+def test_from_name_solarsystem():
+    # Test that the solar system matches Bovy et al. (2010)'s input data
+    from astropy import units
+    from galpy.orbit import Orbit
+    correct_xyz= numpy.array(
+        [[0.324190175,0.090955208,-0.022920510,-4.627851589,10.390063716,1.273504997],
+         [-0.701534590,-0.168809218,0.037947785,1.725066954,-7.205747212,-0.198268558],
+         [-0.982564148,-0.191145980,-0.000014724,1.126784520,-6.187988860,0.000330572],
+         [1.104185888,-0.826097003,-0.044595990,3.260215854,4.524583075,0.014760239],
+         [3.266443877,-3.888055863,-0.057015321,2.076140727,1.904040630,-0.054374153],
+         [-9.218802228,1.788299816,0.335737817,-0.496457364,-2.005021061,0.054667082],
+         [19.930781147,-2.555241579,-0.267710968,0.172224285,1.357933443,0.002836325],
+         [24.323085642,-17.606227355,-0.197974999,0.664855006,0.935497207,-0.034716967]])
+    os= Orbit.from_name('solar system')
+    for (ii,o) in enumerate(os):
+        assert numpy.fabs((o.x()*units.kpc).to(units.AU).value-correct_xyz[ii,0]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+        assert numpy.fabs((o.y()*units.kpc).to(units.AU).value-correct_xyz[ii,1]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+        assert numpy.fabs((o.z()*units.kpc).to(units.AU).value-correct_xyz[ii,2]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+        assert numpy.fabs((o.vx()*units.km/units.s).to(units.AU/units.yr).value-correct_xyz[ii,3]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+        assert numpy.fabs((o.vy()*units.km/units.s).to(units.AU/units.yr).value-correct_xyz[ii,4]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+        assert numpy.fabs((o.vz()*units.km/units.s).to(units.AU/units.yr).value-correct_xyz[ii,5]) < 1e-8, "Orbit.from_name('solar system') does not agree with Bovy et al. (2010) data"
+    return None
+
 def test_rguiding_errors():
     from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
@@ -4904,6 +4936,43 @@ def test_SkyCoord_init_with_radecisTrue():
     assert numpy.fabs(o_sky.pmra()-o_radec.pmra()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
     assert numpy.fabs(o_sky.pmdec()-o_radec.pmdec()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
     assert numpy.fabs(o_sky.vlos()-o_radec.vlos()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
+    return None
+
+# Test related to issue #415: calling an Orbit with a single int time does not 
+# work properly
+# Test from @jamesmlane
+def test_orbit_call_single_time_as_int():
+    from galpy import potential, orbit
+    pot = potential.MWPotential2014
+    o= orbit.Orbit()
+    times = numpy.array([0,1,2])
+    o.integrate(times,pot)
+    # Make sure this does not raise TypeErrpr
+    try:
+        o.x(times[0])
+    except TypeError:
+        raise
+    # Test that the value makes sense
+    assert numpy.fabs(o.x(times[0])-o.x()) < 1e-10
+    return None
+
+# Test related to issue #415: calling an Orbit with a single Quantity time 
+# does not work properly
+# Test from @jamesmlane
+def test_orbit_call_single_time_as_Quantity():
+    from galpy import potential, orbit
+    from astropy import units as u
+    pot = potential.MWPotential2014
+    o= orbit.Orbit()
+    times = numpy.array([0,1,2])*u.Gyr
+    o.integrate(times,pot)
+    # Make sure this does not raise TypeErrpr
+    try:
+        o.x(times[0])
+    except TypeError:
+        raise
+    # Test that the value makes sense
+    assert numpy.fabs(o.x(times[0])-o.x()) < 1e-10
     return None
 
 # Setup the orbit for the energy test
