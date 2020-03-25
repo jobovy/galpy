@@ -14,6 +14,9 @@ v2.0 (????-??-??)
 - Add time dependence to all relevant Potential functions and method
   (#404).
 
+- Compile all main galpy C extensions into a single shared-object
+  library libgalpy.
+
 v1.5 (2019-09-12)
 =================
 
