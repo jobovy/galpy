@@ -144,7 +144,8 @@ def test_energy_jacobi_conservation():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -505,7 +506,8 @@ def test_energy_conservation_linear():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('SoftenedNeedleBarPotential')
@@ -669,7 +671,8 @@ def test_liouville_planar():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
@@ -799,7 +802,8 @@ def test_eccentricity():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -924,7 +928,8 @@ def test_pericenter():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1048,7 +1053,8 @@ def test_apocenter():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1172,7 +1178,8 @@ def test_zmax():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1283,7 +1290,8 @@ def test_analytic_ecc_rperi_rap():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
@@ -1606,7 +1614,8 @@ def test_analytic_zmax():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
