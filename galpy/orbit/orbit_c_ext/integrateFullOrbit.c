@@ -404,7 +404,8 @@ void parse_leapFuncArgs_Full(int npot,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
     }
-    if (setupSplines) initMovingObjectSplines(potentialArgs, pot_args);
+    if (setupSplines)
+      initMovingObjectSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -654,12 +655,16 @@ void initMovingObjectSplines(struct potentialArg * potentialArgs,
   gsl_spline_init(y_spline, t, y_arr, nPts);
   gsl_spline_init(z_spline, t, z_arr, nPts);
 
-  potentialArgs->xSpline = x_spline;
-  potentialArgs->accx = x_accel_ptr;
-  potentialArgs->ySpline = y_spline;
-  potentialArgs->accy = y_accel_ptr;
-  potentialArgs->zSpline = z_spline;
-  potentialArgs->accz = z_accel_ptr;
+  potentialArgs->nspline1d= 3;
+  potentialArgs->spline1d= (gsl_spline **) malloc ( 3*sizeof ( gsl_spline *) );
+  potentialArgs->acc1d= (gsl_interp_accel **) \
+    malloc ( 3 * sizeof ( gsl_interp_accel * ) );
+  *potentialArgs->spline1d = x_spline;
+  *potentialArgs->acc1d = x_accel_ptr;
+  *(potentialArgs->spline1d+1)= y_spline;
+  *(potentialArgs->acc1d+1)= y_accel_ptr;
+  *(potentialArgs->spline1d+2)= z_spline;
+  *(potentialArgs->acc1d+2)= z_accel_ptr;
 
   *pot_args = *pot_args + (int) (1+4*nPts);
   free(t);

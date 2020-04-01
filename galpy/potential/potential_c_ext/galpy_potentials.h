@@ -37,6 +37,11 @@ struct potentialArg{
 			 struct potentialArg *);
   int nargs;
   double * args;
+  // To allow 1D interpolation for an arbitrary number of splines
+  int nspline1d;
+  gsl_interp_accel ** acc1d;
+  gsl_spline ** spline1d;
+  // 2D interpolation
   interp_2d * i2d;
   gsl_interp_accel * accx;
   gsl_interp_accel * accy;
