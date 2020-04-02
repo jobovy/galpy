@@ -72,12 +72,19 @@ double evaluatePotentials(double,double,int, struct potentialArg *);
 // https://stackoverflow.com/a/52610204/10195320
 // Reason to use ##__VA_ARGS__ is that when no optional velocity is supplied,
 // there is a comma left in the argument list and ## absorbs that for gcc/icc
-// MSVC automatically does that for regular __VA_ARGS__, at least for now
+// MSVC supposedly does this automatically for regular __VA_ARGS__, at least
+// for now, but I can't get this to work locally or on AppVeyor
 // https://docs.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=vs-2019#comma-elision-in-variadic-macros
+// Therefore, I use an alternative where all arguments are variadic, such
+// that there should always be many. Final subtlety is that we have to define
+// the EXPAND macro to expand the __VA_ARGS__ into multiple arguments,
+// otherwise it's treated as a single argument in the next function call
+// calll (e.g., CALCRFORCE would get R = __VA_ARGS = R,Z,phi,...)
 #ifdef _MSC_VER
-#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
-#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
-#define calcPhiforce(R,Z,phi,t,nargs,potentialArgs,...) CALCPHIFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
+#define EXPAND(x) x
+#define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,0.,0.,0.))
+#define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,0.,0.,0.))
+#define calcPhiforce(...) EXPAND(CALCPHIFORCE(__VA_ARGS__,0.,0.,0.))
 #else
 #define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
 #define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
@@ -95,7 +102,6 @@ double (calcPhiforce)(double, double,double, double,
 		      double,double,double);
 // end hack
 double calcR2deriv(double, double, double,double, 
-		   
 			 int, struct potentialArg *);
 double calcphi2deriv(double, double, double,double, 
 			   int, struct potentialArg *);
