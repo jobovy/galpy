@@ -67,8 +67,11 @@ double evaluatePotentials(double R, double Z,
   potentialArgs-= nargs;
   return pot;
 }
-double calcRforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
+// function name in parentheses, because actual function defined by macro
+// in galpy_potentials.h and parentheses are necessary to avoid macro expansion
+double (calcRforce)(double R, double Z, double phi, double t, 
+		    int nargs, struct potentialArg * potentialArgs,
+		    double vR, double vT, double vZ){
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
@@ -79,8 +82,9 @@ double calcRforce(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return Rforce;
 }
-double calczforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
+double (calczforce)(double R, double Z, double phi, double t, 
+		    int nargs, struct potentialArg * potentialArgs,
+		    double vR, double vT, double vZ){
   int ii;
   double zforce= 0.;
   for (ii=0; ii < nargs; ii++){
@@ -91,8 +95,9 @@ double calczforce(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return zforce;
 }
-double calcPhiforce(double R, double Z, double phi, double t, 
-			  int nargs, struct potentialArg * potentialArgs){
+double (calcPhiforce)(double R, double Z, double phi, double t, 
+		      int nargs, struct potentialArg * potentialArgs,
+		      double vR, double vT, double vZ){
   int ii;
   double phiforce= 0.;
   for (ii=0; ii < nargs; ii++){

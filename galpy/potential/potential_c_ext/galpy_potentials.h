@@ -35,6 +35,8 @@ struct potentialArg{
 			    struct potentialArg *);
   double (*linearForce)(double x, double t,
 			 struct potentialArg *);
+  double (*dens)(double R, double Z, double phi, double t,
+		 struct potentialArg *);
   int nargs;
   double * args;
   // To allow 1D interpolation for an arbitrary number of splines
@@ -45,10 +47,6 @@ struct potentialArg{
   interp_2d * i2d;
   gsl_interp_accel * accx;
   gsl_interp_accel * accy;
-  gsl_interp_accel * accz;
-  gsl_spline * xSpline;
-  gsl_spline * ySpline;
-  gsl_spline * zSpline;
   interp_2d * i2drforce;
   gsl_interp_accel * accxrforce;
   gsl_interp_accel * accyrforce;
@@ -70,11 +68,34 @@ void init_potentialArgs(int,struct potentialArg *);
 void free_potentialArgs(int,struct potentialArg *);
 //Potential and force evaluation
 double evaluatePotentials(double,double,int, struct potentialArg *);
-double calcRforce(double,double,double,double,int,struct potentialArg *);
-double calczforce(double,double,double,double,int,struct potentialArg *);
-double calcPhiforce(double, double,double, double, 
-			int, struct potentialArg *);
+// Hack to allow optional velocity for dissipative forces
+// https://stackoverflow.com/a/52610204/10195320
+// Reason to use ##__VA_ARGS__ is that when no optional velocity is supplied,
+// there is a comma left in the argument list and ## absorbs that for gcc/icc
+// MSVC automatically does that for regular __VA_ARGS__, at least for now
+// https://docs.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=vs-2019#comma-elision-in-variadic-macros
+#ifdef _MSC_VER
+#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
+#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
+#define calcPhiforce(R,Z,phi,t,nargs,potentialArgs,...) CALCPHIFORCE(R,Z,phi,t,nargs,potentialArgs,__VA_ARGS__,0.,0.,0.)
+#else
+#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#define calcPhiforce(R,Z,phi,t,nargs,potentialArgs,...) CALCPHIFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#endif
+#define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+#define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+#define CALCPHIFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcPhiforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+double (calcRforce)(double,double,double,double,int,struct potentialArg *,
+		    double,double,double);
+double (calczforce)(double,double,double,double,int,struct potentialArg *,
+		      double,double,double);
+double (calcPhiforce)(double, double,double, double, 
+		      int, struct potentialArg *,
+		      double,double,double);
+// end hack
 double calcR2deriv(double, double, double,double, 
+		   
 			 int, struct potentialArg *);
 double calcphi2deriv(double, double, double,double, 
 			   int, struct potentialArg *);
@@ -117,6 +138,8 @@ double LogarithmicHaloPotentialPlanarphi2deriv(double ,double, double,
 					       struct potentialArg *);
 double LogarithmicHaloPotentialPlanarRphideriv(double ,double, double,
 					       struct potentialArg *);
+double LogarithmicHaloPotentialDens(double ,double , double, double,
+				    struct potentialArg *);
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);
