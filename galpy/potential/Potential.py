@@ -3075,7 +3075,7 @@ def flatten(Pot):
     else:
         return Pot
 
-def _check_c(Pot,dxdv=False):
+def _check_c(Pot,dxdv=False,dens=False):
     """
 
     NAME:
@@ -3092,6 +3092,8 @@ def _check_c(Pot,dxdv=False):
 
        dxdv= (False) check whether the potential has dxdv implementation
 
+       dens= (False) check whether the potential has its density implemented in C
+
     OUTPUT:
 
        True if a C implementation exists, False otherwise
@@ -3106,6 +3108,7 @@ def _check_c(Pot,dxdv=False):
     Pot= flatten(Pot)
     from ..potential import planarPotential, linearPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
+    elif dens: hasC_attr= 'hasC_dens'
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
     if isinstance(Pot,list):
@@ -3113,7 +3116,7 @@ def _check_c(Pot,dxdv=False):
                                dtype='bool'))
     elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
-    elif isinstance(Pot,Potential) or isinstance(Pot,planarPotential) \
+    elif isinstance(Pot,Force) or isinstance(Pot,planarPotential) \
             or isinstance(Pot,linearPotential):
         return Pot.__dict__[hasC_attr]
 

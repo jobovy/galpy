@@ -127,6 +127,7 @@ double calcPlanarphi2deriv(double, double, double,
 double calcPlanarRphideriv(double, double, double, 
 			   int, struct potentialArg *);
 double calcLinearForce(double, double, int, struct potentialArg *);
+double calcDensity(double, double, double,double, int, struct potentialArg *);
 //ZeroForce
 double ZeroPlanarForce(double,double,double,
 		       struct potentialArg *);

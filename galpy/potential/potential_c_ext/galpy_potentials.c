@@ -228,3 +228,14 @@ double calcLinearForce(double x, double t,
   potentialArgs-= nargs;
   return force;
 }
+double calcDensity(double R, double Z, double phi, double t, 
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double dens= 0.;
+  for (ii=0; ii < nargs; ii++){
+    dens+= potentialArgs->dens(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return dens;
+}
