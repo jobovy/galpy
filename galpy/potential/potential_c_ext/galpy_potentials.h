@@ -7,6 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <stdbool.h>
 #include <interp_2d.h>
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
@@ -37,6 +38,14 @@ struct potentialArg{
 			 struct potentialArg *);
   double (*dens)(double R, double Z, double phi, double t,
 		 struct potentialArg *);
+  // For forces that require velocity input (e.g., dynam fric)
+  bool requiresVelocity;
+  double (*RforceVelocity)(double R, double Z, double phi, double t,
+			    struct potentialArg *,double,double,double);
+  double (*zforceVelocity)(double R, double Z, double phi, double t,
+			   struct potentialArg *,double,double,double);
+  double (*phiforceVelocity)(double R, double Z, double phi, double t,
+			     struct potentialArg *,double,double,double);
   int nargs;
   double * args;
   // To allow 1D interpolation for an arbitrary number of splines

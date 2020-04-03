@@ -75,8 +75,11 @@ double (calcRforce)(double R, double Z, double phi, double t,
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rforce+= potentialArgs->Rforce(R,Z,phi,t,
-				   potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      Rforce+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
+    else
+      Rforce+= potentialArgs->Rforce(R,Z,phi,t,
+				     potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -88,8 +91,10 @@ double (calczforce)(double R, double Z, double phi, double t,
   int ii;
   double zforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    zforce+= potentialArgs->zforce(R,Z,phi,t,
-				   potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      zforce+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
+    else
+      zforce+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -101,8 +106,11 @@ double (calcPhiforce)(double R, double Z, double phi, double t,
   int ii;
   double phiforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->phiforce(R,Z,phi,t,
-				       potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      phiforce+= potentialArgs->phiforceVelocity(R,Z,phi,t,potentialArgs,
+						 vR,vT,vZ);
+    else
+      phiforce+= potentialArgs->phiforce(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
