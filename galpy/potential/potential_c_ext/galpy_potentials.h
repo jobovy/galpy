@@ -271,6 +271,8 @@ double NFWPotentialzforce(double,double,double,double,
 			  struct potentialArg *);
 double NFWPotentialPlanarR2deriv(double ,double, double,
 				 struct potentialArg *);
+double NFWPotentialDens(double ,double , double, double,
+			 struct potentialArg *);
 //JaffePotential
 double JaffePotentialEval(double ,double , double, double,
 			  struct potentialArg *);

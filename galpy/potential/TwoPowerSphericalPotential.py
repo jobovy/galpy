@@ -1154,6 +1154,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._nemo_accname= 'NFW'
         return None
 
