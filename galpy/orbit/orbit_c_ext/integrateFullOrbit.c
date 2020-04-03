@@ -90,6 +90,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &MiyamotoNagaiPotentialDens;
       //potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;

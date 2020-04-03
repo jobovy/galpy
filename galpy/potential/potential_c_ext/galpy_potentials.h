@@ -205,6 +205,8 @@ double MiyamotoNagaiPotentialzforce(double,double,double,double,
 				    struct potentialArg *);
 double MiyamotoNagaiPotentialPlanarR2deriv(double ,double, double,
 					   struct potentialArg *);
+double MiyamotoNagaiPotentialDens(double ,double , double, double,
+				  struct potentialArg *);
 //LopsidedDiskPotential
 double LopsidedDiskPotentialRforce(double,double,double,
 					   struct potentialArg *);
