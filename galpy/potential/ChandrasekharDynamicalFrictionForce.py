@@ -8,7 +8,7 @@ import numpy
 from scipy import special, interpolate
 from ..util import bovy_conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _APY_LOADED, evaluateDensities
+from .Potential import _APY_LOADED, evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
 if _APY_LOADED:
     from astropy import units
@@ -114,16 +114,19 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             from ..df import jeans
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
-        sigmar_rs= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmars_4interp= numpy.array([sigmar(x) 
+                                            for x in self._sigmar_rs_4interp])
         self.sigmar_orig= sigmar
         self.sigmar= interpolate.InterpolatedUnivariateSpline(\
-            sigmar_rs,numpy.array([sigmar(x) for x in sigmar_rs]),k=3)
+            self._sigmar_rs_4interp,self._sigmars_4interp,k=3)
         if const_lnLambda:
             self._lnLambda= const_lnLambda
         else:
             self._lnLambda= False
         self._amp*= 4.*numpy.pi
         self._force_hash= None
+        self.hasC= _check_c(self._dens_pot,dens=True)
         return None
 
     def GMs(self,gms):

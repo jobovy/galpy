@@ -614,6 +614,16 @@ double MovingObjectPotentialPlanarRforce(double,double,double,
 					struct potentialArg *);
 double MovingObjectPotentialPlanarphiforce(double,double,double,
 					    struct potentialArg *);
+//ChandrasekharDynamicalFrictionForce, takes vR,vT,vZ
+double ChandrasekharDynamicalFrictionForceRforce(double,double,double,double,
+						 struct potentialArg *,
+						 double,double,double);
+double ChandrasekharDynamicalFrictionForcephiforce(double,double,double,double,
+						   struct potentialArg *,
+						   double,double,double);
+double ChandrasekharDynamicalFrictionForcezforce(double,double,double,double,
+						 struct potentialArg *,
+						 double,double,double);
 #ifdef __cplusplus
 }
 #endif

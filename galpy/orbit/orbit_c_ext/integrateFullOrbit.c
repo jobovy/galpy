@@ -52,6 +52,7 @@ void evalRectDeriv(double, double *, double *,
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
+void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -427,8 +428,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 3;
       potentialArgs->requiresVelocity= false;
       break;
+    case -7: //ChandrasekharDynamicalFrictionForce
+      potentialArgs->RforceVelocity= &ChandrasekharDynamicalFrictionForceRforce;
+      potentialArgs->zforceVelocity= &ChandrasekharDynamicalFrictionForcezforce;
+      potentialArgs->phiforceVelocity= &ChandrasekharDynamicalFrictionForcephiforce;
+      potentialArgs->nargs= (int) 8;
+      potentialArgs->requiresVelocity= true;
+      break;
     }
-    int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
+    int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
+    int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -438,8 +447,10 @@ void parse_leapFuncArgs_Full(int npot,
 			      potentialArgs->wrappedPotentialArg,
 			      pot_type,pot_args);
     }
-    if (setupSplines)
+    if (setupMovingObjectSplines)
       initMovingObjectSplines(potentialArgs, pot_args);
+    if (setupChandrasekharDynamicalFrictionSplines)
+      initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -704,6 +715,38 @@ void initMovingObjectSplines(struct potentialArg * potentialArgs,
 
   *pot_args = *pot_args + (int) (1+4*nPts);
   free(t);
+}
+
+void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialArgs,
+					       double ** pot_args){
+  gsl_interp_accel *sr_accel_ptr = gsl_interp_accel_alloc();
+  int nPts = (int) **pot_args;
+
+  gsl_spline *sr_spline = gsl_spline_alloc(gsl_interp_cspline,nPts);
+
+  double * r_arr = *pot_args+1;
+  double * sr_arr = r_arr+1*nPts;
+
+  double * r= (double *) malloc ( nPts * sizeof (double) );
+  double ro = *(r_arr+2*nPts+6);
+  double rf = *(r_arr+2*nPts+7);
+
+  int ii;
+  for (ii=0; ii < nPts; ii++)
+    *(r+ii) = (r_arr[ii]-ro)/(rf-ro);
+
+  gsl_spline_init(sr_spline,r,sr_arr,nPts);
+
+  potentialArgs->nspline1d= 1;
+  potentialArgs->spline1d= (gsl_spline **) \
+    malloc ( potentialArgs->nspline1d*sizeof ( gsl_spline *) );
+  potentialArgs->acc1d= (gsl_interp_accel **) \
+    malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+  *potentialArgs->spline1d = sr_spline;
+  *potentialArgs->acc1d = sr_accel_ptr;
+
+  *pot_args = *pot_args + (int) (1+(1+potentialArgs->nspline1d)*nPts);
+  free(r);
 }
 
 // LCOV_EXCL_START
