@@ -368,6 +368,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenCoreSphericalPotentialRforce;
       potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &DehnenCoreSphericalPotentialDens;
       //potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
@@ -379,6 +380,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenSphericalPotentialRforce;
       potentialArgs->zforce= &DehnenSphericalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &DehnenSphericalPotentialDens;
       //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;

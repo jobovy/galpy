@@ -234,28 +234,6 @@ double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    struct potentialArg *);
 double PowerSphericalPotentialDens(double ,double , double, double,
 				   struct potentialArg *);
-//DehnenSphericalPotential
-double DehnenSphericalPotentialEval(double ,double , double, double,
-			      struct potentialArg *);
-double DehnenSphericalPotentialRforce(double ,double , double, double,
-				struct potentialArg *);
-double DehnenSphericalPotentialPlanarRforce(double ,double, double,
-				      struct potentialArg *);
-double DehnenSphericalPotentialzforce(double,double,double,double,
-				struct potentialArg *);
-double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
-				       struct potentialArg *);
-//DehnenCoreSphericalPotential
-double DehnenCoreSphericalPotentialEval(double ,double , double, double,
-			      struct potentialArg *);
-double DehnenCoreSphericalPotentialRforce(double ,double , double, double,
-				struct potentialArg *);
-double DehnenCoreSphericalPotentialPlanarRforce(double ,double, double,
-				      struct potentialArg *);
-double DehnenCoreSphericalPotentialzforce(double,double,double,double,
-				struct potentialArg *);
-double DehnenCoreSphericalPotentialPlanarR2deriv(double ,double, double,
-				       struct potentialArg *);
 //HernquistPotential
 double HernquistPotentialEval(double ,double , double, double,
 			      struct potentialArg *);
@@ -504,6 +482,33 @@ double KGPotentialLinearForce(double,double,struct potentialArg *);
 
 //IsothermalDiskPotential
 double IsothermalDiskPotentialLinearForce(double,double,struct potentialArg *);
+
+//DehnenSphericalPotential
+double DehnenSphericalPotentialEval(double ,double , double, double,
+			      struct potentialArg *);
+double DehnenSphericalPotentialRforce(double ,double , double, double,
+				struct potentialArg *);
+double DehnenSphericalPotentialPlanarRforce(double ,double, double,
+				      struct potentialArg *);
+double DehnenSphericalPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
+double DehnenSphericalPotentialDens(double ,double , double, double,
+			      struct potentialArg *);
+//DehnenCoreSphericalPotential
+double DehnenCoreSphericalPotentialEval(double ,double , double, double,
+			      struct potentialArg *);
+double DehnenCoreSphericalPotentialRforce(double ,double , double, double,
+				struct potentialArg *);
+double DehnenCoreSphericalPotentialPlanarRforce(double ,double, double,
+				      struct potentialArg *);
+double DehnenCoreSphericalPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double DehnenCoreSphericalPotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
+double DehnenCoreSphericalPotentialDens(double ,double , double, double,
+					struct potentialArg *);
 
 //HomogeneousSpherePotential
 double HomogeneousSpherePotentialEval(double ,double , double, double,
