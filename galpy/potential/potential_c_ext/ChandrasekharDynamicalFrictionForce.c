@@ -1,4 +1,11 @@
 #include <math.h>
+// Constants not defined in MSVC's math.h
+#ifndef M_SQRT1_2
+#define M_SQRT1_2 0.70710678118654746172
+#endif
+#ifndef M_2_SQRTPI
+#define M_2_SQRTPI 1.12837916709551255856
+#endif
 #include <gsl/gsl_spline.h>
 #include <galpy_potentials.h>
 // ChandrasekharDynamicalFrictionForce: 8 arguments: amp,ms,rhm,gamma^2,
