@@ -60,7 +60,7 @@ double HernquistPotentialDens(double R,double Z, double phi,
   double * args= potentialArgs->args;
   double amp= *args++;
   double a= *args;
-  //Calculate Rforce
+  //Calculate density
   double r= sqrt ( R * R + Z * Z );
   return amp * M_1_PI / 4. / a / a / r * pow ( 1. + r / a , -3. );
 }

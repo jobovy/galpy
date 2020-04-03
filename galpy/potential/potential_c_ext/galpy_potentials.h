@@ -271,6 +271,8 @@ double JaffePotentialzforce(double,double,double,double,
 			    struct potentialArg *);
 double JaffePotentialPlanarR2deriv(double ,double, double,
 				   struct potentialArg *);
+double JaffePotentialDens(double ,double , double, double,
+			  struct potentialArg *);
 //DoubleExponentialDiskPotential
 double DoubleExponentialDiskPotentialEval(double ,double , double, double,
 					  struct potentialArg *);

@@ -138,6 +138,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &JaffePotentialRforce;
       potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &JaffePotentialDens;
       //potentialArgs->R2deriv= &JaffePotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
