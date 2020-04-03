@@ -636,13 +636,13 @@ void evalRectForce(double t, double *q, double *a,
 }
 void evalRectDeriv(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce,vR,vT;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
   *a++= *(q+5);
   //Rest is force
-  //q is rectangular so calculate R and phi
+  //q is rectangular so calculate R and phi, vR and vT (for dissipative)
   x= *q;
   y= *(q+1);
   z= *(q+2);
@@ -651,10 +651,12 @@ void evalRectDeriv(double t, double *q, double *a,
   sinphi= y/R;
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
+  vR=  *(q+3) * cosphi + *(q+4) * sinphi;
+  vT= -*(q+3) * sinphi + *(q+4) * cosphi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
-  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
+  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phiforce;
   *a++= sinphi*Rforce+1./R*cosphi*phiforce;
   *a= zforce;
