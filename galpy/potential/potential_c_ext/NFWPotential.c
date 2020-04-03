@@ -1,8 +1,5 @@
 #include <math.h>
 #include <galpy_potentials.h>
-#ifndef M_1_PI
-#define M_1_PI 0.31830988618379069122
-#endif
 //NFWPotential
 //2 arguments: amp, a
 double NFWPotentialEval(double R,double Z, double phi,

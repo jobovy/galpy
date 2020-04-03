@@ -1,8 +1,5 @@
 #include <math.h>
 #include <galpy_potentials.h>
-#ifndef M_1_PI
-#define M_1_PI 0.31830988618379069122
-#endif
 //LogarithmicHaloPotential
 //4 (3)  arguments: amp, c2, (and q), now also 1-1/b^2 for triaxial!
 double LogarithmicHaloPotentialEval(double R,double Z, double phi,

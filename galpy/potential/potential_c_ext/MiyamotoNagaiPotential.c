@@ -1,8 +1,5 @@
 #include <math.h>
 #include <galpy_potentials.h>
-#ifndef M_1_PI
-#define M_1_PI 0.31830988618379069122
-#endif
 //Miyamoto-Nagai potential
 //3 arguments: amp, a, b
 double MiyamotoNagaiPotentialEval(double R,double z, double phi,
