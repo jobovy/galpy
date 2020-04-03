@@ -295,6 +295,8 @@ double FlattenedPowerPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double FlattenedPowerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double FlattenedPowerPotentialDens(double,double,double,double,
+				   struct potentialArg *);
 //interpRZPotential
 double interpRZPotentialEval(double ,double , double, double,
 			     struct potentialArg *);

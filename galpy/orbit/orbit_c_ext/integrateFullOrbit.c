@@ -160,6 +160,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &FlattenedPowerPotentialDens;
       potentialArgs->nargs= 4;
       potentialArgs->requiresVelocity= false;
       break;
