@@ -245,6 +245,8 @@ double HernquistPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double HernquistPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double HernquistPotentialDens(double ,double , double, double,
+			      struct potentialArg *);
 //NFWPotential
 double NFWPotentialEval(double ,double , double, double,
 			struct potentialArg *);

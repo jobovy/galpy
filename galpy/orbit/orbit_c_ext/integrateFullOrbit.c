@@ -114,6 +114,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &HernquistPotentialRforce;
       potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &HernquistPotentialDens;
       //potentialArgs->R2deriv= &HernquistPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;

@@ -54,3 +54,13 @@ double HernquistPotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return -amp / a / a / a * pow(1. + R / a, -3. );
 }
+double HernquistPotentialDens(double R,double Z, double phi,
+			      double t,
+			      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args;
+  //Calculate Rforce
+  double r= sqrt ( R * R + Z * Z );
+  return amp * M_1_PI / 4. / a / a / r * pow ( 1. + r / a , -3. );
+}

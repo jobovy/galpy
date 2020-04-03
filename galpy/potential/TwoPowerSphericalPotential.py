@@ -702,6 +702,10 @@ class HernquistPotential(DehnenSphericalPotential):
             self,amp=amp,a=a,alpha=1,
             normalize=normalize,ro=ro,vo=vo)
         self._nemo_accname= 'Dehnen'
+        # set properties explicitly
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
