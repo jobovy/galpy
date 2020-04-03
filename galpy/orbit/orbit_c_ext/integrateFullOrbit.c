@@ -102,6 +102,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &PowerSphericalPotentialRforce;
       potentialArgs->zforce= &PowerSphericalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &PowerSphericalPotentialDens;
       //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;

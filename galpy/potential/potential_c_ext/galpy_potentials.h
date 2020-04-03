@@ -9,6 +9,9 @@ extern "C" {
 #endif
 #include <stdbool.h>
 #include <interp_2d.h>
+#ifndef M_1_PI
+#define M_1_PI 0.31830988618379069122
+#endif
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
 			  struct potentialArg *);
@@ -229,6 +232,8 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    struct potentialArg *);
+double PowerSphericalPotentialDens(double ,double , double, double,
+				   struct potentialArg *);
 //DehnenSphericalPotential
 double DehnenSphericalPotentialEval(double ,double , double, double,
 			      struct potentialArg *);
