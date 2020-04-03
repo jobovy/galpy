@@ -315,6 +315,8 @@ double IsochronePotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double IsochronePotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double IsochronePotentialDens(double ,double , double, double,
+			      struct potentialArg *);
 //PowerSphericalPotentialwCutoff
 double PowerSphericalPotentialwCutoffEval(double ,double , double, double,
 					  struct potentialArg *);

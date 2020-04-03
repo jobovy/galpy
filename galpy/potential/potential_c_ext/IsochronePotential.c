@@ -61,3 +61,18 @@ double IsochronePotentialPlanarR2deriv(double R,double phi,
   double rb= sqrt(r2 + b * b);
   return - amp * ( -pow(b,3.) - b * b * rb + 2. * r2 * rb ) * pow(rb * ( b + rb ),-3.);
 }
+double IsochronePotentialDens(double R,double Z, double phi,
+			      double t,
+			      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double b= *(args+1);
+  //Calculate potential
+  double r2= R * R + Z * Z;
+  double rb= sqrt ( r2 + b * b );
+  double brbrb= ( b + rb ) * rb;
+  return amp * M_1_PI / 4. * ( 3. * brbrb * rb \
+			       - r2 * ( b + 3. * rb ) )	\
+    * pow ( brbrb , -3.);
+}

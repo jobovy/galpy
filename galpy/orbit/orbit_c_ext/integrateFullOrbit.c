@@ -215,6 +215,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &IsochronePotentialRforce;
       potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &IsochronePotentialDens;
       potentialArgs->nargs= 2;
       potentialArgs->requiresVelocity= false;
       break;
