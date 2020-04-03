@@ -21,6 +21,8 @@ class linearPotential(object):
         self.dim= 1
         self.isRZ= False
         self.hasC= False
+        self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')

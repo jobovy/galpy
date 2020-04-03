@@ -74,6 +74,7 @@ class Potential(Force):
         self.isNonAxi= False
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
         return None
 
     @potential_physical_input

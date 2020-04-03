@@ -26,6 +26,7 @@ class planarPotential(object):
         self.isRZ= False
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')
@@ -721,6 +722,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._Pot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
+        self.hasC_dens= RZPot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -838,6 +840,7 @@ class planarPotentialFromFullPotential(planarPotential):
         self._Pot= Pot
         self.hasC= Pot.hasC
         self.hasC_dxdv= Pot.hasC_dxdv
+        self.hasC_dens= Pot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
