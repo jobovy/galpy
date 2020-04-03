@@ -74,3 +74,16 @@ double PowerSphericalPotentialwCutoffPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return amp * ( 4. * M_PI * pow(r2,- 0.5 * alpha) * exp(-r2/rc/rc) - 2. * mass(r2,alpha,rc)/pow(r2,1.5) );
 }
+double PowerSphericalPotentialwCutoffDens(double R,double Z, double phi,
+					  double t,
+					  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double alpha= *args++;
+  double rc= *args;
+  //Radius
+  double r2= R * R + Z * Z;
+  double r= sqrt(r2);
+  return amp * pow(r,-alpha) * exp ( -r2 / rc / rc );
+}
