@@ -64,6 +64,7 @@ class LogarithmicHaloPotential(Potential):
             core= core.to(units.kpc).value/self._ro
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._core2= core**2.
         self._q= q
         self._b= b

@@ -70,6 +70,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
       potentialArgs->phiforce= &LogarithmicHaloPotentialphiforce;
+      potentialArgs->dens= &LogarithmicHaloPotentialDens;
       //potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;

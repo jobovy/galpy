@@ -1,5 +1,8 @@
 #include <math.h>
 #include <galpy_potentials.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 //LogarithmicHaloPotential
 //4 (3)  arguments: amp, c2, (and q), now also 1-1/b^2 for triaxial!
 double LogarithmicHaloPotentialEval(double R,double Z, double phi,
@@ -153,4 +156,32 @@ double LogarithmicHaloPotentialPlanarRphideriv(double R,double phi,
     return - amp * c / (Rt2+c) / (Rt2+c) * R * sin(2.*phi) * onem1overb2;
   } else
     return 0.;
+}
+double LogarithmicHaloPotentialDens(double R,double Z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate density
+  double zq= Z/q;
+  double R2, Rt2, denom, denom2;
+  double q2= q*q;
+  if ( onem1overb2 < 1 ) {
+    R2= R * R;
+    Rt2= R2 * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq * zq + c );
+    denom2= denom *  denom;
+    return amp / 4. / M_PI * ( 2. * Rt2 / R2 * ( denom - Rt2 * denom2 )\
+	       + denom / q2 - 2. * zq * zq * denom * denom / q2 \
+	       - onem1overb2 \
+	       + ( 2. * R2 * pow ( sin ( 2. * phi ),2) / 4. * onem1overb2 \
+		   * denom * denom + denom * cos( 2. * phi ) ) );
+  } else
+    return amp / 4. / M_PI / q2 * ( ( 2. * q2 + 1. ) * c + R * R \
+				       + ( 2. - 1. / q2 ) * Z * Z )/	\
+      pow( R * R + zq * zq + c ,2.);
 }
