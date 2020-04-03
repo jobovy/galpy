@@ -282,6 +282,8 @@ double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
 						  struct potentialArg *);
 double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    struct potentialArg *);
+double DoubleExponentialDiskPotentialDens(double ,double , double, double,
+					  struct potentialArg *);
 //FlattenedPowerPotential
 double FlattenedPowerPotentialEval(double,double,double,double,
 				   struct potentialArg *);

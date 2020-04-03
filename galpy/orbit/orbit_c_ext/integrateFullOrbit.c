@@ -150,6 +150,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &DoubleExponentialDiskPotentialDens;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (8 + 2 * *(*pot_args+5) + 4 * ( *(*pot_args+4) + 1 ));
       potentialArgs->requiresVelocity= false;
