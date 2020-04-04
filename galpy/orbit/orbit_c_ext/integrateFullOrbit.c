@@ -282,6 +282,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
@@ -295,6 +296,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
@@ -308,6 +310,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
@@ -357,6 +360,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->dens= &EllipsoidalPotentialDens;
       //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
       //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
       //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;

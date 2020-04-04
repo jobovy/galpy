@@ -405,6 +405,8 @@ double EllipsoidalPotentialPlanarphiforce(double,double,double,
 					  struct potentialArg *);
 double EllipsoidalPotentialzforce(double,double,double,double,
 				  struct potentialArg *);
+double EllipsoidalPotentialDens(double,double,double,double,
+				struct potentialArg *);
 //TriaxialHernquistPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double TriaxialHernquistPotentialpsi(double,double *);
 double TriaxialHernquistPotentialmdens(double,double *);

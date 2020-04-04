@@ -179,6 +179,26 @@ double EllipsoidalPotentialPlanarphiforce(double R,double phi,double t,
 					  struct potentialArg * potentialArgs){
   return EllipsoidalPotentialphiforce(R,0.,phi,t,potentialArgs);
 }
+double EllipsoidalPotentialDens(double R,double z, double phi,
+				double t,
+				struct potentialArg * potentialArgs){
+  //Get args
+  double * args= potentialArgs->args;
+  double amp= *args;
+  double * ellipargs= args + 8 + (int) *(args+7); // *(args+7) = num. arguments psi
+  double b2= *ellipargs++;
+  double c2= *ellipargs++;
+  bool aligned= (bool) *ellipargs++;
+  double * rot= ellipargs;
+  ellipargs+= 9;
+  //Calculate density
+  double x, y;
+  cyl_to_rect(R,phi,&x,&y);
+  if ( !aligned ) 
+    rotate(&x,&y,&z,rot);
+  return amp * potentialArgs->mdens ( sqrt (x * x + y * y / b2 + z * z / c2 ),
+				     args+8);
+}
 
 /*
 

@@ -76,6 +76,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
             self.normalize(normalize)
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
+        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
         return None
 
     def _psi(self,m):
