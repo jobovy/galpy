@@ -72,6 +72,5 @@ double PseudoIsothermalPotentialDens(double R,double Z, double phi,
   double a2= a*a;
   //Calculate potential
   double r2= R*R+Z*Z;
-  double r= sqrt(r2);
   return amp * M_1_PI / 4. / ( 1. + r2 / a2 ) / a2 / a;
 }
