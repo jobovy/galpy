@@ -245,6 +245,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &PlummerPotentialRforce;
       potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &PlummerPotentialDens;
       //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
       potentialArgs->nargs= 2;
       potentialArgs->requiresVelocity= false;

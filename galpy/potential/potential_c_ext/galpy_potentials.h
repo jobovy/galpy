@@ -364,6 +364,8 @@ double PlummerPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double PlummerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double PlummerPotentialDens(double,double,double,double,
+			    struct potentialArg *);
 //PseudoIsothermalPotential
 double PseudoIsothermalPotentialEval(double,double,double,double,
 				     struct potentialArg *);
