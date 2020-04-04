@@ -390,6 +390,8 @@ double BurkertPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double BurkertPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double BurkertPotentialDens(double,double,double,double,
+			    struct potentialArg *);
 //EllipsoidalPotential
 double EllipsoidalPotentialEval(double,double,double,double,
 				     struct potentialArg *);

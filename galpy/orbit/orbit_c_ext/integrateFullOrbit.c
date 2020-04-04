@@ -272,6 +272,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &BurkertPotentialEval;
       potentialArgs->Rforce= &BurkertPotentialRforce;
       potentialArgs->zforce= &BurkertPotentialzforce;
+      potentialArgs->dens= &BurkertPotentialDens;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= 2;
       potentialArgs->requiresVelocity= false;
