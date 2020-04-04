@@ -41,6 +41,7 @@ def sigmar(Pot,r,dens=None,beta=0.):
     Pot= flatten_pot(Pot)
     if dens is None:
         dens= lambda r: evaluateDensities(Pot,r*_INVSQRTTWO,r*_INVSQRTTWO,
+                                          phi=numpy.pi/4.,
                                           use_physical=False)
     if callable(beta):
         intFactor= lambda x: numpy.exp(2.*integrate.quad(lambda y: beta(y)/y,
@@ -50,7 +51,8 @@ def sigmar(Pot,r,dens=None,beta=0.):
     return numpy.sqrt(integrate.quad(lambda x: -intFactor(x)*dens(x)
                                      *evaluaterforces(Pot,
                                                       x*_INVSQRTTWO,
-                                                      x*_INVSQRTTWO,
+                                                      x*_INVSQRTTWO, 
+                                                      phi=numpy.pi/4.,
                                                       use_physical=False),
                                      r,numpy.inf)[0]/
                       dens(r)/intFactor(r))
