@@ -49,6 +49,7 @@ class PseudoIsothermalPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._a= a
         self._a2= a**2.
         self._a3= a**3.

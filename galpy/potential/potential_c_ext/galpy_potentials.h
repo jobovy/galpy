@@ -377,6 +377,8 @@ double PseudoIsothermalPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double PseudoIsothermalPotentialDens(double,double,double,double,
+				     struct potentialArg *);
 //BurkertPotential
 double BurkertPotentialEval(double,double,double,double,
 				     struct potentialArg *);

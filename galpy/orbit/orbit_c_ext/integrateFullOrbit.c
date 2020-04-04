@@ -255,6 +255,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &PseudoIsothermalPotentialDens;
       //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
       potentialArgs->nargs= 2;
       potentialArgs->requiresVelocity= false;
