@@ -541,6 +541,8 @@ double HomogeneousSpherePotentialzforce(double,double,double,double,
 					struct potentialArg *);
 double HomogeneousSpherePotentialPlanarR2deriv(double ,double, double,
 					       struct potentialArg *);
+double HomogeneousSpherePotentialDens(double ,double , double, double,
+				      struct potentialArg *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential

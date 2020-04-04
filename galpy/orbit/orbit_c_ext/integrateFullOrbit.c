@@ -405,6 +405,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &HomogeneousSpherePotentialRforce;
       potentialArgs->zforce= &HomogeneousSpherePotentialzforce;
       potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &HomogeneousSpherePotentialDens;
       potentialArgs->nargs= 3;
       potentialArgs->requiresVelocity= false;
       break;
