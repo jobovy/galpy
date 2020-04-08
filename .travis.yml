@@ -15,8 +15,8 @@ env: #split tests
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
     - TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
     - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py'
-    - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
+    - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_streamdf.py'
 matrix: # only run crucial tests for python 2.7, 3.6, 3.7
   include:
