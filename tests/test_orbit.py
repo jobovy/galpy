@@ -1600,7 +1600,7 @@ def test_dynamfric_c():
                     and len(p) > 2 \
                     and isinstance(p[2],potential.NFWPotential):
                 pname= 'MWPotential3021' # Must be!
-        print(pname)
+        #print(pname)
         if pname in list(tol.keys()): ttol= tol[pname]
         else: ttol= tol['default']
         # Setup orbit, ~ LMC
