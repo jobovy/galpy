@@ -5325,3 +5325,26 @@ def test_MovingObjectPotential_planar_orbit():
     assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     return None
+
+# Test that r < minr in ChandrasekharDynamFric works properly
+def test_dynamfric_c_minr():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
+    integrator= 'dop853_c'
+    pot= potential.LogarithmicHaloPotential(normalize=1)
+    # Setup orbit, ~ LMC
+    o= Orbit([5.13200034,1.08033051,0.23323391,
+              -3.48068653,0.94950884,-1.54626091])
+    # Setup dynamical friction object, with minr = 130 st always 0 for this orbit
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.5553870441722593,rhm=5./8.,dens=pot,minr=130./8.,maxr=500./8)
+    # Integrate in C with dynamical friction
+    o.integrate(times,pot+cdf,method=integrator)
+    # Integrate in C without dynamical friction
+    op= o()
+    op.integrate(times,pot,method=integrator)
+    # Compare r (most important)
+    assert numpy.amax(numpy.fabs(o.r(times)-op.r(times))) < 10**-8., \
+            'Dynamical friction in C does not properly use minr'
+    return None
+
