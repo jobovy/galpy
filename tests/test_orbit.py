@@ -1590,6 +1590,7 @@ def test_dynamfric_c():
     tol['TriaxialNFWPotential']= -6.
     tol['TriaxialJaffePotential']= -6.
     tol['MWPotential3021']= -6.
+    tol['HomogeneousSpherePotential']= -6.
     for p in pots:
         if not _check_c(p,dens=True): continue # dynamfric not in C!
         pname= type(p).__name__
