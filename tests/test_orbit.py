@@ -1538,6 +1538,81 @@ def test_analytic_ecc_rperi_rap():
     #raise AssertionError
     return None
     
+# Test whether dynamical friction in C works (compare to Python, which is 
+# tested below; put here because a test of many potentials)
+def test_dynamfric_c():
+    import copy
+    from galpy.orbit import Orbit
+    from galpy.potential.Potential import _check_c
+    #Basic parameters for the test
+    times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
+    integrator= 'dop853_c'
+    py_integrator= 'dop853'
+    #Define all of the potentials (by hand, because need reasonable setup)
+    MWPotential3021= copy.deepcopy(potential.MWPotential2014)
+    MWPotential3021[2]*= 1.5 # Increase mass by 50%
+    pots= [potential.LogarithmicHaloPotential(normalize=1),
+           potential.NFWPotential(normalize=1.,a=1.5),
+           potential.MiyamotoNagaiPotential(normalize=.02,a=10.,b=10.),
+           potential.PowerSphericalPotential(alpha=2.3,normalize=2.),
+           potential.DehnenSphericalPotential(normalize=4.,alpha=1.2),
+           potential.DehnenCoreSphericalPotential(normalize=4.),
+           potential.HernquistPotential(normalize=1.,a=3.5),
+           potential.JaffePotential(normalize=1.,a=20.5),
+           potential.DoubleExponentialDiskPotential(normalize=0.2,
+                                                    hr=3.,hz=0.6),
+           potential.FlattenedPowerPotential(normalize=3.),
+           potential.IsochronePotential(normalize=2.),
+           potential.PowerSphericalPotentialwCutoff(normalize=0.3,rc=10.),
+           potential.PlummerPotential(normalize=.6,b=3.),
+           potential.PseudoIsothermalPotential(normalize=.1,a=3.),
+           potential.BurkertPotential(normalize=.2,a=2.5),
+           potential.TriaxialHernquistPotential(normalize=1.,a=3.5,
+                                                b=0.8,c=0.9),
+           potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.8,c=0.9),
+           potential.TriaxialJaffePotential(normalize=1.,a=20.5,b=0.8,c=1.4),
+           potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5),
+           potential.HomogeneousSpherePotential(normalize=0.02,R=300.),
+           MWPotential3021
+           ]
+    #tolerances in log10
+    tol= {}
+    tol['default']= -7.
+    # Following are a little more difficult
+    tol['DoubleExponentialDiskPotential']= -4.5
+    tol['TriaxialHernquistPotential']= -6.
+    tol['TriaxialNFWPotential']= -6.
+    tol['TriaxialJaffePotential']= -6.
+    tol['MWPotential3021']= -6.
+    for p in pots:
+        if not _check_c(p,dens=True): continue # dynamfric not in C!
+        pname= type(p).__name__
+        if pname == 'list':
+            if isinstance(p[0],potential.PowerSphericalPotentialwCutoff) \
+                    and len(p) > 1 \
+                    and isinstance(p[1],potential.MiyamotoNagaiPotential) \
+                    and len(p) > 2 \
+                    and isinstance(p[2],potential.NFWPotential):
+                pname= 'MWPotential3021' # Must be!
+        print(pname)
+        if pname in list(tol.keys()): ttol= tol[pname]
+        else: ttol= tol['default']
+        # Setup orbit, ~ LMC
+        o= Orbit([5.13200034,1.08033051,0.23323391,
+                  -3.48068653,0.94950884,-1.54626091])
+        # Setup dynamical friction object
+        cdf= potential.ChandrasekharDynamicalFrictionForce(\
+            GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8)
+        # Integrate in C
+        o.integrate(times,p+cdf,method=integrator)
+        # Integrate in Python
+        op= o()
+        op.integrate(times,p+cdf,method=py_integrator)
+        # Compare r (most important)
+        assert numpy.amax(numpy.fabs(o.r(times)-op.r(times))) < 10**ttol, \
+            'Dynamical friction in C does not agree with dynamical friction in Python for potential {}'.format(pname)
+    return None
+
 def test_orbit_rguiding():
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
         TriaxialNFWPotential, rl
