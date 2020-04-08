@@ -187,10 +187,10 @@ class LogarithmicHaloPotential(Potential):
             denom2= denom**2.
             return 1./4./numpy.pi\
                 *(2.*Rt2/R2*(denom-Rt2*denom2)\
-                      +denom/self._q**2.-2.*z**2.*denom**2./self._q**4.\
+                      +denom/self._q**2.-2.*z**2.*denom2/self._q**4.\
                       -self._1m1overb2\
                       *(2.*R2*numpy.sin(2.*phi)**2./4.*self._1m1overb2\
-                            *denom**2.+denom*numpy.cos(2.*phi)))
+                            *denom2+denom*numpy.cos(2.*phi)))
         else:
             return 1./4./numpy.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
                                                 +(2.-self._q**-2.)*z**2.)/\
