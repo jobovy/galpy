@@ -51,12 +51,12 @@ before_install:
  - conda config --set always_yes yes --set changeps1 no
  - conda update conda
  - conda config --add channels conda-forge
+# Make defaults again the highest priority channel
+ - conda config --add channels defaults
 # setuptools >= 45 no longer supports Python 2
  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then SETUPTOOLS_VERSION="<45"; else SETUPTOOLS_VERSION=""; fi
  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib numexpr "setuptools$SETUPTOOLS_VERSION" pip "cython>=0.20" pytest
  - source activate test-environment
-#Switch to conda defaults python, because conda-forge python has issues with gcc compiler similar to https://github.com/conda/conda/issues/6030
- - conda install python=$TRAVIS_PYTHON_VERSION -c defaults
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
