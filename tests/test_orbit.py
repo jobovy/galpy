@@ -1578,7 +1578,7 @@ def test_dynamfric_c():
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5),
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5,
                                                pa=3.,zvec=[0.,1.,0.]), #rotated
-           potential.HomogeneousSpherePotential(normalize=0.02,R=300.),
+           potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part
            MWPotential3021
            ]
     #tolerances in log10
