@@ -117,6 +117,20 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
         self._sigmars_4interp= numpy.array([sigmar(x) 
                                             for x in self._sigmar_rs_4interp])
+        if numpy.any(numpy.isnan(self._sigmars_4interp)):
+            # Check for case where density is zero, in that case, just
+            # paint in the nearest neighbor for the interpolation
+            # (doesn't matter in the end, because force = 0 when dens = 0)
+            nanrs_indx= numpy.isnan(self._sigmars_4interp)
+            if numpy.all(numpy.array([self._dens(r*_INVSQRTTWO,r*_INVSQRTTWO)
+                                      for r in 
+                                      self._sigmar_rs_4interp[nanrs_indx]]) 
+                         == 0.):
+                self._sigmars_4interp[nanrs_indx]= interpolate.interp1d(\
+                    self._sigmar_rs_4interp[True^nanrs_indx],
+                    self._sigmars_4interp[True^nanrs_indx],
+                    kind="nearest",fill_value="extrapolate")\
+                        (self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig= sigmar
         self.sigmar= interpolate.InterpolatedUnivariateSpline(\
             self._sigmar_rs_4interp,self._sigmars_4interp,k=3)
