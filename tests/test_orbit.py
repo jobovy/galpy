@@ -1552,8 +1552,11 @@ def test_dynamfric_c():
     MWPotential3021= copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2]*= 1.5 # Increase mass by 50%
     pots= [potential.LogarithmicHaloPotential(normalize=1),
+           potential.LogarithmicHaloPotential(normalize=1.3,
+                                              q=0.9,b=0.7), #nonaxi
            potential.NFWPotential(normalize=1.,a=1.5),
            potential.MiyamotoNagaiPotential(normalize=.02,a=10.,b=10.),
+           potential.MiyamotoNagaiPotential(normalize=.6,a=0.,b=3.), # special case
            potential.PowerSphericalPotential(alpha=2.3,normalize=2.),
            potential.DehnenSphericalPotential(normalize=4.,alpha=1.2),
            potential.DehnenCoreSphericalPotential(normalize=4.),
@@ -1562,6 +1565,7 @@ def test_dynamfric_c():
            potential.DoubleExponentialDiskPotential(normalize=0.2,
                                                     hr=3.,hz=0.6),
            potential.FlattenedPowerPotential(normalize=3.),
+           potential.FlattenedPowerPotential(normalize=3.,alpha=0), #special case
            potential.IsochronePotential(normalize=2.),
            potential.PowerSphericalPotentialwCutoff(normalize=0.3,rc=10.),
            potential.PlummerPotential(normalize=.6,b=3.),
@@ -1572,6 +1576,8 @@ def test_dynamfric_c():
            potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.8,c=0.9),
            potential.TriaxialJaffePotential(normalize=1.,a=20.5,b=0.8,c=1.4),
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5),
+           potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5,
+                                               pa=3.,zvec=[0.,1.,0.]), #rotated
            potential.HomogeneousSpherePotential(normalize=0.02,R=300.),
            MWPotential3021
            ]
