@@ -1460,6 +1460,9 @@ def test_toPlanarPotential():
         pass
     else:
         raise AssertionError('Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError')
+    # Check that list of objects that are not potentials gives error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toPlanarPotential([3,4,45])
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp= potential.PlummerPotential(amp=1.12,b=2.)
@@ -1538,6 +1541,9 @@ def test_toVerticalPotential():
     # Check that giving a list of planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.toVerticalPotential([tnp.toPlanar()],1.2,phi=0.8)       
+    # Check that giving a list of non-potentials gives error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential([3,4,45],1.2)
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp= potential.PlummerPotential(amp=1.12,b=2.)
