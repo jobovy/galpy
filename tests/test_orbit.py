@@ -1544,6 +1544,7 @@ def test_dynamfric_c():
     import copy
     from galpy.orbit import Orbit
     from galpy.potential.Potential import _check_c
+    from galpy.potential.mwpotentials import McMillan17
     #Basic parameters for the test
     times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
     integrator= 'dop853_c'
@@ -1578,7 +1579,10 @@ def test_dynamfric_c():
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5),
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5,
                                                pa=3.,zvec=[0.,1.,0.]), #rotated
-           potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part
+           potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part,
+           potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
+                                  normalize=1.,a=3.5),
+           McMillan17[1:],
            MWPotential3021
            ]
     #tolerances in log10
@@ -1591,6 +1595,7 @@ def test_dynamfric_c():
     tol['TriaxialJaffePotential']= -6.
     tol['MWPotential3021']= -6.
     tol['HomogeneousSpherePotential']= -6.
+    tol['McMillan17']= -6.
     for p in pots:
         if not _check_c(p,dens=True): continue # dynamfric not in C!
         pname= type(p).__name__
@@ -1601,6 +1606,8 @@ def test_dynamfric_c():
                     and len(p) > 2 \
                     and isinstance(p[2],potential.NFWPotential):
                 pname= 'MWPotential3021' # Must be!
+            else:
+                pname= 'McMillan17'
         #print(pname)
         if pname in list(tol.keys()): ttol= tol[pname]
         else: ttol= tol['default']
@@ -1609,7 +1616,7 @@ def test_dynamfric_c():
                   -3.48068653,0.94950884,-1.54626091])
         # Setup dynamical friction object
         cdf= potential.ChandrasekharDynamicalFrictionForce(\
-            GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8)
+            GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=201)
         # Integrate in C
         o.integrate(times,p+cdf,method=integrator)
         # Integrate in Python
