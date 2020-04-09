@@ -324,6 +324,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &SCFPotentialRforce;
       potentialArgs->zforce= &SCFPotentialzforce;
       potentialArgs->phiforce= &SCFPotentialphiforce;
+      potentialArgs->dens= &SCFPotentialDens;
       potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
       potentialArgs->requiresVelocity= false;
       break;

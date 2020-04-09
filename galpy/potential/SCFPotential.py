@@ -128,6 +128,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         self._force_hash= None
         self.hasC= True
         self.hasC_dxdv=True
+        self.hasC_dens=True
         
         if normalize or \
                 (isinstance(normalize,(int,float)) \

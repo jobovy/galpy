@@ -439,6 +439,8 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
+double SCFPotentialDens(double,double,double,double,
+			struct potentialArg *);
 //SoftenedNeedleBarPotential
 double SoftenedNeedleBarPotentialEval(double,double,double,double,
 				      struct potentialArg *);
