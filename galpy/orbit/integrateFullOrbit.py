@@ -270,7 +270,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([len(p._sigmar_rs_4interp)])
             pot_args.extend(p._sigmar_rs_4interp)
             pot_args.extend(p._sigmars_4interp)
-            pot_args.extend([p._amp,p._ms,p._rhm,p._gamma**2.,
+            pot_args.extend([p._amp])
+            pot_args.extend([-1.,0.,0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([p._ms,p._rhm,p._gamma**2.,
                              -1 if not p._lnLambda else p._lnLambda,
                              p._minr**2.])
             pot_args.extend([p._sigmar_rs_4interp[0],

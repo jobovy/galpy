@@ -451,7 +451,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &ChandrasekharDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &ChandrasekharDynamicalFrictionForcezforce;
       potentialArgs->phiforceVelocity= &ChandrasekharDynamicalFrictionForcephiforce;
-      potentialArgs->nargs= (int) 8;
+      potentialArgs->nargs= (int) 16;
       potentialArgs->requiresVelocity= true;
       break;
     }
@@ -747,8 +747,8 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialAr
   double * sr_arr = r_arr+1*nPts;
 
   double * r= (double *) malloc ( nPts * sizeof (double) );
-  double ro = *(r_arr+2*nPts+6);
-  double rf = *(r_arr+2*nPts+7);
+  double ro = *(r_arr+2*nPts+14);
+  double rf = *(r_arr+2*nPts+15);
 
   int ii;
   for (ii=0; ii < nPts; ii++)
