@@ -8,6 +8,10 @@ v2.0 (????-??-??)
   avoid use of math, don't use scipy's numpy interface, internal
   imports for all galpy imports.
 
+- Implemented ChandrasekharDynamicalFrictionForce in C, introducing a
+  general scheme for easily implementing velocity-dependent forces in
+  C without requiring all forces to take velocity arguments (#420).
+
 - Fixed AMUSE compatibility with Potentials instantiated with physical
   inputs (#405).
 
