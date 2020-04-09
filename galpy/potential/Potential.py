@@ -3113,7 +3113,8 @@ def _check_c(Pot,dxdv=False,dens=False):
     else: hasC_attr= 'hasC'
     from .WrapperPotential import parentWrapperPotential
     if isinstance(Pot,list):
-        return numpy.all(numpy.array([_check_c(p,dxdv=dxdv) for p in Pot],
+        return numpy.all(numpy.array([_check_c(p,dxdv=dxdv,dens=dens)
+                                      for p in Pot],
                                dtype='bool'))
     elif isinstance(Pot,parentWrapperPotential):
         return bool(Pot.__dict__[hasC_attr]*_check_c(Pot._pot))
