@@ -10,8 +10,9 @@
 #include <galpy_potentials.h>
 // ChandrasekharDynamicalFrictionForce: 8 arguments: amp,ms,rhm,gamma^2,
 // lnLambda, minr^2, ro, rf
-double ChandrasekharDynamicalFrictionForceAmplitude(double R,double z, double phi,
-						    double t,
+double ChandrasekharDynamicalFrictionForceAmplitude(double R,double z, 
+						    double phi,double t,
+						    double r2,
 						    struct potentialArg * potentialArgs,
 						    double vR,double vT,
 						    double vz){
@@ -26,9 +27,6 @@ double ChandrasekharDynamicalFrictionForceAmplitude(double R,double z, double ph
   double ro= *(args+14);
   double rf= *(args+15);
   double GMvs;
-  double r2=  R * R + z * z;
-  if ( r2 < *(args+13) )  // r < minr
-    return 0.;
   double r= sqrt( r2 );
   double v2=  vR * vR + vT * vT + vz * vz;
   double v= sqrt( v2 );
@@ -66,6 +64,9 @@ double ChandrasekharDynamicalFrictionForceRforce(double R,double z, double phi,
 						 double vz){
   double forceAmplitude;
   double * args= potentialArgs->args;
+  double r2=  R * R + z * z;
+  if ( r2 < *(args+13) )  // r < minr, don't bother caching
+    return 0.;
   //Get args
   double cached_R= *(args + 1);
   double cached_z= *(args + 2);
@@ -76,7 +77,7 @@ double ChandrasekharDynamicalFrictionForceRforce(double R,double z, double phi,
   double cached_vz= *(args + 7);
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
        || vR != cached_vR || vT != cached_vT || vz != cached_vz )
-    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,
+    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
 								 potentialArgs,
 								 vR,vT,vz);
   else
@@ -90,6 +91,9 @@ double ChandrasekharDynamicalFrictionForcezforce(double R,double z, double phi,
 						 double vz){
   double forceAmplitude;
   double * args= potentialArgs->args;
+  double r2=  R * R + z * z;
+  if ( r2 < *(args+13) )  // r < minr, don't bother caching
+    return 0.;
   //Get args
   double cached_R= *(args + 1);
   double cached_z= *(args + 2);
@@ -100,7 +104,7 @@ double ChandrasekharDynamicalFrictionForcezforce(double R,double z, double phi,
   double cached_vz= *(args + 7);
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
        || vR != cached_vR || vT != cached_vT || vz != cached_vz )
-    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,
+    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
 								 potentialArgs,
 								 vR,vT,vz);
   else
@@ -114,6 +118,9 @@ double ChandrasekharDynamicalFrictionForcephiforce(double R,double z,
 						   double vz){
   double forceAmplitude;
   double * args= potentialArgs->args;
+  double r2=  R * R + z * z;
+  if ( r2 < *(args+13) )  // r < minr, don't bother caching
+    return 0.;
   //Get args
   double cached_R= *(args + 1);
   double cached_z= *(args + 2);
@@ -124,7 +131,7 @@ double ChandrasekharDynamicalFrictionForcephiforce(double R,double z,
   double cached_vz= *(args + 7);
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
        || vR != cached_vR || vT != cached_vT || vz != cached_vz )
-    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,
+    forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
 								 potentialArgs,
 								 vR,vT,vz);
   else
