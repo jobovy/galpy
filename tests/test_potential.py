@@ -1438,9 +1438,9 @@ def test_RZToplanarPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToplanarPotential([pp,cdfc])
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToplanarPotential(cdfc)
     return None
 
@@ -1466,10 +1466,8 @@ def test_toPlanarPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toPlanarPotential([pp,cdfc])
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp= potential.toPlanarPotential(cdfc)
     return None
 
 def test_RZToverticalPotential():
@@ -1508,9 +1506,9 @@ def test_RZToverticalPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToverticalPotential([pp,cdfc],1.2)
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToverticalPotential(cdfc,1.2)
     return None
 
@@ -1546,9 +1544,9 @@ def test_toVerticalPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toVerticalPotential([pp,cdfc],1.2,phi=0.8)
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toVerticalPotential(cdfc,1.2,phi=0.8)
     # Check that running a non-axisymmetric potential through toVertical w/o
     # phi gives an error
