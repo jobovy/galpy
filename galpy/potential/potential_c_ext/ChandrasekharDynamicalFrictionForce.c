@@ -104,9 +104,11 @@ double ChandrasekharDynamicalFrictionForcezforce(double R,double z, double phi,
   double cached_vz= *(args + 7);
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
        || vR != cached_vR || vT != cached_vT || vz != cached_vz )
+    //LCOV_EXCL_START
     forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
 								 potentialArgs,
 								 vR,vT,vz);
+    //LCOV_EXCL_STOP
   else
     forceAmplitude= *(args + 8);
   return forceAmplitude * vz;
@@ -131,9 +133,11 @@ double ChandrasekharDynamicalFrictionForcephiforce(double R,double z,
   double cached_vz= *(args + 7);
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
        || vR != cached_vR || vT != cached_vT || vz != cached_vz )
+    //LCOV_EXCL_START
     forceAmplitude= ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
 								 potentialArgs,
 								 vR,vT,vz);
+    //LCOV_EXCL_STOP
   else
     forceAmplitude= *(args + 8);
   return forceAmplitude * vT * R;
