@@ -10,6 +10,7 @@ from ..util import config
 from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr
 from .Potential import Potential, PotentialError, lindbladR, flatten
+from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -800,6 +801,8 @@ def RZToplanarPotential(RZPot):
 
     """
     RZPot= flatten(RZPot)
+    if _isDissipative(RZPot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -984,7 +987,9 @@ def toPlanarPotential(Pot):
 
     """
     Pot= flatten(Pot)
-    if isinstance(Pot,list):
+    if _isDissipative(Pot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
+    elif isinstance(Pot,list):
         out= []
         for pot in Pot:
             if isinstance(pot,planarPotential):
