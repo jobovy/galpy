@@ -1611,8 +1611,7 @@ def test_dynamfric_c():
                 pname= 'MWPotential3021' # Must be!
             else:
                 pname= 'McMillan17'
-        if not pname == 'McMillan17': continue
-        print(pname)
+        #print(pname)
         if pname in list(tol.keys()): ttol= tol[pname]
         else: ttol= tol['default']
         # Setup orbit, ~ LMC
