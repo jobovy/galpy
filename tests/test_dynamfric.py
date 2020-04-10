@@ -181,6 +181,9 @@ def test_dynamfric_c():
            potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part,
            potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
                                   normalize=1.,a=3.5),
+           potential.SCFPotential(Acos=numpy.array([[[1.,0.],[.3,0.]]]), # nonaxi
+                                  Asin=numpy.array([[[0.,0.],[1e-1,0.]]]),
+                                  normalize=1.,a=3.5),
            MWPotential3021,
            McMillan17 # SCF + DiskSCF
            ]
