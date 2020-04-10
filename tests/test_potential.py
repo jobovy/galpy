@@ -3805,6 +3805,24 @@ class expwholeDiskSCFPotential(DiskSCFPotential):
                                   hz={'type':'exp','h':1./27.},
                                   a=1.,N=5,L=5)
         return None
+# Same as above, but specify type as 'exp' and give Rhole, to make sure that
+# case is handled correctly
+class altExpwholeDiskSCFPotential(DiskSCFPotential):
+    def __init__(self):
+        # Add a Hernquist potential because otherwise the density near the 
+        # center is zero
+        from galpy.potential import HernquistPotential
+        hp= HernquistPotential(normalize=0.5)
+        DiskSCFPotential.__init__(self,\
+            dens=lambda R,z: 13.5*numpy.exp(-0.5/(R+10.**-10.)
+                                             -3.*R-numpy.fabs(z)*27.)
+                                  +hp.dens(R,z),
+                                  Sigma={'h': 1./3.,
+                                         'type': 'exp','amp': 1.0,
+                                         'Rhole':0.5},
+                                  hz={'type':'exp','h':1./27.},
+                                  a=1.,N=5,L=5)
+        return None
 class nonaxiDiskSCFPotential(DiskSCFPotential):
     def __init__(self):
         thp= triaxialHernquistPotential()
