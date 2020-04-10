@@ -1541,101 +1541,6 @@ def test_analytic_ecc_rperi_rap():
     #raise AssertionError
     return None
     
-# Test whether dynamical friction in C works (compare to Python, which is 
-# tested below; put here because a test of many potentials)
-def test_dynamfric_c():
-    import copy
-    from galpy.orbit import Orbit
-    from galpy.potential.Potential import _check_c
-    from galpy.potential.mwpotentials import McMillan17
-    #Basic parameters for the test
-    times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
-    integrator= 'dop853_c'
-    py_integrator= 'dop853'
-    #Define all of the potentials (by hand, because need reasonable setup)
-    MWPotential3021= copy.deepcopy(potential.MWPotential2014)
-    MWPotential3021[2]*= 1.5 # Increase mass by 50%
-    pots= [potential.LogarithmicHaloPotential(normalize=1),
-           potential.LogarithmicHaloPotential(normalize=1.3,
-                                              q=0.9,b=0.7), #nonaxi
-           potential.NFWPotential(normalize=1.,a=1.5),
-           potential.MiyamotoNagaiPotential(normalize=.02,a=10.,b=10.),
-           potential.MiyamotoNagaiPotential(normalize=.6,a=0.,b=3.), # special case
-           potential.PowerSphericalPotential(alpha=2.3,normalize=2.),
-           potential.DehnenSphericalPotential(normalize=4.,alpha=1.2),
-           potential.DehnenCoreSphericalPotential(normalize=4.),
-           potential.HernquistPotential(normalize=1.,a=3.5),
-           potential.JaffePotential(normalize=1.,a=20.5),
-           potential.DoubleExponentialDiskPotential(normalize=0.2,
-                                                    hr=3.,hz=0.6),
-           potential.FlattenedPowerPotential(normalize=3.),
-           potential.FlattenedPowerPotential(normalize=3.,alpha=0), #special case
-           potential.IsochronePotential(normalize=2.),
-           potential.PowerSphericalPotentialwCutoff(normalize=0.3,rc=10.),
-           potential.PlummerPotential(normalize=.6,b=3.),
-           potential.PseudoIsothermalPotential(normalize=.1,a=3.),
-           potential.BurkertPotential(normalize=.2,a=2.5),
-           potential.TriaxialHernquistPotential(normalize=1.,a=3.5,
-                                                b=0.8,c=0.9),
-           potential.TriaxialNFWPotential(normalize=1.,a=1.5,b=0.8,c=0.9),
-           potential.TriaxialJaffePotential(normalize=1.,a=20.5,b=0.8,c=1.4),
-           potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5),
-           potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5,
-                                               pa=3.,zvec=[0.,1.,0.]), #rotated
-           potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part,
-           potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
-                                  normalize=1.,a=3.5),
-           MWPotential3021,
-           McMillan17 # SCF + DiskSCF
-           ]
-    #tolerances in log10
-    tol= {}
-    tol['default']= -7.
-    # Following are a little more difficult
-    tol['DoubleExponentialDiskPotential']= -4.5
-    tol['TriaxialHernquistPotential']= -6.
-    tol['TriaxialNFWPotential']= -6.
-    tol['TriaxialJaffePotential']= -6.
-    tol['MWPotential3021']= -6.
-    tol['HomogeneousSpherePotential']= -6.
-    tol['McMillan17']= -6.
-    for p in pots:
-        if not _check_c(p,dens=True): continue # dynamfric not in C!
-        pname= type(p).__name__
-        if pname == 'list':
-            if isinstance(p[0],potential.PowerSphericalPotentialwCutoff) \
-                    and len(p) > 1 \
-                    and isinstance(p[1],potential.MiyamotoNagaiPotential) \
-                    and len(p) > 2 \
-                    and isinstance(p[2],potential.NFWPotential):
-                pname= 'MWPotential3021' # Must be!
-            else:
-                pname= 'McMillan17'
-        #print(pname)
-        if pname in list(tol.keys()): ttol= tol[pname]
-        else: ttol= tol['default']
-        # Setup orbit, ~ LMC
-        o= Orbit([5.13200034,1.08033051,0.23323391,
-                  -3.48068653,0.94950884,-1.54626091])
-        # Setup dynamical friction object
-        if pname == 'McMillan17':
-            cdf= potential.ChandrasekharDynamicalFrictionForce(\
-                GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=101)
-            ttimes= numpy.linspace(0.,-30.,1001) #~1 Gyr at the Solar circle
-        else:
-            cdf= potential.ChandrasekharDynamicalFrictionForce(\
-                GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=201)
-            ttimes= times
-        # Integrate in C
-        o.integrate(ttimes,p+cdf,method=integrator)
-        # Integrate in Python
-        op= o()
-        op.integrate(ttimes,p+cdf,method=py_integrator)
-        # Compare r (most important)
-        assert numpy.amax(numpy.fabs(o.r(ttimes)-op.r(ttimes))) < 10**ttol, \
-            'Dynamical friction in C does not agree with dynamical friction in Python for potential {}'.format(pname)
-    return None
-
 def test_orbit_rguiding():
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
         TriaxialNFWPotential, rl
@@ -5341,27 +5246,5 @@ def test_MovingObjectPotential_planar_orbit():
     assert numpy.fabs(oc.y(tmax)-op.y(tmax)) < 10.**-3.,  'Final orbit position between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
-    return None
-
-# Test that r < minr in ChandrasekharDynamFric works properly
-def test_dynamfric_c_minr():
-    from galpy.orbit import Orbit
-    times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
-    integrator= 'dop853_c'
-    pot= potential.LogarithmicHaloPotential(normalize=1)
-    # Setup orbit, ~ LMC
-    o= Orbit([5.13200034,1.08033051,0.23323391,
-              -3.48068653,0.94950884,-1.54626091])
-    # Setup dynamical friction object, with minr = 130 st always 0 for this orbit
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=0.5553870441722593,rhm=5./8.,dens=pot,minr=130./8.,maxr=500./8)
-    # Integrate in C with dynamical friction
-    o.integrate(times,pot+cdf,method=integrator)
-    # Integrate in C without dynamical friction
-    op= o()
-    op.integrate(times,pot,method=integrator)
-    # Compare r (most important)
-    assert numpy.amax(numpy.fabs(o.r(times)-op.r(times))) < 10**-8., \
-            'Dynamical friction in C does not properly use minr'
     return None
 
