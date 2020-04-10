@@ -340,6 +340,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->Rforce= &DiskSCFPotentialRforce;
       potentialArgs->zforce= &DiskSCFPotentialzforce;
+      potentialArgs->dens= &DiskSCFPotentialDens;
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->requiresVelocity= false;

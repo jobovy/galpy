@@ -1585,8 +1585,8 @@ def test_dynamfric_c():
            potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part,
            potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
                                   normalize=1.,a=3.5),
-           McMillan17[1:],
-           MWPotential3021
+           MWPotential3021,
+           McMillan17 # SCF + DiskSCF
            ]
     #tolerances in log10
     tol= {}
@@ -1611,22 +1611,29 @@ def test_dynamfric_c():
                 pname= 'MWPotential3021' # Must be!
             else:
                 pname= 'McMillan17'
-        #print(pname)
+        if not pname == 'McMillan17': continue
+        print(pname)
         if pname in list(tol.keys()): ttol= tol[pname]
         else: ttol= tol['default']
         # Setup orbit, ~ LMC
         o= Orbit([5.13200034,1.08033051,0.23323391,
                   -3.48068653,0.94950884,-1.54626091])
         # Setup dynamical friction object
-        cdf= potential.ChandrasekharDynamicalFrictionForce(\
-            GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=201)
+        if pname == 'McMillan17':
+            cdf= potential.ChandrasekharDynamicalFrictionForce(\
+                GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=101)
+            ttimes= numpy.linspace(0.,-30.,1001) #~1 Gyr at the Solar circle
+        else:
+            cdf= potential.ChandrasekharDynamicalFrictionForce(\
+                GMs=0.5553870441722593,rhm=5./8.,dens=p,maxr=500./8,nr=201)
+            ttimes= times
         # Integrate in C
-        o.integrate(times,p+cdf,method=integrator)
+        o.integrate(ttimes,p+cdf,method=integrator)
         # Integrate in Python
         op= o()
-        op.integrate(times,p+cdf,method=py_integrator)
+        op.integrate(ttimes,p+cdf,method=py_integrator)
         # Compare r (most important)
-        assert numpy.amax(numpy.fabs(o.r(times)-op.r(times))) < 10**ttol, \
+        assert numpy.amax(numpy.fabs(o.r(ttimes)-op.r(ttimes))) < 10**ttol, \
             'Dynamical friction in C does not agree with dynamical friction in Python for potential {}'.format(pname)
     return None
 
