@@ -15,6 +15,11 @@ v1.6 (????-??-??)
 - Fixed AMUSE compatibility with Potentials instantiated with physical
   inputs (#405).
 
+- Fix how DiskSCFPotential instances with a hole in the surface
+  density get passed to C (was wrong when type == 'exp', but 'Rhole'
+  was in the list of parameters, hole was not passed; meant that
+  McMillan17 was wrong in C in v1.5).
+
 - Add time dependence to all relevant Potential functions and method
   (#404).
 
