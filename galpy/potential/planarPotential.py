@@ -10,6 +10,7 @@ from ..util import config
 from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr
 from .Potential import Potential, PotentialError, lindbladR, flatten
+from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -26,6 +27,7 @@ class planarPotential(object):
         self.isRZ= False
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')
@@ -721,6 +723,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._Pot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
+        self.hasC_dens= RZPot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -798,6 +801,8 @@ def RZToplanarPotential(RZPot):
 
     """
     RZPot= flatten(RZPot)
+    if _isDissipative(RZPot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -838,6 +843,7 @@ class planarPotentialFromFullPotential(planarPotential):
         self._Pot= Pot
         self.hasC= Pot.hasC
         self.hasC_dxdv= Pot.hasC_dxdv
+        self.hasC_dens= Pot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -981,7 +987,9 @@ def toPlanarPotential(Pot):
 
     """
     Pot= flatten(Pot)
-    if isinstance(Pot,list):
+    if _isDissipative(Pot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
+    elif isinstance(Pot,list):
         out= []
         for pot in Pot:
             if isinstance(pot,planarPotential):

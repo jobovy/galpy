@@ -289,6 +289,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # set properties
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -503,6 +504,10 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         DehnenSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=0,
             normalize=normalize,ro=ro,vo=vo)
+        # set properties explicitly
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -697,6 +702,10 @@ class HernquistPotential(DehnenSphericalPotential):
             self,amp=amp,a=a,alpha=1,
             normalize=normalize,ro=ro,vo=vo)
         self._nemo_accname= 'Dehnen'
+        # set properties explicitly
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -922,6 +931,7 @@ class JaffePotential(DehnenSphericalPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -1154,6 +1164,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._nemo_accname= 'NFW'
         return None
 

@@ -77,3 +77,17 @@ double HomogeneousSpherePotentialPlanarR2deriv(double R,double phi,
   else
     return -4. * amp * R3 / pow ( r2 , 1.5 );
 }
+double HomogeneousSpherePotentialDens(double R,double Z, double phi,
+				      double t,
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double R2= *(args+1);
+  //Calculate potential
+  double r2= R * R + Z * Z;
+  if ( r2 < R2 )
+    return 1.5 * amp * M_1_PI;
+  else
+    return 0.;
+}

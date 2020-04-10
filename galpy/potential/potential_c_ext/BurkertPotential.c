@@ -63,3 +63,14 @@ double BurkertPotentialPlanarR2deriv(double R,double phi,
   double R5= pow(R,5);
   return -amp * M_PI * pow(a,3) / R5 * (-4. * R5 / ( a * a + R * R ) / ( a + R ) - 2. * R * R * ( M_PI - 2. * atan ( 1. / x ) - 2. * log( 1. + x ) - log( 1. + x * x )));
 }
+double BurkertPotentialDens(double R,double Z, double phi,
+			    double t,
+			    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double a= *(args+1);
+  //Calculate potential
+  double x= sqrt( R*R + Z*Z) / a;
+  return amp / ( 1. + x ) / ( 1. + x * x );
+}

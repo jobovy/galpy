@@ -132,6 +132,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         self._scf= SCFPotential(amp=1.,Acos=Acos,Asin=Asin,a=a,ro=None,vo=None)
         if not self._Sigma_dict is None and not self._hz_dict is None:
             self.hasC= True
+            self.hasC_dens= True
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 

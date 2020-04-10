@@ -601,7 +601,7 @@ class Orbit(object):
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
         obs= numpy.array([kwargs.get('ro',None),
-                          kwargs.get('vro',None),
+                          kwargs.get('vo',None),
                           kwargs.get('zo',None),
                           kwargs.get('solarmotion',None)],
                          dtype='object')
