@@ -82,7 +82,8 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
         #Evaluate potential
-        return evaluatePotentials( self._pot, Rdist, orbz-z, use_physical=False)
+        return evaluatePotentials(self._pot,Rdist,orbz-z,t=t,
+                                  use_physical=False)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -108,7 +109,7 @@ class MovingObjectPotential(Potential):
         (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
             R, phi, z)
         #Evaluate cylindrical radial force
-        RF = evaluateRforces(self._pot,Rdist,zd, use_physical=False)
+        RF = evaluateRforces(self._pot,Rdist,zd,t=t,use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
         return -RF*(numpy.cos(phi)*xd+numpy.sin(phi)*yd)/Rdist
@@ -137,7 +138,7 @@ class MovingObjectPotential(Potential):
         (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
             R, phi, z)
         #Evaluate and return z force
-        return -evaluatezforces(self._pot,Rdist,zd, use_physical=False)
+        return -evaluatezforces(self._pot,Rdist,zd,t=t,use_physical=False)
 
     def _phiforce(self,R,z,phi=0.,t=0.):
         """
@@ -163,7 +164,7 @@ class MovingObjectPotential(Potential):
         (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
             R, phi, z)
         #Evaluate cylindrical radial force.
-        RF = evaluateRforces(self._pot, Rdist, zd, use_physical=False)
+        RF = evaluateRforces(self._pot,Rdist,zd,t=t,use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
         return -RF*R*(numpy.cos(phi)*yd-numpy.sin(phi)*xd)/Rdist
 
@@ -190,7 +191,7 @@ class MovingObjectPotential(Potential):
         (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
             R, phi, z)
         # Return the density
-        return evaluateDensities(self._pot, Rdist, zd, use_physical=False)
+        return evaluateDensities(self._pot,Rdist,zd,t=t,use_physical=False)
 
 def _cylR(R1,phi1,R2,phi2):
     return numpy.sqrt(R1**2.+R2**2.-2.*R1*R2*numpy.cos(phi1-phi2)) # Cosine law
