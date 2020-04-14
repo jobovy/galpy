@@ -56,12 +56,6 @@ Quick-start guide
 
    diskdf.rst
 
-Tutorials
----------
-
-.. toctree::
-   :maxdepth: 2
-
    streamdf.rst
 
 Library reference
