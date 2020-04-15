@@ -1,6 +1,5 @@
 div.papers-gallery {
-  display: inline-block;
-  
+  display: inline-block; 
 }
 
 div.gallery {
@@ -37,27 +36,25 @@ div.desc {
   max-height: 60px;
 }
 
-* {
+.papers-gallery .papers-gallery-item {
   box-sizing: border-box;
 }
 
 .responsive {
-  padding: 0 6px;
+  padding: 0 2px;
   float: left;
-  width: 24.99999%;
+  width: 24.49999%;
 }
 
 @media only screen and (max-width: 1200px) {
   .responsive {
-    width: 33.333333%;
-    margin: 6px 0;
+    width: 32.5%;
   }
 }
 
 @media only screen and (max-width: 1000px) {
   .responsive {
-    width: 49.99999%;
-    margin: 6px 0;
+    width: 49.0%;
   }
 }
 
