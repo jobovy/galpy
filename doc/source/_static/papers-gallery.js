@@ -34,7 +34,11 @@ $(document).ready(function() {
       })
       .fail(function(jqxhr, textStatus, error ) {
         console.log( "Failed to load JSON gallery file");
-	$("#gallery-intro").remove();
-        $("#gallery-div").remove();
-	  });
+	// Add div with warning that the gallery failed to load
+	$("<div>").attr("id","papers-warning").addClass("admonition warning").appendTo("#papers-gallery");
+	$("<p>Warning</p>").addClass("admonition-title").appendTo("#papers-warning");
+	$("<p>Failed to load papers gallery.</p>").appendTo("#papers-warning");
+	// Make sure the warning spans the page
+	$("#papers-gallery").css("width","100%");
+      });
 });
