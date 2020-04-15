@@ -154,3 +154,31 @@ double LogarithmicHaloPotentialPlanarRphideriv(double R,double phi,
   } else
     return 0.;
 }
+double LogarithmicHaloPotentialDens(double R,double Z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate density
+  double zq= Z/q;
+  double R2, Rt2, denom, denom2;
+  double q2= q*q;
+  if ( onem1overb2 < 1 ) {
+    R2= R * R;
+    Rt2= R2 * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq * zq + c );
+    denom2= denom *  denom;
+    return amp * M_1_PI / 4. * ( 2. * Rt2 / R2 * ( denom - Rt2 * denom2 )\
+	       + denom / q2 - 2. * zq * zq * denom2 / q2 \
+	       - onem1overb2 \
+	       * ( 2. * R2 * pow ( sin ( 2. * phi ),2) / 4. * onem1overb2 \
+		   * denom2 + denom * cos( 2. * phi ) ) );
+  } else
+    return amp * M_1_PI / 4. / q2 * ( ( 2. * q2 + 1. ) * c + R * R	\
+				       + ( 2. - 1. / q2 ) * Z * Z )/	\
+      pow( R * R + zq * zq + c ,2.);
+}

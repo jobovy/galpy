@@ -55,3 +55,14 @@ double JaffePotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return - amp * (a + 2. * R) * pow(R,-4.) * pow(1.+a/R,-2.);
 }
+double JaffePotentialDens(double R,double Z, double phi,
+			  double t,
+			  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Calculate density
+  double r= sqrt ( R * R + Z * Z );
+  return amp * M_1_PI / 4. / a * pow ( r * ( 1. + r / a ), -2. );
+}

@@ -23,9 +23,11 @@ double MovingObjectPotentialRforce(double R,double z, double phi,
   y= R*sin(phi);
   constrain_range(&d_ind);
   // Interpolate x, y, z
-  obj_x= gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  obj_y= gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
-  obj_z= gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
+  obj_x= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
+			 *(potentialArgs->acc1d+1));
+  obj_z= gsl_spline_eval(*(potentialArgs->spline1d+2),d_ind,
+			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate R force
   RF= calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
@@ -47,9 +49,11 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
   y= R*sin(phi);
   constrain_range(&d_ind);
   // Interpolate x, y, z
-  obj_x= gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  obj_y= gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
-  obj_z= gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
+  obj_x= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
+			 *(potentialArgs->acc1d+1));
+  obj_z= gsl_spline_eval(*(potentialArgs->spline1d+2),d_ind,
+			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate z force
   return -amp * calczforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
@@ -70,9 +74,11 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   y= R*sin(phi);
   constrain_range(&d_ind);
   // Interpolate x, y, z
-  obj_x= gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  obj_y= gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
-  obj_z= gsl_spline_eval(potentialArgs->zSpline, d_ind, potentialArgs->accz);
+  obj_x= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
+			 *(potentialArgs->acc1d+1));
+  obj_z= gsl_spline_eval(*(potentialArgs->spline1d+2),d_ind,
+			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate phiforce
   RF= calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
@@ -83,7 +89,7 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
 double MovingObjectPotentialPlanarRforce(double R, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
-  double amp,t0,tf,d_ind,x,y,obj_x,obj_y,obj_z, Rdist,RF;
+  double amp,t0,tf,d_ind,x,y,obj_x,obj_y,Rdist,RF;
   double * args= potentialArgs->args;
   //Get args
   amp= *args;
@@ -94,8 +100,9 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   y= R*sin(phi);
   constrain_range(&d_ind);
   // Interpolate x, y
-  obj_x= gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  obj_y= gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
+  obj_x= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
+			 *(potentialArgs->acc1d+1));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate R force
   RF= calcPlanarRforce(Rdist, phi, t, potentialArgs->nwrapped,
@@ -106,7 +113,7 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
 double MovingObjectPotentialPlanarphiforce(double R, double phi,
 					double t,
 					struct potentialArg * potentialArgs){
-  double amp,t0,tf,d_ind,x,y,obj_x,obj_y,obj_z, Rdist,RF;
+  double amp,t0,tf,d_ind,x,y,obj_x,obj_y,Rdist,RF;
   double * args= potentialArgs->args;
   // Get args
   amp= *args;
@@ -117,8 +124,9 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   y= R*sin(phi);
   constrain_range(&d_ind);
   // Interpolate x, y
-  obj_x= gsl_spline_eval(potentialArgs->xSpline, d_ind, potentialArgs->accx);
-  obj_y= gsl_spline_eval(potentialArgs->ySpline, d_ind, potentialArgs->accy);
+  obj_x= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
+			 *(potentialArgs->acc1d+1));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate phiforce
   RF= calcPlanarRforce(Rdist, phi, t, potentialArgs->nwrapped,

@@ -63,3 +63,16 @@ double DehnenSphericalPotentialPlanarR2deriv(double R,double phi,
   // return 
   return -amp * (pow(1.+a/R, alpha) * pow(a+R, -4.) * (2.*R + a*(alpha-1.))) / (3.-alpha);
 }
+double DehnenSphericalPotentialDens(double R,double Z, double phi,
+				    double t,
+				    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args++;
+  double alpha= *args;
+  //Calculate density
+  double r= sqrt ( R * R + Z * Z );
+  return amp * M_1_PI / 4. * pow (r,-alpha ) * pow ( 1. + r / a, alpha-4.) \
+    * pow (a, alpha - 3.);
+}
+

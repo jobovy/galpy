@@ -18,16 +18,6 @@
 #include <integrateFullOrbit.h>
 #include <interp_2d.h>
 #include <cubic_bspline_2d_coeffs.h>
-#ifdef _WIN32
-// On Windows, *need* to define this function to allow the package to be imported
-#if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit_galpy_interppotential_c(void) { // Python 3
-  return NULL;
-}
-#else
-PyMODINIT_FUNC initgalpy_interppotential_c(void) {} // Python 2
-#endif
-#endif
 //Macros to export functions in DLL on different OS
 #if defined(_WIN32)
 #define EXPORT __declspec(dllexport)

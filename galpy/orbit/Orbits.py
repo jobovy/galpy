@@ -601,7 +601,7 @@ class Orbit(object):
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
         obs= numpy.array([kwargs.get('ro',None),
-                          kwargs.get('vro',None),
+                          kwargs.get('vo',None),
                           kwargs.get('zo',None),
                           kwargs.get('solarmotion',None)],
                          dtype='object')
@@ -4233,7 +4233,11 @@ class Orbit(object):
             t= args[0]
         # Parse t, first check whether we are dealing with the common case 
         # where one wants all integrated times
+        # 2nd line: scalar Quantities have __len__, but raise TypeError 
+        # for scalars
         t_exact_integration_times= hasattr(t,'__len__') \
+            and not (_APY_LOADED and isinstance(t,units.Quantity) 
+                     and t.isscalar) \
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
@@ -4250,11 +4254,11 @@ class Orbit(object):
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if t_exact_integration_times: # Common case where one wants all integrated times
             return self.orbit.T
-        elif isinstance(t,(int,float)) and hasattr(self,'t') \
+        elif isinstance(t,(int,float,numpy.number)) and hasattr(self,'t') \
                 and t in list(self.t):
             return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
         else:
-            if isinstance(t,(int,float)): 
+            if isinstance(t,(int,float,numpy.number)): 
                 nt= 1
                 t= numpy.atleast_1d(t)
             else: 
@@ -4586,15 +4590,21 @@ class Orbit(object):
         kwargs.pop('pot',None)
         kwargs.pop('OmegaP',None)
         kwargs.pop('quantity',None)
+        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
+            and not kwargs.get('overplot',False)
+        labels= kwargs.pop('label',['Orbit {}'.format(ii+1) 
+                                    for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels,str): labels= [labels]
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
         if not 'ylabel' in kwargs:
             kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
-        for tx,ty in zip(x,y):
+        for ii,(tx,ty) in enumerate(zip(x,y)):
+            kwargs['label']= labels[ii]
             line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
             kwargs['overplot']= True
-        line2d.axes.autoscale(enable=True)
+        if auto_scale: line2d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line2d]
 
@@ -4717,6 +4727,8 @@ class Orbit(object):
         kwargs.pop('obs',None)
         kwargs.pop('use_physical',None)
         kwargs.pop('quantity',None)
+        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
+            and not 'zrange' in kwargs and not kwargs.get('overplot',False)
         #Plot
         if not 'xlabel' in kwargs:
             kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
@@ -4727,7 +4739,7 @@ class Orbit(object):
         for tx,ty,tz in zip(x,y,z):
             line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
             kwargs['overplot']= True
-        line3d.axes.autoscale(enable=True)
+        if auto_scale: line3d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line3d]
 
@@ -4756,6 +4768,8 @@ class Orbit(object):
            ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
+           staticPlot= (False) if True, create a static plot that doesn't allow zooming, panning, etc.
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -4894,10 +4908,9 @@ class Orbit(object):
         height= kwargs.pop('height',400)
         load_jslibs= kwargs.pop('load_jslibs',True)
         if load_jslibs:
-            load_jslibs_code= """</script>
+            load_jslibs_code= """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script>
 """
         else:
             load_jslibs_code= ""
@@ -4923,6 +4936,10 @@ class Orbit(object):
         button_width= 419.51+4.*10.
         button_margin_left= int(numpy.round((width-button_width)/2.))
         if button_margin_left < 0: button_margin_left= 0
+        # Configuration options
+        config= """{{staticPlot: {staticPlot}}}"""\
+            .format(staticPlot='true' if kwargs.pop('staticPlot',False)
+                    else 'false')
         # Layout for multiple plots
         if len(d1s) == 1:
             xmin= [0,0,0]
@@ -5023,40 +5040,18 @@ class Orbit(object):
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
            line_color=line_colors[ii])
             traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2))
-        update_trace12= """
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [0]);
-      trace_slice_begin-= trace_slice_len;
-      trace2= {{
-        x: [data.x1_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y1_0.slice(trace_slice_begin,trace_slice_end)],
-      }};
-      Plotly.restyle('{divid}',trace2,[1]);
-""".format(divid=self.divid)
-        for ii in range(1,self.size):
-            update_trace12+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y1_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }};
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),trace_num_1=str(2*ii+1),
-           trace_num_2=str(2*ii+2),trace_num_10=str(2*ii+1-1),
-           trace_num_20=str(2*ii+2-1))
-        delete_trace2= ""
-        delete_trace1= """Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
-        for ii in range(self.size-1,0,-1):
-            delete_trace2+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*ii+2-1))
-            delete_trace1+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
-        delete_trace2+= """\n        Plotly.deleteTraces('{divid}',1);""".format(divid=self.divid)
+        x_data_list = """"""
+        y_data_list = """"""
+        trace_num_10_list = """"""
+        trace_num_20_list = """"""
+        for jj in range(len(d1s)):
+            for ii in range(0, self.size):
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*jj*self.size + 2 * ii + 1 - 1))
+                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*jj*self.size + 2 * ii + 2 - 1))
         # Additional traces for additional plots
         if len(d1s) > 1:
             setup_trace2= """
@@ -5119,57 +5114,10 @@ class Orbit(object):
            trace_num_1=str(2*self.size+2*ii+1),
            trace_num_2=str(2*self.size+2*ii+2))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
-            update_trace34= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x2_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y2_0.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(2*self.size+2),
-           trace_num_10=str(2*self.size+1-1),
-           trace_num_20=str(2*self.size+2-1))
-            for ii in range(1,self.size):
-                update_trace34+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y2_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),
-           trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2),
-           trace_num_10=str(2*self.size+2*ii+1-1),
-           trace_num_20=str(2*self.size+2*ii+2-1))
-            delete_trace4= ""
-            delete_trace3= ""
-            for ii in range(self.size-1,-1,-1):
-                delete_trace4+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(2*self.size+2*ii+2-1))
-                delete_trace3+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
     let traces= [{traces_cumul}];
 """.format(traces_cumul=traces_cumul)
-            delete_trace4= ""
-            delete_trace3= ""
-            update_trace34= ""
-
-
-
-
         if len(d1s) > 2:
             setup_trace3= """
     let trace{trace_num_1}= {{
@@ -5233,61 +5181,15 @@ class Orbit(object):
            trace_num_10=str(4*self.size+2*ii+1-1),
            trace_num_20=str(4*self.size+2*ii+2-1))
                 traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+2*ii+1),trace_num_2=str(4*self.size+2*ii+2))
-            setup_trace3+= """
-    let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
-            update_trace56= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x3_0.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y3_0.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_num_2=str(4*self.size+2),
-           trace_num_10=str(4*self.size+1-1),
-           trace_num_20=str(4*self.size+2-1))
-            for ii in range(1,self.size):
-                update_trace56+= """
-      trace_slice_begin+= trace_slice_len;
-      Plotly.extendTraces('{divid}', {{
-        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }}, [{trace_num_10}]);
-
-      trace_slice_begin-= trace_slice_len;
-      trace{trace_num_2}= {{
-        x: [data.x3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)], 
-        y: [data.y3_{trace_indx}.slice(trace_slice_begin,trace_slice_end)],
-      }},
-      Plotly.restyle('{divid}',trace{trace_num_2},[{trace_num_20}]);
-""".format(divid=self.divid,trace_indx=str(ii),
-           trace_num_2=str(4*self.size+2*ii+2),
-           trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1))
-            delete_trace6= ""
-            delete_trace5= ""
-            for ii in range(self.size-1,-1,-1):
-                delete_trace6+= """\n        Plotly.deleteTraces('{divid}',{trace_num_20});""".format(divid=self.divid,trace_num_20=str(4*self.size+2*ii+2-1))
-                delete_trace5+= """\n      Plotly.deleteTraces('{divid}',0);""".format(divid=self.divid)
+            setup_trace3 += """
+            let traces= [{traces_cumul}];
+            """.format(traces_cumul=traces_cumul)
         elif len(d1s) > 1: # elif for "if there is a 3rd panel
             setup_trace3= """
     let traces= [{traces_cumul}];
 """.format(traces_cumul=traces_cumul)
-            delete_trace5= ""
-            delete_trace6= ""
-            update_trace56= ""
         else: # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
             setup_trace3= ""
-            delete_trace5= ""
-            delete_trace6= ""
-            update_trace56= ""
-
         return HTML("""
 <style>
 .galpybutton {{
@@ -5328,6 +5230,7 @@ class Orbit(object):
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Replay</button></div>
+{load_jslibs_code}
 
 <script>
 require.config({{
@@ -5335,7 +5238,9 @@ require.config({{
     Plotly: 'https://cdn.plot.ly/plotly-latest.min',
   }}
 }});
-{load_jslibs_code}
+</script>
+
+<script>
 require(['Plotly'], function (Plotly) {{
 {json_code}
   let layout = {layout};
@@ -5367,15 +5272,11 @@ require(['Plotly'], function (Plotly) {{
     else if ( button_type === '{divid}-replay' ) {{
       cnt= 1;
       try {{ // doesn't exist if animation has already ended
-        {delete_trace6}
-        {delete_trace4}
-        {delete_trace2}
+        Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
       }}
       catch (err) {{
       }}
-      {delete_trace1}
-      {delete_trace3}
-      {delete_trace5}
+        Plotly.deleteTraces('{divid}', {trace_num_list});
       clearInterval(interval);
       setup_trace();
       interval= animate_trace();
@@ -5389,7 +5290,7 @@ require(['Plotly'], function (Plotly) {{
 
     {setup_trace3}
 
-    Plotly.plot('{divid}',traces,layout);
+    Plotly.plot('{divid}',traces,layout,{config});
   }}
 
   function animate_trace() {{
@@ -5400,31 +5301,27 @@ require(['Plotly'], function (Plotly) {{
       if ( trace_slice_len < 1) trace_slice_len= 1;
       trace_slice_begin= Math.floor(cnt*numPerFrame);
       trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-      {update_trace12}
-      {update_trace34}
-      {update_trace56}
+      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+      trace_slice_begin-= trace_slice_len;
+      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
       if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
           clearInterval(interval);
-          {delete_trace6}
-          {delete_trace4}
-          {delete_trace2}
+          Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
       }}
     }}, 30);
     }}
 {close_json_code}}});
 </script>""".format(json_code=json_code,close_json_code=close_json_code,
                     divid=self.divid,width=width,height=height,
-                    button_margin_left=button_margin_left,
+                    button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
+                    x_data_list=x_data_list, y_data_list=y_data_list,
+                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
-                    setup_trace3=setup_trace3,delete_trace2=delete_trace2,
-                    delete_trace4=delete_trace4,delete_trace6=delete_trace6,
-                    delete_trace1=delete_trace1,delete_trace3=delete_trace3,
-                    delete_trace5=delete_trace5,
-                    update_trace12=update_trace12,
-                    update_trace34=update_trace34,
-                    update_trace56=update_trace56))
+                    setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
 class _1DInterp(object): 
     """Class to simulate 2D interpolation when using a single orbit"""

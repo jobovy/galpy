@@ -55,8 +55,8 @@ def bulge_dens(R,z):
 #dicts used in DiskSCFPotential 
 sigmadict = [{'type':'exp','h':Rd_HI,'amp':Sigma0_HI, 'Rhole':Rm_HI},
              {'type':'exp','h':Rd_H2,'amp':Sigma0_H2, 'Rhole':Rm_H2},
-             {'type':'exp','h':Rd_thin,'amp':Sigma0_thin, 'Rhole':0.},
-             {'type':'exp','h':Rd_thick,'amp':Sigma0_thick, 'Rhole':0.}]
+             {'type':'exp','h':Rd_thin,'amp':Sigma0_thin},
+             {'type':'exp','h':Rd_thick,'amp':Sigma0_thick}]
 
 hzdict = [{'type':'sech2', 'h':zd_HI},
           {'type':'sech2', 'h':zd_H2},

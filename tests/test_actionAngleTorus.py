@@ -578,3 +578,11 @@ def test_MWPotential_warning_torus():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+def test_load_library():
+    # Test that loading the library again gives the same library as the first
+    # time
+    from galpy.util._load_extension_libs import load_libgalpy_actionAngleTorus
+    first_lib= load_libgalpy_actionAngleTorus()[0]
+    second_lib= load_libgalpy_actionAngleTorus()[0]
+    assert first_lib == second_lib, 'libgalpy_actionAngleTorus loaded second time is not the same as first time'
+    return None

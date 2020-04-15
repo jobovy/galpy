@@ -1,6 +1,3 @@
-import os
-import sys
-import distutils.sysconfig as sysconfig
 import warnings
 import ctypes
 import ctypes.util
@@ -15,33 +12,9 @@ from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import bovy_symplecticode as symplecticode
-#Find and load the library
-_lib= None
-outerr= None
-PY3= sys.version > '3'
-if PY3:
-    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else: #pragma: no cover
-    _ext_suffix= '.so'
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix))
-    except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_integrate_c%s' % _ext_suffix)): #pragma: no cover
-            outerr= e
-        _lib = None
-    else:
-        break
-if _lib is None: #pragma: no cover
-    if not outerr is None:
-        warnings.warn("integrateFullOrbit_c extension module not loaded, because of error '%s' " % outerr,
-                      galpyWarning)
-    else:
-        warnings.warn("integrateFullOrbit_c extension module not loaded, because galpy_integrate_c%s image was not found" % _ext_suffix,
-                      galpyWarning)
-    _ext_loaded= False
-else:
-    _ext_loaded= True
+from ..util import _load_extension_libs
+
+_lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot,potforactions=False,potfortorus=False):
     """Parse the potential so it can be fed to C"""
@@ -199,8 +172,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                 npot+= 1
                 pot_type.append(26)
                 stype= Sigma.get('type','exp')
-                if stype == 'exp' \
-                        or (stype == 'exp' and 'Rhole' in Sigma):
+                if stype == 'exp' and not 'Rhole' in Sigma:
                     pot_args.extend([3,0,
                                      4.*numpy.pi*Sigma.get('amp',1.)*p._amp,
                                      Sigma.get('h',1./3.)])
@@ -286,6 +258,24 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend(p._orb.z(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
+        elif isinstance(p,potential.ChandrasekharDynamicalFrictionForce):
+            pot_type.append(-7)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._dens_pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([len(p._sigmar_rs_4interp)])
+            pot_args.extend(p._sigmar_rs_4interp)
+            pot_args.extend(p._sigmars_4interp)
+            pot_args.extend([p._amp])
+            pot_args.extend([-1.,0.,0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([p._ms,p._rhm,p._gamma**2.,
+                             -1 if not p._lnLambda else p._lnLambda,
+                             p._minr**2.])
+            pot_args.extend([p._sigmar_rs_4interp[0],
+                             p._sigmar_rs_4interp[-1]]) #r_0, r_f
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)

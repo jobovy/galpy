@@ -33,16 +33,6 @@
 // Just do nothing?
 #define EXPORT
 #endif
-#ifdef _WIN32
-// On Windows, *need* to define this function to allow the package to be imported
-#if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit_galpy_actionAngle_c(void) { // Python 3
-  return NULL;
-}
-#else
-PyMODINIT_FUNC initgalpy_actionAngle_c(void) {} // Python 2
-#endif
-#endif
 /*
   Structure Declarations
 */

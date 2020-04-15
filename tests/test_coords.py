@@ -474,7 +474,7 @@ def test_lbd_to_galcenrect_galpyvsastropy():
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(gcXYZ[0]+c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-9.5, "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -489,7 +489,7 @@ def test_lbd_to_galcenrect_galpyvsastropy():
     # galpy is now right-handed, astropy right-handed
     assert numpy.fabs(gcXYZ[0]-c.x.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcXYZ[1]-c.y.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcXYZ[2]-c.z.to(u.kpc).value) < 10.**-9.5, "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
@@ -512,7 +512,7 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcRpZ[1]-numpy.pi+c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-9.5, "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -528,7 +528,7 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     # galpy is now right-handed, astropy right-handed
     assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcRpZ[1]-c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert numpy.fabs(gcRpZ[2]-c.z.to(u.kpc).value) < 10.**-9.5, "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
