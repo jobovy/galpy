@@ -257,3 +257,24 @@ def test_dynamfric_c_minr():
             'Dynamical friction in C does not properly use minr'
     return None
 
+# Test that when an orbit reaches r < minr, a warning is raised to alert the user
+def test_dynamfric_c_minr_warning():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,100.,1001) #~3 Gyr at the Solar circle
+    integrator= 'dop853_c'
+    pot= potential.LogarithmicHaloPotential(normalize=1)
+    # Setup orbit
+    o= Orbit()
+    # Setup dynamical friction object, with minr = 1, should thus reach it
+    cdf= potential.ChandrasekharDynamicalFrictionForce(\
+        GMs=0.5553870441722593,rhm=5./8.,dens=pot,minr=1.)
+    # Integrate, should raise warning
+    with pytest.warns(None) as record:
+        o.integrate(times,pot+cdf,method=integrator)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Orbit integration with ChandrasekharDynamicalFrictionForce entered domain where r < minr and ChandrasekharDynamicalFrictionForce is turned off; initialize ChandrasekharDynamicalFrictionForce with a smaller minr to avoid this if you wish (but note that you want to turn it off close to the center for an object that sinks all the way to r=0, to avoid numerical instabilities)")
+    assert raisedWarning, "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
+    return None
+
