@@ -732,18 +732,6 @@ class Orbit(object):
         return cls(new_vxvv,
                    ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
 
-    def fit(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.fit has been deprecated in favor of Orbit.from_fit')
-
-    def setphi(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.setphi has been deprecated')
-
-    def reverse(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.reverse has been deprecated')
-
-    def __add__(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.__add__ has been deprecated')
-
     def __len__(self):
         return 1 if self.shape == () else self.shape[0]
 
