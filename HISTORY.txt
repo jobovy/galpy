@@ -23,6 +23,13 @@ v1.6 (????-??-??)
 - Add time dependence to all relevant Potential functions and method
   (#404).
 
+- Raise warning when r < minr (where dynamical friction gets turned
+  off) in an orbit integration that includes dynamical friction (to
+  avoid silent turning off of the dynamical friction force; #356).
+
+- Fixed compilation issue for Intel compilers: no need to include
+  'lgomp' in the linking step (#416).
+
 - Compile all main galpy C extensions into a single shared-object
   library libgalpy.
 
