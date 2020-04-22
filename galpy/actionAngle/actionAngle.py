@@ -177,7 +177,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._eval_phi= phi
         else: # Orbit instance
             if not kwargs.get('_noOrbUnitsCheck',False):
-                physical_compatible(self,args[0])
+                self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
                 orb= args[0](args[1])
             else:
