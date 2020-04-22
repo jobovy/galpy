@@ -94,17 +94,17 @@ class df(object):
 
            2016-06-05 - Written - Bovy (UofT)
 
-           2020-04-22 - Only turn on the parameter (ro,vo) given - Bovy (UofT)
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-            self._roSet= True
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
-            self._voSet= True
         return None  

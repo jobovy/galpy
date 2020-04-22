@@ -81,9 +81,9 @@ class WrapperPotential(Potential):
         # Transfer unit system if set for wrapped potential, but not here
         phys_wrapped= get_physical(self._pot,include_set=True)
         if not self._roSet and phys_wrapped['roSet']:
-            self.turn_physical_on(ro=phys_wrapped['ro'])
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
         if not self._voSet and phys_wrapped['voSet']:
-            self.turn_physical_on(vo=phys_wrapped['vo'])
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
 
     def __repr__(self):
         wrapped_repr= repr(self._pot)
@@ -166,9 +166,9 @@ class planarWrapperPotential(planarPotential):
         # Transfer unit system if set for wrapped potential, but not here
         phys_wrapped= get_physical(self._pot,include_set=True)
         if not self._roSet and phys_wrapped['roSet']:
-            self.turn_physical_on(ro=phys_wrapped['ro'])
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
         if not self._voSet and phys_wrapped['voSet']:
-            self.turn_physical_on(vo=phys_wrapped['vo'])
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
 
     def __repr__(self):
         wrapped_repr= repr(self._pot)
