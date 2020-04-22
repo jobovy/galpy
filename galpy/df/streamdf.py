@@ -169,6 +169,7 @@ class streamdf(df):
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
+        self._check_consistent_units()
         if useTM:
             self._useTM= True
             self._aAT= useTM # confusing, no?

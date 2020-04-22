@@ -22,7 +22,7 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
-from ..util.bovy_conversion import physical_conversion
+from ..util.bovy_conversion import physical_conversion, physical_compatible
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
 from ..util import bovy_plot as plot
@@ -1022,14 +1022,16 @@ class Orbit(object):
 
            2019-02-28 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -5775,14 +5777,4 @@ def _check_potential_dim(orb,pot):
 
 def _check_consistent_units(orb,pot):
     if pot is None: return None
-    if isinstance(pot,list):
-        if orb._roSet and pot[0]._roSet:
-            assert numpy.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot[0]._voSet:
-            assert numpy.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    else:
-        if orb._roSet and pot._roSet:
-            assert numpy.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot._voSet:
-            assert numpy.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    return None
+    assert physical_compatible(orb,pot), 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'

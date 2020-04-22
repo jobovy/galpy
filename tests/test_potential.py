@@ -2966,6 +2966,84 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_Wrapper_incompatibleunitserror():
+    # Test that setting up a WrapperPotential with a potential with 
+    # incompatible units to the wrapper itself raises an error
+    # 3D
+    ro,vo= 8., 220.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    # 2D
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    return None
+
+def test_WrapperPotential_unittransfer_3d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
+def test_WrapperPotential_unittransfer_2d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
 def test_WrapperPotential_serialization():
     import pickle
     from galpy.potential.WrapperPotential import WrapperPotential
@@ -3261,20 +3339,77 @@ def test_add_potentials():
     assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
     return None
 
-# Test that attempting to multiply or divide a potential by something other than a number raises an error
+# Test that attempting to multiply or divide a potential by something other 
+# than a number raises a TypeError (test both left and right)
 def test_add_potentials_error():
     # 3D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
     # 2D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
     # 1D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
+    return None
+
+# Test that adding potentials with incompatible unit systems raises an error
+def test_add_potentials_unitserror():
+    # 3D
+    ro, vo= 8., 220.
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toPlanar()
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toPlanar()
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toPlanar()
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toPlanar()
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toVertical(1.1)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toVertical(1.1)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toVertical(1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toVertical(1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
     return None
 
 # Test that the amplitude of the isothermal disk potential is set correctly (issue #400)

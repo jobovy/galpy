@@ -10,7 +10,7 @@ from .Potential import _evaluatePotentials, \
 from .planarPotential import _evaluateplanarPotentials, \
     _evaluateplanarRforces, _evaluateplanarphiforces, \
     evaluateplanarR2derivs
-
+from ..util.bovy_conversion import physical_compatible, get_physical
 def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)
@@ -73,6 +73,17 @@ class WrapperPotential(Potential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
+        # Check whether units are consistent between the wrapper and the 
+        # wrapped potential
+        assert physical_compatible(self,self._pot), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between this wrapper and the wrapped potential"""
+        # Transfer unit system if set for wrapped potential, but not here
+        phys_wrapped= get_physical(self._pot,include_set=True)
+        if not self._roSet and phys_wrapped['roSet']:
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
+        if not self._voSet and phys_wrapped['voSet']:
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
 
     def __repr__(self):
         wrapped_repr= repr(self._pot)
@@ -155,6 +166,17 @@ class planarWrapperPotential(planarPotential):
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
+        # Check whether units are consistent between the wrapper and the 
+        # wrapped potential
+        assert physical_compatible(self,self._pot), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between this wrapper and the wrapped potential"""
+        # Transfer unit system if set for wrapped potential, but not here
+        phys_wrapped= get_physical(self._pot,include_set=True)
+        if not self._roSet and phys_wrapped['roSet']:
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
+        if not self._voSet and phys_wrapped['voSet']:
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
 
     def __repr__(self):
         wrapped_repr= repr(self._pot)

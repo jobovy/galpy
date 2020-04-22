@@ -8,7 +8,7 @@ from ..util import bovy_plot as plot
 from ..util import config
 from .Potential import PotentialError, flatten
 from ..util.bovy_conversion import physical_conversion,\
-    potential_physical_input
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -98,12 +98,28 @@ class linearPotential(object):
            2019-01-27 - Written - Bovy (UofT)
 
         """
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return [self]+b
         else:
             return [self,b]
     # Define separately to keep order
     def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return b+[self]
         else:
@@ -160,14 +176,16 @@ class linearPotential(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo

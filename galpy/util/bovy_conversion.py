@@ -442,7 +442,7 @@ def velocity_in_kpcGyr(vo,ro):
     """
     return vo*_kmsInPcMyr
 
-def get_physical(obj):
+def get_physical(obj,include_set=False):
     """
     NAME:
 
@@ -455,6 +455,8 @@ def get_physical(obj):
     INPUT:
 
        obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       include_set= (False) if True, also include roSet and voSet, flags of whether the unit is explicitly set in the object
 
     OUTPUT:
 
@@ -478,9 +480,49 @@ def get_physical(obj):
            and isinstance(new_obj[0],(Force,planarPotential,linearPotential))):
             obj= new_obj
     if isinstance(obj,list):
-        return {'ro':obj[0]._ro,'vo':obj[0]._vo}
+        out_obj= obj[0]
     else:
-        return {'ro':obj._ro,'vo':obj._vo}       
+        out_obj= obj
+    out= {'ro':out_obj._ro,'vo':out_obj._vo}
+    if include_set:
+        out.update({'roSet':out_obj._roSet,'voSet':out_obj._voSet})
+    return out
+
+def physical_compatible(obj,other_obj):
+    """
+    NAME:
+
+       physical_compatible
+
+    PURPOSE:
+
+       test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects
+
+    INPUT:
+
+       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       other_obj - another galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+    OUTPUT:
+
+       True if the units are compatible, False if not (compatible means that the units are the same when they are set for both objects)
+
+    HISTORY:
+
+       2020-04-22 - Written - Bovy (UofT)
+
+    """
+    if obj is None or other_obj is None: # if one is None, just state compat
+        return True
+    phys= get_physical(obj,include_set=True)
+    other_phys= get_physical(other_obj,include_set=True)
+    out= True
+    if phys['roSet'] and other_phys['roSet']:
+        out= out and m.fabs((phys['ro']-other_phys['ro'])/phys['ro']) < 1e-8
+    if phys['voSet'] and other_phys['voSet']:
+        out= out and m.fabs((phys['vo']-other_phys['vo'])/phys['vo']) < 1e-8
+    return out
 
 #Decorator to apply these transformations
 # NOTE: names with underscores in them signify return values that *always* have
