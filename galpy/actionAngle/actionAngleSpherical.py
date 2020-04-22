@@ -17,7 +17,6 @@ from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from .actionAngle import actionAngle
 from .actionAngleAxi import actionAngleAxi, potentialAxi
-from ..util.bovy_conversion import physical_compatible
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
@@ -68,7 +67,7 @@ class actionAngleSpherical(actionAngle):
         else:
             self._c= False
         # Check the units
-        physical_compatible(self,self._pot)
+        self._check_consistent_units()
         return None
 
     def _evaluate(self,*args,**kwargs):

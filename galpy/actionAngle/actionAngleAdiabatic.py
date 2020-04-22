@@ -14,7 +14,6 @@ import copy
 import warnings
 import numpy
 from ..util import galpyWarning
-from ..util.bovy_conversion import physical_compatible
 from ..potential import MWPotential
 from ..potential.Potential import flatten as flatten_potential
 from ..potential import toPlanarPotential, toVerticalPotential
@@ -70,7 +69,7 @@ class actionAngleAdiabatic(actionAngle):
             self._c= False
         self._gamma= kwargs.get('gamma',1.)
         # Check the units
-        physical_compatible(self,self._pot)
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):

@@ -25,7 +25,7 @@ from .actionAngle import actionAngle
 from ..potential import IsochronePotential, MWPotential
 from ..util import bovy_plot, galpyWarning
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input, time_in_Gyr, physical_compatible
+    potential_physical_input, time_in_Gyr
 _TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 _APY_LOADED= True
@@ -118,7 +118,7 @@ class actionAngleIsochroneApprox(actionAngle):
         else:
             self._c= False
         # Check the units
-        physical_compatible(self,self._pot)
+        self._check_consistent_units()
         return None
     
     def _evaluate(self,*args,**kwargs):
@@ -606,7 +606,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 os= args[0]
                 if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
-            physical_compatible(self,os[0])
+            self._check_consistent_units_orbitInput()
             if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
