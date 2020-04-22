@@ -273,6 +273,10 @@ potential grown as above would be
 .. TIP::
    To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
 
+.. WARNING::
+   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
+
+
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
 

@@ -218,7 +218,7 @@ input to any galpy function that does not take a Quantity as an input
 <https://github.com/jobovy/galpy/issues>`__.
 
 .. WARNING::
-   If you combine potentials in a list, galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential).
+   If you combine potentials by adding them (``comb_pot= pot1+pot2``), galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. If you add potentials using the '+' operator, galpy will check that the units are compatible. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential, setting up an actionAngle object for a given potential, setting up a DF object for a given potential, etc.).
 
 galpy can also return values with units as an astropy
 Quantity. Whether or not this is done is specified by the
@@ -277,10 +277,12 @@ outputs will be in internal units
 
 If you setup a Potential, Orbit, etc. object without specifying the
 parameters as a Quantity, the default is to return output in natural
-units, except when ``ro=`` and ``vo=`` scales are specified. ``ro=``
-and ``vo=`` can always be given as a Quantity themselves. ``ro=`` 
-and ``vo=`` can always also be specified on a method-by-method basis,
-overwriting an object's default. For example
+units, except when ``ro=`` and ``vo=`` scales are specified
+(exception: when you wrap a potential that has physical outputs on,
+the wrapped potential will also have them on). ``ro=`` and ``vo=`` can
+always be given as a Quantity themselves. ``ro=`` and ``vo=`` can
+always also be specified on a method-by-method basis, overwriting an
+object's default. For example
 
 	    >>> mp.vcirc(10.*units.kpc,ro=12.*units.kpc)
 	    # 0.69273212489609337
