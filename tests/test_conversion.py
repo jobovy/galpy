@@ -382,5 +382,22 @@ def test_physical_compatible_combos():
         "pot_default_phys does not behave as expected for combinations of different objects"   
     assert not physical_compatible(aA_default_novo,qdf_nonstandardrovo), \
         "pot_default_phys does not behave as expected for combinations of different objects"   
+    # Also test agained None!
+    assert physical_compatible(None,pot_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(None,orb_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(None,aA_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(None,qdf_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_default_phys,None), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(orb_default_phys,None), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(aA_default_phys,None), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(qdf_default_phys,None), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
     return None
 
