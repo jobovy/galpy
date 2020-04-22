@@ -2966,6 +2966,84 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_Wrapper_incompatibleunitserror():
+    # Test that setting up a WrapperPotential with a potential with 
+    # incompatible units to the wrapper itself raises an error
+    # 3D
+    ro,vo= 8., 220.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    # 2D
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    return None
+
+def test_WrapperPotential_unittransfer_3d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
+def test_WrapperPotential_unittransfer_2d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
 def test_WrapperPotential_serialization():
     import pickle
     from galpy.potential.WrapperPotential import WrapperPotential
