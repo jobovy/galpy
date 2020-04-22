@@ -17,7 +17,8 @@ from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import bovy_coords, fast_cholesky_invert, \
     bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from ..util.bovy_conversion import physical_conversion, _APY_UNITS
+from ..util.bovy_conversion import physical_conversion, _APY_UNITS, \
+    physical_compatible
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
 from ..util import galpyWarning
@@ -169,6 +170,8 @@ class streamdf(df):
         self._aA= aA
         if not self._aA._pot == self._pot:
             raise IOError("Potential in aA does not appear to be the same as given potential pot")
+        physical_compatible(self,self._pot)
+        physical_compatible(self,self._aA) # should be aA = pot, but be sure!
         if useTM:
             self._useTM= True
             self._aAT= useTM # confusing, no?
