@@ -488,6 +488,40 @@ def get_physical(obj,include_set=False):
         out.update({'roSet':out_obj._roSet,'voSet':out_obj._voSet})
     return out
 
+def physical_compatible(obj,other_obj):
+    """
+    NAME:
+
+       physical_compatible
+
+    PURPOSE:
+
+       test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects
+
+    INPUT:
+
+       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       other_obj - another galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+    OUTPUT:
+
+       True if the units are compatible, False if not (compatible means that the units are the same when they are set for both objects)
+
+    HISTORY:
+
+       2020-04-22 - Written - Bovy (UofT)
+
+    """
+    phys= get_physical(obj,include_set=True)
+    other_phys= get_physical(other_obj,include_set=True)
+    out= True
+    if phys['roSet'] and other_phys['roSet']:
+        out= out and m.fabs((phys['ro']-other_phys['ro'])/phys['ro']) < 1e-8
+    if phys['voSet'] and other_phys['voSet']:
+        out= out and m.fabs((phys['vo']-other_phys['vo'])/phys['vo']) < 1e-8
+    return out
+
 #Decorator to apply these transformations
 # NOTE: names with underscores in them signify return values that *always* have
 # units, which is depended on in the Orbit returns (see issue #326)
