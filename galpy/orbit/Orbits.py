@@ -22,7 +22,7 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
-from ..util.bovy_conversion import physical_conversion
+from ..util.bovy_conversion import physical_conversion, physical_compatible
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
 from ..util import bovy_plot as plot
@@ -709,7 +709,7 @@ class Orbit(object):
                         lb=lb,ro=ro,vo=vo,zo=zo,
                         solarmotion=solarmotion)
         _check_potential_dim(init_orbit,pot)
-        _check_consistent_units(init_orbit,pot)
+        physical_compatible(init_orbit,pot)
         if radec or lb or customsky:
             obs, ro, vo= _parse_radec_kwargs(init_orbit,
                                              {'ro':init_orbit._ro,
@@ -1085,7 +1085,7 @@ class Orbit(object):
             raise ValueError('{:s} is not a valid `method`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+        physical_compatible(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
@@ -1251,7 +1251,7 @@ class Orbit(object):
                 raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+        physical_compatible(self,pot)
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
@@ -1451,7 +1451,7 @@ class Orbit(object):
 
         """
         if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
+        physical_compatible(self,kwargs.get('pot',None))
         if not 'pot' in kwargs or kwargs['pot'] is None:
             try:
                 pot= self._pot
@@ -1779,7 +1779,7 @@ class Orbit(object):
 
         """
         if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
+        physical_compatible(self,kwargs.get('pot',None))
         if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
             OmegaP= 1.
             if not 'pot' in kwargs or kwargs['pot'] is None:
@@ -1881,7 +1881,7 @@ class Orbit(object):
                     if '_aA' in attr: delattr(self,attr)
             else:
                 return None
-        _check_consistent_units(self,pot)
+        physical_compatible(self,pot)
         self._aAPot= pot
         self._aAType= type
         #Setup
@@ -2166,7 +2166,7 @@ class Orbit(object):
         flatten_potential(pot)
         if _isNonAxi(pot):
             raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
-        _check_consistent_units(self,pot)
+        physical_compatible(self,pot)
         Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False,
                                       dontreshape=True))
         Lz_shape= Lz.shape
@@ -5772,17 +5772,3 @@ def _check_potential_dim(orb,pot):
     from ..potential import _dim
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
-
-def _check_consistent_units(orb,pot):
-    if pot is None: return None
-    if isinstance(pot,list):
-        if orb._roSet and pot[0]._roSet:
-            assert numpy.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot[0]._voSet:
-            assert numpy.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    else:
-        if orb._roSet and pot._roSet:
-            assert numpy.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot._voSet:
-            assert numpy.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    return None
