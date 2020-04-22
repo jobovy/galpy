@@ -161,4 +161,226 @@ def test_get_physical():
     assert numpy.fabs(get_physical(qdf).get('vo')-vo) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a DF instance'
     return None
 
+def test_physical_compatible_potential():
+    # Test that physical_compatible acts as expected
+    from galpy.util.bovy_conversion import physical_compatible
+    from galpy.potential import HernquistPotential
+    # Set up potentials for all possible cases
+    pot_default_phys= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=220.)
+    pot_nonstandardro= HernquistPotential(amp=0.55,a=2.,ro=9.,vo=220.)
+    pot_nonstandardvo= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=230.)
+    pot_nonstandardrovo= HernquistPotential(amp=0.55,a=2.,ro=9.,vo=230.)
+    pot_nophys= HernquistPotential(amp=0.55)
+    pot_default_noro= HernquistPotential(amp=0.55,vo=220.)
+    pot_default_novo= HernquistPotential(amp=0.55,ro=8.)
+    pot_nonstandardro_novo= HernquistPotential(amp=0.55,ro=9.)
+    pot_nonstandardvo_noro= HernquistPotential(amp=0.55,vo=230.)
+    # Test expected behavior for single potentials
+    assert physical_compatible(pot_default_phys,pot_default_phys), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,pot_nonstandardro), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_nonstandardro,pot_default_phys), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,pot_nonstandardvo), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,pot_nonstandardrovo), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,pot_nophys), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,pot_default_noro), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,pot_default_novo), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,pot_nonstandardro_novo), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,pot_nonstandardvo_noro), \
+        "pot_default_phys does not behave as expected"
+    # Test expected behavior for single,list pairs
+    assert physical_compatible(pot_default_phys,
+                               [pot_default_phys,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardro,pot_nonstandardro]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardro,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_nonstandardro,
+                                   [pot_default_phys,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardvo,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardrovo,pot_nonstandardro]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,
+                               [pot_nophys,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,
+                               [pot_default_noro,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible(pot_default_phys,
+                               [pot_default_novo,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardro_novo,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible(pot_default_phys,
+                                   [pot_nonstandardvo_noro,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    # Test expected behavior for list,list pairs
+    assert physical_compatible([pot_default_phys,pot_default_phys],
+                               [pot_default_phys,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardro,pot_nonstandardro]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardro,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_nonstandardro,pot_default_phys],
+                                   [pot_default_phys,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardvo,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardrovo,pot_nonstandardro]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible([pot_default_phys,pot_default_phys],
+                               [pot_nophys,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible([pot_default_phys,pot_default_phys],
+                               [pot_default_noro,pot_default_phys]), \
+        "pot_default_phys does not behave as expected"
+    assert physical_compatible([pot_default_phys,pot_default_phys],
+                               [pot_default_novo,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardro_novo,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    assert not physical_compatible([pot_default_phys,pot_default_phys],
+                                   [pot_nonstandardvo_noro,pot_nophys]), \
+        "pot_default_phys does not behave as expected"
+    return None
     
+#ADD OTHER COMBINATIONS, e.g., potential and orbit
+def test_physical_compatible_combos():
+    # Test that physical_compatible acts as expected for combinations of 
+    # different types of objects
+    from galpy.util.bovy_conversion import physical_compatible
+    from galpy.potential import HernquistPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.df import quasiisothermaldf
+    # Set up different objects for possible cases
+    # Potentials
+    pot_default_phys= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=220.)
+    pot_nonstandardro= HernquistPotential(amp=0.55,a=2.,ro=9.,vo=220.)
+    pot_nonstandardvo= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=230.)
+    pot_nonstandardrovo= HernquistPotential(amp=0.55,a=2.,ro=9.,vo=230.)
+    pot_nophys= HernquistPotential(amp=0.55)
+    pot_default_noro= HernquistPotential(amp=0.55,vo=220.)
+    pot_default_novo= HernquistPotential(amp=0.55,ro=8.)
+    pot_nonstandardro_novo= HernquistPotential(amp=0.55,ro=9.)
+    pot_nonstandardvo_noro= HernquistPotential(amp=0.55,vo=230.)
+    pot_nonstandardvo_noro= HernquistPotential(amp=0.55,vo=230.)
+    # Orbits
+    orb_default_phys= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],ro=8.,vo=220.)
+    orb_nonstandardro= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],ro=9.,vo=220.)
+    orb_nonstandardvo= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],ro=8.,vo=230.)
+    orb_nonstandardrovo= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],ro=9.,vo=230.)
+    orb_nophys= Orbit([1.,0.1,1.1,0.1,0.3,-0.9])
+    orb_default_noro= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],vo=220.)
+    orb_nonstandardvo_noro= Orbit([1.,0.1,1.1,0.1,0.3,-0.9],vo=230.)
+    # aAs
+    aA_default_phys= actionAngleSpherical(pot=pot_default_phys,ro=8.,vo=220.)
+    aA_nonstandardro= actionAngleSpherical(pot=pot_nonstandardro,ro=9.,vo=220.)
+    aA_nonstandardvo= actionAngleSpherical(pot=pot_nonstandardvo,ro=8.,vo=230.)
+    aA_nonstandardrovo= actionAngleSpherical(pot=pot_nonstandardrovo,
+                                             ro=9.,vo=230.)
+    aA_nophys= actionAngleSpherical(pot=pot_nophys)
+    aA_default_novo= actionAngleSpherical(pot=pot_default_novo,ro=8.)
+    aA_nonstandardvo_noro= actionAngleSpherical(pot=pot_nonstandardvo_noro,
+                                                vo=230.)
+    # DFs
+    qdf_default_phys= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,
+                                        pot=pot_default_phys,
+                                        aA=aA_default_phys,
+                                        ro=8.,vo=220.)
+    qdf_nonstandardro= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,
+                                         pot=pot_nonstandardro,
+                                         aA=aA_nonstandardro,
+                                         ro=9.,vo=220.)
+    qdf_nonstandardvo= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,
+                                         pot=pot_nonstandardvo,
+                                         aA=aA_nonstandardvo,
+                                         ro=8.,vo=230.)
+    qdf_nonstandardrovo= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,
+                                           pot=pot_nonstandardrovo,
+                                           aA=aA_nonstandardrovo,
+                                           ro=9.,vo=230.)
+    qdf_nophys= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,
+                                  pot=pot_nophys,
+                                  aA=aA_nophys)
+    # Now do some tests!
+    assert physical_compatible(pot_default_phys,orb_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_default_phys,aA_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_default_phys,qdf_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nonstandardro,orb_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nonstandardro,aA_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nonstandardro,qdf_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,orb_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,aA_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,qdf_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,orb_nonstandardvo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,aA_nonstandardvo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,qdf_nonstandardvo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,orb_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,aA_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert not physical_compatible(pot_default_phys,qdf_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible([pot_nophys,pot_nophys],orb_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,aA_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,qdf_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,orb_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,aA_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,qdf_default_phys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,orb_nophys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,orb_nophys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_nophys,qdf_nophys), \
+        "pot_default_phys does not behave as expected for combinations of different objects"
+    assert physical_compatible(pot_default_noro,qdf_nonstandardro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"   
+    assert physical_compatible(pot_nonstandardro_novo,orb_default_noro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"   
+    assert physical_compatible(aA_nonstandardvo_noro,orb_nonstandardvo_noro), \
+        "pot_default_phys does not behave as expected for combinations of different objects"   
+    assert not physical_compatible(aA_default_novo,qdf_nonstandardrovo), \
+        "pot_default_phys does not behave as expected for combinations of different objects"   
+    return None
+
