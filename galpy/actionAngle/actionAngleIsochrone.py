@@ -17,6 +17,7 @@ import numpy
 from .actionAngle import actionAngle
 from ..potential import IsochronePotential
 from ..util import galpyWarning
+from ..util.bovy_conversion import physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -58,7 +59,7 @@ class actionAngleIsochrone(actionAngle):
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             # Check the units
             self._pot= ip
-            self._check_consistent_units()
+            physical_compatible(self,self._pot)
             self.b= ip.b
             self.amp= ip._amp
         else:
@@ -79,7 +80,7 @@ class actionAngleIsochrone(actionAngle):
         #Define _pot, because some functions that use actionAngle instances need this
         self._pot= IsochronePotential(amp=self.amp,b=self.b)
         # Check the units
-        self._check_consistent_units()
+        physical_compatible(self,self._pot)
         return None
     
     def _evaluate(self,*args,**kwargs):

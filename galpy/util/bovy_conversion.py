@@ -513,6 +513,8 @@ def physical_compatible(obj,other_obj):
        2020-04-22 - Written - Bovy (UofT)
 
     """
+    if obj is None or other_obj is None: # if one is None, just state compat
+        return True
     phys= get_physical(obj,include_set=True)
     other_phys= get_physical(other_obj,include_set=True)
     out= True

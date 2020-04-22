@@ -19,6 +19,7 @@ from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..util import multi
+from ..util.bovy_conversion import physical_compatible
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
@@ -194,7 +195,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                                         jr,
                                                         kx=3,ky=3,s=0.)
         # Check the units
-        self._check_consistent_units()
+        physical_compatible(self,self._pot)
         return None
 
     def _evaluate(self,*args,**kwargs):

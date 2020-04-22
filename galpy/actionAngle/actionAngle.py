@@ -4,7 +4,7 @@ import copy
 import numpy
 from ..util import config
 from ..util.bovy_conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input
+    actionAngle_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -68,28 +68,6 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._voSet= True
         return None
 
-    def _check_consistent_units(self):
-        """Internal function to check that the set of units for this object is consistent with that for the potential"""
-        if isinstance(self._pot,list):
-            if self._roSet and self._pot[0]._roSet:
-                assert numpy.fabs(self._ro-self._pot[0]._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot[0]._voSet:
-                assert numpy.fabs(self._vo-self._pot[0]._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        else:
-            if self._roSet and self._pot._roSet:
-                assert numpy.fabs(self._ro-self._pot._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot._voSet:
-                assert numpy.fabs(self._vo-self._pot._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        return None
-            
-    def _check_consistent_units_orbitInput(self,orb):
-        """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
-        if self._roSet and orb._roSet:
-            assert numpy.fabs(self._ro-orb._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        if self._voSet and orb._voSet:
-            assert numpy.fabs(self._vo-orb._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        return None
-            
     def turn_physical_off(self):
         """
         NAME:
@@ -189,7 +167,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._eval_phi= phi
         else: # Orbit instance
             if not kwargs.get('_noOrbUnitsCheck',False):
-                self._check_consistent_units_orbitInput(args[0])
+                physical_compatible(self,args[0])
             if len(args) == 2:
                 orb= args[0](args[1])
             else:

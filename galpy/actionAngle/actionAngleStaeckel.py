@@ -22,7 +22,7 @@ from ..potential.Potential import flatten as flatten_potential
 from ..util import bovy_coords #for prolate confocal transforms
 from ..util import galpyWarning
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, physical_compatible
 from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -87,7 +87,7 @@ class actionAngleStaeckel(actionAngle):
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
             self._delta= self._delta.to(units.kpc).value/self._ro
         # Check the units
-        self._check_consistent_units()
+        physical_compatible(self,self._pot)
         return None
     
     def _evaluate(self,*args,**kwargs):

@@ -20,6 +20,7 @@ from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..util import multi, bovy_coords
+from ..util.bovy_conversion import physical_compatible
 _PRINTOUTSIDEGRID= False
 _APY_LOADED= True
 try:
@@ -275,7 +276,7 @@ class actionAngleStaeckelGrid(actionAngle):
             self._rperiFiltered= ndimage.spline_filter(numpy.log(self._rperi+10.**-10.),order=3)
             self._rapFiltered= ndimage.spline_filter(numpy.log(self._rap+10.**-10.),order=3)
         # Check the units
-        self._check_consistent_units()
+        physical_compatible(self,self._pot)
         return None
 
     def _evaluate(self,*args,**kwargs):
