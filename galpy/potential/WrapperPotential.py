@@ -3,12 +3,12 @@
 ###############################################################################
 from .Potential import Potential, _isNonAxi, _dim
 from .planarPotential import planarPotential
-from .Potential import evaluatePotentials, \
-    evaluateRforces, evaluatephiforces, evaluatezforces, \
+from .Potential import _evaluatePotentials, \
+    _evaluateRforces, _evaluatephiforces, _evaluatezforces, \
     evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, evaluateDensities
-from .planarPotential import evaluateplanarPotentials, \
-    evaluateplanarRforces, evaluateplanarphiforces, \
+from .planarPotential import _evaluateplanarPotentials, \
+    _evaluateplanarRforces, _evaluateplanarphiforces, \
     evaluateplanarR2derivs
 
 def _new_obj(cls, kwargs, args):
@@ -93,27 +93,35 @@ class WrapperPotential(Potential):
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
-            return evaluatePotentials
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatePotentials(p,R,Z,phi=phi,t=t)
         elif attribute == '_dens':
-            return evaluateDensities
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateDensities(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_Rforce':
-            return evaluateRforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluateRforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_zforce':
-            return evaluatezforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatezforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_phiforce':
-            return evaluatephiforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatephiforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_R2deriv':
-            return evaluateR2derivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateR2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_z2deriv':
-            return evaluatez2derivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluatez2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_Rzderiv':
-            return evaluateRzderivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateRzderivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_phi2deriv':
             return lambda p,R,Z,phi=0.,t=0.: \
-                evaluatePotentials(p,R,Z,phi=phi,t=t,dphi=2)
+                _evaluatePotentials(p,R,Z,phi=phi,t=t,dphi=2)
         elif attribute == '_Rphideriv':
             return lambda p,R,Z,phi=0.,t=0.: \
-                evaluatePotentials(p,R,Z,phi=phi,t=t,dR=1,dphi=1)
+                _evaluatePotentials(p,R,Z,phi=phi,t=t,dR=1,dphi=1)
         else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
 
@@ -167,19 +175,23 @@ class planarWrapperPotential(planarPotential):
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
-            return evaluateplanarPotentials
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarPotentials(p,R,phi=phi,t=t)
         elif attribute == '_Rforce':
-            return evaluateplanarRforces
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarRforces(p,R,phi=phi,t=t)
         elif attribute == '_phiforce':
-            return evaluateplanarphiforces
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarphiforces(p,R,phi=phi,t=t)
         elif attribute == '_R2deriv':
-            return evaluateplanarR2derivs
+            return lambda p,R,phi=0.,t=0.: \
+                evaluateplanarR2derivs(p,R,phi=phi,t=t,use_physical=False)
         elif attribute == '_phi2deriv':
             return lambda p,R,phi=0.,t=0.: \
-                evaluateplanarPotentials(p,R,phi=phi,t=t,dphi=2)
+                _evaluateplanarPotentials(p,R,phi=phi,t=t,dphi=2)
         elif attribute == '_Rphideriv':
             return lambda p,R,phi=0.,t=0.: \
-                evaluateplanarPotentials(p,R,phi=phi,t=t,dR=1,dphi=1)
+                _evaluateplanarPotentials(p,R,phi=phi,t=t,dR=1,dphi=1)
         else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
 
