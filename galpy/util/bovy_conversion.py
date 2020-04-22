@@ -442,7 +442,7 @@ def velocity_in_kpcGyr(vo,ro):
     """
     return vo*_kmsInPcMyr
 
-def get_physical(obj):
+def get_physical(obj,include_set=False):
     """
     NAME:
 
@@ -455,6 +455,8 @@ def get_physical(obj):
     INPUT:
 
        obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       include_set= (False) if True, also include roSet and voSet, flags of whether the unit is explicitly set in the object
 
     OUTPUT:
 
@@ -478,9 +480,13 @@ def get_physical(obj):
            and isinstance(new_obj[0],(Force,planarPotential,linearPotential))):
             obj= new_obj
     if isinstance(obj,list):
-        return {'ro':obj[0]._ro,'vo':obj[0]._vo}
+        out_obj= obj[0]
     else:
-        return {'ro':obj._ro,'vo':obj._vo}       
+        out_obj= obj
+    out= {'ro':out_obj._ro,'vo':out_obj._vo}
+    if include_set:
+        out.update({'roSet':out_obj._roSet,'voSet':out_obj._voSet})
+    return out
 
 #Decorator to apply these transformations
 # NOTE: names with underscores in them signify return values that *always* have
