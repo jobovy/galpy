@@ -3261,7 +3261,7 @@ def test_add_potentials():
     assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
     return None
 
-# Test that attempting to multiply or divide a potential by something other than a number raises an error
+# Test that attempting to multiply or divide a potential by something other than a number raises a TypeError
 def test_add_potentials_error():
     # 3D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -3275,6 +3275,56 @@ def test_add_potentials_error():
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    return None
+
+# Test that adding potentials with incompatible unit systems raises an error
+def test_add_potentials_unitserror():
+    # 3D
+    ro, vo= 8., 220.
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toPlanar()
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toPlanar()
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toPlanar()
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toPlanar()
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toVertical(1.1)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toVertical(1.1)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toVertical(1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toVertical(1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
     return None
 
 # Test that the amplitude of the isothermal disk potential is set correctly (issue #400)

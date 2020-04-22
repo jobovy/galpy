@@ -8,7 +8,7 @@ from ..util import bovy_plot as plot
 from ..util import config
 from .Potential import PotentialError, flatten
 from ..util.bovy_conversion import physical_conversion,\
-    potential_physical_input
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -98,12 +98,28 @@ class linearPotential(object):
            2019-01-27 - Written - Bovy (UofT)
 
         """
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return [self]+b
         else:
             return [self,b]
     # Define separately to keep order
     def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return b+[self]
         else:

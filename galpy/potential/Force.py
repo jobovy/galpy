@@ -8,7 +8,7 @@ import numpy
 from ..util import config
 from ..util import bovy_conversion
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -201,13 +201,31 @@ class Force(object):
 
            2019-01-27 - Written - Bovy (UofT)
 
+           2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
+
         """
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return [self]+b
         else:
             return [self,b]
     # Define separately to keep order
     def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return b+[self]
         else:
