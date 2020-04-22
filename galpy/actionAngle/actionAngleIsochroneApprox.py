@@ -606,7 +606,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 os= args[0]
                 if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
-            self._check_consistent_units_orbitInput()
+            self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
