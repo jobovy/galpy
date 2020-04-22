@@ -282,18 +282,19 @@ class Force(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
-        """
+           2020-04-22 - Only turn on the parameter (ro,vo) given - Bovy (UofT)
 
-        self._roSet= True
-        self._voSet= True
+        """
         if not ro is None:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
+            self._roSet= True
         if not vo is None:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
+            self._voSet= True
         return None
 
     @potential_physical_input
