@@ -1,11 +1,11 @@
-name: Create wheels
+name: Build Mac OS X wheels
 
 # Update on every push
 on: [push]
 
 jobs:
   build:
-    name: Create wheels
+    name: Build wheels
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,7 +32,8 @@ jobs:
           export CFLAGS=-I$CONDA_PREFIX/include
           export LDFLAGS=-L$CONDA_PREFIX/lib
           export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
-          python setup.py build_ext
+          mkdir wheelhouse
+          python setup.py build_ext -d wheelhouse
       - name: Build wheel
         shell: bash -l {0}
         run: python setup.py bdist_wheel
@@ -40,4 +41,17 @@ jobs:
       - uses: actions/upload-artifact@v2-preview
         with:
           name: galpy-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
-          path: dist/*.whl
+          path: wheelhouse/*.whl
+  combine:
+    name: Combine wheels into single artifact
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - run: mkdir wheelhouse
+      - uses: actions/download-artifact@v2-preview
+         with:
+            path: wheelhouse/
+      - uses: actions/upload-artifact@v2-preview
+        with:
+          name: galpy-wheels-macos-latest
+          path: wheelhouse/*.whl
