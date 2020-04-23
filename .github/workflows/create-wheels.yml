@@ -6,7 +6,11 @@ on: [push]
 jobs:
   build:
     name: Create wheels
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: [3.5,3.6,3.7, 3.8]
     steps:
       # check-out this repository
       - uses: actions/checkout@v2
@@ -15,7 +19,7 @@ jobs:
         with:
            activate-environment: galpywheels
            environment-file: .github/environment.yml
-           python-version: 3.8
+           python-version: ${{ matrix.python-version }}
       - name: Install pip dependencies
         shell: bash -l {0}
         run: |
@@ -35,5 +39,5 @@ jobs:
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:
-          name: wheel
+          name: galpy-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
           path: dist/*.whl
