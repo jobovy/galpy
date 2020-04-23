@@ -24,7 +24,11 @@ jobs:
           pip install astroquery
       - name: Build extension
         shell: bash -l {0}
-        run: python setup.py build_ext
+        run: |
+          export CFLAGS=-I$CONDA_PREFIX/include
+          export LDFLAGS=-L$CONDA_PREFIX/lib
+          export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
+          python setup.py build_ext
       - name: Build wheel
         shell: bash -l {0}
         run: python setup.py bdist_wheel
