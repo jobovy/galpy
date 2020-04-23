@@ -1,0 +1,11 @@
+name: Build manylinux wheels
+
+# Update on every push
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/workflows/actions/manylinux2014_x86_64/
