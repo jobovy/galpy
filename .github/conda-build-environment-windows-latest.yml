@@ -1,0 +1,10 @@
+name: galpywheels
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - setuptools
+  - conda-forge::gsl
+  - conda-forge::intel-openmp

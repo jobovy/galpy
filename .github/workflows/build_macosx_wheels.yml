@@ -24,9 +24,6 @@ jobs:
       matrix:
         os: [macos-latest,windows-latest]
         python-version: [3.5,3.6,3.7, 3.8]
-        exclude:
-          - os: windows-latest
-            python-version: 3.5
     steps:
       # check-out this repository
       - uses: actions/checkout@v2
@@ -34,7 +31,7 @@ jobs:
       - uses: goanpeca/setup-miniconda@v1
         with:
            activate-environment: galpywheels
-           environment-file: .github/conda-build-environment.yml
+           environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
            python-version: ${{ matrix.python-version }}
       - name: Install pip dependencies
         shell: bash -l {0}
@@ -71,5 +68,5 @@ jobs:
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
       - uses: actions/upload-artifact@v2-preview
         with:
-          name: galpy-wheels-macos-latest
+          name: galpy-wheels-macos-windows-latest
           path: wheelhouse/*.whl
