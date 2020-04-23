@@ -24,12 +24,12 @@ jobs:
           pip install astroquery
       - name: Build extension
         shell: bash -l {0}
-        run: python setup.py build_ext --no-openmp
+        run: python setup.py build_ext
       - name: Build wheel
         shell: bash -l {0}
         run: python setup.py bdist_wheel
       # Upload wheel as artifact
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v2-preview
         with:
           name: wheel
           path: dist/*.whl
