@@ -9,3 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/workflows/actions/manylinux2014_x86_64/
+      - uses: actions/upload-artifact@v2-preview
+        with:
+          name: galpy-wheels-manylinux
+          path: wheelhouse/*.whl
