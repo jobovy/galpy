@@ -40,12 +40,14 @@ jobs:
           pip install wheel
       - name: Set environment variables on Mac OS
         if: matrix.os == 'macos-latest'
+        shell: bash -l {0}
         run: |
           export CFLAGS=-I$CONDA_PREFIX/include
           export LDFLAGS=-L$CONDA_PREFIX/lib
           export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
       - name: Set environment variables on Windows
         if: matrix.os == 'windows-latest'
+        shell: bash -l {0}
         run: |
           set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
           set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
