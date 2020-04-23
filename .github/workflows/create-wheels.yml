@@ -24,7 +24,7 @@ jobs:
           pip install astroquery
       - name: Build extension
         shell: bash -l {0}
-        run: python setup.py build_ext
+        run: python setup.py build_ext --no-openmp
       - name: Build wheel
         shell: bash -l {0}
         run: python setup.py bdist_wheel
