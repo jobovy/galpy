@@ -120,10 +120,8 @@ class linearPotential(object):
         assert physical_compatible(self,b), \
             """Physical unit conversion parameters (ro,vo) are not """\
             """compatible between potentials to be combined"""
-        if isinstance(b,list):
-            return b+[self]
-        else:
-            raise TypeError("Can only add a Force or Potential instance to another instance or to a list of such instances")
+        # If we get here, b has to be a list
+        return b+[self]
 
     def turn_physical_off(self):
         """
