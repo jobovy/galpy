@@ -38,12 +38,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install wheel
-      - name: Build extension
-        shell: bash -l {0}
+      - name: Set environment variables on Mac OS
+        if: matrix.os == 'macos-latest'
         run: |
           export CFLAGS=-I$CONDA_PREFIX/include
           export LDFLAGS=-L$CONDA_PREFIX/lib
           export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
+      - name: Set environment variables on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+          set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+          set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+      - name: Build extension
+        shell: bash -l {0}
+        run: |
           mkdir wheelhouse
           python setup.py build_ext
       - name: Build wheel
