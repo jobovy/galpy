@@ -33,10 +33,10 @@ jobs:
           export LDFLAGS=-L$CONDA_PREFIX/lib
           export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
           mkdir wheelhouse
-          python setup.py build_ext -d wheelhouse
+          python setup.py build_ext
       - name: Build wheel
         shell: bash -l {0}
-        run: python setup.py bdist_wheel
+        run: python setup.py bdist_wheel -d wheelhouse
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:
@@ -47,10 +47,13 @@ jobs:
     needs: build
     runs-on: macos-latest
     steps:
-      - run: mkdir wheelhouse
+      - run: |
+          mkdir tmp_wheelhouse
+          mkdir wheelhouse
       - uses: actions/download-artifact@v2-preview
         with:
           path: wheelhouse/
+      - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
       - uses: actions/upload-artifact@v2-preview
         with:
           name: galpy-wheels-macos-latest
