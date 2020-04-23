@@ -1,4 +1,4 @@
-name: Build Mac OS X wheels
+name: Build Mac OS X & Windows wheels
 
 # Update on every push
 on: [push]
@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [macos-latest,windows-latest]
         python-version: [3.5,3.6,3.7, 3.8]
     steps:
       # check-out this repository
@@ -44,7 +44,7 @@ jobs:
   combine:
     name: Combine wheels into single artifact
     needs: build
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - run: |
           mkdir tmp_wheelhouse
