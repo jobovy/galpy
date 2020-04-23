@@ -5,10 +5,12 @@ on: [push]
 
 jobs:
   build:
+    name: Build manylinux wheels
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.github/workflows/actions/manylinux2014_x86_64/
+      - name: Build manylinux2014_x86_64 wheels
+        uses: ./.github/workflows/actions/manylinux2014_x86_64/
       - uses: actions/upload-artifact@v2-preview
         with:
           name: galpy-wheels-manylinux
