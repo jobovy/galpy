@@ -8,5 +8,6 @@ dependencies:
   - numexpr
   - setuptools
   - conda-forge::gsl
+  - conda-forge::compilers
   - conda-forge::llvm-openmp
   - conda-forge::astropy>=2
