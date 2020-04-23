@@ -42,16 +42,16 @@ jobs:
         if: matrix.os == 'macos-latest'
         shell: bash -l {0}
         run: |
-          export CFLAGS=-I$CONDA_PREFIX/include
-          export LDFLAGS=-L$CONDA_PREFIX/lib
-          export export LD_LIBRARY_PATH=-L$CONDA_PREFIX/lib
+          echo ::set-env name=CFLAGS::-I$CONDA_PREFIX/include
+          echo ::set-env name=LDFLAGS::-I$CONDA_PREFIX/lib
+          echo ::set-env name=LD_LIBRARY_PATH::-I$CONDA_PREFIX/lib
       - name: Set environment variables on Windows
         if: matrix.os == 'windows-latest'
         shell: bash -l {0}
         run: |
-          set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-          set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-          set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+          echo ::set-env name=INCLUDE::%CONDA_PREFIX%\Library\include;%INCLUDE%
+          echo ::set-env name=LIB::%CONDA_PREFIX%\Library\lib;%LIB%
+          echo ::set-env name=LIBPATH::%CONDA_PREFIX%\Library\lib;%LIBPATH%
       - name: Build extension
         shell: bash -l {0}
         run: |
