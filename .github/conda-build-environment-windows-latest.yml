@@ -7,4 +7,4 @@ dependencies:
   - matplotlib
   - setuptools
   - conda-forge::gsl
-  - conda-forge::intel-openmp
+  - anaconda::intel-openmp
