@@ -52,7 +52,7 @@ jobs:
           mkdir wheelhouse
       - uses: actions/download-artifact@v2-preview
         with:
-          path: wheelhouse/
+          path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
       - uses: actions/upload-artifact@v2-preview
         with:
