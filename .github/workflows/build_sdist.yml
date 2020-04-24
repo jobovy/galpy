@@ -1,9 +1,6 @@
 name: Build source directory for release
 
 on:
-  push:
-    branches:
-      - master
   release:
     types: [created]
 
