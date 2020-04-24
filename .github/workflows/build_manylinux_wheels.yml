@@ -1,0 +1,37 @@
+name: Build manylinux wheels, upload to PyPI upon release
+
+# Update on every push or PR to master (except when only docs) and upon releases
+on:
+  push:
+    branches:    
+      - master
+      - linuxwheels
+    paths-ignore:
+      - 'doc/**'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'doc/**'
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Build manylinux wheels, upload to PyPI upon release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build manylinux2014_x86_64 wheels
+        uses: ./.github/workflows/actions/manylinux2014_x86_64/
+      - uses: actions/upload-artifact@v2-preview
+        with:
+          name: galpy-wheels-manylinux
+          path: wheelhouse/*manylinux*.whl
+      # Upload to PyPI if this is a release
+      - name: Publish distribution to PyPI
+        if: github.event_name == 'release' && github.event.action == 'created'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.pypi_token }}
+          packages_dir: wheelhouse/
