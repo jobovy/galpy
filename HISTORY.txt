@@ -1,8 +1,12 @@
-v1.6 (????-??-??)
+v1.6 (2020-04-24)
 =================
 
 - Added HomogeneousSpherePotential, the potential of a constant
   density sphere out to some radius R.
+
+- Added DehnenSphericalPotential and DehnenCoreSphericalPotential, the
+  general potential from Dehnen (1993) and its cored special case
+  (#403).
 
 - Standardized the way packages are imported: numpy as 'import numpy',
   avoid use of math, don't use scipy's numpy interface, internal
@@ -26,6 +30,8 @@ v1.6 (????-??-??)
 - Raise warning when r < minr (where dynamical friction gets turned
   off) in an orbit integration that includes dynamical friction (to
   avoid silent turning off of the dynamical friction force; #356).
+
+- Improve performance of orbit animations (#414).
 
 - Fixed compilation issue for Intel compilers: no need to include
   'lgomp' in the linking step (#416).

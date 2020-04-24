@@ -5,6 +5,51 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.6
++++++
+
+This version mainly consists of changes to the internal functioning of
+``galpy``; some of the new outward-facing features are:
+
+* `ChandrasekharDynamicalFrictionForce
+  <reference/potentialchandrasekhardynfric.html>`__ is now implemented
+  in C, leading to 100x to 1000x speed-ups for orbit integrations
+  using dynamical friction compared to the prior pure-Python version.
+
+* New potentials:
+
+  * `HomogeneousSpherePotential   <reference/potentialhomogsphere.html>`__: the potential of a constant density sphere out to some radius R.
+
+  * `DehnenSphericalPotential <reference/potentialdehnen.html>`__: the
+    Dehnen Spherical Potential from `Dehnen (1993)
+    <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`__.
+
+  * `DehnenCoreSphericalPotential
+    <reference/potentialcoredehnen.html>`__: the Dehnen Spherical
+    Potential from `(Dehnen 1993)
+    <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`__ with alpha=0
+    (corresponding to an inner core).
+
+* Some notable internal changes:
+
+  * Fixed a bug in how ``DiskSCFPotential`` instances are passed to C
+    for orbit integration that in particular affected the
+    ``McMillan17`` Milky-Way potential (any hole in the surface
+    density was effectively ignored in the C code in v1.5).
+
+  * The performance of orbit animations is significantly improved.
+
+  * All main galpy C extensions are now compiled into a single
+    shared-object library ``libgalpy``.
+
+  * Binary wheels are now automatically built for Windows, Mac, and
+    most major Linux distributions upon every push to the ``master``
+    branch and these are automatically uploaded to PyPI upon
+    release. See the :ref:`Installation Instructions <installation>`
+    for more info. Binary wheels on Windows are also built for every
+    push on AppVeyor, see the :ref:`Windows installation instructions
+    <install_win>`.
+
 v1.5
 +++++
 

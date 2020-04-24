@@ -229,7 +229,7 @@ class TwoPowerSphericalPotential(Potential):
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_
+    """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_
 
     .. math::
 
@@ -244,7 +244,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen 1993
+           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen (1993)
 
         INPUT:
 
@@ -463,7 +463,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         return (r/(r+self.a))**(3.-self.alpha)/(3.-self.alpha)
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_ with alpha=0 (corresponding to an inner core)
+    """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
 
     .. math::
 
@@ -478,7 +478,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
         PURPOSE:
 
-           initialize a cored Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen 1993
+           initialize a cored Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen (1993)
 
         INPUT:
 

@@ -1,3 +1,5 @@
+.. _installation:
+
 Installation
 ==============
 
@@ -112,6 +114,8 @@ edit the GitHub Actions workflow file that generates the wheel to
 include the branch that you want to build (in the ``on:`` section),
 and push to GitHub; then the binary wheel will be built as part of
 your fork.
+
+.. _install_win:
 
 Installing from source on Windows
 ---------------------------------
