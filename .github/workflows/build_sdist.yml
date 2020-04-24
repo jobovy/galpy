@@ -10,22 +10,15 @@ on:
 jobs:
   build:
     name: Build source directory for release
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       # check-out this repository
       - uses: actions/checkout@v2
-      # Install Miniconda, as specificed by this repository's environment.yml
-      - uses: goanpeca/setup-miniconda@v1
+      # Setup python
+      - name: Set up Python
+        uses: actions/setup-python@v1
         with:
-           activate-environment: galpywheels
-           environment-file: .github/conda-build-environment-macos-latest.yml
-           python-version: 3.8
-      - name: Set environment variables on Mac OS
-        shell: bash -l {0}
-        run: |
-          echo ::set-env name=CFLAGS::-I$CONDA_PREFIX/include
-          echo ::set-env name=LDFLAGS::-I$CONDA_PREFIX/lib
-          echo ::set-env name=LD_LIBRARY_PATH::-I$CONDA_PREFIX/lib
+          python-version: 3.8
       - name: Build sdist
         shell: bash -l {0}
         run: python setup.py sdist
