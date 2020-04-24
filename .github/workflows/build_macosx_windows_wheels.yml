@@ -84,3 +84,11 @@ jobs:
         with:
           name: galpy-wheels-macos-windows-latest
           path: wheelhouse/*.whl
+      # Upload to PyPI if this is a release
+      - name: Publish distribution to PyPI
+#        if: github.event_name == 'release' && github.event.action == 'created'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+#          password: ${{ secrets.pypi_token }}
+          password: ${{ secrets.testpypi_token }}
+          repository_url: https://test.pypi.org/legacy/
