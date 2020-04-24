@@ -230,8 +230,8 @@ Helper classes
 
 .. _potential-mw:
 
-**NEW IN v1.5** Milky-Way-like potentials
------------------------------------------
+Milky-Way-like potentials
+-------------------------
 
 ``galpy`` contains various simple models for the Milky Way's
 gravitational potential. The recommended model, described in `Bovy
