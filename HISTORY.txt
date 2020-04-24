@@ -33,6 +33,9 @@ v1.6 (????-??-??)
 - Compile all main galpy C extensions into a single shared-object
   library libgalpy.
 
+- Automatically build Linux, Mac, and Windows wheels with GitHub
+  Actions and upload them to PyPI upon release creation (#421).
+
 v1.5 (2019-09-12)
 =================
 
