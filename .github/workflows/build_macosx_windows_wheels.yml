@@ -69,7 +69,7 @@ jobs:
           name: galpy-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
           path: wheelhouse/*.whl
   combine:
-    name: Combine wheels into single artifact
+    name: Combine wheels into single artifact and upload to PyPI upon release
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -92,3 +92,4 @@ jobs:
 #          password: ${{ secrets.pypi_token }}
           password: ${{ secrets.testpypi_token }}
           repository_url: https://test.pypi.org/legacy/
+          packages_dir: wheelhouse/
