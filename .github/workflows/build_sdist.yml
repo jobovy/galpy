@@ -22,7 +22,7 @@ jobs:
       # Install the GSL (necessary to properly include the C files)
       - name: Install GSL
         shell: bash -l {0}
-        run: apt-get install -y libgsl0-dev
+        run: sudo apt-get install -y libgsl0-dev
       - name: Build sdist
         shell: bash -l {0}
         run: python setup.py sdist
