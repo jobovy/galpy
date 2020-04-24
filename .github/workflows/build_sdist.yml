@@ -1,0 +1,26 @@
+name: Build source directory for release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Build source directory for release
+    runs-on: ubuntu-latest
+    steps:
+      # check-out this repository
+      - uses: actions/checkout@v2
+      # Setup python
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Build sdist
+        shell: bash -l {0}
+        run: python setup.py sdist
+      # Upload to PyPI if this is a release
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.pypi_token }}
