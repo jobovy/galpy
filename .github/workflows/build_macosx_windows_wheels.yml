@@ -1,6 +1,6 @@
-name: Build Mac OS X & Windows wheels
+name: Build Mac OS X & Windows wheels and upload to PyPI upon release
 
-# Update on every push
+# Update on every push and PR to master, and upon release creation
 on:
   push:
     branches:    
@@ -67,6 +67,8 @@ jobs:
         with:
           name: galpy-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
           path: wheelhouse/*.whl
+# We need to run on Ubuntu for pypa/gh-action-pypi-publish action
+# so might as well also combine
   combine:
     name: Combine wheels into single artifact and upload to PyPI upon release
     needs: build
