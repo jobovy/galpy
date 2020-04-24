@@ -12,4 +12,5 @@ done
 
 for whl in /github/workspace/wheelhouse/*.whl; do
     auditwheel repair $whl
+    rm $whl
 done
