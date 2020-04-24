@@ -1,9 +1,6 @@
 name: Build source directory for release
 
 on:
-  push:
-    branches:
-      - gawheels
   release:
     types: [created]
 
@@ -26,6 +23,4 @@ jobs:
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@master
         with:
-#          password: ${{ secrets.pypi_token }}
-          password: ${{ secrets.testpypi_token }}
-          repository_url: https://test.pypi.org/legacy/
+          password: ${{ secrets.pypi_token }}
