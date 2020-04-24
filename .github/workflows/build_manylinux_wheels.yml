@@ -5,7 +5,6 @@ on:
   push:
     branches:    
       - master
-      - linuxwheels
     paths-ignore:
       - 'doc/**'
   pull_request:
