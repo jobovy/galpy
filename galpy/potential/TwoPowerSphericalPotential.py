@@ -1412,7 +1412,8 @@ class NFWPotential(TwoPowerSphericalPotential):
            2020-02-05 - Written - Bovy (UofT)
 
         """
-        return self.vcirc(self.rmax(use_physical=False),use_physical=False)
+        # 0.21621659550187311005 = (numpy.log(1.+rmax)-rmax/(1.+rmax))/rmax 
+        return numpy.sqrt(0.21621659550187311005*self._amp/self.a)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
