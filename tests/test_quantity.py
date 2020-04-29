@@ -2870,6 +2870,11 @@ def test_potential_paramunits():
     pot= potential.NFWPotential(amp=20.*units.Msun,a=15.*units.kpc,ro=ro,vo=vo)
     # Check density at r=a
     assert numpy.fabs(pot.dens(15./ro,0.,use_physical=False)*bovy_conversion.dens_in_msolpc3(vo,ro)-20./4./numpy.pi/8./ro**3./10.**9./4.) < 10.**-8., "NFWPotential w/ parameters w/ units does not behave as expected"
+    # NFWPotential, rmax,vmax
+    pot= potential.NFWPotential(rmax=10.*units.kpc,
+                                vmax=175.*units.km/units.s,ro=ro,vo=vo)
+    # Check velocity at r=rmax
+    assert numpy.fabs(pot.vcirc(10./ro,use_physical=False)*vo-175.) < 10.**-8., "NFWPotential w/ parameters w/ units does not behave as expected"
     # SCFPotential, default = Hernquist
     pot= potential.SCFPotential(amp=20.*units.Msun,a=10.*units.kpc,
                                       ro=ro,vo=vo)
