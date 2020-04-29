@@ -5,6 +5,7 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
+from scipy import optimize
 try:
     import pynbody
     _PYNBODY_LOADED= True
@@ -2363,6 +2364,22 @@ def test_NFW_virialquantities_diffrovo():
         # Also test concentration
         assert numpy.fabs(np.conc(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
                               -np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/np._scale/ro) < 0.01, "NFWPotential's concentration computed for different (ro,vo) from setup is incorrect"
+    return None
+
+# Test that rmax and vmax are correctly determined for an NFW potential
+def test_NFW_rmaxvmax():
+    # Setup with rmax,vmax
+    rmax, vmax= 1.2, 3.23
+    np= potential.NFWPotential(rmax=rmax,vmax=vmax)
+    # Now determine rmax and vmax numerically
+    rmax_opt= optimize.minimize_scalar(lambda r: -np.vcirc(r),
+                                       bracket=[0.01,100.])['x']
+    assert numpy.fabs(rmax_opt-rmax) < 10.**-7., \
+        'NFW rmax() function does not behave as expected'
+    assert numpy.fabs(np.vcirc(rmax_opt)-vmax) < 10.**-8., \
+        'NFW rmax() function does not behave as expected'
+    assert numpy.fabs(np.vcirc(rmax_opt)-np.vmax()) < 10.**-8., \
+        'NFW vmax() function does not behave as expected'
     return None
 
 def test_LinShuReductionFactor():
