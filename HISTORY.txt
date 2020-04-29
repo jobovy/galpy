@@ -1,6 +1,11 @@
 v1.7 (XXXX-XX-XX)
 =================
 
+- Added NFWPotential initialization method using rmax and vmax, the
+  radius and alue at which the rotation curve peaks; also added rmax
+  and vmax methods to NFWPotential to compute these quantities for any
+  NFWPotential.
+
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 
