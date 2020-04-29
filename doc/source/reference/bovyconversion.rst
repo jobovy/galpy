@@ -19,8 +19,20 @@ different units. For example, if you want to know how many
 
 or :math:`1\,M_\odot\,\mathrm{pc}^{-3} \approx 40\,\mathrm{GeV\,cm}^{-3}`.
 
-Functions:
-----------
+Also contains a few utility functions to deal with the ``ro`` and
+``vo`` conversion parameters for galpy object or lists thereof.
+
+Utility  functions:
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   get_physical <conversiongetphysical.rst>
+   physical_compatible <conversionphysicalcompatible.rst>
+
+Conversion functions:
+---------------------
 
 .. toctree::
    :maxdepth: 2

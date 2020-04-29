@@ -13,6 +13,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potentialadd.rst>
+   __mul__ <potentialmul.rst>
    __call__ <potentialcall.rst>
    dens <potentialdens.rst>
    dvcircdR <potentialdvcircdr.rst>
@@ -29,13 +31,18 @@ Use as ``Potential-instance.method(...)``
    plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
+   r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
    rl <potentialrl.rst>
+   rtide <potentialrtide.rst>
+   surfdens <potentialsurfdens.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
+   ttensor <potentialttensor.rst>
    turn_physical_off <potentialturnphysicaloff.rst>
    turn_physical_on <potentialturnphysicalon.rst>
    vcirc <potentialvcirc.rst>
@@ -52,7 +59,9 @@ In addition to these, the ``NFWPotential`` also has methods to calculate virial 
 
    conc <potentialconc.rst>
    mvir <potentialmvir.rst>
+   rmax <potentialrmax.rst>
    rvir <potentialrvir.rst>
+   vmax <potentialvmax.rst>
 
 General 3D potential routines
 +++++++++++++++++++++++++++++
@@ -67,12 +76,17 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephi2derivs <potentialphi2derivs.rst>
+   evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>
+   evaluater2derivs <potentialsphr2derivs.rst>
    evaluateRzderivs <potentialrzderivs.rst>
    evaluateRforces <potentialrforces.rst>
    evaluaterforces <potentialsphrforces.rst>
+   evaluateSurfaceDensities <potentialsurfdensities.rst>
    evaluatez2derivs <potentialz2derivs.rst>
    evaluatezforces <potentialzforces.rst>
+   flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
    nemo_accname <potentialnemoaccnames.rst>
@@ -83,6 +97,9 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    rl <potentialrls.rst>
+   rtide <potentialrtides.rst>
+   to_amuse <potentialtoamuses.rst>
+   ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
    vcirc <potentialvcircs.rst>
@@ -112,15 +129,19 @@ Spherical potentials
 
    potentialburkert.rst
    potentialdoublepowerspher.rst
-   potentialjaffe.rst
+   potentialcoredehnen.rst
+   potentialdehnen.rst
    potentialhernquist.rst
+   potentialhomogsphere.rst
    potentialisochrone.rst
+   potentialjaffe.rst
    potentialkepler.rst
    potentialnfw.rst
    potentialplummer.rst
    potentialpowerspher.rst
    potentialpowerspherwcut.rst
    potentialpseudoiso.rst
+   potentialsphericalshell.rst
 
 Axisymmetric potentials
 ***********************
@@ -138,24 +159,49 @@ Axisymmetric potentials
    potentialmiyamoto.rst
    potential3mn.rst
    potentialrazorexp.rst
+   potentialring.rst
    potentialsnapshotrzpotential.rst
 
-Triaxial, spiral, and bar potentials
-************************************
+Ellipsoidal triaxial  potentials
+********************************
+
+``galpy`` has very general support for implementing triaxial (or the
+oblate and prolate special cases) of ellipsoidal potentials through
+the general :ref:`EllipsoidalPotential <ellipsoidal>` class. These
+potentials have densities that are uniform on ellipsoids, thus only
+functions of :math:`m^2 = x^2 + \frac{y^2}{b^2}+\frac{z^2}{c^2}`. New
+potentials of this type can be implemented by inheriting from this
+class and implementing the ``_mdens(self,m)``, ``_psi(self,m)``, and
+``_mdens_deriv`` functions for the density, its integral with respect
+to :math:`m^2`, and its derivative with respect to m,
+respectively. For adding a C implementation, follow similar steps (use
+``PerfectEllipsoidPotential`` as an example to follow).
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialperfectellipsoid.rst
+   potentialdoublepowertriaxial.rst
+   potentialtriaxialjaffe.rst
+   potentialtriaxialhernquist.rst
+   potentialtriaxialnfw.rst
+
+Note that the Ferrers potential listed below is a potential of this
+type, but it is currently not implemented using the
+``EllipsoidalPotential`` class.
+
+Spiral, bar, other triaxial, and miscellaneous potentials
+**********************************************************
 
 .. toctree::
    :maxdepth: 2
 
    potentialdehnenbar.rst
-   potentialdoublepowertriaxial.rst
    potentialferrers.rst
    potentialloghalo.rst
    potentialmovingobj.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
-   potentialtriaxialjaffe.rst
-   potentialtriaxialhernquist.rst
-   potentialtriaxialnfw.rst
 
 All ``galpy`` potentials can also be made to rotate using the ``SolidBodyRotationWrapperPotential`` listed in the section on wrapper potentials :ref:`below <potwrapperapi>`.
 
@@ -168,46 +214,171 @@ General Poisson solvers for disks and halos
    potentialdiskscf.rst
    potentialscf.rst
 
+Dissipative forces
+*******************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialchandrasekhardynfric.rst
+
+Helper classes
+**************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialnumericalpotentialderivsmixin.rst
+
 .. _potential-mw:
 
-In addition to these classes, a simple Milky-Way-like potential fit to
-data on the Milky Way is included as
-``galpy.potential.MWPotential2014`` (see the ``galpy`` paper for
-details). Note that this potential assumes a circular velocity of 220
-km/s at the solar radius at 8 kpc; see `arXiv/1412.3451
+Milky-Way-like potentials
+-------------------------
+
+``galpy`` contains various simple models for the Milky Way's
+gravitational potential. The recommended model, described in `Bovy
+(2015) <http://arxiv.org/abs/1412.3451>`_, is included as
+``galpy.potential.MWPotential2014``. This potential was fit to a large
+variety of data on the Milky Way and thus serves as both a simple and
+accurate model for the Milky Way's potential (see `Bovy 2015
 <http://arxiv.org/abs/1412.3451>`_ for full information on how this
-potential was fit. This potential is defined as
+potential was fit). Note that this potential assumes a circular
+velocity of 220 km/s at the solar radius at 8 kpc. This potential is
+defined as
 
 >>> bp= PowerSphericalPotentialwCutoff(alpha=1.8,rc=1.9/8.,normalize=0.05)
 >>> mp= MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=.6)
 >>> np= NFWPotential(a=16/8.,normalize=.35)
->>> MWPotential2014= [bp,mp,np]
+>>> MWPotential2014= bp+mp+np
 
-and can thus be used like any list of ``Potentials``. If one wants to
-add the supermassive black hole at the Galactic center, this can be
-done by
+and can thus be used like any list of ``Potentials``. The mass of the
+dark-matter halo in ``MWPotential2014`` is on the low side of
+estimates of the Milky Way's halo mass; if you want to adjust it, for
+example making it 50% larger, you can simply multiply the halo part of
+``MWPotential2014`` by 1.5 as (this type of multiplication works for
+*any* potential in galpy)
+
+>>> MWPotential2014[2]*= 1.5
+
+If one wants to add the supermassive black hole at the Galactic
+center, this can be done by
 
 >>> from galpy.potential import KeplerPotential
 >>> from galpy.util import bovy_conversion
->>> MWPotential2014.append(KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.)))
+>>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))
 
-for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`.
+for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`. If you
+want to take into account dynamical friction for, say, an object of
+mass :math:`5\times 10^{10}\,M_\odot` and a half-mass radius of 5 kpc,
+do
+
+>>> from galpy.potential import ChandrasekharDynamicalFrictionForce
+>>> from astropy import units
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10.*units.Msun,
+					     rhm=5.*units.kpc,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= MWPotential2014+cdf
+
+where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
+
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
+					     rhm=5./8.,
+					     dens=MWPotential2014)
+>>> MWPotential2014wDF= MWPotential2014+cdf
 
 As explained in :ref:`this section <nemopot>`, *without* this black
-hole ``MWPotential2014`` can be used with Dehnen's gyrfalcON code
-using ``accname=PowSphwCut+MiyamotoNagai+NFW`` and
+hole or dynamical friction, ``MWPotential2014`` can be used with
+Dehnen's gyrfalcON code using ``accname=PowSphwCut+MiyamotoNagai+NFW``
+and
 ``accpars=0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887``.
 
-An older version ``galpy.potential.MWPotential`` of a similar
-potential that was *not* fit to data on the Milky Way is defined as
+``galpy`` also contains other models for the Milky Way's potential
+from the literature in the ``galpy.potential.mwpotentials`` module
+(which also contains ``MWPotential2014``). Currently, these are:
+
+* ``McMillan17``: the potential model from `McMillan (2017) <https://ui.adsabs.harvard.edu/abs/2017MNRAS.465...76M>`_
+* ``Irrgang13I``: model I from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_, which is an updated version of the classic `Allen & Santillan (1991) <https://ui.adsabs.harvard.edu/abs/1991RMxAA..22..255A>`_
+* ``Irrgang13II`` and ``Irrgang13III``: model II and III from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_
+* ``DehnenBinney98I``, ``DehnenBinney98II``, ``DehnenBinney98III``, and ``DehnenBinney98IV`` for models 1 through 4 from `Dehnen & Binney (1998) <https://ui.adsabs.harvard.edu/abs/1998MNRAS.294..429D/abstract>`__.
+
+Unlike ``MWPotential2014``, these potentials have physical units
+turned on, using as the unit scaling parameters ``ro`` and ``vo`` the
+distance to the Galactic center and the circular velocity at the Sun's
+radius of each potential. These can be obtained using the
+``galpy.util.bovy_conversion.get_physical`` function, e.g.,
+
+>>> from galpy.potential.mwpotentials import McMillan17
+>>> from galpy.util.bovy_conversion import get_physical
+>>> get_physical(McMillan17)
+# {'ro': 8.21, 'vo': 233.1}
+
+This function returns the unit-conversion parameters as a dictionary,
+so they can be easily passed to other functions. For example, when
+integrating an orbit in these potentials and either initializing the
+orbit using observed coordinates or converting the integrated orbit to
+observed coordinates, it is important to use the same unit-conversion
+parameters (otherwise an error will be raised). For example, to obtain
+the orbit of the Sun in the ``McMillan17`` potential, we do
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit(**get_physical(McMillan17))
+
+As an example, we integrate the Sun's orbit for 10 Gyr in
+``MWPotential2014``, ``McMillan17`` and ``Irrgang13I``
+
+>>> from galpy.potential.mwpotentials import MWPotential2014, McMillan17, Irrgang13I
+>>> from galpy.orbit import Orbit
+>>> from galpy.util.bovy_conversion import get_physical
+>>> from astropy import units
+>>> times= numpy.linspace(0.,10.,3001)*units.Gyr
+>>> o_mwp14= Orbit(ro=8.,vo=220.) # Need to set these by hand
+>>> o_mcm17= Orbit(**get_physical(McMillan17))
+>>> o_irrI= Orbit(**get_physical(Irrgang13I))
+>>> o_mwp14.integrate(times,MWPotential2014)
+>>> o_mcm17.integrate(times,McMillan17)
+>>> o_irrI.integrate(times,Irrgang13I)
+>>> o_mwp14.plot(lw=0.6)
+>>> o_mcm17.plot(overplot=True,lw=0.6)
+>>> o_irrI.plot(overplot=True,lw=0.6)
+
+which gives
+
+.. image:: ../images/orbit-sun-mwpotentials.png
+
+Much of the difference between these orbits is due to the different
+present Galactocentric radius of the Sun, if we simply plot the
+difference with respect to the present Galactocentric radius, they
+agree better
+
+>>> o_mwp14.plot(d1='R-8.',d2='z',lw=0.6,xlabel=r'$R-R_0\,(\mathrm{kpc})$')
+>>> o_mcm17.plot(d1='R-{}'.format(get_physical(McMillan17)['ro']),d2='z',overplot=True,lw=0.6)
+>>> o_irrI.plot(d1='R-{}'.format(get_physical(Irrgang13I)['ro']),d2='z',overplot=True,lw=0.6)
+
+.. image:: ../images/orbit-sun-mwpotentials-vsRsun.png
+
+We can also compare the rotation curves of these different models
+
+>>> from galpy.potential import plotRotcurve
+>>> plotRotcurve(MWPotential2014,label=r'$\mathrm{MWPotential2014}$',ro=8.,vo=220.) # need to set ro and vo explicitly, because MWPotential2014 has units turned off
+>>> plotRotcurve(McMillan17,overplot=True,label=r'$\mathrm{McMillan\, (2017)}$')
+>>> plotRotcurve(Irrgang13I,overplot=True,label=r'$\mathrm{Irrgang\ et\ al.\, (2017), model\ I}$')
+>>> legend()
+
+.. image:: ../images/mwpotentials-vcirc.png
+
+
+
+An older version ``galpy.potential.MWPotential`` of
+``MWPotential2014`` that was *not* fit to data on the Milky Way is
+defined as
 
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
->>> MWPotential= [mp,np,hp]
+>>> MWPotential= mp+np+hp
 
-``galpy.potential.MWPotential2014`` supersedes
-``galpy.potential.MWPotential``.
+but ``galpy.potential.MWPotential2014`` supersedes
+``galpy.potential.MWPotential`` and its use is no longer recommended.
 
 2D potentials
 -------------
@@ -220,6 +391,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential2dadd.rst>
+   __mul__ <potential2dmul.rst>
    __call__ <potential2dcall.rst>
    phiforce <potential2dphiforce.rst>
    Rforce <potential2drforce.rst>
@@ -256,6 +429,7 @@ Use as ``method(...)``
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
+   flatten <potentialflatten.rst>
    LinShuReductionFactor <potential2dlinshureductionfactor.rst>
    plotEscapecurve <potentialplotescapecurves.rst>
    plotplanarPotentials <potential2dplots.rst>
@@ -301,6 +475,8 @@ Use as ``Potential-instance.method(...)``
 .. toctree::
    :maxdepth: 2
 
+   __add__ <potential1dadd.rst>
+   __mul__ <potential1dmul.rst>
    __call__ <potential1dcall.rst>
    force <potential1dforce.rst>
    plot <potential1dplot.rst>
@@ -317,6 +493,7 @@ Use as ``method(...)``
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
+   flatten <potentialflatten.rst>
    plotlinearPotentials <potential1dplots.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
    turn_physical_on <potentialturnphysicalons.rst>
@@ -327,6 +504,7 @@ Specific potentials
 .. toctree::
    :maxdepth: 2
 
+   IsothermalDiskPotential <potentialisodisk.rst>
    KGPotential <potentialkg.rst>
 
 One-dimensional potentials can also be derived from 3D axisymmetric potentials as the vertical potential at a certain Galactocentric radius
@@ -334,6 +512,7 @@ One-dimensional potentials can also be derived from 3D axisymmetric potentials a
 .. toctree::
    :maxdepth: 2
 
+   toVerticalPotential (general) <potential1dtolinear.rst>
    RZToverticalPotential <potential1dRZtolinear.rst>
 
 .. _potwrapperapi:
@@ -349,5 +528,8 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
+   potentialgaussampwrapper.rst
    potentialsolidbodyrotationwrapper.rst
+

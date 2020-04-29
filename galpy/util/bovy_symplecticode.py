@@ -30,8 +30,9 @@
 #WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
-import numpy as nu
-def leapfrog(func,yo,t,args=(),rtol=1.49012e-8,atol=0.):
+import numpy
+_MAX_DT_REDUCE= 10000.
+def leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
     """
     NAME:
        leapfrog
@@ -52,7 +53,7 @@ def leapfrog(func,yo,t,args=(),rtol=1.49012e-8,atol=0.):
     #Initialize
     qo= yo[0:len(yo)//2]
     po= yo[len(yo)//2:len(yo)]
-    out= nu.zeros((len(t),len(yo)))
+    out= numpy.zeros((len(t),len(yo)))
     out[0,:]= yo
     #Estimate necessary step size
     dt= t[1]-t[0] #assumes that the steps are equally spaced
@@ -84,12 +85,13 @@ def leapfrog_leapp(p,dt,force):
     return p+dt*force
 
 def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
-    qmax= nu.amax(nu.fabs(qo))+nu.zeros(len(qo))
-    pmax= nu.amax(nu.fabs(po))+nu.zeros(len(po))
-    scale= atol+rtol*nu.array([qmax,pmax]).flatten()
+    init_dt= dt
+    qmax= numpy.amax(numpy.fabs(qo))+numpy.zeros(len(qo))
+    pmax= numpy.amax(numpy.fabs(po))+numpy.zeros(len(po))
+    scale= atol+rtol*numpy.array([qmax,pmax]).flatten()
     err= 2.
     dt*= 2.
-    while err > 1.:
+    while err > 1. and init_dt/dt < _MAX_DT_REDUCE:
         #Do one leapfrog step with step dt and one with dt/2.
         #dt
         q12= leapfrog_leapq(qo,po,dt/2.)
@@ -105,8 +107,8 @@ def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
         p12= leapfrog_leapp(ptmp,dt/2.,force)
         q12= leapfrog_leapq(qtmp,p12,dt/4.)
         #Norm
-        delta= nu.array([nu.fabs(q11-q12),nu.fabs(p11-p12)]).flatten()
-        err= nu.sqrt(nu.mean((delta/scale)**2.))
+        delta= numpy.array([numpy.fabs(q11-q12),numpy.fabs(p11-p12)]).flatten()
+        err= numpy.sqrt(numpy.mean((delta/scale)**2.))
         dt/= 2.
     return dt
 

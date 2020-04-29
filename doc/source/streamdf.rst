@@ -396,8 +396,8 @@ PDF will not be quite correct.
 
 .. _streamgap-tutorial:
 
-**NEW in v1.2**: Modeling gaps in streams
--------------------------------------------
+Modeling gaps in streams
+------------------------
 
 ``galpy`` also contains tools to model the effect of impacts due to
 dark-matter subhalos on streams (see `Sanders, Bovy, & Erkal 2015

@@ -1,4 +1,4 @@
-galpy.actionAngle.actionAngleTorus.Freqs
-================================================
+galpy.actionAngle.actionAngleInverse.Freqs
+==========================================
 
-.. automethod:: galpy.actionAngle.actionAngleTorus.Freqs
+.. automethod:: galpy.actionAngle.actionAngleInverse.Freqs

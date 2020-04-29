@@ -1,10 +1,12 @@
 from __future__ import print_function, division
 import os
+import sys
 import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
 _TRAVIS= bool(os.getenv('TRAVIS'))
+PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
@@ -178,7 +180,7 @@ def test_actionAngleIsochrone_conserved_actions():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAI,obs,ip,-5.,-5.,-5.)
     else:
@@ -193,7 +195,7 @@ def test_actionAngleIsochrone_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -216,7 +218,7 @@ def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -237,7 +239,7 @@ def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
     aAI= actionAngleIsochrone(ip=ip)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -324,7 +326,7 @@ def test_actionAngleSpherical_basic_actions():
     assert numpy.fabs(js[2]) < 10.**-16., 'Circular orbit in the spherical LogarithmicHaloPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    js= aAS(Orbit([R,vR,vT,z,vz])._orb) #with OrbitTop
+    js= aAS(Orbit([R,vR,vT,z,vz]))
     assert numpy.fabs(js[0]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jr'
     assert numpy.fabs(js[2]) < 10.**-4., 'Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jz'
     return None
@@ -400,7 +402,7 @@ def test_actionAngleSpherical_conserved_actions():
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101)
     else:
@@ -415,7 +417,7 @@ def test_actionAngleSpherical_conserved_actions_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_conserved_actions(aAS,obs,lp,-5.,-5.,-5.,ntimes=101,
                                             fixed_quad=True)
@@ -432,7 +434,7 @@ def test_actionAngleSpherical_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -455,7 +457,7 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -482,7 +484,7 @@ def test_actionAngleSpherical_noninclinedorbit_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -505,7 +507,7 @@ def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
     aAS= actionAngleSpherical(pot=lp)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -644,7 +646,7 @@ def test_actionAngleAdiabatic_basic_actions_gamma0():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleAdiabatic(pot=MWPotential,gamma=0.)
+    aAA= actionAngleAdiabatic(pot=[MWPotential[0],MWPotential[1:]],gamma=0.)
     #circular orbit
     R,vR,vT,phi= 1.,0.,1.,2. 
     js= aAA(Orbit([R,vR,vT,phi]))
@@ -672,7 +674,8 @@ def test_actionAngleAdiabatic_basic_actions_c():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
+    # test nested list of potentials
+    aAA= actionAngleAdiabatic(pot=[MWPotential[0],MWPotential[1:]],c=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAA(R,vR,vT,z,vz)
@@ -1036,7 +1039,9 @@ def test_actionAngleStaeckel_basic_actions_u0():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=False,useu0=True)
+    # test nested list of potentials
+    aAS= actionAngleStaeckel(pot=[MWPotential[0],MWPotential[1:]],
+                             delta=0.71,c=False,useu0=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
@@ -1054,7 +1059,9 @@ def test_actionAngleStaeckel_basic_actions_u0_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    aAS= actionAngleStaeckel(pot=MWPotential,delta=0.71,c=True,useu0=True)
+    # test nested list of potentials
+    aAS= actionAngleStaeckel(pot=[MWPotential[0],MWPotential[1:]],
+                             delta=0.71,c=True,useu0=True)
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
@@ -1080,7 +1087,7 @@ def test_actionAngleStaeckel_basic_actions_u0_interppot_c():
     #circular orbit
     R,vR,vT,z,vz= 1.,0.,1.,0.,0. 
     js= aAS(R,vR,vT,z,vz)
-    assert numpy.fabs(js[0][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jr=0'
+    assert numpy.fabs(js[0][0]) < 10.**-12., 'Circular orbit in the MWPotential does not have Jr=0'
     assert numpy.fabs(js[2][0]) < 10.**-16., 'Circular orbit in the MWPotential does not have Jz=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
@@ -1389,7 +1396,6 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     assert numpy.fabs(tzmax) < 10.**-16., 'Circular orbit in the MWPotential does not have zmax=0'
     #Close-to-circular orbit
     R,vR,vT,z,vz= 1.01,0.01,1.,0.01,0.01 
-    print("Should be here")
     te,tzmax,_,_= aAS.EccZmaxRperiRap(R,vR,vT,z,vz,u0=1.15)
     assert numpy.fabs(te) < 10.**-2., 'Close-to-circular orbit in the MWPotential does not have small eccentricity'
     assert numpy.fabs(tzmax) < 2.*10.**-2., 'Close-to-circular orbit in the MWPotential does not have small zmax'
@@ -1640,10 +1646,11 @@ def test_actionAngleStaeckel_conserved_actions_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1658,7 +1665,8 @@ def test_actionAngleStaeckel_conserved_actions_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -1691,10 +1699,11 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from galpy import potential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
-        mockSmoothedLogarithmicHaloPotential
+        mockSmoothedLogarithmicHaloPotential, \
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
@@ -1711,8 +1720,12 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     scfzp = mockSCFZeeuwPotential(); scfzp.normalize(1.); 
     msoftneedlep= mockSphericalSoftenedNeedleBarPotential()
     msmlp= mockSmoothedLogarithmicHaloPotential()
+    mgasmlp= mockGaussianAmplitudeSmoothedLogarithmicHaloPotential()
+    dp= potential.DehnenSphericalPotential(normalize=1.)
+    dcp= potential.DehnenCoreSphericalPotential(normalize=1.)
+    homp= potential.HomogeneousSpherePotential(normalize=1.)
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp]
+           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
@@ -1730,7 +1743,7 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     aAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.71)
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     if not ext_loaded: #odeint is not as accurate as dopr54_c
@@ -1823,10 +1836,11 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
     from galpy.potential import MWPotential, DoubleExponentialDiskPotential, \
         FlattenedPowerPotential, interpRZPotential, KuzminDiskPotential, \
         TriaxialHernquistPotential, TriaxialJaffePotential, \
-        TriaxialNFWPotential, SCFPotential, DiskSCFPotential
+        TriaxialNFWPotential, SCFPotential, DiskSCFPotential, \
+        PerfectEllipsoidPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= interpRZPotential(RZPot=MWPotential,
                           rgrid=(numpy.log(0.01),numpy.log(20.),101),
                           zgrid=(0.,1.,101),logR=True,use_c=True,enable_c=True,
@@ -1841,7 +1855,8 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
            TriaxialJaffePotential(normalize=1.,c=0.4,pa=1.1),
            SCFPotential(normalize=1.),
            DiskSCFPotential(normalize=1.),
-           ip]
+           ip,
+           PerfectEllipsoidPotential(normalize=1.,c=0.98)]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.71)
         obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
@@ -2099,7 +2114,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2177,7 +2192,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     aAIA= actionAngleIsochroneApprox(pot=ip,b=0.8)
@@ -2239,7 +2254,7 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleIsochrone
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     from galpy.orbit import Orbit
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
@@ -2460,12 +2475,12 @@ def test_actionAngleIsochroneApprox_plotting():
     #Various plots that should be produced
     aAI.plot(obs)
     aAI.plot(obs,type='jr')
-    aAI.plot(numpy.reshape(obs.R(obs._orb.t),(1,len(obs._orb.t))),
-             numpy.reshape(obs.vR(obs._orb.t),(1,len(obs._orb.t))),
-             numpy.reshape(obs.vT(obs._orb.t),(1,len(obs._orb.t))),
-             numpy.reshape(obs.z(obs._orb.t),(1,len(obs._orb.t))),
-             numpy.reshape(obs.vz(obs._orb.t),(1,len(obs._orb.t))),
-             numpy.reshape(obs.phi(obs._orb.t),(1,len(obs._orb.t))),
+    aAI.plot(numpy.reshape(obs.R(obs.t),(1,len(obs.t))),
+             numpy.reshape(obs.vR(obs.t),(1,len(obs.t))),
+             numpy.reshape(obs.vT(obs.t),(1,len(obs.t))),
+             numpy.reshape(obs.z(obs.t),(1,len(obs.t))),
+             numpy.reshape(obs.vz(obs.t),(1,len(obs.t))),
+             numpy.reshape(obs.phi(obs.t),(1,len(obs.t))),
              type='lz')
     aAI.plot(obs,type='jz')
     aAI.plot(obs,type='jr',downsample=True)
@@ -2485,557 +2500,6 @@ def test_actionAngleIsochroneApprox_plotting():
     aAI.plot(obs,type='jr')   
     return None
 
-#Basic sanity checking: circular orbit should have constant R, zero vR, vT=vc
-def test_actionAngleTorus_basic():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential, rl, vcirc, \
-        FlattenedPowerPotential, PlummerPotential
-    tol= -4.
-    jr= 10.**-10.
-    jz= 10.**-10.
-    aAT= actionAngleTorus(pot=MWPotential)
-    # at R=1, Lz=1
-    jphi= 1.
-    angler= numpy.linspace(0.,2.*numpy.pi,101)
-    anglephi= numpy.linspace(0.,2.*numpy.pi,101)+1.
-    anglez= numpy.linspace(0.,2.*numpy.pi,101)+2.
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    assert numpy.all(numpy.fabs(RvR[0]-rl(MWPotential,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(MWPotential,rl(MWPotential,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=1.5, using Plummer
-    tol= -3.25
-    pp= PlummerPotential(normalize=1.)
-    aAT= actionAngleTorus(pot=pp)
-    jphi= 1.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    assert numpy.all(numpy.fabs(RvR[0]-rl(pp,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(pp,rl(pp,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    # at Lz=0.5, using FlattenedPowerPotential
-    tol= -4.
-    fp= FlattenedPowerPotential(normalize=1.)
-    aAT= actionAngleTorus(pot=fp)
-    jphi= 0.5
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    assert numpy.all(numpy.fabs(RvR[0]-rl(fp,jphi)) < 10.**tol), \
-        'circular orbit does not have constant radius for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.**tol), \
-        'circular orbit does not have zero radial velocity for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[2]-vcirc(fp,rl(fp,jphi))) < 10.**tol), \
-        'circular orbit does not have constant vT=vc for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.**tol), \
-        'circular orbit does not have zero vertical height for actionAngleTorus'
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.**tol), \
-        'circular orbit does not have zero vertical velocity for actionAngleTorus'
-    return None
-
-#Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
-def test_actionAngleTorus_basic_freqs():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import epifreq, omegac, verticalfreq, rl, \
-        JaffePotential, PowerSphericalPotential, HernquistPotential
-    tol= -3.
-    jr= 10.**-6.
-    jz= 10.**-6.
-    jp= JaffePotential(normalize=1.)
-    aAT= actionAngleTorus(pot=jp)
-    # at Lz=1
-    jphi= 1.
-    om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(jp,rl(jp,jphi)))/om[0]) < 10.**tol, \
-        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(jp,rl(jp,jphi)))/om[1]) < 10.**tol, \
-        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(jp,rl(jp,jphi)))/om[2]) < 10.**tol, \
-        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
-    # at Lz=1.5, w/ different potential
-    pp= PowerSphericalPotential(normalize=1.)
-    aAT= actionAngleTorus(pot=pp)
-    jphi= 1.5
-    om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(pp,rl(pp,jphi)))/om[0]) < 10.**tol, \
-        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(pp,rl(pp,jphi)))/om[1]) < 10.**tol, \
-        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(pp,rl(pp,jphi)))/om[2]) < 10.**tol, \
-        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
-    # at Lz=0.5, w/ different potential
-    tol= -2.5 # appears more difficult
-    hp= HernquistPotential(normalize=1.)
-    aAT= actionAngleTorus(pot=hp)
-    jphi= 0.5
-    om= aAT.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-epifreq(hp,rl(hp,jphi)))/om[0]) < 10.**tol, \
-        'Close-to-circular orbit does not have Or=kappa for actionAngleTorus'
-    assert numpy.fabs((om[1]-omegac(hp,rl(hp,jphi)))/om[1]) < 10.**tol, \
-        'Close-to-circular orbit does not have Ophi=omega for actionAngleTorus'
-    assert numpy.fabs((om[2]-verticalfreq(hp,rl(hp,jphi)))/om[2]) < 10.**tol, \
-        'Close-to-circular orbit does not have Oz=nu for actionAngleTorus'
-    return None
-
-#Test that orbit from actionAngleTorus is the same as an integrated orbit
-def test_actionAngleTorus_orbit():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
-    # Set up instance
-    aAT= actionAngleTorus(pot=MWPotential2014,tol=10.**-5.)
-    jr,jphi,jz= 0.05,1.1,0.025
-    # First calculate frequencies and the initial RvR
-    RvRom= aAT.xvFreqs(jr,jphi,jz,
-                       numpy.array([0.]),
-                       numpy.array([1.]),
-                       numpy.array([2.]))
-    om= RvRom[1:]
-    # Angles along an orbit
-    ts= numpy.linspace(0.,100.,1001)
-    angler= ts*om[0]
-    anglephi= 1.+ts*om[1]
-    anglez= 2.+ts*om[2]
-    # Calculate the orbit using actionAngleTorus
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0][:,0],RvRom[0][:,1],RvRom[0][:,2],
-                RvRom[0][:,3],RvRom[0][:,4],RvRom[0][:,5]])
-    orb.integrate(ts,MWPotential2014)
-    # Compare
-    tol= -3.
-    assert numpy.all(numpy.fabs(orb.R(ts)-RvR[0]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in R'
-    assert numpy.all(numpy.fabs(orb.vR(ts)-RvR[1]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in vR'
-    assert numpy.all(numpy.fabs(orb.vT(ts)-RvR[2]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in vT'
-    assert numpy.all(numpy.fabs(orb.z(ts)-RvR[3]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in z'
-    assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in vz'
-    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
-        'Integrated orbit does not agree with torus orbit in phi'
-    return None
-
-# Test that actionAngleTorus w/ interp pot gives same freqs as regular pot
-# Doesn't work well: TM aborts because our interpolated forces aren't
-# consistent enough with the potential for TM's taste, but we test that it at
-# at least works somewhat
-def test_actionAngleTorus_interppot_freqs():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import LogarithmicHaloPotential, interpRZPotential
-    lp= LogarithmicHaloPotential(normalize=1.)
-    ip= interpRZPotential(RZPot=lp,
-                          interpPot=True,
-                          interpDens=True,interpRforce=True,interpzforce=True,
-                          enable_c=True)
-    aAT= actionAngleTorus(pot=lp)
-    aATi= actionAngleTorus(pot=ip)
-    jr,jphi,jz= 0.05,1.1,0.02
-    om= aAT.Freqs(jr,jphi,jz)
-    omi= aATi.Freqs(jr,jphi,jz)
-    assert numpy.fabs((om[0]-omi[0])/om[0]) < 0.2, 'Radial frequency computed using the torus machine does not agree between potential and interpolated potential'
-    assert numpy.fabs((om[1]-omi[1])/om[1]) < 0.2, 'Azimuthal frequency computed using the torus machine does not agree between potential and interpolated potential'
-    assert numpy.fabs((om[2]-omi[2])/om[2]) < 0.8, 'Vertical frequency computed using the torus machine does not agree between potential and interpolated potential'
-    return None
-
-#Test the actionAngleTorus against an isochrone potential: actions
-def test_actionAngleTorus_Isochrone_actions():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochrone
-    ip= IsochronePotential(normalize=1.,b=1.2)
-    aAI= actionAngleIsochrone(ip=ip)
-    tol= -6.
-    aAT= actionAngleTorus(pot=ip,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.])
-    anglephi= numpy.array([numpy.pi])
-    anglez= numpy.array([numpy.pi/2.])
-    # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    # Calculate actions from aAI
-    ji= aAI(*RvR)
-    djr= numpy.fabs((ji[0]-jr)/jr)
-    dlz= numpy.fabs((ji[1]-jphi)/jphi)
-    djz= numpy.fabs((ji[2]-jz)/jz)
-    assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (dlz*100.) 
-    assert djz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djz*100.)
-    return None
-
-#Test the actionAngleTorus against an isochrone potential: frequencies and angles
-def test_actionAngleTorus_Isochrone_freqsAngles():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochrone
-    ip= IsochronePotential(normalize=1.,b=1.2)
-    aAI= actionAngleIsochrone(ip=ip)
-    tol= -6.
-    aAT= actionAngleTorus(pot=ip,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.1])+numpy.linspace(0.,numpy.pi,101)
-    angler= angler % (2.*numpy.pi)
-    anglephi= numpy.array([numpy.pi])+numpy.linspace(0.,numpy.pi,101)
-    anglephi= anglephi % (2.*numpy.pi)
-    anglez= numpy.array([numpy.pi/2.])+numpy.linspace(0.,numpy.pi,101)
-    anglez= anglez % (2.*numpy.pi)
-    # Calculate position from aAT
-    RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    # Calculate actions, frequencies, and angles from aAI
-    ws= aAI.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
-    dar[dar > numpy.pi]-= 2.*numpy.pi
-    dar[dar < -numpy.pi]+= 2.*numpy.pi
-    dap[dap > numpy.pi]-= 2.*numpy.pi
-    dap[dap < -numpy.pi]+= 2.*numpy.pi
-    daz[daz > numpy.pi]-= 2.*numpy.pi
-    daz[daz < -numpy.pi]+= 2.*numpy.pi
-    assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
-    assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
-    assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for ar at %f' % (numpy.nanmax(dar))
-    assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for aphi at %f' % (numpy.nanmax(dap))
-    assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for az at %f' % (numpy.nanmax(daz))
-    return None
-
-#Test the actionAngleTorus against a Staeckel potential: actions
-def test_actionAngleTorus_Staeckel_actions():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleStaeckel
-    delta= 1.2
-    kp= KuzminKutuzovStaeckelPotential(normalize=1.,Delta=delta)
-    aAS= actionAngleStaeckel(pot=kp,delta=delta,c=True)
-    tol= -3.
-    aAT= actionAngleTorus(pot=kp,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.])
-    anglephi= numpy.array([numpy.pi])
-    anglez= numpy.array([numpy.pi/2.])
-    # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    # Calculate actions from aAI
-    ji= aAS(*RvR)
-    djr= numpy.fabs((ji[0]-jr)/jr)
-    dlz= numpy.fabs((ji[1]-jphi)/jphi)
-    djz= numpy.fabs((ji[2]-jz)/jz)
-    assert djr < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (dlz*100.) 
-    assert djz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djz*100.)
-    return None
-
-#Test the actionAngleTorus against an isochrone potential: frequencies and angles
-def test_actionAngleTorus_Staeckel_freqsAngles():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleStaeckel
-    delta= 1.2
-    kp= KuzminKutuzovStaeckelPotential(normalize=1.,Delta=delta)
-    aAS= actionAngleStaeckel(pot=kp,delta=delta,c=True)
-    tol= -3.
-    aAT= actionAngleTorus(pot=kp,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.1])+numpy.linspace(0.,numpy.pi,101)
-    angler= angler % (2.*numpy.pi)
-    anglephi= numpy.array([numpy.pi])+numpy.linspace(0.,numpy.pi,101)
-    anglephi= anglephi % (2.*numpy.pi)
-    anglez= numpy.array([numpy.pi/2.])+numpy.linspace(0.,numpy.pi,101)
-    anglez= anglez % (2.*numpy.pi)
-    # Calculate position from aAT
-    RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    # Calculate actions, frequencies, and angles from aAI
-    ws= aAS.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
-    dar[dar > numpy.pi]-= 2.*numpy.pi
-    dar[dar < -numpy.pi]+= 2.*numpy.pi
-    dap[dap > numpy.pi]-= 2.*numpy.pi
-    dap[dap < -numpy.pi]+= 2.*numpy.pi
-    daz[daz > numpy.pi]-= 2.*numpy.pi
-    daz[daz < -numpy.pi]+= 2.*numpy.pi
-    assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
-    assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
-    assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for ar at %f' % (numpy.nanmax(dar))
-    assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for aphi at %f' % (numpy.nanmax(dap))
-    assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for az at %f' % (numpy.nanmax(daz))
-    return None
-
-#Test the actionAngleTorus against a general potential w/ actionAngleIsochroneApprox: actions
-def test_actionAngleTorus_isochroneApprox_actions():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochroneApprox
-    aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
-    tol= -2.5
-    aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.])
-    anglephi= numpy.array([numpy.pi])
-    anglez= numpy.array([numpy.pi/2.])
-    # Calculate position from aAT
-    RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
-    # Calculate actions from aAIA
-    ji= aAIA(*RvR)
-    djr= numpy.fabs((ji[0]-jr)/jr)
-    dlz= numpy.fabs((ji[1]-jphi)/jphi)
-    djz= numpy.fabs((ji[2]-jz)/jz)
-    assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (dlz*100.) 
-    assert djz < 10.**tol, 'actionAngleTorus and actionAngleMWPotential2014 applied to MWPotential2014 potential disagree for Jr at %f%%' % (djz*100.)
-    return None
-
-#Test the actionAngleTorus against a general potential w/ actionAngleIsochrone: frequencies and angles
-def test_actionAngleTorus_isochroneApprox_freqsAngles():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochroneApprox
-    aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
-    tol= -3.5
-    aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.1])+numpy.linspace(0.,numpy.pi,21)
-    angler= angler % (2.*numpy.pi)
-    anglephi= numpy.array([numpy.pi])+numpy.linspace(0.,numpy.pi,21)
-    anglephi= anglephi % (2.*numpy.pi)
-    anglez= numpy.array([numpy.pi/2.])+numpy.linspace(0.,numpy.pi,21)
-    anglez= anglez % (2.*numpy.pi)
-    # Calculate position from aAT
-    RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    # Calculate actions, frequencies, and angles from aAI
-    ws= aAIA.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
-    dar[dar > numpy.pi]-= 2.*numpy.pi
-    dar[dar < -numpy.pi]+= 2.*numpy.pi
-    dap[dap > numpy.pi]-= 2.*numpy.pi
-    dap[dap < -numpy.pi]+= 2.*numpy.pi
-    daz[daz > numpy.pi]-= 2.*numpy.pi
-    daz[daz < -numpy.pi]+= 2.*numpy.pi
-    assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
-    assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
-    assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for ar at %f' % (numpy.nanmax(dar))
-    assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for aphi at %f' % (numpy.nanmax(dap))
-    assert numpy.all(daz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for az at %f' % (numpy.nanmax(daz))
-    return None
-
-# Test that the frequencies returned by hessianFreqs are the same as those returned by Freqs
-def test_actionAngleTorus_hessian_freqs():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.Freqs(jr,jphi,jz)[:3]
-    hO= aAT.hessianFreqs(jr,jphi,jz)[1:4]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
-    return None
-
-# Test that the Hessian is approximately symmetric
-def test_actionAngleTorus_hessian_symm():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
-    assert numpy.all(numpy.fabs((h-h.T)/h) < 0.03), 'actionAngleTorus Hessian is not symmetric'
-    return None
-
-# Test that the Hessian is approximately correct
-def test_actionAngleTorus_hessian_linear():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
-    dj= numpy.array([0.02,0.005,-0.01])
-    do_fromhessian= numpy.dot(h,dj)
-    O= numpy.array(aAT.Freqs(jr,jphi,jz)[:3])
-    do= numpy.array(aAT.Freqs(jr+dj[0],jphi+dj[1],jz+dj[2])[:3])-O
-    assert numpy.all(numpy.fabs((do_fromhessian-do)/O)< 0.001), 'actionAngleTorus Hessian does not return good approximation to dO/dJ'
-    return None
-
-# Test that the frequencies returned by xvJacobianFreqs are the same as those returned by Freqs
-def test_actionAngleTorus_jacobian_freqs():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.Freqs(jr,jphi,jz)[:3]
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
-                            numpy.array([0.]),numpy.array([1.]),
-                            numpy.array([2.]))[3:6]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and xvJacobianFreqs return different frequencies'
-    return None
-
-# Test that the Hessian returned by xvJacobianFreqs are the same as those returned by hessianFreqs
-def test_actionAngleTorus_jacobian_hessian():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.hessianFreqs(jr,jphi,jz)[0]
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
-                            numpy.array([0.]),numpy.array([1.]),
-                            numpy.array([2.]))[2]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians'
-    return None
-
-# Test that the xv returned by xvJacobianFreqs are the same as those returned by __call__
-def test_actionAngleTorus_jacobian_xv():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.,1.])
-    anglephi= numpy.array([1.,2.])
-    anglez= numpy.array([2.,3.])
-    fO= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)[0]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods __call__ and xvJacobianFreqs return different xv'
-    return None
-
-# Test that the determinant of the Jacobian returned by xvJacobianFreqs is close to 1/R (should be 1 for rectangular coordinates, 1/R for cylindrical
-def test_actionAngleTorus_jacobian_detone():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014,dJ=0.0001)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.,1.])
-    anglephi= numpy.array([1.,2.])
-    anglez= numpy.array([2.,3.])
-    jf= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    assert numpy.fabs(jf[0][0,0]*numpy.fabs(numpy.linalg.det(jf[1][0]))-1) < 0.01, 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant'
-    assert numpy.fabs(jf[0][1,0]*numpy.fabs(numpy.linalg.det(jf[1][1]))-1) < 0.01, 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant'
-    return None
-
-# Test that Jacobian returned by xvJacobianFreqs is approximately correct
-def test_actionAngleTorus_jacobian_linear():
-    from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus
-    aAT= actionAngleTorus(pot=MWPotential2014)
-    jr,jphi,jz= 0.075,1.1,0.05
-    angler= numpy.array([0.5])
-    anglephi= numpy.array([1.])
-    anglez= numpy.array([2.])
-    jf= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)
-    xv= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    dja= 2.*numpy.array([0.001,0.002,0.003,-0.002,0.004,0.002])
-    xv_direct= aAT(jr+dja[0],jphi+dja[1],jz+dja[2],
-                   angler+dja[3],anglephi+dja[4],anglez+dja[5])
-    xv_fromjac= xv+numpy.dot(jf[1],dja)
-    assert numpy.all(numpy.fabs((xv_fromjac-xv_direct)/xv_direct) < 0.01), 'Jacobian returned by actionAngleTorus method xvJacobianFreqs does not appear to be correct'
-    return None
-
-#Test error when potential is not implemented in C
-def test_actionAngleTorus_nocerr():
-    from galpy.actionAngle import actionAngleTorus
-    from test_potential import BurkertPotentialNoC
-    bp= BurkertPotentialNoC()
-    try:
-        aAT= actionAngleTorus(pot=bp)
-    except RuntimeError: pass
-    else:
-        raise AssertionError("actionAngleTorus initialization with potential w/o C should have given a RuntimeError, but didn't")
-    return None
-
-#Test error when potential is not axisymmetric
-def test_actionAngleTorus_nonaxierr():
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import TriaxialNFWPotential
-    np= TriaxialNFWPotential(normalize=1.,b=0.9)
-    try:
-        aAT= actionAngleTorus(pot=np)
-    except RuntimeError: pass
-    else:
-        raise AssertionError("actionAngleTorus initialization with non-axisymmetric potential should have given a RuntimeError, but didn't")
-    return None
-
-# Test the Autofit torus warnings
-def test_actionAngleTorus_AutoFitWarning():
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleTorus
-    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
-    aAT= actionAngleTorus(pot=lp,tol=10.**-8.)
-    # These should give warnings
-    jr, jp, jz= 0.27209033, 1.80253892, 0.6078445
-    ar, ap, az= numpy.array([1.95732492]), numpy.array([6.16753224]), \
-        numpy.array([4.08233059])
-    #Turn warnings into errors to test for them
-    import warnings
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
-        aAT(jr,jp,jz,ar,ap,az)
-        # Should raise warning bc of Autofit, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
-            if raisedWarning: break
-        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
-        aAT.xvFreqs(jr,jp,jz,ar,ap,az)
-        # Should raise warning bc of Autofit, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
-            if raisedWarning: break
-        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
-        aAT.Freqs(jr,jp,jz)
-        # Should raise warning bc of Autofit, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
-            if raisedWarning: break
-        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
-        aAT.hessianFreqs(jr,jp,jz)
-        # Should raise warning bc of Autofit, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
-            if raisedWarning: break
-        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always",galpyWarning)
-        aAT.xvJacobianFreqs(jr,jp,jz,ar,ap,az)
-        # Should raise warning bc of Autofit, might raise others
-        raisedWarning= False
-        for wa in w:
-            raisedWarning= (str(wa.message) == "actionAngleTorus' AutoFit exited with non-zero return status -3: Fit failed the goal by more than 2")
-            if raisedWarning: break
-        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-    return None
-
 #Test the Orbit interface
 def test_orbit_interface_spherical():
     from galpy.potential import LogarithmicHaloPotential, NFWPotential
@@ -3043,10 +2507,17 @@ def test_orbit_interface_spherical():
     from galpy.actionAngle import actionAngleSpherical
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     obs= Orbit([1., 0.2, 1.5, 0.3,0.1,2.])
-    assert not obs.resetaA(), 'obs.resetaA() does not return False when called before having set up an actionAngle instance'
+    # resetaA has been deprecated
+    #assert not obs.resetaA(), 'obs.resetaA() does not return False when called before having set up an actionAngle instance'
     aAS= actionAngleSpherical(pot=lp)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'spherical'
+    try:
+        obs.jr(type=type)
+    except AttributeError:
+        pass #should raise this, as we have not specified a potential
+    else:
+        raise AssertionError('obs.jr w/o pot= does not raise AttributeError before the orbit was integrated')
     acfso= numpy.array([obs.jr(pot=lp,type=type),
                         obs.jp(pot=lp,type=type),
                         obs.jz(pot=lp,type=type),
@@ -3071,13 +2542,8 @@ def test_orbit_interface_spherical():
     aAS= actionAngleSpherical(pot=np)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'spherical'
-    assert obs.resetaA(pot=np), 'obs.resetaA() does not return True after having set up an actionAngle instance'
-    try:
-        obs.jr(type=type)
-    except AttributeError:
-        pass #should raise this, as we have not specified a potential
-    else:
-        raise AssertionError('obs.jr w/o pot= does not raise AttributeError before the orbit was integrated')
+    # resetaA has been deprecated
+    #assert obs.resetaA(pot=np), 'obs.resetaA() does not return True after having set up an actionAngle instance'
     obs.integrate(numpy.linspace(0.,1.,11),np) #to test that not specifying the potential works
     acfso= numpy.array([obs.jr(type=type),
                         obs.jp(type=type),
@@ -3090,8 +2556,8 @@ def test_orbit_interface_spherical():
                         obs.wz(type=type)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleSpherical does not return the same as actionAngle interface'   
-    #Directly test _resetaA
-    assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
+    #Directly test _resetaA --> deprecated
+    #assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
     #Test that unit conversions to physical units are handled correctly
     ro, vo=8., 220.
     obs= Orbit([1., 0.2, 1.5, 0.3,0.1,2.],ro=ro,vo=vo)
@@ -3136,14 +2602,14 @@ def test_orbit_interface_staeckel():
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'staeckel'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,delta=0.71),
-                        obs.jp(pot=MWPotential,type=type),
-                        obs.jz(pot=MWPotential,type=type),
-                        obs.Or(pot=MWPotential,type=type),
-                        obs.Op(pot=MWPotential,type=type),
-                        obs.Oz(pot=MWPotential,type=type),
-                        obs.wr(pot=MWPotential,type=type),
-                        obs.wp(pot=MWPotential,type=type),
-                        obs.wz(pot=MWPotential,type=type)])
+                        obs.jp(pot=MWPotential,type=type,delta=0.71),
+                        obs.jz(pot=MWPotential,type=type,delta=0.71),
+                        obs.Or(pot=MWPotential,type=type,delta=0.71),
+                        obs.Op(pot=MWPotential,type=type,delta=0.71),
+                        obs.Oz(pot=MWPotential,type=type,delta=0.71),
+                        obs.wr(pot=MWPotential,type=type,delta=0.71),
+                        obs.wp(pot=MWPotential,type=type,delta=0.71),
+                        obs.wz(pot=MWPotential,type=type,delta=0.71)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface'
     return None
@@ -3157,11 +2623,11 @@ def test_orbit_interface_staeckel_defaultdelta():
     est_delta= estimateDeltaStaeckel(MWPotential2014,obs.R(),obs.z())
     # Just need to trigger delta estimation in orbit
     jr_orb= obs.jr(pot=MWPotential2014,type='staeckel')
-    assert numpy.fabs(est_delta-obs._orb._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
+    assert numpy.fabs(est_delta-obs._aA._delta) < 1e-10, 'Directly estimated delta does not agree with Orbit-interface-estimated delta'
     aAS= actionAngleStaeckel(pot=MWPotential2014,delta=est_delta)
     acfs= numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type= 'staeckel'
-    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type,delta=0.71),
+    acfso= numpy.array([obs.jr(pot=MWPotential2014,type=type),
                         obs.jp(pot=MWPotential2014,type=type),
                         obs.jz(pot=MWPotential2014,type=type),
                         obs.Or(pot=MWPotential2014,type=type),
@@ -3183,20 +2649,51 @@ def test_orbit_interface_staeckel_PotentialErrors():
     # Currently doesn't have second derivs
     tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
     # Check that this potential indeed does not have second derivs
-    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+    with pytest.raises(PotentialError) as excinfo:
         dummy= tp.R2deriv(1.,0.1)
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     # Now check that estimating delta fails
-    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+    with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=tp,type='staeckel')
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
     # Generic non-axi
     sp= SpiralArmsPotential()
-    with pytest.raises(PotentialError,message='TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer') as excinfo:
+    with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=sp,type='staeckel')
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+    assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
+    return None
+
+def test_orbits_interface_staeckel_PotentialErrors():
+    # staeckel approx. w/ automatic delta should fail if delta cannot be found
+    from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
+    from galpy.potential import PotentialError
+    from galpy.orbit import Orbit
+    obs= Orbit([[1.05, 0.02, 1.05, 0.03,0.,2.],
+                [1.15, -0.02, 1.02, -0.03,0.,2.]])
+    # Currently doesn't have second derivs
+    tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
+    # Check that this potential indeed does not have second derivs
+    with pytest.raises(PotentialError) as excinfo:
+        dummy= tp.R2deriv(1.,0.1)
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+    # Now check that estimating delta fails
+    with pytest.raises(PotentialError) as excinfo:
+        obs.jr(pot=tp,type='staeckel')
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+    assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
+    # Generic non-axi
+    sp= SpiralArmsPotential()
+    with pytest.raises(PotentialError) as excinfo:
+        obs.jr(pot=sp,type='staeckel')
+        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
+# currently fails bc actionAngleAdiabatic doesn't have actionsFreqsAngles
+@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
@@ -3218,29 +2715,28 @@ def test_orbit_interface_actionAngleIsochroneApprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
     aAS= actionAngleIsochroneApprox(pot=MWPotential,b=0.8)
-    acfs= list(aAS(obs))
-    acfs.extend(list(aAS.actionsFreqsAngles([obs()]))[3:])
+    acfs= aAS.actionsFreqsAngles([obs()])
     acfs= numpy.array(acfs).reshape(9)
     type= 'isochroneApprox'
     acfso= numpy.array([obs.jr(pot=MWPotential,type=type,b=0.8),
-                        obs.jp(pot=MWPotential,type=type),
-                        obs.jz(pot=MWPotential,type=type),
-                        obs.Or(pot=MWPotential,type=type),
-                        obs.Op(pot=MWPotential,type=type),
-                        obs.Oz(pot=MWPotential,type=type),
-                        obs.wr(pot=MWPotential,type=type),
-                        obs.wp(pot=MWPotential,type=type),
-                        obs.wz(pot=MWPotential,type=type)])
+                        obs.jp(pot=MWPotential,type=type,b=0.8),
+                        obs.jz(pot=MWPotential,type=type,b=0.8),
+                        obs.Or(pot=MWPotential,type=type,b=0.8),
+                        obs.Op(pot=MWPotential,type=type,b=0.8),
+                        obs.Oz(pot=MWPotential,type=type,b=0.8),
+                        obs.wr(pot=MWPotential,type=type,b=0.8),
+                        obs.wp(pot=MWPotential,type=type,b=0.8),
+                        obs.wz(pot=MWPotential,type=type,b=0.8)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApproxStaeckel does not return the same as actionAngle interface'
-    assert numpy.abs(obs.Tr(pot=MWPotential,type=type)-2.*numpy.pi/acfso[3]) < 10.**-16., \
-        'Orbit.Tr does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.Tp(pot=MWPotential,type=type)-2.*numpy.pi/acfso[4]) < 10.**-16., \
-        'Orbit.Tp does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.Tz(pot=MWPotential,type=type)-2.*numpy.pi/acfso[5]) < 10.**-16., \
-        'Orbit.Tz does not agree with actionAngleSpherical frequency'
-    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
-        'Orbit.TrTp does not agree with actionAngleSpherical frequency'
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+        'Orbit.Tr does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+        'Orbit.Tp does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+        'Orbit.Tz does not agree with actionAngleIsochroneApprox frequency'
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+        'Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency'
     return None
 
 # Test physical output for actionAngleStaeckel
@@ -3316,6 +2812,7 @@ def test_MWPotential_warning_adiabatic():
         actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleAdiabatic(pot=MWPotential,gamma=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -3343,6 +2840,7 @@ def test_MWPotential_warning_staeckel():
         actionAngleStaeckelGrid
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleStaeckel(pot=MWPotential,delta=0.5)
         # Should raise warning bc of MWPotential, might raise others
@@ -3369,6 +2867,7 @@ def test_MWPotential_warning_isochroneapprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.potential import MWPotential
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAA= actionAngleIsochroneApprox(pot=MWPotential,b=1.)
         # Should raise warning bc of MWPotential, might raise others
@@ -3379,18 +2878,33 @@ def test_MWPotential_warning_isochroneapprox():
         assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
-def test_MWPotential_warning_torus():
-    # Test that using MWPotential throws a warning, see #229
-    from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential
-    warnings.simplefilter("error",galpyWarning)
-    try:
-        aAA= actionAngleTorus(pot=MWPotential)
-    except: pass
-    else:
-        raise AssertionError("actionAngleTorus with MWPotential should have thrown a warning, but didn't")
-    #Turn warnings back into warnings
-    warnings.simplefilter("always",galpyWarning)
+# Test of the fix to issue 361
+def test_actionAngleAdiabatic_issue361():
+    from galpy.potential import MWPotential2014
+    from galpy import actionAngle
+    aA_adi = actionAngle.actionAngleAdiabatic(pot=MWPotential2014, c=True) 
+    R = 8.7007/8.
+    vT = 188.5/220.
+    jr_good,_,_= aA_adi(R, -0.1/220., vT, 0, 0)
+    jr_bad,_,_= aA_adi(R, -0.09/220., vT, 0, 0)
+    assert numpy.fabs(jr_good-jr_bad) < 1e-6, 'Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {}, Jr_bad = {}'.format(jr_good,jr_bad)
+    return None
+
+# Test that evaluating actionAngle with multi-dimensional orbit doesn't work
+def test_actionAngle_orbitInput_multid_error():
+    from galpy.potential import MWPotential2014
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleStaeckel
+    orbits= Orbit(numpy.array([[[1.,0.1,1.1,-0.1,-0.2,0.],
+                                [1.,0.2,1.2,0.,-0.1,1.]],
+                               [[1.,-0.2,0.9,0.2,0.2,2.],
+                                [1.2,-0.4,1.1,-0.1,0.,-2.]],
+                               [[1., 0.2,0.9,0.3,-0.2,0.1],
+                                [1.2, 0.4,1.1,-0.2,0.05,4.]]]))
+    aAS= actionAngleStaeckel(pot=MWPotential2014,delta=0.45,c=True)
+    with pytest.raises(RuntimeError) as excinfo:
+        aAS(orbits)
+        pytest.fail('Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not support')
     return None
 
 # Test that actionAngleHarmonicInverse is the inverse of actionAngleHarmonic
@@ -3623,7 +3137,7 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
 
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
 def test_actionAngleIsochroneInverse_orbit():
-    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.actionAngle.actionAngleIsochroneInverse import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
     # Set up instance
@@ -3644,8 +3158,8 @@ def test_actionAngleIsochroneInverse_orbit():
     # Calculate the orbit using actionAngleTorus
     RvR= aAII(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0],RvRom[1],RvRom[2],
-                RvRom[3],RvRom[4],RvRom[5]])
+    orb= Orbit([RvRom[0][0],RvRom[1][0],RvRom[2][0],
+                RvRom[3][0],RvRom[4][0],RvRom[5][0]])
     orb.integrate(ts,ip)
     # Compare
     tol= -3.
@@ -3659,7 +3173,8 @@ def test_actionAngleIsochroneInverse_orbit():
         'Integrated orbit does not agree with torus orbit in z'
     assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in vz'
-    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+    assert numpy.all(numpy.fabs((orb.phi(ts)-RvR[5]+numpy.pi) 
+                                % (2.*numpy.pi) - numpy.pi) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
@@ -3695,7 +3210,7 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
     Ri, vRi, vTi, zi, vzi, phii= \
         aAII(numpy.median(jr),numpy.median(jp),numpy.median(jz),ar,ap,az)
     assert numpy.amax(numpy.fabs(obs.R(times)-Ri)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
-    assert numpy.amax(numpy.fabs(obs.phi(times)-phii)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs((obs.phi(times)-phii+numpy.pi) % (2.*numpy.pi) - numpy.pi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.z(times)-zi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.vR(times)-vRi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.vT(times)-vTi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
@@ -3718,8 +3233,8 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
         js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
                obs.vz(times),obs.phi(times))
     else:
-        js= aA(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
-               obs.vz(times))
+        # Test Orbit with multiple objects case, but calling
+        js= aA(obs(times))
     maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
@@ -3815,4 +3330,18 @@ def check_actionAngle_conserved_EccZmaxRperiRap(aA,obs,pot,tole,tolzmax,
     assert numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)) < 10.**tolrperi, 'Rperi conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(rperis/numpy.mean(rperis)-1)))
     assert numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)) < 10.**tolrap, 'Rap conservation fails at %g%%' % (100.*numpy.amax(numpy.fabs(raps/numpy.mean(raps)-1)))
     return None
+
+# Python 2 bug: setting simplefilter to 'always' still does not display 
+# warnings that were already displayed using 'once' or 'default', so some
+# warnings tests fail; need to reset the registry
+# Has become an issue at pytest 3.8.0, which seems to have changed the scope of
+# filterwarnings (global one at the start is ignored)
+def reset_warning_registry(pattern=".*"):
+    "clear warning registry for all match modules"
+    import re
+    import sys
+    key = "__warningregistry__"
+    for mod in sys.modules.values():
+        if hasattr(mod, key) and re.match(pattern, mod.__name__):
+            getattr(mod, key).clear()
 

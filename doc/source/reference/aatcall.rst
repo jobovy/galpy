@@ -1,4 +1,4 @@
-galpy.actionAngle.actionAngleTorus.__call__
+galpy.actionAngle.actionAngleInverse.__call__
 =============================================
 
-.. automethod:: galpy.actionAngle.actionAngleTorus.__call__
+.. automethod:: galpy.actionAngle.actionAngleInverse.__call__

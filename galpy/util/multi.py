@@ -31,6 +31,7 @@
 #(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from __future__ import print_function
+import platform
 import numpy
 _multi=False
 _ncpus=1
@@ -152,6 +153,9 @@ def parallel_map(function, sequence, numcores=None):
 
   if numcores is None:
     numcores = _ncpus
+
+  if platform.system() == 'Windows': # JB: don't think this works on Win
+    return list(map(function,sequence))
 
   # Returns a started SyncManager object which can be used for sharing 
   # objects between processes. The returned manager object corresponds

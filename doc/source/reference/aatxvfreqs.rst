@@ -1,4 +1,4 @@
-galpy.actionAngle.actionAngleTorus.xvFreqs
-================================================
+galpy.actionAngle.actionAngleInverse.xvFreqs
+============================================
 
-.. automethod:: galpy.actionAngle.actionAngleTorus.xvFreqs
+.. automethod:: galpy.actionAngle.actionAngleInverse.xvFreqs
