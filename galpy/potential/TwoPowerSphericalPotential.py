@@ -1087,6 +1087,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     """
     def __init__(self,amp=1.,a=1.,normalize=False,
+                 rmax=None,vmax=None,
                  conc=None,mvir=None,
                  vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
@@ -1108,7 +1109,15 @@ class NFWPotential(TwoPowerSphericalPotential):
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
 
-           Alternatively, NFW potentials can be initialized using 
+           Alternatively, NFW potentials can be initialized in the following two manners:
+
+           a)
+
+              rmax= radius where the rotation curve peaks (can be a Quantity, otherwise assumed to be in internal units)
+
+              vmax= maximum circular velocity (can be a Quantity, otherwise assumed to be in internal units)
+
+           b)
 
               conc= concentration
 
@@ -1140,7 +1149,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
-        if conc is None:
+        if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
             self.beta= 3
@@ -1148,6 +1157,15 @@ class NFWPotential(TwoPowerSphericalPotential):
                     (isinstance(normalize,(int,float)) \
                          and not isinstance(normalize,bool)):
                 self.normalize(normalize)
+        elif not rmax is None:
+            if _APY_LOADED and isinstance(rmax,units.Quantity):
+                rmax= rmax.to(units.kpc).value/self._ro
+                self._roSet= True
+            if _APY_LOADED and isinstance(vmax,units.Quantity):
+                vmax= vmax.to(units.km/units.s).value/self._vo
+                self._voSet= True
+            self.a= rmax/2.1625815870646098349
+            self._amp= vmax**2.*self.a/0.21621659550187311005
         else:
             if wrtcrit:
                 od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
