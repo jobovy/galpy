@@ -28,6 +28,7 @@ Specific actionAngle modules
 .. toctree::
    :maxdepth: 2
 
+   actionAngleHarmonic <aaharmonic.rst>
    actionAngleIsochrone <aaisochrone.rst>
    actionAngleSpherical <aaspherical.rst>
    actionAngleAdiabatic <aaadiabatic.rst>
@@ -59,6 +60,7 @@ Specific actionAngle modules
 .. toctree::
    :maxdepth: 2
 
+   actionAngleHarmonicInverse <aaharmonicinverse.rst>
    actionAngleIsochroneInverse <aaisochroneinverse.rst>
    actionAngleTorus <aatorus.rst>
 
