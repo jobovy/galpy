@@ -12,7 +12,7 @@
 #
 ###############################################################################
 import numpy
-from galpy.actionAngle_src.actionAngle import actionAngle
+from .actionAngle import actionAngle
 from galpy.util import bovy_conversion
 _APY_LOADED= True
 try:

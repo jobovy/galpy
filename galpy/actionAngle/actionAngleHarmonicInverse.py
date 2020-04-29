@@ -8,7 +8,7 @@
 #
 ###############################################################################
 import numpy
-from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
+from .actionAngleInverse import actionAngleInverse
 from galpy.util import bovy_conversion
 _APY_LOADED= True
 try:
