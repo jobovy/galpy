@@ -59,7 +59,9 @@ In addition to these, the ``NFWPotential`` also has methods to calculate virial 
 
    conc <potentialconc.rst>
    mvir <potentialmvir.rst>
+   rmax <potentialrmax.rst>
    rvir <potentialrvir.rst>
+   vmax <potentialvmax.rst>
 
 General 3D potential routines
 +++++++++++++++++++++++++++++

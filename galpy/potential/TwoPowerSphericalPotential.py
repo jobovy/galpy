@@ -1145,6 +1145,8 @@ class NFWPotential(TwoPowerSphericalPotential):
 
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
+           2020-04-29 - Initialization w/ rmax and vmax - Bovy (UofT)
+           
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
