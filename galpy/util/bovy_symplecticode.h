@@ -43,7 +43,12 @@ extern volatile sig_atomic_t interrupted;
 /*
   Function declarations
 */
+#ifndef _WIN32
 void handle_sigint(int);
+#else
+#include "windows.h"
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
+#endif
 void leapfrog(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
 	      int,

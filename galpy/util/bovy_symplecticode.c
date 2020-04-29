@@ -32,24 +32,46 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "signal.h"
 #include <bovy_symplecticode.h>
 #define _MAX_DT_REDUCE 10000.
+#include "signal.h"
 volatile sig_atomic_t interrupted= 0;
+
+// handle CTRL-C differently on UNIX systems and Windows
+#ifndef _WIN32
 void handle_sigint(int signum)
 {
   interrupted= 1;
 }
-inline void leapfrog_leapq(int dim, double *q,double *p,double dt,double *qn){
+#else
+#include <windows.h>
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+    switch (fdwCtrlType)
+    {
+    // Handle the CTRL-C signal.
+    case CTRL_C_EVENT:
+        interrupted= 1;
+        // needed to avoid other control handlers like python from being called before us
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+#endif
+static inline void leapfrog_leapq(int dim, double *q,double *p,double dt,
+				  double *qn){
   int ii;
   for (ii=0; ii < dim; ii++) (*qn++)= (*q++) +dt * (*p++);
 }
-inline void leapfrog_leapp(int dim, double *p,double dt,double *a,double *pn){
+static inline void leapfrog_leapp(int dim, double *p,double dt,double *a,
+				  double *pn){
   int ii;
   for (ii=0; ii< dim; ii++) (*pn++)= (*p++) + dt * (*a++);
 }
 
-inline void save_qp(int dim, double *qo, double *po, double *result){
+static inline void save_qp(int dim, double *qo, double *po, double *result){
   int ii;
   for (ii=0; ii < dim; ii++) *result++= *qo++;
   for (ii=0; ii < dim; ii++) *result++= *po++;
@@ -112,15 +134,24 @@ void leapfrog(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)){}
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift half
     leapfrog_leapq(dim,qo,po,dt/2.,q12);
@@ -150,8 +181,10 @@ void leapfrog(void (*func)(double t, double *q, double *a,
     result+= 2 * dim;
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   //Free allocated memory
   free(qo);
   free(po);
@@ -226,15 +259,24 @@ void symplec4(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
@@ -291,8 +333,10 @@ void symplec4(void (*func)(double t, double *q, double *a,
     result+= 2 * dim;
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   //Free allocated memory
   free(qo);
   free(po);
@@ -375,15 +419,24 @@ void symplec6(void (*func)(double t, double *q, double *a,
   //Integrate the system
   double to= *t;
   // Handle KeyboardInterrupt gracefully
+#ifndef _WIN32
   struct sigaction action;
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
+#endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     //drift for c1*dt
     leapfrog_leapq(dim,qo,po,c1*dt,q12);
@@ -488,8 +541,10 @@ void symplec6(void (*func)(double t, double *q, double *a,
     result+= 2 * dim;
   }
   // Back to default handler
+#ifndef _WIN32
   action.sa_handler= SIG_DFL;
   sigaction(SIGINT,&action,NULL);
+#endif
   //Free allocated memory
   free(qo);
   free(po);

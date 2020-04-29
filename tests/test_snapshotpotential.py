@@ -487,25 +487,3 @@ def test_interpsnapshotKeplerpotential_Rzderiv():
         for z in zs:
             assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)))
     return None
-
-def test_snapshotrzpotential_nopynbody():
-    # Test that if we cannot load pynbody, we get an ImportError
-    from galpy.potential_src import SnapshotRZPotential
-    SnapshotRZPotential._PYNBODY_LOADED= False
-    try:
-        sp= potential.SnapshotRZPotential(1.) #1. doesn't matter
-    except ImportError: pass
-    else:
-        raise AssertionError("SnapshotRZPotential w/o pynbody should have raised an error, but didn't")
-    return None
-
-def test_interpsnapshotrzpotential_nopynbody():
-    # Test that if we cannot load pynbody, we get an ImportError
-    from galpy.potential_src import SnapshotRZPotential
-    SnapshotRZPotential._PYNBODY_LOADED= False
-    try:
-        sp= potential.InterpSnapshotRZPotential(1.) #1. doesn't matter
-    except ImportError: pass
-    else:
-        raise AssertionError("InterpSnapshotRZPotential w/o pynbody should have raised an error, but didn't")
-    return None

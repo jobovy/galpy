@@ -529,13 +529,15 @@ time-coordinates).
 
 We initialize orbits on a grid in velocity space and integrate them
 
->>> ins=[[Orbit([1.,-0.7+1.4/100*jj,1.-0.6+1.2/100*ii,0.]) for jj in range(101)] for ii in range(101)]
->>> int=[[o.integrate(ts,[lp,dp]) for o in j] for j in ins]
+>>> ins= Orbit(numpy.array([[[1.,-0.7+1.4/100*jj,1.-0.6+1.2/100*ii,0.] for jj in range(101)] for ii in range(101)]))
+>>> ins.integrate(ts,[lp,dp])
 
 We can then evaluate the weight of these orbits by assuming that the
 disk was in a steady-state before bar-formation with a Dehnen
 distribution function. We evaluate the Dehnen distribution function at
-``dp.tform()`` for each of the orbits
+``dp.tform()`` for each of the orbits (evaluating the distribution
+function only works for an Orbit with a single object, so we need to
+unpack the Orbit instance that contains all orbits)
 
 >>> dfc= dehnendf(beta=0.,correct=True)
 >>> out= [[dfc(o(dp.tform())) for o in j] for j in ins]

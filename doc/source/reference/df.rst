@@ -1,8 +1,23 @@
 DF (``galpy.df``)
 ==================
 
+``galpy.df`` contains tools for dealing with distribution functions of
+stars in galaxies. It mainly contains a number of classes that define
+different types of distribution function, but ``galpy.df.jeans`` also
+has some tools for solving the Jeans equations for equilibrium
+systems.
+
+Jeans modeling tools (``galpy.df.jeans``)
+-----------------------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   sigmar <dfjeanssigmar.rst>
+   sigmalos <dfjeanssigmalos.rst>
+
 General instance routines for all df classes
-----------------------------------------------------------
+--------------------------------------------
 
 
 .. toctree::
@@ -135,6 +150,7 @@ General instance routines
    pvTvz <quasidfpvtvz.rst>
    pvz <quasidfpvz.rst>
    sampleV <quasidfsamplev.rst>
+   sampleV_interpolate <quasidfsamplevinterpolate.rst>
    sigmaR2 <quasidfsigmar2.rst>
    sigmaRz <quasidfsigmarz.rst>
    sigmaT2 <quasidfsigmat2.rst>

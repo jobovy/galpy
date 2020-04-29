@@ -26,9 +26,8 @@
 #WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
-import scipy as sc
+import numpy
 import scipy.stats as stats
-import math as m
 
 #TO DO:
 #Throw errors in the sample_hull routine
@@ -110,14 +109,14 @@ def setup_hull(domain,isDomainFinite,abcissae,hx,hpx,hxparams):
     """
     nx= len(abcissae)
     #Create the output arrays
-    xs= sc.zeros(nx)
-    hxs= sc.zeros(nx)
-    hpxs= sc.zeros(nx)
-    zs= sc.zeros(nx-1)
-    scum= sc.zeros(nx-1)
-    hus= sc.zeros(nx-1)
+    xs= numpy.zeros(nx)
+    hxs= numpy.zeros(nx)
+    hpxs= numpy.zeros(nx)
+    zs= numpy.zeros(nx-1)
+    scum= numpy.zeros(nx-1)
+    hus= numpy.zeros(nx-1)
     #Function evaluations
-    xs= sc.sort(abcissae)
+    xs= numpy.sort(abcissae)
     for ii in range(nx):
         hxs[ii]= hx(xs[ii],hxparams)
         hpxs[ii]= hpx(xs[ii],hxparams)
@@ -132,23 +131,23 @@ def setup_hull(domain,isDomainFinite,abcissae,hx,hpx,hxparams):
         hus[jj]= hpxs[jj]*(zs[jj]-xs[jj])+hxs[jj]
     #Calculate cu and scum
     if isDomainFinite[0]:
-        scum[0]= 1./hpxs[0]*(m.exp(hus[0])-m.exp(
+        scum[0]= 1./hpxs[0]*(numpy.exp(hus[0])-numpy.exp(
             hpxs[0]*(domain[0]-xs[0])+hxs[0]))
     else:
-        scum[0]= 1./hpxs[0]*m.exp(hus[0])
+        scum[0]= 1./hpxs[0]*numpy.exp(hus[0])
     if nx > 2:
         for jj in range(nx-2):
             if hpxs[jj+1] == 0.:
-                scum[jj+1]= (zs[jj+1]-zs[jj])*m.exp(hxs[jj+1])
+                scum[jj+1]= (zs[jj+1]-zs[jj])*numpy.exp(hxs[jj+1])
             else:
-                scum[jj+1]=1./hpxs[jj+1]*(m.exp(hus[jj+1])-m.exp(hus[jj]))
+                scum[jj+1]=1./hpxs[jj+1]*(numpy.exp(hus[jj+1])-numpy.exp(hus[jj]))
     if isDomainFinite[1]:
-        cu=1./hpxs[nx-1]*(m.exp(hpxs[nx-1]*(
-            domain[1]-xs[nx-1])+hxs[nx-1]) - m.exp(hus[nx-2]))
+        cu=1./hpxs[nx-1]*(numpy.exp(hpxs[nx-1]*(
+            domain[1]-xs[nx-1])+hxs[nx-1]) - numpy.exp(hus[nx-2]))
     else:
-        cu=- 1./hpxs[nx-1]*m.exp(hus[nx-2])
-    cu= cu+sc.sum(scum)
-    scum= sc.cumsum(scum)/cu
+        cu=- 1./hpxs[nx-1]*numpy.exp(hus[nx-2])
+    cu= cu+numpy.sum(scum)
+    scum= numpy.cumsum(scum)/cu
     out=[]
     out.append(cu)
     out.append(xs)
@@ -188,12 +187,12 @@ def sampleone(hull,hx,hpx,domain,isDomainFinite,maxn,nupdates,hxparams):
         candidate= sample_hull(thishull,domain,isDomainFinite)
         thishux, thishlx= evaluate_hull(candidate,thishull)
         u= stats.uniform.rvs()
-        if u < m.exp(thishlx-thishux):
+        if u < numpy.exp(thishlx-thishux):
             thissample= candidate
             noSampleYet= False
         else:
             thishx= hx(candidate,hxparams)
-            if u < m.exp(thishx-thishux):
+            if u < numpy.exp(thishx-thishux):
                 thissample= candidate
                 noSampleYet= False
             if nupdates < maxn:
@@ -227,7 +226,7 @@ def sample_hull(hull,domain,isDomainFinite):
             else:
                 thissample= 100000000 #Throw some kind of error
         else:
-            thissample= hull[4][0]+1./hull[3][0]*m.log(1.-hull[3][0]*hull[0]*(hull[5][0]-u)/m.exp(hull[6][0]))
+            thissample= hull[4][0]+1./hull[3][0]*numpy.log(1.-hull[3][0]*hull[0]*(hull[5][0]-u)/numpy.exp(hull[6][0]))
     else:
         if len(hull[5]) == 1:
             indx= 0
@@ -236,7 +235,7 @@ def sample_hull(hull,domain,isDomainFinite):
             while indx < len(hull[5]) and hull[5][indx] < u:
                 indx= indx+1
             indx= indx-1
-        if m.fabs(hull[3][indx+1]) == 0:
+        if numpy.fabs(hull[3][indx+1]) == 0:
             if indx != (len(hull[5])-1):
                 thissample= hull[4][indx]+(u-hull[5][indx])/(hull[5][indx+1]-hull[5][indx])*(hull[4][indx+1]-hull[4][indx])
             else:
@@ -245,7 +244,7 @@ def sample_hull(hull,domain,isDomainFinite):
                 else:
                     thissample= 100000 #Throw some kind of error
         else:
-            thissample= hull[4][indx]+1./hull[3][indx+1]*m.log(1.+hull[3][indx+1]*hull[0]*(u-hull[5][indx])/m.exp(hull[6][indx]))
+            thissample= hull[4][indx]+1./hull[3][indx+1]*numpy.log(1.+hull[3][indx+1]*hull[0]*(u-hull[5][indx])/numpy.exp(hull[6][indx]))
     return thissample
 
 def evaluate_hull(x,hull):
@@ -277,7 +276,7 @@ def evaluate_hull(x,hull):
             indx= indx-1
         hux= hull[3][indx]*(x-hull[1][indx])+hull[2][indx]
     #Now evaluate hlx
-    neginf= sc.finfo(sc.dtype(sc.float64)).min
+    neginf= numpy.finfo(numpy.dtype(numpy.float64)).min
     if x < hull[1][0] or x > hull[1][-1]:
         hlx= neginf
     else:
@@ -311,61 +310,61 @@ def update_hull(hull,newx,newhx,newhpx,domain,isDomainFinite):
     #BOVY: Perhaps add a check that newx is sufficiently far from any existing point
     #Find where newx fits in with the other xs
     if newx > hull[1][-1]:
-        newxs= sc.append(hull[1],newx)
-        newhxs= sc.append(hull[2],newhx)
-        newhpxs= sc.append(hull[3],newhpx)
+        newxs= numpy.append(hull[1],newx)
+        newhxs= numpy.append(hull[2],newhx)
+        newhpxs= numpy.append(hull[3],newhpx)
         #new z
         newz= ( newhx - hull[2][-1] - newx*newhpx + hull[1][-1]*hull[3][-1])/( hull[3][-1] - newhpx)
-        newzs= sc.append(hull[4],newz)
+        newzs= numpy.append(hull[4],newz)
         #New hu
         newhu= hull[3][-1]*(newz-hull[1][-1]) + hull[2][-1]
-        newhus= sc.append(hull[6],newhu)
+        newhus= numpy.append(hull[6],newhu)
     else:
         indx= 0
         while newx > hull[1][indx]:
             indx=indx+1
-        newxs= sc.insert(hull[1],indx,newx)
-        newhxs= sc.insert(hull[2],indx,newhx)
-        newhpxs= sc.insert(hull[3],indx,newhpx)
+        newxs= numpy.insert(hull[1],indx,newx)
+        newhxs= numpy.insert(hull[2],indx,newhx)
+        newhpxs= numpy.insert(hull[3],indx,newhpx)
         #Replace old z with new zs
         if newx < hull[1][0]:
             newz= (hull[2][0]-newhx-hull[1][0]*hull[3][0]+newx*newhpx)/(newhpx-hull[3][0])
-            newzs= sc.insert(hull[4],0,newz)
+            newzs= numpy.insert(hull[4],0,newz)
             #Also add the new hu
             newhu= newhpx*(newz-newx)+newhx
-            newhus= sc.insert(hull[6],0,newhu)
+            newhus= numpy.insert(hull[6],0,newhu)
         else:
             newz1= (newhx-hull[2][indx-1] - newx*newhpx+hull[1][indx-1]*hull[3][indx-1])/(hull[3][indx-1]-newhpx)
             newz2= (hull[2][indx]-newhx - hull[1][indx]*hull[3][indx]+newx*newhpx)/(newhpx-hull[3][indx])
             #Insert newz1 and replace z_old
-            newzs= sc.insert(hull[4],indx-1,newz1)
+            newzs= numpy.insert(hull[4],indx-1,newz1)
             newzs[indx]= newz2
             #Update the hus
             newhu1= hull[3][indx-1]*(newz1-hull[1][indx-1])+hull[2][indx-1]
             newhu2= newhpx*(newz2-newx)+newhx
-            newhus= sc.insert(hull[6],indx-1,newhu1)
+            newhus= numpy.insert(hull[6],indx-1,newhu1)
             newhus[indx]= newhu2
     #Recalculate the cumulative sum
     nx= len(newxs)
-    newscum= sc.zeros(nx-1)
+    newscum= numpy.zeros(nx-1)
     if isDomainFinite[0]:
-        newscum[0]= 1./newhpxs[0]*(m.exp(newhus[0])-m.exp(
+        newscum[0]= 1./newhpxs[0]*(numpy.exp(newhus[0])-numpy.exp(
             newhpxs[0]*(domain[0]-newxs[0])+newhxs[0]))
     else:
-        newscum[0]= 1./newhpxs[0]*m.exp(newhus[0])
+        newscum[0]= 1./newhpxs[0]*numpy.exp(newhus[0])
     if nx > 2:
         for jj in range(nx-2):
             if newhpxs[jj+1] == 0.:
-                newscum[jj+1]= (newzs[jj+1]-newzs[jj])*m.exp(newhxs[jj+1])
+                newscum[jj+1]= (newzs[jj+1]-newzs[jj])*numpy.exp(newhxs[jj+1])
             else:
-                newscum[jj+1]=1./newhpxs[jj+1]*(m.exp(newhus[jj+1])-m.exp(newhus[jj]))
+                newscum[jj+1]=1./newhpxs[jj+1]*(numpy.exp(newhus[jj+1])-numpy.exp(newhus[jj]))
     if isDomainFinite[1]:
-        newcu=1./newhpxs[nx-1]*(m.exp(newhpxs[nx-1]*(
-            domain[1]-newxs[nx-1])+newhxs[nx-1]) - m.exp(newhus[nx-2]))
+        newcu=1./newhpxs[nx-1]*(numpy.exp(newhpxs[nx-1]*(
+            domain[1]-newxs[nx-1])+newhxs[nx-1]) - numpy.exp(newhus[nx-2]))
     else:
-        newcu=- 1./newhpxs[nx-1]*m.exp(newhus[nx-2])
-    newcu= newcu+sc.sum(newscum)
-    newscum= sc.cumsum(newscum)/newcu
+        newcu=- 1./newhpxs[nx-1]*numpy.exp(newhus[nx-2])
+    newcu= newcu+numpy.sum(newscum)
+    newscum= numpy.cumsum(newscum)/newcu
     newhull=[]
     newhull.append(newcu)
     newhull.append(newxs)
