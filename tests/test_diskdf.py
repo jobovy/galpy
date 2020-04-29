@@ -1587,7 +1587,7 @@ def test_DFcorrection_setup():
                   corrections=corrs)
     assert numpy.all(numpy.fabs(corrs-dfc._corr._corrections) < 10.**-10.), 'DFcorrection initialized w/ corrections does not work properly'
     #If corrections.shape[0] neq npoints, should raise error
-    from galpy.df_src.diskdf import DFcorrectionError
+    from galpy.df.diskdf import DFcorrectionError
     try:
         dfc= dehnendf(beta=0.1,profileParams=(1./3.,1.,0.2),
                       correct=True,
@@ -1612,7 +1612,7 @@ def test_DFcorrection_setup():
     except: raise AssertionError("removing DFcorrection's savefile did not work")
     #Also explicily setup a DFcorrection, to test for other stuff
     from galpy.df import DFcorrection
-    from galpy.df_src.diskdf import DFcorrectionError
+    from galpy.df.diskdf import DFcorrectionError
     #Should raise DFcorrectionError bc surfaceSigmaProfile is not set
     try:
         dfc= DFcorrection(npoints=2,niter=2,rmax=4.,
@@ -1695,7 +1695,7 @@ def test_shudf_flat_DFcorrection_cleanup():
     return None
 
 def test_axipotential():
-    from galpy.df_src.diskdf import axipotential, _RMIN
+    from galpy.df.diskdf import axipotential, _RMIN
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.)-numpy.log(0.5)) < 10.**-8, 'axipotential w/ beta=0.0 does not work as expected'
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.2)-1./0.4*0.5**0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=-0.2)+1./0.4*0.5**-0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
@@ -1704,7 +1704,7 @@ def test_axipotential():
     return None
 
 def test_dlToRphi():
-    from galpy.df_src.diskdf import _dlToRphi
+    from galpy.df.diskdf import _dlToRphi
     R,theta= _dlToRphi(1.,0.)
     assert numpy.fabs(R) < 10.**-3., '_dlToRphi close to center does not behave properly'
     assert numpy.fabs(theta % numpy.pi) < 10.**-3., '_dlToRphi close to center does not behave properly'

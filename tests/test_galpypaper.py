@@ -156,10 +156,14 @@ def test_orbitint():
     o2.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
     return None
 
+# Currently fails because o.jr(type='adiabatic') doesn't yet work for new Orbits
+@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbmethods():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    o= Orbit([0.8,0.3,0.75,0.,0.2,0.]) # setup R,vR,vT,z,vz,phi
+    # 8/17/2019: added explicit z=0.025, because that was the default at the 
+    # time of the galpy paper, but the default has been changed
+    o= Orbit([0.8,0.3,0.75,0.,0.2,0.],zo=0.025) # setup R,vR,vT,z,vz,phi
     times= numpy.linspace(0.,10.,1001) # Output times
     o.integrate(times,MWPotential2014) # Integrate
     o.E() # Energy
@@ -373,7 +377,10 @@ def test_qdf():
     assert numpy.fabs(df(Orbit([0.9,0.1,0.8,0.05,0.02]),log=True)-numpy.array([ 4.81682066])) < 10.**-4., 'qdf does not behave as expected'
     # Evaluate DF marginalized over vz
     df.pvRvT(0.1,0.9,0.9,0.05)
-    assert numpy.fabs(df.pvRvT(0.1,0.9,0.9,0.05)-23.273310451852243) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(df.pvRvT(0.1,0.9,0.9,0.05)-2.*23.273310451852243) < 10.**-4., 'qdf does not behave as expected'
+    #NOTE: The pvRvT() function has changed with respect to the version used in Bovy (2015).
+    #      As of January 2018, a prefactor of 2 has been added (=nsigma/2 with default nsigma=4),
+    #      to account for the correct Gauss-Legendre integration normalization.
     # Evaluate DF marginalized over vR,vT
     df.pvz(0.02,0.9,0.05)
     assert numpy.fabs(df.pvz(0.02,0.9,0.05)-50.949586235238172) < 10.**-4., 'qdf does not behave as expected'

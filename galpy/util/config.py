@@ -1,7 +1,7 @@
 import os, os.path
 try:
     import configparser
-except:
+except: # pragma: no cover
     from six.moves import configparser
 _APY_LOADED= True
 try:
@@ -13,7 +13,8 @@ default_configuration= {'normalization': {'ro':'8.',
                                          'vo':'220.'},
                         'astropy': {'astropy-units':'False',
                                     'astropy-coords':'True'},
-                        'plot': {'seaborn-bovy-defaults':'False'}}
+                        'plot': {'seaborn-bovy-defaults':'False'},
+                        'warnings': {'verbose':'False'}}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
 def check_config(configuration):
     # Check that the configuration is a valid galpy configuration

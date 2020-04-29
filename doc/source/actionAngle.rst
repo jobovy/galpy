@@ -1,3 +1,5 @@
+.. _actionangle:
+
 Action-angle coordinates
 =========================
 
@@ -7,6 +9,9 @@ implemented in a separate module ``galpy.actionAngle``, and the
 preferred method for accessing them is through the routines in this
 module. There is also some support for accessing the actionAngle
 routines as methods of the ``Orbit`` class.
+
+.. TIP::
+   If you want to quickly and easily compute actions, angles, or frequencies using the Staeckel approximation, using the ``Orbit`` interface as described in :ref:`this section <aaorbit>` is recommended. Especially if you are starting from observed coordinates, as ``Orbit`` instances can easily be initialized using these.
 
 Since v1.2, galpy can also compute positions and velocities
 corresponding to a given set of actions and angles for axisymmetric
@@ -379,6 +384,8 @@ vertical action to approximately five percent.
 .. WARNING::
    Frequencies and angles using the adiabatic approximation are not implemented at this time.
 
+.. _actionanglestaeckel:
+
 Action-angle coordinates using the Staeckel approximation
 -----------------------------------------------------------
 
@@ -739,8 +746,8 @@ calculate actions for triaxial potentials by specifying that
 
 .. _aatorus:
 
-**NEW in v1.2** Action-angle coordinates using the TorusMapper code
----------------------------------------------------------------------
+Action-angle coordinates using the TorusMapper code
+----------------------------------------------------
 
 All of the methods described so far allow one to compute the actions,
 angles, and frequencies for a given phase-space location. ``galpy``
@@ -826,65 +833,88 @@ action-angle API page for computing Hessians and Jacobians of the
 transformation between action-angle and configuration space
 coordinates.
 
-Accessing action-angle coordinates for Orbit instances
-----------------------------------------------------------
+.. _aaorbit:
 
-While the recommended way to access the actionAngle routines is
+Accessing action-angle coordinates for Orbit instances
+------------------------------------------------------
+
+While the most flexible way to access the actionAngle routines is
 through the methods in the ``galpy.actionAngle`` modules, action-angle
-coordinates can also be calculated for ``galpy.orbit.Orbit``
-instances. This is illustrated here briefly. We initialize an Orbit
-instance
+coordinates can also be calculated for ``galpy.orbit.Orbit`` instances
+and this is often more convenient. This is illustrated here
+briefly. We initialize an Orbit instance
 
 >>> from galpy.orbit import Orbit
 >>> from galpy.potential import MWPotential2014
 >>> o= Orbit([1.,0.1,1.1,0.,0.25,0.])
 
-and we can then calculate the actions (default is to use the adiabatic
-approximation)
+and we can then calculate the actions (default is to use the staeckel
+approximation with an automatically-estimated delta parameter, but
+this can be adjusted)
 
->>> o.jr(MWPotential2014), o.jp(MWPotential2014), o.jz(MWPotential2014)
-# (0.01685643005901713, 1.1, 0.015897730620467752)
+>>> o.jr(pot=MWPotential2014), o.jp(pot=MWPotential2014), o.jz(pot=MWPotential2014)
+# (0.018194068808944613,1.1,0.01540155584446606)
 
 ``o.jp`` here gives the azimuthal action (which is the *z* component
 of the angular momentum for axisymmetric potentials). We can also use
-the other methods described above, but note that these require extra
-parameters related to the approximation to be specified (see above):
+the other methods described above or adjust the parameters of the
+approximation (see above):
 
->>> o.jr(MWPotential2014,type='staeckel',delta=0.4), o.jp(MWPotential2014,type='staeckel',delta=0.4), o.jz(MWPotential2014,type='staeckel',delta=0.4)
-# (array([ 0.01922167]), array([ 1.1]), array([ 0.01527683]))
->>> o.jr(MWPotential2014,type='isochroneApprox',b=0.8), o.jp(MWPotential2014,type='isochroneApprox',b=0.8), o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
-# (array([ 0.01906609]), array([ 1.1]), array([ 0.01528049]))
+>>> o.jr(pot=MWPotential2014,type='staeckel',delta=0.4), o.jp(pot=MWPotential2014,type='staeckel',delta=0.4), o.jz(pot=MWPotential2014,type='staeckel',delta=0.4)
+# (0.019221672966336707, 1.1, 0.015276825017286827)
+>>> o.jr(pot=MWPotential2014,type='adiabatic'), o.jp(pot=MWPotential2014,type='adiabatic'), o.jz(pot=MWPotential2014,type='adiabatic')
+# (0.016856430059017123, 1.1, 0.015897730620467752)
+>>> o.jr(pot=MWPotential2014,type='isochroneApprox',b=0.8), o.jp(pot=MWPotential2014,type='isochroneApprox',b=0.8), o.jz(pot=MWPotential2014,type='isochroneApprox',b=0.8)
+# (0.019066091295488922, 1.1, 0.015280492319332751)
 
 These two methods give very precise actions for this orbit (both are
 converged to about 1%) and they agree very well
 
->>> (o.jr(MWPotential2014,type='staeckel',delta=0.4)-o.jr(MWPotential2014,type='isochroneApprox',b=0.8))/o.jr(MWPotential2014,type='isochroneApprox',b=0.8)
-# array([ 0.00816012])
->>>  (o.jz(MWPotential2014,type='staeckel',delta=0.4)-o.jz(MWPotential2014,type='isochroneApprox',b=0.8))/o.jz(MWPotential2014,type='isochroneApprox',b=0.8)
-# array([-0.00024])
-
-.. WARNING:: Once an action, frequency, or angle is calculated for a given type of calculation (e.g., staeckel), the parameters for that type are fixed in the Orbit instance. Call o.resetaA() to reset the action-angle instance used when using different parameters (i.e., different ``delta=`` for staeckel or different ``b=`` for isochroneApprox.
+>>> (o.jr(pot=MWPotential2014,type='staeckel',delta=0.4)-o.jr(pot=MWPotential2014,type='isochroneApprox',b=0.8))/o.jr(pot=MWPotential2014,type='isochroneApprox',b=0.8)
+# 0.00816012408818143
+>>> (o.jz(pot=MWPotential2014,type='staeckel',delta=0.4)-o.jz(pot=MWPotential2014,type='isochroneApprox',b=0.8))/o.jz(pot=MWPotential2014,type='isochroneApprox',b=0.8)
+# 0.00023999894566772273
 
 We can also calculate the frequencies and the angles. This requires
 using the Staeckel or Isochrone approximations, because frequencies
 and angles are currently not supported for the adiabatic
 approximation. For example, the radial frequency
 
->>> o.Or(MWPotential2014,type='staeckel',delta=0.4)
+>>> o.Or(pot=MWPotential2014,type='staeckel',delta=0.4)
 # 1.1131779637307115
->>> o.Or(MWPotential2014,type='isochroneApprox',b=0.8)
+>>> o.Or(pot=MWPotential2014,type='isochroneApprox',b=0.8)
 # 1.1134635974560649
 
 and the radial angle
 
->>> o.wr(MWPotential2014,type='staeckel',delta=0.4)
+>>> o.wr(pot=MWPotential2014,type='staeckel',delta=0.4)
 # 0.37758086786371969
->>> o.wr(MWPotential2014,type='isochroneApprox',b=0.8)
+>>> o.wr(pot=MWPotential2014,type='isochroneApprox',b=0.8)
 # 0.38159809018175395
 
 which again agree to 1%. We can also calculate the other frequencies,
 angles, as well as periods using the functions ``o.Op``, ``o.oz``,
 ``o.wp``, ``o.wz``, ``o.Tr``, ``o.Tp``, ``o.Tz``.
+
+All of the functions above also work for ``Orbit`` instances that
+contain multiple objects. This is particularly convenient if you have
+data in observed coordinates (e.g., RA, Dec, etc.), for example,
+
+>>> numpy.random.seed(1)
+>>> nrand= 30
+>>> ras= numpy.random.uniform(size=nrand)*360.*u.deg
+>>> decs= 90.*(2.*numpy.random.uniform(size=nrand)-1.)*u.deg
+>>> dists= numpy.random.uniform(size=nrand)*10.*u.kpc
+>>> pmras= 2.*(2.*numpy.random.uniform(size=nrand)-1.)*u.mas/u.yr
+>>> pmdecs= 2.*(2.*numpy.random.uniform(size=nrand)-1.)*u.mas/u.yr
+>>> vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
+>>> co= SkyCoord(ra=ras,dec=decs,distance=dists,
+                 pm_ra_cosdec=pmras,pm_dec=pmdecs,
+                 radial_velocity=vloss,
+                 frame='icrs')
+>>> orbits= Orbit(co)
+>>> orbits.jr(pot=MWPotential2014)
+# [2363.7957, 360.12445, 690.32238, 1046.2924, 132.9572, 86.989812, 272.06487, 360.73566, 55.568238, 698.18447, 24.783574, 21.889352, 16.148216, 3870.4286, 743.63456, 317.66551, 325.93816, 183.86429, 56.087796, 180.42838, 1121.8019, 8700.8335, 977.8525, 7.569396, 8.2847477, 210.72127, 160.9785, 680.63864, 1093.7413, 87.629873]kmkpcs
 
 Example: Evidence for a Lindblad resonance in the Solar neighborhood
 ---------------------------------------------------------------------
