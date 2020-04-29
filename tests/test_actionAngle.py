@@ -2970,7 +2970,7 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
 
 #Test that orbit from actionAngleIsochroneInverse is the same as an integrated orbit
 def test_actionAngleIsochroneInverse_orbit():
-    from galpy.actionAngle_src.actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from galpy.actionAngle.actionAngleIsochroneInverse import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
     # Set up instance
@@ -2991,8 +2991,8 @@ def test_actionAngleIsochroneInverse_orbit():
     # Calculate the orbit using actionAngleTorus
     RvR= aAII(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0],RvRom[1],RvRom[2],
-                RvRom[3],RvRom[4],RvRom[5]])
+    orb= Orbit([RvRom[0][0],RvRom[1][0],RvRom[2][0],
+                RvRom[3][0],RvRom[4][0],RvRom[5][0]])
     orb.integrate(ts,ip)
     # Compare
     tol= -3.
@@ -3006,7 +3006,8 @@ def test_actionAngleIsochroneInverse_orbit():
         'Integrated orbit does not agree with torus orbit in z'
     assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in vz'
-    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+    assert numpy.all(numpy.fabs((orb.phi(ts)-RvR[5]+numpy.pi) 
+                                % (2.*numpy.pi) - numpy.pi) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
@@ -3042,7 +3043,7 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
     Ri, vRi, vTi, zi, vzi, phii= \
         aAII(numpy.median(jr),numpy.median(jp),numpy.median(jz),ar,ap,az)
     assert numpy.amax(numpy.fabs(obs.R(times)-Ri)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
-    assert numpy.amax(numpy.fabs(obs.phi(times)-phii)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
+    assert numpy.amax(numpy.fabs((obs.phi(times)-phii+numpy.pi) % (2.*numpy.pi) - numpy.pi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.z(times)-zi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.vR(times)-vRi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'
     assert numpy.amax(numpy.fabs(obs.vT(times)-vTi)) < 10.**tol, 'actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit'

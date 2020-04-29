@@ -4,7 +4,7 @@
 ###############################################################################
 from galpy.util.bovy_conversion import actionAngleInverse_physical_input, \
     physical_conversion_actionAngleInverse
-from galpy.actionAngle_src.actionAngle import actionAngle
+from .actionAngle import actionAngle
 class actionAngleInverse(actionAngle):
     """actionAngleInverse; top-level class with common routines for inverse actionAngle methods"""
     def __init__(self,*args,**kwargs):

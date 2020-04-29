@@ -10,7 +10,7 @@
 import numpy
 from scipy import optimize
 from galpy.potential import IsochronePotential
-from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
+from .actionAngleInverse import actionAngleInverse
 _APY_LOADED= True
 try:
     from astropy import units
