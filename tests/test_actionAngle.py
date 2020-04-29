@@ -146,7 +146,7 @@ def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -167,7 +167,7 @@ def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
     aAI= actionAngleIsochrone(ip=ip)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAI,obs,ip,
                                         -5.,-5.,-5.,
@@ -412,7 +412,7 @@ def test_actionAngleSpherical_noninclinedorbit_linear_angles():
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     aAS= actionAngleSpherical(pot=lp)
     obs= Orbit([1.1, 0.3, 1.2, 0.,0.,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
@@ -435,7 +435,7 @@ def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
     aAS= actionAngleSpherical(pot=lp)
     eps= 1e-10
     obs= Orbit([1.1, 0.3, 1.2, 0.,eps,2.])
-    from galpy.orbit_src.FullOrbit import ext_loaded
+    from galpy.orbit.Orbits import ext_loaded
     if not ext_loaded: #odeint is not as accurate as dopr54_c
         check_actionAngle_linear_angles(aAS,obs,lp,
                                         -4.,-4.,-4.,
