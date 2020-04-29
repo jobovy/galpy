@@ -2972,9 +2972,9 @@ def test_actionAngleHarmonicInverse_orbit():
     xv= aAHI(j,angle)
     # Calculate the orbit using orbit integration
     orb= Orbit([xvom[0][0],xvom[1][0]])
-    orb.integrate(ts,ipz)
+    orb.integrate(ts,ipz,method='dopr54_c')
     # Compare
-    tol= -6.
+    tol= -7.
     assert numpy.all(numpy.fabs(orb.x(ts)-xv[0]) < 10.**tol), \
         'Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x'
     assert numpy.all(numpy.fabs(orb.vx(ts)-xv[1]) < 10.**tol), \
