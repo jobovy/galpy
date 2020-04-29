@@ -1,6 +1,9 @@
 v1.7 (XXXX-XX-XX)
 =================
 
+- Fixed angle calculation for actionAngleIsochrone and
+  actionAngleSpherical for non-inclined orbits (which are tricky).
+
 v1.6 (2020-04-24)
 =================
 
