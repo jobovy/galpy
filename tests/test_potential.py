@@ -2315,6 +2315,14 @@ def test_TriaxialNFW_virialsetup_wrtcrit():
     assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
+# Test that setting up an NFW potential with rmax,vmax works as expected
+def test_NFW_rmaxvmaxsetup():
+    rmax, vmax= 1.2, 3.23
+    np= potential.NFWPotential(rmax=rmax,vmax=vmax)
+    assert numpy.fabs(np.rmax()-rmax) < 10.**-10., 'NFWPotential setup with rmax,vmax does not work as expected'
+    assert numpy.fabs(np.vmax()-vmax) < 10.**-10., 'NFWPotential setup with rmax,vmax does not work as expected'
+    return None
+
 def test_conc_attributeerror():
     pp= potential.PowerSphericalPotential(normalize=1.)
     #This potential doesn't have a scale, so we cannot calculate the concentration
