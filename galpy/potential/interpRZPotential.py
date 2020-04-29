@@ -1,45 +1,17 @@
-import os
-import sys
-import distutils.sysconfig as sysconfig
 import copy
 import ctypes
 import ctypes.util
-import warnings
 from functools import wraps
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
-from ..util import multi, galpyWarning
+from ..util import multi
 from .Potential import Potential
 from ..util.bovy_conversion import physical_conversion
+from ..util import _load_extension_libs
 _DEBUG= False
-#Find and load the library
-_lib= None
-outerr= None
-PY3= sys.version > '3'
-if PY3:
-    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else: #pragma: no cover
-    _ext_suffix= '.so'
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix))
-    except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_interppotential_c%s' % _ext_suffix)): #pragma: no cover
-            outerr= e
-        _lib = None
-    else:
-        break
-if _lib is None: #pragma: no cover
-    if not outerr is None:
-        warnings.warn("interppotential_c extension module not loaded, because of error '%s' " % outerr,
-                      galpyWarning)
-    else:
-        warnings.warn("interppotential_c extension module not loaded, because galpy_interppotential_c%s image was not found" % _ext_suffix,
-                      galpyWarning)
-    ext_loaded= False
-else:
-    ext_loaded= True
+
+_lib, ext_loaded= _load_extension_libs.load_libgalpy()
 
 def scalarVectorDecorator(func):
     """Decorator to return scalar outputs as a set"""

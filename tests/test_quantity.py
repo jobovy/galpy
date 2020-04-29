@@ -5960,6 +5960,46 @@ def test_streamgapdf_sample():
     assert numpy.fabs(lbdt[6].to(units.Gyr).value/bovy_conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < 10.**-8., 'streamgapdf sample lbdt does not return a correct Quantity'
     return None
 
+
+def test_df_inconsistentPotentialUnits_error():
+    from galpy.df import quasiisothermaldf, streamdf
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    ro, vo= 9., 220.
+    # quasiisothermaldf
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9,ro=ro,vo=vo)
+    aA= actionAngleAdiabatic(pot=lp,c=True,ro=ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=lp,aA=aA,
+                               cutcounter=True,ro=ro*1.1,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=lp,aA=aA,
+                               cutcounter=True,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=lp,aA=aA,
+                               cutcounter=True,ro=ro*1.1,vo=vo*1.1)
+    # streamdf
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9,ro=ro,vo=vo)
+    aAI= actionAngleIsochroneApprox(pot=lp,b=0.8,ro=ro,vo=vo)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    sigv= 0.365 #km/s
+    with pytest.raises(AssertionError) as excinfo:
+        sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,
+                      nTrackChunks=11,tdisrupt=30.,
+                      ro=ro*1.1,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,
+                      nTrackChunks=11,tdisrupt=30.,
+                      ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,
+                      nTrackChunks=11,tdisrupt=30.,
+                      ro=ro*1.1,vo=vo*1.1)
+    return None
+
 def test_jeans_sigmar_returntype():
     from galpy.df import jeans
     from galpy.potential import LogarithmicHaloPotential

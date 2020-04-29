@@ -3,8 +3,8 @@ A closer look at orbit integration
 
 .. _orbinit:
 
-**UPDATED in v1.5**: Orbit initialization
------------------------------------------
+Orbit initialization
+--------------------
 
 Standard initialization
 ***********************
@@ -194,8 +194,8 @@ All outputs will then be specified in galpy's natural coordinates.
 
 .. _orbmultinit:
 
-**NEW in v1.5**: Initializing multiple objects at once
-*******************************************************
+Initializing multiple objects at once
+*************************************
 
 In all of the examples above, the ``Orbit`` instance corresponds to a
 single object, but ``Orbit`` instances can also contain and analyze
@@ -878,8 +878,8 @@ which returns a matrix of phase-space points with dimensions [ntimes,nphasedim] 
 
 .. _fastorbit:
 
-**UPDATED IN v1.5** Fast orbit integration and available integrators
----------------------------------------------------------------------
+Fast orbit integration and available integrators
+------------------------------------------------
 
 The standard orbit integration is done purely in python using standard
 scipy integrators. When fast orbit integration is needed for batch

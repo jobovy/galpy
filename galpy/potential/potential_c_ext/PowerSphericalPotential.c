@@ -55,3 +55,13 @@ double PowerSphericalPotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return amp * (1. - alpha ) * pow(R,-alpha);
 }
+double PowerSphericalPotentialDens(double R,double Z, double phi,
+				   double t,
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double alpha= *args;
+  //Calculate density
+  return amp * M_1_PI / 4. * ( 3. - alpha ) * pow (R*R + Z*Z, -0.5 * alpha);
+}

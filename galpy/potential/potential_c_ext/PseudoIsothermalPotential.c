@@ -62,3 +62,15 @@ double PseudoIsothermalPotentialPlanarR2deriv(double R,double phi,
   return amp / R2 * (2. * a / R * atan(R / a) - ( 2. * a2 +  R2)/(a2 + R2) )
     / a;
 }
+double PseudoIsothermalPotentialDens(double R,double Z, double phi,
+				     double t,
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double a= *(args+1);
+  double a2= a*a;
+  //Calculate potential
+  double r2= R*R+Z*Z;
+  return amp * M_1_PI / 4. / ( 1. + r2 / a2 ) / a2 / a;
+}

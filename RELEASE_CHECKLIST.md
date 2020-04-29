@@ -6,29 +6,21 @@
 
 - [ ] Remove previous version’s **NEW IN vX.X**
 
-- [ ] Update the version number in ``galpy/__init__.py``, ``setup.py``, and ``doc/source/conf.py``; format the version number as X.X.X
+- [ ] Update the version number with ``bumpversion release`` (using [bump2version](https://github.com/c4urself/bump2version)) and commit.
 
 - [ ] Check whether any new files need to go in MANIFEST.in (check which files are added with ``git diff --name-status PREV_RELEASE_HASH | grep ^A``)
 
 - [ ] Make sure everything is committed and pushed, make sure tests run and pass
 
+- [ ] Build source distribution: ``rm -rf build && rm -rf dist/* && python setup.py sdist``
+
+- [ ] Push it to testpypi: ``twine upload -r pypitest dist/*`` and can test with ``pip install -i https://testpypi.python.org/pypi galpy``
+
 - [ ] Tag new version with ``git tag vVERSION``
 
 - [ ] Push new tag with ``git push --tags``
 
-- [ ] Create new release on GitHub for this tag, with all of the links
-
-- [ ] Before building source distribution, make sure ‘galpy/actionAngle/actionAngleTorus_c_ext/torus/‘ is not included in the current directory; best to start with a clean checkout!
-
-- [ ] Build source distribution: ``rm -rf build && python setup.py sdist``
-
-- [ ] Push to testpypi: ``twine upload -r pypitest dist/*`` and can test with ``pip install -i https://testpypi.python.org/pypi galpy``
-
-- [ ] Push to pypi: ``twine upload -r pypi dist/*``
-
-- [ ] Build wheels for different python versions: ``python setup.py bdist_wheel`` and upload with ``twine upload -r pypi dist/*.whl``
-
-- [ ] Create wheels for different python versions on other platforms and upload with ``twine upload dist/*.whl`` (note that Linux wheels are not supported)
+- [ ] Create new release on GitHub for this tag, with all of the links. Creating the release on GitHub will automatically build the source distribution and binary wheels using GitHub Actions and upload these to PyPI!
 
 - [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
 
@@ -36,6 +28,6 @@
 
 - [ ] Create maintenance branch if major version update
 
-- [ ] Bump master version to next X.dev version
+- [ ] Bump version to development version with ``bumpversion patch`` (for X.Y.1 --> X.Y.2) or ``bumpversion minor`` (for X.1.0 --> X.2.0).
 
 - [ ] Start on next version changes in HISTORY file

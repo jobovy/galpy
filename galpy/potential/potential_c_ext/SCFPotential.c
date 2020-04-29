@@ -42,6 +42,7 @@ static inline void calculateXi(double r, double a, double *xi)
 
 //Potentials, forces, and derivative functions
 //LCOV_EXCL_START
+// Also used for density, just with rhoTilde
 double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
 {
     return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
@@ -150,6 +151,24 @@ void compute_d2C(double xi, int N, int L, double * d2C_array)
         }
     }
 
+}
+
+//Compute rho_Tilde
+void compute_rhoTilde(double r, double a, int N, int L, double* C,
+		      double * rhoTilde)
+{
+    double xi;
+    calculateXi(r,a,&xi);
+    double rterms = a * pow(r + a,-3.) / r;
+    int n,l;
+    for (l = 0; l < L; l++) {
+      if (l != 0)
+	rterms *= r * a / ( ( a + r ) * ( a + r ) );
+      for (n = 0; n < N; n++)
+	*(rhoTilde + l*N + n)  = (0.5 * n * ( n + 4. * l + 3. ) + ( l + 1. ) \
+				  * ( 2. * l + 1. ) )			\
+	  * rterms*(*(C + n + l*N));
+    }
 }
 
 //Compute phi_Tilde
@@ -813,3 +832,79 @@ double SCFPotentialPlanarRphideriv(double R, double phi,
     computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
     return *(Farray + 2);
 }
+//Compute the density
+double SCFPotentialDens(double R,double Z, double phi,
+			double t,
+			struct potentialArg * potentialArgs)
+{
+    double * args= potentialArgs->args;
+    //Get args
+    double a = *args++;
+    int isNonAxi = (int)*args++;
+    int N = (int) *args++;
+    int L = (int) *args++;
+    int M = (int) *args++;
+    double* Acos = args;
+    double* Asin;
+    if (isNonAxi==1)
+    {
+        Asin = args + N*L*M;
+    }
+    //convert R,Z to r, theta
+    double r;
+    double theta;
+    cyl_to_spher(R, Z,&r, &theta);
+    double xi;
+    calculateXi(r, a, &xi);
+
+    //Compute the gegenbauer polynomials and its derivative.
+    double *C= (double *) malloc ( N*L * sizeof(double) );
+    double *rhoTilde= (double *) malloc ( N*L * sizeof(double) );
+
+    compute_C(xi, N, L, C);
+
+    //Compute rhoTilde and its derivative
+    compute_rhoTilde(r, a, N, L, C, rhoTilde);
+    //Compute Associated Legendre Polynomials
+    int M_eff = M;
+    int size = 0;
+    
+    if (isNonAxi==0) {
+      M_eff = 1;
+      size = L;
+    } else
+      size = L*L - L*(L-1)/2;
+    
+    double *P= (double *) malloc ( size * sizeof(double) );
+
+    compute_P(cos(theta), L,M_eff, P);
+
+    double density;
+
+    double (*RhoTilde_Pointer[1]) = {rhoTilde};
+    double (*P_Pointer[1]) = {P};
+
+    double Constant[1] = {1.};
+
+    if (isNonAxi==1)
+    {
+        double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
+        equations e = {Eq,&RhoTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
+        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &density);
+    }
+    else
+    {
+        double (*Eq[1])(double, double, double) = {&computeAxiPhi};
+        axi_equations e = {Eq,&RhoTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
+        compute(a, N, L, M,r, theta, phi, Acos, 1, e, &density);
+    }
+
+    //Free memory
+    free(C);
+    free(rhoTilde);
+    free(P);
+
+    return density / 2. / M_PI;
+
+}
+

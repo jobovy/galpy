@@ -207,6 +207,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
             self.normalize(normalize)
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
+        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
         return None
 
     def _psi(self,m):
@@ -295,6 +296,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
             self.normalize(normalize)
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
+        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
         return None
 
     def _psi(self,m):
@@ -403,6 +405,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         self._scale= self.a
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False
+        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
         # Adjust amp
         self.a3= self.a**3
         self._amp/= (4.*numpy.pi*self.a3)

@@ -12,7 +12,8 @@ from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import galpyWarning
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input, actionAngle_physical_input, _APY_UNITS
+    potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
+    physical_compatible
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -117,6 +118,7 @@ class quasiisothermaldf(df):
                     not self._aA.b == self._pot.b and \
                     not self._aA.amp == self._pot._amp:
                 raise IOError("Potential in aA does not appear to be the same as given potential pot")
+        self._check_consistent_units()
         self._cutcounter= cutcounter
         if _precomputerg:
             if _precomputergrmax is None:

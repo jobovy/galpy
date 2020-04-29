@@ -59,3 +59,15 @@ double NFWPotentialPlanarR2deriv(double R,double phi,
   double aR2= aR*aR;
   return amp * (((R*(2.*a+3.*R))-2.*aR2*log(1.+R/a))/R/R/R/aR2);
 }
+double NFWPotentialDens(double R,double Z, double phi,
+			double t,
+			struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Calculate density
+  double sqrtRz= sqrt ( R * R + Z * Z );
+  return amp * M_1_PI / 4. / a / a \
+    / ( 1. + sqrtRz / a ) / ( 1. + sqrtRz / a ) / sqrtRz;
+}

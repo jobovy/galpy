@@ -1,28 +1,30 @@
-dist: xenial
+dist: bionic
 sudo: false
 language: python
 # Working towards support https://numpy.org/neps/nep-0029-deprecation_policy.html
 python:
-  - "3.7"
+  - "3.8"
 env: #split tests
   global:
     - REQUIRES_PYNBODY=false
     - REQUIRES_ASTROPY=false
     - REQUIRES_ASTROQUERY=false
-    - PYTHON_COVREPORTS_VERSION=3.7 # Version for which reports are uploaded
+    - PYTHON_COVREPORTS_VERSION=3.8 # Version for which reports are uploaded
   matrix:
-    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py' REQUIRES_PYNBODY=true
+    - TEST_FILES='tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py' REQUIRES_PYNBODY=true
     - TEST_FILES='tests/test_quantity.py tests/test_coords.py' REQUIRES_ASTROPY=true # needs to be separate for different config
     - TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
-    - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py'
-    - TEST_FILES='tests/test_diskdf.py'
+    - TEST_FILES='tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py'
     - TEST_FILES='tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py'
+    - TEST_FILES='tests/test_diskdf.py'
     - TEST_FILES='tests/test_streamdf.py'
-matrix: # only run crucial tests for python 2.7, 3.6
+matrix: # only run crucial tests for python 2.7, 3.6, 3.7
   include:
     - python: "2.7"
       env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
     - python: "3.6"
+      env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
+    - python: "3.7"
       env: TEST_FILES='tests/test_orbit.py tests/test_orbits.py' REQUIRES_PYNBODY=true REQUIRES_ASTROPY=true REQUIRES_ASTROQUERY=true
 addons:
   apt:
@@ -49,12 +51,12 @@ before_install:
  - conda config --set always_yes yes --set changeps1 no
  - conda update conda
  - conda config --add channels conda-forge
+# Make defaults again the highest priority channel
+ - conda config --add channels defaults
 # setuptools >= 45 no longer supports Python 2
  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then SETUPTOOLS_VERSION="<45"; else SETUPTOOLS_VERSION=""; fi
  - conda create -n test-environment python=$TRAVIS_PYTHON_VERSION "numpy>=1.16" scipy matplotlib numexpr "setuptools$SETUPTOOLS_VERSION" pip "cython>=0.20" pytest
  - source activate test-environment
-#Switch to conda defaults python, because conda-forge python has issues with gcc compiler similar to https://github.com/conda/conda/issues/6030
- - conda install python=$TRAVIS_PYTHON_VERSION -c defaults
 #Download corrections for some tests
  - curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
  - tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/

@@ -8,8 +8,9 @@ from scipy import integrate
 from ..util import bovy_plot as plot
 from ..util import config
 from ..util.bovy_conversion import physical_conversion,\
-    potential_physical_input, freq_in_Gyr
+    potential_physical_input, freq_in_Gyr, physical_compatible
 from .Potential import Potential, PotentialError, lindbladR, flatten
+from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -26,6 +27,7 @@ class planarPotential(object):
         self.isRZ= False
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')
@@ -101,16 +103,29 @@ class planarPotential(object):
            2019-01-27 - Written - Bovy (UofT)
 
         """
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],(Potential,planarPotential)):
+            raise TypeError("""Can only combine galpy Potential"""
+                            """/planarPotential objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return [self]+b
         else:
             return [self,b]
     # Define separately to keep order
     def __radd__(self,b):
-        if isinstance(b,list):
-            return b+[self]
-        else:
-            raise TypeError("Can only add a Force or Potential instance to another instance or to a list of such instances")
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],(Potential,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        # If we get here, b has to be a list
+        return b+[self]
 
     def turn_physical_off(self):
         """
@@ -163,14 +178,16 @@ class planarPotential(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -721,6 +738,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._Pot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
+        self.hasC_dens= RZPot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -798,6 +816,8 @@ def RZToplanarPotential(RZPot):
 
     """
     RZPot= flatten(RZPot)
+    if _isDissipative(RZPot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -838,6 +858,7 @@ class planarPotentialFromFullPotential(planarPotential):
         self._Pot= Pot
         self.hasC= Pot.hasC
         self.hasC_dxdv= Pot.hasC_dxdv
+        self.hasC_dens= Pot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -981,7 +1002,9 @@ def toPlanarPotential(Pot):
 
     """
     Pot= flatten(Pot)
-    if isinstance(Pot,list):
+    if _isDissipative(Pot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
+    elif isinstance(Pot,list):
         out= []
         for pot in Pot:
             if isinstance(pot,planarPotential):
