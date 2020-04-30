@@ -70,7 +70,7 @@ class actionAngleAdiabatic(actionAngle):
         # Setup actionAngleSpherical object for calculations in Python 
         # (if they become necessary)
         if _dim(self._pot) == 3:
-			thispot= toPlanarPotential(self._pot)
+            thispot= toPlanarPotential(self._pot)
         else:
             thispot= self._pot
             self._gamma= 0.
@@ -148,7 +148,7 @@ class actionAngleAdiabatic(actionAngle):
                             numpy.nan,numpy.nan)
                 #Set up the actionAngleVertical object
                 if _dim(self._pot) == 3:
-					thisverticalpot= toVerticalPotential(self._pot,R[0])
+                    thisverticalpot= toVerticalPotential(self._pot,R[0])
                     aAV= actionAngleVertical(pot=thisverticalpot)
                     Jz= aAV(z[0],vz[0])
                 else: #2D in-plane

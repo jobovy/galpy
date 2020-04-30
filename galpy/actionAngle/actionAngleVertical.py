@@ -185,7 +185,7 @@ class actionAngleVertical(actionAngle):
                                        -evaluatelinearPotentials(self._pot,xi,
                                                          use_physical=False))),
                         0.,xmax)[0]/numpy.pi
-                    Omega[ii]= nu.pi/2./integrate.quad(\
+                    Omega[ii]= numpy.pi/2./integrate.quad(\
                         lambda t: 2.*t/numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,
                                                                  xmax-t**2.,
