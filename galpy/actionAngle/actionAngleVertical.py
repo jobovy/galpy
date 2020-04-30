@@ -9,10 +9,10 @@
 #             actionsFreqsAngles: returns (j,omega,a)
 #             calcxmax
 ###############################################################################
-import numpy as nu
+import numpy
 from scipy import optimize, integrate
 from .actionAngle import actionAngle
-from galpy.potential.linearPotential import evaluatelinearPotentials
+from ..potential.linearPotential import evaluatelinearPotentials
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for one-dimensional potentials (or of the vertical potential in a galactic disk in the adiabatic approximation, hence the name)"""
     def __init__(self,*args,**kwargs):
@@ -42,10 +42,6 @@ class actionAngleVertical(actionAngle):
            2012-06-01 - Written - Bovy (IAS)
            2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
 
-           Either:
-              a) z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
@@ -82,9 +78,9 @@ class actionAngleVertical(actionAngle):
         if len(args) == 2: # x,vx
             x,vx= args
             if isinstance(x,float):
-                x= nu.array([x])
-                vx= nu.array([vx])
-            J= nu.empty(len(x))
+                x= numpy.array([x])
+                vx= numpy.array([vx])
+            J= numpy.empty(len(x))
             for ii in range(len(x)):
                 E= vx[ii]**2./2.\
                     +evaluatelinearPotentials(self._pot,x[ii],
@@ -94,10 +90,10 @@ class actionAngleVertical(actionAngle):
                     J[ii]= 9999.99
                 else:
                     J[ii]= 2.*integrate.quad(\
-                        lambda xi: nu.sqrt(2.*(E\
+                        lambda xi: numpy.sqrt(2.*(E\
                               -evaluatelinearPotentials(self._pot,xi,
                                                         use_physical=False))),
-                        0.,xmax)[0]/nu.pi
+                        0.,xmax)[0]/numpy.pi
             return J
         else: # pragma: no cover
             raise ValueError('actionAngleVertical __call__ input not understood')
@@ -121,10 +117,10 @@ class actionAngleVertical(actionAngle):
         if len(args) == 2: # x,vx
             x,vx= args
             if isinstance(x,float):
-                x= nu.array([x])
-                vx= nu.array([vx])
-            J= nu.empty(len(x))
-            Omega= nu.empty(len(x))
+                x= numpy.array([x])
+                vx= numpy.array([vx])
+            J= numpy.empty(len(x))
+            Omega= numpy.empty(len(x))
             for ii in range(len(x)):
                 E= vx[ii]**2./2.\
                     +evaluatelinearPotentials(self._pot,x[ii],
@@ -135,20 +131,20 @@ class actionAngleVertical(actionAngle):
                     Omega[ii]= 9999.99
                 else:
                     J[ii]= 2.*integrate.quad(\
-                        lambda xi: nu.sqrt(2.*(E\
+                        lambda xi: numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,xi,
                                                          use_physical=False))),
-                        0.,xmax,)[0]/nu.pi
+                        0.,xmax,)[0]/numpy.pi
                     # Transformed x = xmax-t^2 for singularity
-                    Omega[ii]= nu.pi/2./integrate.quad(\
-                        lambda t: 2.*t/nu.sqrt(2.*(E\
+                    Omega[ii]= numpy.pi/2./integrate.quad(\
+                        lambda t: 2.*t/numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,
                                                                  xmax-t**2.,
                                                          use_physical=False))),
-                        0,nu.sqrt(xmax))[0]
+                        0,numpy.sqrt(xmax))[0]
             return (J,Omega)
         else: # pragma: no cover
-            raise ValueError('actionAngleVertical __call__ input not understood')
+            raise ValueError('actionAngleVertical actionsFreqs input not understood')
 
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -169,11 +165,11 @@ class actionAngleVertical(actionAngle):
         if len(args) == 2: # x,vx
             x,vx= args
             if isinstance(x,float):
-                x= nu.array([x])
-                vx= nu.array([vx])
-            J= nu.empty(len(x))
-            Omega= nu.empty(len(x))
-            angle= nu.empty(len(x))
+                x= numpy.array([x])
+                vx= numpy.array([vx])
+            J= numpy.empty(len(x))
+            Omega= numpy.empty(len(x))
+            angle= numpy.empty(len(x))
             for ii in range(len(x)):
                 E= vx[ii]**2./2.\
                     +evaluatelinearPotentials(self._pot,x[ii],
@@ -185,28 +181,28 @@ class actionAngleVertical(actionAngle):
                     angle[ii]= 9999.99
                 else:
                     J[ii]= 2.*integrate.quad(\
-                        lambda xi: nu.sqrt(2.*(E\
+                        lambda xi: numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,xi,
                                                          use_physical=False))),
-                        0.,xmax)[0]/nu.pi
+                        0.,xmax)[0]/numpy.pi
                     Omega[ii]= nu.pi/2./integrate.quad(\
-                        lambda t: 2.*t/nu.sqrt(2.*(E\
+                        lambda t: 2.*t/numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,
                                                                  xmax-t**2.,
                                                          use_physical=False))),
-                        0,nu.sqrt(xmax))[0]
+                        0,numpy.sqrt(xmax))[0]
                     angle[ii]= integrate.quad(\
-                        lambda xi: 1./nu.sqrt(2.*(E\
+                        lambda xi: 1./numpy.sqrt(2.*(E\
                                        -evaluatelinearPotentials(self._pot,xi,
                                                          use_physical=False))),
-                                        0,nu.fabs(x[ii]))[0]
+                                        0,numpy.fabs(x[ii]))[0]
             angle*= Omega
-            angle[(x >= 0.)*(vx < 0.)]= nu.pi-angle[(x >= 0.)*(vx < 0.)]
-            angle[(x < 0.)*(vx <= 0.)]= nu.pi+angle[(x < 0.)*(vx <= 0.)]
-            angle[(x < 0.)*(vx > 0.)]= 2.*nu.pi-angle[(x < 0.)*(vx > 0.)]
-            return (J,Omega,angle % (2.*nu.pi))
+            angle[(x >= 0.)*(vx < 0.)]= numpy.pi-angle[(x >= 0.)*(vx < 0.)]
+            angle[(x < 0.)*(vx <= 0.)]= numpy.pi+angle[(x < 0.)*(vx <= 0.)]
+            angle[(x < 0.)*(vx > 0.)]= 2.*numpy.pi-angle[(x < 0.)*(vx > 0.)]
+            return (J,Omega,angle % (2.*numpy.pi))
         else: # pragma: no cover
-            raise ValueError('actionAngleVertical __call__ input not understood')
+            raise ValueError('actionAngleVertical actionsFreqsAngles input not understood')
 
     def calcxmax(self,x,vx,E=None):
         """
@@ -227,12 +223,12 @@ class actionAngleVertical(actionAngle):
             E= E= vx**2./2.\
                 +evaluatelinearPotentials(self._pot,x,use_physical=False)
         if vx == 0.: #We are exactly at the maximum height
-            xmax= nu.fabs(x)
+            xmax= numpy.fabs(x)
         else:
             xstart= x
             try:
                 if x == 0.: xend= 0.00001
-                else: xend= 2.*nu.fabs(x)
+                else: xend= 2.*numpy.fabs(x)
                 while (E-evaluatelinearPotentials(self._pot,xend,
                                                   use_physical=False)) > 0.:
                     xend*= 2.

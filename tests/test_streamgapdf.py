@@ -1,5 +1,4 @@
 import numpy
-numpy.random.seed(1)
 from scipy import integrate
 import pytest
 sdf_sanders15= None #so we can set this up and then use in other tests
@@ -7,7 +6,10 @@ sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdfl_sanders15= None #so we can set this up and then use in other tests
 sdfl_sanders15_unp= None #so we can set this up and then use in other tests
 
+# Put seed in first function, so the seed gets set even if other test files
+# were run first
 def test_setupimpact_error():
+    numpy.random.seed(1)
     #Imports
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit

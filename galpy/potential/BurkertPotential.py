@@ -56,6 +56,7 @@ class BurkertPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -160,7 +161,7 @@ class BurkertPotential(Potential):
         NAME:
            _dens
         PURPOSE:
-           evaluate the density force for this potential
+           evaluate the density for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -175,3 +176,36 @@ class BurkertPotential(Potential):
         x= r/self.a
         return 1./(1.+x)/(1.+x**2.)
 
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the surface density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        r= numpy.sqrt(R**2.+z**2.)
+        x= r/self.a
+        Rpa= numpy.sqrt(R**2.+self.a**2.)
+        Rma= numpy.sqrt(R**2.-self.a**2.+0j)
+        if Rma == 0:
+            za= z/self.a
+            return self.a**2./2.*((2.-2.*numpy.sqrt(za**2.+1)
+                                   +numpy.sqrt(2.)*za\
+                                       *numpy.arctan(za/numpy.sqrt(2.)))/z
+                                  +numpy.sqrt(2*za**2.+2.)\
+                                   *numpy.arctanh(za/numpy.sqrt(2.*(za**2.+1)))
+                                  /numpy.sqrt(self.a**2.+z**2.))
+        else:
+            return self.a**2.*(numpy.arctan(z/x/Rma)/Rma
+                               +numpy.arctanh(z/x/Rpa)/Rpa
+                               -numpy.arctan(z/Rma)/Rma
+                               +numpy.arctan(z/Rpa)/Rpa).real

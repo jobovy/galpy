@@ -3,13 +3,18 @@
 ###############################################################################
 from .Potential import Potential, _isNonAxi, _dim
 from .planarPotential import planarPotential
-from .Potential import evaluatePotentials, \
-    evaluateRforces, evaluatephiforces, evaluatezforces, \
+from .Potential import _evaluatePotentials, \
+    _evaluateRforces, _evaluatephiforces, _evaluatezforces, \
     evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, evaluateDensities
-from .planarPotential import evaluateplanarPotentials, \
-    evaluateplanarRforces, evaluateplanarphiforces, \
+from .planarPotential import _evaluateplanarPotentials, \
+    _evaluateplanarRforces, _evaluateplanarphiforces, \
     evaluateplanarR2derivs
+from ..util.bovy_conversion import physical_compatible, get_physical
+def _new_obj(cls, kwargs, args):
+    """Maps kwargs to cls.__new__"""
+    return cls.__new__(cls, *args, **kwargs)
+
 class parentWrapperPotential(object):
     """'Dummy' class only used to delegate wrappers to either 2D planarWrapperPotential or 3D WrapperPotential based on pot's dimensionality, using a little python object creation magic..."""
     def __new__(cls,*args,**kwargs):
@@ -27,9 +32,12 @@ class parentWrapperPotential(object):
         # Create object from custom class that derives from correct wrapper,
         # make sure to turn off normalization for all wrappers
         kwargs['_init']= True # to break recursion above
+        # __reduce__ method to allow pickling
+        reduce= lambda self: (_new_obj, (cls, kwargs, args), self.__dict__)
         out= type.__new__(type,'_%s' % cls.__name__,
                           (parentWrapperPotential,cls),
-                          {'normalize':property()})(*args,**kwargs)
+                          {'normalize':property(),
+                           '__reduce__':reduce})(*args,**kwargs)
         kwargs.pop('_init',False)
         # This runs init for the subclass (the specific wrapper)
         cls.__init__(out,*args,**kwargs)
@@ -65,6 +73,22 @@ class WrapperPotential(Potential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
+        # Check whether units are consistent between the wrapper and the 
+        # wrapped potential
+        assert physical_compatible(self,self._pot), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between this wrapper and the wrapped potential"""
+        # Transfer unit system if set for wrapped potential, but not here
+        phys_wrapped= get_physical(self._pot,include_set=True)
+        if not self._roSet and phys_wrapped['roSet']:
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
+        if not self._voSet and phys_wrapped['voSet']:
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
+
+    def __repr__(self):
+        wrapped_repr= repr(self._pot)
+        return Potential.__repr__(self) + ', wrapper of' \
+            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
 
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
@@ -80,27 +104,35 @@ class WrapperPotential(Potential):
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
-            return evaluatePotentials
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatePotentials(p,R,Z,phi=phi,t=t)
         elif attribute == '_dens':
-            return evaluateDensities
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateDensities(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_Rforce':
-            return evaluateRforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluateRforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_zforce':
-            return evaluatezforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatezforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_phiforce':
-            return evaluatephiforces
+            return lambda p,R,Z,phi=0.,t=0.: \
+                _evaluatephiforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_R2deriv':
-            return evaluateR2derivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateR2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_z2deriv':
-            return evaluatez2derivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluatez2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_Rzderiv':
-            return evaluateRzderivs
+            return lambda p,R,Z,phi=0.,t=0.: \
+                evaluateRzderivs(p,R,Z,phi=phi,t=t,use_physical=False)
         elif attribute == '_phi2deriv':
             return lambda p,R,Z,phi=0.,t=0.: \
-                evaluatePotentials(p,R,Z,phi=phi,t=t,dphi=2)
+                _evaluatePotentials(p,R,Z,phi=phi,t=t,dphi=2)
         elif attribute == '_Rphideriv':
             return lambda p,R,Z,phi=0.,t=0.: \
-                evaluatePotentials(p,R,Z,phi=phi,t=t,dR=1,dphi=1)
+                _evaluatePotentials(p,R,Z,phi=phi,t=t,dR=1,dphi=1)
         else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
 
@@ -134,6 +166,22 @@ class planarWrapperPotential(planarPotential):
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
+        # Check whether units are consistent between the wrapper and the 
+        # wrapped potential
+        assert physical_compatible(self,self._pot), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between this wrapper and the wrapped potential"""
+        # Transfer unit system if set for wrapped potential, but not here
+        phys_wrapped= get_physical(self._pot,include_set=True)
+        if not self._roSet and phys_wrapped['roSet']:
+            self.turn_physical_on(ro=phys_wrapped['ro'],vo=False)
+        if not self._voSet and phys_wrapped['voSet']:
+            self.turn_physical_on(vo=phys_wrapped['vo'],ro=False)
+
+    def __repr__(self):
+        wrapped_repr= repr(self._pot)
+        return Potential.__repr__(self) + ', wrapper of' \
+            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
 
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
@@ -149,19 +197,23 @@ class planarWrapperPotential(planarPotential):
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
-            return evaluateplanarPotentials
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarPotentials(p,R,phi=phi,t=t)
         elif attribute == '_Rforce':
-            return evaluateplanarRforces
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarRforces(p,R,phi=phi,t=t)
         elif attribute == '_phiforce':
-            return evaluateplanarphiforces
+            return lambda p,R,phi=0.,t=0.: \
+                _evaluateplanarphiforces(p,R,phi=phi,t=t)
         elif attribute == '_R2deriv':
-            return evaluateplanarR2derivs
+            return lambda p,R,phi=0.,t=0.: \
+                evaluateplanarR2derivs(p,R,phi=phi,t=t,use_physical=False)
         elif attribute == '_phi2deriv':
             return lambda p,R,phi=0.,t=0.: \
-                evaluateplanarPotentials(p,R,phi=phi,t=t,dphi=2)
+                _evaluateplanarPotentials(p,R,phi=phi,t=t,dphi=2)
         elif attribute == '_Rphideriv':
             return lambda p,R,phi=0.,t=0.: \
-                evaluateplanarPotentials(p,R,phi=phi,t=t,dR=1,dphi=1)
+                _evaluateplanarPotentials(p,R,phi=phi,t=t,dR=1,dphi=1)
         else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
 

@@ -9,7 +9,7 @@
 #                               density profile and an exponential sigma_R 
 #                               profile
 ###############################################################################
-import scipy as sc
+import numpy
 class surfaceSigmaProfile(object):
     """Class that contains the surface density and sigma_R^2 profile"""
     def __init__(self):
@@ -116,7 +116,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -R/self._params[0]
         else:
-            return sc.exp(-R/self._params[0])
+            return numpy.exp(-R/self._params[0])
 
     def surfacemassDerivative(self,R,log=False):
         """
@@ -135,7 +135,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -1./self._params[0]
         else:
-            return -sc.exp(-R/self._params[0])/self._params[0]
+            return -numpy.exp(-R/self._params[0])/self._params[0]
 
     def sigma2(self,R,log=False):
         """
@@ -152,9 +152,9 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return 2.*sc.log(self._params[2])-2.*(R-1.)/self._params[1]
+            return 2.*numpy.log(self._params[2])-2.*(R-1.)/self._params[1]
         else:
-            return self._params[2]**2.*sc.exp(-2.*(R-1.)/self._params[1])
+            return self._params[2]**2.*numpy.exp(-2.*(R-1.)/self._params[1])
 
     def sigma2Derivative(self,R,log=False):
         """
@@ -173,5 +173,5 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -2./self._params[1]
         else:
-            return self._params[2]**2.*sc.exp(-2.*(R-1.)/self._params[1])\
+            return self._params[2]**2.*numpy.exp(-2.*(R-1.)/self._params[1])\
                 *(-2./self._params[1])

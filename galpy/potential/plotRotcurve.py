@@ -2,9 +2,9 @@ from __future__ import division, print_function
 
 import os
 import pickle
-import numpy as nu
-import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion,\
+import numpy
+from ..util import bovy_plot as plot
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:
@@ -96,7 +96,7 @@ def plotRotcurve(Pot,*args,**kwargs):
         Rs= pickle.load(savefile)
         savefile.close()
     else:
-        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+        Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
         rotcurve= calcRotcurve(Pot,Rs,phi=phi)
         if not savefilename == None:
             print("Writing savefile "+savefilename+" ...")
@@ -116,14 +116,14 @@ def plotRotcurve(Pot,*args,**kwargs):
     if not 'xrange' in kwargs:
         kwargs['xrange']= Rrange
     if not 'yrange' in kwargs:
-        kwargs['yrange']= [0.,1.2*nu.amax(rotcurve)]
+        kwargs['yrange']= [0.,1.2*numpy.amax(rotcurve)]
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)
     return plot.bovy_plot(Rs,rotcurve,*args,
                           **kwargs)
 
-def calcRotcurve(Pot,Rs,phi=None):
+def calcRotcurve(Pot,Rs,phi=None,t=0.):
     """
     NAME:
 
@@ -142,6 +142,8 @@ def calcRotcurve(Pot,Rs,phi=None):
 
        phi= (None) azimuth to use for non-axisymmetric potentials
 
+       ts - instantaneous time (optional)
+
     OUTPUT:
 
        array of vc
@@ -157,15 +159,15 @@ def calcRotcurve(Pot,Rs,phi=None):
         grid= len(Rs)
     except TypeError:
         grid=1
-        Rs= nu.array([Rs])
-    rotcurve= nu.zeros(grid)
+        Rs= numpy.array([Rs])
+    rotcurve= numpy.zeros(grid)
     for ii in range(grid):
-        rotcurve[ii]= vcirc(Pot,Rs[ii],phi=phi,use_physical=False)
+        rotcurve[ii]= vcirc(Pot,Rs[ii],phi=phi,t=t,use_physical=False)
     return rotcurve
 
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
-def vcirc(Pot,R,phi=None):
+def vcirc(Pot,R,phi=None,t=0.):
     """
 
     NAME:
@@ -184,6 +186,8 @@ def vcirc(Pot,R,phi=None):
 
        phi= (None) azimuth to use for non-axisymmetric potentials
 
+       t= time (optional; can be Quantity)
+
     OUTPUT:
 
        circular rotation velocity
@@ -195,20 +199,20 @@ def vcirc(Pot,R,phi=None):
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from galpy.potential import evaluateplanarRforces
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarRforces
+    from ..potential import PotentialError
     try:
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,
+        return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
     except PotentialError:
-        from galpy.potential import toPlanarPotential
+        from ..potential import toPlanarPotential
         Pot= toPlanarPotential(Pot)
-        return nu.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,
+        return numpy.sqrt(-R*evaluateplanarRforces(Pot,R,phi=phi,t=t,
                                                 use_physical=False))
 
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
-def dvcircdR(Pot,R,phi=None):
+def dvcircdR(Pot,R,phi=None,t=0.):
     """
 
     NAME:
@@ -227,6 +231,8 @@ def dvcircdR(Pot,R,phi=None):
 
        phi= (None) azimuth to use for non-axisymmetric potentials
 
+       t= time (optional; can be Quantity)
+
     OUTPUT:
 
        derivative of the circular rotation velocity wrt R
@@ -238,13 +244,13 @@ def dvcircdR(Pot,R,phi=None):
        2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from galpy.potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from galpy.potential import PotentialError
-    tvc= vcirc(Pot,R,phi=phi,use_physical=False)
+    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
+    from ..potential import PotentialError
+    tvc= vcirc(Pot,R,phi=phi,t=t,use_physical=False)
     try:
-        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,use_physical=False))/tvc
+        return 0.5*(-evaluateplanarRforces(Pot,R,phi=phi,t=t,use_physical=False)+R*evaluateplanarR2derivs(Pot,R,phi=phi,t=t,use_physical=False))/tvc
 

@@ -1,9 +1,10 @@
-from galpy.util import config
+from ..util.bovy_conversion import physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
 except ImportError:
     _APY_LOADED= False
+from ..util import config
 class df(object):
     """Top-level class for DF classes"""
     def __init__(self,ro=None,vo=None):
@@ -38,6 +39,10 @@ class df(object):
             self._voSet= True
         return None
 
+    def _check_consistent_units(self):
+        """Internal function to check that the set of units for this object is consistent with that for the potential"""
+        assert physical_compatible(self,self._pot),  'Physical conversion for the DF object is not consistent with that of the Potential given to it'
+            
     def turn_physical_off(self):
         """
         NAME:
@@ -89,14 +94,16 @@ class df(object):
 
            2016-06-05 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo

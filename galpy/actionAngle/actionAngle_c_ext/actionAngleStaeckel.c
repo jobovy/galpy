@@ -33,16 +33,6 @@
 // Just do nothing?
 #define EXPORT
 #endif
-#ifdef _WIN32
-// On Windows, *need* to define this function to allow the package to be imported
-#if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit_galpy_actionAngle_c(void) { // Python 3
-  return NULL;
-}
-#else
-PyMODINIT_FUNC initgalpy_actionAngle_c(void) {} // Python 2
-#endif
-#endif
 /*
   Structure Declarations
 */
@@ -1553,14 +1543,10 @@ void calcUminUmax(int ndata,
     (JRRoot+tid)->function = &JRStaeckelIntegrandSquared;
     (JRRoot+tid)->params = params+tid;
     //Find starting points for minimum
-    if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(ux+ii))) < 0.0000001){ //we are at umin or umax
-      peps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)+0.000001);
-      meps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)-0.000001);
-      if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 ) {//circular
-	*(umin+ii) = *(ux+ii);
-	*(umax+ii) = *(ux+ii);
-      }
-      else if ( peps < 0. && meps > 0. ) {//umax
+    peps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)+0.000001);
+    meps= GSL_FN_EVAL(JRRoot+tid,*(ux+ii)-0.000001);
+    if ( fabs(GSL_FN_EVAL(JRRoot+tid,*(ux+ii))) < 0.0000001 && peps*meps < 0. ){ //we are at umin or umax
+      if ( peps < 0. && meps > 0. ) {//umax
 	*(umax+ii)= *(ux+ii);
 	u_lo= 0.9 * (*(ux+ii) - 0.000001);
 	u_hi= *(ux+ii) - 0.0000001;
@@ -1595,7 +1581,7 @@ void calcUminUmax(int ndata,
 	  *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
 	}
       }
-      else if ( peps > 0. && meps < 0. ){//umin
+      else {// JB: Should catch all: if ( peps > 0. && meps < 0. ){//umin
 	*(umin+ii)= *(ux+ii);
 	u_lo= *(ux+ii) + 0.000001;
 	u_hi= 1.1 * (*(ux+ii) + 0.000001);
@@ -1631,6 +1617,10 @@ void calcUminUmax(int ndata,
 	// LCOV_EXCL_STOP
 	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
+    }
+    else if ( fabs(peps) < 0.00000001 && fabs(meps) < 0.00000001 && peps <= 0 && meps <= 0 ) {//circular
+	*(umin+ii) = *(ux+ii);
+	*(umax+ii) = *(ux+ii);
     }
     else {
       u_lo= 0.9 * *(ux+ii);

@@ -1,20 +1,17 @@
-
-import numpy as nu
+import hashlib
+import numpy
+from numpy.polynomial.legendre import leggauss
+from scipy.special import lpmn
+from scipy.special import gammaln
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-    
-from galpy.util import bovy_coords
-from scipy.special import eval_gegenbauer, lpmn, gamma
+from ..util import bovy_coords
 
-from numpy.polynomial.legendre import leggauss
+from .NumericalPotentialDerivativesMixin import \
+    NumericalPotentialDerivativesMixin
 
-from scipy.special import gammaln
-
-import hashlib
-
-
-class SCFPotential(Potential):
+class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential. 
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
@@ -47,7 +44,7 @@ class SCFPotential(Potential):
     
     and :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_n^{\\alpha}` is the Gegenbauer polynomial.
     """
-    def __init__(self, amp=1., Acos=nu.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
+    def __init__(self, amp=1., Acos=numpy.array([[[1]]]),Asin=None, a = 1., normalize=False, ro=None,vo=None):
         """
         NAME:
 
@@ -79,6 +76,7 @@ class SCFPotential(Potential):
 
            2016-05-13 - Written - Aladdin 
         """        
+        NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
             a= a.to(units.kpc).value/self._ro 
@@ -93,7 +91,7 @@ class SCFPotential(Potential):
             errorMessage="The second and third dimension of the expansion coefficients must have the same length"
         elif Asin is None and not (shape[2] == 1 or shape[1] == shape[2]):
             errorMessage="The third dimension must have length=1 or equal to the length of the second dimension"
-        elif Asin is None and shape[1] > 1 and nu.any(Acos[:,:,1:] !=0):
+        elif Asin is None and shape[1] > 1 and numpy.any(Acos[:,:,1:] !=0):
             errorMessage="Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n" +\
             "Asin=None which implies an axi symmetric potential.\n" + \
             "Contradiction."
@@ -104,7 +102,7 @@ class SCFPotential(Potential):
             
         ##Warnings
         warningMessage=None
-        if nu.any(nu.triu(Acos,1) != 0) or (Asin is not None and nu.any(nu.triu(Asin,1) != 0)):
+        if numpy.any(numpy.triu(Acos,1) != 0) or (Asin is not None and numpy.any(numpy.triu(Asin,1) != 0)):
             warningMessage="Found non-zero values at expansion coefficients where m > l\n" + \
             "The Mth and Lth dimension is expected to make a lower triangular matrix.\n" + \
             "All values found above the diagonal will be ignored."   
@@ -113,7 +111,7 @@ class SCFPotential(Potential):
         
         ##Is non axi?
         self.isNonAxi= True
-        if Asin is None or shape[1] == 1 or (nu.all(Acos[:,:,1:] == 0) and nu.all(Asin[:,:,:]==0)):
+        if Asin is None or shape[1] == 1 or (numpy.all(Acos[:,:,1:] == 0) and numpy.all(Asin[:,:,:]==0)):
             self.isNonAxi = False        
         
         
@@ -122,14 +120,15 @@ class SCFPotential(Potential):
         NN = self._Nroot(Acos.shape[1], Acos.shape[2])
         
         
-        self._Acos= Acos*NN[nu.newaxis,:,:]
+        self._Acos= Acos*NN[numpy.newaxis,:,:]
         if Asin is not None:
-            self._Asin = Asin*NN[nu.newaxis,:,:]
+            self._Asin = Asin*NN[numpy.newaxis,:,:]
         else:
-            self._Asin = nu.zeros_like(Acos)
+            self._Asin = numpy.zeros_like(Acos)
         self._force_hash= None
         self.hasC= True
         self.hasC_dxdv=True
+        self.hasC_dens=True
         
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -152,13 +151,13 @@ class SCFPotential(Potential):
            2016-05-16 - Written - Aladdin 
         """
         if M is None: M =L
-        NN = nu.zeros((L,M),float)
-        l = nu.arange(0,L)[:,nu.newaxis]
-        m = nu.arange(0,M)[nu.newaxis, :]
+        NN = numpy.zeros((L,M),float)
+        l = numpy.arange(0,L)[:,numpy.newaxis]
+        m = numpy.arange(0,M)[numpy.newaxis, :]
         nLn = gammaln(l-m+1) - gammaln(l+m+1)
-        NN[:,:] = ((2*l+1.)/(4.*nu.pi) * nu.e**nLn)**.5 * 2
+        NN[:,:] = ((2*l+1.)/(4.*numpy.pi) * numpy.e**nLn)**.5 * 2
         NN[:,0] /= 2.
-        NN = nu.tril(NN)
+        NN = numpy.tril(NN)
         return NN
         
     def _calculateXi(self, r):
@@ -194,11 +193,11 @@ class SCFPotential(Potential):
         xi = self._calculateXi(r)
         CC = _C(xi,N,L)
         a = self._a
-        rho = nu.zeros((N,L), float)
-        n = nu.arange(0,N, dtype=float)[:, nu.newaxis]
-        l = nu.arange(0, L, dtype=float)[nu.newaxis,:]
+        rho = numpy.zeros((N,L), float)
+        n = numpy.arange(0,N, dtype=float)[:, numpy.newaxis]
+        l = numpy.arange(0, L, dtype=float)[numpy.newaxis,:]
         K = 0.5 * n * (n + 4*l + 3) + (l + 1.)*(2*l + 1)
-        rho[:,:] = K * ((a*r)**l) / ((r/a)*(a + r)**(2*l + 3.)) * CC[:,:]* (nu.pi)**-0.5
+        rho[:,:] = K * ((a*r)**l) / ((r/a)*(a + r)**(2*l + 3.)) * CC[:,:]* (numpy.pi)**-0.5
         return rho   
 
     def _phiTilde(self, r, N,L):
@@ -219,10 +218,10 @@ class SCFPotential(Potential):
         xi = self._calculateXi(r)
         CC = _C(xi,N,L)
         a = self._a
-        phi = nu.zeros((N,L), float)
-        n = nu.arange(0,N)[:, nu.newaxis]
-        l = nu.arange(0, L)[nu.newaxis,:]
-        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1.)) * CC[:,:]* (4*nu.pi)**0.5
+        phi = numpy.zeros((N,L), float)
+        n = numpy.arange(0,N)[:, numpy.newaxis]
+        l = numpy.arange(0, L)[numpy.newaxis,:]
+        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1.)) * CC[:,:]* (4*numpy.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):
@@ -247,14 +246,14 @@ class SCFPotential(Potential):
         
         
    
-        PP = lpmn(M-1,L-1,nu.cos(theta))[0].T ##Get the Legendre polynomials
+        PP = lpmn(M-1,L-1,numpy.cos(theta))[0].T ##Get the Legendre polynomials
         func_tilde = funcTilde(r, N, L) ## Tilde of the function of interest 
         
-        func = nu.zeros((N,L,M), float) ## The function of interest (density or potential)
+        func = numpy.zeros((N,L,M), float) ## The function of interest (density or potential)
         
-        m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
-        mcos = nu.cos(m*phi)
-        msin = nu.sin(m*phi)
+        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+        mcos = numpy.cos(m*phi)
+        msin = numpy.sin(m*phi)
         func = func_tilde[:,:,None]*(Acos[:,:,:]*mcos + Asin[:,:,:]*msin)*PP[None,:,:]
         return func
         
@@ -275,18 +274,18 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """
-        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
+        R = numpy.array(R,dtype=float); z = numpy.array(z,dtype=float); phi = numpy.array(phi,dtype=float);
         
         shape = (R*z*phi).shape
-        if shape == (): return nu.sum(self._compute(funcTilde, R,z,phi))
-        R = R*nu.ones(shape); z = z*nu.ones(shape); phi = phi*nu.ones(shape);
-        func = nu.zeros(shape, float)
+        if shape == (): return numpy.sum(self._compute(funcTilde, R,z,phi))
+        R = R*numpy.ones(shape); z = z*numpy.ones(shape); phi = phi*numpy.ones(shape);
+        func = numpy.zeros(shape, float)
 
         
         li = _cartesian(shape)
         for i in range(li.shape[0]):
-            j = nu.split(li[i], li.shape[1])
-            func[j] = nu.sum(self._compute(funcTilde, R[j][0],z[j][0],phi[j][0]))
+            j = numpy.split(li[i], li.shape[1])
+            func[j] = numpy.sum(self._compute(funcTilde, R[j][0],z[j][0],phi[j][0]))
         return func
         
     def _dens(self, R, z, phi=0., t=0.):
@@ -345,11 +344,11 @@ class SCFPotential(Potential):
            2016-06-06 - Written - Aladdin 
         """
         a = self._a
-        l = nu.arange(0, L, dtype=float)[nu.newaxis, :]
-        n = nu.arange(0, N, dtype=float)[:, nu.newaxis]
+        l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
+        n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
         xi = self._calculateXi(r)
         dC = _dC(xi,N,L)
-        return -(4*nu.pi)**.5 * (nu.power(a*r, l)*(l*(a + r)*nu.power(r,-1) -(2*l + 1))/((a + r)**(2*l + 2))*_C(xi,N,L) + 
+        return -(4*numpy.pi)**.5 * (numpy.power(a*r, l)*(l*(a + r)*numpy.power(r,-1) -(2*l + 1))/((a + r)**(2*l + 2))*_C(xi,N,L) + 
         a**-1*(1 - xi)**2 * (a*r)**l / (a + r)**(2*l + 1) *dC/2.)
         
         
@@ -372,7 +371,7 @@ class SCFPotential(Potential):
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
-        new_hash= hashlib.md5(nu.array([R, z,phi])).hexdigest()
+        new_hash= hashlib.md5(numpy.array([R, z,phi])).hexdigest()
         
         if new_hash == self._force_hash:
             dPhi_dr = self._cached_dPhi_dr  
@@ -380,18 +379,18 @@ class SCFPotential(Potential):
             dPhi_dphi = self._cached_dPhi_dphi
             
         else:        
-            PP, dPP = lpmn(M-1,L-1,nu.cos(theta)) ##Get the Legendre polynomials
+            PP, dPP = lpmn(M-1,L-1,numpy.cos(theta)) ##Get the Legendre polynomials
             PP = PP.T[None,:,:]
             dPP = dPP.T[None,:,:]
-            phi_tilde = self._phiTilde(r, N, L)[:,:,nu.newaxis] 
-            dphi_tilde = self._dphiTilde(r,N,L)[:,:,nu.newaxis]
+            phi_tilde = self._phiTilde(r, N, L)[:,:,numpy.newaxis] 
+            dphi_tilde = self._dphiTilde(r,N,L)[:,:,numpy.newaxis]
             
-            m = nu.arange(0, M)[nu.newaxis, nu.newaxis, :]
-            mcos = nu.cos(m*phi)
-            msin = nu.sin(m*phi)
-            dPhi_dr = -nu.sum((Acos*mcos + Asin*msin)*PP*dphi_tilde)
-            dPhi_dtheta = -nu.sum((Acos*mcos + Asin*msin)*phi_tilde*dPP*(-nu.sin(theta)))
-            dPhi_dphi =-nu.sum(m*(Asin*mcos - Acos*msin)*phi_tilde*PP)
+            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+            mcos = numpy.cos(m*phi)
+            msin = numpy.sin(m*phi)
+            dPhi_dr = -numpy.sum((Acos*mcos + Asin*msin)*PP*dphi_tilde)
+            dPhi_dtheta = -numpy.sum((Acos*mcos + Asin*msin)*phi_tilde*dPP*(-numpy.sin(theta)))
+            dPhi_dphi =-numpy.sum(m*(Asin*mcos - Acos*msin)*phi_tilde*PP)
             
             self._force_hash = new_hash
             self._cached_dPhi_dr = dPhi_dr
@@ -418,22 +417,22 @@ class SCFPotential(Potential):
         HISTORY:
            2016-06-02 - Written - Aladdin 
         """     
-        R = nu.array(R,dtype=float); z = nu.array(z,dtype=float); phi = nu.array(phi,dtype=float);
+        R = numpy.array(R,dtype=float); z = numpy.array(z,dtype=float); phi = numpy.array(phi,dtype=float);
         shape = (R*z*phi).shape
         if shape == (): 
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R,z,phi)
             return dr_dx*dPhi_dr + dtheta_dx*dPhi_dtheta +dPhi_dphi*dphi_dx
         
-        R = R*nu.ones(shape);
-        z = z* nu.ones(shape);
-        phi = phi* nu.ones(shape);
-        force = nu.zeros(shape, float)
-        dr_dx = dr_dx*nu.ones(shape); dtheta_dx = dtheta_dx*nu.ones(shape);dphi_dx = dphi_dx*nu.ones(shape);  
+        R = R*numpy.ones(shape);
+        z = z* numpy.ones(shape);
+        phi = phi* numpy.ones(shape);
+        force = numpy.zeros(shape, float)
+        dr_dx = dr_dx*numpy.ones(shape); dtheta_dx = dtheta_dx*numpy.ones(shape);dphi_dx = dphi_dx*numpy.ones(shape);  
         li = _cartesian(shape)
 
         for i in range(li.shape[0]):
-            j = nu.split(li[i], li.shape[1])
+            j = tuple(numpy.split(li[i], li.shape[1]))
             dPhi_dr,dPhi_dtheta,dPhi_dphi = \
             self._computeforce(R[j][0],z[j][0],phi[j][0])
             force[j] = dr_dx[j][0]*dPhi_dr + dtheta_dx[j][0]*dPhi_dtheta +dPhi_dphi*dphi_dx[j][0]
@@ -458,7 +457,7 @@ class SCFPotential(Potential):
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = R
-        dr_dR = nu.divide(R,r); dtheta_dR = nu.divide(z,r**2); dphi_dR = 0
+        dr_dR = numpy.divide(R,r); dtheta_dR = numpy.divide(z,r**2); dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
         
     def _zforce(self, R, z, phi=0., t=0.):
@@ -481,7 +480,7 @@ class SCFPotential(Potential):
             phi= 0.
         r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
         #x = z
-        dr_dz = nu.divide(z,r); dtheta_dz = nu.divide(-R,r**2); dphi_dz = 0
+        dr_dz = numpy.divide(z,r); dtheta_dz = numpy.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
         
     def _phiforce(self, R,z,phi=0,t=0):
@@ -512,7 +511,7 @@ class SCFPotential(Potential):
 
         
 def _xiToR(xi, a =1):
-    return a*nu.divide((1. + xi),(1. - xi))    
+    return a*numpy.divide((1. + xi),(1. - xi))    
         
         
 def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
@@ -532,7 +531,7 @@ def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
     HISTORY:
        2016-05-16 - Written - Aladdin 
     """
-    CC = nu.zeros((N,L), float) 
+    CC = numpy.zeros((N,L), float) 
      
     for l in range(L):
         for n in range(N):
@@ -546,9 +545,9 @@ def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
     return CC 
     
 def _dC(xi, N, L):
-    l = nu.arange(0,L)[nu.newaxis, :]
+    l = numpy.arange(0,L)[numpy.newaxis, :]
     CC = _C(xi,N + 1,L, alpha = lambda x: 2*x + 5./2)
-    CC = nu.roll(CC, 1, axis=0)[:-1,:]
+    CC = numpy.roll(CC, 1, axis=0)[:-1,:]
     CC[0, :] = 0
     CC *= 2*(2*l + 3./2)
     return CC
@@ -601,7 +600,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
             param[0] = R
             return a**3. * dens(*param)*(1 + xi)**2. * (1 - xi)**-3. * _C(xi, N, 1)[:,0]
                
-        Acos = nu.zeros((N,1,1), float)
+        Acos = numpy.zeros((N,1,1), float)
         Asin = None
         
         Ksample = [max(N + 1, 20)]
@@ -610,8 +609,8 @@ def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
             Ksample[0] = radial_order
             
         integrated = _gaussianQuadrature(integrand, [[-1., 1.]], Ksample=Ksample)
-        n = nu.arange(0,N)
-        K = 16*nu.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+        n = numpy.arange(0,N)
+        K = 16*numpy.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
         Acos[n,0,0] = 2*K*integrated
         return Acos, Asin    
         
@@ -655,19 +654,19 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
             numOfParam=3
         param = [0]*numOfParam;
         def integrand(xi, costheta):
-            l = nu.arange(0, L)[nu.newaxis, :]
+            l = numpy.arange(0, L)[numpy.newaxis, :]
             r = _xiToR(xi,a)
-            R = r*nu.sqrt(1 - costheta**2.)
+            R = r*numpy.sqrt(1 - costheta**2.)
             z = r*costheta
-            Legandre = lpmn(0,L-1,costheta)[0].T[nu.newaxis,:,0]
-            dV = (1. + xi)**2. * nu.power(1. - xi, -4.) 
+            Legandre = lpmn(0,L-1,costheta)[0].T[numpy.newaxis,:,0]
+            dV = (1. + xi)**2. * numpy.power(1. - xi, -4.) 
             phi_nl =  a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:] * Legandre
             param[0] = R
             param[1] = z
             return  phi_nl*dV * dens(*param)
             
                
-        Acos = nu.zeros((N,L,1), float)
+        Acos = numpy.zeros((N,L,1), float)
         Asin = None
         
         ##This should save us some computation time since we're only taking the double integral once, rather then L times
@@ -678,14 +677,14 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
             Ksample[1] = costheta_order
             
         
-        integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample = Ksample)*(2*nu.pi)
-        n = nu.arange(0,N)[:,nu.newaxis]
-        l = nu.arange(0,L)[nu.newaxis,:]
+        integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample = Ksample)*(2*numpy.pi)
+        n = numpy.arange(0,N)[:,numpy.newaxis]
+        l = numpy.arange(0,L)[numpy.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-        #I = -K*(4*nu.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
+        #I = -K*(4*numpy.pi)/(2.**(8*l + 6)) * gamma(n + 4*l + 3)/(gamma(n + 1)*(n + 2*l + 3./2)*gamma(2*l + 3./2)**2)
         ##Taking the ln of I will allow bigger size coefficients 
-        lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
-        I = -K*(4*nu.pi) * nu.e**(lnI)
+        lnI = -(8*l + 6)*numpy.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - numpy.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
+        I = -K*(4*numpy.pi) * numpy.e**(lnI)
         
         constants = -2.**(-2*l)*(2*l + 1.)**.5 
         Acos[:,:,0] = 2*I**-1 * integrated*constants
@@ -728,22 +727,22 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
 
         """
         def integrand(xi, costheta, phi):
-            l = nu.arange(0, L)[nu.newaxis, :, nu.newaxis]
-            m = nu.arange(0, L)[nu.newaxis,nu.newaxis,:]
+            l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+            m = numpy.arange(0, L)[numpy.newaxis,numpy.newaxis,:]
             r = _xiToR(xi, a)
-            R = r*nu.sqrt(1 - costheta**2.)
+            R = r*numpy.sqrt(1 - costheta**2.)
             z = r*costheta
-            Legandre = lpmn(L - 1,L-1,costheta)[0].T[nu.newaxis,:,:]
-            dV = (1. + xi)**2. * nu.power(1. - xi, -4.)
+            Legandre = lpmn(L - 1,L-1,costheta)[0].T[numpy.newaxis,:,:]
+            dV = (1. + xi)**2. * numpy.power(1. - xi, -4.)
             
             
-            phi_nl = - a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,nu.newaxis] * Legandre
+            phi_nl = - a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,numpy.newaxis] * Legandre
             
-            return dens(R,z, phi) * phi_nl[nu.newaxis, :,:,:]*nu.array([nu.cos(m*phi), nu.sin(m*phi)])*dV
+            return dens(R,z, phi) * phi_nl[numpy.newaxis, :,:,:]*numpy.array([numpy.cos(m*phi), numpy.sin(m*phi)])*dV
             
                
-        Acos = nu.zeros((N,L,L), float)
-        Asin = nu.zeros((N,L,L), float)
+        Acos = numpy.zeros((N,L,L), float)
+        Asin = numpy.zeros((N,L,L), float)
         
        
         Ksample = [max(N + 3*L//2 + 1,20), max(L + 1,20 ), max(L + 1,20)]
@@ -753,23 +752,23 @@ def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None,
             Ksample[1] = costheta_order
         if phi_order != None:
             Ksample[2] = phi_order
-        integrated = _gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*nu.pi]], Ksample = Ksample)
-        n = nu.arange(0,N)[:,nu.newaxis, nu.newaxis]
-        l = nu.arange(0,L)[nu.newaxis,:, nu.newaxis]
-        m = nu.arange(0,L)[nu.newaxis,nu.newaxis,:]
+        integrated = _gaussianQuadrature(integrand, [[-1., 1.], [-1., 1.], [0, 2*numpy.pi]], Ksample = Ksample)
+        n = numpy.arange(0,N)[:,numpy.newaxis, numpy.newaxis]
+        l = numpy.arange(0,L)[numpy.newaxis,:, numpy.newaxis]
+        m = numpy.arange(0,L)[numpy.newaxis,numpy.newaxis,:]
         K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
         
         
-        Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l)*nu.log(2)
-        NN = nu.e**(Nln)
+        Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l)*numpy.log(2)
+        NN = numpy.e**(Nln)
 
-        NN[nu.where(NN == nu.inf)] = 0 ## To account for the fact that m cant be bigger than l
+        NN[numpy.where(NN == numpy.inf)] = 0 ## To account for the fact that m cant be bigger than l
             
         constants = NN*(2*l + 1.)**.5
         
-        lnI = -(8*l + 6)*nu.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - nu.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
-        I = -K*(4*nu.pi) * nu.e**(lnI)
-        Acos[:,:,:],Asin[:,:,:] = 2*(I**-1.)[nu.newaxis,:,:,:] * integrated * constants[nu.newaxis,:,:,:]
+        lnI = -(8*l + 6)*numpy.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - numpy.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
+        I = -K*(4*numpy.pi) * numpy.e**(lnI)
+        Acos[:,:,:],Asin[:,:,:] = 2*(I**-1.)[numpy.newaxis,:,:,:] * integrated * constants[numpy.newaxis,:,:,:]
         
         return Acos, Asin
 
@@ -791,17 +790,17 @@ def _cartesian(arraySizes, out=None):
     """
     arrays = []
     for i in range(len(arraySizes)):
-        arrays.append(nu.arange(0, arraySizes[i]))
+        arrays.append(numpy.arange(0, arraySizes[i]))
 
-    arrays = [nu.asarray(x) for x in arrays]
+    arrays = [numpy.asarray(x) for x in arrays]
     dtype = arrays[0].dtype
    
-    n = nu.prod([x.size for x in arrays])
+    n = numpy.prod([x.size for x in arrays])
     if out is None:
-        out = nu.zeros([n, len(arrays)], dtype=dtype)
+        out = numpy.zeros([n, len(arrays)], dtype=dtype)
     
     m = n // arrays[0].size
-    out[:,0] = nu.repeat(arrays[0], m)
+    out[:,0] = numpy.repeat(arrays[0], m)
     if arrays[1:]:
         _cartesian(arraySizes[1:], out=out[0:m,1:])
         for j in range(1, arrays[0].size):
@@ -828,8 +827,8 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     """
      
     ##Maps the sample point and weights
-    xp = nu.zeros((len(bounds), nu.max(Ksample)), float)
-    wp = nu.zeros((len(bounds), nu.max(Ksample)), float)
+    xp = numpy.zeros((len(bounds), numpy.max(Ksample)), float)
+    wp = numpy.zeros((len(bounds), numpy.max(Ksample)), float)
     for i in range(len(bounds)):
         x,w = leggauss(Ksample[i]) ##Calculates the sample points and weights
         a,b = bounds[i]
@@ -840,10 +839,10 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     ##Determines the shape of the integrand
     s = 0.
     shape=None
-    s_temp = integrand(*nu.zeros(len(bounds)))
-    if type(s_temp).__name__ == nu.ndarray.__name__ :
+    s_temp = integrand(*numpy.zeros(len(bounds)))
+    if type(s_temp).__name__ == numpy.ndarray.__name__ :
         shape = s_temp.shape
-        s = nu.zeros(shape, float)
+        s = numpy.zeros(shape, float)
         
         
     
@@ -853,13 +852,13 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     
     ##Performs the actual integration
     for i in range(li.shape[0]):
-        index = [nu.arange(len(bounds)),li[i]]
-        s+= nu.prod(wp[index])*integrand(*xp[index])
+        index = (numpy.arange(len(bounds)),li[i])
+        s+= numpy.prod(wp[index])*integrand(*xp[index])
     
     ##Rounds values that are less than roundoff to zero    
     if shape!= None:
-        s[nu.where(nu.fabs(s) < roundoff)] = 0
-    else: s *= nu.fabs(s) >roundoff
+        s[numpy.where(numpy.fabs(s) < roundoff)] = 0
+    else: s *= numpy.fabs(s) >roundoff
     return s
                 
         

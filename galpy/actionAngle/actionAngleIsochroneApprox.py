@@ -14,20 +14,19 @@
 #             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
-import math
 import warnings
-import numpy as nu
-import numpy.linalg as linalg
+import numpy
+from numpy import linalg
 from scipy import optimize
-from galpy.potential import dvcircdR, vcirc, _isNonAxi
-from galpy.potential.Potential import flatten as flatten_potential
+from ..potential import dvcircdR, vcirc, _isNonAxi
+from ..potential.Potential import flatten as flatten_potential
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
-from galpy.potential import IsochronePotential, MWPotential
-from galpy.util import bovy_plot, galpyWarning
-from galpy.util.bovy_conversion import physical_conversion, \
+from ..potential import IsochronePotential, MWPotential
+from ..util import bovy_plot, galpyWarning
+from ..util.bovy_conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
-_TWOPI= 2.*nu.pi
+_TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 _APY_LOADED= True
 try:
@@ -108,7 +107,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._integrate_dt= kwargs.get('dt',None)
-        self._tsJ= nu.linspace(0.,self._tintJ,self._ntintJ)
+        self._tsJ= numpy.linspace(0.,self._tintJ,self._ntintJ)
         self._integrate_method= kwargs.get('integrate_method','dopr54_c')
         self._maxn= kwargs.get('maxn',3)
         self._c= False
@@ -152,30 +151,30 @@ class actionAngleIsochroneApprox(actionAngle):
                                                 z.flatten(),
                                                 vz.flatten(),
                                                 phi.flatten())
-            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
-            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
-            anglerI= nu.reshape(acfs[6],R.shape)
-            anglezI= nu.reshape(acfs[8],R.shape)
-            if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
+            jrI= numpy.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= numpy.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= numpy.reshape(acfs[6],R.shape)
+            anglezI= numpy.reshape(acfs[8],R.shape)
+            if numpy.any((numpy.fabs(numpy.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(numpy.fabs(numpy.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
-            if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
+            if numpy.any((numpy.fabs(numpy.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(numpy.fabs(numpy.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
-            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
+            danglerI= ((numpy.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((numpy.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if kwargs.get('cumul',False):
-                sumFunc= nu.cumsum
+                sumFunc= numpy.cumsum
             else:
-                sumFunc= nu.sum
+                sumFunc= numpy.sum
             jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
             jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
             if _isNonAxi(self._pot):
-                lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
-                anglephiI= nu.reshape(acfs[7],R.shape)
-                danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
-                if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
+                lzI= numpy.reshape(acfs[1],R.shape)[:,:-1]
+                anglephiI= numpy.reshape(acfs[7],R.shape)
+                danglephiI= ((numpy.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
+                if numpy.any((numpy.fabs(numpy.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
+                              *(numpy.fabs(numpy.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
                 lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
             else:
@@ -225,16 +224,16 @@ class actionAngleIsochroneApprox(actionAngle):
         HISTORY:
            2013-09-10 - Written - Bovy (IAS)
         """
-        from galpy.orbit import Orbit
+        from ..orbit import Orbit
         _firstFlip= kwargs.get('_firstFlip',False)
         #If the orbit was already integrated, set ts to the integration times
-        if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'orbit') \
+        if isinstance(args[0],Orbit) and hasattr(args[0],'orbit') \
                 and not 'ts' in kwargs:
-            kwargs['ts']= args[0]._orb.t
+            kwargs['ts']= args[0].t
         elif (isinstance(args[0],list) and isinstance(args[0][0],Orbit)) \
-                and hasattr(args[0][0]._orb,'orbit')  \
+                and hasattr(args[0][0],'orbit')  \
                 and not 'ts' in kwargs:
-            kwargs['ts']= args[0][0]._orb.t
+            kwargs['ts']= args[0][0].t
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
@@ -242,7 +241,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 ts= ts.to(units.Gyr).value\
                     /time_in_Gyr(self._vo,self._ro)
         else:
-            ts= nu.empty(R.shape[1])
+            ts= numpy.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ
             ts[:self._ntintJ-1]= -self._tsJ[1:][::-1]
         maxn= kwargs.get('maxn',self._maxn)
@@ -258,40 +257,40 @@ class actionAngleIsochroneApprox(actionAngle):
                                                     z.flatten(),
                                                     vz.flatten(),
                                                     phi.flatten())
-            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
-            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
-            anglerI= nu.reshape(acfs[6],R.shape)
-            anglezI= nu.reshape(acfs[8],R.shape)
-            if nu.any((nu.fabs(nu.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
+            jrI= numpy.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= numpy.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= numpy.reshape(acfs[6],R.shape)
+            anglezI= numpy.reshape(acfs[8],R.shape)
+            if numpy.any((numpy.fabs(numpy.amax(anglerI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(numpy.fabs(numpy.amin(anglerI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full radial angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
-            if nu.any((nu.fabs(nu.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
-                          *(nu.fabs(nu.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
+            if numpy.any((numpy.fabs(numpy.amax(anglezI,axis=1)-_TWOPI) > _ANGLETOL)\
+                          *(numpy.fabs(numpy.amin(anglezI,axis=1)) > _ANGLETOL)): #pragma: no cover
                 warnings.warn("Full vertical angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
-            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
-            jr= nu.sum(jrI*danglerI,axis=1)/nu.sum(danglerI,axis=1)
-            jz= nu.sum(jzI*danglezI,axis=1)/nu.sum(danglezI,axis=1)
+            danglerI= ((numpy.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((numpy.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
+            jr= numpy.sum(jrI*danglerI,axis=1)/numpy.sum(danglerI,axis=1)
+            jz= numpy.sum(jzI*danglezI,axis=1)/numpy.sum(danglezI,axis=1)
             if _isNonAxi(self._pot): #pragma: no cover
-                lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
-                anglephiI= nu.reshape(acfs[7],R.shape)
-                if nu.any((nu.fabs(nu.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
-                              *(nu.fabs(nu.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
+                lzI= numpy.reshape(acfs[1],R.shape)[:,:-1]
+                anglephiI= numpy.reshape(acfs[7],R.shape)
+                if numpy.any((numpy.fabs(numpy.amax(anglephiI,axis=1)-_TWOPI) > _ANGLETOL)\
+                              *(numpy.fabs(numpy.amin(anglephiI,axis=1)) > _ANGLETOL)): #pragma: no cover
                     warnings.warn("Full azimuthal angle range not covered for at least one object; actions are likely not reliable",galpyWarning)
-                danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
-                lz= nu.sum(lzI*danglephiI,axis=1)/nu.sum(danglephiI,axis=1)
+                danglephiI= ((numpy.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
+                lz= numpy.sum(lzI*danglephiI,axis=1)/numpy.sum(danglephiI,axis=1)
             else:
                 lz= R[:,len(ts)//2]*vT[:,len(ts)//2]
             #Now do an 'angle-fit'
-            angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
-            acfs7= nu.reshape(acfs[7],R.shape)
-            negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
-            anglephiT= nu.empty(acfs7.shape)
+            angleRT= dePeriod(numpy.reshape(acfs[6],R.shape))
+            acfs7= numpy.reshape(acfs[7],R.shape)
+            negFreqIndx= numpy.median(acfs7-numpy.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+            anglephiT= numpy.empty(acfs7.shape)
             anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
-            negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+            negFreqPhi= numpy.zeros(R.shape[0],dtype='bool')
             negFreqPhi[negFreqIndx]= True
             anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
-            angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+            angleZT= dePeriod(numpy.reshape(acfs[8],R.shape))
             #Write the angle-fit as Y=AX, build A and Y
             nt= len(ts)
             no= R.shape[0]
@@ -300,20 +299,20 @@ class actionAngleIsochroneApprox(actionAngle):
                 nn= (2*maxn-1)**2*maxn-(maxn-1)*(2*maxn-1)-maxn
             else:
                 nn= maxn*(2*maxn-1)-maxn 
-            A= nu.zeros((no,nt,2+nn))
+            A= numpy.zeros((no,nt,2+nn))
             A[:,:,0]= 1.
             A[:,:,1]= ts
             #sorting the phi and Z grids this way makes it easy to exclude the origin
-            phig= list(nu.arange(-maxn+1,maxn,1))
+            phig= list(numpy.arange(-maxn+1,maxn,1))
             phig.sort(key = lambda x: abs(x))
-            phig= nu.array(phig,dtype='int')
+            phig= numpy.array(phig,dtype='int')
             if _isNonAxi(self._pot):
-                grid= nu.meshgrid(nu.arange(maxn),phig,phig)
+                grid= numpy.meshgrid(numpy.arange(maxn),phig,phig)
             else:
-                grid= nu.meshgrid(nu.arange(maxn),phig)
+                grid= numpy.meshgrid(numpy.arange(maxn),phig)
             gridR= grid[0].T.flatten()[1:] #remove 0,0,0
             gridZ= grid[1].T.flatten()[1:]
-            mask = nu.ones(len(gridR),dtype=bool)
+            mask = numpy.ones(len(gridR),dtype=bool)
             # excludes axis that is not in half-space
             if _isNonAxi(self._pot):
                 gridphi= grid[2].T.flatten()[1:]
@@ -323,32 +322,32 @@ class actionAngleIsochroneApprox(actionAngle):
                 mask[:2*maxn-3:2]= False
             gridR= gridR[mask]
             gridZ= gridZ[mask]
-            tangleR= nu.tile(angleRT.T,(nn,1,1)).T
-            tgridR= nu.tile(gridR,(no,nt,1))
-            tangleZ= nu.tile(angleZT.T,(nn,1,1)).T
-            tgridZ= nu.tile(gridZ,(no,nt,1))
+            tangleR= numpy.tile(angleRT.T,(nn,1,1)).T
+            tgridR= numpy.tile(gridR,(no,nt,1))
+            tangleZ= numpy.tile(angleZT.T,(nn,1,1)).T
+            tgridZ= numpy.tile(gridZ,(no,nt,1))
             if _isNonAxi(self._pot):
                 gridphi= gridphi[mask]
-                tgridphi= nu.tile(gridphi,(no,nt,1))
-                tanglephi= nu.tile(anglephiT.T,(nn,1,1)).T
-                sinnR= nu.sin(tgridR*tangleR+tgridphi*tanglephi+tgridZ*tangleZ)
+                tgridphi= numpy.tile(gridphi,(no,nt,1))
+                tanglephi= numpy.tile(anglephiT.T,(nn,1,1)).T
+                sinnR= numpy.sin(tgridR*tangleR+tgridphi*tanglephi+tgridZ*tangleZ)
             else:
-                sinnR= nu.sin(tgridR*tangleR+tgridZ*tangleZ)
+                sinnR= numpy.sin(tgridR*tangleR+tgridZ*tangleZ)
             A[:,:,2:]= sinnR
             #Matrix magic
-            atainv= nu.empty((no,2+nn,2+nn))
-            AT= nu.transpose(A,axes=(0,2,1))
+            atainv= numpy.empty((no,2+nn,2+nn))
+            AT= numpy.transpose(A,axes=(0,2,1))
             for ii in range(no):
-                atainv[ii,:,:,]= linalg.inv(nu.dot(AT[ii,:,:],A[ii,:,:]))
-            ATAR= nu.sum(AT*nu.transpose(nu.tile(angleRT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
-            ATAT= nu.sum(AT*nu.transpose(nu.tile(anglephiT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
-            ATAZ= nu.sum(AT*nu.transpose(nu.tile(angleZT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
-            angleR= nu.sum(atainv[:,0,:]*ATAR,axis=1)
-            OmegaR= nu.sum(atainv[:,1,:]*ATAR,axis=1)
-            anglephi= nu.sum(atainv[:,0,:]*ATAT,axis=1)
-            Omegaphi= nu.sum(atainv[:,1,:]*ATAT,axis=1)
-            angleZ= nu.sum(atainv[:,0,:]*ATAZ,axis=1)
-            OmegaZ= nu.sum(atainv[:,1,:]*ATAZ,axis=1)
+                atainv[ii,:,:,]= linalg.inv(numpy.dot(AT[ii,:,:],A[ii,:,:]))
+            ATAR= numpy.sum(AT*numpy.transpose(numpy.tile(angleRT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            ATAT= numpy.sum(AT*numpy.transpose(numpy.tile(anglephiT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            ATAZ= numpy.sum(AT*numpy.transpose(numpy.tile(angleZT,(2+nn,1,1)),axes=(1,0,2)),axis=2)
+            angleR= numpy.sum(atainv[:,0,:]*ATAR,axis=1)
+            OmegaR= numpy.sum(atainv[:,1,:]*ATAR,axis=1)
+            anglephi= numpy.sum(atainv[:,0,:]*ATAT,axis=1)
+            Omegaphi= numpy.sum(atainv[:,1,:]*ATAT,axis=1)
+            angleZ= numpy.sum(atainv[:,0,:]*ATAZ,axis=1)
+            OmegaZ= numpy.sum(atainv[:,1,:]*ATAZ,axis=1)
             Omegaphi[negFreqIndx]= -Omegaphi[negFreqIndx]
             anglephi[negFreqIndx]= _TWOPI-anglephi[negFreqIndx]
             if kwargs.get('_retacfs',False):
@@ -403,23 +402,23 @@ class actionAngleIsochroneApprox(actionAngle):
                                             vz.flatten(),
                                             phi.flatten())
         if type == 'jr' or type == 'lz' or type == 'jz':
-            jrI= nu.reshape(acfs[0],R.shape)[:,:-1]
-            jzI= nu.reshape(acfs[2],R.shape)[:,:-1]
-            anglerI= nu.reshape(acfs[6],R.shape)
-            anglezI= nu.reshape(acfs[8],R.shape)
-            danglerI= ((nu.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
-            danglezI= ((nu.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
+            jrI= numpy.reshape(acfs[0],R.shape)[:,:-1]
+            jzI= numpy.reshape(acfs[2],R.shape)[:,:-1]
+            anglerI= numpy.reshape(acfs[6],R.shape)
+            anglezI= numpy.reshape(acfs[8],R.shape)
+            danglerI= ((numpy.roll(anglerI,-1,axis=1)-anglerI) % _TWOPI)[:,:-1]
+            danglezI= ((numpy.roll(anglezI,-1,axis=1)-anglezI) % _TWOPI)[:,:-1]
             if True:
-                sumFunc= nu.cumsum
+                sumFunc= numpy.cumsum
             jr= sumFunc(jrI*danglerI,axis=1)/sumFunc(danglerI,axis=1)
             jz= sumFunc(jzI*danglezI,axis=1)/sumFunc(danglezI,axis=1)
-            lzI= nu.reshape(acfs[1],R.shape)[:,:-1]
-            anglephiI= nu.reshape(acfs[7],R.shape)
-            danglephiI= ((nu.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
+            lzI= numpy.reshape(acfs[1],R.shape)[:,:-1]
+            anglephiI= numpy.reshape(acfs[7],R.shape)
+            danglephiI= ((numpy.roll(anglephiI,-1,axis=1)-anglephiI) % _TWOPI)[:,:-1]
             lz= sumFunc(lzI*danglephiI,axis=1)/sumFunc(danglephiI,axis=1)
-            from galpy.orbit import Orbit
-            if isinstance(args[0],Orbit) and hasattr(args[0]._orb,'t'):
-                ts= args[0]._orb.t[:-1]
+            from ..orbit import Orbit
+            if isinstance(args[0],Orbit) and hasattr(args[0],'t'):
+                ts= args[0].t[:-1]
             else:
                 ts= self._tsJ[:-1]
             if type == 'jr':
@@ -439,8 +438,8 @@ class actionAngleIsochroneApprox(actionAngle):
                                     xlabel=r'$t$',
                                     ylabel=r'$J^A_R / \langle J^A_R \rangle$',
                                     clabel=r'$\theta^A_R$',
-                                    vmin=0.,vmax=2.*nu.pi,
-                                    crange=[0.,2.*nu.pi],
+                                    vmin=0.,vmax=2.*numpy.pi,
+                                    crange=[0.,2.*numpy.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'lz':
@@ -458,8 +457,8 @@ class actionAngleIsochroneApprox(actionAngle):
                                     xlabel=r'$t$',
                                     ylabel=r'$L^A_Z / \langle L^A_Z \rangle$',
                                     clabel=r'$\theta^A_\phi$',
-                                    vmin=0.,vmax=2.*nu.pi,
-                                    crange=[0.,2.*nu.pi],
+                                    vmin=0.,vmax=2.*numpy.pi,
+                                    crange=[0.,2.*numpy.pi],
                                     colorbar=True,
                                     **kwargs)
             elif type == 'jz':
@@ -477,39 +476,39 @@ class actionAngleIsochroneApprox(actionAngle):
                                     xlabel=r'$t$',
                                     ylabel=r'$J^A_Z / \langle J^A_Z \rangle$',
                                     clabel=r'$\theta^A_Z$',
-                                    vmin=0.,vmax=2.*nu.pi,
-                                    crange=[0.,2.*nu.pi],
+                                    vmin=0.,vmax=2.*numpy.pi,
+                                    crange=[0.,2.*numpy.pi],
                                     colorbar=True,
                                     **kwargs)
         else:
             if deperiod:
                 if 'ar' in type:
-                    angleRT= dePeriod(nu.reshape(acfs[6],R.shape))
+                    angleRT= dePeriod(numpy.reshape(acfs[6],R.shape))
                 else:
-                    angleRT= nu.reshape(acfs[6],R.shape)
+                    angleRT= numpy.reshape(acfs[6],R.shape)
                 if 'aphi' in type:
-                    acfs7= nu.reshape(acfs[7],R.shape)
-                    negFreqIndx= nu.median(acfs7-nu.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
-                    anglephiT= nu.empty(acfs7.shape)
+                    acfs7= numpy.reshape(acfs[7],R.shape)
+                    negFreqIndx= numpy.median(acfs7-numpy.roll(acfs7,1,axis=1),axis=1) < 0. #anglephi is decreasing
+                    anglephiT= numpy.empty(acfs7.shape)
                     anglephiT[negFreqIndx,:]= dePeriod(_TWOPI-acfs7[negFreqIndx,:])
-                    negFreqPhi= nu.zeros(R.shape[0],dtype='bool')
+                    negFreqPhi= numpy.zeros(R.shape[0],dtype='bool')
                     negFreqPhi[negFreqIndx]= True
                     anglephiT[True^negFreqIndx,:]= dePeriod(acfs7[True^negFreqIndx,:])
                 else:
-                    anglephiT= nu.reshape(acfs[7],R.shape)
+                    anglephiT= numpy.reshape(acfs[7],R.shape)
                 if 'az' in type:
-                    angleZT= dePeriod(nu.reshape(acfs[8],R.shape))
+                    angleZT= dePeriod(numpy.reshape(acfs[8],R.shape))
                 else:
-                    angleZT= nu.reshape(acfs[8],R.shape)
+                    angleZT= numpy.reshape(acfs[8],R.shape)
                 xrange= None
                 yrange= None
             else:
-                angleRT= nu.reshape(acfs[6],R.shape)
-                anglephiT= nu.reshape(acfs[7],R.shape)
-                angleZT= nu.reshape(acfs[8],R.shape)
-                xrange= [-0.5,2.*nu.pi+0.5]
-                yrange= [-0.5,2.*nu.pi+0.5]
-            vmin, vmax= 0.,2.*nu.pi
+                angleRT= numpy.reshape(acfs[6],R.shape)
+                anglephiT= numpy.reshape(acfs[7],R.shape)
+                angleZT= numpy.reshape(acfs[8],R.shape)
+                xrange= [-0.5,2.*numpy.pi+0.5]
+                yrange= [-0.5,2.*numpy.pi+0.5]
+            vmin, vmax= 0.,2.*numpy.pi
             crange= [vmin,vmax]
             if type == 'araz':
                 if downsample:
@@ -575,7 +574,7 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
-        from galpy.orbit import Orbit
+        from ..orbit import Orbit
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3: #pragma: no cover
@@ -601,39 +600,39 @@ class actionAngleIsochroneApprox(actionAngle):
                 pass
             elif not isinstance(args[0],list):
                 os= [args[0]]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
-                if len(os[0]._orb.vxvv) == 3 or len(os[0]._orb.vxvv) == 5: #pragma: no cover
+                if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
                     raise IOError("Must specify phi for actionAngleIsochroneApprox")
             self._check_consistent_units_orbitInput(os[0])
-            if not hasattr(os[0]._orb,'orbit'): #not integrated yet
+            if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
                     for o in os:
-                        o._orb.vxvv[1]= -o._orb.vxvv[1]
-                        o._orb.vxvv[2]= -o._orb.vxvv[2]
-                        o._orb.vxvv[4]= -o._orb.vxvv[4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
                 [o.integrate(self._tsJ,pot=self._pot,
                              method=self._integrate_method,
                              dt=self._integrate_dt) for o in os]
                 if _firstFlip:
                     for o in os:
-                        o._orb.vxvv[1]= -o._orb.vxvv[1]
-                        o._orb.vxvv[2]= -o._orb.vxvv[2]
-                        o._orb.vxvv[4]= -o._orb.vxvv[4]
-                        o._orb.orbit[:,1]= -o._orb.orbit[:,1]
-                        o._orb.orbit[:,2]= -o._orb.orbit[:,2]
-                        o._orb.orbit[:,4]= -o._orb.orbit[:,4]
+                        o.vxvv[...,1]= -o.vxvv[...,1]
+                        o.vxvv[...,2]= -o.vxvv[...,2]
+                        o.vxvv[...,4]= -o.vxvv[...,4]
+                        o.orbit[...,1]= -o.orbit[...,1]
+                        o.orbit[...,2]= -o.orbit[...,2]
+                        o.orbit[...,4]= -o.orbit[...,4]
                 integrated= False
             ntJ= os[0].getOrbit().shape[0]
             no= len(os)
-            R= nu.empty((no,ntJ))
-            vR= nu.empty((no,ntJ))
-            vT= nu.empty((no,ntJ))
-            z= nu.zeros((no,ntJ))+10.**-7. #To avoid numpy warnings for
-            vz= nu.zeros((no,ntJ))+10.**-7. #planarOrbits
-            phi= nu.empty((no,ntJ))
+            R= numpy.empty((no,ntJ))
+            vR= numpy.empty((no,ntJ))
+            vT= numpy.empty((no,ntJ))
+            z= numpy.zeros((no,ntJ))+10.**-7. #To avoid numpy warnings for
+            vz= numpy.zeros((no,ntJ))+10.**-7. #planarOrbits
+            phi= numpy.empty((no,ntJ))
             for ii in range(len(os)):
                 this_orbit= os[ii].getOrbit()
                 R[ii,:]= this_orbit[:,0]
@@ -648,12 +647,12 @@ class actionAngleIsochroneApprox(actionAngle):
         if freqsAngles and not integrated: #also integrate backwards in time, such that the requested point is not at the edge
             no= R.shape[0]
             nt= R.shape[1]
-            oR= nu.empty((no,2*nt-1))
-            ovR= nu.empty((no,2*nt-1))
-            ovT= nu.empty((no,2*nt-1))
-            oz= nu.zeros((no,2*nt-1))+10.**-7. #To avoid numpy warnings for
-            ovz= nu.zeros((no,2*nt-1))+10.**-7. #planarOrbits
-            ophi= nu.empty((no,2*nt-1))
+            oR= numpy.empty((no,2*nt-1))
+            ovR= numpy.empty((no,2*nt-1))
+            ovT= numpy.empty((no,2*nt-1))
+            oz= numpy.zeros((no,2*nt-1))+10.**-7. #To avoid numpy warnings for
+            ovz= numpy.zeros((no,2*nt-1))+10.**-7. #planarOrbits
+            ophi= numpy.empty((no,2*nt-1))
             if _firstFlip:
                 oR[:,:nt]= R[:,::-1]
                 ovR[:,:nt]= vR[:,::-1]
@@ -738,28 +737,28 @@ def estimateBIsochrone(pot,R,z,phi=None):
     """
     if pot is None: #pragma: no cover
         raise IOError("pot= needs to be set to a Potential instance or list thereof")
-    if isinstance(R,nu.ndarray):
+    if isinstance(R,numpy.ndarray):
         if phi is None: phi= [None for r in R]
-        bs= nu.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
+        bs= numpy.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],
                                          use_physical=False)
                       for ii in range(len(R))])
-        return nu.array([nu.amin(bs[True^nu.isnan(bs)]),
-                         nu.median(bs[True^nu.isnan(bs)]),
-                         nu.amax(bs[True^nu.isnan(bs)])])
+        return numpy.array([numpy.amin(bs[True^numpy.isnan(bs)]),
+                         numpy.median(bs[True^numpy.isnan(bs)]),
+                         numpy.amax(bs[True^numpy.isnan(bs)])])
     else:
         r2= R**2.+z**2
-        r= math.sqrt(r2)
+        r= numpy.sqrt(r2)
         dlvcdlr= dvcircdR(pot,r,phi=phi,use_physical=False)/vcirc(pot,r,phi=phi,use_physical=False)*r
         try:
-            b= optimize.brentq(lambda x: dlvcdlr-(x/math.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
+            b= optimize.brentq(lambda x: dlvcdlr-(x/numpy.sqrt(r2+x**2.)-0.5*r2/(r2+x**2.)),
                                0.01,100.)
         except: #pragma: no cover
-            b= nu.nan
+            b= numpy.nan
         return b
 
 def dePeriod(arr):
     """make an array of periodic angles increase linearly"""
-    diff= arr-nu.roll(arr,1,axis=1)
+    diff= arr-numpy.roll(arr,1,axis=1)
     w= diff < -6.
-    addto= nu.cumsum(w.astype(int),axis=1)
+    addto= numpy.cumsum(w.astype(int),axis=1)
     return arr+_TWOPI*addto

@@ -3,7 +3,6 @@
 #                               self-gravitating isothermal disk
 ###############################################################################
 import numpy
-from galpy.util import bovy_conversion
 from .linearPotential import linearPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -47,6 +46,8 @@ class IsothermalDiskPotential(linearPotential):
             sigma= sigma.to(units.km/units.s).value/self._vo
         self._sigma2= sigma**2.
         self._H= sigma/numpy.sqrt(8.*numpy.pi*self._amp)
+        self._amp= 1. # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2
+        self.hasC= True
         
     def _evaluate(self,x,t=0.):
         return 2.*self._sigma2*numpy.log(numpy.cosh(0.5*x/self._H))

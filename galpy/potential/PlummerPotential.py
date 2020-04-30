@@ -4,7 +4,7 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                                    \sqrt(R^2+z^2+b^2)
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -15,6 +15,7 @@ class PlummerPotential(Potential):
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2+z^2+b^2}}
 
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self,amp=1.,b=0.8,normalize=False,
                  ro=None,vo=None):
@@ -29,7 +30,7 @@ class PlummerPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+           amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass
 
            b - scale parameter (can be Quantity)
 
@@ -58,6 +59,7 @@ class PlummerPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._nemo_accname= 'Plummer'
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -76,7 +78,7 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Started - Bovy (IAS)
         """
-        return -1./nu.sqrt(R**2.+z**2.+self._b2)
+        return -1./numpy.sqrt(R**2.+z**2.+self._b2)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -132,7 +134,26 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return 3./4./nu.pi*self._b2*(R**2.+z**2.+self._b2)**-2.5
+        return 3./4./numpy.pi*self._b2*(R**2.+z**2.+self._b2)**-2.5
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        Rb= R**2.+self._b2
+        return self._b2*z*(3.*Rb+2.*z**2.)/Rb**2.*(Rb+z**2.)**-1.5/2./numpy.pi
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """

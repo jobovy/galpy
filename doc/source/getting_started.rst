@@ -39,12 +39,14 @@ rotation curve
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
 >>> from galpy.potential import plotRotcurve
->>> plotRotcurve([hp,mp,np],Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
+>>> plotRotcurve(hp+mp+np,Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
 
 Note that the ``normalize`` values add up to 1. such that the circular
-velocity will be 1 at R=1. The resulting rotation curve is
-approximately flat. To show the rotation curves of the three
-components do
+velocity will be 1 at R=1. Potentials can be combined into a composite
+potential either by combining them in a list as ``[hp,mp,np]`` or by
+adding them up ``hp+mp+np`` (the latter simply returns the list
+``[hp,mp,np]``). The resulting rotation curve is approximately
+flat. To show the rotation curves of the three components do
 
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
 >>> hp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
@@ -216,7 +218,7 @@ input to any galpy function that does not take a Quantity as an input
 <https://github.com/jobovy/galpy/issues>`__.
 
 .. WARNING::
-   If you combine potentials in a list, galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential).
+   If you combine potentials by adding them (``comb_pot= pot1+pot2``), galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. If you add potentials using the '+' operator, galpy will check that the units are compatible. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential, setting up an actionAngle object for a given potential, setting up a DF object for a given potential, etc.).
 
 galpy can also return values with units as an astropy
 Quantity. Whether or not this is done is specified by the
@@ -275,10 +277,12 @@ outputs will be in internal units
 
 If you setup a Potential, Orbit, etc. object without specifying the
 parameters as a Quantity, the default is to return output in natural
-units, except when ``ro=`` and ``vo=`` scales are specified. ``ro=``
-and ``vo=`` can always be given as a Quantity themselves. ``ro=`` 
-and ``vo=`` can always also be specified on a method-by-method basis,
-overwriting an object's default. For example
+units, except when ``ro=`` and ``vo=`` scales are specified
+(exception: when you wrap a potential that has physical outputs on,
+the wrapped potential will also have them on). ``ro=`` and ``vo=`` can
+always be given as a Quantity themselves. ``ro=`` and ``vo=`` can
+always also be specified on a method-by-method basis, overwriting an
+object's default. For example
 
 	    >>> mp.vcirc(10.*units.kpc,ro=12.*units.kpc)
 	    # 0.69273212489609337
@@ -298,14 +302,14 @@ Orbit integration
 -----------------
 
 .. WARNING::
-   ``galpy`` uses a left-handed coordinate frame, as is common in studies of the kinematics of the Milky Way. This means that in particular cross-products, like the angular momentum :math:`\vec{L} = \vec{r}\times\vec{p}`, behave differently than in a right-handed coordinate frame.
+   ``galpy`` uses a left-handed Galactocentric coordinate frame, as is common in studies of the kinematics of the Milky Way. This means that in particular cross-products, like the angular momentum :math:`\vec{L} = \vec{r}\times\vec{p}`, behave differently than in a right-handed coordinate frame.
 
 We can also integrate orbits in all galpy potentials. Going back to a
 simple Miyamoto-Nagai potential, we initialize an orbit as follows
 
 >>> from galpy.orbit import Orbit
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,amp=1.,normalize=1.)
->>> o= Orbit(vxvv=[1.,0.1,1.1,0.,0.1])
+>>> o= Orbit([1.,0.1,1.1,0.,0.1])
 
 Since we gave ``Orbit()`` a five-dimensional initial condition
 ``[R,vR,vT,z,vz]``, we assume we are dealing with a three-dimensional
@@ -317,7 +321,7 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 >>> o.integrate(ts,mp,method='odeint')
 
 .. TIP::
-   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit(vxvv=[8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
+   Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit([8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
 
 Now we plot the resulting orbit as
 
@@ -344,8 +348,8 @@ error remains constant
 Because stars have typically only orbited the center of their galaxy
 tens of times, using symplectic integrators is mostly unnecessary
 (compared to planetary systems which orbits millions or billions of
-times). galpy contains fast integrators written in C, which can be
-accessed through the ``method=`` keyword (e.g.,
+times). galpy contains :ref:`fast integrators <fastorbit>` written in
+C, which can be accessed through the ``method=`` keyword (e.g.,
 ``integrate(...,method='dopr54_c')`` is a fast high-order
 Dormand-Prince method).
 
@@ -361,7 +365,7 @@ torus (this could take a minute)
 As before, we can also integrate orbits in combinations of potentials. Assuming ``mp, np,`` and ``hp`` were defined as above, we can
 
 >>> ts= numpy.linspace(0,100,10000)
->>> o.integrate(ts,[mp,hp,np])
+>>> o.integrate(ts,mp+hp+np)
 >>> o.plot()
 
 .. image:: images/mphpnp-orbit-integration.png
@@ -387,7 +391,7 @@ above
 or of the combination of potentials defined above
 
 >>> from galpy.potential import plotEscapecurve
->>> plotEscapecurve([mp,hp,np],Rrange=[0.01,10.],grid=1001)
+>>> plotEscapecurve(mp+hp+np,Rrange=[0.01,10.],grid=1001)
 
 .. image:: images/esc-comb.png
 

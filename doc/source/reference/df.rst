@@ -14,6 +14,7 @@ Jeans modeling tools (``galpy.df.jeans``)
    :maxdepth: 2
 
    sigmar <dfjeanssigmar.rst>
+   sigmalos <dfjeanssigmalos.rst>
 
 General instance routines for all df classes
 --------------------------------------------
@@ -149,6 +150,7 @@ General instance routines
    pvTvz <quasidfpvtvz.rst>
    pvz <quasidfpvz.rst>
    sampleV <quasidfsamplev.rst>
+   sampleV_interpolate <quasidfsamplevinterpolate.rst>
    sigmaR2 <quasidfsigmar2.rst>
    sigmaRz <quasidfsigmarz.rst>
    sigmaT2 <quasidfsigmat2.rst>

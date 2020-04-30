@@ -34,9 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
-#ifndef _WIN32
 #include "signal.h"
-#endif
 #define _MAX_STEPCHANGE_POWERTWO 3.
 #define _MIN_STEPCHANGE_POWERTWO -3.
 #define _MAX_STEPREDUCE 10000.
@@ -99,12 +97,19 @@ void bovy_rk4(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk4_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a);
@@ -201,12 +206,19 @@ void bovy_rk6(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     for (jj=0; jj < (ndt-1); jj++) {
       bovy_rk6_onestep(func,dim,yn,yn1,to,dt,nargs,potentialArgs,ynk,a,
@@ -277,14 +289,14 @@ void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
   func(tn+2.*dt/3.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 81. * dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k3+ii)= dt * *(a+ii);
-  for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( *(k1+ii) 
+  for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( *(k1+ii)
 						     + 4. * *(k2+ii)
 						     - *(k3+ii))/12.;
   //calculate k4
   func(tn+dt/3.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) += 81.* dt * *(a+ii) / 120.;
   for (ii=0; ii < dim; ii++) *(k4+ii)= dt * *(a+ii);
-  for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( -*(k1+ii) 
+  for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( -*(k1+ii)
 						     + 18. * *(k2+ii)
 						     - 3. * *(k3+ii)
 						     -6.* *(k4+ii))/16.;
@@ -307,7 +319,7 @@ void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
 						     -64. * *(k5+ii))/44.;
   //calculate k7
   func(tn+dt,ynk,a,nargs,potentialArgs);
-  for (ii=0; ii < dim; ii++) *(yn1+ii) += 11.* dt * *(a+ii) / 120.;  
+  for (ii=0; ii < dim; ii++) *(yn1+ii) += 11.* dt * *(a+ii) / 120.;
   //yn1 is new value
 }
 
@@ -360,10 +372,10 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    if ( ceil(pow(err,1./5.)) > 1. 
+    if ( ceil(pow(err,1./5.)) > 1.
 	 && init_dt / dt * ceil(pow(err,1./5.)) < _MAX_DT_REDUCE)
       dt/= ceil(pow(err,1./5.));
-    else 
+    else
       break;
   }
   //free what we allocated
@@ -378,7 +390,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //printf("%f\n",dt);
   //fflush(stdout);
   return dt;
-} 
+}
 double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, struct potentialArg *),
 			 int dim, double *yo,
 			 double dt, double *t,
@@ -436,10 +448,10 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
       err+= exp(2.*log(fabs(*(y1+ii)-*(y2+ii)))-2.* *(scale+ii));
     }
     err= sqrt(err/dim);
-    if ( ceil(pow(err,1./7.)) > 1. 
+    if ( ceil(pow(err,1./7.)) > 1.
 	 && init_dt / dt * ceil(pow(err,1./7.)) < _MAX_DT_REDUCE)
       dt/= ceil(pow(err,1./7.));
-    else 
+    else
       break;
   }
   //free what we allocated
@@ -459,7 +471,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //printf("%f\n",dt);
   //fflush(stdout);
   return dt;
-} 
+}
 /*
 Runge-Kutta Dormand-Prince 5/4 integrator
 Usage:
@@ -525,12 +537,19 @@ void bovy_dopr54(void (*func)(double t, double *q, double *a,
   memset(&action, 0, sizeof(struct sigaction));
   action.sa_handler= handle_sigint;
   sigaction(SIGINT,&action,NULL);
+#else
+    if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   for (ii=0; ii < (nt-1); ii++){
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
+#ifdef USING_COVERAGE
+      __gcov_flush();
+#endif
+// LCOV_EXCL_START
       break;
+// LCOV_EXCL_STOP
     }
     bovy_dopr54_onestep(func,dim,yn,dt,&to,&dt_one,
 			nargs,potentialArgs,rtol,atol,

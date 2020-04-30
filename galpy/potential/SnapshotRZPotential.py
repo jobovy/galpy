@@ -1,6 +1,6 @@
 from os import system
 import hashlib
-import numpy as np
+import numpy
 from scipy import interpolate 
 from .Potential import Potential
 from .interpRZPotential import scalarVectorDecorator, \
@@ -66,12 +66,12 @@ class SnapshotRZPotential(Potential):
             self._num_threads = num_threads
         # Set up azimuthal averaging
         self._naz= nazimuths
-        self._cosaz= np.cos(np.arange(self._naz,dtype='float')\
-                                /self._naz*2.*np.pi)
-        self._sinaz= np.sin(np.arange(self._naz,dtype='float')\
-                                /self._naz*2.*np.pi)
-        self._zones= np.ones(self._naz)
-        self._zzeros= np.zeros(self._naz)
+        self._cosaz= numpy.cos(numpy.arange(self._naz,dtype='float')\
+                                /self._naz*2.*numpy.pi)
+        self._sinaz= numpy.sin(numpy.arange(self._naz,dtype='float')\
+                                /self._naz*2.*numpy.pi)
+        self._zones= numpy.ones(self._naz)
+        self._zzeros= numpy.zeros(self._naz)
         return None
     
     @scalarVectorDecorator
@@ -91,7 +91,7 @@ class SnapshotRZPotential(Potential):
 
     def _setup_potential(self, R, z, use_pkdgrav = False) : 
         # compute the hash for the requested grid
-        new_hash = hashlib.md5(np.array([R,z])).hexdigest()
+        new_hash = hashlib.md5(numpy.array([R,z])).hexdigest()
 
         # if we computed for these points before, return; otherwise compute
         if new_hash in self._point_hash : 
@@ -102,10 +102,10 @@ class SnapshotRZPotential(Potential):
 
         else : 
             # set up the four points per R,z pair to mimic axisymmetry
-            points = np.zeros((len(R),self._naz,3))
+            points = numpy.zeros((len(R),self._naz,3))
         
             for i in range(len(R)) :
-                points[i] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
+                points[i] = numpy.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                       z[i]*self._zones]).T
 
             points_new = points.reshape(points.size//3,3)
@@ -118,8 +118,8 @@ class SnapshotRZPotential(Potential):
             pot = pot.mean(axis=1)
 
             # get the radial accelerations
-            rz_acc = np.zeros((len(R),2))
-            rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
+            rz_acc = numpy.zeros((len(R),2))
+            rvecs= numpy.array([self._cosaz,self._sinaz,self._zzeros]).T
         
             for i in range(len(R)) : 
                 for j,rvec in enumerate(rvecs) : 
@@ -139,7 +139,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
     """   
     def __init__(self, s, 
                  ro=None,vo=None,
-                 rgrid=(np.log(0.01),np.log(20.),101),
+                 rgrid=(numpy.log(0.01),numpy.log(20.),101),
                  zgrid=(0.,1.,101),
                  interpepifreq = False, interpverticalfreq = False, 
                  interpPot = True,
@@ -204,12 +204,12 @@ class InterpSnapshotRZPotential(interpRZPotential) :
 
         # Set up azimuthal averaging
         self._naz= nazimuths
-        self._cosaz= np.cos(np.arange(self._naz,dtype='float')\
-                                /self._naz*2.*np.pi)
-        self._sinaz= np.sin(np.arange(self._naz,dtype='float')\
-                                /self._naz*2.*np.pi)
-        self._zones= np.ones(self._naz)
-        self._zzeros= np.zeros(self._naz)
+        self._cosaz= numpy.cos(numpy.arange(self._naz,dtype='float')\
+                                /self._naz*2.*numpy.pi)
+        self._sinaz= numpy.sin(numpy.arange(self._naz,dtype='float')\
+                                /self._naz*2.*numpy.pi)
+        self._zones= numpy.ones(self._naz)
+        self._zzeros= numpy.zeros(self._naz)
 
         # the interpRZPotential class sets these flags
         self._enable_c = enable_c
@@ -235,15 +235,15 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         self._zsym = zsym
         self._logR = logR
         
-        self._rgrid = np.linspace(*rgrid)
+        self._rgrid = numpy.linspace(*rgrid)
         if logR : 
-            self._rgrid = np.exp(self._rgrid)
-            self._logrgrid = np.log(self._rgrid)
+            self._rgrid = numpy.exp(self._rgrid)
+            self._logrgrid = numpy.log(self._rgrid)
             rs = self._logrgrid
         else : 
             rs = self._rgrid
 
-        self._zgrid = np.linspace(*zgrid)
+        self._zgrid = numpy.linspace(*zgrid)
 
         # calculate the grids
         self._setup_potential(self._rgrid,self._zgrid,use_pkdgrav=use_pkdgrav)
@@ -286,20 +286,20 @@ class InterpSnapshotRZPotential(interpRZPotential) :
             
         # setup the derived quantities
         if interpPot: 
-            self._vcircGrid = np.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
+            self._vcircGrid = numpy.sqrt(self._rgrid*(-self._rforceGrid[:,0]))
             self._vcircInterp = interpolate.InterpolatedUnivariateSpline(rs, self._vcircGrid, k=3)
         
         if interpepifreq: 
-            self._epifreqGrid = np.sqrt(self._R2derivGrid[:,0] - 3./self._rgrid*self._rforceGrid[:,0])
-            goodindx= True^np.isnan(self._epifreqGrid)
+            self._epifreqGrid = numpy.sqrt(self._R2derivGrid[:,0] - 3./self._rgrid*self._rforceGrid[:,0])
+            goodindx= True^numpy.isnan(self._epifreqGrid)
             self._epifreqInterp=\
                 interpolate.InterpolatedUnivariateSpline(rs[goodindx],
                                                          self._epifreqGrid[goodindx],
                                                          k=3)
             self._epigoodindx= goodindx
         if interpverticalfreq:
-            self._verticalfreqGrid = np.sqrt(np.abs(self._z2derivGrid[:,0]))
-            goodindx= True^np.isnan(self._verticalfreqGrid)
+            self._verticalfreqGrid = numpy.sqrt(numpy.abs(self._z2derivGrid[:,0]))
+            goodindx= True^numpy.isnan(self._verticalfreqGrid)
             self._verticalfreqInterp=\
                 interpolate.InterpolatedUnivariateSpline(rs[goodindx],
                                                          self._verticalfreqGrid[goodindx],k=3)
@@ -328,19 +328,19 @@ class InterpSnapshotRZPotential(interpRZPotential) :
          
         """
         # set up the four points per R,z pair to mimic axisymmetry
-        points = np.zeros((len(R),len(z),self._naz,3))
+        points = numpy.zeros((len(R),len(z),self._naz,3))
         
         for i in range(len(R)) :
             for j in range(len(z)) : 
-                points[i,j] = np.array([R[i]*self._cosaz,R[i]*self._sinaz,
+                points[i,j] = numpy.array([R[i]*self._cosaz,R[i]*self._sinaz,
                                         z[j]*self._zones]).T
 
         points_new = points.reshape(points.size//3,3)
         self.points = points_new
 
         # set up the points to calculate the second derivatives
-        zgrad_points = np.zeros((len(points_new)*2,3))
-        rgrad_points = np.zeros((len(points_new)*2,3))
+        zgrad_points = numpy.zeros((len(points_new)*2,3))
+        rgrad_points = numpy.zeros((len(points_new)*2,3))
         for i,p in enumerate(points_new) : 
             zgrad_points[i*2] = p
             zgrad_points[i*2][2] -= dr
@@ -348,9 +348,9 @@ class InterpSnapshotRZPotential(interpRZPotential) :
             zgrad_points[i*2+1][2] += dr
             
             rgrad_points[i*2] = p
-            rgrad_points[i*2][:2] -= p[:2]/np.sqrt(np.dot(p[:2],p[:2]))*dr
+            rgrad_points[i*2][:2] -= p[:2]/numpy.sqrt(numpy.dot(p[:2],p[:2]))*dr
             rgrad_points[i*2+1] = p
-            rgrad_points[i*2+1][:2] += p[:2]/np.sqrt(np.dot(p[:2],p[:2]))*dr
+            rgrad_points[i*2+1][:2] += p[:2]/numpy.sqrt(numpy.dot(p[:2],p[:2]))*dr
                         
 
         if use_pkdgrav : #pragma: no cover
@@ -389,8 +389,8 @@ class InterpSnapshotRZPotential(interpRZPotential) :
                 pot = pot.mean(axis=1)
 
                 # get the radial accelerations
-                rz_acc = np.zeros((len(R)*len(z),2))
-                rvecs= np.array([self._cosaz,self._sinaz,self._zzeros]).T
+                rz_acc = numpy.zeros((len(R)*len(z),2))
+                rvecs= numpy.array([self._cosaz,self._sinaz,self._zzeros]).T
         
                 # reshape the acc to make sure we have a leading index even
                 # if we are only evaluating a single point, i.e. we have
@@ -416,7 +416,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
                 # two points to get the gradient across it. Compute the gradient by 
                 # using a finite difference 
 
-                zgrad = np.zeros(len(points_new))
+                zgrad = numpy.zeros(len(points_new))
                 
                 # do a loop through the pairs of points -- reshape the array
                 # so that each item is the pair of acceleration vectors
@@ -430,21 +430,21 @@ class InterpSnapshotRZPotential(interpRZPotential) :
             # do the same for the radial component
             if self._interpepifreq:
                 rgrad_pot, rgrad_acc = gravity.calc.direct(self._s,rgrad_points,num_threads=self._numcores)
-                rgrad = np.zeros(len(points_new))
+                rgrad = numpy.zeros(len(points_new))
 
                 for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)//2,2,3))) :
                     point = points_new[i]
                     point[2] = 0.0
-                    rvec = point/np.sqrt(np.dot(point,point))
-                    rgrad_vec = (np.dot(racc[1],rvec)-
-                                 np.dot(racc[0],rvec)) / (dr*2.0)
+                    rvec = point/numpy.sqrt(numpy.dot(point,point))
+                    rgrad_vec = (numpy.dot(racc[1],rvec)-
+                                 numpy.dot(racc[0],rvec)) / (dr*2.0)
                     rgrad[i] = rgrad_vec
                 
                 self._R2derivGrid = -rgrad.reshape((len(rgrad)//self._naz,self._naz)).mean(axis=1).reshape((len(R),len(z)))
        
             # do the same for the mixed radial-vertical component
             if self._interpepifreq and self._interpverticalfreq: # re-use this
-                Rzgrad = np.zeros(len(points_new))
+                Rzgrad = numpy.zeros(len(points_new))
                 for i,racc in enumerate(rgrad_acc.reshape((len(rgrad_acc)//2,2,3))) :
                     Rzgrad[i] = ((racc[1]-racc[0])/(dr*2.0))[2]
                 
@@ -481,7 +481,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         """
 
         Vc0 = self.vcirc(R0)
-        Phi0 = np.abs(self.Rforce(R0,0.0))
+        Phi0 = numpy.abs(self.Rforce(R0,0.0))
 
         self._normR0 = R0
         self._normVc0 = Vc0
@@ -502,7 +502,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         # rescale the grid
         self._rgrid /= R0
         if self._logR: 
-            self._logrgrid -= np.log(R0)
+            self._logrgrid -= numpy.log(R0)
             rs = self._logrgrid
         else : 
             rs = self._rgrid
@@ -536,7 +536,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
             self._R2interp = interpolate.RectBivariateSpline(rs,
                                                              self._zgrid,
                                                              self._R2derivGrid, kx=3,ky=3,s=0.)
-            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs[self._epigoodindx], self._epifreqGrid[self._epigoodindx]/np.sqrt(Phi0/R0), k=3)
+            self._epifreqInterp = interpolate.InterpolatedUnivariateSpline(rs[self._epigoodindx], self._epifreqGrid[self._epigoodindx]/numpy.sqrt(Phi0/R0), k=3)
 
         if self._interpverticalfreq: 
             self._savedsplines['z2deriv'] = self._z2interp
@@ -545,7 +545,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
                                                              self._zgrid,
                                                              self._z2derivGrid,
                                                              kx=3,ky=3,s=0.)
-            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs[self._verticalgoodindx], self._verticalfreqGrid[self._verticalgoodindx]/np.sqrt(Phi0/R0), k=3)
+            self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(rs[self._verticalgoodindx], self._verticalfreqGrid[self._verticalgoodindx]/numpy.sqrt(Phi0/R0), k=3)
 
 
     def denormalize(self) : 
@@ -567,7 +567,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         # rescale the grid
         self._rgrid *= R0
         if self._logR: 
-            self._logrgrid += np.log(R0)
+            self._logrgrid += numpy.log(R0)
             rs = self._logrgrid
         else : 
             rs = self._rgrid

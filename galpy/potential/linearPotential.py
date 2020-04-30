@@ -1,13 +1,14 @@
 from __future__ import division, print_function
 
 import os, os.path
+import copy
 import pickle
-import numpy as nu
-import galpy.util.bovy_plot as plot
-from galpy.util import config
+import numpy
+from ..util import bovy_plot as plot
+from ..util import config
 from .Potential import PotentialError, flatten
-from galpy.util.bovy_conversion import physical_conversion,\
-    potential_physical_input
+from ..util.bovy_conversion import physical_conversion,\
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -20,6 +21,8 @@ class linearPotential(object):
         self.dim= 1
         self.isRZ= False
         self.hasC= False
+        self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')
@@ -38,6 +41,87 @@ class linearPotential(object):
             self._vo= vo
             self._voSet= True
         return None
+
+    def __mul__(self,b):
+        """
+        NAME:
+
+           __mul__
+
+        PURPOSE:
+
+           Multiply a linearPotential's amplitude by a number
+
+        INPUT:
+
+           b - number
+
+        OUTPUT:
+
+           New instance with amplitude = (old amplitude) x b
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        if not isinstance(b,(int,float)):
+            raise TypeError("Can only multiply a planarPotential instance with a number")
+        out= copy.deepcopy(self)
+        out._amp*= b
+        return out
+    # Similar functions
+    __rmul__= __mul__
+    def __div__(self,b): return self.__mul__(1./b)
+    __truediv__= __div__
+
+    def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add linearPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - linearPotential instance or a list thereof
+
+        OUTPUT:
+
+           List of linearPotential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        if isinstance(b,list):
+            return [self]+b
+        else:
+            return [self,b]
+    # Define separately to keep order
+    def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],linearPotential):
+            raise TypeError("""Can only combine galpy linearPotential"""
+                            """ objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        # If we get here, b has to be a list
+        return b+[self]
 
     def turn_physical_off(self):
         """
@@ -90,14 +174,16 @@ class linearPotential(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -211,8 +297,8 @@ class linearPotential(object):
             xs= pickle.load(savefile)
             savefile.close()
         else:
-            xs= nu.linspace(min,max,ns)
-            potx= nu.zeros(ns)
+            xs= numpy.linspace(min,max,ns)
+            potx= numpy.zeros(ns)
             for ii in range(ns):
                 potx[ii]= self._evaluate(xs[ii],t=t)
             if not savefilename == None:
@@ -350,8 +436,8 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
         xs= pickle.load(savefile)
         savefile.close()
     else:
-        xs= nu.linspace(min,max,ns)
-        potx= nu.zeros(ns)
+        xs= numpy.linspace(min,max,ns)
+        potx= numpy.zeros(ns)
         for ii in range(ns):
             potx[ii]= evaluatelinearPotentials(Pot,xs[ii],t=t)
         if not savefilename == None:

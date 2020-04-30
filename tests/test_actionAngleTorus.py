@@ -1,10 +1,13 @@
 from __future__ import print_function, division
 import os
+import sys
 import pytest
 import warnings
 import numpy
 from galpy.util import galpyWarning
+from test_actionAngle import reset_warning_registry
 _TRAVIS= bool(os.getenv('TRAVIS'))
+PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
 
@@ -133,8 +136,8 @@ def test_actionAngleTorus_orbit():
     # Calculate the orbit using actionAngleTorus
     RvR= aAT(jr,jphi,jz,angler,anglephi,anglez).T
     # Calculate the orbit using orbit integration
-    orb= Orbit([RvRom[0][:,0],RvRom[0][:,1],RvRom[0][:,2],
-                RvRom[0][:,3],RvRom[0][:,4],RvRom[0][:,5]])
+    orb= Orbit([RvRom[0][0,0],RvRom[0][0,1],RvRom[0][0,2],
+                RvRom[0][0,3],RvRom[0][0,4],RvRom[0][0,5]])
     orb.integrate(ts,MWPotential2014)
     # Compare
     tol= -3.
@@ -148,7 +151,7 @@ def test_actionAngleTorus_orbit():
         'Integrated orbit does not agree with torus orbit in z'
     assert numpy.all(numpy.fabs(orb.vz(ts)-RvR[4]) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in vz'
-    assert numpy.all(numpy.fabs(orb.phi(ts)-RvR[5]) < 10.**tol), \
+    assert numpy.all(numpy.fabs((orb.phi(ts)-RvR[5]+numpy.pi) % (2.*numpy.pi) -numpy.pi) < 10.**tol), \
         'Integrated orbit does not agree with torus orbit in phi'
     return None
 
@@ -513,6 +516,7 @@ def test_actionAngleTorus_AutoFitWarning():
     #Turn warnings into errors to test for them
     import warnings
     with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         aAT(jr,jp,jz,ar,ap,az)
         # Should raise warning bc of Autofit, might raise others
@@ -563,6 +567,7 @@ def test_MWPotential_warning_torus():
     # Test that using MWPotential throws a warning, see #229
     from galpy.actionAngle import actionAngleTorus
     from galpy.potential import MWPotential
+    if PY2: reset_warning_registry('galpy')
     warnings.simplefilter("error",galpyWarning)
     try:
         aAA= actionAngleTorus(pot=MWPotential)
@@ -573,3 +578,11 @@ def test_MWPotential_warning_torus():
     warnings.simplefilter("always",galpyWarning)
     return None
 
+def test_load_library():
+    # Test that loading the library again gives the same library as the first
+    # time
+    from galpy.util._load_extension_libs import load_libgalpy_actionAngleTorus
+    first_lib= load_libgalpy_actionAngleTorus()[0]
+    second_lib= load_libgalpy_actionAngleTorus()[0]
+    assert first_lib == second_lib, 'libgalpy_actionAngleTorus loaded second time is not the same as first time'
+    return None

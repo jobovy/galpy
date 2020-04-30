@@ -3,11 +3,12 @@
 #             not (DissipativeForce)
 #
 ###############################################################################
+import copy
 import numpy
-from galpy.util import config
-from galpy.util import bovy_conversion
-from galpy.util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+from ..util import config
+from ..util import bovy_conversion
+from ..util.bovy_conversion import physical_conversion, \
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -145,6 +146,89 @@ class Force(object):
                 self._voSet= True
         return None
 
+    def __mul__(self,b):
+        """
+        NAME:
+
+           __mul__
+
+        PURPOSE:
+
+           Multiply a Force or Potential's amplitude by a number
+
+        INPUT:
+
+           b - number
+
+        OUTPUT:
+
+           New instance with amplitude = (old amplitude) x b
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        if not isinstance(b,(int,float)):
+            raise TypeError("Can only multiply a Force or Potential instance with a number")
+        out= copy.deepcopy(self)
+        out._amp*= b
+        return out
+    # Similar functions
+    __rmul__= __mul__
+    def __div__(self,b): return self.__mul__(1./b)
+    __truediv__= __div__
+
+    def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add Force or Potential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - Force or Potential instance or a list thereof
+
+        OUTPUT:
+
+           List of Force or Potential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+           2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
+
+        """
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        if isinstance(b,list):
+            return [self]+b
+        else:
+            return [self,b]
+    # Define separately to keep order
+    def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        # If we get here, b has to be a list
+        return b+[self]
+
     def turn_physical_off(self):
         """
         NAME:
@@ -196,15 +280,16 @@ class Force(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
-        """
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        """
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo

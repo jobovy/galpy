@@ -1,5 +1,5 @@
-import scipy as sc
-from galpy.util import bovy_conversion
+import numpy
+from ..util import bovy_conversion
 from .linearPotential import linearPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -57,7 +57,7 @@ class KGPotential(linearPotential):
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
                 F= F.to(units.Msun/units.pc**3).value\
-                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)*4.*sc.pi
+                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)*4.*numpy.pi
             except units.UnitConversionError: pass
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
@@ -69,9 +69,10 @@ class KGPotential(linearPotential):
         self._F= F
         self._D= D
         self._D2= self._D**2.
+        self.hasC= True
         
     def _evaluate(self,x,t=0.):
-        return self._K*(sc.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
+        return self._K*(numpy.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
 
     def _force(self,x,t=0.):
-        return -x*(self._K/sc.sqrt(x**2+self._D2)+2.*self._F)
+        return -x*(self._K/numpy.sqrt(x**2+self._D2)+2.*self._F)

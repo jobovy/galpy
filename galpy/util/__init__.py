@@ -6,7 +6,7 @@ import tempfile
 import pickle
 import numpy
 import scipy.linalg as linalg
-from galpy.util.config import __config__
+from ..util.config import __config__
 _SHOW_WARNINGS= __config__.getboolean('warnings','verbose')
 class galpyWarning(Warning):
     pass

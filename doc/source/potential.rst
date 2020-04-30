@@ -53,7 +53,7 @@ function
 # -1.3733506513947895
 
 .. TIP::
-   Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances.
+   Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances. You can also add potential simply as ``pot= MWPotential2014+DehnenBarPotential()``.
 
 .. WARNING::
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`.
@@ -206,8 +206,8 @@ Clearly, the potential is much less flattened than the density.
 
 .. _potwrappers:
 
-**NEW in v1.3**: Modifying potential instances using wrappers
--------------------------------------------------------------
+Modifying potential instances using wrappers
+--------------------------------------------
 
 Potentials implemented in galpy can be modified using different kinds
 of wrappers. These wrappers modify potentials to, for example, change
@@ -266,9 +266,16 @@ potential grown as above would be
 
 >>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
 >>> lp= LogarithmicHaloPotential(normalize=1.)
->>> pot= [lp,dswp]
+>>> pot= lp+dswp
 >>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
 # -1.00965326579
+
+.. TIP::
+   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
+
+.. WARNING::
+   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
+
 
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
@@ -319,8 +326,11 @@ We can also for example easily make the diagram of :math:`\Omega-n
 \kappa /m` that is important for understanding kinematic spiral
 density waves. For example, for ``MWPotential2014``
 
->>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.): # ro,vo for physical units
-        return omegac(pot,Rs,ro=ro,vo=vo)-n/m*epifreq(pot,Rs,ro=ro,vo=vo)
+>>> from galpy.potential import MWPotential2014, omegac, epifreq
+>>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.):
+    	# ro,vo for physical units, Rs in units of ro
+        return omegac(pot,Rs/ro,ro=ro,vo=vo)-n/m*epifreq(pot,Rs/ro,ro=ro,vo=vo)
+>>> Rs= numpy.linspace(0.,16.,101) # kpc
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,0,1))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,2))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,1))
@@ -390,8 +400,8 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**UPDATED in v1.3**: General density/potential pairs with basis-function expansions
-------------------------------------------------------------------------------------------------
+General density/potential pairs with basis-function expansions
+--------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the
@@ -791,19 +801,160 @@ LogarithmicHaloPotential, the radial force scales as :math:`R^{-1}`,
 so the amplitude scales as :math:`V_0^2`.
 
 Currently, only the ``MiyamotoNagaiPotential``, ``NFWPotential``,
-``PowerSphericalPotentialwCutoff``, ``PlummerPotential``,
-``MN3ExponentialDiskPotential``, and the ``LogarithmicHaloPotential``
-have this NEMO support. Combinations of the first three are also
-supported (e.g., ``MWPotential2014``); they can also be combined with
-spherical ``LogarithmicHaloPotentials``. Because of the definition of
-the logarithmic potential in NEMO, it cannot be flattened in ``z``, so
-to use a flattened logarithmic potential, one has to flip ``y`` and
-``z`` between ``galpy`` and NEMO (one can flatten in ``y``).
+``PowerSphericalPotentialwCutoff``, ``HernquistPotential``,
+``PlummerPotential``, ``MN3ExponentialDiskPotential``, and the
+``LogarithmicHaloPotential`` have this NEMO support. Combinations of
+all but the ``LogarithmicHaloPotential`` are allowed in general (e.g.,
+``MWPotential2014``); they can also be combined with spherical
+``LogarithmicHaloPotentials``. Because of the definition of the
+logarithmic potential in NEMO, it cannot be flattened in ``z``, so to
+use a flattened logarithmic potential, one has to flip ``y`` and ``z``
+between ``galpy`` and NEMO (one can flatten in ``y``).
 
-.. _addpot:
+.. _amusepot:
 
-**NEW in v1.4**: : Dissipative forces
--------------------------------------
+Conversion to AMUSE potentials
+------------------------------
+
+`AMUSE <http://amusecode.org/>`_ is a Python software framework for
+astrophysical simulations, in which existing codes from different
+domains, such as stellar dynamics, stellar evolution, hydrodynamics
+and radiative transfer can be easily coupled. AMUSE allows you to run
+N-body simulations that include a wide range of physics (gravity,
+stellar evolution, hydrodynamics, radiative transfer) with a large
+variety of numerical codes (collisionless, collisional, etc.).
+
+The ``galpy.potential.to_amuse`` function allows you to create an
+AMUSE representation of any ``galpy`` potential. This is useful, for
+instance, if you want to run a simulation of a stellar cluster in an
+external gravitational field, because ``galpy`` has wide support for
+representing external gravitational fields. Creating the AMUSE
+representation is as simple as (for ``MWPotential2014``):
+
+>>> from galpy.potential import to_amuse, MWPotential2014
+>>> mwp_amuse= to_amuse(MWPotential2014)
+>>> print(mwp_amuse)
+# <galpy.potential.amuse.galpy_profile object at 0x7f6b366d13c8>
+
+Schematically, this potential can then be used in AMUSE as
+
+>>> gravity = bridge.Bridge(use_threading=False)
+>>> gravity.add_system(cluster_code, (mwp_amuse,))
+>>> gravity.add_system(mwp_amuse,)
+
+where ``cluster_code`` is a code to perform the N-body integration of
+a system (e.g., a ``BHTree`` in AMUSE). A fuller example is given below.
+
+AMUSE uses physical units when interacting with the galpy potential
+and it is therefore necessary to make sure that the correct physical
+units are used. The ``to_amuse`` function takes the ``galpy`` unit
+conversion parameters ``ro=`` and ``vo=`` as keyword parameters to
+perform the conversion between internal galpy units and physical
+units; if these are not explicitly set, ``to_amuse`` attempts to set
+them automatically using the potential that you input using the
+``galpy.util.bovy_conversion.get_physical`` function.
+
+Another difference between ``galpy`` and AMUSE is that in AMUSE
+integration times can only be positive and they have to increase in
+time. ``to_amuse`` takes as input the ``t=`` and ``tgalpy=`` keywords
+that specify (a) the initial time in AMUSE and (b) the initial time in
+``galpy`` that this time corresponds to. Typically these will be the
+same (and equal to zero), but if you want to run a simulation where
+the initial time in ``galpy`` is negative it is useful to give them
+different values. The time inputs can be either given in ``galpy``
+internal units or using AMUSE's units. Similarly, to integrate
+backwards in time in AMUSE, ``to_amuse`` has a keyword ``reverse=``
+(default: ``False``) that reverses the time direction given to the
+``galpy`` potential; ``reverse=True`` does this (note that you also
+have to flip the velocities to actually go backwards).
+
+A full example of setting up a Plummer-sphere cluster and evolving its
+N-body dynamics using an AMUSE ``BHTree`` in the external
+``MWPotential2014`` potential is:
+
+>>> from amuse.lab import *
+>>> from amuse.couple import bridge
+>>> from amuse.datamodel import Particles
+>>> from galpy.potential import to_amuse, MWPotential2014
+>>> from galpy.util import bovy_plot
+>>>
+>>> # Convert galpy MWPotential2014 to AMUSE representation
+>>> mwp_amuse= to_amuse(MWPotential2014)
+>>> 
+>>> # Set initial cluster parameters
+>>> N= 1000
+>>> Mcluster= 1000. | units.MSun
+>>> Rcluster= 10. | units.parsec
+>>> Rinit= [10.,0.,0.] | units.kpc
+>>> Vinit= [0.,220.,0.] | units.km/units.s
+>>> # Setup star cluster simulation
+>>> tend= 100.0 | units.Myr
+>>> dtout= 5.0 | units.Myr
+>>> dt= 1.0 | units.Myr
+>>>
+>>> def setup_cluster(N,Mcluster,Rcluster,Rinit,Vinit):
+>>>     converter= nbody_system.nbody_to_si(Mcluster,Rcluster)
+>>>     stars= new_plummer_sphere(N,converter)
+>>>     stars.x+= Rinit[0]
+>>>     stars.y+= Rinit[1]
+>>>     stars.z+= Rinit[2]
+>>>     stars.vx+= Vinit[0]
+>>>     stars.vy+= Vinit[1]
+>>>     stars.vz+= Vinit[2]
+>>>     return stars,converter
+>>> 
+>>> # Setup cluster
+>>> stars,converter= setup_cluster(N,Mcluster,Rcluster,Rinit,Vinit)
+>>> cluster_code= BHTree(converter,number_of_workers=1) #Change number of workers depending no. of CPUs
+>>> cluster_code.parameters.epsilon_squared= (3. | units.parsec)**2
+>>> cluster_code.parameters.opening_angle= 0.6
+>>> cluster_code.parameters.timestep= dt
+>>> cluster_code.particles.add_particles(stars)
+>>>
+>>> # Setup channels between stars particle dataset and the cluster code
+>>> channel_from_stars_to_cluster_code= stars.new_channel_to(cluster_code.particles,
+>>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])    
+>>> channel_from_cluster_code_to_stars= cluster_code.particles.new_channel_to(stars,
+>>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])
+>>>
+>>> # Setup gravity bridge
+>>> gravity= bridge.Bridge(use_threading=False)
+>>> # Stars in cluster_code depend on gravity from external potential mwp_amuse (i.e., MWPotential2014)
+>>> gravity.add_system(cluster_code, (mwp_amuse,))
+>>> # External potential mwp_amuse still needs to be added to system so it evolves with time
+>>> gravity.add_system(mwp_amuse,)
+>>> # Set how often to update external potential
+>>> gravity.timestep= cluster_code.parameters.timestep/2.
+>>> # Evolve
+>>> time= 0.0 | tend.unit
+>>> while time<tend:
+>>>     gravity.evolve_model(time+dt)
+>>>     # If you want to output or analyze the simulation, you need to copy 
+>>>     # stars from cluster_code
+>>>     #channel_from_cluster_code_to_stars.copy()
+>>>
+>>>     # If you edited the stars particle set, for example to remove stars from the 
+>>>     # array because they have been kicked far from the cluster, you need to
+>>>     # copy the array back to cluster_code:
+>>>     #channel_from_stars_to_cluster_code.copy()
+>>>
+>>>     # Update time
+>>>     time= gravity.model_time
+>>>
+>>> channel_from_cluster_code_to_stars.copy()
+>>> gravity.stop()
+>>>
+>>> bovy_plot.bovy_plot(stars.x.value_in(units.kpc),stars.y.value_in(units.kpc),'.',
+>>>                     xlabel=r'$X\,(\mathrm{kpc})$',ylabel=r'$Y\,(\mathrm{kpc})$')
+
+After about 30 seconds, you should get a plot like the following,
+which shows a cluster in the first stages of disruption:
+
+.. image:: images/potential-amuse-example.png
+   :scale: 50 %
+
+Dissipative forces
+------------------
 
 While almost all of the forces that you can use in ``galpy`` derive
 from a potential (that is, the force is the gradient of a scalar
@@ -823,10 +974,6 @@ implementation of the classic Chandrasekhar dynamical-friction
 formula, with recent tweaks to better represent the results from
 *N*-body simulations.
 
-Note that there is currently no support for implementing dissipative
-forces in C. Thus, only Python-based integration methods are available
-for any dissipative forces.
-
 .. WARNING::
    Dissipative forces can currently only be used for 3D orbits in ``galpy``. The code should throw an error when they are used for 2D orbits.
 
@@ -845,7 +992,7 @@ used. Adding a new class of potentials to galpy consists of the
 following series of steps (for steps to add a new wrapper potential,
 also see :ref:`the next section <addwrappot>`):
 
-1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+1. Implement the new potential in a class that inherits from ``galpy.potential.Potential`` (velocity-dependent forces should inherit from ``galpy.potential.DissipativeForce`` instead; see below for a brief discussion on differences in implementing such forces). The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
 
 .. _addpypot:
 
@@ -901,19 +1048,28 @@ also see :ref:`the next section <addwrappot>`):
     pattern speed (used to compute the Jacobi integral for orbits).
 
   If you want to be able to calculate the concentration for a
-  potential, you also have to set self._scale to a scale parameter for
-  your potential.
+  potential, you also have to set ``self._scale`` to a scale parameter
+  for your potential.
 
   The code for ``galpy.potential.MiyamotoNagaiPotential`` gives a good
   template to follow for 3D axisymmetric potentials. Similarly, the
   code for ``galpy.potential.CosmphiDiskPotential`` provides a good
   template for 2D, non-axisymmetric potentials.
 
+  During development or if some of the forces or second derivatives
+  are too tedious to implement, it is possible to numerically compute
+  any non-implemented forces and second derivatives by inheriting from
+  the :ref:`NumericalPotentialDerivativesMixin
+  <numderivsmixin_potential>` class. Thus, a functioning potential can
+  be implemented by simply implementing the ``_evaluate`` function and
+  adding all forces and second derivatives using the
+  ``NumericalPotentialDerivativesMixin``.
+
   After this step, the new potential will work in any part of galpy
   that uses pure python potentials. To get the potential to work with
   the C implementations of orbit integration or action-angle
   calculations, the potential also has to be implemented in C and the
-  potential has to be passed from python to C.
+  potential has to be passed from python to C (see below).
 
   The ``__init__`` method should be written in such a way that a
   relevant object can be initialized using ``Classname()`` (i.e.,
@@ -930,7 +1086,10 @@ also see :ref:`the next section <addwrappot>`):
   ``hasC=True`` for potentials for which the forces and potential are
   implemented in C (see below); ``self.hasC_dxdv=True`` for potentials
   for which the (planar) second derivatives are implemented in C;
-  ``self.isNonAxi=True`` for non-axisymmetric potentials.
+  ``self.hasC_dens=True`` for potentials for which the density is
+  implemented in C as well (necessary for them to work with dynamical
+  friction in C); ``self.isNonAxi=True`` for non-axisymmetric
+  potentials.
 
 2. To add a C implementation of the potential, implement it in a .c file under ``potential/potential_c_ext``. Look at ``potential/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
 
@@ -942,7 +1101,10 @@ also see :ref:`the next section <addwrappot>`):
  are most important. For some of the action-angle calculations
 
  * double LogarithmicHaloPotentialEval(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
- is most important (i.e., for those algorithms that evaluate the potential). The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential/potential_c_ext/galpy_potentials.h``.
+ is most important (i.e., for those algorithms that evaluate the potential). If you want your potential to be able to be used as the density for the :ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>` implementation in C, you need to implement the density in C as well
+
+ * double LogarithmicHaloPotentialDens(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
+ The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential/potential_c_ext/galpy_potentials.h``.
 
 3. Add the potential's function declarations to
 ``potential/potential_c_ext/galpy_potentials.h``
@@ -960,23 +1122,25 @@ set up your new potential (in the **parse_leapFuncArgs_Full** function).
 7. Edit the code in ``orbit/integrateFullOrbit.py`` to set up your
 new potential (in the **_parse_pot** function).
 
-8. (for using the actionAngleStaeckel methods in C) Edit the code in
-``actionAngle/actionAngle_c_ext/actionAngle.c`` to parse the new
-potential (in the **parse_actionAngleArgs** function).
-
-9. Finally, add ``self.hasC= True`` to the initialization of the
+8. Finally, add ``self.hasC= True`` to the initialization of the
 potential in question (after the initialization of the super class, or
 otherwise it will be undone). If you have implemented the necessary
 second derivatives for integrating phase-space volumes, also add
-``self.hasC_dxdv=True``.
+``self.hasC_dxdv=True``. If you have implemented the density in C, set
+``self.hasC_dens=True``.
 
 After following the relevant steps, the new potential class can be
 used in any galpy context in which C is used to speed up computations.
 
+Velocity-dependent forces (e.g.,
+:ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>`) should inherit from ``galpy.potential.DissipativeForce`` instead of from ``galpy.potential.Potential``. Because such forces are not conservative, you only need to implement the forces themselves, in the same way as for a regular ``Potential``. For dissipative forces, the force-evaluation functions (``Rforce``, etc.) need to take the velocity in cylindrical coordinates as a keyword argument: ``v=[vR,vT,vZ]``. Implementing dissipative forces in C is similar: you only need to implement the forces themselves and the forces should take the velocity in cylindrical coordinates as an additional input, e.g.,
+
+* double ChandrasekharDynamicalFrictionForceRforce(double R,double z, double phi,double t,struct potentialArg * potentialArgs,double vR,double vT,double vz)
+
 .. _addwrappot:
 
-**NEW in v1.3**: Adding wrapper potentials to the galpy framework
-------------------------------------------------------------------
+Adding wrapper potentials to the galpy framework
+------------------------------------------------
 
 Wrappers all inherit from the general ``WrapperPotential`` or
 ``planarWrapperPotential`` classes (which themselves inherit from the
@@ -1095,8 +1259,8 @@ implementation of the glue for any new wrappers.  Wrapper potentials
 should be given negative potential types in the glue to distinguish
 them from regular potentials.
 
-**NEW in v1.4**: Adding dissipative forces to the galpy framework
-------------------------------------------------------------------
+Adding dissipative forces to the galpy framework
+------------------------------------------------
 
 Dissipative forces are implemented in much the same way as forces that
 derive from potentials. Rather than inheriting from

@@ -1,12 +1,12 @@
 ###############################################################################
 #   TransientLogSpiralPotential: a transient spiral potential
 ###############################################################################
-import math
-from galpy.util import bovy_conversion
+import numpy
+from ..util import bovy_conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-_degtorad= math.pi/180.
+_degtorad= numpy.pi/180.
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
@@ -22,7 +22,7 @@ class TransientLogSpiralPotential(planarPotential):
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
-                 alpha=-7.,m=2,gamma=math.pi/4.,p=None,
+                 alpha=-7.,m=2,gamma=numpy.pi/4.,p=None,
                  sigma=1.,to=0.,ro=None,vo=None):
         """
         NAME:
@@ -89,7 +89,7 @@ class TransientLogSpiralPotential(planarPotential):
         self._to= to
         self._sigma2= sigma**2.
         if not p is None:
-            self._alpha= self._m/math.tan(p)
+            self._alpha= self._m/numpy.tan(p)
         else:
             self._alpha= alpha
         self.hasC= True
@@ -109,8 +109,8 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*math.cos(self._alpha*math.log(R)
+        return self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
+            /self._alpha*numpy.cos(self._alpha*numpy.log(R)
                                   -self._m*(phi-self._omegas*t-self._gamma))
 
     def _Rforce(self,R,phi=0.,t=0.):
@@ -128,8 +128,8 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
-            /R*math.sin(self._alpha*math.log(R)
+        return self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
+            /R*numpy.sin(self._alpha*numpy.log(R)
                         -self._m*(phi-self._omegas*t-self._gamma))
     
     def _phiforce(self,R,phi=0.,t=0.):
@@ -147,8 +147,8 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return -self._A*math.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*self._m*math.sin(self._alpha*math.log(R)
+        return -self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
+            /self._alpha*self._m*numpy.sin(self._alpha*numpy.log(R)
                                           -self._m*(phi-self._omegas*t
                                                     -self._gamma))
 

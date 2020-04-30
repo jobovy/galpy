@@ -4,9 +4,9 @@
 #                                   exponential disk potential of Smith et al.
 #                                   2015
 ###############################################################################
-import numpy
 import warnings
-from galpy.util import galpyWarning
+import numpy
+from ..util import galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units

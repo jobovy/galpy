@@ -1,5 +1,165 @@
-v1.4 (??????)
-==============
+v1.7 (XXXX-XX-XX)
+=================
+
+- Added NFWPotential initialization method using rmax and vmax, the
+  radius and alue at which the rotation curve peaks; also added rmax
+  and vmax methods to NFWPotential to compute these quantities for any
+  NFWPotential.
+
+- Added inverse action-angle transformations for the isochrone
+  potential (actionAngleIsochroneInverse) and for a one-dimensional
+  harmonic oscillator (actionAngleHarmonicInverse; also added the
+  [x,v] -> [J,O,a] transformation for the latter,
+  actionAngleHarmonic).
+
+- Fixed angle calculation for actionAngleIsochrone and
+  actionAngleSpherical for non-inclined orbits (which are tricky).
+
+v1.6 (2020-04-24)
+=================
+
+- Added HomogeneousSpherePotential, the potential of a constant
+  density sphere out to some radius R.
+
+- Added DehnenSphericalPotential and DehnenCoreSphericalPotential, the
+  general potential from Dehnen (1993) and its cored special case
+  (#403).
+
+- Standardized the way packages are imported: numpy as 'import numpy',
+  avoid use of math, don't use scipy's numpy interface, internal
+  imports for all galpy imports.
+
+- Implemented ChandrasekharDynamicalFrictionForce in C, introducing a
+  general scheme for easily implementing velocity-dependent forces in
+  C without requiring all forces to take velocity arguments (#420).
+
+- Fixed AMUSE compatibility with Potentials instantiated with physical
+  inputs (#405).
+
+- Fix how DiskSCFPotential instances with a hole in the surface
+  density get passed to C (was wrong when type == 'exp', but 'Rhole'
+  was in the list of parameters, hole was not passed; meant that
+  McMillan17 was wrong in C in v1.5).
+
+- Add time dependence to all relevant Potential functions and method
+  (#404).
+
+- Raise warning when r < minr (where dynamical friction gets turned
+  off) in an orbit integration that includes dynamical friction (to
+  avoid silent turning off of the dynamical friction force; #356).
+
+- Improve performance of orbit animations (#414).
+
+- Fixed compilation issue for Intel compilers: no need to include
+  'lgomp' in the linking step (#416).
+
+- Compile all main galpy C extensions into a single shared-object
+  library libgalpy.
+
+- Automatically build Linux, Mac, and Windows wheels with GitHub
+  Actions and upload them to PyPI upon release creation (#421).
+
+v1.5 (2019-09-12)
+=================
+
+- Added support for holding multiple objects in an Orbit instance,
+  with efficient handling of multiple objects and parallelized
+  integration and action-angle-related functions. Orbit instances can
+  now have arbitrary shapes. Full re-write of Orbit class (PR #384).
+
+- Added support for 1D orbit integration in C (PR #354).
+
+- Added a (JSON) list with the phase-space coordinates of known
+  objects (mainly globular clusters and dwarf galaxies) for easy
+  Orbit.from_name initialization. For ease of use,
+  Orbit.from_name also supports tab completion for known objects in
+  this list in IPython/Jupyter (PR #392).
+
+- Added the galpy.potentials.mwpotentials module with various
+  Milky-Way-like potentials. Currently included are MWPotential2014,
+  McMillan17 for the potential from McMillan (2017), models 1 through
+  4 from Dehnen & Binney (1998), and the three models from Irrgang et
+  al. (2013). See PR #395.
+
+- Added potential.to_amuse to create an AMUSE
+  (http://www.amusecode.org) representation of any galpy potential,
+  allowing galpy potentials to be used as external gravitational
+  fields in AMUSE N-body simulations (#398).
+
+- Added potential.toVerticalPotential to convert any 3D potential to a
+  1D potential at a given (R,phi) [generalizes RZToverticalPotential
+  to non-axi potentials; RZToverticalPotential retained for backwards
+  compatibility].
+
+- Re-wrote potential.MovingObjectPotential to allow general mass
+  distributions for the moving object, implemented now as standard
+  galpy potentials rather than with separate ForceSoftening class,
+  which has now been removed (#355). Initialization keywords for
+  potential.MovingObjectPotential have changed because of this in a
+  non-backwards-compatible manner.
+
+- Added support to combine Potential instances or lists thereof
+  through the addition operator. E.g., pot= pot1+pot2+pot3 to create
+  the combined potential of the three component potentials
+  (pot1,pot2,pot3). Each of these components can be a combined
+  potential itself. As before, combined potentials are simply lists of
+  potentials, so this is simply an alternative (and perhaps more
+  intuitive) way to create these lists (#369).
+
+- Added support to adjust the amplitude of a Potential instance
+  through multiplication of the instance by a number or through
+  division by a numer. E.g., pot= 2.*pot1 returns a Potential instance
+  that is the same as pot1, except that the amplitude is twice
+  larger. Similarly, pot= pot1/2. decreases the amplitude by a factor
+  of two. This is useful, for example, to quickly change the mass of a
+  potential. Only works for Potential instances, not for lists of
+  Potential instances (#369).
+
+- Added support to plot arbitrary combinations of the basic Orbit
+  attributes by giving them as an expresion (e.g.,
+  orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
+
+- Switched default Sun's vertical height zo parameter for Orbit
+  initialization to be the value of 20.8 pc from Bennett & Bovy
+  (2019).
+
+- Added IsothermalDiskPotential, the one-dimensional potential of an
+  isothermal self-gravitating disk (sech^2 profile).
+
+- Added NumericalPotentialDerivativesMixin, a Mixin class to add
+  numerically-computed forces and second derivatives to any Potential
+  class, allowing new potentials to be implmented quickly by only
+  implementing the potential itself and obtaining all forces and
+  second derivatives numerically.
+
+- Added nemo_accname and nemo_accpars for the HernquistPotential,
+  allowing it to be converted to NEMO.
+
+- DehnenSmoothWrapperPotential can now decay rather than grow a
+  potential by setting ``decay=True``.
+
+- DehnenBarPotential and SpiralArmsPotential method now work for array
+  inputs (PR #388, by @webbjj).
+  
+- Allow transformations of custom coordinate systems (positions
+  and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
+
+- Allow orbit integrations to be KeyboardInterrupted on Windows as well 
+  (#362 by Henry Leung)
+
+- Add Python and C implementation of Dormand-Prince 8(5,3) integrator
+  (#363 by Henry Leung)
+
+- Added function galpy.util.bovy_conversion.get_physical to obtain the
+  ro and vo parameters describing the conversion between physical and
+  internal units as a dictionary. This works for any galpy object or
+  lists of such objects.
+
+- Improved efficiency of requesting an integrated orbit at the exact
+  times at which it was integrated (~10x faster now).
+
+v1.4 (2018-09-09)
+=================
 
 - Added ChandrasekharDynamicalFrictionForce, an implementation of
   dynamical friction based on the classical Chandrasekhar formula
@@ -7,10 +167,10 @@ v1.4 (??????)
   results from N-body simulations).
 
 - Added galpy.df.jeans with tools for Jeans modeling. Currently only
-  contains the function sigmar to calculate the velocity dispersion
-  using the spherical Jeans equation in a given potential, density
-  profile, and anisotropy profile (anisotropy can be radially
-  varying).
+  contains the functions sigmar and sigmalos to calculate the velocity
+  dispersion in the radial or line-of-sight direction using the
+  spherical Jeans equation in a given potential, density profile, and
+  anisotropy profile (anisotropy can be radially varying).
 
 - Added CorotatingRotationWrapperPotential to galpy.potential: a
   wrapper to make a pattern wind up over time such that it is always
@@ -22,6 +182,22 @@ v1.4 (??????)
   Gaussian (growing from zero to the full amplitude and dying off
   again).
 
+- Added a general class EllipsoidalPotential that is a superclass for
+  implementing potentials with densities that are constant on
+  ellipsoids (functions of m^2 = x^2 + y^2/b^2 + z^2/c^2). Also
+  implemented in C. Implementing new types of ellipsoidal potentials
+  now only requires three simple functions to be defined: the density
+  as a function of m, its derivative with respect to m, and its
+  integral with respect to m^2 (#348).
+
+- Added PerfectEllipsoidPotential, the potential of a perfect
+  ellipsoid (de Zeeuw 1985): this is a fully integrable
+  (Staeckel-type), triaxial potential.
+
+- Re-implemented TwoPowerTriaxialPotential and special cases
+  TriaxialHernquistPotential, TriaxialJaffePotential, and
+  TriaxialNFWPotential using the general EllipsoidalPotential class.
+
 - Allow nested lists of Potential instances everywhere where lists of
   Potential instances were previously allowed; allow easy adding of
   components (e.g., a bar) to previously defined potentials (which may
@@ -29,6 +205,10 @@ v1.4 (??????)
 
 - Add from_name class method of Orbit, which allows Orbit instances to
   be initialized using the coordinates of a named object found in SIMBAD.
+
+- Add rguiding method of Orbit, to compute the guiding-center radius
+  of an orbit. Also added Lz method to easily obtain the z-component
+  of the angular momentum for different types of orbits.
 
 - Defined Orbit initialization without any arguments (or, more
   generally, without specifying the vxvv initial phase-space input) to
@@ -43,6 +223,14 @@ v1.4 (??????)
 - Added rtide and ttensor methods/functions for Potentials: tidal
   radius and tidal tensor.
 
+- Added surfdens and evaluateSurfaceDensities method and function,
+  respectively, for Potentials for evaluating the surface density up
+  to a given z.
+
+- Added potentials SphericalShellPotential and RingPotential for the
+  potential of a spherical shell and a circular ring,
+  respectively. Useful for talking about Newton's theorems.
+
 - Switched default solarmotion parameter for Orbit initialization to
   be schoenrich (for the Schoenrich, Binney, & Dehnen 2010 solar
   motion wrt the LSR).
@@ -50,6 +238,11 @@ v1.4 (??????)
 - Added Potential method r2deriv and function evaluater2derivs to
   evaluate the second derivative wrt the spherical radius. Also added
   convenience functions evaluatephi2derivs and evaluateRphiderivs.
+
+- Added quasiisothermaldf method sampleV_interpolate that allows
+  velocities at different positions to be sampled efficiently
+  (quasiisothermaldf.sampleV only works for a single position). See PR
+  #350.
 
 - Add warnings/verbose configuration parameter to set level of
   verbosity of non-crucial warnings (like: "Using C implementation to

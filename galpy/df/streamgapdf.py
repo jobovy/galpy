@@ -1,19 +1,20 @@
 # The DF of a gap in a tidal stream
 from functools import wraps
 import copy
-import numpy
 import warnings
 import multiprocessing
+import numpy
 from scipy import integrate, interpolate, special
-from galpy.util import galpyWarning, bovy_coords, multi, bovy_conversion
-from galpy.util import _rotate_to_arbitrary_vector
-from galpy.orbit import Orbit
-from galpy.potential import evaluateRforces, MovingObjectPotential
+from ..util import galpyWarning, bovy_coords, multi, bovy_conversion
+from ..util import _rotate_to_arbitrary_vector
+from ..orbit import Orbit
+from ..potential import evaluateRforces, MovingObjectPotential, \
+    PlummerPotential
 from .df import df, _APY_LOADED
-from galpy.util.bovy_conversion import physical_conversion
+from ..util.bovy_conversion import physical_conversion
 from . import streamdf
 from .streamdf import _determine_stream_track_single
-from galpy.potential import flatten as flatten_potential
+from ..potential import flatten as flatten_potential
 if _APY_LOADED:
     from astropy import units
 def impact_check_range(func):
@@ -832,15 +833,15 @@ class streamgapdf(streamdf.streamdf):
                                            0.) #angle = 0
         auxiliaryTrack= Orbit(prog_stream_offset[3])
         if dt < 0.:
-            self._gap_trackts= numpy.linspace(0.,-2.*dt,2.*self._nTrackChunksImpact-1)
+            self._gap_trackts= numpy.linspace(0.,-2.*dt,2*self._nTrackChunksImpact-1)
             #Flip velocities before integrating
             auxiliaryTrack= auxiliaryTrack.flip()
         auxiliaryTrack.integrate(self._gap_trackts,self._pot)
         if dt < 0.:
             #Flip velocities again
-            auxiliaryTrack._orb.orbit[:,1]= -auxiliaryTrack._orb.orbit[:,1]
-            auxiliaryTrack._orb.orbit[:,2]= -auxiliaryTrack._orb.orbit[:,2]
-            auxiliaryTrack._orb.orbit[:,4]= -auxiliaryTrack._orb.orbit[:,4]
+            auxiliaryTrack.orbit[...,1]= -auxiliaryTrack.orbit[...,1]
+            auxiliaryTrack.orbit[...,2]= -auxiliaryTrack.orbit[...,2]
+            auxiliaryTrack.orbit[...,4]= -auxiliaryTrack.orbit[...,4]
         #Calculate the actions, frequencies, and angle for this auxiliary orbit
         acfs= self._aA.actionsFreqs(auxiliaryTrack(0.),maxn=3,
                                     use_physical=False)
@@ -968,9 +969,9 @@ class streamgapdf(streamdf.streamdf):
         ts= numpy.linspace(0.,self._tdisrupt,1001)
         self._gap_progenitor.integrate(ts,self._pot)
         # Flip its velocities, should really write a function for this
-        self._gap_progenitor._orb.orbit[:,1]= -self._gap_progenitor._orb.orbit[:,1]
-        self._gap_progenitor._orb.orbit[:,2]= -self._gap_progenitor._orb.orbit[:,2]
-        self._gap_progenitor._orb.orbit[:,4]= -self._gap_progenitor._orb.orbit[:,4]
+        self._gap_progenitor.orbit[...,1]= -self._gap_progenitor.orbit[...,1]
+        self._gap_progenitor.orbit[...,2]= -self._gap_progenitor.orbit[...,2]
+        self._gap_progenitor.orbit[...,4]= -self._gap_progenitor.orbit[...,4]
         return None
 
 ################################SAMPLE THE DF##################################
@@ -1481,7 +1482,8 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     o.integrate(times,galpot,method=integrate_method)
     oplum = o(times[-1]).flip()
     oplum.integrate(dtimes,galpot,method=integrate_method)
-    plumpot = MovingObjectPotential(orbit=oplum, GM=GM, softening_model='plummer', softening_length=rs)
+    plumpot = MovingObjectPotential(orbit=oplum,
+                                    pot=PlummerPotential(amp=GM,b=rs))
 
     # Now integrate each particle backwards in galaxy potential, forwards in combined potential and backwards again in galaxy and take diff
 

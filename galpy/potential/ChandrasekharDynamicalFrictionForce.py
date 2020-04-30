@@ -2,12 +2,13 @@
 #   ChandrasekharDynamicalFrictionForce: Class that implements the 
 #                                        Chandrasekhar dynamical friction
 ###############################################################################
+import copy
 import hashlib
 import numpy
 from scipy import special, interpolate
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _APY_LOADED, evaluateDensities
+from .Potential import _APY_LOADED, evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
 if _APY_LOADED:
     from astropy import units
@@ -47,7 +48,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            amp - amplitude to be applied to the potential (default: 1)
 
-           GMs - satellite mass; can be a Quantity with units of mass or Gxmass; can be adjusted after initialization by setting obj.GMs= where obj is your ChandrasekharDynamicalFrictionForce instance
+           GMs - satellite mass; can be a Quantity with units of mass or Gxmass; can be adjusted after initialization by setting obj.GMs= where obj is your ChandrasekharDynamicalFrictionForce instance (note that the mass of the satellite can *not* be changed simply by multiplying the instance by a number, because he mass is not only used as an amplitude)
 
            rhm - half-mass radius of the satellite (set to zero for a black hole; can be a Quantity); can be adjusted after initialization by setting obj.rhm= where obj is your ChandrasekharDynamicalFrictionForce instance
 
@@ -55,7 +56,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
            dens - Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)]
 
-           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy
+           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function)
 
            cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
 
@@ -95,6 +96,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._rhm= rhm
         self._minr= minr
         self._maxr= maxr
+        self._dens_kwarg= dens # for pickling
+        self._sigmar_kwarg= sigmar # for pickling
         # Parse density
         if dens is None:
             from .LogarithmicHaloPotential import LogarithmicHaloPotential
@@ -108,19 +111,36 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                                                       R,z,phi=phi,t=t,
                                                       use_physical=False)
         if sigmar is None:
-            from galpy.df import jeans
+            from ..df import jeans
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
-        sigmar_rs= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmars_4interp= numpy.array([sigmar(x) 
+                                            for x in self._sigmar_rs_4interp])
+        if numpy.any(numpy.isnan(self._sigmars_4interp)):
+            # Check for case where density is zero, in that case, just
+            # paint in the nearest neighbor for the interpolation
+            # (doesn't matter in the end, because force = 0 when dens = 0)
+            nanrs_indx= numpy.isnan(self._sigmars_4interp)
+            if numpy.all(numpy.array([self._dens(r*_INVSQRTTWO,r*_INVSQRTTWO)
+                                      for r in 
+                                      self._sigmar_rs_4interp[nanrs_indx]]) 
+                         == 0.):
+                self._sigmars_4interp[nanrs_indx]= interpolate.interp1d(\
+                    self._sigmar_rs_4interp[True^nanrs_indx],
+                    self._sigmars_4interp[True^nanrs_indx],
+                    kind="nearest",fill_value="extrapolate")\
+                        (self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig= sigmar
         self.sigmar= interpolate.InterpolatedUnivariateSpline(\
-            sigmar_rs,numpy.array([sigmar(x) for x in sigmar_rs]),k=3)
+            self._sigmar_rs_4interp,self._sigmars_4interp,k=3)
         if const_lnLambda:
             self._lnLambda= const_lnLambda
         else:
             self._lnLambda= False
         self._amp*= 4.*numpy.pi
         self._force_hash= None
+        self.hasC= _check_c(self._dens_pot,dens=True)
         return None
 
     def GMs(self,gms):
@@ -263,3 +283,31 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         if new_hash != self._force_hash:
             self._calc_force(R,phi,z,v,t)
         return self._cached_force*v[2]
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict= copy.copy(self.__dict__)
+        # rm lambda function
+        del pdict['_dens']
+        if self._sigmar_kwarg is None:
+            # because an object set up with sigmar = user-provided function
+            # cannot typically be picked, disallow this explicitly
+            # (so if it can, everything should be fine; if not, pickling error)
+            del pdict['sigmar_orig']
+        return pdict
+
+    def __setstate__(self,pdict):
+        self.__dict__= pdict
+        # Re-setup _dens
+        self._dens=\
+            lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
+                                                      R,z,phi=phi,t=t,
+                                                      use_physical=False)
+        # Re-setup sigmar_orig
+        if self._dens_kwarg is None and self._sigmar_kwarg is None:
+            self.sigmar_orig= lambda x: _INVSQRTTWO
+        else:
+            from ..df import jeans
+            self.sigmar_orig= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
+                                                     use_physical=False)
+        return None

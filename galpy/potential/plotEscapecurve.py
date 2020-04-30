@@ -2,9 +2,9 @@ from __future__ import division, print_function
 
 import os
 import pickle
-import numpy as nu
-import galpy.util.bovy_plot as plot
-from galpy.util.bovy_conversion import physical_conversion,\
+import numpy
+from ..util import bovy_plot as plot
+from ..util.bovy_conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:
@@ -92,7 +92,7 @@ def plotEscapecurve(Pot,*args,**kwargs):
         Rs= pickle.load(savefile)
         savefile.close()
     else:
-        Rs= nu.linspace(Rrange[0],Rrange[1],grid)
+        Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
         esccurve= calcEscapecurve(Pot,Rs)
         if not savefilename == None:
             print("Writing savefile "+savefilename+" ...")
@@ -113,14 +113,14 @@ def plotEscapecurve(Pot,*args,**kwargs):
         kwargs['xrange']= Rrange
     if not 'yrange' in kwargs:
         kwargs['yrange']=\
-            [0.,1.2*nu.amax(esccurve[True^nu.isnan(esccurve)])]
+            [0.,1.2*numpy.amax(esccurve[True^numpy.isnan(esccurve)])]
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)
     return plot.bovy_plot(Rs,esccurve,*args,
                           **kwargs)
 
-def calcEscapecurve(Pot,Rs):
+def calcEscapecurve(Pot,Rs,t=0.):
     """
     NAME:
        calcEscapecurve
@@ -131,6 +131,9 @@ def calcEscapecurve(Pot,Rs):
        Pot - Potential or list of Potential instances
 
        Rs - (array of) radius(i)
+
+       t - instantaneous time (optional)
+
     OUTPUT:
        array of v_esc
     HISTORY:
@@ -144,15 +147,15 @@ def calcEscapecurve(Pot,Rs):
         grid= len(Rs)
     except TypeError:
         grid=1
-        Rs= nu.array([Rs])
-    esccurve= nu.zeros(grid)
+        Rs= numpy.array([Rs])
+    esccurve= numpy.zeros(grid)
     for ii in range(grid):
-        esccurve[ii]= vesc(Pot,Rs[ii],use_physical=False)
+        esccurve[ii]= vesc(Pot,Rs[ii],t=t,use_physical=False)
     return esccurve
 
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
-def vesc(Pot,R):
+def vesc(Pot,R,t=0.):
     """
 
     NAME:
@@ -169,6 +172,8 @@ def vesc(Pot,R):
 
        R - Galactocentric radius (can be Quantity)
 
+       t - time (optional; can be Quantity)
+
     OUTPUT:
 
        escape velocity
@@ -178,12 +183,12 @@ def vesc(Pot,R):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from galpy.potential import evaluateplanarPotentials
-    from galpy.potential import PotentialError
+    from ..potential import evaluateplanarPotentials
+    from ..potential import PotentialError
     try:
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
+        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
     except PotentialError:
-        from galpy.potential import RZToplanarPotential
+        from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
-        return nu.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,use_physical=False)-evaluateplanarPotentials(Pot,R,use_physical=False)))
+        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
         

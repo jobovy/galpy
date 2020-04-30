@@ -5,12 +5,18 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <bovy_coords.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
+#include <leung_dop853.h>
+#include <integrateFullOrbit.h>
 //Potentials
 #include <galpy_potentials.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+#ifndef ORBITS_CHUNKSIZE
+#define ORBITS_CHUNKSIZE 1
 #endif
 //Macros to export functions in DLL on different OS
 #if defined(_WIN32)
@@ -30,6 +36,7 @@ void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
+void initPlanarMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
 */
@@ -210,23 +217,44 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 2;
       break;
-    case 21: //TriaxialHernquistPotential, lots of arguments
-      potentialArgs->potentialEval= &TriaxialHernquistPotentialEval;
-      potentialArgs->planarRforce= &TriaxialHernquistPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &TriaxialHernquistPotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
-      break;
-    case 22: //TriaxialNFWPotential, lots of arguments
-      potentialArgs->potentialEval= &TriaxialNFWPotentialEval;
-      potentialArgs->planarRforce= &TriaxialNFWPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &TriaxialNFWPotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
-      break;
-    case 23: //TriaxialJaffePotential, lots of arguments
-      potentialArgs->potentialEval= &TriaxialJaffePotentialEval;
-      potentialArgs->planarRforce= &TriaxialJaffePotentialPlanarRforce;
-      potentialArgs->planarphiforce= &TriaxialJaffePotentialPlanarphiforce;
-      potentialArgs->nargs= (int) (21 + 2 * *(*pot_args+14));
+    case 21: // TriaxialHernquistPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialHernquistPotentialpsi;
+      potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
+      break;    
+    case 22: // TriaxialNFWPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialNFWPotentialpsi;
+      potentialArgs->mdens= &TriaxialNFWPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
+      break;    
+    case 23: // TriaxialJaffePotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialJaffePotentialpsi;
+      potentialArgs->mdens= &TriaxialJaffePotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
       break;    
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
@@ -273,6 +301,48 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &HenonHeilesPotentialRphideriv;
       potentialArgs->nargs= 1;
       break;
+    case 30: // PerfectEllipsoidPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
+      potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
+      potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
+      break;
+    // 31: KGPotential
+    // 32: IsothermalDiskPotential
+    case 33: //DehnenCoreSphericalpotential
+      potentialArgs->potentialEval= &DehnenCoreSphericalPotentialEval;
+      potentialArgs->planarRforce= &DehnenCoreSphericalPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &DehnenCoreSphericalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 2;
+      break;
+    case 34: //DehnenSphericalpotential
+      potentialArgs->potentialEval= &DehnenSphericalPotentialEval;
+      potentialArgs->planarRforce= &DehnenSphericalPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &DehnenSphericalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 3;
+      break;
+    case 35: //HomogeneousSpherePotential, 3 arguments
+      potentialArgs->potentialEval= &HomogeneousSpherePotentialEval;
+      potentialArgs->planarRforce= &HomogeneousSpherePotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &HomogeneousSpherePotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      potentialArgs->nargs= 3;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -281,7 +351,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &DehnenSmoothWrapperPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &DehnenSmoothWrapperPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &DehnenSmoothWrapperPotentialPlanarRphideriv;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->nargs= (int) 4;
       break;
     case -2: //SolidBodyRotationWrapperPotential
       potentialArgs->planarRforce= &SolidBodyRotationWrapperPotentialPlanarRforce;
@@ -307,7 +377,13 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRphideriv= &GaussianAmplitudeWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 3;
       break;
+    case -6: //MovingObjectPotential
+      potentialArgs->planarRforce= &MovingObjectPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &MovingObjectPotentialPlanarphiforce;
+      potentialArgs->nargs= (int) 3;
+      break;
     }
+    int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -317,6 +393,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 potentialArgs->wrappedPotentialArg,
 			 pot_type,pot_args);
     }
+    if (setupSplines) initPlanarMovingObjectSplines(potentialArgs, pot_args);
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
@@ -327,7 +404,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
   }
   potentialArgs-= npot;
 }
-EXPORT void integratePlanarOrbit(double *yo,
+EXPORT void integratePlanarOrbit(int nobj,
+				 double *yo,
 				 int nt, 
 				 double *t,
 				 int npot,
@@ -340,9 +418,21 @@ EXPORT void integratePlanarOrbit(double *yo,
 				 int * err,
 				 int odeint_type){
   //Set up the forces, first count
+  int ii,jj;
   int dim;
-  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs(npot,potentialArgs,&pot_type,&pot_args);
+  int max_threads;
+  int * thread_pot_type;
+  double * thread_pot_args;
+  max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
+  // Because potentialArgs may cache, safest to have one / thread
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+  for (ii=0; ii < max_threads; ii++) {
+    thread_pot_type= pot_type; // need to make thread-private pointers, bc
+    thread_pot_args= pot_args; // these pointers are changed in parse_...
+    parse_leapFuncArgs(npot,potentialArgs+ii*npot,
+      &thread_pot_type,&thread_pot_args);
+  }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -385,11 +475,25 @@ EXPORT void integratePlanarOrbit(double *yo,
     odeint_deriv_func= &evalPlanarRectDeriv;
     dim= 4;
     break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalPlanarRectDeriv;
+    dim= 4;
+    break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
+  for (ii=0; ii < nobj; ii++) {
+    polar_to_rect_galpy(yo+4*ii);
+    odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t,
+		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
+		result+4*nt*ii,err+ii);
+    for (jj= 0; jj < nt; jj++)
+      rect_to_polar_galpy(result+4*jj+4*nt*ii);
+  }
   //Free allocated memory
-  free_potentialArgs(npot,potentialArgs);
+#pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++)
+    free_potentialArgs(npot,potentialArgs+ii*npot);
   free(potentialArgs);
   //Done!
 }
@@ -434,6 +538,11 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
+    dim= 8;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
     odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
     dim= 8;
     break;
@@ -536,4 +645,40 @@ void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
     -cosphi*cosphi/R/R*phi2deriv;
   *a++= dFxdx * *(q+4) + dFxdy * *(q+5);
   *a= dFydx * *(q+4) + dFydy * *(q+5);
+}
+
+void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double ** pot_args){
+  gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
+  gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
+  int nPts = (int) **pot_args;
+
+  gsl_spline *x_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+  gsl_spline *y_spline = gsl_spline_alloc(gsl_interp_cspline, nPts);
+
+  double * t_arr = *pot_args+1;
+  double * x_arr = t_arr+1*nPts;
+  double * y_arr = t_arr+2*nPts;
+
+  double * t= (double *) malloc ( nPts * sizeof (double) );
+  double tf = *(t_arr+3*nPts+2);
+  double to = *(t_arr+3*nPts+1);
+
+  int ii;
+  for (ii=0; ii < nPts; ii++)
+    *(t+ii) = (t_arr[ii]-to)/(tf-to);
+
+  gsl_spline_init(x_spline, t, x_arr, nPts);
+  gsl_spline_init(y_spline, t, y_arr, nPts);
+
+  potentialArgs->nspline1d= 2;
+  potentialArgs->spline1d= (gsl_spline **) malloc ( 2*sizeof ( gsl_spline *) );
+  potentialArgs->acc1d= (gsl_interp_accel **) \
+    malloc ( 2 * sizeof ( gsl_interp_accel * ) );
+  *potentialArgs->spline1d = x_spline;
+  *potentialArgs->acc1d = x_accel_ptr;
+  *(potentialArgs->spline1d+1)= y_spline;
+  *(potentialArgs->acc1d+1)= y_accel_ptr;
+
+  *pot_args = *pot_args+ (int) (1+3*nPts);
+  free(t);
 }

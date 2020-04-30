@@ -175,3 +175,14 @@ double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
   else
     return amp * 2 * M_PI * alpha * beta * out;
 }
+double DoubleExponentialDiskPotentialDens(double R,double z, double phi,
+					  double t,
+					  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double alpha= *args++;
+  double beta= *args;
+  // calculate density
+  return amp * exp ( - alpha * R - beta * fabs ( z ) );
+}

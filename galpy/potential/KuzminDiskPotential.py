@@ -5,7 +5,7 @@
 #               Phi(R, z)=  ---------------------------
 #                            \sqrt{R^2 + (a + |z|)^2} 
 ###############################################################################
-import numpy as nu
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -15,6 +15,8 @@ class KuzminDiskPotential(Potential):
     .. math::
 
         \\Phi(R,z) = -\\frac{\\mathrm{amp}}{\\sqrt{R^2 + (a + |z|)^2}}
+
+    with :math:`\\mathrm{amp} = GM` the total mass.
     """
     def __init__(self, amp=1., a=1. ,normalize=False, ro=None,vo=None):
         """
@@ -28,7 +30,7 @@ class KuzminDiskPotential(Potential):
 
         INPUT:
 
-            amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
+            amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass density or Gxmass density
 
             a - scale length (can be Quantity)
     
@@ -109,7 +111,7 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-09 - Written - Aladdin 
         """
-        return -nu.sign(z) * self._denom(R,z)**-1.5 * (self._a + nu.fabs(z))
+        return -numpy.sign(z) * self._denom(R,z)**-1.5 * (self._a + numpy.fabs(z))
         
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -146,7 +148,7 @@ class KuzminDiskPotential(Potential):
            2016-05-13 - Written - Aladdin 
         """
         a = self._a
-        return self._denom(R, z)**-1.5 - 3. * (a + nu.fabs(z))**2. * self._denom(R, z)**-2.5 
+        return self._denom(R, z)**-1.5 - 3. * (a + numpy.fabs(z))**2. * self._denom(R, z)**-2.5 
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -164,8 +166,26 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-13 - Written - Aladdin 
         """
-        return -3 * nu.sign(z) * R * (self._a + nu.fabs(z)) *self._denom(R, z)**-2.5 
+        return -3 * numpy.sign(z) * R * (self._a + numpy.fabs(z)) *self._denom(R, z)**-2.5 
        
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Sigma (R,z)
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return self._a*(R**2+self._a**2)**-1.5/2./numpy.pi
+
     def _denom(self, R, z):
         """
         NAME:
@@ -181,4 +201,4 @@ class KuzminDiskPotential(Potential):
         HISTORY:
            2016-05-09 - Written - Aladdin 
         """
-        return (R**2. + (self._a + nu.fabs(z))**2.)
+        return (R**2. + (self._a + numpy.fabs(z))**2.)

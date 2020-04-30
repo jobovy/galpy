@@ -17,7 +17,7 @@
 #                         
 #############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2013, Jo Bovy
+#Copyright (c) 2010 - 2019, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -45,12 +45,10 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import re
-import math as m
-import scipy as sc
+import numpy
 from scipy import special
 from scipy import interpolate
 from scipy import ndimage
-import matplotlib
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
 import matplotlib.cm as cm
@@ -58,8 +56,8 @@ from matplotlib import rc
 from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
-from mpl_toolkits.mplot3d import Axes3D
-from galpy.util.config import __config__
+from mpl_toolkits.mplot3d import Axes3D # Necessary for 3D plotting (projection = '3d')
+from ..util.config import __config__
 if __config__.getboolean('plot','seaborn-bovy-defaults'):
     try:
         import seaborn as sns
@@ -70,7 +68,7 @@ if __config__.getboolean('plot','seaborn-bovy-defaults'):
                        'ytick.direction': u'in',
                        'axes.labelsize': 18.0,
                        'axes.titlesize': 18.0,
-                       'figure.figsize': sc.array([ 6.64,  4.  ]),
+                       'figure.figsize': numpy.array([ 6.64,  4.  ]),
                        'grid.linewidth': 2.0,
                        'legend.fontsize': 18.0,
                        'lines.linewidth': 2.0,
@@ -170,7 +168,7 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     _add_axislabels(xlabel,ylabel)
     if not 'range' in kwargs and not xrangeSet:
         if isinstance(x,list):
-            xlimits=(sc.array(x).min(),sc.array(x).max())
+            xlimits=(numpy.array(x).min(),numpy.array(x).max())
         else:
             pyplot.xlim(x.min(),x.max())
     elif xrangeSet:
@@ -257,10 +255,10 @@ def bovy_plot(*args,**kwargs):
         bins= kwargs['bins']
         kwargs.pop('bins')
     elif onedhists:
-        if isinstance(args[0],sc.ndarray):
-            bins= round(0.3*sc.sqrt(args[0].shape[0]))
+        if isinstance(args[0],numpy.ndarray):
+            bins= round(0.3*numpy.sqrt(args[0].shape[0]))
         elif isinstance(args[0],list):
-            bins= round(0.3*sc.sqrt(len(args[0])))
+            bins= round(0.3*numpy.sqrt(len(args[0])))
         else:
             bins= 30
     if onedhists:
@@ -292,19 +290,19 @@ def bovy_plot(*args,**kwargs):
     xlimits= kwargs.pop('xrange',None)
     if xlimits is None:
         if isinstance(args[0],list):
-            xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
+            xlimits=(numpy.array(args[0]).min(),numpy.array(args[0]).max())
         else:
             xlimits=(args[0].min(),args[0].max())
     ylimits= kwargs.pop('yrange',None)
     if ylimits is None:
         if isinstance(args[1],list):
-            ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
+            ylimits=(numpy.array(args[1]).min(),numpy.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
     climits= kwargs.pop('crange',None)
     if climits is None and scatter:
         if 'c' in kwargs and isinstance(kwargs['c'],list):
-            climits=(sc.array(kwargs['c']).min(),sc.array(kwargs['c']).max())
+            climits=(numpy.array(kwargs['c']).min(),numpy.array(kwargs['c']).max())
         elif 'c' in kwargs:
             climits=(kwargs['c'].min(),kwargs['c'].max())
         else:
@@ -367,8 +365,8 @@ def bovy_plot(*args,**kwargs):
                                         ec=onedhistec)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
-    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
-    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+    axHistx.set_ylim( 0, 1.2*numpy.amax(histx))
+    axHisty.set_xlim( 0, 1.2*numpy.amax(histy))
     return (axScatter,axHistx,axHisty)
 
 def bovy_plot3d(*args,**kwargs):
@@ -413,21 +411,21 @@ def bovy_plot3d(*args,**kwargs):
         xlimits= kwargs.pop('xrange')
     else:
         if isinstance(args[0],list):
-            xlimits=(sc.array(args[0]).min(),sc.array(args[0]).max())
+            xlimits=(numpy.array(args[0]).min(),numpy.array(args[0]).max())
         else:
             xlimits=(args[0].min(),args[0].max())
     if 'yrange' in kwargs:
         ylimits= kwargs.pop('yrange')
     else:
         if isinstance(args[1],list):
-            ylimits=(sc.array(args[1]).min(),sc.array(args[1]).max())
+            ylimits=(numpy.array(args[1]).min(),numpy.array(args[1]).max())
         else:
             ylimits=(args[1].min(),args[1].max())
     if 'zrange' in kwargs:
         zlimits= kwargs.pop('zrange')
     else:
         if isinstance(args[2],list):
-            zlimits=(sc.array(args[2]).min(),sc.array(args[2]).max())
+            zlimits=(numpy.array(args[2]).min(),numpy.array(args[2]).max())
         else:
             zlimits=(args[1].min(),args[2].max())
     out= pyplot.plot(*args,**kwargs)
@@ -559,11 +557,11 @@ def bovy_dens2d(X,**kwargs):
         kwargs.pop('levels')
     elif contours:
         if 'cntrmass' in kwargs and kwargs['cntrmass']:
-            levels= sc.linspace(0.,1.,_DEFAULTNCNTR)
-        elif True in sc.isnan(sc.array(X)):
-            levels= sc.linspace(sc.nanmin(X),sc.nanmax(X),_DEFAULTNCNTR)
+            levels= numpy.linspace(0.,1.,_DEFAULTNCNTR)
+        elif True in numpy.isnan(numpy.array(X)):
+            levels= numpy.linspace(numpy.nanmin(X),numpy.nanmax(X),_DEFAULTNCNTR)
         else:
-            levels= sc.linspace(sc.amin(X),sc.amax(X),_DEFAULTNCNTR)
+            levels= numpy.linspace(numpy.amin(X),numpy.amax(X),_DEFAULTNCNTR)
     cntrmass= kwargs.pop('cntrmass',False)
     conditional= kwargs.pop('conditional',False)
     cntrcolors= kwargs.pop('cntrcolors','k')
@@ -604,7 +602,7 @@ def bovy_dens2d(X,**kwargs):
     ax=pyplot.gca()
     ax.set_autoscale_on(False)
     if conditional:
-        plotthis= X/sc.tile(sc.sum(X,axis=0),(X.shape[1],1))
+        plotthis= X/numpy.tile(numpy.sum(X,axis=0),(X.shape[1],1))
     else:
         plotthis= X
     if not justcontours:
@@ -616,7 +614,7 @@ def bovy_dens2d(X,**kwargs):
     #Add colorbar
     if cb and not justcontours:
         if shrink is None:
-            shrink= sc.amin([float(kwargs.pop('aspect',1.))*0.87,1.])
+            shrink= numpy.amin([float(kwargs.pop('aspect',1.))*0.87,1.])
         CB1= pyplot.colorbar(out,shrink=shrink)
         if not zlabel is None:
             if zlabel[0] != '$':
@@ -629,12 +627,12 @@ def bovy_dens2d(X,**kwargs):
         origin= kwargs.get('origin',None)
         if cntrmass:
             #Sum from the top down!
-            plotthis[sc.isnan(plotthis)]= 0.
-            sortindx= sc.argsort(plotthis.flatten())[::-1]
-            cumul= sc.cumsum(sc.sort(plotthis.flatten())[::-1])/sc.sum(plotthis.flatten())
-            cntrThis= sc.zeros(sc.prod(plotthis.shape))
+            plotthis[numpy.isnan(plotthis)]= 0.
+            sortindx= numpy.argsort(plotthis.flatten())[::-1]
+            cumul= numpy.cumsum(numpy.sort(plotthis.flatten())[::-1])/numpy.sum(plotthis.flatten())
+            cntrThis= numpy.zeros(numpy.prod(plotthis.shape))
             cntrThis[sortindx]= cumul
-            cntrThis= sc.reshape(cntrThis,plotthis.shape)
+            cntrThis= numpy.reshape(cntrThis,plotthis.shape)
         else:
             cntrThis= plotthis
         if contours:
@@ -662,20 +660,20 @@ def bovy_dens2d(X,**kwargs):
             return cntrThis
         else:
             return out
-    histx= sc.nansum(X.T,axis=1)*m.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
-    histy= sc.nansum(X.T,axis=0)*m.fabs(xlimits[1]-xlimits[0])/X.shape[0]
-    histx[sc.isnan(histx)]= 0.
-    histy[sc.isnan(histy)]= 0.
+    histx= numpy.nansum(X.T,axis=1)*numpy.fabs(ylimits[1]-ylimits[0])/X.shape[1] #nansum bc nan is *no dens value*
+    histy= numpy.nansum(X.T,axis=0)*numpy.fabs(xlimits[1]-xlimits[0])/X.shape[0]
+    histx[numpy.isnan(histx)]= 0.
+    histy[numpy.isnan(histy)]= 0.
     dx= (extent[1]-extent[0])/float(len(histx))
-    axHistx.plot(sc.linspace(extent[0]+dx,extent[1]-dx,len(histx)),histx,
+    axHistx.plot(numpy.linspace(extent[0]+dx,extent[1]-dx,len(histx)),histx,
                  drawstyle='steps-mid',color=onedhistcolor)
     dy= (extent[3]-extent[2])/float(len(histy))
-    axHisty.plot(histy,sc.linspace(extent[2]+dy,extent[3]-dy,len(histy)),
+    axHisty.plot(histy,numpy.linspace(extent[2]+dy,extent[3]-dy,len(histy)),
                  drawstyle='steps-mid',color=onedhistcolor)
     axHistx.set_xlim( axScatter.get_xlim() )
     axHisty.set_ylim( axScatter.get_ylim() )
-    axHistx.set_ylim( 0, 1.2*sc.amax(histx))
-    axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+    axHistx.set_ylim( 0, 1.2*numpy.amax(histx))
+    axHisty.set_xlim( 0, 1.2*numpy.amax(histy))
     if retCumImage:
         return cntrThis
     elif retAxes:
@@ -883,17 +881,17 @@ def scatterplot(x,y,*args,**kwargs):
     if 'xrange' in kwargs:
         xrange= kwargs.pop('xrange')
     else:
-        if isinstance(x,list): xrange=[sc.amin(x),sc.amax(x)]
+        if isinstance(x,list): xrange=[numpy.amin(x),numpy.amax(x)]
         else: xrange=[x.min(),x.max()]
     if 'yrange' in kwargs:
         yrange= kwargs.pop('yrange')
     else:
-        if isinstance(y,list): yrange=[sc.amin(y),sc.amax(y)]
+        if isinstance(y,list): yrange=[numpy.amin(y),numpy.amax(y)]
         else: yrange=[y.min(),y.max()]
     ndata= len(x)
-    bins= kwargs.pop('bins',round(0.3*sc.sqrt(ndata)))
+    bins= kwargs.pop('bins',round(0.3*numpy.sqrt(ndata)))
     weights= kwargs.pop('weights',None)
-    levels= kwargs.pop('levels',special.erf(sc.arange(1,4)/sc.sqrt(2.)))
+    levels= kwargs.pop('levels',special.erf(numpy.arange(1,4)/numpy.sqrt(2.)))
     aspect= kwargs.pop('aspect',(xrange[1]-xrange[0])/(yrange[1]-yrange[0]))
     conditional= kwargs.pop('conditional',False)
     contours= kwargs.pop('contours',True)
@@ -911,7 +909,7 @@ def scatterplot(x,y,*args,**kwargs):
     onedhistec= kwargs.pop('onedhistec','k')
     onedhistls= kwargs.pop('onedhistls','solid')
     onedhistlw= kwargs.pop('onedhistlw',None)
-    onedhistsbins= kwargs.pop('onedhistsbins',round(0.3*sc.sqrt(ndata)))
+    onedhistsbins= kwargs.pop('onedhistsbins',round(0.3*numpy.sqrt(ndata)))
     overplot= kwargs.pop('overplot',False)
     gcf= kwargs.pop('gcf',False)
     cmap= kwargs.pop('cmap',cm.gist_yarg)
@@ -943,14 +941,14 @@ def scatterplot(x,y,*args,**kwargs):
             axHisty.xaxis.set_major_formatter(nullfmt)
             axHisty.yaxis.set_major_formatter(nullfmt)
         fig.sca(axScatter)
-    data= sc.array([x,y]).T
+    data= numpy.array([x,y]).T
     if 'hist' in kwargs and 'edges' in kwargs:
         hist=kwargs['hist']
         kwargs.pop('hist')
         edges=kwargs['edges']
         kwargs.pop('edges')
     else:
-        hist, edges= sc.histogramdd(data,bins=bins,range=[xrange,yrange],
+        hist, edges= numpy.histogramdd(data,bins=bins,range=[xrange,yrange],
                                     weights=weights)
     if contours:
         cumimage= bovy_dens2d(hist.T,contours=contours,levels=levels,
@@ -982,18 +980,18 @@ def scatterplot(x,y,*args,**kwargs):
     xedge= edges[0]
     for ii in range(len(xedge)-1):
         binxs.append((xedge[ii]+xedge[ii+1])/2.)
-    binxs= sc.array(binxs)
+    binxs= numpy.array(binxs)
     binys= []
     yedge= edges[1]
     for ii in range(len(yedge)-1):
         binys.append((yedge[ii]+yedge[ii+1])/2.)
-    binys= sc.array(binys)
+    binys= numpy.array(binys)
     cumInterp= interpolate.RectBivariateSpline(binxs,binys,cumimage.T,
                                                kx=1,ky=1)
     cums= []
     for ii in range(len(x)):
         cums.append(cumInterp(x[ii],y[ii])[0,0])
-    cums= sc.array(cums)
+    cums= numpy.array(cums)
     plotx= x[cums > levels[-1]]
     ploty= y[cums > levels[-1]]
     if not len(plotx) == 0:
@@ -1031,10 +1029,10 @@ def scatterplot(x,y,*args,**kwargs):
                                             lw=onedhistlw)
     if onedhistx and not overplot:
         axHistx.set_xlim( axScatter.get_xlim() )
-        axHistx.set_ylim( 0, 1.2*sc.amax(histx))
+        axHistx.set_ylim( 0, 1.2*numpy.amax(histx))
     if onedhisty and not overplot:
         axHisty.set_ylim( axScatter.get_ylim() )
-        axHisty.set_xlim( 0, 1.2*sc.amax(histy))
+        axHisty.set_xlim( 0, 1.2*numpy.amax(histy))
     if not onedhistx: axHistx= None
     if not onedhisty: axHisty= None
     if retAxes:
@@ -1122,13 +1120,13 @@ class GalPolarAxes(PolarAxes):
 
     class GalPolarTransform(PolarAxes.PolarTransform):
         def transform(self, tr):
-            xy   = sc.zeros(tr.shape, sc.float_)
+            xy   = numpy.zeros(tr.shape, numpy.float_)
             t    = tr[:, 0:1]
             r    = tr[:, 1:2]
             x    = xy[:, 0:1]
             y    = xy[:, 1:2]
-            x[:] = r * sc.cos(t)
-            y[:] = -r * sc.sin(t)
+            x[:] = r * numpy.cos(t)
+            y[:] = -r * numpy.sin(t)
             return xy
 
         transform_non_affine = transform
@@ -1140,9 +1138,9 @@ class GalPolarAxes(PolarAxes):
         def transform(self, xy):
             x = xy[:, 0:1]
             y = xy[:, 1:]
-            r = sc.sqrt(x*x + y*y)
-            theta = sc.arctan2(y, x)
-            return sc.concatenate((theta, r), 1)
+            r = numpy.sqrt(x*x + y*y)
+            theta = numpy.arctan2(y, x)
+            return numpy.concatenate((theta, r), 1)
 
         def inverted(self):
             return GalPolarAxes.GalPolarTransform()
@@ -1162,7 +1160,7 @@ class GalPolarAxes(PolarAxes):
             self._theta_label1_position +
             self._xaxis_transform)
         self._yaxis_transform = (
-            Affine2D().scale(sc.pi * 2.0, 1.0) +
+            Affine2D().scale(numpy.pi * 2.0, 1.0) +
             self.transData)
         self._yaxis_text1_transform = (
             self._r_label1_position +

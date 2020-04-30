@@ -1,4 +1,4 @@
-from . import Orbit
+from . import Orbits
 
 #
 # Functions
@@ -9,5 +9,4 @@ from . import Orbit
 #
 # Classes
 #
-Orbit= Orbit.Orbit
-
+Orbit= Orbits.Orbit

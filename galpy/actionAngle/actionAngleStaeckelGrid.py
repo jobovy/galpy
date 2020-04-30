@@ -16,12 +16,10 @@ from . import actionAngleStaeckel
 from .actionAngle import actionAngle
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
-import galpy.potential
-from galpy.potential.Potential import _evaluatePotentials
-from galpy.potential.Potential import flatten as flatten_potential
-from galpy.util import multi, bovy_coords
-from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input
+from .. import potential
+from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import flatten as flatten_potential
+from ..util import multi, bovy_coords
 _PRINTOUTSIDEGRID= False
 _APY_LOADED= True
 try:
@@ -89,13 +87,12 @@ class actionAngleStaeckelGrid(actionAngle):
         self._Lzmin= 0.01
         self._Lzs= numpy.linspace(self._Lzmin,
                                   self._Rmax\
-                                      *galpy.potential.vcirc(self._pot,
-                                                             self._Rmax),
+                                      *potential.vcirc(self._pot,self._Rmax),
                                   nLz)
         self._Lzmax= self._Lzs[-1]
         self._nLz= nLz
         #Calculate E_c(R=RL), energy of circular orbit
-        self._RL= numpy.array([galpy.potential.rl(self._pot,l) for l in self._Lzs])
+        self._RL= numpy.array([potential.rl(self._pot,l) for l in self._Lzs])
         self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                  self._RL,k=3)
         self._ERL= _evaluatePotentials(self._pot,self._RL,
@@ -106,7 +103,7 @@ class actionAngleStaeckelGrid(actionAngle):
                                                                   numpy.log(-(self._ERL-self._ERLmax)),k=3)
         self._Ramax= 200./8.
         self._ERa= _evaluatePotentials(self._pot,self._Ramax,0.) +self._Lzs**2./2./self._Ramax**2.
-        #self._EEsc= numpy.array([self._ERL[ii]+galpy.potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
+        #self._EEsc= numpy.array([self._ERL[ii]+potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
         self._ERamax= numpy.amax(self._ERa)+1.
         self._ERaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
                                                                   numpy.log(-(self._ERa-self._ERamax)),k=3)
@@ -125,7 +122,7 @@ class actionAngleStaeckelGrid(actionAngle):
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
         thisy= (numpy.tile(y,(nLz,1))).flatten()
         thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
-        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+        if isinstance(self._pot,potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             u0pot= self._pot._origPot
         else:
             u0pot= self._pot
@@ -168,7 +165,7 @@ class actionAngleStaeckelGrid(actionAngle):
                                          thisLzs/thisR, #vT
                                          numpy.zeros(len(thisR)), #z
                                          thisv*numpy.sin(thispsi)) #vz
-        if isinstance(self._pot,galpy.potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
+        if isinstance(self._pot,potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             #Interpolated potentials have problems with extreme orbits
             indx= (mjr == 9999.99)
             indx+= (mjz == 9999.99)

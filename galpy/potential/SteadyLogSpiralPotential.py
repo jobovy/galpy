@@ -1,12 +1,12 @@
 ###############################################################################
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
-import math
-from galpy.util import bovy_conversion
+import numpy
+from ..util import bovy_conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-_degtorad= math.pi/180.
+_degtorad= numpy.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
     
@@ -19,7 +19,7 @@ class SteadyLogSpiralPotential(planarPotential):
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
-                 alpha=-7.,m=2,gamma=math.pi/4.,p=None,
+                 alpha=-7.,m=2,gamma=numpy.pi/4.,p=None,
                  tform=None,tsteady=None,ro=None,vo=None):
         """
         NAME:
@@ -77,10 +77,10 @@ class SteadyLogSpiralPotential(planarPotential):
         self._m= m
         self._gamma= gamma
         if not p is None:
-            self._alpha= self._m/math.tan(p)
+            self._alpha= self._m/numpy.tan(p)
         else:
             self._alpha= alpha
-        self._ts= 2.*math.pi/self._omegas
+        self._ts= 2.*numpy.pi/self._omegas
         if not tform is None:
             self._tform= tform*self._ts
         else:
@@ -118,7 +118,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return smooth*self._A/self._alpha*math.cos(self._alpha*math.log(R)
+        return smooth*self._A/self._alpha*numpy.cos(self._alpha*numpy.log(R)
                                                    -self._m*(phi-self._omegas*t
                                                              -self._gamma))
 
@@ -148,7 +148,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return smooth*self._A/R*math.sin(self._alpha*math.log(R)
+        return smooth*self._A/R*numpy.sin(self._alpha*numpy.log(R)
                                          -self._m*(phi-self._omegas*t
                                                    -self._gamma))
        
@@ -178,7 +178,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth= 1.
         else:
             smooth= 1.
-        return -smooth*self._A/self._alpha*self._m*math.sin(self._alpha*math.log(R)
+        return -smooth*self._A/self._alpha*self._m*numpy.sin(self._alpha*numpy.log(R)
                                                            -self._m*(phi
                                                                      -self._omegas*t
                                                                      -self._gamma))

@@ -1,14 +1,16 @@
 from __future__ import division, print_function
 
 import os
+import copy
 import pickle
-import numpy as nu
+import numpy
 from scipy import integrate
-import galpy.util.bovy_plot as plot
-from galpy.util import config
-from galpy.util.bovy_conversion import physical_conversion,\
-    potential_physical_input, freq_in_Gyr
+from ..util import bovy_plot as plot
+from ..util import config
+from ..util.bovy_conversion import physical_conversion,\
+    potential_physical_input, freq_in_Gyr, physical_compatible
 from .Potential import Potential, PotentialError, lindbladR, flatten
+from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
 _APY_LOADED= True
@@ -25,6 +27,7 @@ class planarPotential(object):
         self.isRZ= False
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
         # Parse ro and vo
         if ro is None:
             self._ro= config.__config__.getfloat('normalization','ro')
@@ -43,6 +46,86 @@ class planarPotential(object):
             self._vo= vo
             self._voSet= True
         return None
+
+    def __mul__(self,b):
+        """
+        NAME:
+
+           __mul__
+
+        PURPOSE:
+
+           Multiply a planarPotential's amplitude by a number
+
+        INPUT:
+
+           b - number
+
+        OUTPUT:
+
+           New instance with amplitude = (old amplitude) x b
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        if not isinstance(b,(int,float)):
+            raise TypeError("Can only multiply a planarPotential instance with a number")
+        out= copy.deepcopy(self)
+        out._amp*= b
+        return out
+    # Similar functions
+    __rmul__= __mul__
+    def __div__(self,b): return self.__mul__(1./b)
+    __truediv__= __div__
+
+    def __add__(self,b):
+        """
+        NAME:
+
+           __add__
+
+        PURPOSE:
+
+           Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
+
+        INPUT:
+
+           b - planarPotential instance or a list thereof
+
+        OUTPUT:
+
+           List of planarPotential instances that represents the combined potential
+
+        HISTORY:
+
+           2019-01-27 - Written - Bovy (UofT)
+
+        """
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],(Potential,planarPotential)):
+            raise TypeError("""Can only combine galpy Potential"""
+                            """/planarPotential objects with """
+                            """other such objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        if isinstance(b,list):
+            return [self]+b
+        else:
+            return [self,b]
+    # Define separately to keep order
+    def __radd__(self,b):
+        from ..potential import flatten as flatten_pot
+        if not isinstance(flatten_pot([b])[0],(Potential,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        # If we get here, b has to be a list
+        return b+[self]
 
     def turn_physical_off(self):
         """
@@ -95,14 +178,16 @@ class planarPotential(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -403,7 +488,7 @@ class planarAxiPotential(planarPotential):
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vcirc(self,R,phi=None):
+    def vcirc(self,R,phi=None,t=0.):
         """
         
         NAME:
@@ -422,6 +507,8 @@ class planarAxiPotential(planarPotential):
         
             phi= (None) azimuth to use for non-axisymmetric potentials
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
         
             circular rotation velocity
@@ -433,11 +520,11 @@ class planarAxiPotential(planarPotential):
             2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return nu.sqrt(R*-self.Rforce(R,phi=phi,use_physical=False))
+        return numpy.sqrt(R*-self.Rforce(R,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def omegac(self,R):
+    def omegac(self,R,t=0.):
         """
         
         NAME:
@@ -453,6 +540,8 @@ class planarAxiPotential(planarPotential):
             Pot - Potential instance or list of such instances
         
             R - Galactocentric radius (can be Quantity)
+
+            t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -463,11 +552,11 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(-self.Rforce(R,use_physical=False)/R)       
+        return numpy.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)       
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
-    def epifreq(self,R):
+    def epifreq(self,R,t=0.):
         """
         
         NAME:
@@ -481,6 +570,8 @@ class planarAxiPotential(planarPotential):
         INPUT:
         
            R - Galactocentric radius (can be Quantity)
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -491,11 +582,11 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        return nu.sqrt(self.R2deriv(R,use_physical=False)
-                       -3./R*self.Rforce(R,use_physical=False))
+        return numpy.sqrt(self.R2deriv(R,t=t,use_physical=False)
+                       -3./R*self.Rforce(R,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
-    def lindbladR(self,OmegaP,m=2,**kwargs):
+    def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
         """
         
         NAME:
@@ -513,6 +604,8 @@ class planarAxiPotential(planarPotential):
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
               use m='corotation' for corotation
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
+
+           t - time (optional; can be Quantity)
         
         OUTPUT:
         
@@ -525,11 +618,11 @@ class planarAxiPotential(planarPotential):
         """
         if _APY_LOADED and isinstance(OmegaP,units.Quantity):
             OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
-        return lindbladR(self,OmegaP,m=m,use_physical=False,**kwargs)
+        return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
-    def vesc(self,R):
+    def vesc(self,R,t=0.):
         """
 
         NAME:
@@ -546,6 +639,8 @@ class planarAxiPotential(planarPotential):
 
             R - Galactocentric radius (can be Quantity)
 
+            t - time (optional; can be Quantity)
+
         OUTPUT:
 
             escape velocity
@@ -555,8 +650,8 @@ class planarAxiPotential(planarPotential):
             2011-10-09 - Written - Bovy (IAS)
 
         """
-        return nu.sqrt(2.*(self(_INF,use_physical=False)
-                           -self(R,use_physical=False)))
+        return numpy.sqrt(2.*(self(_INF,t=t,use_physical=False)
+                           -self(R,t=t,use_physical=False)))
         
     def plotRotcurve(self,*args,**kwargs):
         """
@@ -643,6 +738,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._Pot= RZPot
         self.hasC= RZPot.hasC
         self.hasC_dxdv= RZPot.hasC_dxdv
+        self.hasC_dens= RZPot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -720,6 +816,8 @@ def RZToplanarPotential(RZPot):
 
     """
     RZPot= flatten(RZPot)
+    if _isDissipative(RZPot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -760,6 +858,7 @@ class planarPotentialFromFullPotential(planarPotential):
         self._Pot= Pot
         self.hasC= Pot.hasC
         self.hasC_dxdv= Pot.hasC_dxdv
+        self.hasC_dens= Pot.hasC_dens
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
@@ -903,7 +1002,9 @@ def toPlanarPotential(Pot):
 
     """
     Pot= flatten(Pot)
-    if isinstance(Pot,list):
+    if _isDissipative(Pot):
+        raise NotImplementedError("Converting dissipative forces to 2D potentials is currently not supported")
+    elif isinstance(Pot,list):
         out= []
         for pot in Pot:
             if isinstance(pot,planarPotential):
@@ -965,7 +1066,7 @@ def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     nonAxi= _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
-    if isList and nu.all([isinstance(p,planarPotential) for p in Pot]):
+    if isList and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1022,7 +1123,7 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1078,7 +1179,7 @@ def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1131,7 +1232,7 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi")
     if isinstance(Pot,list) \
-            and nu.all([isinstance(p,planarPotential) for p in Pot]):
+            and numpy.all([isinstance(p,planarPotential) for p in Pot]):
         sum= 0.
         for pot in Pot:
             if nonAxi:
@@ -1186,7 +1287,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
     """
     axiPot= flatten(axiPot)
-    from galpy.potential import omegac, epifreq
+    from ..potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
         raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
     elif not nonaxiPot is None:
@@ -1196,10 +1297,10 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
     tepif= epifreq(axiPot,R)
     s= m*(OmegaP-omegac(axiPot,R))/tepif
     chi= sigmar**2.*k**2./tepif**2.
-    return (1.-s**2.)/nu.sin(nu.pi*s)\
-        *integrate.quad(lambda t: nu.exp(-chi*(1.+nu.cos(t)))\
-                            *nu.sin(s*t)*nu.sin(t),
-                        0.,nu.pi)[0]
+    return (1.-s**2.)/numpy.sin(numpy.pi*s)\
+        *integrate.quad(lambda t: numpy.exp(-chi*(1.+numpy.cos(t)))\
+                            *numpy.sin(s*t)*numpy.sin(t),
+                        0.,numpy.pi)[0]
 
 def plotplanarPotentials(Pot,*args,**kwargs):
     """
@@ -1273,22 +1374,22 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         savefile.close()
     else:
         if nonAxi:
-            xs= nu.linspace(xrange[0],xrange[1],gridx)
-            ys= nu.linspace(yrange[0],yrange[1],gridy)
-            potR= nu.zeros((gridx,gridy))
+            xs= numpy.linspace(xrange[0],xrange[1],gridx)
+            ys= numpy.linspace(yrange[0],yrange[1],gridy)
+            potR= numpy.zeros((gridx,gridy))
             for ii in range(gridx):
                 for jj in range(gridy):
-                    thisR= nu.sqrt(xs[ii]**2.+ys[jj]**2.)
+                    thisR= numpy.sqrt(xs[ii]**2.+ys[jj]**2.)
                     if xs[ii] >= 0.:
-                        thisphi= nu.arcsin(ys[jj]/thisR)
+                        thisphi= numpy.arcsin(ys[jj]/thisR)
                     else:
-                        thisphi= -nu.arcsin(ys[jj]/thisR)+nu.pi
+                        thisphi= -numpy.arcsin(ys[jj]/thisR)+numpy.pi
                     potR[ii,jj]= evaluateplanarPotentials(Pot,thisR,
                                                           phi=thisphi,
                                                           use_physical=False)
         else:
-            Rs= nu.linspace(Rrange[0],Rrange[1],grid)
-            potR= nu.zeros(grid)
+            Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
+            potR= numpy.zeros(grid)
             for ii in range(grid):
                 potR[ii]= evaluateplanarPotentials(Pot,Rs[ii],
                                                    use_physical=False)
@@ -1319,7 +1420,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
             kwargs['cntrls']= '-'
         ncontours= kwargs.pop('ncontours',10)
         if not 'levels' in kwargs:
-            kwargs['levels']= nu.linspace(nu.nanmin(potR),nu.nanmax(potR),ncontours)
+            kwargs['levels']= numpy.linspace(numpy.nanmin(potR),numpy.nanmax(potR),ncontours)
         return plot.bovy_dens2d(potR.T,
                                 xrange=xrange,
                                 yrange=yrange,**kwargs)

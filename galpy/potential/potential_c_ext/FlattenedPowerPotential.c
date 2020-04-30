@@ -90,3 +90,24 @@ double FlattenedPowerPotentialPlanarR2deriv(double R,double phi,
     return - amp * pow(m2,-0.5 * alpha - 1.) * ( (alpha + 1.) * R*R/m2 -1.);
   }
 }
+double FlattenedPowerPotentialDens(double R,double Z, double phi,
+				   double t,
+				   struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double alpha= *(args+1);
+  double q2= *(args+2);
+  double core2= *(args+3);
+  //Calculate density
+  if ( alpha == 0. ) 
+    return amp * M_1_PI / 4. / q2 * ( ( 2. * q2 + 1. ) * core2 + R * R 	\
+				      + ( 2. - 1. / q2 ) * Z *  Z )	\
+      * pow ( R *  R + Z * Z / q2 + core2 ,-2.);
+  else {
+    return amp * M_1_PI / 4. / q2 * ( ( 2. * q2 + 1. ) * core2 + R * R \
+				     * ( 1. - alpha * q2 ) + Z * Z    \
+				     * ( 2. - ( 1. +alpha ) / q2 ) ) \
+      * pow( R * R + Z *  Z / q2 + core2, -alpha / 2. - 2. );
+  }
+}

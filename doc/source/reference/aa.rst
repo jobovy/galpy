@@ -28,6 +28,7 @@ Specific actionAngle modules
 .. toctree::
    :maxdepth: 2
 
+   actionAngleHarmonic <aaharmonic.rst>
    actionAngleIsochrone <aaisochrone.rst>
    actionAngleSpherical <aaspherical.rst>
    actionAngleAdiabatic <aaadiabatic.rst>
@@ -51,9 +52,7 @@ Currently, only the interface to the TorusMapper code supports going from (**J**
 
    __call__ <aatcall.rst>
    Freqs <aatfreqs.rst>
-   hessianFreqs <aathessianfreqs.rst>
    xvFreqs <aatxvfreqs.rst>
-   xvJacobianFreqs <aatxvjacobianfreqs.rst>
 
 Specific actionAngle modules
 ++++++++++++++++++++++++++++++
@@ -61,4 +60,16 @@ Specific actionAngle modules
 .. toctree::
    :maxdepth: 2
 
+   actionAngleHarmonicInverse <aaharmonicinverse.rst>
+   actionAngleIsochroneInverse <aaisochroneinverse.rst>
    actionAngleTorus <aatorus.rst>
+
+In addition to the methods listed above, ``actionAngleTorus`` also has
+the following methods:
+
+.. toctree::
+   :maxdepth: 2
+
+   hessianFreqs <aathessianfreqs.rst>
+   xvJacobianFreqs <aatxvjacobianfreqs.rst>
+

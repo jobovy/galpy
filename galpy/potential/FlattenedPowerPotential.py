@@ -6,8 +6,7 @@
 #                          phi(R,z)= --------- ; m^2 = R^2 + z^2/q^2
 #                                   m^\alpha
 ###############################################################################
-import numpy as nu
-from scipy import special, integrate
+import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -76,6 +75,7 @@ class FlattenedPowerPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -94,7 +94,7 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Started - Bovy (IAS)
         """
         if self.alpha == 0.:
-            return 1./2.*nu.log(R**2.+z**2./self.q2+self.core2)
+            return 1./2.*numpy.log(R**2.+z**2./self.q2+self.core2)
         else:
             m2= self.core2+R**2.+z**2./self.q2
             return -m2**(-self.alpha/2.)/self.alpha
@@ -206,9 +206,9 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
         """
         if self.alpha == 0.:
-            return 1./4./nu.pi/self.q2*((2.*self.q2+1.)*self.core2+R**2.\
+            return 1./4./numpy.pi/self.q2*((2.*self.q2+1.)*self.core2+R**2.\
                                        +(2.-1./self.q2)*z**2.)/\
                                        (R**2.+z**2./self.q2+self.core2)**2.
         else:
             m2= self.core2+R**2.+z**2./self.q2
-            return 1./self.q2*(self.core2*(1.+2.*self.q2)+R**2.*(1.-self.alpha*self.q2)+z**2.*(2.-(1.+self.alpha)/self.q2))*m2**(-self.alpha/2.-2.)/4./nu.pi
+            return 1./self.q2*(self.core2*(1.+2.*self.q2)+R**2.*(1.-self.alpha*self.q2)+z**2.*(2.-(1.+self.alpha)/self.q2))*m2**(-self.alpha/2.-2.)/4./numpy.pi

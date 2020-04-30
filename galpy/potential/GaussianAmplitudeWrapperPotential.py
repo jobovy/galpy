@@ -5,7 +5,7 @@
 import numpy
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 if _APY_LOADED:
     from astropy import units
 class GaussianAmplitudeWrapperPotential(parentWrapperPotential):

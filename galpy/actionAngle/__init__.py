@@ -1,4 +1,5 @@
 from . import actionAngle
+from . import actionAngleInverse
 from . import actionAngleAdiabatic
 from . import actionAngleAdiabaticGrid
 from . import actionAngleStaeckel
@@ -28,6 +29,7 @@ dePeriod= actionAngleIsochroneApprox.dePeriod
 # Classes
 #
 actionAngle= actionAngle.actionAngle
+actionAngleInverse= actionAngleInverse.actionAngleInverse
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle

@@ -8,12 +8,12 @@
 ###############################################################################
 import warnings
 import numpy
-from galpy.potential import MWPotential, _isNonAxi
-from galpy.util import galpyWarning
+from ..potential import MWPotential, _isNonAxi
+from ..util import galpyWarning
 from . import actionAngleTorus_c
 from .actionAngleTorus_c import _ext_loaded as ext_loaded
-from galpy.potential.Potential import _check_c
-from galpy.potential.Potential import flatten as flatten_potential
+from ..potential.Potential import _check_c
+from ..potential.Potential import flatten as flatten_potential
 _autofit_errvals= {}
 _autofit_errvals[-1]= 'something wrong with input, usually bad starting values for the parameters'
 _autofit_errvals[-2]= 'Fit failed the goal by a factor <= 2'

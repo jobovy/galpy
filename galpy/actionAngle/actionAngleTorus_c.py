@@ -1,39 +1,10 @@
-import os
-import sys
-import distutils.sysconfig as sysconfig
-import warnings
 import ctypes
 import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
-from galpy.util import galpyWarningVerbose
-#Find and load the library
-_lib= None
-outerr= None
-PY3= sys.version > '3'
-if PY3:
-    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else: #pragma: no cover
-    _ext_suffix= '.so'
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngleTorus_c%s' % _ext_suffix))
-    except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_actionAngleTorus_c%s' % _ext_suffix)): #pragma: no cover
-            outerr= e
-        _lib = None
-    else:
-        break
-if _lib is None: #pragma: no cover
-    if not outerr is None:
-        warnings.warn("actionAngleTorus_c extension module not loaded, because of error '%s' " % outerr,
-                      galpyWarningVerbose)
-    else:
-        warnings.warn("actionAngleTorus_c extension module not loaded, because galpy_actionAngleTorus_c%s image was not found" % _ext_suffix,
-                      galpyWarningVerbose)
-    _ext_loaded= False
-else:
-    _ext_loaded= True
+from ..util import _load_extension_libs
+
+_lib, _ext_loaded= _load_extension_libs.load_libgalpy_actionAngleTorus()
 
 def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
                                angler,anglephi,anglez,
@@ -58,7 +29,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
        2015-08-05/07 - Written - Bovy (UofT)
     """
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result arrays
@@ -158,7 +129,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
        2015-08-05/07 - Written - Bovy (UofT)
     """
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result
@@ -222,7 +193,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
        2016-07-15 - Written - Bovy (UofT)
     """
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result
@@ -297,7 +268,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
        2016-07-19 - Written - Bovy (UofT)
     """
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
 
     #Set up result

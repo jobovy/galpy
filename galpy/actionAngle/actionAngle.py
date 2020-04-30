@@ -1,10 +1,10 @@
 from six import with_metaclass
 import types
 import copy
-import math as m
-from galpy.util import config
-from galpy.util.bovy_conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input
+import numpy
+from ..util import config
+from ..util.bovy_conversion import physical_conversion_actionAngle, \
+    actionAngle_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -70,26 +70,12 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
 
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
-        if isinstance(self._pot,list):
-            if self._roSet and self._pot[0]._roSet:
-                assert m.fabs(self._ro-self._pot[0]._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot[0]._voSet:
-                assert m.fabs(self._vo-self._pot[0]._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        else:
-            if self._roSet and self._pot._roSet:
-                assert m.fabs(self._ro-self._pot._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot._voSet:
-                assert m.fabs(self._vo-self._pot._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        return None
+        assert physical_compatible(self,self._pot),  'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
             
     def _check_consistent_units_orbitInput(self,orb):
         """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
-        if self._roSet and orb._roSet:
-            assert m.fabs(self._ro-orb._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        if self._voSet and orb._voSet:
-            assert m.fabs(self._vo-orb._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        return None
-            
+        assert physical_compatible(self,orb),  'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
+     
     def turn_physical_off(self):
         """
         NAME:
@@ -141,14 +127,16 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
 
            2016-06-05 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -187,34 +175,30 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._eval_z= z
             self._eval_vz= vz
             self._eval_phi= phi
-        else:
+        else: # Orbit instance
             if not kwargs.get('_noOrbUnitsCheck',False):
                 self._check_consistent_units_orbitInput(args[0])
             if len(args) == 2:
-                vxvv= args[0](args[1])._orb.vxvv
+                orb= args[0](args[1])
             else:
-                try:
-                    vxvv= args[0]._orb.vxvv
-                except AttributeError: #if we're given an OrbitTop instance
-                    vxvv= args[0].vxvv
-            self._eval_R= vxvv[0]
-            self._eval_vR= vxvv[1]
-            self._eval_vT= vxvv[2]
-            if len(vxvv) > 4:
-                self._eval_z= vxvv[3]
-                self._eval_vz= vxvv[4]
-                if len(vxvv) > 5:
-                    self._eval_phi= vxvv[5]
-            elif len(vxvv) > 3:
-                self._eval_phi= vxvv[3]
-                self._eval_z= 0.
-                self._eval_vz= 0.
+                orb= args[0]
+            if len(orb.shape) > 1:
+                raise RuntimeError("Evaluating actionAngle methods with Orbit instances with multi-dimensional shapes is not supported")
+            self._eval_R= orb.R(use_physical=False)
+            self._eval_vR= orb.vR(use_physical=False)
+            self._eval_vT= orb.vT(use_physical=False)
+            if args[0].phasedim() > 4:
+                self._eval_z= orb.z(use_physical=False)
+                self._eval_vz= orb.vz(use_physical=False)
+                if args[0].phasedim() > 5:
+                    self._eval_phi= orb.phi(use_physical=False)
             else:
-                self._eval_z= 0.
-                self._eval_vz= 0.
+                if args[0].phasedim() > 3:
+                    self._eval_phi= orb.phi(use_physical=False)
+                self._eval_z= numpy.zeros_like(self._eval_R)
+                self._eval_vz= numpy.zeros_like(self._eval_R)
         if hasattr(self,'_eval_z'): #calculate the polar angle
-            if self._eval_z == 0.: self._eval_theta= m.pi/2.
-            else: self._eval_theta= m.atan(self._eval_R/self._eval_z)
+            self._eval_theta= numpy.arctan2(self._eval_R,self._eval_z)
         return None
 
     @actionAngle_physical_input

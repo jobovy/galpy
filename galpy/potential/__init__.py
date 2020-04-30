@@ -1,4 +1,5 @@
 import warnings
+from . import Force
 from . import Potential
 from . import planarPotential
 from . import linearPotential
@@ -18,7 +19,6 @@ from . import DehnenBarPotential
 from . import SteadyLogSpiralPotential
 from . import TransientLogSpiralPotential
 from . import MovingObjectPotential
-from . import ForceSoftening
 from . import EllipticalDiskPotential
 from . import CosmphiDiskPotential
 from . import RazorThinExponentialDiskPotential
@@ -42,12 +42,18 @@ from . import SolidBodyRotationWrapperPotential
 from . import CorotatingRotationWrapperPotential
 from . import GaussianAmplitudeWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
+from . import SphericalShellPotential
+from . import RingPotential
+from . import PerfectEllipsoidPotential
 from . import IsothermalDiskPotential
+from . import NumericalPotentialDerivativesMixin
+from . import HomogeneousSpherePotential
 #
 # Functions
 #
 evaluatePotentials= Potential.evaluatePotentials
 evaluateDensities= Potential.evaluateDensities
+evaluateSurfaceDensities= Potential.evaluateSurfaceDensities
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
@@ -61,6 +67,7 @@ evaluater2derivs= Potential.evaluater2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 toPlanarPotential= planarPotential.toPlanarPotential
 RZToverticalPotential= verticalPotential.RZToverticalPotential
+toVerticalPotential= verticalPotential.toVerticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
 plotplanarPotentials= planarPotential.plotplanarPotentials
@@ -99,9 +106,11 @@ scf_compute_coeffs = SCFPotential.scf_compute_coeffs
 rtide= Potential.rtide
 ttensor= Potential.ttensor
 flatten= Potential.flatten
+to_amuse= Potential.to_amuse
 #
 # Classes
 #
+Force= Force.Force
 Potential= Potential.Potential
 planarAxiPotential= planarPotential.planarAxiPotential
 planarPotential= planarPotential.planarPotential
@@ -113,6 +122,8 @@ LogarithmicHaloPotential= LogarithmicHaloPotential.LogarithmicHaloPotential
 KeplerPotential= PowerSphericalPotential.KeplerPotential
 PowerSphericalPotential= PowerSphericalPotential.PowerSphericalPotential
 PowerSphericalPotentialwCutoff= PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff
+DehnenSphericalPotential= TwoPowerSphericalPotential.DehnenSphericalPotential
+DehnenCoreSphericalPotential= TwoPowerSphericalPotential.DehnenCoreSphericalPotential
 NFWPotential= TwoPowerSphericalPotential.NFWPotential
 JaffePotential= TwoPowerSphericalPotential.JaffePotential
 HernquistPotential= TwoPowerSphericalPotential.HernquistPotential
@@ -146,23 +157,21 @@ SoftenedNeedleBarPotential= SoftenedNeedleBarPotential.SoftenedNeedleBarPotentia
 DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential= HenonHeilesPotential.HenonHeilesPotential
+ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
+SphericalShellPotential= SphericalShellPotential.SphericalShellPotential
+RingPotential= RingPotential.RingPotential
+PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
 IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
+NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
+HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
-ChandrasekharDynamicalFrictionForce= ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
-#Softenings
-PlummerSoftening= ForceSoftening.PlummerSoftening
 
-#
-# Constants
-#
-MWPotential= [MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6),
-              NFWPotential(a=4.5,normalize=.35),
-              HernquistPotential(a=0.6/8,normalize=0.05)]
-# See Table 1 in galpy paper: Bovy (2014)
-MWPotential2014= [PowerSphericalPotentialwCutoff(normalize=0.05,alpha=1.8,rc=1.9/8.),
-                  MiyamotoNagaiPotential(a=3./8.,b=0.28/8.,normalize=0.6),
-                  NFWPotential(a=2.,normalize=0.35)]
+# MW potential models, now in galpy.potential.mwpotentials, but keep these two
+# for tests, backwards compatibility, and convenience
+from . import mwpotentials
+MWPotential= mwpotentials._MWPotential
+MWPotential2014= mwpotentials.MWPotential2014

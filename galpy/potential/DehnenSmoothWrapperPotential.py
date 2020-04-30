@@ -3,7 +3,7 @@
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
-from galpy.util import bovy_conversion
+from ..util import bovy_conversion
 if _APY_LOADED:
     from astropy import units
 class DehnenSmoothWrapperPotential(parentWrapperPotential):
@@ -18,12 +18,15 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
     .. math::
 
         \\xi = \\begin{cases}
-        0 & t < t_\\mathrm{form}\\\\
+        -1 & t < t_\\mathrm{form}\\\\
         2\\left(\\frac{t-t_\\mathrm{form}}{t_\mathrm{steady}}\\right)-1\\,, &  t_\\mathrm{form} \\leq t \\leq t_\\mathrm{form}+t_\\mathrm{steady}\\\\
         1 & t > t_\\mathrm{form}+t_\\mathrm{steady}
         \\end{cases}
+
+    if ``decay=True``, the amplitude decays rather than grows as decay = 1 - grow.
     """
-    def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,ro=None,vo=None):
+    def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,decay=False,
+                 ro=None,vo=None):
         """
         NAME:
 
@@ -43,6 +46,8 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
 
            tsteady - time from tform at which the potential is fully grown (default: -tform/2, st the perturbation is fully grown at tform/2; can be a Quantity)
 
+           decay= (False) if True, decay the amplitude instead of growing it (as 1-grow)
+
         OUTPUT:
 
            (none)
@@ -50,6 +55,8 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         HISTORY:
 
            2017-06-26 - Started - Bovy (UofT)
+
+           2018-10-07 - Added 'decay' option - Bovy (UofT)
 
         """
         if _APY_LOADED and isinstance(tform,units.Quantity):
@@ -63,6 +70,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
             self._tsteady= self._tform/2.
         else:
             self._tsteady= self._tform+tsteady
+        self._grow= not decay
         self.hasC= True
         self.hasC_dxdv= True
 
@@ -76,7 +84,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
             smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
         else: #bar is fully on
             smooth= 1.
-        return smooth
+        return smooth if self._grow else 1.-smooth 
 
     def _wrap(self,attribute,*args,**kwargs):
         return self._smooth(kwargs.get('t',0.))\

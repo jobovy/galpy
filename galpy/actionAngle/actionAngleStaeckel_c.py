@@ -1,40 +1,11 @@
-import os
-import sys
-import distutils.sysconfig as sysconfig
-import warnings
 import ctypes
 import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
-from galpy.util import galpyWarning
-from galpy.util import bovy_coords
-#Find and load the library
-_lib= None
-outerr= None
-PY3= sys.version > '3'
-if PY3:
-    _ext_suffix= sysconfig.get_config_var('EXT_SUFFIX')
-else: #pragma: no cover
-    _ext_suffix= '.so'
-for path in sys.path:
-    try:
-        _lib = ctypes.CDLL(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix))
-    except OSError as e:
-        if os.path.exists(os.path.join(path,'galpy_actionAngle_c%s' % _ext_suffix)): #pragma: no cover
-            outerr= e
-        _lib = None
-    else:
-        break
-if _lib is None: #pragma: no cover
-    if not outerr is None:
-        warnings.warn("actionAngleStaeckel_c extension module not loaded, because of error '%s' " % outerr,
-                      galpyWarning)
-    else:
-        warnings.warn("actionAngleStaeckel_c extension module not loaded, because galpy_actionAngle_c%s image was not found" % _ext_suffix,
-                      galpyWarning)
-    _ext_loaded= False
-else:
-    _ext_loaded= True
+from ..util import bovy_coords
+from ..util import _load_extension_libs
+
+_lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     """
@@ -58,7 +29,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     if u0 is None:
         u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Parse delta
@@ -155,7 +126,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
        2012-12-03 - Written - Bovy (IAS)
     """
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Set up result arrays
@@ -231,7 +202,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     if u0 is None:
         u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Parse delta
@@ -347,7 +318,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
     if u0 is None:
         u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Parse delta
@@ -477,7 +448,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if u0 is None:
         u0, dummy= bovy_coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
-    from galpy.orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integrateFullOrbit import _parse_pot
     npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
 
     #Parse delta

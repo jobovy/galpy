@@ -1,8 +1,4 @@
 #include <galpy_potentials.h>
-void cyl_to_rect(double R, double phi,double *x, double *y){
-  *x= R * cos ( phi );
-  *y= R * sin ( phi );
-}
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {
@@ -16,10 +12,12 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->accxzforce= NULL;
     (potentialArgs+ii)->accyzforce= NULL;
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
+    (potentialArgs+ii)->spline1d= NULL;
+    (potentialArgs+ii)->acc1d= NULL;
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
-  int ii;
+  int ii, jj;
   for (ii=0; ii < npot; ii++) {
     if ( (potentialArgs+ii)->i2d )
       interp_2d_free((potentialArgs+ii)->i2d) ;
@@ -44,6 +42,16 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
 			 (potentialArgs+ii)->wrappedPotentialArg);
       free((potentialArgs+ii)->wrappedPotentialArg);
     }
+    if ( (potentialArgs+ii)->spline1d ) {
+      for (jj=0; jj < (potentialArgs+ii)->nspline1d; jj++)
+	gsl_spline_free(*((potentialArgs+ii)->spline1d+jj));
+      free((potentialArgs+ii)->spline1d);
+    }
+    if ( (potentialArgs+ii)->acc1d ) {
+      for (jj=0; jj < (potentialArgs+ii)->nspline1d; jj++)
+	gsl_interp_accel_free (*((potentialArgs+ii)->acc1d+jj));
+      free((potentialArgs+ii)->acc1d);
+    }
     free((potentialArgs+ii)->args);
   }
 }
@@ -59,37 +67,50 @@ double evaluatePotentials(double R, double Z,
   potentialArgs-= nargs;
   return pot;
 }
-double calcRforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
+// function name in parentheses, because actual function defined by macro
+// in galpy_potentials.h and parentheses are necessary to avoid macro expansion
+double (calcRforce)(double R, double Z, double phi, double t, 
+		    int nargs, struct potentialArg * potentialArgs,
+		    double vR, double vT, double vZ){
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rforce+= potentialArgs->Rforce(R,Z,phi,t,
-				   potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      Rforce+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
+    else
+      Rforce+= potentialArgs->Rforce(R,Z,phi,t,
+				     potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
   return Rforce;
 }
-double calczforce(double R, double Z, double phi, double t, 
-		  int nargs, struct potentialArg * potentialArgs){
+double (calczforce)(double R, double Z, double phi, double t, 
+		    int nargs, struct potentialArg * potentialArgs,
+		    double vR, double vT, double vZ){
   int ii;
   double zforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    zforce+= potentialArgs->zforce(R,Z,phi,t,
-				   potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      zforce+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
+    else
+      zforce+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
   return zforce;
 }
-double calcPhiforce(double R, double Z, double phi, double t, 
-			  int nargs, struct potentialArg * potentialArgs){
+double (calcPhiforce)(double R, double Z, double phi, double t, 
+		      int nargs, struct potentialArg * potentialArgs,
+		      double vR, double vT, double vZ){
   int ii;
   double phiforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->phiforce(R,Z,phi,t,
-				       potentialArgs);
+    if ( potentialArgs->requiresVelocity ) 
+      phiforce+= potentialArgs->phiforceVelocity(R,Z,phi,t,potentialArgs,
+						 vR,vT,vZ);
+    else
+      phiforce+= potentialArgs->phiforce(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -195,4 +216,26 @@ double calcPlanarRphideriv(double R, double phi, double t,
   }
   potentialArgs-= nargs;
   return Rphideriv;
+}
+double calcLinearForce(double x, double t, 
+		       int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double force= 0.;
+  for (ii=0; ii < nargs; ii++){
+    force+= potentialArgs->linearForce(x,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return force;
+}
+double calcDensity(double R, double Z, double phi, double t, 
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double dens= 0.;
+  for (ii=0; ii < nargs; ii++){
+    dens+= potentialArgs->dens(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return dens;
 }

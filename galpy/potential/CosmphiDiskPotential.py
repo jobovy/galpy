@@ -1,11 +1,11 @@
 ###############################################################################
 #   CosmphiDiskPotential: cos(mphi) potential
 ###############################################################################
-import math
+import numpy
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-_degtorad= math.pi/180.
+_degtorad= numpy.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
 
@@ -87,10 +87,10 @@ class CosmphiDiskPotential(planarPotential):
             self._phib= phib
             self._mphio= phio*self._m
         else:
-            self._mphio= math.sqrt(cp*cp+sp*sp)
-            self._phib= math.atan(sp/cp)/self._m
+            self._mphio= numpy.sqrt(cp*cp+sp*sp)
+            self._phib= numpy.arctan(sp/cp)/self._m
             if m < 2. and cp < 0.:
-                self._phib= math.pi+self._phib
+                self._phib= numpy.pi+self._phib
         self._p= p
         if rb is None:
             self._rb= 0.
@@ -120,11 +120,11 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-19 - Started - Bovy (IAS)
         """
         if R < self._rb:
-            return self._mphio/self._m*math.cos(self._m*phi-self._mphib)\
+            return self._mphio/self._m*numpy.cos(self._m*phi-self._mphib)\
                 *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
         else:
             return self._mphio/self._m*R**self._p\
-                *math.cos(self._m*phi-self._mphib)
+                *numpy.cos(self._m*phi-self._mphib)
         
     def _Rforce(self,R,phi=0.,t=0.):
         """
@@ -143,10 +143,10 @@ class CosmphiDiskPotential(planarPotential):
         """
         if R < self._rb:
             return -self._p*self._mphio/self._m*self._rb2p/R**(self._p+1.)\
-                *math.cos(self._m*phi-self._mphib)
+                *numpy.cos(self._m*phi-self._mphib)
         else:
             return -self._p*self._mphio/self._m*R**(self._p-1.)\
-                *math.cos(self._m*phi-self._mphib)
+                *numpy.cos(self._m*phi-self._mphib)
         
     def _phiforce(self,R,phi=0.,t=0.):
         """
@@ -164,34 +164,34 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-19 - Written - Bovy (IAS)
         """
         if R < self._rb:
-            return self._mphio*math.sin(self._m*phi-self._mphib)\
+            return self._mphio*numpy.sin(self._m*phi-self._mphib)\
                 *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
         else:
-            return self._mphio*R**self._p*math.sin(self._m*phi-self._mphib)
+            return self._mphio*R**self._p*numpy.sin(self._m*phi-self._mphib)
 
     def _R2deriv(self,R,phi=0.,t=0.):
         if R < self._rb:
             return -self._p*(self._p+1.)*self._mphio/self._m\
-                *self._rb2p/R**(self._p+2.)*math.cos(self._m*phi-self._mphib)
+                *self._rb2p/R**(self._p+2.)*numpy.cos(self._m*phi-self._mphib)
         else:
             return self._p*(self._p-1.)/self._m*self._mphio*R**(self._p-2.)\
-                *math.cos(self._m*phi-self._mphib)
+                *numpy.cos(self._m*phi-self._mphib)
         
     def _phi2deriv(self,R,phi=0.,t=0.):
         if R < self._rb:
-            return -self._m*self._mphio*math.cos(self._m*phi-self._mphib)\
+            return -self._m*self._mphio*numpy.cos(self._m*phi-self._mphib)\
                 *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
         else:
             return -self._m*self._mphio*R**self._p\
-                *math.cos(self._m*phi-self._mphib)
+                *numpy.cos(self._m*phi-self._mphib)
 
     def _Rphideriv(self,R,phi=0.,t=0.):
         if R < self._rb:
             return -self._p*self._mphio/self._m*self._rb2p/R**(self._p+1.)\
-                *math.sin(self._m*phi-self._mphib)
+                *numpy.sin(self._m*phi-self._mphib)
         else:
             return -self._p*self._mphio*R**(self._p-1.)*\
-                math.sin(self._m*phi-self._mphib)
+                numpy.sin(self._m*phi-self._mphib)
 
 class LopsidedDiskPotential(CosmphiDiskPotential):
     """Class that implements the disk potential

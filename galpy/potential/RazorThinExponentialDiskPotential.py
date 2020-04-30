@@ -4,10 +4,8 @@
 #
 #                                      rho(R,z) = rho_0 e^-R/h_R delta(z)
 ###############################################################################
-import numpy as nu
-import warnings
-from scipy import special, integrate
-from galpy.util import galpyWarning
+import numpy
+from scipy import special
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -67,13 +65,13 @@ class RazorThinExponentialDiskPotential(Potential):
         self._alpha= 1./self._hr
         self._maxiter= maxiter
         self._tol= tol
-        self._glx, self._glw= nu.polynomial.legendre.leggauss(self._glorder)
+        self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         #Load Kepler potential for large R
-        #self._kp= KeplerPotential(normalize=4.*nu.pi/self._alpha**2./self._beta)
+        #self._kp= KeplerPotential(normalize=4.*numpy.pi/self._alpha**2./self._beta)
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -93,16 +91,16 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if nu.fabs(z) < 10.**-6.:
+            if numpy.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
-                return -nu.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))
+                return -numpy.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))
             kalphamax= 10.
             ks= kalphamax*0.5*(self._glx+1.)
             weights= kalphamax*self._glw
-            sqrtp= nu.sqrt(z**2.+(ks+R)**2.)
-            sqrtm= nu.sqrt(z**2.+(ks-R)**2.)
-            evalInt= nu.arcsin(2.*ks/(sqrtp+sqrtm))*ks*special.k0(self._alpha*ks)
-            return -2.*self._alpha*nu.sum(weights*evalInt)
+            sqrtp= numpy.sqrt(z**2.+(ks+R)**2.)
+            sqrtm= numpy.sqrt(z**2.+(ks-R)**2.)
+            evalInt= numpy.arcsin(2.*ks/(sqrtp+sqrtm))*ks*special.k0(self._alpha*ks)
+            return -2.*self._alpha*numpy.sum(weights*evalInt)
         raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -123,26 +121,26 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if nu.fabs(z) < 10.**-6.:
+            if numpy.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
-                return -2.*nu.pi*y*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y))
+                return -2.*numpy.pi*y*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y))
             kalphamax1= R
             ks1= kalphamax1*0.5*(self._glx+1.)
             weights1= kalphamax1*self._glw
-            sqrtp= nu.sqrt(z**2.+(ks1+R)**2.)
-            sqrtm= nu.sqrt(z**2.+(ks1-R)**2.)
-            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*((ks1+R)/sqrtp-(ks1-R)/sqrtm)/nu.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+            sqrtp= numpy.sqrt(z**2.+(ks1+R)**2.)
+            sqrtm= numpy.sqrt(z**2.+(ks1-R)**2.)
+            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*((ks1+R)/sqrtp-(ks1-R)/sqrtm)/numpy.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
             if R < 10.:
                 kalphamax2= 10.
                 ks2= (kalphamax2-kalphamax1)*0.5*(self._glx+1.)+kalphamax1
                 weights2= (kalphamax2-kalphamax1)*self._glw
-                sqrtp= nu.sqrt(z**2.+(ks2+R)**2.)
-                sqrtm= nu.sqrt(z**2.+(ks2-R)**2.)
-                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*((ks2+R)/sqrtp-(ks2-R)/sqrtm)/nu.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-                return -2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1
+                sqrtp= numpy.sqrt(z**2.+(ks2+R)**2.)
+                sqrtm= numpy.sqrt(z**2.+(ks2-R)**2.)
+                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*((ks2+R)/sqrtp-(ks2-R)/sqrtm)/numpy.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+                return -2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1
                                                           +weights2*evalInt2)
             else:
-                return -2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1)
+                return -2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1)
         raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
 
     def _zforce(self,R,z,phi=0.,t=0.):
@@ -163,25 +161,25 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         if self._new:
             #if R > 6.: return self._kp(R,z)
-            if nu.fabs(z) < 10.**-6.:
+            if numpy.fabs(z) < 10.**-6.:
                 return 0.
             kalphamax1= R
             ks1= kalphamax1*0.5*(self._glx+1.)
             weights1= kalphamax1*self._glw
-            sqrtp= nu.sqrt(z**2.+(ks1+R)**2.)
-            sqrtm= nu.sqrt(z**2.+(ks1-R)**2.)
-            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*(1./sqrtp+1./sqrtm)/nu.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+            sqrtp= numpy.sqrt(z**2.+(ks1+R)**2.)
+            sqrtm= numpy.sqrt(z**2.+(ks1-R)**2.)
+            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*(1./sqrtp+1./sqrtm)/numpy.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
             if R < 10.:
                 kalphamax2= 10.
                 ks2= (kalphamax2-kalphamax1)*0.5*(self._glx+1.)+kalphamax1
                 weights2= (kalphamax2-kalphamax1)*self._glw
-                sqrtp= nu.sqrt(z**2.+(ks2+R)**2.)
-                sqrtm= nu.sqrt(z**2.+(ks2-R)**2.)
-                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*(1./sqrtp+1./sqrtm)/nu.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-                return -z*2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1
+                sqrtp= numpy.sqrt(z**2.+(ks2+R)**2.)
+                sqrtm= numpy.sqrt(z**2.+(ks2-R)**2.)
+                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*(1./sqrtp+1./sqrtm)/numpy.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
+                return -z*2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1
                                                             +weights2*evalInt2)
             else:
-                return -z*2.*nu.sqrt(2.)*self._alpha*nu.sum(weights1*evalInt1)
+                return -z*2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1)
         raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
 
 
@@ -202,10 +200,10 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         if self._new:
-            if nu.fabs(z) < 10.**-6.:
+            if numpy.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
-                return nu.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
-                    +nu.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
+                return numpy.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
+                    +numpy.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
             raise AttributeError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
 
     def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
@@ -224,4 +222,22 @@ class RazorThinExponentialDiskPotential(Potential):
         HISTORY:
            2012-12-27 - Written - Bovy (IAS)
         """
-        return nu.infty
+        return numpy.infty
+
+    def _surfdens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _surfdens
+        PURPOSE:
+           evaluate the surface density
+        INPUT:
+           R - Cylindrical Galactocentric radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Sigma (R,z)
+        HISTORY:
+           2018-08-19 - Written - Bovy (UofT)
+        """
+        return numpy.exp(-self._alpha*R)
