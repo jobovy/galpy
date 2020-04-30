@@ -6,6 +6,12 @@ v1.7 (XXXX-XX-XX)
   and vmax methods to NFWPotential to compute these quantities for any
   NFWPotential.
 
+- Added inverse action-angle transformations for the isochrone
+  potential (actionAngleIsochroneInverse) and for a one-dimensional
+  harmonic oscillator (actionAngleHarmonicInverse; also added the
+  [x,v] -> [J,O,a] transformation for the latter,
+  actionAngleHarmonic).
+
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 
