@@ -538,9 +538,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if len(Es) < minn_for_cmap:
             if not overplot == gs:
                 pyplot.subplot(gs[0])
-                pyplot.legend(fontsize=17.)
+                pyplot.legend(fontsize=17.,frameon=False)
                 pyplot.subplot(gs[1])
-                pyplot.legend(fontsize=17.)
+                pyplot.legend(fontsize=17.,frameon=False)
                 pyplot.tight_layout()
         else:
             pyplot.subplot(outer[1])
@@ -702,7 +702,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
                             truthaAV._nSn[0,symm::symm+1],overplot=True,
                             label=r'$\mathrm{Direct}$')
-        pyplot.legend(fontsize=17.)
+        pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,4)
         y= ((self.nSn(E)[0]-truthaAV._nSn[0])\
                                  /truthaAV._nSn[0])[symm::symm+1]
@@ -730,7 +730,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             numpy.fabs(truthaAV._dSndJ[0,symm::symm+1]),
                             overplot=True,
                             label=r'$\mathrm{Direct}$')
-        pyplot.legend(fontsize=17.)
+        pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,5)
         y= ((self.dSndJ(E)[0]-truthaAV._dSndJ[0])\
                                  /truthaAV._dSndJ[0])[symm::symm+1]
@@ -760,7 +760,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             ylabel=r'$E$')
         bovy_plot.bovy_plot(ta,Edirect,overplot=True,
                             label=r'$\mathrm{Direct}$')
-        pyplot.legend(fontsize=17.)
+        pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,6)
         bovy_plot.bovy_plot(ta,Einterp/Edirect-1.,
                             xrange=[0.,2.*numpy.pi],
