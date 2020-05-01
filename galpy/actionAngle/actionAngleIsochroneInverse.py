@@ -9,7 +9,7 @@
 ###############################################################################
 import numpy
 from scipy import optimize
-from galpy.potential import IsochronePotential
+from ..potential import IsochronePotential
 from .actionAngleInverse import actionAngleInverse
 _APY_LOADED= True
 try:

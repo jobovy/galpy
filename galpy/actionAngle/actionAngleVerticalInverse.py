@@ -12,11 +12,11 @@ import numpy
 import warnings
 from numpy.polynomial import polynomial, chebyshev
 from scipy import interpolate,ndimage, optimize
-from galpy.potential import evaluatelinearPotentials, \
-    evaluatelinearForces
-from galpy.util import bovy_plot, galpyWarning
 from matplotlib import pyplot, gridspec, cm
 from matplotlib.ticker import NullFormatter
+from ..potential import evaluatelinearPotentials, \
+    evaluatelinearForces
+from ..util import bovy_plot, galpyWarning
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
 from .actionAngleVertical import actionAngleVertical
