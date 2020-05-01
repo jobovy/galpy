@@ -418,14 +418,14 @@ class _actionAngleIsochroneHelper(object):
            2017-11-30 - Written - Bovy (UofT)
         """
         if reuse: 
-            return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*nu.pi)
+            return (self._eta-self._e*self._c/(self._c+self.b)*self._sineta) % (2.*numpy.pi)
         E= self._ip(r,0.)+vr2/2.+L**2./2./r**2.
         #if E > 0.: return -1.
         c= -self.amp/2./E-self.b
         e2= 1.-L*L/self.amp/c*(1.+self.b/c)
-        e= nu.sqrt(e2)
-        if isinstance(self.b,nu.ndarray):
-            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+        e= numpy.sqrt(e2)
+        if isinstance(self.b,numpy.ndarray):
+            s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
             coseta= (1/e*(1.-self.b/c*(s-2.)))
             pindx= (self.b == 0.)
             coseta[pindx]= 1/e[pindx]*(1.-r[pindx]/c[pindx])
@@ -433,15 +433,15 @@ class _actionAngleIsochroneHelper(object):
             if self.b == 0.:
                 coseta= 1/e*(1.-r/c)
             else:
-                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
                 coseta= 1/e*(1.-self.b/c*(s-2.))
         pindx= (coseta > 1.)
         coseta[pindx]= 1.
         pindx= (coseta < -1.)
         coseta[pindx]= -1.           
-        eta= nu.arccos(coseta)
-        if vrneg: eta= 2.*nu.pi-eta
-        angler= (eta-e*c/(c+self.b)*nu.sin(eta)) % (2.*nu.pi)
+        eta= numpy.arccos(coseta)
+        if vrneg: eta= 2.*numpy.pi-eta
+        angler= (eta-e*c/(c+self.b)*numpy.sin(eta)) % (2.*numpy.pi)
         angler[E>0.]= -1.
         return angler
 
@@ -452,9 +452,9 @@ class _actionAngleIsochroneHelper(object):
         self._c= -self.amp/2./E-self.b
         L2overampc= L2/self.amp/self._c
         e2= 1.-L2overampc*(1.+self.b/self._c)
-        self._e= nu.sqrt(e2)
-        if isinstance(self.b,nu.ndarray):
-            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+        self._e= numpy.sqrt(e2)
+        if isinstance(self.b,numpy.ndarray):
+            s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
             coseta= (1/self._e*(1.-self.b/self._c*(s-2.)))
             pindx= (self.b == 0.)
             coseta[pindx]= 1/self._e[pindx]*(1.-r[pindx]/self._c[pindx])
@@ -462,25 +462,25 @@ class _actionAngleIsochroneHelper(object):
             if self.b == 0.:
                 coseta= 1/self._e*(1.-r/self._c)
             else:
-                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
                 coseta= 1/self._e*(1.-self.b/self._c*(s-2.))
         pindx= (coseta > 1.)
         coseta[pindx]= 1.
         pindx= (coseta < -1.)
         coseta[pindx]= -1.           
-        self._eta= nu.arccos(coseta)
-        if vrneg: self._eta= 2.*nu.pi-self._eta
-        self._sineta= nu.sin(self._eta)
+        self._eta= numpy.arccos(coseta)
+        if vrneg: self._eta= 2.*numpy.pi-self._eta
+        self._sineta= numpy.sin(self._eta)
         L2overampc*= (1.+2.*self.b/self._c)/(2.*self._e) # from now on need L2/(2GM c e)
         dcdr= self.amp/2./E**2.*dEdr
-        dsdrtimesb= r/nu.sqrt(r**2.+self.b**2.)
+        dsdrtimesb= r/numpy.sqrt(r**2.+self.b**2.)
         detadr= (dsdrtimesb+(coseta*(self._e+L2overampc)-1.)*dcdr)/(self._e*self._c*self._sineta)
         return detadr*(1.-self._e*self._c*coseta/(self._c+self.b))\
             -self._sineta/(self._c+self.b)*(self._e*self.b/(self._c+self.b)+L2overampc)*dcdr
 
     def Jr(self,E,L):
-        return self.amp/nu.sqrt(-2.*E)\
-            -0.5*(L+nu.sqrt((L*L+4.*self.amp*self.b)))
+        return self.amp/numpy.sqrt(-2.*E)\
+            -0.5*(L+numpy.sqrt((L*L+4.*self.amp*self.b)))
         
     def Or(self,E):
         return (-2.*E)**1.5/self.amp
@@ -490,9 +490,9 @@ class _actionAngleIsochroneHelper(object):
         L2= L**2.
         c= -self.amp/2./E-self.b
         e2= 1.-L2/self.amp/c*(1.+self.b/c)
-        e= nu.sqrt(e2)
-        if isinstance(self.b,nu.ndarray):
-            s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+        e= numpy.sqrt(e2)
+        if isinstance(self.b,numpy.ndarray):
+            s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
             coseta= (1/e*(1.-self.b/c*(s-2.)))
             pindx= (self.b == 0.)
             coseta[pindx]= 1/e[pindx]*(1.-r[pindx]/c[pindx])
@@ -500,15 +500,15 @@ class _actionAngleIsochroneHelper(object):
             if self.b == 0.:
                 coseta= 1/e*(1.-r/c)
             else:
-                s= 1.+nu.sqrt(1.+r*r/self.b**2.)
+                s= 1.+numpy.sqrt(1.+r*r/self.b**2.)
                 coseta= 1/e*(1.-self.b/c*(s-2.))
         pindx= (coseta > 1.)
         coseta[pindx]= 1.
         pindx= (coseta < -1.)
         coseta[pindx]= -1.           
-        eta= nu.arccos(coseta)
-        if vrneg: eta= 2.*nu.pi-eta
-        sineta= nu.sin(eta)
+        eta= numpy.arccos(coseta)
+        if vrneg: eta= 2.*numpy.pi-eta
+        sineta= numpy.sin(eta)
         bcmecce= (self.b+c-e*c*coseta)
         c2e2ob= c**2.*sineta**2./self.b
         dcdLfac= (1.-e*coseta)/self.b+e2*c2e2ob/bcmecce*(1./c-1./(self.b+c))
