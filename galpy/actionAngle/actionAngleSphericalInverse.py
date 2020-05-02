@@ -534,7 +534,159 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if return_gridspec: return gs
         else: return None
 
+    def plot_power(self,Es,Ls,overplot=False,return_gridspec=False,ls='-'):
+        Ls= numpy.atleast_1d(Ls)[numpy.argsort(numpy.atleast_1d(Es))]
+        Es= numpy.sort(numpy.atleast_1d(Es))
+        minn_for_cmap= 4
+        if len(Es) < minn_for_cmap:
+            if not overplot:
+                gs= gridspec.GridSpec(1,3)
+            else:
+                gs= overplot # confusingly, we overload the meaning of overplot
+        else:
+            if not overplot:
+                outer= gridspec.GridSpec(1,3,width_ratios=[2.,0.05],
+                                         wspace=0.05)
+                gs= gridspec.GridSpecFromSubplotSpec(1,3,subplot_spec=outer[0],
+                                                     wspace=0.35)
+            else:
+                raise RuntimeError('plot_power with >= {} energies and overplot=True is not supported'.format(minn_for_cmap))
+        for ii,(E,L) in enumerate(zip(Es,Ls)):
+            # First find the torus for this energy and angular momentum
+            indx= numpy.nanargmin(numpy.fabs(E-self._internal_Es)
+                                  *numpy.fabs(L-self._internal_Ls))
+            if numpy.fabs(E-self._Es[indx]) > 1e-10 \
+                    or numpy.fabs(L-self._internal_Ls[indx]) > 1e-10:
+                raise ValueError('Given energy and angular-momentum pair not found; please specify an energy/angular-momentum pair used in the initialization of the instance')
+            # n S_n
+            y= numpy.fabs(self._nSn[indx])
+            if len(Es) > 1 and E == Es[0]:
+                y4minmax= numpy.fabs(self._nSn[:])
+                ymin= numpy.amax([numpy.amin(y4minmax[numpy.isfinite(y4minmax)]),
+                                  1e-17])
+                ymax= numpy.amax(y4minmax[numpy.isfinite(y4minmax)])
+            elif len(Es) == 1:
+                ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
+                ymax= numpy.amax(y[numpy.isfinite(y)])
+            if len(Es) < minn_for_cmap:
+                label= r'$E, L = {:g}, {:g}$'.format(E,L)
+                color= "C{}".format(ii)
+            else:
+                label= None
+                color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
+            pyplot.subplot(gs[0])
+            bovy_plot.bovy_plot(numpy.fabs(self._nforSn),
+                                y,yrange=[ymin,ymax],
+                                ls=ls,
+                                gcf=True,semilogy=True,overplot=overplot,
+                                xrange=[0.,self._nforSn[-1]],
+                                label=label,color=color,
+                                xlabel=r'$n$',ylabel=r'$|nS_n|$')
+            # d S_n / d J_r
+            y= numpy.fabs(self._dSndJr[indx])
+            if len(Es) > 1 and E == Es[0]:
+                y4minmax= numpy.fabs(self._dSndJr)
+                ymin= numpy.amax([numpy.amin(y4minmax[numpy.isfinite(y4minmax)]),
+                                  1e-17])
+                ymax= numpy.amax(y4minmax[numpy.isfinite(y4minmax)])
+            elif len(Es) == 1:
+                ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
+                ymax= numpy.amax(y[numpy.isfinite(y)])
+            if len(Es) < minn_for_cmap:
+                label= r'$E, L = {:g}, {:g}$'.format(E,L)
+                color= "C{}".format(ii)
+            else:
+                label= None
+                color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
+            pyplot.subplot(gs[1])
+            bovy_plot.bovy_plot(numpy.fabs(self._nforSn),
+                                y,yrange=[ymin,ymax],
+                                ls=ls,
+                                gcf=True,semilogy=True,overplot=overplot,
+                                xrange=[0.,self._nforSn[-1]],
+                                label=label,color=color,
+                                xlabel=r'$n$',
+                                ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J_r|$')
+            # d S_n / d Lish
+            y= numpy.fabs(self._dSndLish[indx])
+            if len(Es) > 1 and E == Es[0]:
+                y4minmax= numpy.fabs(self._dSndLish)
+                ymin= numpy.amax([numpy.amin(y4minmax[numpy.isfinite(y4minmax)]),
+                                  1e-17])
+                ymax= numpy.amax(y4minmax[numpy.isfinite(y4minmax)])
+            elif len(Es) == 1:
+                ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
+                ymax= numpy.amax(y[numpy.isfinite(y)])
+            if len(Es) < minn_for_cmap:
+                label= r'$E, L = {:g}, {:g}$'.format(E,L)
+                color= "C{}".format(ii)
+            else:
+                label= None
+                color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
+            pyplot.subplot(gs[2])
+            bovy_plot.bovy_plot(numpy.fabs(self._nforSn),
+                                y,yrange=[ymin,ymax],
+                                ls=ls,
+                                gcf=True,semilogy=True,overplot=overplot,
+                                xrange=[0.,self._nforSn[-1]],
+                                label=label,color=color,
+                                xlabel=r'$n$',
+                                ylabel=r'$|\mathrm{d}S_n/\mathrm{d}L|$')
+            if not overplot == gs: overplot= True
+        if len(Es) < minn_for_cmap:
+            if not overplot == gs:
+                pyplot.subplot(gs[0])
+                pyplot.legend(fontsize=17.,frameon=False)
+                pyplot.subplot(gs[1])
+                pyplot.legend(fontsize=17.,frameon=False)
+                pyplot.subplot(gs[2])
+                pyplot.legend(fontsize=17.,frameon=False)
+                pyplot.tight_layout()
+        else:
+            pyplot.subplot(outer[1])
+            sm= pyplot.cm.ScalarMappable(cmap=cm.plasma,
+                                         norm=pyplot.Normalize(vmin=Es[0],
+                                                               vmax=Es[-1]))
+            sm._A = []
+            cbar= pyplot.colorbar(sm,cax=pyplot.gca(),use_gridspec=True,
+                                  format=r'$%g$')
+            cbar.set_label(r'$E$')
+            outer.tight_layout(pyplot.gcf())
+        if return_gridspec: return gs
+        else: return None
 
+    def plot_orbit(self,E,L):
+        tar= numpy.linspace(0.,2.*numpy.pi,1001)
+        if not self._interp:
+            # First find the torus for this energy and angular momentum
+            indx= numpy.nanargmin(numpy.fabs(E-self._internal_Es)
+                                  *numpy.fabs(L-self._internal_Ls))
+            if numpy.fabs(E-self._Es[indx]) > 1e-10 \
+                    or numpy.fabs(L-self._internal_Ls[indx]) > 1e-10:
+                raise ValueError('Given energy and angular-momentum pair not found; please specify an energy/angular-momentum pair used in the initialization of the instance')
+            tJr= self._jr[indx]
+        else:
+            tJr= self.Jr(E)
+        r,vr,_,_,_,_= self(tJr,L,0.,tar,numpy.zeros_like(tar),numpy.zeros_like(tar))
+        # First plot orbit in r,vr
+        pyplot.subplot(1,2,1)
+        bovy_plot.bovy_plot(r,vr,xlabel=r'$r$',ylabel=r'$v_r$',gcf=True,
+                            color='k',
+                            xrange=[0.9*numpy.amin(r),1.1*numpy.amax(r)],
+                            yrange=[1.1*numpy.amin(vr),1.1*numpy.amax(vr)])
+        # Then plot energy
+        pyplot.subplot(1,2,2)
+        Eorbit= (vr**2./2.+L**2./2./r**2.
+                 +evaluatePotentials(self._pot,r,numpy.zeros_like(r)))/E-1.
+        ymin, ymax= numpy.amin(Eorbit),numpy.amax(Eorbit)
+        bovy_plot.bovy_plot(tar,Eorbit,
+                            xrange=[0.,2.*numpy.pi],
+                            yrange=[ymin-(ymax-ymin)*3.,ymax+(ymax-ymin)*3.],
+                            gcf=True,color='k',
+                            xlabel=r'$\theta$',
+                            ylabel=r'$E/E_{\mathrm{true}}-1$')
+        pyplot.tight_layout()
+        return None
 
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
     def _setup_interp(self):
