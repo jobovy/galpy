@@ -214,6 +214,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # Store mean(jra) as probably a better approx. of jr
         self._jr_orig= copy.copy(self._jr)
         self._jr= numpy.mean(self._jra,axis=1)
+        # Store better approximation to Omegar and Omegaz
+        self._Omegar_orig= copy.copy(self._Omegar)
+        self._Omegaz_orig= copy.copy(self._Omegaz)
+        self._Omegar/= numpy.nanmean(self._djradjr,axis=1)
+        self._Omegaz= self._OmegazoverOmegar*self._Omegar
         # Compute Fourier expansions
         self._nforSn= numpy.arange(self._jra.shape[1]//2+1)
         self._nSn= numpy.real(numpy.fft.rfft(self._jra
