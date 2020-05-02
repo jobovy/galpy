@@ -11,7 +11,9 @@ import copy
 import numpy
 import warnings
 from scipy import optimize, interpolate
-from ..util import galpyWarning
+from matplotlib import pyplot, gridspec, cm
+from matplotlib.ticker import NullFormatter
+from ..util import bovy_plot, galpyWarning
 from ..potential import IsochronePotential, vcirc, dvcircdR, rl, \
     evaluatePotentials, evaluateRforces
 from ..potential.Potential import _evaluatePotentials
@@ -257,8 +259,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
                    -evaluatePotentials(self._pot,rs,numpy.zeros_like(rs)))
             -numpy.tile(self._L2,(rs.shape[1],1)).T/rs**2.,
             numpy.tile(self._internal_Ls,(rs.shape[1],1)).T,reuse=False)
+
         from matplotlib import pyplot
         pyplot.plot(rs[0],rta[0],'.')
+
         rta[numpy.isnan(rta)]= 0. # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
         cindx= numpy.nanargmin(numpy.fabs(\
@@ -406,6 +410,131 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._rperigrid= rperigrid
         self._rapgrid= rapgrid
         return rgrid
+
+    def plot_convergence(self,E,L,overplot=False,return_gridspec=False,
+                         shift_action=None):
+        if shift_action is None: shift_action= self._pt_deg > 1
+        # First find the torus for this energy and angular momentum
+        indx= numpy.nanargmin(numpy.fabs(E-self._internal_Es)
+                              *numpy.fabs(L-self._internal_Ls))
+        if numpy.fabs(E-self._Es[indx]) > 1e-10 \
+                or numpy.fabs(L-self._internal_Ls[indx]) > 1e-10:
+            raise ValueError('Given energy and angular-momentum pair not found; please specify an energy/angular-momentum pair used in the initialization of the instance')
+        if not overplot:
+            gs= gridspec.GridSpec(2,4,height_ratios=[4,1])
+        else:
+            gs= overplot # confusingly, we overload the meaning of overplot
+        # mapping of thetaa --> r
+        pyplot.subplot(gs[0])
+        bovy_plot.bovy_plot(self._thetaa,self._rgrid[indx],
+                            color='k',ls='--' if overplot else '-',
+                            ylabel=r'$r(\theta_r^A)$',
+                            gcf=True,overplot=overplot)
+
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[4])
+            # Setup isochrone helper for relevant calculations
+            isoaa_helper= _actionAngleIsochroneHelper(\
+                ip=IsochronePotential(amp=self._ampgrid[indx][0],
+                                      b=self._bgrid[indx][0]))
+            negv= (self._thetaa >= numpy.pi)
+            thetaa_out= numpy.empty_like(self._thetaa)
+            one= numpy.ones(numpy.sum(True^negv))
+            thetaa_out[True^negv]= isoaa_helper.angler(\
+                self._rgrid[indx][True^negv],
+                2.*(E-evaluatePotentials(self._pot,
+                                         self._rgrid[indx][True^negv],
+                                         numpy.zeros_like(self._rgrid[indx][True^negv])))\
+                    -L**2./self._rgrid[indx][True^negv]**2.,L,
+                vrneg=False)
+            one= numpy.ones(numpy.sum(negv))
+            thetaa_out[negv]= isoaa_helper.angler(\
+                        self._rgrid[indx][negv],
+                        2.*(E-evaluatePotentials(self._pot,
+                                                 self._rgrid[indx][negv],
+                                                 numpy.zeros_like(self._rgrid[indx][negv])))\
+                            -L**2./self._rgrid[indx][negv]**2.,L,
+                        vrneg=True)
+            bovy_plot.bovy_plot(self._thetaa,
+                                ((thetaa_out-self._thetaa+numpy.pi) \
+                                     % (2.*numpy.pi))-numpy.pi,
+                                color='k',
+                                gcf=True,
+                                xlabel=r'$\theta_r^A$',
+                                ylabel=r'$\theta_r^A[r(\theta)r^A)]-\theta_r^A$')
+        # Recovery of the nSn from J_r^A(theta_r^A) behavior
+        pyplot.subplot(gs[1])
+        bovy_plot.bovy_plot(self._thetaa,
+                            self._jra[indx],
+                            color='k',ls='--' if overplot else '-',
+                            ylabel=r'$J_r^A(\theta_r^A),J$',gcf=True,
+                            overplot=overplot)
+        pyplot.axhline(self._jr[indx]+shift_action*(self._jr_orig[indx]
+                                                    -self._jr[indx]),
+                       color='k',ls='--')
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[5])
+            bovy_plot.bovy_plot(self._thetaa,
+                                numpy.array([self._jr[indx]
+                                             +2.*numpy.sum(self._nSn[indx]\
+                                                   *numpy.cos(self._nforSn*x)) 
+                                             for x in self._thetaa])\
+                                /self._jra[indx]-1.,
+                                color='k',
+                                xlabel=r'$\theta_r^A$',
+                                ylabel=r'$\delta J_r^A/J_r^A$',gcf=True)
+        # Recovery of the dSndJr from dJ_r^A/dJ_r(theta^A) behavior
+        pyplot.subplot(gs[2])
+        bovy_plot.bovy_plot(self._thetaa,self._djradjr[indx],
+                            color='k',ls='--' if overplot else '-',
+                            ylabel=r'$\partial J_r^A/\partial J_r(\theta_r^A)$',
+                            gcf=True,overplot=overplot)
+        pyplot.axhline(1.,color='k',ls='--')
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[6])
+            bovy_plot.bovy_plot(self._thetaa,
+                                numpy.array([1.+2.*numpy.sum(self._nforSn\
+                                                   *self._dSndJr[indx]\
+                                                   *numpy.cos(self._nforSn*x)) 
+                                         for x in self._thetaa])\
+                                    -self._djradjr[indx],
+                                color='k',
+                                xlabel=r'$\theta_r^A$',
+                                ylabel=r'$\delta \partial J_r^A/\partial J_r(\theta_r^A)$',
+                                gcf=True)
+        # Recovery of the dSndL from dJ_r^A/dL(theta^A) behavior
+        pyplot.subplot(gs[3])
+        bovy_plot.bovy_plot(self._thetaa,(self._djradLish[indx]
+                                          +self._OmegazoverOmegar[indx]*(self._djradjr[indx]-1.)),
+                            color='k',ls='--' if overplot else '-',
+                            ylabel=r'$\partial J_r^A/\partial L(\theta_r^A)$',
+                            gcf=True,overplot=overplot)
+        pyplot.axhline(1.,color='k',ls='--')
+        if not overplot: 
+            pyplot.gca().xaxis.set_major_formatter(NullFormatter())
+        if not overplot: 
+            pyplot.subplot(gs[7])
+            bovy_plot.bovy_plot(self._thetaa,
+                                numpy.array([2.*numpy.sum(self._nforSn\
+                                                   *self._dSndLish[indx]\
+                                                   *numpy.cos(self._nforSn*x)) 
+                                         for x in self._thetaa])\
+                                    -self._djradLish[indx],
+                                color='k',
+                                xlabel=r'$\theta_r^A$',
+                                ylabel=r'$\delta \partial J_r^A/\partial L(\theta_r^A)$',
+                                gcf=True)
+        pyplot.tight_layout()
+        if return_gridspec: return gs
+        else: return None
+
+
 
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
     def _setup_interp(self):
