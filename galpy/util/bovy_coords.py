@@ -763,6 +763,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_e
     else:
         lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[:,1],degree,epoch)
+<<<<<<< HEAD
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -813,6 +814,8 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     P[:,1,0] = -sinphi
     P[:,1,1] = cosphi
     return nu.einsum('aij,ajk->aik', P, nu.einsum('aij,jka->aik', cov_pmradec, P.T))
+=======
+>>>>>>> tweaks
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
