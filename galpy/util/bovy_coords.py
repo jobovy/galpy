@@ -762,8 +762,8 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_e
                                               degree, epoch)
             return out
     else:
-        l,b = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree,epoch)
+        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
+        return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[:,1],degree,epoch)
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
