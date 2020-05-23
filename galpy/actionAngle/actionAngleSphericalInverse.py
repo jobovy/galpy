@@ -10,6 +10,7 @@
 import copy
 import numpy
 import warnings
+from numpy.polynomial import polynomial, chebyshev
 from scipy import optimize, interpolate
 from matplotlib import pyplot, gridspec, cm
 from matplotlib.ticker import NullFormatter
@@ -30,9 +31,10 @@ except ImportError:
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle formalism for spherical potentials"""
     def __init__(self,pot=None,
-                 Es=[0.1,0.3],Ls=[1.,1.2],
+                 Es=[0.1,0.3],Ls=[1.,1.2],                
                  setup_interp=False,Rmax=5.,Rinf=25.,nL=31,nE=31,
                  nta=128,
+                 use_pointtransform=False,pt_deg=7,pt_nra=301,
                  maxiter=100,angle_tol=1e-12,bisect=False):
         """
         NAME:
@@ -176,6 +178,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._ip= IsochronePotential(amp=self._amp,b=self._b)
         self._isoaa= actionAngleIsochrone(ip=self._ip)
         self._isoaainv= actionAngleIsochroneInverse(ip=self._ip)
+        if use_pointtransform and pt_deg > 1:
+            self._setup_pointtransform(pt_deg-(1-pt_deg%2),pt_nxa) # make odd
+        else:
+            # Setup identity point transformation
+
+            # TEST FOR NOW
+            self._pt_deg= 3
+            self._pt_nra= pt_nra
+            self._pt_rperi= self._rperi
+            self._pt_rap= self._rap
+            self._pt_coeffs= numpy.zeros((len(self._internal_Es),4))
+            self._pt_coeffs[:,1]= 1.+0.3
+            self._pt_coeffs[:,3]= 1.-self._pt_coeffs[:,1]
+            self._pt_deriv_coeffs= numpy.ones((len(self._internal_Es),1))
+            self._pt_deriv2_coeffs= numpy.zeros((len(self._internal_Es),1))
         # Now map all tori
         self._nta= nta
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
@@ -253,18 +270,24 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # grid in r (at +v); also don't allow points to be exactly at 
         # rperi or rap, because Newton derivative is inf there...
         rgrid= numpy.linspace(0.,1.,2*self._nta)
-        rs= rgrid*numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T\
-            +numpy.atleast_2d(self._rperi+1e-8).T
+        rs= rgrid*numpy.atleast_2d(self._pt_rap-self._pt_rperi-2*1e-8).T\
+            +numpy.atleast_2d(self._pt_rperi+1e-8).T
         # Setup helper for computing angles, and derivative
         isoaa_helper= _actionAngleIsochroneHelper(\
             ip=IsochronePotential(amp=numpy.tile(self._amp,(rs.shape[1],1)).T,
                                   b=numpy.tile(self._b,(rs.shape[1],1)).T))
-        rta= isoaa_helper.angler(\
-            rs,2.*(numpy.tile(self._internal_Es,(rs.shape[1],1)).T
-                   -evaluatePotentials(self._pot,rs,numpy.zeros_like(rs)))
-            -numpy.tile(self._L2,(rs.shape[1],1)).T/rs**2.,
-            numpy.tile(self._internal_Ls,(rs.shape[1],1)).T,reuse=False)
-
+        rta= _anglera(rs,numpy.tile(self._internal_Es,(rs.shape[1],1)).T,
+                      numpy.tile(self._internal_Ls,(rs.shape[1],1)).T,
+                      numpy.tile(self._L2,(rs.shape[1],1)).T,
+                      self._pot,isoaa_helper,
+                      numpy.rollaxis(numpy.tile(self._pt_coeffs,
+                                                (rs.shape[1],1,1)),1),
+                      numpy.rollaxis(numpy.tile(self._pt_deriv_coeffs,
+                                                (rs.shape[1],1,1)),1),
+                      numpy.tile(self._rperi,(rs.shape[1],1)).T,
+                      numpy.tile(self._rap,(rs.shape[1],1)).T,
+                      numpy.tile(self._pt_rperi,(rs.shape[1],1)).T,
+                      numpy.tile(self._pt_rap,(rs.shape[1],1)).T)
         from matplotlib import pyplot
         pyplot.plot(rs[0],rta[0],'.')
 
@@ -275,7 +298,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
                  +numpy.pi) % (2.*numpy.pi)-numpy.pi),axis=2)
         rgrid= rgrid[cindx].T*numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T\
             +numpy.atleast_2d(self._rperi+1e-8).T
-        print(rta[:,15])
         Egrid= numpy.tile(self._internal_Es,(self._nta,1)).T
         Lgrid= numpy.tile(self._internal_Ls,(self._nta,1)).T
         L2grid= Lgrid**2
@@ -290,11 +312,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
         isoaa_helper.b= bgrid
         rperigrid= numpy.tile(self._rperi,(self._nta,1)).T
         rapgrid= numpy.tile(self._rap,(self._nta,1)).T
-        ta= isoaa_helper.angler(\
-            rgrid,2.*(Egrid
-                   -evaluatePotentials(self._pot,rgrid,
-                                       numpy.zeros_like(rgrid)))
-            -L2grid/rgrid**2.,Lgrid,reuse=False)
+        ptrperigrid= numpy.tile(self._pt_rperi,(self._nta,1)).T
+        ptrapgrid= numpy.tile(self._pt_rap,(self._nta,1)).T
+        ptcoeffsgrid= numpy.rollaxis(numpy.tile(self._pt_coeffs,
+                                                (self._nta,1,1)),1)
+        ptderivcoeffsgrid= numpy.rollaxis(numpy.tile(self._pt_deriv_coeffs,
+                                                     (self._nta,1,1)),1)
+        ptderiv2coeffsgrid= numpy.rollaxis(numpy.tile(self._pt_deriv2_coeffs,
+                                                      (self._nta,1,1)),1)
+        ta= _anglera(rgrid,Egrid,Lgrid,L2grid,self._pot,isoaa_helper,
+                     ptcoeffsgrid,ptderivcoeffsgrid,
+                     rperigrid,rapgrid,ptrperigrid,ptrapgrid)
         mta= numpy.tile(self._thetaa,(len(self._internal_Es),1))
         # Now iterate
         cntr= 0
@@ -312,14 +340,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         isoaa_helper.amp= ampgrid[unconv]
         isoaa_helper.b= bgrid[unconv]
         while not self._bisect:
-            dtadr= isoaa_helper.danglerdr_constant_L(\
-                rgrid[unconv],
-                2.*(Egrid[unconv]-evaluatePotentials(self._pot,rgrid[unconv],
-                                                     numpy.zeros_like(rgrid[unconv])))
-                -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],
-                evaluateRforces(self._pot,rgrid[unconv],0.)
-                -evaluateRforces(isoaa_helper._ip,rgrid[unconv],
-                                 numpy.zeros_like(rgrid[unconv])))
+            dtadr= _danglera(rgrid[unconv],Egrid[unconv],Lgrid[unconv],
+                             L2grid[unconv],self._pot,isoaa_helper,
+                             ptcoeffsgrid[unconv],ptderivcoeffsgrid[unconv],
+                             ptderiv2coeffsgrid[unconv],
+                             rperigrid[unconv],rapgrid[unconv],ptrperigrid[unconv],ptrapgrid[unconv])
             dta= (ta[unconv]-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
             dr= -dta/dtadr
             dr[numpy.fabs(dr) > maxdr[unconv]]=\
@@ -334,11 +359,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
                                                  b=bgrid[unconv])
             isoaa_helper.amp= ampgrid[unconv]
             isoaa_helper.b= bgrid[unconv]
-            newta= isoaa_helper.angler(\
-                rgrid[unconv],2.*(Egrid[unconv]
-                          -evaluatePotentials(self._pot,rgrid[unconv],
-                                              numpy.zeros_like(rgrid[unconv])))
-                -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],reuse=False)
+            newta= _anglera(rgrid[unconv],Egrid[unconv],Lgrid[unconv],
+                            L2grid[unconv],self._pot,isoaa_helper,
+                            ptcoeffsgrid[unconv],ptderivcoeffsgrid[unconv],
+                            rperigrid[unconv],rapgrid[unconv],ptrperigrid[unconv],ptrapgrid[unconv])
             ta[unconv]= newta
             cntr+= 1
             if numpy.sum(unconv) == 0:
@@ -358,9 +382,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             da[da >= 0.]= -numpy.nanmax(numpy.fabs(da))-0.1
             cindx= numpy.nanargmax(da,axis=2)
             tryr_min= (new_rgrid[cindx].T
-                       *numpy.atleast_2d(self._rap-self._rperi-2*1e-8).T
-                       +numpy.atleast_2d(self._rperi+1e-8).T)[unconv]
-            dr= 2./(2.*self._nta-1)*(rapgrid-rperigrid) # delta of initial x grid above
+                       *numpy.atleast_2d(self._pt_rap-self._pt_rperi-2*1e-8).T
+                       +numpy.atleast_2d(self._pt_rperi+1e-8).T)[unconv]
+            dr= 2./(2.*self._nta-1)*(ptrapgrid-ptrperigrid) # delta of initial x grid above
             while True:
                 dr*= 0.5
                 rgrid[unconv]= tryr_min+dr[unconv]
@@ -368,13 +392,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
                                                      b=bgrid[unconv])
                 isoaa_helper.amp= ampgrid[unconv]
                 isoaa_helper.b= bgrid[unconv]
-                newta= (isoaa_helper.angler(\
-                    rgrid[unconv],2.*(Egrid[unconv]
-                          -evaluatePotentials(self._pot,rgrid[unconv],
-                                              numpy.zeros_like(rgrid[unconv])))
-                    -L2grid[unconv]/rgrid[unconv]**2.,Lgrid[unconv],
-                    reuse=False)+2.*numpy.pi) \
-                                % (2.*numpy.pi)
+                newta= (_anglera(rgrid[unconv],Egrid[unconv],Lgrid[unconv],
+                                 L2grid[unconv],
+                                 self._pot,isoaa_helper,
+                                 ptcoeffsgrid[unconv],
+                                 ptderivcoeffsgrid[unconv],
+                                 rperigrid[unconv],rapgrid[unconv],
+                                 ptrperigrid[unconv],ptrapgrid[unconv])
+                        +2.*numpy.pi) \
+                        % (2.*numpy.pi)
                 ta[unconv]= newta
 #                print(mta[unconv],rgrid[unconv],ta[unconv])
                 dta= (newta-mta[unconv]+numpy.pi) % (2.*numpy.pi)-numpy.pi
@@ -398,12 +424,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
                                              b=bgrid[:,self._nta//2+1:])
         isoaa_helper.amp= ampgrid[:,self._nta//2+1:]
         isoaa_helper.b= bgrid[:,self._nta//2+1:]
-        ta[:,self._nta//2+1:]= isoaa_helper.angler(\
-            rgrid[:,self._nta//2+1:],2.*(Egrid[:,self._nta//2+1:]
-                          -evaluatePotentials(self._pot,rgrid[:,self._nta//2+1:],
-                                              numpy.zeros_like(rgrid[:,self._nta//2+1:])))
-                    -L2grid[:,self._nta//2+1:]/rgrid[:,self._nta//2+1:]**2.,Lgrid[:,self._nta//2+1:],
-                    reuse=False,vrneg=True)
+        ta[:,self._nta//2+1:]= \
+            _anglera(rgrid[:,self._nta//2+1:],Egrid[:,self._nta//2+1:],
+                     Lgrid[:,self._nta//2+1:],L2grid[:,self._nta//2+1:],
+                     self._pot,isoaa_helper,
+                     ptcoeffsgrid[:,self._nta//2+1:],
+                     ptderivcoeffsgrid[:,self._nta//2+1:],
+                     rperigrid[:,self._nta//2+1:],rapgrid[:,self._nta//2+1:],
+                     ptrperigrid[:,self._nta//2+1:],ptrapgrid[:,self._nta//2+1:],
+                     vrneg=True)
         self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
         self._mta= mta
         # Store these, they are useful (obv. arbitrary to return rgrid 
@@ -435,7 +464,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
                             color='k',ls='--' if overplot else '-',
                             ylabel=r'$r(\theta_r^A)$',
                             gcf=True,overplot=overplot)
-
         if not overplot: 
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot: 
@@ -447,21 +475,27 @@ class actionAngleSphericalInverse(actionAngleInverse):
             negv= (self._thetaa >= numpy.pi)
             thetaa_out= numpy.empty_like(self._thetaa)
             one= numpy.ones(numpy.sum(True^negv))
-            thetaa_out[True^negv]= isoaa_helper.angler(\
-                self._rgrid[indx][True^negv],
-                2.*(E-evaluatePotentials(self._pot,
-                                         self._rgrid[indx][True^negv],
-                                         numpy.zeros_like(self._rgrid[indx][True^negv])))\
-                    -L**2./self._rgrid[indx][True^negv]**2.,L,
-                vrneg=False)
+            thetaa_out[True^negv]= _anglera(self._rgrid[indx][True^negv],
+                                            E,L,L**2.,self._pot,
+                                            isoaa_helper,
+                                            self._pt_coeffs[indx],
+                                            self._pt_deriv_coeffs[indx],
+                                            self._rperi[indx]*one,
+                                            self._rap[indx]*one,
+                                            self._pt_rperi[indx]*one,
+                                            self._pt_rap[indx]*one,
+                                            vrneg=False)
             one= numpy.ones(numpy.sum(negv))
-            thetaa_out[negv]= isoaa_helper.angler(\
-                        self._rgrid[indx][negv],
-                        2.*(E-evaluatePotentials(self._pot,
-                                                 self._rgrid[indx][negv],
-                                                 numpy.zeros_like(self._rgrid[indx][negv])))\
-                            -L**2./self._rgrid[indx][negv]**2.,L,
-                        vrneg=True)
+            thetaa_out[negv]= _anglera(self._rgrid[indx][negv],
+                                       E,L,L**2.,self._pot,
+                                       isoaa_helper,
+                                       self._pt_coeffs[indx],
+                                       self._pt_deriv_coeffs[indx],
+                                       self._rperi[indx]*one,
+                                       self._rap[indx]*one,
+                                       self._pt_rperi[indx]*one,
+                                       self._pt_rap[indx]*one,
+                                       vrneg=True)
             bovy_plot.bovy_plot(self._thetaa,
                                 ((thetaa_out-self._thetaa+numpy.pi) \
                                      % (2.*numpy.pi))-numpy.pi,
@@ -1126,3 +1160,82 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
             jz= self._L-numpy.fabs(jphi)
         anglephia= anglephi+numpy.sign(jphi)*(angleza-anglez)
         return self._isoaainv(jra,jphi,jz,anglera,anglephia,angleza)
+
+def _anglera(ra,E,L,L2,pot,isoaa_helper,ptcoeffs,ptderivcoeffs,
+             rperi,rap,ptrperi,ptrap,vrneg=False):
+    """
+    NAME:
+       _anglera
+    PURPOSE:
+       Compute the auxiliary radial angle in the isochrone potential for a grid in r and E, including the point transformation
+    INPUT:
+       ra - radial position
+       E - energy
+       L - angular momentum 
+       L2 - angular momentum squared
+       pot - the potential
+       isoaa_helepr - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       rperi, rap - peri- and apocenter of the true torus
+       ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+       vrneg= (False) True if vr is negative
+    OUTPUT:
+       auxiliary radial angles
+    HISTORY:
+       2020-05-22 - Written based on earlier code - Bovy (UofT)
+    """
+    # Compute vr
+    r= (rap-rperi)*polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                                      ptcoeffs.T,tensor=False).T+rperi
+    vr2= 2.*(E-evaluatePotentials(pot,r,numpy.zeros_like(r)))-L2/r**2.
+    vr2[vr2 < 0.]= 0.
+    piprime= (rap-rperi)/(ptrap-ptrperi)\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderivcoeffs.T,tensor=False).T
+    return isoaa_helper.angler(ra,vr2*piprime**-2.,L,reuse=False,vrneg=vrneg)
+
+def _danglera(ra,E,L,L2,pot,isoaa_helper,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
+              rperi,rap,ptrperi,ptrap,vrneg=False):
+    """
+    NAME:
+       _danglera
+    PURPOSE:
+       Compute the derivative of the auxiliary radial angle in the isochrone potential for a grid in r and E, including the point transformation wrt ra
+    INPUT:
+       ra - radial position
+       E - energy
+       L - angular momentum 
+       L2 - angular momentum squared
+       pot - the potential
+       isoaa_helepr - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
+       rperi, rap - peri- and apocenter of the true torus
+       ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+       vrneg= (False) True if vr is negative
+    OUTPUT:
+       auxiliary radial angles
+    HISTORY:
+       2020-05-22 - Written based on earlier code - Bovy (UofT)
+    """
+    # Compute vr
+    r= (rap-rperi)*polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                                      ptcoeffs.T,tensor=False).T+rperi
+    vr2= 2.*(E-evaluatePotentials(pot,r,numpy.zeros_like(r)))-L2/r**2.
+    vr2[vr2 < 0.]= 0.
+    piprime= (rap-rperi)/(ptrap-ptrperi)\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderivcoeffs.T,tensor=False).T
+    piprime2= (rap-rperi)/(ptrap-ptrperi)**2.\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderiv2coeffs.T,tensor=False).T
+    dEadra= -piprime2*piprime**-3.*vr2/2.\
+        +piprime**-2.*(L2*r**-3.+
+                       piprime*evaluateRforces(pot,ra,numpy.zeros_like(ra)))\
+        -L2*ra**-3.\
+        -evaluateRforces(isoaa_helper._ip,ra,numpy.zeros_like(ra))
+    return isoaa_helper.danglerdr_constant_L(ra,vr2*piprime**-2.,L,dEadra,
+                                             vrneg=vrneg)
+
