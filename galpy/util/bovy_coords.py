@@ -1608,7 +1608,7 @@ def vxvyvz_to_galcenspher(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
     """
     vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
                                _extra_rot=_extra_rot)
-    return nu.array(\
+    return numpy.array(\
         rect_to_spher_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,spher=galcen)).T
 
 @scalarDecorator
