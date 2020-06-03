@@ -162,7 +162,6 @@ def degreeDecorator(inDegrees,outDegrees):
         return wrapped
     return wrapper
 
-
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
@@ -764,6 +763,9 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_e
         lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[:,1],degree,epoch)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 375375818ddde27195e4e6c50ab8bc2d6cdbb18e
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -787,6 +789,7 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     ndata = len(ra)
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
+<<<<<<< HEAD
         sindec_ngp= nu.sin(dec_ngp)
         cosdec_ngp= nu.cos(dec_ngp)
         sindec= nu.sin(dec*_DEGTORAD)
@@ -846,6 +849,15 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
         sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
         cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
     else:
+=======
+        sindec_ngp= numpy.sin(dec_ngp)
+        cosdec_ngp= numpy.cos(dec_ngp)
+        sindec= numpy.sin(dec*_DEGTORAD)
+        cosdec= numpy.cos(dec*_DEGTORAD)
+        sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
+    else:
+>>>>>>> 375375818ddde27195e4e6c50ab8bc2d6cdbb18e
         sindec_ngp= numpy.sin(dec_ngp)
         cosdec_ngp= numpy.cos(dec_ngp)
         sindec= numpy.sin(dec)
@@ -2648,7 +2660,6 @@ def radec_to_custom(ra,dec,T=None,degree=False):
     l[l<0] += 2 * numpy.pi  # fix range to [0, 2 pi]
     out= numpy.array([l,b])
     return out.T
-
 
 @scalarDecorator
 @degreeDecorator([2,3],[])
