@@ -162,6 +162,7 @@ def degreeDecorator(inDegrees,outDegrees):
         return wrapped
     return wrapper
 
+
 @scalarDecorator
 @degreeDecorator([0,1],[0,1])
 def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
@@ -762,10 +763,6 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_e
     else:
         lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[:,1],degree,epoch)
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 375375818ddde27195e4e6c50ab8bc2d6cdbb18e
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -789,7 +786,6 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     ndata = len(ra)
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
-<<<<<<< HEAD
         sindec_ngp= nu.sin(dec_ngp)
         cosdec_ngp= nu.cos(dec_ngp)
         sindec= nu.sin(dec*_DEGTORAD)
@@ -817,8 +813,6 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     P[:,1,0] = -sinphi
     P[:,1,1] = cosphi
     return nu.einsum('aij,ajk->aik', P, nu.einsum('aij,jka->aik', cov_pmradec, P.T))
-=======
->>>>>>> tweaks
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -842,42 +836,33 @@ def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     ndata = len(ra)
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
-        sindec_ngp= numpy.sin(dec_ngp)
-        cosdec_ngp= numpy.cos(dec_ngp)
-        sindec= numpy.sin(dec*_DEGTORAD)
-        cosdec= numpy.cos(dec*_DEGTORAD)
-        sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec*_DEGTORAD)
+        cosdec= nu.cos(dec*_DEGTORAD)
+        sinrarangp= nu.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= nu.cos(ra*_DEGTORAD-ra_ngp)
     else:
-=======
-        sindec_ngp= numpy.sin(dec_ngp)
-        cosdec_ngp= numpy.cos(dec_ngp)
-        sindec= numpy.sin(dec*_DEGTORAD)
-        cosdec= numpy.cos(dec*_DEGTORAD)
-        sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
-    else:
->>>>>>> 375375818ddde27195e4e6c50ab8bc2d6cdbb18e
-        sindec_ngp= numpy.sin(dec_ngp)
-        cosdec_ngp= numpy.cos(dec_ngp)
-        sindec= numpy.sin(dec)
-        cosdec= numpy.cos(dec)
-        sinrarangp= numpy.sin(ra-ra_ngp)
-        cosrarangp= numpy.cos(ra-ra_ngp)
+        sindec_ngp= nu.sin(dec_ngp)
+        cosdec_ngp= nu.cos(dec_ngp)
+        sindec= nu.sin(dec)
+        cosdec= nu.cos(dec)
+        sinrarangp= nu.sin(ra-ra_ngp)
+        cosrarangp= nu.cos(ra-ra_ngp)
     #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     #sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
     sinphi= sinrarangp*cosdec_ngp
-    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
+    norm= nu.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    P = numpy.zeros([ndata,2,2])
+    P = nu.zeros([ndata,2,2])
     P[:,0,0] = cosphi
     P[:,0,1] = sinphi
     P[:,1,0] = -sinphi
     P[:,1,1] = cosphi
-    return numpy.einsum('aij,ajk->aik', P, numpy.einsum('aij,jka->aik', cov_pmradec, P.T))
+    return nu.einsum('aij,ajk->aik', P, nu.einsum('aij,jka->aik', cov_pmradec, P.T))
 
 def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
@@ -1012,7 +997,7 @@ def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
        2018-03-19 - Written - Mackereth (LJMU)
     """
     ndata = len(d)
-    M = numpy.zeros((ndata,2,3))
+    M = nu.zeros((ndata,2,3))
     M[:,0,0] = pmll
     M[:,1,0] = pmbb
     M[:,0,1] = d
@@ -1021,20 +1006,20 @@ def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
     cov_dpmllbb= sc.zeros((ndata,3,3))
     cov_dpmllbb[:,0,0]= e_d**2.
     cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
-    cov_vlvb = numpy.einsum('aij,ajk->aik', M, numpy.einsum('aij,jka->aik', cov_dpmllbb, M.T))
+    cov_vlvb = nu.einsum('aij,ajk->aik', M, nu.einsum('aij,jka->aik', cov_dpmllbb, M.T))
     cov_vrvlvb= sc.zeros((ndata,3,3))
     cov_vrvlvb[:,0,0]= e_vr**2.
     cov_vrvlvb[:,1:3,1:3]= cov_vlvb
-    R = numpy.zeros((ndata,3,3))
-    R[:,0,0] = numpy.cos(l)*numpy.cos(b)
-    R[:,0,1] = numpy.sin(l)*numpy.cos(b)
-    R[:,0,2] =  numpy.sin(b)
-    R[:,1,0] = -numpy.sin(l)
-    R[:,1,1] = numpy.cos(l)
-    R[:,2,0] = -numpy.cos(l)*numpy.sin(b)
-    R[:,2,1] = -numpy.sin(l)*numpy.sin(b)
-    R[:,2,2] =  numpy.cos(b)
-    return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vrvlvb, R))
+    R = nu.zeros((ndata,3,3))
+    R[:,0,0] = nu.cos(l)*nu.cos(b)
+    R[:,0,1] = nu.sin(l)*nu.cos(b)
+    R[:,0,2] =  nu.sin(b)
+    R[:,1,0] = -nu.sin(l)
+    R[:,1,1] = nu.cos(l)
+    R[:,2,0] = -nu.cos(l)*nu.sin(b)
+    R[:,2,1] = -nu.sin(l)*nu.sin(b)
+    R[:,2,2] =  nu.cos(b)
+    return nu.einsum('ija,ajk->aik', R.T, nu.einsum('aij,ajk->aik', cov_vrvlvb, R))
 
 def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
     """
@@ -1084,8 +1069,8 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
     HISTORY:
        2018-03-22 - Written - Mackereth (LJMU)
     """
-    if len(numpy.shape(cov_vxyz)) == 3:
-        cov_galcencyl = numpy.empty(numpy.shape(cov_vxyz))
+    if len(nu.shape(cov_vxyz)) == 3:
+        cov_galcencyl = nu.empty(nu.shape(cov_vxyz))
         cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
         cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi)
         return cov_galcencyl
@@ -1095,100 +1080,40 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
         return cov_galcencyl
 
 def cov_vxyz_to_galcenrect_single(cov_vxyz,Xsun=1.,Zsun=0.):
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
+    R = nu.array([[costheta,0.,-sintheta],
                   [0.,1.,0.],
                   [sintheta,0.,costheta]])
-    return numpy.dot(R.T,numpy.dot(cov_vxyz,R))
+    return nu.dot(R.T,nu.dot(cov_vxyz,R))
 
 def cov_vxyz_to_galcenrect_array(cov_vxyz,Xsun=1.,Zsun=0.):
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
+    dgc= nu.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
+    R = nu.array([[costheta,0.,-sintheta],
                   [0.,1.,0.],
                   [sintheta,0.,costheta]])
-    R = numpy.ones([len(cov_vxyz),3,3])*R
-    return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
+    R = nu.ones([len(cov_vxyz),3,3])*R
+    return nu.einsum('ija,ajk->aik', R.T, nu.einsum('aij,ajk->aik', cov_vxyz, R))
 
 def cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi):
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
-    R = numpy.array([[cosphi, sinphi, 0.],
+    cosphi = nu.cos(phi)
+    sinphi = nu.sin(phi)
+    R = nu.array([[cosphi, sinphi, 0.],
                  [-sinphi, cosphi, 0.],
                  [0., 0., 1.]])
-    return numpy.dot(R, numpy.dot(cov_galcenrect, R.T))
+    return nu.dot(R, nu.dot(cov_galcenrect, R.T))
 
 def cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi):
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
-    R = numpy.zeros([len(cov_galcenrect),3,3])
+    cosphi = nu.cos(phi)
+    sinphi = nu.sin(phi)
+    R = nu.zeros([len(cov_galcenrect),3,3])
     R[:,0,0] = cosphi
     R[:,0,1] = sinphi
     R[:,1,0] = -sinphi
     R[:,1,1] = cosphi
     R[:,2,2] = 1.
-    return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
-
-def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
-    """
-    NAME:
-       cov_vxyz_to_galcencyl
-    PURPOSE:
-       propagate uncertainties in vxyz to galactocentric cylindrical coordinates
-    INPUT:
-       cov_vxyz - uncertainty covariance in U,V,W
-       phi - angular position of star in galactocentric cylindrical coords
-    OUTPUT:
-       cov(vR,vT,vz) [3,3]
-    HISTORY:
-       2018-03-22 - Written - Mackereth (LJMU)
-    """
-    if len(numpy.shape(cov_vxyz)) == 3:
-        cov_galcencyl = numpy.empty(numpy.shape(cov_vxyz))
-        cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
-        cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi)
-        return cov_galcencyl
-    else:
-        cov_galcenrect = cov_vxyz_to_galcenrect_single(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
-        cov_galcencyl = cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi)
-        return cov_galcencyl
-
-def cov_vxyz_to_galcenrect_single(cov_vxyz,Xsun=1.,Zsun=0.):
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
-                  [0.,1.,0.],
-                  [sintheta,0.,costheta]])
-    return numpy.dot(R.T,numpy.dot(cov_vxyz,R))
-
-def cov_vxyz_to_galcenrect_array(cov_vxyz,Xsun=1.,Zsun=0.):
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
-                  [0.,1.,0.],
-                  [sintheta,0.,costheta]])
-    R = numpy.ones([len(cov_vxyz),3,3])*R
-    return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
-
-def cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi):
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
-    R = numpy.array([[cosphi, sinphi, 0.],
-                 [-sinphi, cosphi, 0.],
-                 [0., 0., 1.]])
-    return numpy.dot(R, numpy.dot(cov_galcenrect, R.T))
-
-def cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi):
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
-    R = numpy.zeros([len(cov_galcenrect),3,3])
-    R[:,0,0] = cosphi
-    R[:,0,1] = sinphi
-    R[:,1,0] = -sinphi
-    R[:,1,1] = cosphi
-    R[:,2,2] = 1.
-    return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
+    return nu.einsum('aij,ajk->aik', R, nu.einsum('aij,jka->aik', cov_galcenrect, R.T))
 
 @scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
@@ -1321,32 +1246,6 @@ def rect_to_cyl(X,Y,Z):
 
     """
     return (numpy.sqrt(X**2.+Y**2.),numpy.arctan2(Y,X),Z)
-
-def rect_to_spher(X,Y,Z):
-    """
-    NAME:
-
-       rect_to_spher
-
-    PURPOSE:
-
-       convert from rectangular to spherical coordinates
-
-    INPUT:
-
-       X, Y, Z - rectangular coordinates
-
-    OUTPUT:
-
-       R,theta,phi
-
-    HISTORY:
-
-       2019-10-19 - Written - Mackereth (UoB)
-
-    """
-    r = numpy.sqrt(X**2.+Y**2.+Z**2.)
-    return (r,numpy.arccos(Z/r),numpy.arctan(Y/X))
 
 def rect_to_spher(X,Y,Z):
     """
@@ -1674,7 +1573,7 @@ def vxvyvz_to_galcenspher(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
     """
     vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
                                _extra_rot=_extra_rot)
-    return numpy.array(\
+    return nu.array(\
         rect_to_spher_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,spher=galcen)).T
 
 @scalarDecorator
@@ -1960,9 +1859,9 @@ def rect_to_spher_vec(vx, vy, vz, X, Y, Z, spher=False):
         r,theta,phi= rect_to_spher(X,Y,Z)
     else:
         r,theta,phi = X, Y, Z
-    vr = vx*numpy.sin(theta)*numpy.sin(phi)+vy*numpy.sin(theta)*numpy.sin(phi)+vz*numpy.cos(theta)
-    vtheta = vx*numpy.cos(theta)*numpy.cos(phi)+vy*numpy.cos(theta)*numpy.sin(phi)-vz*numpy.sin(theta)
-    vphi = -vx*numpy.sin(theta)+vy*numpy.cos(phi)
+    vr = vx*nu.sin(theta)*nu.sin(phi)+vy*nu.sin(theta)*nu.sin(phi)+vz*nu.cos(theta)
+    vtheta = vx*nu.cos(theta)*nu.cos(phi)+vy*nu.cos(theta)*nu.sin(phi)-vz*nu.sin(theta)
+    vphi = -vx*nu.sin(theta)+vy*nu.cos(phi)
     return (vr, vtheta, vphi)
 
 
@@ -2660,6 +2559,7 @@ def radec_to_custom(ra,dec,T=None,degree=False):
     l[l<0] += 2 * numpy.pi  # fix range to [0, 2 pi]
     out= numpy.array([l,b])
     return out.T
+
 
 @scalarDecorator
 @degreeDecorator([2,3],[])
