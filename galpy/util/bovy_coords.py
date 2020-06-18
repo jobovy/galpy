@@ -1003,11 +1003,11 @@ def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
     M[:,0,1] = d
     M[:,1,2] = d
     M= _K*M
-    cov_dpmllbb= sc.zeros((ndata,3,3))
+    cov_dpmllbb= numpy.zeros((ndata,3,3))
     cov_dpmllbb[:,0,0]= e_d**2.
     cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
     cov_vlvb = numpy.einsum('aij,ajk->aik', M, numpy.einsum('aij,jka->aik', cov_dpmllbb, M.T))
-    cov_vrvlvb= sc.zeros((ndata,3,3))
+    cov_vrvlvb= numpy.zeros((ndata,3,3))
     cov_vrvlvb[:,0,0]= e_vr**2.
     cov_vrvlvb[:,1:3,1:3]= cov_vlvb
     R = numpy.zeros((ndata,3,3))
