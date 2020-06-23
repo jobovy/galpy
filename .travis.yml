@@ -88,7 +88,6 @@ install:
 # Following tests that we can start from an incomplete configuration file
  - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
  - if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
-script:
 # Print versions of everything relevant
  - python -c "import numpy; print(numpy.__version__)"
  - python -c "import scipy; print(scipy.__version__)"
@@ -97,6 +96,7 @@ script:
  - if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print(astroquery.__version__)"; fi
  - if $REQUIRES_PYNBODY; then python -c "import pynbody; print(pynbody.__version__)"; fi
 # RUN TESTS
+script:
 # only wait longer for orbit integrations
  - if [[ $TEST_FILES == 'tests/test_orbit.py tests/test_orbits.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi
 after_success:
