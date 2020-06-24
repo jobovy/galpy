@@ -8,7 +8,7 @@ from galpy.util import bovy_coords, bovy_conversion, \
 if _APY_LOADED:
     from astropy import units
 class streamspraydf(df):
-    def __init__(self,progenitor_mass,progenitor=None,pot=None,
+    def __init__(self,progenitor_mass,progenitor=None,pot=None,rtpot=None,
                  tdisrupt=None,leading=True,
                  meankvec=[2.,0.,0.3,0.,0.,0.],
                  sigkvec=[0.4,0.,0.4,0.5,0.5,0.],
@@ -35,7 +35,11 @@ class streamspraydf(df):
            meankvec= (Fardal+2015-ish defaults) 
            
            sigkvec= (Fardal+2015-ish defaults) 
+
+           pot = (None) potential for integrating orbits
            
+           rtpot = (None) potential for calculating tidal radius and vircular velocity
+
         OUTPUT:
         
             Instance
@@ -60,6 +64,12 @@ class streamspraydf(df):
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
+
+        if rtpot is None:
+            self._rtpot=self._pot
+        else:
+            self._rtpot=flatten_potential(rtpot)
+
         self._progenitor= progenitor()
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
         self._progenitor.integrate(self._progenitor_times,self._pot)
@@ -120,17 +130,17 @@ class streamspraydf(df):
         # Sample positions and velocities in the instantaneous frame
         k= self._meankvec+numpy.random.normal(size=n)[:,numpy.newaxis]*self._sigkvec
         try:
-            rtides= rtide(self._pot,Rpt,Zpt,phi=phipt,
+            rtides= rtide(self._rtpot,Rpt,Zpt,phi=phipt,
                           t=-dt,M=self._progenitor_mass,use_physical=False)
             vcs= numpy.sqrt(-Rpt
-                            *evaluateRforces(self._pot,Rpt,Zpt,phi=phipt,t=-dt,
+                            *evaluateRforces(self._rtpot,Rpt,Zpt,phi=phipt,t=-dt,
                                              use_physical=False))
         except (ValueError,TypeError):
-            rtides= numpy.array([rtide(self._pot,Rpt[ii],Zpt[ii],phi=phipt[ii],
+            rtides= numpy.array([rtide(self._rtpot,Rpt[ii],Zpt[ii],phi=phipt[ii],
                                   t=-dt[ii],M=self._progenitor_mass,use_physical=False)
                                 for ii in range(len(Rpt))])
             vcs= numpy.array([numpy.sqrt(-Rpt[ii]
-                                *evaluateRforces(self._pot,Rpt[ii],Zpt[ii],phi=phipt[ii],t=-dt[ii],
+                                *evaluateRforces(self._rtpot,Rpt[ii],Zpt[ii],phi=phipt[ii],t=-dt[ii],
                                                  use_physical=False))
                               for ii in range(len(Rpt))])
         rtides_as_frac= rtides/Rpt
