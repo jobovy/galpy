@@ -38,7 +38,7 @@ class streamspraydf(df):
 
            pot = (None) potential for integrating orbits
            
-           rtpot = (None) potential for calculating tidal radius and vircular velocity
+           rtpot = (pot) potential for calculating tidal radius and circular velocity
 
         OUTPUT:
         
@@ -64,11 +64,7 @@ class streamspraydf(df):
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
-
-        if rtpot is None:
-            self._rtpot=self._pot
-        else:
-            self._rtpot=flatten_potential(rtpot)
+        self._rtpot=self._pot if rtpot is None else flatten_potential(rtpot)
 
         self._progenitor= progenitor()
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
