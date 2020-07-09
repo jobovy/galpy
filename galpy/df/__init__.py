@@ -5,6 +5,9 @@ from . import quasiisothermaldf
 from . import streamdf
 from . import streamgapdf
 from . import jeans
+from . import Eddingtondf
+from . import isotropicHernquistdf
+from . import constantbetaHernquistdf
 #
 # Functions
 #
@@ -32,3 +35,6 @@ surfaceSigmaProfile= surfaceSigmaProfile.surfaceSigmaProfile
 quasiisothermaldf= quasiisothermaldf.quasiisothermaldf
 streamdf= streamdf.streamdf
 streamgapdf= streamgapdf.streamgapdf
+Eddingtondf= Eddingtondf.Eddingtondf
+isotropicHernquistdf= isotropicHernquistdf.isotropicHernquistdf
+constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
