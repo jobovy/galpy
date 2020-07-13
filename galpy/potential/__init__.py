@@ -48,6 +48,7 @@ from . import PerfectEllipsoidPotential
 from . import IsothermalDiskPotential
 from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
+from . import interpSphericalPotential
 #
 # Functions
 #
@@ -164,6 +165,7 @@ PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
 IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
+interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
