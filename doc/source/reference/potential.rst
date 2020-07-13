@@ -59,7 +59,9 @@ In addition to these, the ``NFWPotential`` also has methods to calculate virial 
 
    conc <potentialconc.rst>
    mvir <potentialmvir.rst>
+   rmax <potentialrmax.rst>
    rvir <potentialrvir.rst>
+   vmax <potentialvmax.rst>
 
 General 3D potential routines
 +++++++++++++++++++++++++++++
@@ -230,8 +232,8 @@ Helper classes
 
 .. _potential-mw:
 
-**NEW IN v1.5** Milky-Way-like potentials
------------------------------------------
+Milky-Way-like potentials
+-------------------------
 
 ``galpy`` contains various simple models for the Milky Way's
 gravitational potential. The recommended model, described in `Bovy
@@ -342,7 +344,6 @@ As an example, we integrate the Sun's orbit for 10 Gyr in
 which gives
 
 .. image:: ../images/orbit-sun-mwpotentials.png
-   :scale: 40 %
 
 Much of the difference between these orbits is due to the different
 present Galactocentric radius of the Sun, if we simply plot the
@@ -354,7 +355,6 @@ agree better
 >>> o_irrI.plot(d1='R-{}'.format(get_physical(Irrgang13I)['ro']),d2='z',overplot=True,lw=0.6)
 
 .. image:: ../images/orbit-sun-mwpotentials-vsRsun.png
-   :scale: 40 %
 
 We can also compare the rotation curves of these different models
 
@@ -365,8 +365,6 @@ We can also compare the rotation curves of these different models
 >>> legend()
 
 .. image:: ../images/mwpotentials-vcirc.png
-   :scale: 40 %
-
 
 
 

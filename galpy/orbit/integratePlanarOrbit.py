@@ -205,8 +205,7 @@ def _parse_pot(pot):
                 npot+= 1
                 pot_type.append(26)
                 stype= Sigma.get('type','exp')
-                if stype == 'exp' \
-                        or (stype == 'exp' and 'Rhole' in Sigma):
+                if stype == 'exp' and not 'Rhole' in Sigma:
                     pot_args.extend([3,0,
                                      4.*numpy.pi*Sigma.get('amp',1.)*p._Pot._amp,
                                      Sigma.get('h',1./3.)])

@@ -23,6 +23,7 @@ class DissipativeForce(Force):
         self.isNonAxi= True # Default: are non-axisymmetric
         self.hasC= False
         self.hasC_dxdv= False
+        self.hasC_dens= False
 
     @potential_physical_input
     @physical_conversion('force',pop=True)

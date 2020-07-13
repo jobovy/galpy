@@ -8,7 +8,7 @@ import numpy
 from scipy import special, interpolate
 from ..util import bovy_conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _APY_LOADED, evaluateDensities
+from .Potential import _APY_LOADED, evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
 if _APY_LOADED:
     from astropy import units
@@ -114,16 +114,33 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             from ..df import jeans
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
-        sigmar_rs= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
+        self._sigmars_4interp= numpy.array([sigmar(x) 
+                                            for x in self._sigmar_rs_4interp])
+        if numpy.any(numpy.isnan(self._sigmars_4interp)):
+            # Check for case where density is zero, in that case, just
+            # paint in the nearest neighbor for the interpolation
+            # (doesn't matter in the end, because force = 0 when dens = 0)
+            nanrs_indx= numpy.isnan(self._sigmars_4interp)
+            if numpy.all(numpy.array([self._dens(r*_INVSQRTTWO,r*_INVSQRTTWO)
+                                      for r in 
+                                      self._sigmar_rs_4interp[nanrs_indx]]) 
+                         == 0.):
+                self._sigmars_4interp[nanrs_indx]= interpolate.interp1d(\
+                    self._sigmar_rs_4interp[True^nanrs_indx],
+                    self._sigmars_4interp[True^nanrs_indx],
+                    kind="nearest",fill_value="extrapolate")\
+                        (self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig= sigmar
         self.sigmar= interpolate.InterpolatedUnivariateSpline(\
-            sigmar_rs,numpy.array([sigmar(x) for x in sigmar_rs]),k=3)
+            self._sigmar_rs_4interp,self._sigmars_4interp,k=3)
         if const_lnLambda:
             self._lnLambda= const_lnLambda
         else:
             self._lnLambda= False
         self._amp*= 4.*numpy.pi
         self._force_hash= None
+        self.hasC= _check_c(self._dens_pot,dens=True)
         return None
 
     def GMs(self,gms):

@@ -12,7 +12,8 @@ from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import galpyWarning
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input, actionAngle_physical_input, _APY_UNITS
+    potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
+    physical_compatible
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -117,6 +118,7 @@ class quasiisothermaldf(df):
                     not self._aA.b == self._pot.b and \
                     not self._aA.amp == self._pot._amp:
                 raise IOError("Potential in aA does not appear to be the same as given potential pot")
+        self._check_consistent_units()
         self._cutcounter= cutcounter
         if _precomputerg:
             if _precomputergrmax is None:
@@ -1662,9 +1664,12 @@ class quasiisothermaldf(df):
         #Determine the maximum of the velocity distribution
         maxVR= 0.
         maxVz= 0.
-        maxVT= optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
+        # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
+        # so squeeze out single dimensions by hand
+        maxVT= numpy.squeeze(\
+                             optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
                                                      use_physical=False)),
-                                    1.)
+                                    1.))
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
         vRs= []
@@ -1789,8 +1794,10 @@ class quasiisothermaldf(df):
             for i in range(z_number):
                 for j in range(R_number):
                     R, z= grid[i][j]
-                    grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
-                            R,0.,x,z,0.,log=True, use_physical=False)),1.)
+                    grid_max_vT[i][j]= numpy.squeeze(\
+                                        optimize.fmin_powell((lambda x: -self(
+                                            R,0.,x,z,0.,log=True,
+                                            use_physical=False)),1.))
             #Determine degree of interpolation
             ky= numpy.min([R_number-1,3])
             kx= numpy.min([z_number-1,3])

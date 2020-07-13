@@ -172,8 +172,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                 npot+= 1
                 pot_type.append(26)
                 stype= Sigma.get('type','exp')
-                if stype == 'exp' \
-                        or (stype == 'exp' and 'Rhole' in Sigma):
+                if stype == 'exp' and not 'Rhole' in Sigma:
                     pot_args.extend([3,0,
                                      4.*numpy.pi*Sigma.get('amp',1.)*p._amp,
                                      Sigma.get('h',1./3.)])
@@ -259,6 +258,24 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend(p._orb.z(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
+        elif isinstance(p,potential.ChandrasekharDynamicalFrictionForce):
+            pot_type.append(-7)
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._dens_pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([len(p._sigmar_rs_4interp)])
+            pot_args.extend(p._sigmar_rs_4interp)
+            pot_args.extend(p._sigmars_4interp)
+            pot_args.extend([p._amp])
+            pot_args.extend([-1.,0.,0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([p._ms,p._rhm,p._gamma**2.,
+                             -1 if not p._lnLambda else p._lnLambda,
+                             p._minr**2.])
+            pot_args.extend([p._sigmar_rs_4interp[0],
+                             p._sigmar_rs_4interp[-1]]) #r_0, r_f
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)

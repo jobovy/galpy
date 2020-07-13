@@ -22,7 +22,7 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
-from ..util.bovy_conversion import physical_conversion
+from ..util.bovy_conversion import physical_conversion, physical_compatible
 from ..util.bovy_coords import _K
 from ..util import bovy_coords as coords
 from ..util import bovy_plot as plot
@@ -601,7 +601,7 @@ class Orbit(object):
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
         obs= numpy.array([kwargs.get('ro',None),
-                          kwargs.get('vro',None),
+                          kwargs.get('vo',None),
                           kwargs.get('zo',None),
                           kwargs.get('solarmotion',None)],
                          dtype='object')
@@ -731,18 +731,6 @@ class Orbit(object):
         #Setup with these new initial conditions
         return cls(new_vxvv,
                    ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
-
-    def fit(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.fit has been deprecated in favor of Orbit.from_fit')
-
-    def setphi(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.setphi has been deprecated')
-
-    def reverse(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.reverse has been deprecated')
-
-    def __add__(self,*args,**kwargs): # pragma: no cover
-        raise RuntimeError('Orbit.__add__ has been deprecated')
 
     def __len__(self):
         return 1 if self.shape == () else self.shape[0]
@@ -1034,14 +1022,16 @@ class Orbit(object):
 
            2019-02-28 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo
@@ -1180,6 +1170,28 @@ class Orbit(object):
                     out= out[:,:,:-1]
         # Store orbit internally
         self.orbit= out
+        # Check whether r ever < minr if dynamical friction is included and warn if so
+        from ..potential import ChandrasekharDynamicalFrictionForce
+        if numpy.any([isinstance(p,ChandrasekharDynamicalFrictionForce)
+                      for p in flatten_potential([pot])]): # make sure pot=list
+            lpot= flatten_potential([pot])
+            cdf_indx= numpy.arange(len(lpot))[\
+                numpy.array([isinstance(p,ChandrasekharDynamicalFrictionForce)
+                             for p in lpot],dtype='bool')][0]
+            if numpy.any(self.r(self.t,use_physical=False) \
+                             < lpot[cdf_indx]._minr):
+                warnings.warn("""Orbit integration with """
+                              """ChandrasekharDynamicalFrictionForce """
+                              """entered domain where r < minr and """
+                              """ChandrasekharDynamicalFrictionForce is """
+                              """turned off; initialize """
+                              """ChandrasekharDynamicalFrictionForce with a """
+                              """smaller minr to avoid this if you wish """
+                              """(but note that you want to turn it off """
+                              """close to the center for an object that """
+                              """sinks all the way to r=0, to avoid """
+                              """numerical instabilities)""",
+                          galpyWarning)
         return None
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
@@ -5765,14 +5777,4 @@ def _check_potential_dim(orb,pot):
 
 def _check_consistent_units(orb,pot):
     if pot is None: return None
-    if isinstance(pot,list):
-        if orb._roSet and pot[0]._roSet:
-            assert numpy.fabs(orb._ro-pot[0]._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot[0]._voSet:
-            assert numpy.fabs(orb._vo-pot[0]._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    else:
-        if orb._roSet and pot._roSet:
-            assert numpy.fabs(orb._ro-pot._ro) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-        if orb._voSet and pot._voSet:
-            assert numpy.fabs(orb._vo-pot._vo) < 10.**-10., 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
-    return None
+    assert physical_compatible(orb,pot), 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'

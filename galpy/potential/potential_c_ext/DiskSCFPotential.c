@@ -54,8 +54,6 @@ double dSigmadR(double R,double * Sigma_args){
   }
   return -1; // LCOV_EXCL_LINE
 }
-//LCOV_EXCL_START
-// Not currently used, bc only in 2nd derivatives
 double d2SigmadR2(double R,double * Sigma_args){
   int Sigma_type= (int) *Sigma_args;
   switch ( Sigma_type ) {
@@ -83,7 +81,6 @@ double hz(double z,double * hz_args){
   }
   return -1; // LCOV_EXCL_LINE
 }
-//LCOV_EXCL_STOP
 double Hz(double z,double * hz_args){
   int hz_type= (int) *hz_args;
   double fz= fabs(z);
@@ -158,3 +155,18 @@ double DiskSCFPotentialzforce(double R,double Z, double phi,
   return -dSigmadR(r,Sigma_args) * Hz(Z,hz_args) * Z / r \
     -Sigma(r,Sigma_args) * dHzdz(Z,hz_args);
 }
+double DiskSCFPotentialDens(double R,double Z, double phi,
+			    double t,
+			    struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  int nsigma_args= (int) *args;
+  double * Sigma_args= args+1;
+  double * hz_args= args+1+nsigma_args;
+  //Calculate Rforce
+  double r= sqrt( R * R + Z * Z );
+  return M_1_PI / 4. * (Sigma(r,Sigma_args) * hz(Z,hz_args) 
+			+ d2SigmadR2(r,Sigma_args) * Hz(Z,hz_args)
+			+ 2. / r * dSigmadR(r,Sigma_args)	\
+			    * ( Hz(Z,hz_args) + Z * dHzdz(Z,hz_args) ) );
+  }

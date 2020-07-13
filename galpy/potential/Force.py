@@ -8,7 +8,7 @@ import numpy
 from ..util import config
 from ..util import bovy_conversion
 from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+    potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -201,17 +201,33 @@ class Force(object):
 
            2019-01-27 - Written - Bovy (UofT)
 
+           2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
+
         """
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
         if isinstance(b,list):
             return [self]+b
         else:
             return [self,b]
     # Define separately to keep order
     def __radd__(self,b):
-        if isinstance(b,list):
-            return b+[self]
-        else:
-            raise TypeError("Can only add a Force or Potential instance to another instance or to a list of such instances")
+        from ..potential import flatten as flatten_pot
+        from ..potential import planarPotential
+        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
+            raise TypeError("""Can only combine galpy Force objects with """
+                            """other Force objects or lists thereof""")
+        assert physical_compatible(self,b), \
+            """Physical unit conversion parameters (ro,vo) are not """\
+            """compatible between potentials to be combined"""
+        # If we get here, b has to be a list
+        return b+[self]
 
     def turn_physical_off(self):
         """
@@ -264,15 +280,16 @@ class Force(object):
 
            2016-01-30 - Written - Bovy (UofT)
 
-        """
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        """
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo

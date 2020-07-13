@@ -50,6 +50,7 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     fullyRotatedTriaxialNFWPotential, \
     sech2DiskSCFPotential, \
     expwholeDiskSCFPotential, \
+    altExpwholeDiskSCFPotential, \
     mockFlatSpiralArmsPotential, \
     mockRotatingFlatSpiralArmsPotential, \
     mockSpecialRotatingFlatSpiralArmsPotential, \
@@ -126,6 +127,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockSCFDensityPotential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
+    pots.append('altExpwholeDiskSCFPotential')
     pots.append('mockFlatSpiralArmsPotential')
     pots.append('mockRotatingFlatSpiralArmsPotential')
     pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
@@ -499,6 +501,7 @@ def test_energy_conservation_linear():
     pots.append('mockSCFAxiDensity2Potential')
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
+    pots.append('altExpwholeDiskSCFPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('nestedListPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
@@ -5253,3 +5256,4 @@ def test_MovingObjectPotential_planar_orbit():
     assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     return None
+

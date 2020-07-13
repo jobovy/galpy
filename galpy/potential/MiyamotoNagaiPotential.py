@@ -65,6 +65,7 @@ class MiyamotoNagaiPotential(Potential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._nemo_accname= 'MiyamotoNagai'
 
     def _evaluate(self,R,z,phi=0.,t=0.):

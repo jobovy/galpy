@@ -39,6 +39,23 @@ if WIN32:
     # Windows does not need 'gomp' whether compiled with OpenMP or not
     galpy_c_libraries.remove('gomp')
 
+#Option to use Intel compilers
+try:
+    compiler_option_pos = ['--compiler=' in opt for opt in sys.argv]\
+        .index(True)
+except ValueError:
+    use_intel_compiler= False
+else:
+    use_intel_compiler= 'intel' in sys.argv[compiler_option_pos].split('=')[1]
+
+if use_intel_compiler and not WIN32:
+    import numpy.distutils.intelccompiler
+elif use_intel_compiler and WIN32:
+    import __intelcompiler
+
+if use_intel_compiler: # OpenMP by default included for Intel, see #416
+    galpy_c_libraries.remove('gomp')
+
 #Option to forego OpenMP
 try:
     openmp_pos = sys.argv.index('--no-openmp')
@@ -68,20 +85,6 @@ except ValueError:
 else:
     del sys.argv[single_ext_pos]
     single_ext= True
-
-#Option to use Intel compilers
-try:
-    compiler_option_pos = ['--compiler=' in opt for opt in sys.argv]\
-        .index(True)
-except ValueError:
-    use_intel_compiler= False
-else:
-    use_intel_compiler= 'intel' in sys.argv[compiler_option_pos].split('=')[1]
-
-if use_intel_compiler and not WIN32:
-    import numpy.distutils.intelccompiler
-elif use_intel_compiler and WIN32:
-    import __intelcompiler
 
 #code to check the GSL version; list cmd w/ shell=True only works on Windows 
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
@@ -207,7 +210,7 @@ else:
     actionAngleTorus_c_incl= False
     
 setup(name='galpy',
-      version='1.6.0.dev',
+      version='1.7.0.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',

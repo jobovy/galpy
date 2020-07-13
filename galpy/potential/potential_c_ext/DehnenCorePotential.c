@@ -57,3 +57,13 @@ double DehnenCoreSphericalPotentialPlanarR2deriv(double R,double phi,
   // return 
   return -amp * (pow(a+R, -4.) * (2.*R - a)) / 3.;
 }
+double DehnenCoreSphericalPotentialDens(double R,double Z, double phi,
+					double t,
+					struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args++;
+  double a= *args++;
+  //Calculate Rforce
+  double r= sqrt ( R * R + Z * Z );
+  return amp * M_1_PI / 4. * pow ( 1. + r / a, -4.) * pow (a, - 3.);
+}

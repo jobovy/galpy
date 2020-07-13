@@ -5,7 +5,7 @@ import sys
 PY3= sys.version > '3'
 import pytest
 import numpy
-from galpy.util.bovy_conversion import velocity_in_kpcGyr
+from scipy import optimize
 try:
     import pynbody
     _PYNBODY_LOADED= True
@@ -1448,9 +1448,9 @@ def test_RZToplanarPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToplanarPotential([pp,cdfc])
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToplanarPotential(cdfc)
     return None
 
@@ -1470,16 +1470,17 @@ def test_toPlanarPotential():
         pass
     else:
         raise AssertionError('Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError')
+    # Check that list of objects that are not potentials gives error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toPlanarPotential([3,4,45])
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp= potential.PlummerPotential(amp=1.12,b=2.)
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toPlanarPotential([pp,cdfc])
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp= potential.toPlanarPotential(cdfc)
     return None
 
 def test_RZToverticalPotential():
@@ -1518,9 +1519,9 @@ def test_RZToverticalPotential():
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToverticalPotential([pp,cdfc],1.2)
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.RZToverticalPotential(cdfc,1.2)
     return None
 
@@ -1550,15 +1551,18 @@ def test_toVerticalPotential():
     # Check that giving a list of planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp= potential.toVerticalPotential([tnp.toPlanar()],1.2,phi=0.8)       
+    # Check that giving a list of non-potentials gives error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        plp= potential.toVerticalPotential([3,4,45],1.2)
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp= potential.PlummerPotential(amp=1.12,b=2.)
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.01,const_lnLambda=8.,
         dens=pp,sigmar=lambda r: 1./numpy.sqrt(2.))
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toVerticalPotential([pp,cdfc],1.2,phi=0.8)
-    with pytest.raises(potential.PotentialError) as excinfo:
+    with pytest.raises(NotImplementedError) as excinfo:
         plp= potential.toVerticalPotential(cdfc,1.2,phi=0.8)
     # Check that running a non-axisymmetric potential through toVertical w/o
     # phi gives an error
@@ -2322,6 +2326,14 @@ def test_TriaxialNFW_virialsetup_wrtcrit():
     assert numpy.fabs(np._amp-tnp._amp*4.*numpy.pi*tnp.a**3) < 10.**-6., "TriaxialNFWPotential virial setup's virial mass does not work"
     return None
 
+# Test that setting up an NFW potential with rmax,vmax works as expected
+def test_NFW_rmaxvmaxsetup():
+    rmax, vmax= 1.2, 3.23
+    np= potential.NFWPotential(rmax=rmax,vmax=vmax)
+    assert numpy.fabs(np.rmax()-rmax) < 10.**-10., 'NFWPotential setup with rmax,vmax does not work as expected'
+    assert numpy.fabs(np.vmax()-vmax) < 10.**-10., 'NFWPotential setup with rmax,vmax does not work as expected'
+    return None
+
 def test_conc_attributeerror():
     pp= potential.PowerSphericalPotential(normalize=1.)
     #This potential doesn't have a scale, so we cannot calculate the concentration
@@ -2362,6 +2374,22 @@ def test_NFW_virialquantities_diffrovo():
         # Also test concentration
         assert numpy.fabs(np.conc(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
                               -np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)/np._scale/ro) < 0.01, "NFWPotential's concentration computed for different (ro,vo) from setup is incorrect"
+    return None
+
+# Test that rmax and vmax are correctly determined for an NFW potential
+def test_NFW_rmaxvmax():
+    # Setup with rmax,vmax
+    rmax, vmax= 1.2, 3.23
+    np= potential.NFWPotential(rmax=rmax,vmax=vmax)
+    # Now determine rmax and vmax numerically
+    rmax_opt= optimize.minimize_scalar(lambda r: -np.vcirc(r),
+                                       bracket=[0.01,100.])['x']
+    assert numpy.fabs(rmax_opt-rmax) < 10.**-7., \
+        'NFW rmax() function does not behave as expected'
+    assert numpy.fabs(np.vcirc(rmax_opt)-vmax) < 10.**-8., \
+        'NFW rmax() function does not behave as expected'
+    assert numpy.fabs(np.vcirc(rmax_opt)-np.vmax()) < 10.**-8., \
+        'NFW vmax() function does not behave as expected'
     return None
 
 def test_LinShuReductionFactor():
@@ -2973,6 +3001,84 @@ def test_Wrapper_potinputerror():
         potential.DehnenSmoothWrapperPotential(pot=1)
     return None
 
+def test_Wrapper_incompatibleunitserror():
+    # Test that setting up a WrapperPotential with a potential with 
+    # incompatible units to the wrapper itself raises an error
+    # 3D
+    ro,vo= 8., 220.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    # 2D
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=ro,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(pot=hp,ro=1.1*ro,vo=vo*1.1)
+    return None
+
+def test_WrapperPotential_unittransfer_3d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
+def test_WrapperPotential_unittransfer_2d():
+    # Test that units are properly transferred between a potential and its
+    # wrapper
+    from galpy.util import bovy_conversion
+    ro,vo= 9., 230.
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    # Just set ro
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    # Just set vo
+    hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
+    hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
+    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
+    assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    return None
+
 def test_WrapperPotential_serialization():
     import pickle
     from galpy.potential.WrapperPotential import WrapperPotential
@@ -3031,138 +3137,6 @@ def test_dissipative_noVelocityError():
         dummy= potential.evaluatezforces([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.evaluaterforces([lp,cdfc],R,z,phi=phi)
-    return None
-
-def test_ChandrasekharDynamicalFrictionForce_constLambda():
-    # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
-    # agrees with analytical solutions for circular orbits:
-    # assuming that a mass remains on a circular orbit in an isothermal halo 
-    # with velocity dispersion sigma and for constant Lambda:
-    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
-    # (e.g., B&T08, p. 648)
-    from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit
-    ro,vo= 8.,220.
-    # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
-    const_lnLambda= 7.
-    r_init= 2.
-    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
-    # Compute
-    lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
-    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,const_lnLambda=const_lnLambda,
-        dens=lp) # don't provide sigmar, so it gets computed using galpy.df.jeans
-    o= Orbit([r_init,0.,1.,0.,0.,0.])
-    ts= numpy.linspace(0.,dt,1001)
-    o.integrate(ts,[lp,cdfc],method='odeint')
-    r_pred= numpy.sqrt(o.r()**2.-0.604*const_lnLambda*GMs*numpy.sqrt(2.)*dt)
-    assert numpy.fabs(r_pred-o.r(ts[-1])) < 0.01, 'ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction'
-    return None
-
-def test_ChandrasekharDynamicalFrictionForce_varLambda():
-    # Test that dynamical friction with variable Lambda for small r ranges 
-    # gives ~ the same result as using a constant Lambda that is the mean of
-    # the variable lambda
-    # Also tests that giving an axisymmetric list of potentials for the 
-    # density works
-    from galpy.util import bovy_conversion
-    from galpy.orbit import Orbit
-    ro,vo= 8.,220.
-    # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
-    r_init= 3.
-    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
-    # Compute evolution with variable ln Lambda
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
-    o= Orbit([r_init,0.,1.,0.,0.,0.])
-    ts= numpy.linspace(0.,dt,1001)
-    o.integrate(ts,[potential.MWPotential2014,cdf],method='odeint')
-    lnLs= numpy.array([cdf.lnLambda(r,v) for (r,v) in zip(o.r(ts),numpy.sqrt(o.vx(ts)**2.+o.vy(ts)**2.+o.vz(ts)**2.))])
-    cdfc= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,const_lnLambda=numpy.mean(lnLs),
-        dens=potential.MWPotential2014,sigmar=lambda r: 1./numpy.sqrt(2.))
-    oc= o()
-    oc.integrate(ts,[potential.MWPotential2014,cdfc],method='odeint')
-    assert numpy.fabs(oc.r(ts[-1])-o.r(ts[-1])) < 0.05, 'ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda'
-    return None
-
-def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
-    # Test that dynamical friction returns the expected force when evaluating
-    # outside of the [minr,maxr] range over which sigmar is interpolated:
-    # 0 at r < minr
-    # using sigmar(r) for r > maxr
-    from galpy.util import bovy_conversion
-    ro,vo= 8.,220.
-    # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
-    # Compute evolution with variable ln Lambda
-    sigmar= lambda r: 1./r
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        dens=potential.MWPotential2014,sigmar=sigmar,
-        minr=0.5,maxr=2.)
-    # cdf 2 for checking r > maxr of cdf
-    cdf2= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        dens=potential.MWPotential2014,sigmar=sigmar,
-        minr=0.5,maxr=4.)
-    v= [0.1,0.,0.]
-    # r < minr
-    assert numpy.fabs(cdf.Rforce(0.1,0.,v=v)) < 1e-16, 'potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero'
-    assert numpy.fabs(cdf.zforce(0.1,0.,v=v)) < 1e-16, 'potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero'
-    # r > maxr
-    assert numpy.fabs(cdf.Rforce(3.,0.,v=v)-cdf2.Rforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
-    assert numpy.fabs(cdf.zforce(3.,0.,v=v)-cdf2.zforce(3.,0.,v=v)) < 1e-10, 'potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected'
-    return None
-
-def test_ChandrasekharDynamicalFrictionForce_pickling():
-    # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be 
-    # pickled as expected
-    import pickle
-    from galpy.util import bovy_conversion
-    ro,vo= 8.,220.
-    # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
-    # sigmar internally computed, should be able to be pickled
-    # Compute evolution with variable ln Lambda
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        dens=potential.MWPotential2014,
-        minr=0.5,maxr=2.)
-    pickled= pickle.dumps(cdf)
-    cdfu= pickle.loads(pickled)
-    # Test a few values
-    assert numpy.fabs(cdf.Rforce(1.,0.2,v=[1.,1.,0.])\
-                          -cdfu.Rforce(1.,0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
-    assert numpy.fabs(cdf.zforce(2.,-0.2,v=[1.,1.,0.])\
-                          -cdfu.zforce(2.,-0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
-    # Not providing dens = Logarithmic should also work
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        minr=0.5,maxr=2.)
-    pickled= pickle.dumps(cdf)
-    cdfu= pickle.loads(pickled)
-    # Test a few values
-    assert numpy.fabs(cdf.Rforce(1.,0.2,v=[1.,1.,0.])\
-                          -cdfu.Rforce(1.,0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
-    assert numpy.fabs(cdf.zforce(2.,-0.2,v=[1.,1.,0.])\
-                          -cdfu.zforce(2.,-0.2,v=[1.,1.,0.])) < 1e-10, 'Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected'
-
-    # Providing sigmar as a lambda function gives AttributeError
-    sigmar= lambda r: 1./r
-    cdf= potential.ChandrasekharDynamicalFrictionForce(\
-        GMs=GMs,rhm=0.125,
-        dens=potential.MWPotential2014,sigmar=sigmar,
-        minr=0.5,maxr=2.)
-    if PY3:
-        with pytest.raises(AttributeError) as excinfo:
-            pickled= pickle.dumps(cdf)
-    else:
-        with pytest.raises(pickle.PicklingError) as excinfo:
-            pickled= pickle.dumps(cdf)
     return None
 
 def test_RingPotential_correctPotentialIntegral():
@@ -3400,20 +3374,77 @@ def test_add_potentials():
     assert pot1+(pot2+pot3) == [pot1,pot2,pot3]
     return None
 
-# Test that attempting to multiply or divide a potential by something other than a number raises an error
+# Test that attempting to multiply or divide a potential by something other 
+# than a number raises a TypeError (test both left and right)
 def test_add_potentials_error():
     # 3D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
     # 2D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
     # 1D
     pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toVertical(1.1)
     with pytest.raises(TypeError) as excinfo:
         3+pot
+    with pytest.raises(TypeError) as excinfo:
+        pot+3
+    return None
+
+# Test that adding potentials with incompatible unit systems raises an error
+def test_add_potentials_unitserror():
+    # 3D
+    ro, vo= 8., 220.
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toPlanar()
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toPlanar()
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toPlanar()
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toPlanar()
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
+    # 1D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                            ro=ro,vo=vo).toVertical(1.1)
+    potro= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo).toVertical(1.1)
+    potvo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro,vo=vo*1.1).toVertical(1.1)
+    potrovo= potential.LogarithmicHaloPotential(normalize=1.,q=0.9,
+                                              ro=ro*1.1,vo=vo*1.1).toVertical(1.1)
+    with pytest.raises(AssertionError) as excinfo: pot+potro
+    with pytest.raises(AssertionError) as excinfo: pot+potvo
+    with pytest.raises(AssertionError) as excinfo: pot+potrovo
+    with pytest.raises(AssertionError) as excinfo: potro+pot
+    with pytest.raises(AssertionError) as excinfo: potvo+pot
+    with pytest.raises(AssertionError) as excinfo: potrovo+pot
     return None
 
 # Test that the amplitude of the isothermal disk potential is set correctly (issue #400)
@@ -3807,6 +3838,24 @@ class expwholeDiskSCFPotential(DiskSCFPotential):
                                   +hp.dens(R,z),
                                   Sigma={'h': 1./3.,
                                          'type': 'expwhole','amp': 1.0,
+                                         'Rhole':0.5},
+                                  hz={'type':'exp','h':1./27.},
+                                  a=1.,N=5,L=5)
+        return None
+# Same as above, but specify type as 'exp' and give Rhole, to make sure that
+# case is handled correctly
+class altExpwholeDiskSCFPotential(DiskSCFPotential):
+    def __init__(self):
+        # Add a Hernquist potential because otherwise the density near the 
+        # center is zero
+        from galpy.potential import HernquistPotential
+        hp= HernquistPotential(normalize=0.5)
+        DiskSCFPotential.__init__(self,\
+            dens=lambda R,z: 13.5*numpy.exp(-0.5/(R+10.**-10.)
+                                             -3.*R-numpy.fabs(z)*27.)
+                                  +hp.dens(R,z),
+                                  Sigma={'h': 1./3.,
+                                         'type': 'exp','amp': 1.0,
                                          'Rhole':0.5},
                                   hz={'type':'exp','h':1./27.},
                                   a=1.,N=5,L=5)

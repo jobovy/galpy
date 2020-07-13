@@ -298,7 +298,7 @@ class actionAngleSpherical(actionAngle):
                 az.append(self._calc_anglez(Or[-1],Op[-1],ar[-1],
                                             z[ii],axiR[ii],
                                             Rmean,rperi,rap,E,L,Lz[ii],
-                                            axivR[ii],axivz[ii],
+                                            axivR[ii],axivz[ii],phi[ii],
                                             fixed_quad,**kwargs))
             Op= numpy.array(Op)
             Oz= copy.copy(Op)
@@ -444,13 +444,15 @@ class actionAngleSpherical(actionAngle):
     def _calc_long_asc(self,z,R,axivz,phi,Lz,L):
         i= numpy.arccos(Lz/L)
         sinu= z/R/numpy.tan(i)
-        pindx= (sinu > 1.)*(sinu < (1.+10.**-7.))
+        pindx= (sinu > 1.)*numpy.isfinite(sinu)
         sinu[pindx]= 1.
-        pindx= (sinu < -1.)*(sinu > (-1.-10.**-7.))
+        pindx= (sinu < -1.)*numpy.isfinite(sinu)
         sinu[pindx]= -1.           
         u= numpy.arcsin(sinu)
         vzindx= axivz > 0.
         u[vzindx]= numpy.pi-u[vzindx]
+        # For non-inclined orbits, we set Omega=0 by convention
+        u[True^numpy.isfinite(u)]= phi[True^numpy.isfinite(u)]        
         return phi-u
     
     def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
@@ -487,17 +489,20 @@ class actionAngleSpherical(actionAngle):
                 wr= numpy.pi-wr
         return wr
         
-    def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,
+    def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,phi,
                      fixed_quad,**kwargs):
         #First calculate psi
         i= numpy.arccos(Lz/L)
         sinpsi= z/r/numpy.sin(i)
-        if sinpsi > 1. and sinpsi < (1.+10.**-7.):
-            sinpsi= 1.
-        if sinpsi < -1. and sinpsi > (-1.-10.**-7.):
-            sinpsi= -1.
-        psi= numpy.arcsin(sinpsi)
-        if axivz > 0.: psi= numpy.pi-psi
+        if numpy.isfinite(sinpsi):
+            if sinpsi > 1.:
+                sinpsi= 1.
+            elif sinpsi < -1.:
+                sinpsi= -1.
+            psi= numpy.arcsin(sinpsi)
+            if axivz > 0.: psi= numpy.pi-psi
+        else:
+            psi= phi
         psi= psi % (2.*numpy.pi)
         #Calculate dSr/dL
         dpsi= Op/Or*2.*numpy.pi #this is the full I integral

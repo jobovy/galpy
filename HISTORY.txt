@@ -1,21 +1,63 @@
-v2.0 (????-??-??)
+v1.7 (XXXX-XX-XX)
+=================
+
+- Added NFWPotential initialization method using rmax and vmax, the
+  radius and alue at which the rotation curve peaks; also added rmax
+  and vmax methods to NFWPotential to compute these quantities for any
+  NFWPotential.
+
+- Added inverse action-angle transformations for the isochrone
+  potential (actionAngleIsochroneInverse) and for a one-dimensional
+  harmonic oscillator (actionAngleHarmonicInverse; also added the
+  [x,v] -> [J,O,a] transformation for the latter,
+  actionAngleHarmonic).
+
+- Fixed angle calculation for actionAngleIsochrone and
+  actionAngleSpherical for non-inclined orbits (which are tricky).
+
+v1.6 (2020-04-24)
 =================
 
 - Added HomogeneousSpherePotential, the potential of a constant
   density sphere out to some radius R.
 
+- Added DehnenSphericalPotential and DehnenCoreSphericalPotential, the
+  general potential from Dehnen (1993) and its cored special case
+  (#403).
+
 - Standardized the way packages are imported: numpy as 'import numpy',
   avoid use of math, don't use scipy's numpy interface, internal
   imports for all galpy imports.
 
+- Implemented ChandrasekharDynamicalFrictionForce in C, introducing a
+  general scheme for easily implementing velocity-dependent forces in
+  C without requiring all forces to take velocity arguments (#420).
+
 - Fixed AMUSE compatibility with Potentials instantiated with physical
   inputs (#405).
+
+- Fix how DiskSCFPotential instances with a hole in the surface
+  density get passed to C (was wrong when type == 'exp', but 'Rhole'
+  was in the list of parameters, hole was not passed; meant that
+  McMillan17 was wrong in C in v1.5).
 
 - Add time dependence to all relevant Potential functions and method
   (#404).
 
+- Raise warning when r < minr (where dynamical friction gets turned
+  off) in an orbit integration that includes dynamical friction (to
+  avoid silent turning off of the dynamical friction force; #356).
+
+- Improve performance of orbit animations (#414).
+
+- Fixed compilation issue for Intel compilers: no need to include
+  'lgomp' in the linking step (#416).
+
 - Compile all main galpy C extensions into a single shared-object
   library libgalpy.
+
+- Automatically build Linux, Mac, and Windows wheels with GitHub
+  Actions and upload them to PyPI upon release creation (#421).
 
 v1.5 (2019-09-12)
 =================

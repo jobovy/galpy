@@ -60,6 +60,7 @@ class BurkertPotential(SphericalPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _revaluate(self,r,t=0.):

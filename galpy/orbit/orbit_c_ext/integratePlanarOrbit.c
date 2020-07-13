@@ -648,7 +648,6 @@ void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,
 }
 
 void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double ** pot_args){
-
   gsl_interp_accel *x_accel_ptr = gsl_interp_accel_alloc();
   gsl_interp_accel *y_accel_ptr = gsl_interp_accel_alloc();
   int nPts = (int) **pot_args;
@@ -671,10 +670,14 @@ void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double *
   gsl_spline_init(x_spline, t, x_arr, nPts);
   gsl_spline_init(y_spline, t, y_arr, nPts);
 
-  potentialArgs->xSpline = x_spline;
-  potentialArgs->accx = x_accel_ptr;
-  potentialArgs->ySpline = y_spline;
-  potentialArgs->accy = y_accel_ptr;
+  potentialArgs->nspline1d= 2;
+  potentialArgs->spline1d= (gsl_spline **) malloc ( 2*sizeof ( gsl_spline *) );
+  potentialArgs->acc1d= (gsl_interp_accel **) \
+    malloc ( 2 * sizeof ( gsl_interp_accel * ) );
+  *potentialArgs->spline1d = x_spline;
+  *potentialArgs->acc1d = x_accel_ptr;
+  *(potentialArgs->spline1d+1)= y_spline;
+  *(potentialArgs->acc1d+1)= y_accel_ptr;
 
   *pot_args = *pot_args+ (int) (1+3*nPts);
   free(t);

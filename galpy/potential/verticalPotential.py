@@ -2,6 +2,7 @@ import numpy
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
 from .Potential import PotentialError, Potential, flatten
+from .DissipativeForce import _isDissipative
 from ..util import bovy_conversion
 _APY_LOADED= True
 try:
@@ -109,6 +110,8 @@ def RZToverticalPotential(RZPot,R):
 
     """
     RZPot= flatten(RZPot)
+    if _isDissipative(RZPot):
+        raise NotImplementedError("Converting dissipative forces to 1D vertical potentials is currently not supported")
     if _APY_LOADED and isinstance(R,units.Quantity):
         if hasattr(RZPot,'_ro'):
             R= R.to(units.kpc).value/RZPot._ro
@@ -165,6 +168,8 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
 
     """
     Pot= flatten(Pot)
+    if _isDissipative(Pot):
+        raise NotImplementedError("Converting dissipative forces to 1D vertical potentials is currently not supported")
     if _APY_LOADED:
         if isinstance(R,units.Quantity):
             if hasattr(Pot,'_ro'):

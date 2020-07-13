@@ -19,12 +19,20 @@ different units. For example, if you want to know how many
 
 or :math:`1\,M_\odot\,\mathrm{pc}^{-3} \approx 40\,\mathrm{GeV\,cm}^{-3}`.
 
-Also contains a utility function ``get_physical`` to return the ``ro``
-and ``vo`` conversion parameters for any galpy object or lists
-thereof.
+Also contains a few utility functions to deal with the ``ro`` and
+``vo`` conversion parameters for galpy object or lists thereof.
 
-Functions:
-----------
+Utility  functions:
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   get_physical <conversiongetphysical.rst>
+   physical_compatible <conversionphysicalcompatible.rst>
+
+Conversion functions:
+---------------------
 
 .. toctree::
    :maxdepth: 2
@@ -39,7 +47,6 @@ Functions:
    force_in_kmsMyr <conversionforce_in_kmsMyr.rst>
    freq_in_Gyr <conversionfreq_in_Gyr.rst>
    freq_in_kmskpc <conversionfreq_in_kmskpc.rst>
-   get_physical <conversiongetphysical.rst>
    surfdens_in_msolpc2 <conversionsurfdens_in_msolpc2.rst>
    mass_in_msol <conversionmass_in_msol.rst>
    mass_in_1010msol <conversionmass_in_1010msol.rst>

@@ -4,7 +4,7 @@ import copy
 import numpy
 from ..util import config
 from ..util.bovy_conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input
+    actionAngle_physical_input, physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units
@@ -70,26 +70,12 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
 
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
-        if isinstance(self._pot,list):
-            if self._roSet and self._pot[0]._roSet:
-                assert numpy.fabs(self._ro-self._pot[0]._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot[0]._voSet:
-                assert numpy.fabs(self._vo-self._pot[0]._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        else:
-            if self._roSet and self._pot._roSet:
-                assert numpy.fabs(self._ro-self._pot._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            if self._voSet and self._pot._voSet:
-                assert numpy.fabs(self._vo-self._pot._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-        return None
+        assert physical_compatible(self,self._pot),  'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
             
     def _check_consistent_units_orbitInput(self,orb):
         """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
-        if self._roSet and orb._roSet:
-            assert numpy.fabs(self._ro-orb._ro) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        if self._voSet and orb._voSet:
-            assert numpy.fabs(self._vo-orb._vo) < 10.**-10., 'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-        return None
-            
+        assert physical_compatible(self,orb),  'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
+     
     def turn_physical_off(self):
         """
         NAME:
@@ -141,14 +127,16 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
 
            2016-06-05 - Written - Bovy (UofT)
 
+           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+
         """
-        self._roSet= True
-        self._voSet= True
-        if not ro is None:
+        if not ro is False: self._roSet= True
+        if not vo is False: self._voSet= True
+        if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
                 ro= ro.to(units.kpc).value
             self._ro= ro
-        if not vo is None:
+        if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
                 vo= vo.to(units.km/units.s).value
             self._vo= vo

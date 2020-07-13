@@ -442,7 +442,7 @@ def velocity_in_kpcGyr(vo,ro):
     """
     return vo*_kmsInPcMyr
 
-def get_physical(obj):
+def get_physical(obj,include_set=False):
     """
     NAME:
 
@@ -455,6 +455,8 @@ def get_physical(obj):
     INPUT:
 
        obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       include_set= (False) if True, also include roSet and voSet, flags of whether the unit is explicitly set in the object
 
     OUTPUT:
 
@@ -478,9 +480,49 @@ def get_physical(obj):
            and isinstance(new_obj[0],(Force,planarPotential,linearPotential))):
             obj= new_obj
     if isinstance(obj,list):
-        return {'ro':obj[0]._ro,'vo':obj[0]._vo}
+        out_obj= obj[0]
     else:
-        return {'ro':obj._ro,'vo':obj._vo}       
+        out_obj= obj
+    out= {'ro':out_obj._ro,'vo':out_obj._vo}
+    if include_set:
+        out.update({'roSet':out_obj._roSet,'voSet':out_obj._voSet})
+    return out
+
+def physical_compatible(obj,other_obj):
+    """
+    NAME:
+
+       physical_compatible
+
+    PURPOSE:
+
+       test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects
+
+    INPUT:
+
+       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+       other_obj - another galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+
+    OUTPUT:
+
+       True if the units are compatible, False if not (compatible means that the units are the same when they are set for both objects)
+
+    HISTORY:
+
+       2020-04-22 - Written - Bovy (UofT)
+
+    """
+    if obj is None or other_obj is None: # if one is None, just state compat
+        return True
+    phys= get_physical(obj,include_set=True)
+    other_phys= get_physical(other_obj,include_set=True)
+    out= True
+    if phys['roSet'] and other_phys['roSet']:
+        out= out and m.fabs((phys['ro']-other_phys['ro'])/phys['ro']) < 1e-8
+    if phys['voSet'] and other_phys['voSet']:
+        out= out and m.fabs((phys['vo']-other_phys['vo'])/phys['vo']) < 1e-8
+    return out
 
 #Decorator to apply these transformations
 # NOTE: names with underscores in them signify return values that *always* have
@@ -781,23 +823,41 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if pop and 'ro' in kwargs: kwargs.pop('ro')
             if pop and 'vo' in kwargs: kwargs.pop('vo')
             if use_physical and not vo is None and not ro is None:
+                out= method(*args,**kwargs)
                 if 'call' in quantity or 'actions' in quantity:
-                    fac= [ro*vo,ro*vo,ro*vo]
-                    if _APY_UNITS:
-                        u= [units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s,
-                            units.kpc*units.km/units.s]
+                    if 'actions' in quantity and len(out) < 4: # 1D system
+                        fac= [ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s]
+                    else:
+                        fac= [ro*vo,ro*vo,ro*vo]
+                        if _APY_UNITS:
+                            u= [units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s,
+                                units.kpc*units.km/units.s]
                 if 'Freqs' in quantity:
                     FreqsFac= freq_in_Gyr(vo,ro)
-                    fac.extend([FreqsFac,FreqsFac,FreqsFac])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([Freqsu,Freqsu,Freqsu])
+                    if len(out) < 4: # 1D system
+                        fac.append(FreqsFac)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(Freqsu)
+                    else:
+                        fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([Freqsu,Freqsu,Freqsu])
                 if 'Angles' in quantity:
-                    fac.extend([1.,1.,1.])
-                    if _APY_UNITS:
-                        Freqsu= units.Gyr**-1.
-                        u.extend([units.rad,units.rad,units.rad])
+                    if len(out) < 4: # 1D system
+                        fac.append(1.)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(units.rad)
+                    else:
+                        fac.extend([1.,1.,1.])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([units.rad,units.rad,units.rad])
                 if 'EccZmaxRperiRap' in quantity:
                     fac= [1.,ro,ro,ro]
                     if _APY_UNITS:
@@ -805,16 +865,21 @@ def physical_conversion_actionAngle(quantity,pop=False):
                             units.kpc,
                             units.kpc,
                             units.kpc]
-                out= method(*args,**kwargs)
                 if _APY_UNITS:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(units.Quantity(out[ii]*fac[ii],
-                                                       unit=u[ii]),)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                           unit=u[ii]),)
+                    except TypeError: # happens if out = scalar
+                        newOut= units.Quantity(out*fac[0],unit=u[0])
                 else:
                     newOut= ()
-                    for ii in range(len(out)):
-                        newOut= newOut+(out[ii]*fac[ii],)
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(out[ii]*fac[ii],)
+                    except TypeError: # happens if out = scalar
+                        newOut= out*fac[0]
                 return newOut
             else:
                 return method(*args,**kwargs)
@@ -858,3 +923,107 @@ def actionAngle_physical_input(method):
         args= newargs
         return method(*args,**kwargs)
     return wrapper
+
+def physical_conversion_actionAngleInverse(quantity,pop=False):
+    """Decorator to convert to physical coordinates for the actionAngleInverse methods: 
+    quantity= call, xvFreqs, or Freqs"""
+    def wrapper(method):
+        @wraps(method)
+        def wrapped(*args,**kwargs):
+            use_physical= kwargs.get('use_physical',True)
+            ro= kwargs.get('ro',None)
+            if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
+                ro= args[0]._ro
+            if _APY_LOADED and isinstance(ro,units.Quantity):
+                ro= ro.to(units.kpc).value
+            vo= kwargs.get('vo',None)
+            if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
+                vo= args[0]._vo
+            if _APY_LOADED and isinstance(vo,units.Quantity):
+                vo= vo.to(units.km/units.s).value
+            #Remove ro and vo kwargs if necessary
+            if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
+            if pop and 'ro' in kwargs: kwargs.pop('ro')
+            if pop and 'vo' in kwargs: kwargs.pop('vo')
+            if use_physical and not vo is None and not ro is None:
+                fac= []
+                u= []
+                out= method(*args,**kwargs)
+                if 'call' in quantity or 'xv' in quantity:
+                    if 'xv' in quantity and len(out) < 4: # 1D system
+                        fac.extend([ro,vo])
+                        if _APY_UNITS:
+                            u.extend([units.kpc,units.km/units.s])
+                    else:
+                        fac.extend([ro,vo,vo,ro,vo,1.])
+                        if _APY_UNITS:
+                            u.extend([units.kpc,units.km/units.s,
+                                      units.km/units.s,units.kpc,
+                                      units.km/units.s,
+                                      units.rad])
+                if 'Freqs' in quantity:
+                    FreqsFac= freq_in_Gyr(vo,ro)
+                    if isinstance(out,float): # 1D system
+                        fac.append(FreqsFac)
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.append(Freqsu)
+                    else:
+                        fac.extend([FreqsFac,FreqsFac,FreqsFac])
+                        if _APY_UNITS:
+                            Freqsu= units.Gyr**-1.
+                            u.extend([Freqsu,Freqsu,Freqsu])
+                if _APY_UNITS:
+                    newOut= ()
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(units.Quantity(out[ii]*fac[ii],
+                                                           unit=u[ii]),)
+                    except TypeError: # Happens when out == scalar
+                        newOut= units.Quantity(out*fac[0],unit=u[0])
+                else:
+                    newOut= ()
+                    try:
+                        for ii in range(len(out)):
+                            newOut= newOut+(out[ii]*fac[ii],)
+                    except TypeError: # Happens when out == scalar
+                        newOut= out*fac[0]
+                return newOut
+            else:
+                return method(*args,**kwargs)
+        return wrapped
+    return wrapper
+
+def actionAngleInverse_physical_input(method):
+    """Decorator to convert inputs to actionAngleInverse functions from 
+    physical to internal coordinates"""
+    @wraps(method)
+    def wrapper(*args,**kwargs):
+        ro= kwargs.get('ro',None)
+        if ro is None and hasattr(args[0],'_ro'):
+            ro= args[0]._ro
+        if _APY_LOADED and isinstance(ro,units.Quantity):
+            ro= ro.to(units.kpc).value
+        vo= kwargs.get('vo',None)
+        if vo is None and hasattr(args[0],'_vo'):
+            vo= args[0]._vo
+        if _APY_LOADED and isinstance(vo,units.Quantity):
+            vo= vo.to(units.km/units.s).value
+        # Loop through args
+        newargs= ()
+        for ii in range(len(args)):
+            if _APY_LOADED and isinstance(args[ii],units.Quantity):
+                try:
+                    targ= args[ii].to(units.kpc*units.km/units.s).value/ro/vo
+                except units.UnitConversionError:
+                    try:
+                        targ= args[ii].to(units.rad).value
+                    except units.UnitConversionError:
+                        raise units.UnitConversionError("Input units not understood")               
+                newargs= newargs+(targ,)
+            else:
+                newargs= newargs+(args[ii],)
+        args= newargs
+        return method(*args,**kwargs)
+    return wrapper
+

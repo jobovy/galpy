@@ -229,7 +229,7 @@ class TwoPowerSphericalPotential(Potential):
         return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_
+    """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_
 
     .. math::
 
@@ -244,7 +244,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen 1993
+           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen (1993)
 
         INPUT:
 
@@ -289,6 +289,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         # set properties
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -462,7 +463,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         return (r/(r+self.a))**(3.-self.alpha)/(3.-self.alpha)
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
-    """Class that implements the Dehnen Spherical Potential from `Dehnen 1993 <https://doi.org/10.1093/mnras/265.1.250>`_ with alpha=0 (corresponding to an inner core)
+    """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
 
     .. math::
 
@@ -477,7 +478,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
         PURPOSE:
 
-           initialize a cored Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen 1993
+           initialize a cored Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen (1993)
 
         INPUT:
 
@@ -503,6 +504,10 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         DehnenSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=0,
             normalize=normalize,ro=ro,vo=vo)
+        # set properties explicitly
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -697,6 +702,10 @@ class HernquistPotential(DehnenSphericalPotential):
             self,amp=amp,a=a,alpha=1,
             normalize=normalize,ro=ro,vo=vo)
         self._nemo_accname= 'Dehnen'
+        # set properties explicitly
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -922,6 +931,7 @@ class JaffePotential(DehnenSphericalPotential):
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -1077,6 +1087,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     """
     def __init__(self,amp=1.,a=1.,normalize=False,
+                 rmax=None,vmax=None,
                  conc=None,mvir=None,
                  vo=None,ro=None,
                  H=70.,Om=0.3,overdens=200.,wrtcrit=False):
@@ -1098,7 +1109,15 @@ class NFWPotential(TwoPowerSphericalPotential):
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
 
-           Alternatively, NFW potentials can be initialized using 
+           Alternatively, NFW potentials can be initialized in the following two manners:
+
+           a)
+
+              rmax= radius where the rotation curve peaks (can be a Quantity, otherwise assumed to be in internal units)
+
+              vmax= maximum circular velocity (can be a Quantity, otherwise assumed to be in internal units)
+
+           b)
 
               conc= concentration
 
@@ -1126,11 +1145,13 @@ class NFWPotential(TwoPowerSphericalPotential):
 
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
+           2020-04-29 - Initialization w/ rmax and vmax - Bovy (UofT)
+           
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
-        if conc is None:
+        if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
             self.beta= 3
@@ -1138,6 +1159,15 @@ class NFWPotential(TwoPowerSphericalPotential):
                     (isinstance(normalize,(int,float)) \
                          and not isinstance(normalize,bool)):
                 self.normalize(normalize)
+        elif not rmax is None:
+            if _APY_LOADED and isinstance(rmax,units.Quantity):
+                rmax= rmax.to(units.kpc).value/self._ro
+                self._roSet= True
+            if _APY_LOADED and isinstance(vmax,units.Quantity):
+                vmax= vmax.to(units.km/units.s).value/self._vo
+                self._voSet= True
+            self.a= rmax/2.1625815870646098349
+            self._amp= vmax**2.*self.a/0.21621659550187311005
         else:
             if wrtcrit:
                 od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
@@ -1154,6 +1184,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= True
+        self.hasC_dens= True
         self._nemo_accname= 'NFW'
         return None
 
@@ -1349,6 +1380,60 @@ class NFWPotential(TwoPowerSphericalPotential):
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
                            0.01,100.)
         return x*self.a
+
+    @bovy_conversion.physical_conversion('position',pop=True)
+    def rmax(self):
+        """
+        NAME:
+
+           rmax
+
+        PURPOSE:
+
+           calculate the radius at which the rotation curve peaks
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+        
+           Radius at which the rotation curve peaks
+        
+        HISTORY:
+
+           2020-02-05 - Written - Bovy (UofT)
+
+        """
+        # Magical number, solve(derivative (ln(1+x)-x/(1+x))/x wrt x=0,x)
+        return 2.1625815870646098349*self.a
+
+    @bovy_conversion.physical_conversion('velocity',pop=True)
+    def vmax(self):
+        """
+        NAME:
+
+           vmax
+
+        PURPOSE:
+
+           calculate the maximum rotation curve velocity
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+        
+           Peak velocity in the rotation curve
+        
+        HISTORY:
+
+           2020-02-05 - Written - Bovy (UofT)
+
+        """
+        # 0.21621659550187311005 = (numpy.log(1.+rmax)-rmax/(1.+rmax))/rmax 
+        return numpy.sqrt(0.21621659550187311005*self._amp/self.a)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

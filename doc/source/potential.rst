@@ -273,6 +273,10 @@ potential grown as above would be
 .. TIP::
    To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
 
+.. WARNING::
+   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
+
+
 Close-to-circular orbits and orbital frequencies
 -------------------------------------------------
 
@@ -809,8 +813,8 @@ between ``galpy`` and NEMO (one can flatten in ``y``).
 
 .. _amusepot:
 
-**NEW in v1.5**: Conversion to AMUSE potentials
------------------------------------------------
+Conversion to AMUSE potentials
+------------------------------
 
 `AMUSE <http://amusecode.org/>`_ is a Python software framework for
 astrophysical simulations, in which existing codes from different
@@ -970,10 +974,6 @@ implementation of the classic Chandrasekhar dynamical-friction
 formula, with recent tweaks to better represent the results from
 *N*-body simulations.
 
-Note that there is currently no support for implementing dissipative
-forces in C. Thus, only Python-based integration methods are available
-for any dissipative forces.
-
 .. WARNING::
    Dissipative forces can currently only be used for 3D orbits in ``galpy``. The code should throw an error when they are used for 2D orbits.
 
@@ -992,7 +992,7 @@ used. Adding a new class of potentials to galpy consists of the
 following series of steps (for steps to add a new wrapper potential,
 also see :ref:`the next section <addwrappot>`):
 
-1. Implement the new potential in a class that inherits from ``galpy.potential.Potential``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+1. Implement the new potential in a class that inherits from ``galpy.potential.Potential`` (velocity-dependent forces should inherit from ``galpy.potential.DissipativeForce`` instead; see below for a brief discussion on differences in implementing such forces). The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
 
 .. _addpypot:
 
@@ -1048,8 +1048,8 @@ also see :ref:`the next section <addwrappot>`):
     pattern speed (used to compute the Jacobi integral for orbits).
 
   If you want to be able to calculate the concentration for a
-  potential, you also have to set self._scale to a scale parameter for
-  your potential.
+  potential, you also have to set ``self._scale`` to a scale parameter
+  for your potential.
 
   The code for ``galpy.potential.MiyamotoNagaiPotential`` gives a good
   template to follow for 3D axisymmetric potentials. Similarly, the
@@ -1069,7 +1069,7 @@ also see :ref:`the next section <addwrappot>`):
   that uses pure python potentials. To get the potential to work with
   the C implementations of orbit integration or action-angle
   calculations, the potential also has to be implemented in C and the
-  potential has to be passed from python to C.
+  potential has to be passed from python to C (see below).
 
   The ``__init__`` method should be written in such a way that a
   relevant object can be initialized using ``Classname()`` (i.e.,
@@ -1086,7 +1086,10 @@ also see :ref:`the next section <addwrappot>`):
   ``hasC=True`` for potentials for which the forces and potential are
   implemented in C (see below); ``self.hasC_dxdv=True`` for potentials
   for which the (planar) second derivatives are implemented in C;
-  ``self.isNonAxi=True`` for non-axisymmetric potentials.
+  ``self.hasC_dens=True`` for potentials for which the density is
+  implemented in C as well (necessary for them to work with dynamical
+  friction in C); ``self.isNonAxi=True`` for non-axisymmetric
+  potentials.
 
 2. To add a C implementation of the potential, implement it in a .c file under ``potential/potential_c_ext``. Look at ``potential/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
 
@@ -1098,7 +1101,10 @@ also see :ref:`the next section <addwrappot>`):
  are most important. For some of the action-angle calculations
 
  * double LogarithmicHaloPotentialEval(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
- is most important (i.e., for those algorithms that evaluate the potential). The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential/potential_c_ext/galpy_potentials.h``.
+ is most important (i.e., for those algorithms that evaluate the potential). If you want your potential to be able to be used as the density for the :ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>` implementation in C, you need to implement the density in C as well
+
+ * double LogarithmicHaloPotentialDens(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
+ The arguments of the potential are passed in a ``potentialArgs`` structure that contains ``args``, which are the arguments that should be unpacked. Again, looking at some example code will make this clear. The ``potentialArgs`` structure is defined in ``potential/potential_c_ext/galpy_potentials.h``.
 
 3. Add the potential's function declarations to
 ``potential/potential_c_ext/galpy_potentials.h``
@@ -1120,10 +1126,16 @@ new potential (in the **_parse_pot** function).
 potential in question (after the initialization of the super class, or
 otherwise it will be undone). If you have implemented the necessary
 second derivatives for integrating phase-space volumes, also add
-``self.hasC_dxdv=True``.
+``self.hasC_dxdv=True``. If you have implemented the density in C, set
+``self.hasC_dens=True``.
 
 After following the relevant steps, the new potential class can be
 used in any galpy context in which C is used to speed up computations.
+
+Velocity-dependent forces (e.g.,
+:ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>`) should inherit from ``galpy.potential.DissipativeForce`` instead of from ``galpy.potential.Potential``. Because such forces are not conservative, you only need to implement the forces themselves, in the same way as for a regular ``Potential``. For dissipative forces, the force-evaluation functions (``Rforce``, etc.) need to take the velocity in cylindrical coordinates as a keyword argument: ``v=[vR,vT,vZ]``. Implementing dissipative forces in C is similar: you only need to implement the forces themselves and the forces should take the velocity in cylindrical coordinates as an additional input, e.g.,
+
+* double ChandrasekharDynamicalFrictionForceRforce(double R,double z, double phi,double t,struct potentialArg * potentialArgs,double vR,double vT,double vz)
 
 .. _addwrappot:
 
