@@ -66,6 +66,7 @@ class interpSphericalPotential(SphericalPotential):
         self._Phi0= Phi0+self._pot_spline(self._rgrid[0])
         self._r2deriv_spline= self._force_spline.derivative()
         # Extrapolate as mass within rgrid[-1]
+        self._rmin= rgrid[0]
         self._rmax= rgrid[-1]
         self._total_mass= -self._rmax**2.*self._force_spline(self._rmax)
         self._Phimax= -self._pot_spline(self._rmax)+self._Phi0\
