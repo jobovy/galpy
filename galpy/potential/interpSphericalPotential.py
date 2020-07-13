@@ -23,7 +23,7 @@ class interpSphericalPotential(SphericalPotential):
 
            rforce= (None) Either a) function that gives the radial force as a function of r or b) a galpy Potential instance or list thereof
 
-           rgrid= (numpy.geomspace(0.01,20,101)) radial grid on which to evaluate the potential for interpolation
+           rgrid= (numpy.geomspace(0.01,20,101)) radial grid on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
 
            Phi0= (0.) value of the potential at rgrid[0] (only necessary when rforce is a function, for galpy potentials automatically determined)
 
@@ -60,20 +60,35 @@ class interpSphericalPotential(SphericalPotential):
             if phys['voSet']:
                 self.turn_physical_on(vo=phys['vo'])
         self._force_spline= interpolate.InterpolatedUnivariateSpline(
-            self._rgrid,numpy.array([_rforce(r) for r in rgrid]),k=3)
+            self._rgrid,numpy.array([_rforce(r) for r in rgrid]),k=3,ext=0)
         # Get potential and r2deriv as splines for the integral and derivative
         self._pot_spline= self._force_spline.antiderivative()
         self._Phi0= Phi0+self._pot_spline(self._rgrid[0])
         self._r2deriv_spline= self._force_spline.derivative()
+        # Extrapolate as mass within rgrid[-1]
+        self._rmax= rgrid[-1]
+        self._total_mass= -self._rmax**2.*self._force_spline(self._rmax)
+        self._Phimax= -self._pot_spline(self._rmax)+self._Phi0\
+            +self._total_mass/self._rmax
         self.hasC= False
         self.hasC_dxdv= False
         self.hasC_dens= False
         return None
 
     def _revaluate(self,r,t=0.):
-        return -self._pot_spline(r)+self._Phi0
+        out= numpy.empty_like(r)
+        out[r >= self._rmax]= -self._total_mass/r[r >= self._rmax]+self._Phimax
+        out[r < self._rmax]= -self._pot_spline(r[r < self._rmax])+self._Phi0
+        return out
+    
     def _rforce(self,r,t=0.):
-        return self._force_spline(r)
+        out= numpy.empty_like(r)
+        out[r >= self._rmax]= -self._total_mass/r[r >= self._rmax]**2.
+        out[r < self._rmax]= self._force_spline(r[r < self._rmax])
+        return out
+    
     def _r2deriv(self,r,t=0.):
-        return -self._r2deriv_spline(r)
-        
+        out= numpy.empty_like(r)
+        out[r >= self._rmax]= -2.*self._total_mass/r[r >= self._rmax]**3.
+        out[r < self._rmax]= -self._r2deriv_spline(r[r < self._rmax])
+        return out
