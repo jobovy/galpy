@@ -43,7 +43,8 @@ class kingdf(sphericaldf):
         # Need to add parsing of Quantity inputs...
         
         self.W0= W0
-        # Solve (mass,rtidal)-scale-free model
+        # Solve (mass,rtidal)-scale-free model, which is the basis for
+        # the full solution
         self._scalefree_kdf= _scalefreekingdf(self.W0)
         self._scalefree_kdf.solve(npt)
         # Set up scaling factors
@@ -55,13 +56,14 @@ class kingdf(sphericaldf):
         self.rho0= self._scalefree_kdf.rho0*self._density_scale
         self.r0= self._scalefree_kdf.r0*self._radius_scale
         self.c= self._scalefree_kdf.c # invariant
+        self.rt= rt # for convenience
 
     def dens(self,r):
         return self._scalefree_kdf.dens(r/self._radius_scale)\
             *self._density_scale
         
 class _scalefreekingdf(object):
-    """Internal helper class to solve the scale-free King DF model"""
+    """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
     def __init__(self,W0):
         self.W0= W0
 
