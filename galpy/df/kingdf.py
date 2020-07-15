@@ -73,6 +73,7 @@ class _scalefreekingdf(object):
         # Set up arrays for outputs
         r= numpy.zeros(npt)
         W= numpy.zeros(npt)
+        dWdr= numpy.zeros(npt)
         m= numpy.zeros(npt)
         # Initialize (r[0]=0 already)
         W[0]= self.W0
@@ -93,6 +94,7 @@ class _scalefreekingdf(object):
                              -(2.*y[1]/t if t > 0. else 0.)],
                 [0.,rbreak],[self.W0,0.],method='LSODA',t_eval=r[:npt//2])
         W[:npt//2]= sol.y[0]
+        dWdr[:npt//2]= sol.y[1]
         # Then solve Poisson equation ODE from Psi(r0) to Psi=0 using form
         # d^2 r / d Psi^2 = ... (d r / d psi = 1/v, dv / dpsi = 1/v(RHS-2*r*v))
         # Added advantage that this becomes ~log-spaced in r, which is what
@@ -105,9 +107,11 @@ class _scalefreekingdf(object):
                 [sol.y[0,-1],0.],[rbreak,sol.y[1,-1]],
                 method='LSODA',t_eval=W[npt//2-1:])
         r[npt//2-1:]= sol.y[0]
+        dWdr[npt//2-1:]= sol.y[1]
         # Store solution
         self._r= r
         self._W= W
+        self._dWdr= dWdr
         # Also store density at these points, and the tidal radius
         self._rho= self._dens_W(self._W)
         self.rt= r[-1]
