@@ -39,7 +39,8 @@ def test_normalize_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -168,7 +169,8 @@ def test_forceAsDeriv_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -336,7 +338,8 @@ def test_2ndDeriv_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -558,7 +561,8 @@ def test_poisson_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -662,7 +666,8 @@ def test_poisson_surfdens_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -787,7 +792,8 @@ def test_evaluateAndDerivs_potential():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -994,7 +1000,8 @@ def test_amp_mult_divide():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1038,7 +1045,8 @@ def test_potential_array_input():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
@@ -1136,7 +1144,8 @@ def test_toVertical_array():
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
@@ -1382,7 +1391,8 @@ def test_toVertical_toPlanar():
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin']
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
