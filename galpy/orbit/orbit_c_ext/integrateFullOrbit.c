@@ -435,6 +435,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
       potentialArgs->rforce= &interpSphericalPotentialrforce;
       potentialArgs->r2deriv= &interpSphericalPotentialr2deriv;
+      potentialArgs->rdens= &interpSphericalPotentialrdens;
       potentialArgs->nargs = (int) 6;
       potentialArgs->requiresVelocity= false;
       break;

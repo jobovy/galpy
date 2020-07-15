@@ -50,3 +50,18 @@ double interpSphericalPotentialr2deriv(double r,double t,
 						  r,*potentialArgs->acc1d);
   }
 }
+double interpSphericalPotentialrdens(double r,double t,
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double rmin= *(args+1);
+  double rmax= *(args+2);
+  if ( r >= rmax ) {
+    return 0.;
+  }
+  else {
+    return r < rmin ? 0. : M_1_PI / 4. \
+      * ( interpSphericalPotentialr2deriv(r,t,potentialArgs)
+	  - 2. * interpSphericalPotentialrforce(r,t,potentialArgs)/r);
+  }
+}

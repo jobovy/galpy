@@ -75,6 +75,7 @@ struct potentialArg{
   double (*revaluate)(double r,double t,struct potentialArg *);
   double (*rforce)(double r,double t,struct potentialArg *);
   double (*r2deriv)(double r,double t,struct potentialArg *);
+  double (*rdens)(double r,double t,struct potentialArg *);
 };
 /*
   Function declarations
@@ -568,6 +569,7 @@ double SphericalPotentialDens(double,double,double,double,
 double interpSphericalPotentialrevaluate(double,double,struct potentialArg *);
 double interpSphericalPotentialrforce(double,double,struct potentialArg *);
 double interpSphericalPotentialr2deriv(double,double,struct potentialArg *);
+double interpSphericalPotentialrdens(double,double,struct potentialArg *);
   
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential

@@ -94,3 +94,11 @@ class interpSphericalPotential(SphericalPotential):
         out[r >= self._rmax]= -2.*self._total_mass/r[r >= self._rmax]**3.
         out[r < self._rmax]= -self._r2deriv_spline(r[r < self._rmax])
         return out
+
+    def _rdens(self,r,t=0.):
+        out= numpy.empty_like(r)
+        out[r >= self._rmax]= 0.
+        # Fall back onto Poisson eqn., implemented in SphericalPotential
+        out[r < self._rmax]= SphericalPotential._rdens(self,r[r < self._rmax])
+        return out
+    
