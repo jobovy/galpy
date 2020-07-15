@@ -164,6 +164,8 @@ def test_forceAsDeriv_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -333,6 +335,8 @@ def test_2ndDeriv_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -556,6 +560,8 @@ def test_poisson_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -661,6 +667,8 @@ def test_poisson_surfdens_potential():
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
     """
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -787,6 +795,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -995,6 +1005,8 @@ def test_amp_mult_divide():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1042,6 +1054,8 @@ def test_potential_array_input():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
@@ -1141,6 +1155,8 @@ def test_toVertical_array():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
@@ -1386,6 +1402,8 @@ def test_toVertical_toPlanar():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -4038,6 +4056,19 @@ class mockSCFDensityPotential(potential.SCFPotential):
         Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
+# Test interpSphericalPotential
+class mockInterpSphericalPotential(potential.interpSphericalPotential):
+    def __init__(self):
+        hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
+        potential.interpSphericalPotential.__init__(self,rforce=hp,
+                                                    rgrid=numpy.linspace(0.,2.,201))
+class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
+    def __init__(self):
+        hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
+        potential.interpSphericalPotential.__init__(self,
+                                                    rforce=lambda r: hp.Rforce(r,0.),
+                                                    Phi0=hp(0.,0.),
+                                                    rgrid=numpy.linspace(0.,2.,201))
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
