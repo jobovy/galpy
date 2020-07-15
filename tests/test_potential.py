@@ -3465,6 +3465,23 @@ def test_add_potentials_unitserror():
     with pytest.raises(AssertionError) as excinfo: potrovo+pot
     return None
 
+# Test unit handling of interpolated Spherical potentials
+def test_interSphericalPotential_unithandling():
+    pot= potential.HernquistPotential(amp=1.,a=2.,ro=8.3,vo=230.)
+    # Test that setting up the interpolated potential with inconsistent units
+    # raises a RuntimeError
+    with pytest.raises(RuntimeError):
+        ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201),ro=7.5)
+    with pytest.raises(RuntimeError):
+        ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201),vo=210.)
+    # Check that units are properly transferred
+    ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201))
+    assert ipot._roSet, 'ro of interpSphericalPotential not set, even though that of parent was set'
+    assert ipot._ro == pot._ro, 'ro of interpSphericalPotential does not agree with that of the parent potential'
+    assert ipot._voSet, 'vo of interpSphericalPotential not set, even though that of parent was set'
+    assert ipot._vo == pot._vo, 'vo of interpSphericalPotential does not agree with that of the parent potential'
+    return None
+
 # Test that the amplitude of the isothermal disk potential is set correctly (issue #400)
 def test_isodisk_amplitude_issue400():
     # Morgan's example
