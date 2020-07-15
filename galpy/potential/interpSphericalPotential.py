@@ -59,8 +59,9 @@ class interpSphericalPotential(SphericalPotential):
                 self.turn_physical_on(ro=phys['ro'])
             if phys['voSet']:
                 self.turn_physical_on(vo=phys['vo'])
+        self._rforce_grid= numpy.array([_rforce(r) for r in rgrid])
         self._force_spline= interpolate.InterpolatedUnivariateSpline(
-            self._rgrid,numpy.array([_rforce(r) for r in rgrid]),k=3,ext=0)
+            self._rgrid,self._rforce_grid,k=3,ext=0)
         # Get potential and r2deriv as splines for the integral and derivative
         self._pot_spline= self._force_spline.antiderivative()
         self._Phi0= Phi0+self._pot_spline(self._rgrid[0])
@@ -71,9 +72,9 @@ class interpSphericalPotential(SphericalPotential):
         self._total_mass= -self._rmax**2.*self._force_spline(self._rmax)
         self._Phimax= -self._pot_spline(self._rmax)+self._Phi0\
             +self._total_mass/self._rmax
-        self.hasC= False
-        self.hasC_dxdv= False
-        self.hasC_dens= False
+        self.hasC= True
+        self.hasC_dxdv= True
+        self.hasC_dens= True
         return None
 
     def _revaluate(self,r,t=0.):
