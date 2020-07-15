@@ -4061,14 +4061,14 @@ class mockInterpSphericalPotential(potential.interpSphericalPotential):
     def __init__(self):
         hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
         potential.interpSphericalPotential.__init__(self,rforce=hp,
-                                                    rgrid=numpy.linspace(0.,2.,201))
+                                                    rgrid=numpy.linspace(0.,1.1,201))
 class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
     def __init__(self):
         hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
         potential.interpSphericalPotential.__init__(self,
                                                     rforce=lambda r: hp.Rforce(r,0.),
                                                     Phi0=hp(0.,0.),
-                                                    rgrid=numpy.linspace(0.,2.,201))
+                                                    rgrid=numpy.linspace(0.,1.1,201))
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
