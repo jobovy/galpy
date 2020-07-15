@@ -40,7 +40,7 @@ def test_normalize_potential():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -164,13 +164,15 @@ def test_forceAsDeriv_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -333,13 +335,15 @@ def test_2ndDeriv_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -556,13 +560,15 @@ def test_poisson_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -661,13 +667,15 @@ def test_poisson_surfdens_potential():
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
     """
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -787,13 +795,15 @@ def test_evaluateAndDerivs_potential():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -995,13 +1005,15 @@ def test_amp_mult_divide():
     pots.append('CorotatingRotationSpiralArmsPotential')
     pots.append('GaussianAmplitudeDehnenBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1042,11 +1054,13 @@ def test_potential_array_input():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
@@ -1141,11 +1155,13 @@ def test_toVertical_array():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('FerrersPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialHernquistPotential')
@@ -1386,13 +1402,15 @@ def test_toVertical_toPlanar():
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -3447,6 +3465,23 @@ def test_add_potentials_unitserror():
     with pytest.raises(AssertionError) as excinfo: potrovo+pot
     return None
 
+# Test unit handling of interpolated Spherical potentials
+def test_interSphericalPotential_unithandling():
+    pot= potential.HernquistPotential(amp=1.,a=2.,ro=8.3,vo=230.)
+    # Test that setting up the interpolated potential with inconsistent units
+    # raises a RuntimeError
+    with pytest.raises(RuntimeError):
+        ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201),ro=7.5)
+    with pytest.raises(RuntimeError):
+        ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201),vo=210.)
+    # Check that units are properly transferred
+    ipot= potential.interpSphericalPotential(rforce=pot,rgrid=numpy.geomspace(0.01,5.,201))
+    assert ipot._roSet, 'ro of interpSphericalPotential not set, even though that of parent was set'
+    assert ipot._ro == pot._ro, 'ro of interpSphericalPotential does not agree with that of the parent potential'
+    assert ipot._voSet, 'vo of interpSphericalPotential not set, even though that of parent was set'
+    assert ipot._vo == pot._vo, 'vo of interpSphericalPotential does not agree with that of the parent potential'
+    return None
+
 # Test that the amplitude of the isothermal disk potential is set correctly (issue #400)
 def test_isodisk_amplitude_issue400():
     # Morgan's example
@@ -4038,6 +4073,19 @@ class mockSCFDensityPotential(potential.SCFPotential):
         Acos, Asin = potential.scf_compute_coeffs(scf_density,10,10,phi_order=30)
         potential.SCFPotential.__init__(self,amp=1.,Acos=Acos, Asin=Asin)
         
+# Test interpSphericalPotential
+class mockInterpSphericalPotential(potential.interpSphericalPotential):
+    def __init__(self):
+        hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
+        potential.interpSphericalPotential.__init__(self,rforce=hp,
+                                                    rgrid=numpy.linspace(0.,1.1,201))
+class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
+    def __init__(self):
+        hp= potential.HomogeneousSpherePotential(normalize=1.,R=1.1)
+        potential.interpSphericalPotential.__init__(self,
+                                                    rforce=lambda r: hp.Rforce(r,0.),
+                                                    Phi0=hp(0.,0.),
+                                                    rgrid=numpy.linspace(0.,1.1,201))
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \

@@ -67,7 +67,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatGaussianAmplitudeBarPotential, \
     mockFlatTrulyGaussianAmplitudeBarPotential, \
     testorbitHenonHeilesPotential, \
-    nestedListPotential
+    nestedListPotential, \
+    mockInterpSphericalPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -141,13 +142,14 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -504,13 +506,14 @@ def test_energy_conservation_linear():
     pots.append('altExpwholeDiskSCFPotential')
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('SoftenedNeedleBarPotential')
@@ -669,13 +672,14 @@ def test_liouville_planar():
     pots.append('mockFlatTrulyCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     #rmpots.append('BurkertPotential')
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
@@ -702,6 +706,7 @@ def test_liouville_planar():
     tol['triaxialLogarithmicHaloPotential']= -7. #more difficult
     tol['FerrersPotential']= -2.
     tol['HomogeneousSpherePotential']= -4.
+    tol['mockInterpSphericalPotential']= -4. # == HomogeneousSpherePotential
     tol['mockFlatCosmphiDiskwBreakPotential']= -7. # more difficult
     tol['mockFlatTrulyCorotatingRotationSpiralArmsPotential']= -5. # more difficult
     firstTest= True
@@ -800,13 +805,14 @@ def test_eccentricity():
                and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -926,13 +932,14 @@ def test_pericenter():
                and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1051,13 +1058,14 @@ def test_apocenter():
                and not 'toVertical' in p)]
     pots.append('testMWPotential')
     pots.append('testplanarMWPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1176,13 +1184,14 @@ def test_zmax():
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     pots.append('testMWPotential')
+    pots.append('mockInterpSphericalPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     if False: #_TRAVIS: #travis CI
@@ -1294,7 +1303,7 @@ def test_analytic_ecc_rperi_rap():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
@@ -1618,7 +1627,7 @@ def test_analytic_zmax():
              'planarPotential', 'verticalPotential','PotentialError',
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential']
+             'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case

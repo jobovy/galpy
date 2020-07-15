@@ -47,6 +47,10 @@ Implement a specific spherical density distribution with this form by inheriting
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=amp_units)
         return None
 
+    def _rdens(self,r,t=0.):
+        """Implement using the Poisson equation in case this isn't implemented"""
+        return (self._r2deriv(r,t=t)-2.*self._rforce(r,t=t)/r)/4./numpy.pi
+    
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:

@@ -179,6 +179,10 @@ def test_dynamfric_c():
            potential.PerfectEllipsoidPotential(normalize=.3,a=3.,b=0.7,c=1.5,
                                                pa=3.,zvec=[0.,1.,0.]), #rotated
            potential.HomogeneousSpherePotential(normalize=0.02,R=82./8), # make sure to go to dens = 0 part,
+           potential.interpSphericalPotential(\
+                    rforce=potential.HomogeneousSpherePotential(normalize=0.02,
+                                                                R=82./8.),
+                    rgrid=numpy.linspace(0.,82./8.,201)),
            potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
                                   normalize=1.,a=3.5),
            potential.SCFPotential(Acos=numpy.array([[[1.,0.],[.3,0.]]]), # nonaxi
@@ -197,6 +201,7 @@ def test_dynamfric_c():
     tol['TriaxialJaffePotential']= -6.
     tol['MWPotential3021']= -6.
     tol['HomogeneousSpherePotential']= -6.
+    tol['interpSphericalPotential']= -6. # == HomogeneousSpherePotential
     tol['McMillan17']= -6.
     for p in pots:
         if not _check_c(p,dens=True): continue # dynamfric not in C!
