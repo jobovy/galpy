@@ -209,7 +209,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.append(len(p._rgrid))
             pot_args.extend(p._rgrid)
             pot_args.extend(p._rforce_grid)
-            pot_args.extend([1.,p._rmin,p._rmax,p._total_mass,
+            pot_args.extend([p._amp,p._rmin,p._rmax,p._total_mass,
                              p._Phi0,p._Phimax])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
