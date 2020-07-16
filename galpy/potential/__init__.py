@@ -49,6 +49,7 @@ from . import IsothermalDiskPotential
 from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
 from . import interpSphericalPotential
+from . import KingPotential
 #
 # Functions
 #
@@ -166,6 +167,7 @@ IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
 interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
+KingPotential= KingPotential.KingPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
