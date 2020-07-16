@@ -363,18 +363,33 @@ The ``None`` here means that there is no inner Lindblad resonance, the
 the :ref:`Hercules stream <hercules>` in this documentation).
 
 
-Using interpolations of potentials
------------------------------------
+**UPDATED IN v1.7** Using interpolations of potentials
+------------------------------------------------------
 
-``galpy`` contains a general ``Potential`` class ``interpRZPotential``
-that can be used to generate interpolations of potentials that can be
-used in their stead to speed up calculations when the calculation of
-the original potential is computationally expensive (for example, for
-the ``DoubleExponentialDiskPotential``). Full details on how to set
-this up are given :ref:`here <interprz>`. Interpolated potentials can
-be used anywhere that general three-dimensional galpy potentials can
-be used. Some care must be taken with outside-the-interpolation-grid
-evaluations for functions that use ``C`` to speed up computations.
+``galpy`` contains various ways to set up interpolated versions of
+potentials that can be used to generate interpolations of potentials
+that can be used in their stead to speed up calculations when the
+calculation of the original potential is computationally expensive
+(for example, for the ``DoubleExponentialDiskPotential``).
+
+To interpolated spherical potentials, use the
+``interpSphericalPotential`` class, described in detail :ref:`here
+<interpsphere>`. To set up an instance, simply provide a function that
+gives the radial force as a function of (spherical) radius and a grid
+to interpolate it over (to set up a potential for a given enclosed
+mass, give the enclosed mass divided by radius
+squared). Alternatively, provide a spherical ``galpy`` potential
+instance or a list of such instances to build an interpolated version
+of them.
+
+To interpolate axisymmetric potentials, use the ``interpRZPotential``
+class. Full details on how to set this up are given :ref:`here
+<interprz>`.
+
+Interpolated potentials can be used anywhere that general
+three-dimensional galpy potentials can be used. Some care must be
+taken with outside-the-interpolation-grid evaluations for functions
+that use ``C`` to speed up computations.
 
 .. _physunits_pot:
 
