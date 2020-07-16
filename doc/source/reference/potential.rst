@@ -148,6 +148,7 @@ typically easier to follow option b).
    potentialdehnen.rst
    potentialhernquist.rst
    potentialhomogsphere.rst
+   potentialinterpsphere.rst
    potentialisochrone.rst
    potentialjaffe.rst
    potentialkepler.rst

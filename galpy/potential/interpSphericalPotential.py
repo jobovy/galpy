@@ -7,10 +7,13 @@ from .SphericalPotential import SphericalPotential
 from .Potential import _evaluateRforces, _evaluatePotentials
 from ..util.bovy_conversion import physical_compatible, get_physical
 class interpSphericalPotential(SphericalPotential):
-    """interpSphericalPotential: Class that interpolates a spherical potential on a grid"""
+    """__init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,ro=None,vo=None)
+
+Class that interpolates a spherical potential on a grid"""
     def __init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,
                  ro=None,vo=None):
-        """
+        """__init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,ro=None,vo=None)
+
         NAME:
 
            __init__
