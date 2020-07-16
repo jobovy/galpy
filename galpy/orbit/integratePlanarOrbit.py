@@ -256,7 +256,7 @@ def _parse_pot(pot):
             pot_args.append(len(p._Pot._rgrid))
             pot_args.extend(p._Pot._rgrid)
             pot_args.extend(p._Pot._rforce_grid)
-            pot_args.extend([p._Pot.amp,p._Pot._rmin,p._Pot._rmax,
+            pot_args.extend([p._Pot._amp,p._Pot._rmin,p._Pot._rmax,
                              p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
