@@ -15,7 +15,7 @@ Implement a specific spherical density distribution with this form by inheriting
 
 * ``_r2deriv(self,r,t=0.)``: the second radial derivative of the potential as a function of ``r`` and time;
 
-* ``_rdens(self,r,t=0.)``: the density as a function of ``r`` and time.
+* ``_rdens(self,r,t=0.)``: the density as a function of ``r`` and time (if *not* implemented, calculated using the Poisson equation).
     """
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """

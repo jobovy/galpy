@@ -124,6 +124,21 @@ All of the following potentials can also be modified by the specific ``WrapperPo
 Spherical potentials
 ********************
 
+Spherical potentials in ``galpy`` can be implemented in two ways: a)
+directly by inheriting from ``Potential`` and implementing the usual
+methods (``_evaluate``, ``_Rforce``, etc.) or b) by inheriting from
+the general :ref:`SphericalPotential <sphericalpot>` class and
+implementing the functions ``_revaluate(self,r,t=0.)``,
+``_rforce(self,r,t=0.)``, ``_r2deriv(self,r,t=0.)``, and
+``_rdens(self,r,t=0.)`` that evaluate the potential, radial force,
+(minus the) radial force derivative, and density as a function of the
+(here natural) spherical radius. For adding a C implementation when
+using method b), follow similar steps in C (use
+``interpSphericalPotential`` as an example to follow). For historical
+reasons, most spherical potentials in ``galpy`` are directly
+implemented (option a above), but for new spherical potentials it is
+typically easier to follow option b).
+
 .. toctree::
    :maxdepth: 2
 
