@@ -48,11 +48,11 @@ PYTHON VERSIONS AND DEPENDENCIES
 ================================
 
 `galpy` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.6 and 3.7. It should also work on earlier Python
+Python 2.7 and Python 3.6, 3.7, and 3.8. It should also work on earlier Python
 3.\* versions, but this is not extensively tested on an ongoing basis.
-Travis CI builds regularly check support for Python 2.7 and 3.7 (and of
-3.6 using a more limited, core set of tests) and Appveyor builds
-regularly check support for Python 3.7 on Windows.
+Travis CI builds regularly check support for Python 2.7 and 3.8 (and of
+3.6 and 3.7 using a more limited, core set of tests) and Appveyor builds
+regularly check support for Python 3.8 on Windows.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
@@ -63,7 +63,9 @@ requiring version 1.14 or higher. Use of `SnapshotRZPotential` and
 `InterpSnapshotRZPotential` requires
 [pynbody](https://github.com/pynbody/pynbody). Support for providing
 inputs and getting outputs as Quantities with units is provided through
-[astropy](http://www.astropy.org/).
+[astropy](http://www.astropy.org/). Certain parts of the code require 
+additional packages and you will be alerted by the code if they are
+not installed.
 
 CONTRIBUTING TO GALPY
 =====================
