@@ -61,7 +61,7 @@ class EllipsoidalPotential(Potential):
 
            glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
 
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__
+           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 

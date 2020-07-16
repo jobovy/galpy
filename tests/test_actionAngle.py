@@ -1724,8 +1724,11 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     dp= potential.DehnenSphericalPotential(normalize=1.)
     dcp= potential.DehnenCoreSphericalPotential(normalize=1.)
     homp= potential.HomogeneousSpherePotential(normalize=1.)
+    ihomp= potential.interpSphericalPotential(\
+            rforce=potential.HomogeneousSpherePotential(normalize=1.,R=1.1),
+            rgrid=numpy.linspace(0.,1.1,201))
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp]
+           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])

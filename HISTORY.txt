@@ -6,6 +6,12 @@ v1.7 (XXXX-XX-XX)
   and vmax methods to NFWPotential to compute these quantities for any
   NFWPotential.
 
+- Added general class SphericalPotential to make defining spherical
+  potentials easier (#424).
+
+- Added interpSphericalPotential class to build interpolated versions
+  of spherical potentials (#424).
+
 - Added inverse action-angle transformations for the isochrone
   potential (actionAngleIsochroneInverse) and for a one-dimensional
   harmonic oscillator (actionAngleHarmonicInverse; also added the

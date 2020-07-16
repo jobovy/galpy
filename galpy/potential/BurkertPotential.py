@@ -2,10 +2,11 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
+from .Potential import  _APY_LOADED
+from .SphericalPotential import SphericalPotential
 if _APY_LOADED:
     from astropy import units
-class BurkertPotential(Potential):
+class BurkertPotential(SphericalPotential):
     """BurkertPotential.py: Potential with a Burkert density
 
     .. math::
@@ -44,8 +45,11 @@ class BurkertPotential(Potential):
 
            2013-04-10 - Written - Bovy (IAS)
 
+           2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
+
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
+        SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,
+                                    amp_units='density')
         if _APY_LOADED and isinstance(a,units.Quantity):
             a= a.to(units.kpc).value/self._ro
         self.a=a
@@ -59,120 +63,22 @@ class BurkertPotential(Potential):
         self.hasC_dens= True
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2013-04-10 - Started - Bovy (IAS)
-        """
-        x= numpy.sqrt(R**2.+z**2.)/self.a
-        return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)+2.*(1.+x)*numpy.log(1.+x)+(1.-x)*numpy.log(1.+x**2.))
-
-    def _Rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2013-04-10 - Written - Bovy (IAS)
-        """
-        r= numpy.sqrt(R**2.+z**2.)
+    def _revaluate(self,r,t=0.):
+        """Potential as a function of r and time"""
         x= r/self.a
-        return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.))*R/r
-
-    def _zforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2013-04-10 - Written - Bovy (IAS)
-        """
-        r= numpy.sqrt(R**2.+z**2.)
+        return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
+                                        +2.*(1.+x)*numpy.log(1.+x)
+                                        +(1.-x)*numpy.log(1.+x**2.))
+    def _rforce(self,r,t=0.):
         x= r/self.a
-        return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.))*z/r
-
-    def _R2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rderiv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2013-04-10 - Written - Bovy (IAS)
-        """
-        r= numpy.sqrt(R**2.+z**2.)
+        return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)
+                                      -2.*numpy.log(1.+x)-numpy.log(1.+x**2.))
+    
+    def _r2deriv(self,r,t=0.):
         x= r/self.a
-        return -numpy.pi/x**3./r**2.*(-4.*R**2.*r**3./(self.a**2.+r**2.)/(self.a+r)+(z**2.-2.*R**2.)*(numpy.pi-2.*numpy.arctan(1./x)-2.*numpy.log(1.+x)-numpy.log(1.+x**2.)))
+        return 4.*numpy.pi/(1.+x**2.)/(1.+x)+2.*self._rforce(r)/x/self.a
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2012-07-26 - Written - Bovy (IAS@MPIA)
-        """
-        return self._R2deriv(z,R) #Spherical potential
-
-    def _dens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2013-01-09 - Written - Bovy (IAS)
-        """
-        r= numpy.sqrt(R**2.+z**2.)
+    def _rdens(self,r,t=0.):
         x= r/self.a
         return 1./(1.+x)/(1.+x**2.)
 

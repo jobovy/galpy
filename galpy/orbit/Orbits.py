@@ -1170,8 +1170,11 @@ class Orbit(object):
                     out= out[:,:,:-1]
         # Store orbit internally
         self.orbit= out
-        # Check whether r ever < minr if dynamical friction is included and warn if so
-        from ..potential import ChandrasekharDynamicalFrictionForce
+        # Check whether r ever < minr if dynamical friction is included
+        # and warn if so
+        # or if using interpSphericalPotential and r < rmin or r > rmax
+        from ..potential import ChandrasekharDynamicalFrictionForce, \
+            interpSphericalPotential
         if numpy.any([isinstance(p,ChandrasekharDynamicalFrictionForce)
                       for p in flatten_potential([pot])]): # make sure pot=list
             lpot= flatten_potential([pot])
@@ -1191,6 +1194,24 @@ class Orbit(object):
                               """close to the center for an object that """
                               """sinks all the way to r=0, to avoid """
                               """numerical instabilities)""",
+                          galpyWarning)
+        elif numpy.any([isinstance(p,interpSphericalPotential)
+                      for p in flatten_potential([pot])]): # make sure pot=list
+            lpot= flatten_potential([pot])
+            isp_indx= numpy.arange(len(lpot))[\
+                numpy.array([isinstance(p,interpSphericalPotential)
+                             for p in lpot],dtype='bool')][0]
+            if numpy.any(self.r(self.t,use_physical=False) \
+                             < lpot[isp_indx]._rmin) \
+                             or numpy.any(self.r(self.t,use_physical=False) \
+                                          > lpot[isp_indx]._rmax):
+                warnings.warn("""Orbit integration with """
+                              """interpSphericalPotential visited radii """
+                              """outside of the interpolation range; """
+                              """initialize interpSphericalPotential """
+                              """with a wider radial range to avoid this """
+                              """if you wish (min/max r = {:.3f},{:.3f}"""\
+                              .format(self.rperi(),self.rap()),
                           galpyWarning)
         return None
 
