@@ -3254,7 +3254,111 @@ class Orbit(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[2]/thiso[0]).T
+    
+    @physical_conversion('velocity')
+    @shapeDecorator
+    def vr(self,*args,**kwargs):
+        """
+        NAME:
 
+           vr
+
+        PURPOSE:
+
+           return spherical radial velocity. For < 3 dimensions returns vR
+
+        INPUT:
+
+           t - (optional) time at which to get the radial velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vr(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if self.dim() == 3:
+            r = numpy.sqrt( numpy.square(thiso[0]) + numpy.square(thiso[3]) )
+            return ((thiso[0]*thiso[1]+thiso[3]*thiso[4])/r).T
+        else:
+            return thiso[1].T
+    
+    @physical_conversion('velocity')
+    @shapeDecorator
+    def vtheta(self,*args,**kwargs):
+        """
+        NAME:
+
+           vtheta
+           
+        PURPOSE:
+
+           return spherical polar velocity
+
+        INPUT:
+
+           t - (optional) time at which to get the theta velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vtheta(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if not self.dim() == 3:
+            raise AttributeError("Orbit must be 3D to use vtheta()")
+        else:
+            r = numpy.sqrt(numpy.square(thiso[0])+numpy.square(thiso[3]))
+            return ((thiso[1]*thiso[3]-thiso[0]*thiso[4])/r).T
+            
+    @physical_conversion('angle')
+    @shapeDecorator
+    def theta(self,*args,**kwargs):
+        """
+        NAME:
+
+           theta
+           
+        PURPOSE:
+
+           return spherical polar angle
+
+        INPUT:
+
+           t - (optional) time at which to get the angle
+
+        OUTPUT:
+
+           theta(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if self.dim() != 3:
+            raise AttributeError("Orbit must be 3D to use theta()")
+        else:
+            return numpy.arctan2(thiso[0],thiso[3])
+    
+    
     @physical_conversion('angle_deg')
     @shapeDecorator
     def ra(self,*args,**kwargs):
