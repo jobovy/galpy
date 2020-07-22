@@ -1976,6 +1976,7 @@ def test_orbit_setup_linear():
     assert o.dim() == 1, 'linearOrbit does not have dim == 1'
     assert numpy.fabs(o.x()-1.) < 10.**-16., 'linearOrbit x setup does not agree with o.x()'
     assert numpy.fabs(o.vx()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.vx()'
+    assert numpy.fabs(o.vr()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.vr()'
     if False:
         # setphi was deprecated when moving to Orbits
         try:
@@ -2192,6 +2193,11 @@ def test_orbit_setup():
     assert numpy.fabs(o.pmll(obs=obs)-0.5) < 10.**-10., 'Orbit pmll setup does not agree with o.pmll()'
     assert numpy.fabs(o.pmbb(obs=obs)-0.) < 10.**-10., 'Orbit pmbb setup does not agree with o.pmbb()'
     assert numpy.fabs(o.vlos(obs=obs)-30.) < 10.**-10., 'Orbit vlos setup does not agree with o.vlos()'
+    #test galactocentric spherical coordinates
+    o= Orbit([2.,2.**0.5,1.,2.,2.**0.5,0.5])
+    assert numpy.fabs(o.vr()-2.) < 10.**-10., 'Orbit galactocentric spherical coordinates are not correct'
+    assert numpy.fabs(o.vtheta()-0.) < 10.**-10., 'Orbit galactocentric spherical coordinates are not correct'
+    assert numpy.fabs(o.theta()-numpy.pi/4) < 10.**-10.,  'Orbit galactocentric spherical coordinates are not correct'
     return None
 
 def test_orbit_setup_SkyCoord():
@@ -2409,6 +2415,18 @@ def test_attributeerrors():
         pass
     else:
         raise AssertionError("o.vz() for planarOrbit should have raised AttributeError, but did not")
+    try:
+        o.theta()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.theta() for planarROrbit should have raise AttributeError, but did not")
+    try:
+        o.vtheta()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vtheta() for planarROrbit should have raise AttributeError, but did not")
     #phi, x, y, vx, vy for Orbits that don't track phi
     o= Orbit([1.,0.1,1.1,0.1,0.2])
     try:
@@ -2472,6 +2490,18 @@ def test_attributeerrors():
         pass
     else:
         raise AssertionError("o.vy() for planarROrbit should have raised AttributeError, but did not")
+    try:
+        o.theta()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.theta() for planarROrbit should have raise AttributeError, but did not")
+    try:
+        o.vtheta()
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("o.vtheta() for planarROrbit should have raise AttributeError, but did not")
     return None
 
 # Test reversing an orbit
@@ -3300,6 +3330,9 @@ def test_scalar_all():
     assert isinstance(o.y(),float), 'Orbit.y() does not return a scalar'
     assert isinstance(o.vx(),float), 'Orbit.vx() does not return a scalar'
     assert isinstance(o.vy(),float), 'Orbit.vy() does not return a scalar'
+    assert isinstance(o.theta(),float), 'Orbit.theta() does not return a scalar'
+    assert isinstance(o.vtheta(),float), 'Orbit.vtheta() does not return a scalar'
+    assert isinstance(o.vr(),float), 'Orbit.vr() does not return a scalar'
     assert isinstance(o.ra(),float), 'Orbit.ra() does not return a scalar'
     assert isinstance(o.dec(),float), 'Orbit.dec() does not return a scalar'
     assert isinstance(o.ll(),float), 'Orbit.ll() does not return a scalar'
@@ -3338,6 +3371,9 @@ def test_scalar_all():
     assert isinstance(o.y(5.),float), 'Orbit.y() does not return a scalar'
     assert isinstance(o.vx(5.),float), 'Orbit.vx() does not return a scalar'
     assert isinstance(o.vy(5.),float), 'Orbit.vy() does not return a scalar'
+    assert isinstance(o.theta(5.),float), 'Orbit.theta() does not return a scalar'
+    assert isinstance(o.vtheta(5.),float), 'Orbit.vtheta() does not return a scalar'
+    assert isinstance(o.vr(5.),float), 'Orbit.vr() does not return a scalar'
     assert isinstance(o.ra(5.),float), 'Orbit.ra() does not return a scalar'
     assert isinstance(o.dec(5.),float), 'Orbit.dec() does not return a scalar'
     assert isinstance(o.ll(5.),float), 'Orbit.ll() does not return a scalar'
@@ -3723,6 +3759,9 @@ def test_orbit_method_integrate_t_asQuantity_warning():
     check_integrate_t_asQuantity_warning(o,'y')
     check_integrate_t_asQuantity_warning(o,'vx')
     check_integrate_t_asQuantity_warning(o,'vy')
+    check_integrate_t_asQuantity_warning(o,'theta')
+    check_integrate_t_asQuantity_warning(o,'vtheta')
+    check_integrate_t_asQuantity_warning(o,'vr')
     check_integrate_t_asQuantity_warning(o,'ra')
     check_integrate_t_asQuantity_warning(o,'dec')
     check_integrate_t_asQuantity_warning(o,'ll')
@@ -3790,6 +3829,9 @@ def test_orbit_method_inputro_quantity():
     assert numpy.fabs(o.y(ro=ro*units.kpc)-o.y(ro=ro)) < 10.**-8., 'Orbit method y does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.vx(ro=ro*units.kpc)-o.vx(ro=ro)) < 10.**-8., 'Orbit method vx does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.vy(ro=ro*units.kpc)-o.vy(ro=ro)) < 10.**-8., 'Orbit method vy does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.theta(ro=ro*units.kpc)-o.theta(ro=ro)) < 10.**-8., 'Orbit method theta does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vtheta(ro=ro*units.kpc)-o.vtheta(ro=ro)) < 10.**-8., 'Orbit method vtheta does not return the correct value when input ro is Quantity'
+    assert numpy.fabs(o.vr(ro=ro*units.kpc)-o.vr(ro=ro)) < 10.**-8., 'Orbit method vr does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.ra(ro=ro*units.kpc)-o.ra(ro=ro)) < 10.**-8., 'Orbit method ra does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.dec(ro=ro*units.kpc)-o.dec(ro=ro)) < 10.**-8., 'Orbit method dec does not return the correct value when input ro is Quantity'
     assert numpy.fabs(o.ll(ro=ro*units.kpc)-o.ll(ro=ro)) < 10.**-8., 'Orbit method ll does not return the correct value when input ro is Quantity'
@@ -3852,6 +3894,9 @@ def test_orbit_method_inputvo_quantity():
     assert numpy.fabs(o.y(vo=vo*units.km/units.s)-o.y(vo=vo)) < 10.**-8., 'Orbit method y does not return the correct value when input vo is Quantity'
     assert numpy.fabs(o.vx(vo=vo*units.km/units.s)-o.vx(vo=vo)) < 10.**-8., 'Orbit method vx does not return the correct value when input vo is Quantity'
     assert numpy.fabs(o.vy(vo=vo*units.km/units.s)-o.vy(vo=vo)) < 10.**-8., 'Orbit method vy does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.theta(vo=vo*units.km/units.s)-o.theta(vo=vo)) < 10.**-8., 'Orbit method theta does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vtheta(vo=vo*units.km/units.s)-o.vtheta(vo=vo)) < 10.**-8., 'Orbit method vtheta does not return the correct value when input vo is Quantity'
+    assert numpy.fabs(o.vr(vo=vo*units.km/units.s)-o.vr(vo=vo)) < 10.**-8., 'Orbit method vr does not return the correct value when input vo is Quantity'
     assert numpy.fabs(o.ra(vo=vo*units.km/units.s)-o.ra(vo=vo)) < 10.**-8., 'Orbit method ra does not return the correct value when input vo is Quantity'
     assert numpy.fabs(o.dec(vo=vo*units.km/units.s)-o.dec(vo=vo)) < 10.**-8., 'Orbit method dec does not return the correct value when input vo is Quantity'
     assert numpy.fabs(o.ll(vo=vo*units.km/units.s)-o.ll(vo=vo)) < 10.**-8., 'Orbit method ll does not return the correct value when input vo is Quantity'

@@ -1412,6 +1412,38 @@ def test_lbd_to_XYZ_jac():
     assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
     return None
 
+def test_cyl_to_spher_vec():
+    # Test 45 degrees, disk plane, & polar location
+    vr,vT,vtheta = bovy_coords.cyl_to_spher_vec(0.6,1.3,0.6,1.,1.)
+    assert numpy.fabs(vr-0.6*2**0.5) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vtheta-0) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vT-1.3) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    vr,vT,vtheta = bovy_coords.cyl_to_spher_vec(-1.2,-0.7,-0.8,1.,0.)
+    assert numpy.fabs(vr+1.2) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vtheta-0.8) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vT+0.7) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    vr,vT,vtheta = bovy_coords.cyl_to_spher_vec(-1.2,-0.7,-0.8,0.,1.)
+    assert numpy.fabs(vr+0.8) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vtheta+1.2) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    assert numpy.fabs(vT+0.7) < 10.**-8, 'cyl_to_spher_vec does not work as expected'
+    return None
+
+def test_spher_to_cyl_vec():
+    # Test 45 degrees, disk plane, & polar location
+    vR,vT,vz = bovy_coords.spher_to_cyl_vec(0.7,1.4,0.7,numpy.pi/4.)
+    assert numpy.fabs(vR-0.7*2**0.5) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vT-1.4) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vz-0.) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    vR,vT,vz = bovy_coords.spher_to_cyl_vec(0.5,-1.3,0.7,0.)
+    assert numpy.fabs(vR-0.7) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vT+1.3) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vz-0.5) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    vR,vT,vz = bovy_coords.spher_to_cyl_vec(0.5,-1.3,0.7,numpy.pi/2.)
+    assert numpy.fabs(vR-0.5) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vT+1.3) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    assert numpy.fabs(vz+0.7) < 10.**-8, 'spher_to_cyl_vec does not work as expected'
+    return None
+
 def test_cyl_to_spher():
     # Just a few quick tests
     r,t,p= bovy_coords.cyl_to_spher(1.2,3.2,1.)

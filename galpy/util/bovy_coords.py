@@ -1397,6 +1397,75 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
     return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
                                 _extra_rot=_extra_rot)
 
+def cyl_to_spher_vec(vR,vT,vz,R,z):
+    """
+    NAME:
+
+       cyl_to_spher_vec
+
+    PURPOSE:
+
+       transform vectors from cylindrical to spherical coordinates. vtheta is positive from pole towards equator.
+
+    INPUT:
+
+       vR - Galactocentric cylindrical radial velocity
+
+       vT - Galactocentric cylindrical tangential velocity
+
+       vz - Galactocentric cylindrical vertical velocity
+
+       R - Galactocentric cylindrical radius
+
+       z - Galactocentric cylindrical height
+
+    OUTPUT:
+
+       vr,vT,vtheta
+
+    HISTORY:
+
+       2020-07-01 - Written - James Lane (UofT)
+
+    """
+    r = numpy.sqrt(R**2.+z**2.)
+    vr = (R*vR + z*vz)/r
+    vtheta = (z*vR - R*vz)/r
+    return (vr,vT,vtheta)
+
+def spher_to_cyl_vec(vr,vT,vtheta,theta):
+    """
+    NAME:
+
+       spher_to_cyl_vec
+
+    PURPOSE:
+
+       transform vectors from spherical polar to cylindrical coordinates. vtheta is positive from pole towards equator, theta is 0 at pole
+
+    INPUT:
+
+       vr - Galactocentric spherical radial velocity
+
+       vT - Galactocentric spherical azimuthal velocity
+
+       vtheta - Galactocentric spherical polar velocity
+       
+       theta - Galactocentric spherical polar angle
+
+    OUTPUT:
+
+       vR,vT,vz
+
+    HISTORY:
+
+       2020-07-01 - Written - James Lane (UofT)
+
+    """
+    vR = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
+    vz = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
+    return (vR,vT,vz)
+
 def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
     """
     NAME:
