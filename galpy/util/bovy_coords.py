@@ -1428,7 +1428,7 @@ def cyl_to_spher_vec(vR,vT,vz,R,z):
        2020-07-01 - Written - James Lane (UofT)
 
     """
-    r = numpy.sqrt(numpy.square(R) + numpy.square(z))
+    r = numpy.sqrt(R**2.+z**2.)
     vr = (R*vR + z*vz)/r
     vtheta = (z*vR - R*vz)/r
     return (vr,vT,vtheta)

@@ -3281,12 +3281,12 @@ class Orbit(object):
 
         HISTORY:
 
-           2020-07-01 - Written - James (UofT)
+           2020-07-01 - Written - James Lane (UofT)
 
         """
         thiso = self._call_internal(*args,**kwargs)
         if self.dim() == 3:
-            r = numpy.sqrt( numpy.square(thiso[0]) + numpy.square(thiso[3]) )
+            r = numpy.sqrt(thiso[0]**2.+thiso[3]**2.)
             return ((thiso[0]*thiso[1]+thiso[3]*thiso[4])/r).T
         else:
             return thiso[1].T
@@ -3317,14 +3317,14 @@ class Orbit(object):
 
         HISTORY:
 
-           2020-07-01 - Written - James (UofT)
+           2020-07-01 - Written - James Lane (UofT)
 
         """
         thiso = self._call_internal(*args,**kwargs)
         if not self.dim() == 3:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
-            r = numpy.sqrt(numpy.square(thiso[0])+numpy.square(thiso[3]))
+            r = numpy.sqrt( thiso[0]**2.+thiso[3]**2.)
             return ((thiso[1]*thiso[3]-thiso[0]*thiso[4])/r).T
             
     @physical_conversion('angle')
@@ -3349,7 +3349,7 @@ class Orbit(object):
 
         HISTORY:
 
-           2020-07-01 - Written - James (UofT)
+           2020-07-01 - Written - James Lane (UofT)
 
         """
         thiso = self._call_internal(*args,**kwargs)
