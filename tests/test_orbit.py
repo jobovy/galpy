@@ -1958,6 +1958,7 @@ def test_orbit_setup_linear():
     assert o.dim() == 1, 'linearOrbit does not have dim == 1'
     assert numpy.fabs(o.x()-1.) < 10.**-16., 'linearOrbit x setup does not agree with o.x()'
     assert numpy.fabs(o.vx()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.vx()'
+    assert numpy.fabs(o.vr()-0.1) < 10.**-16., 'linearOrbit vx setup does not agree with o.vr()'
     if False:
         # setphi was deprecated when moving to Orbits
         try:
