@@ -204,13 +204,23 @@ class sphericaldf(df):
             return (R,vR,vT,z,vz,phi)
         
     def _sample_r(self,n=1):
-        # Stub for sampling the radius from M(<r)
-        return None
+        """Generate radial position samples from potential"""
+        # Maybe interpolator initialization can happen in separate function 
+        # to be called in __init__. It is fast though.
+        r_grid = numpy.logspace(-3,3)
+        cml_mass_frac_grid = self._pot.mass(r_grid)/self._pot.mass(r_grid[-1])
+        icml_mass_frac_interp = scipy.interpolate.interp1d(cml_mass_frac_grid,
+            r_grid,kind='cubic',bounds_error=False,fill_value='extrapolate')
+        rand_mass_frac = numpy.random.uniform(size=n)
+        r_ramples = icml_mass_frac_interp(rand_mass_frac)
+        return r_samples
 
     def _sample_position_angles(self,n=1):
-        # Stub for sampling the spherical angles
-        return None
-
+        """Generate spherical angle samples"""
+        phi_samples = numpy.random.uniform(size=n)*2*numpy.pi
+        theta_samples = numpy.arccos(2*numpy.random.uniform(size=n)-1)
+        return phi_samples,theta_samples
+        
     def _sample_v(self,r,n=1):
         # Stub for sampling the magnitude of the velocity at a given r
         # Uses methods for defining how the mag of the velocity is sampled
