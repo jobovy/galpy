@@ -222,15 +222,15 @@ class sphericaldf(df):
         return phi_samples,theta_samples
         
     def _sample_v(self,r,n=1):
-        # Stub for sampling the magnitude of the velocity at a given r
-        # Uses methods for defining how the mag of the velocity is sampled
-        # defined in subclasses
-        return None
+        """Generate velocity samples"""
+        v_samples = self._sample_v_internal(r,n=n) # Different for each type of DF
+        return v_samples
 
-    def _sample_velocity_angles(self,r,n=1):
-        # Stub for sampling the angles eta and psi for the velocities
-        # Uses _sample_eta implemented in subclasses
-        return None
+    def _sample_velocity_angles(self,n=1):
+        """Generate samples of angles that set radial vs tangential velocities"""
+        eta_samples = self._sample_eta(n)
+        psi_samples = numpy.random.uniform(size=n)*2*numpy.pi
+        return eta_samples,psi_samples
 
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
