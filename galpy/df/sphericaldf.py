@@ -1,7 +1,16 @@
 # Superclass for spherical distribution functions, contains
 #   - sphericaldf: superclass of all spherical DFs
 #   - anisotropicsphericaldf: superclass of all anisotropic spherical DFs
-from .df import df
+import numpy
+import pdb
+import scipy.interpolate
+from .df import df, _APY_LOADED
+from ..potential import flatten as flatten_potential
+from ..potential import evaluatePotentials
+from ..orbit import Orbit
+from ..util.bovy_conversion import physical_conversion
+if _APY_LOADED:
+    from astropy import units
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
@@ -42,4 +51,3 @@ class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
     def __init__(self,ro=None,vo=None):
         sphericaldf.__init__(self,ro=ro,vo=vo)
-
