@@ -133,9 +133,75 @@ class sphericaldf(df):
         return f
 
 ############################### SAMPLING THE DF################################
-    def sample(self):
-        # Stub for main sampling function, which will return (x,v) or Orbits...
-        return None
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+        """
+        NAME:
+
+            sample
+
+        PURPOSE:
+
+            Return full 6D samples of the DF
+
+        INPUT:
+
+            R= Radius at which to generate samples (can be Quantity)
+
+            z= Height at which to generate samples (can be Quantity)
+            
+            phi= Azimuth at which to generate samples (can be Quantity)
+
+            n= number of samples to generate
+
+        OPTIONAL INPUT:
+
+            return_orbit= If True output is orbit.Orbit object, if False 
+                output is (R,vR,vT,z,vz,phi)
+
+        OUTPUT:
+
+            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit
+
+        NOTES:
+
+            If R,z,phi are None then sample positions with CMF. If R,z,phi are 
+            floats then sample n velocities at location. If array then sample 
+            velocities at radii, ignoring n. phi can be None if R,z are set 
+            by any above mechanism, will then sample phi for output.
+
+        HISTORY:
+
+            2020-07-22 - Written - 
+
+        """
+        if R is None and z is None: # Full 6D samples
+            r = self._sample_r(n=n)
+            v = self._sample_v(r,n=n)
+            phi,theta = self._sample_position_angles(n=n)
+            R = r*numpy.sin(theta)
+            z = r*numpy.cos(theta) 
+        else: # 3D velocity samples
+            if isinstance(R,numpy.ndarray):
+                assert len(R) == len(z)
+                n = len(R)
+            r = numpy.sqrt(R**2.+z**2.)
+            v = self._sample_v(r,n=n)
+            if phi is None: # Otherwise assume phi input type matches R,z
+                phi,_ = self._sample_position_angles(n=n)
+        
+        eta,psi = self._sample_velocity_angles(n=n)
+        vr = v*numpy.cos(eta)
+        vtheta = v*numpy.sin(eta)*numpy.cos(psi)
+        vT = v*numpy.sin(eta)*numpy.sin(psi)
+        vR_samples = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
+        vz_samples = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
+        
+        if return_orbit:
+            o = Orbit(vxvv=numpy.array([R,vR,vT,z,vz,phi]).T,
+                      ro=self._ro,vo=self._vo)
+            return o
+        else:
+            return (R,vR,vT,z,vz,phi)
         
     def _sample_r(self,n=1):
         # Stub for sampling the radius from M(<r)
