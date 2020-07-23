@@ -234,5 +234,31 @@ class sphericaldf(df):
 
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,ro=None,vo=None):
-        sphericaldf.__init__(self,ro=ro,vo=vo)
+    def __init__(self,pot=None,dftype=None,ro=None,vo=None):
+        """
+        NAME:
+
+            __init__
+
+        PURPOSE:
+
+            Initialize an anisotropic distribution function
+
+        INPUT:
+
+            dftype= Type of anisotropic DF, either 'constant' for constant beta 
+                over all r, or 'ossipkov-merrit'
+
+            pot - Spherical potential which determines the DF
+
+        OUTPUT:
+        
+            None
+
+        HISTORY:
+
+            2020-07-22 - Written - 
+
+        """
+        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
+        self._dftype = dftype
