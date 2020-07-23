@@ -39,6 +39,34 @@ class constantbetaHernquistdf(constantbetadf):
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
         constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
 
+    def __call_internal__(self,*args):
+        """
+        NAME:
+
+            __call_internal
+
+        PURPOSE:
+
+            Evaluate the DF for a constant anisotropy Hernquist
+
+        INPUT:
+
+            E - The energy
+
+            L - The angular momentum
+
+        OUTPUT:
+
+            fH - The value of the DF
+
+        HISTORY:
+
+            2020-07-22 - Written
+        """
+        E = args[0]
+        L = args[1]
+        f1 = self.f1E(E)
+        return L**(-2*self.beta)*f1
 
     def f1E(self,E):
         # Stub for computing f_1(E)
