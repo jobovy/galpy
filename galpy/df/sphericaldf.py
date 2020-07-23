@@ -14,8 +14,34 @@ if _APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,ro=None,vo=None):
+    def __init__(self,pot=None,ro=None,vo=None):
+        """
+        NAME:
+
+            __init__
+
+        PURPOSE:
+
+            Initializes a spherical DF
+
+        INPUT:
+
+            pot - Spherical potential which determines the DF
+
+        OUTPUT:
+
+            None
+
+        HISTORY:
+
+            2020-07-22 - Written - 
+
+        """
         df.__init__(self,ro=ro,vo=vo)
+        if pot is None:
+            raise IOError("pot= must be set")
+        # Some sort of check for spherical symmetry in the potential?
+        self._pot = flatten_potential(pot)
 
 ############################## EVALUATING THE DF###############################
     def __call__(self,*args,**kwargs):
