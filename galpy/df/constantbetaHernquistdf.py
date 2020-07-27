@@ -99,7 +99,7 @@ class constantbetaHernquistdf(constantbetadf):
         # Handle potential E outside of bounds
         Etilde_out = numpy.where(Etilde<0|Etilde>1)[0]
         if len(Etilde_out)>0:
-            # Set to dummy and NaN later, wierd but prevents functions throwing errors
+            # Set to dummy and 0 later, wierd but prevents functions throwing errors
             Etilde[Etilde_out]=0.5
 
         # Evaluate depending on beta
@@ -118,8 +118,8 @@ class constantbetaHernquistdf(constantbetadf):
             f1 = self._f1_beta_gt05_Hernquist(Erel)
         else:
             f1 = self._f1_any_beta(Erel) # This function sits in the super class?
-        
-        
+        if len(Etilde_out)>0:
+            f1[Etilde_out] = 0
         return f1
 
     def _f1_beta_gt05_Hernquist(self,Erel):
