@@ -231,6 +231,29 @@ class sphericaldf(df):
         eta_samples = self._sample_eta(n)
         psi_samples = numpy.random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
+    
+    def _sample_eta(self,n=1):
+        """Sample the angle eta"""
+        deta = 0.00005*numpy.pi
+        etas = (np.arange(0, np.pi, deta)+deta/2)
+        if hasattr(self,'beta'):
+            eta_pdf_cml = numpy.cumsum(self.eta_pdf(etas,self.beta))
+        else:
+            eta_pdf_cml = numpy.cumsum(self.eta_pdf(etas,0))
+        eta_pdf_cml_norm = eta_pdf_cml / eta_pdf_cml[-1]
+        eta_icml_interp = scipy.interpolate.interp1d(eta_pdf_cml_norm, etas, 
+            bounds_error=False, fill_value='extrapolate')
+        eta_samples = eta_icml_interp(np.random.uniform(size=n))
+    
+    def _eta_pdf(self,eta,beta,norm=True):
+        """PDF for sampling eta"""
+        p_eta = np.sin( eta )**(1.-2.*beta)
+        if norm:
+            p_eta /= numpy.sqrt(np.pi)\
+                  *scipy.special.gamma(1-self.beta)\
+                  /scipy.special.gamma(1.5-self.beta)
+        return p_eta
+        
 
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
