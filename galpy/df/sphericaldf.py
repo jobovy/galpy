@@ -218,25 +218,52 @@ class sphericaldf(df):
             return o
         else:
             return (R,vR,vT,z,vz,phi)
-        
+
     def _sample_r(self,n=1):
-        """Generate radial position samples from potential"""
-        # Maybe interpolator initialization can happen in separate function 
-        # to be called in __init__. It is fast though.
-        r_grid = numpy.logspace(-3,3)
-        cml_mass_frac_grid = self._pot.mass(r_grid)/self._pot.mass(r_grid[-1])
-        icml_mass_frac_interp = scipy.interpolate.interp1d(cml_mass_frac_grid,
-            r_grid,kind='cubic',bounds_error=False,fill_value='extrapolate')
-        rand_mass_frac = numpy.random.uniform(size=n)
-        r_ramples = icml_mass_frac_interp(rand_mass_frac)
-        return r_samples
+        """Generate radial position samples from potential
+        Note - the function interpolates the normalized CMF onto the variable 
+        xi defined as:
+        
+        .. math:: \\xi = \\frac{r-1}{r+1}
+        
+        so that xi is in the range [-1,1], which corresponds to an r range of 
+        [0,infinity)"""
+        rand_mass_frac = numpy.random.random(size=n)
+        xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
+        return self._xi_to_r(xi_samples,a=self._scale)
+
+    def _make_cmf_interpolator(self):
+        """Create the interpolator object for calculating radii from the CMF
+        Note - must use self.xi_to_r() on any output of interpolator
+        Note - the function interpolates the normalized CMF onto the variable 
+        xi defined as:
+        
+        .. math:: \\xi = \\frac{r-1}{r+1}
+        
+        so that xi is in the range [-1,1], which corresponds to an r range of 
+        [0,infinity)"""
+        xis = numpy.arange(-1,1,1e-6)
+        rs = self._xi_to_r(xis,a=self._scale)
+        ms = self._pot.mass(rs,use_physical=False)
+        ms /= self._pot.mass(10**12,use_physical=False)
+        xis_cmf_interp = scipy.interpolate.interp1d(ms,xis,
+            kind='cubic',bounds_error=False,fill_value='extrapolate')
+        return xis_cmf_interp
+
+    def _xi_to_r(self,xi,a=1):
+        """Calculate r from xi"""
+        return a*numpy.divide(1+xi,1-xi)
+    
+    def r_to_xi(self,r,a=1):
+        """Calculate xi from r"""
+        return numpy.divide(r/a-1,r/a+1)
 
     def _sample_position_angles(self,n=1):
         """Generate spherical angle samples"""
         phi_samples = numpy.random.uniform(size=n)*2*numpy.pi
         theta_samples = numpy.arccos(2*numpy.random.uniform(size=n)-1)
         return phi_samples,theta_samples
-        
+
     def _sample_v(self,r,n=1):
         """Generate velocity samples"""
         v_samples = self._sample_v_internal(r,n=n) # Different for each type of DF
