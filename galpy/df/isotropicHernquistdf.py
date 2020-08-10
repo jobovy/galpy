@@ -36,7 +36,7 @@ class isotropicHernquistdf(Eddingtondf):
         """
         E = args[0]
         if _APY_LOADED and isinstance(E,units.quantity.Quantity):
-            E.to(units.km**2/units.s**2).value/vo**2.
+            E= E.to(units.km**2/units.s**2).value/vo**2.
         # Scale energies
         phi0 = evaluatePotentials(self._pot,0,0)
         Erel = -E

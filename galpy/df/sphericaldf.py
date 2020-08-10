@@ -116,11 +116,11 @@ class sphericaldf(df):
                 L = numpy.sqrt(numpy.sum(numpy.square(args[0].L())))
                 Lz = args[0].Lz()
             if _APY_LOADED and isinstance(E,units.Quantity):
-                E.to(units.km**2/units.s**2).value/self._vo**2.
+                E= E.to(units.km**2/units.s**2).value/self._vo**2.
             if _APY_LOADED and isinstance(L,units.Quantity):
-                L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+                L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
             if _APY_LOADED and isinstance(Lz,units.Quantity):
-                Lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+                Lz= Lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
         else: # Assume R,vR,vT,z,vz,(phi)
             if len(args) == 5:
                 R,vR,vT,z,vz = args
@@ -128,17 +128,17 @@ class sphericaldf(df):
             else:
                 R,vR,vT,z,vz,phi = args
             if _APY_LOADED and isinstance(R,units.Quantity):
-                R.to(units.kpc).value/self._ro
+                R= R.to(units.kpc).value/self._ro
             if _APY_LOADED and isinstance(vR,units.Quantity):
-                vR.to(units.km/units.s).value/self._vo
+                vR= vR.to(units.km/units.s).value/self._vo
             if _APY_LOADED and isinstance(vT,units.Quantity):
-                vT.to(units.km/units.s).value/self._vo
+                vT= vT.to(units.km/units.s).value/self._vo
             if _APY_LOADED and isinstance(z,units.Quantity):
-                z.to(units.kpc).value/self._ro
+                z= z.to(units.kpc).value/self._ro
             if _APY_LOADED and isinstance(vz,units.Quantity):
-                vz.to(units.km/units.s).value/self._vo
+                vz= vz.to(units.km/units.s).value/self._vo
             if _APY_LOADED and isinstance(phi,units.Quantity):
-                phi.to(units.rad).value
+                phi= phi.to(units.rad).value
             vtotSq = vR**2.+vT**2.+vz**2.
             E = 0.5*vtotSq + evaluatePotentials(R,z)
             Lz = R*vT
