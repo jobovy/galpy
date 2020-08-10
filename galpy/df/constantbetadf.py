@@ -22,6 +22,6 @@ class constantbetadf(anisotropicsphericaldf):
             ro=ro,vo=vo)
         self.beta = beta
 
-    def f1E(self,E):
+    def fE(self,E):
         # Stub for computing f_1(E) in BT08 nomenclature
         return None

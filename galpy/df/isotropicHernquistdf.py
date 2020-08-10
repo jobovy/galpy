@@ -56,5 +56,28 @@ class isotropicHernquistdf(Eddingtondf):
         if len(Etilde_out) > 0:
             fH[Etilde_out] = 0
         return fH
-        
-    
+
+    def fE(self,E):
+        """
+        NAME:
+
+            fE
+
+        PURPOSE
+
+            Calculate the energy portion of an isotropic Hernquist distribution 
+            function
+
+        INPUT:
+
+            E - The energy (can be Quantity)
+
+        OUTPUT:
+
+            fE - The value of the energy portion of the DF
+
+        HISTORY:
+
+            2020-08-09 - Written - James Lane (UofT)
+        """
+        return self.__call_internal__(E)

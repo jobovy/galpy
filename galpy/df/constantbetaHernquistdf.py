@@ -65,14 +65,14 @@ class constantbetaHernquistdf(constantbetadf):
         """
         E = args[0]
         L = args[1]
-        f1 = self.f1E(E)
-        return L**(-2*self.beta)*f1
+        fE = self.fE(E)
+        return L**(-2*self.beta)*fE
 
-    def f1E(self,E):
+    def fE(self,E):
         """
         NAME:
 
-            f1E
+            fE
 
         PURPOSE
 
@@ -84,7 +84,7 @@ class constantbetaHernquistdf(constantbetadf):
 
         OUTPUT:
 
-            f1E - The value of the energy portion of the DF
+            fE - The value of the energy portion of the DF
 
         HISTORY:
 
