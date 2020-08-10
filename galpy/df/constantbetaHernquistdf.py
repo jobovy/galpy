@@ -91,24 +91,24 @@ class constantbetaHernquistdf(constantbetadf):
             2020-07-22 - Written
         """
         if _APY_LOADED and isinstance(E,units.quantity.Quantity):
-        # Scale energies
-        phi0 = evaluatePotentials(self._pot,0,0)
             E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        psi0 = -evaluatePotentials(self._pot,0,0,use_physical=False)
         Erel = -E
-        Etilde = Erel/phi0
+        Etilde = Erel/psi0
         # Handle potential E outside of bounds
-        Etilde_out = numpy.where(Etilde<0|Etilde>1)[0]
+        Etilde_out = numpy.where(numpy.logical_or(Etilde<0,Etilde>1))[0]
         if len(Etilde_out)>0:
-            # Set to dummy and 0 later, wierd but prevents functions throwing errors
+            # Dummy variable now and 0 later, prevents numerical issues?
             Etilde[Etilde_out]=0.5
 
         # Evaluate depending on beta
-        _GMa = phi0*self._pot.a**2.
+        _GMa = psi0*self._pot.a**2.
         if self.beta == 0.:
             f1 = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
                *(numpy.sqrt(Etilde)/numpy.power(1-Etilde,2))\
                *((1-2*Etilde)*(8*numpy.power(Etilde,2)-8*Etilde-3)\
-               +((3*numpy.arcsin(numpy.sqrt(Etilde)))/numpy.sqrt(Etilde*(1-Etilde))))
+               +((3*numpy.arcsin(numpy.sqrt(Etilde)))\
+               /numpy.sqrt(Etilde*(1-Etilde))))
         elif self.beta == 0.5:
             f1 = (3*Etilde**2)/(4*(numpy.pi**3)*_GMa)
         elif self.beta == -0.5:
