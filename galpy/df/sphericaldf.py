@@ -6,7 +6,7 @@ import pdb
 import scipy.interpolate
 from .df import df, _APY_LOADED
 from ..potential import flatten as flatten_potential
-from ..potential import evaluatePotentials
+from ..potential import evaluatePotentials, vesc
 from ..orbit import Orbit
 from ..util.bovy_conversion import physical_conversion
 if _APY_LOADED:
@@ -45,7 +45,19 @@ class sphericaldf(df):
         if pot is None:
             raise IOError("pot= must be set")
         # Some sort of check for spherical symmetry in the potential?
-        self._pot = flatten_potential(pot)
+        assert not isinstance(pot,(list,tuple)), 'Lists of potentials not yet supported'
+        self._pot = pot
+        self._potInf = evaluatePotentials(pot,10**12,0)
+        try:
+            self._scale = pot._scale
+        except AttributeError:
+            if scale is not None:
+                if _APY_LOADED and isinstance(scale,units.Quantity):
+                    scale= scale.to(u.kpc).value/self._ro
+                self._scale = scale
+            else:
+                self._scale = 1.
+        self._xi_cmf_interpolator = self._make_cmf_interpolator()
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
