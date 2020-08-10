@@ -301,7 +301,84 @@ class sphericaldf(df):
                   *scipy.special.gamma(1-self.beta)\
                   /scipy.special.gamma(1.5-self.beta)
         return p_eta
+
+    def calculate_velocity_sampling_grid(self, r_a_start=-3, r_a_end=3, 
+        r_a_interval=0.05, v_vesc_interval=0.01, set_interpolator=True,
+        output_grid=False):
+        '''
+        NAME:
+
+        calculate_velocity_sampling_grid
+
+        PURPOSE:
+
+        Calculate a grid of the velocity sampling function v^2*f(E) over many 
+        radii. The radii are fractional with respect to some scale radius 
+        which characteristically describes the size of the potential, 
+        and the velocities are fractional with respect to the escape velocity 
+        at each radius r. This information is saved in a 2D interpolator which 
+        represents the inverse cumulative distribution at many radii. This 
+        allows for sampling of v/vesc given an input r/a
+
+        INPUT:
+
+            r_a_start= radius grid start location in units of r/a
+
+            r_a_end= radius grid end location in units of r/a
+
+            r_a_interval= radius grid spacing in units of r/a
+
+            v_vesc_interval= velocity grid spacing in units of v/vesc
+
+        OUTPUT:
+
+            None (But sets self._v_vesc_icdf_interpolator)
+
+        HISTORY:
+
+            Written 2020-07-24 - James Lane (UofT)
+        '''
+        # Make an array of r/a by v/vesc and then orbits to calculate fE
+        r_a_values = numpy.power(10,numpy.arange(r_a_start,r_a_end,r_a_interval))
+        v_vesc_values = numpy.arange(0,1,v_vesc_interval)
+        r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values,v_vesc_values)
+        vesc_grid = vesc(self._pot,r_a_grid*self._scale,use_physical=False)
+        E_grid = evaluatePotentials(self._pot,r_a_grid*self._scale,0,
+            use_physical=False)+0.5*(numpy.multiply(v_vesc_grid,vesc_grid))**2.
+
+        # Calculate cumulative p(v|r)
+        fE_grid = self.fE(E_grid).reshape(E_grid.shape)
+        _beta = 0
+        if hasattr(self,'beta'):
+            _beta = self.beta
+        pvr_grid = numpy.multiply(fE_grid,(v_vesc_grid*vesc_grid)**(2-2*_beta))
+        pvr_grid_cml = numpy.cumsum( pvr_grid, axis=0 )
+        pvr_grid_cml_norm = pvr_grid_cml\
+        /numpy.repeat(pvr_grid_cml[-1,:][:,numpy.newaxis],pvr_grid_cml.shape[0],axis=1).T
         
+        # Construct the inverse cumulative distribution
+        n_new_pvr = 100 # Must be multiple of r_a_grid.shape[0]
+        icdf_pvr_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
+        icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
+        r_a_grid_reg = numpy.repeat(r_a_grid,n_new_pvr/r_a_grid.shape[0],axis=0)
+        for i in range(pvr_grid_cml_norm.shape[1]):
+            cml_pvr = pvr_grid_cml_norm[:,i]
+            cml_pvr_inv_interp = scipy.interpolate.interp1d(cml_pvr, 
+                v_vesc_values, kind='cubic', bounds_error=None, 
+                fill_value='extrapolate')
+            pvr_samples_reg = numpy.linspace(0,1,num=n_new_pvr,endpoint=False)
+            v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
+            icdf_pvr_grid_reg[:,i] = pvr_samples_reg
+            icdf_v_vesc_grid_reg[:,i] = v_vesc_samples_reg
+        ###i
+        
+        # Create the interpolator
+        self._r_a_values = r_a_values
+        self._v_vesc_icdf_interpolator = scipy.interpolate.interp2d( 
+            numpy.log10(r_a_grid_reg.flatten()), icdf_pvr_grid_reg.flatten(), 
+            icdf_v_vesc_grid_reg.flatten(), kind='cubic', 
+            bounds_error=False, fill_value=None)
+        return None
 
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
