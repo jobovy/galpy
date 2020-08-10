@@ -14,7 +14,7 @@ if _APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,pot=None,ro=None,vo=None):
+    def __init__(self,pot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -27,6 +27,10 @@ class sphericaldf(df):
         INPUT:
 
             pot - Spherical potential which determines the DF
+
+            scale - Characteristic scale radius to aid sampling calculations. 
+                Not necessary, and will also be overridden by value from pot if 
+                available.
 
         OUTPUT:
 
