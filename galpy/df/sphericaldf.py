@@ -266,15 +266,19 @@ class sphericaldf(df):
 
     def _sample_v(self,r,n=1):
         """Generate velocity samples"""
-        v_samples = self._sample_v_internal(r,n=n) # Different for each type of DF
-        return v_samples
+        assert hasattr(self,'_v_vesc_icdf_interpolator')
+        vesc_vals = vesc(self._pot,r,use_physical=False)
+        icdf_samples = numpy.random.random(size=n)
+        v_vesc_samples = self._v_vesc_icdf_interpolator(numpy.log10(r/self._scale),
+            icdf_samples)
+        return numpy.diag(v_vesc_samples)*vesc_vals
 
     def _sample_velocity_angles(self,n=1):
         """Generate samples of angles that set radial vs tangential velocities"""
         eta_samples = self._sample_eta(n)
         psi_samples = numpy.random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
-    
+
     def _sample_eta(self,n=1):
         """Sample the angle eta"""
         deta = 0.00005*numpy.pi
