@@ -190,7 +190,7 @@ class sphericaldf(df):
             2020-07-22 - Written - 
 
         """
-        if R is None and z is None: # Full 6D samples
+        if R is None or z is None: # Full 6D samples
             r = self._sample_r(n=n)
             v = self._sample_v(r,n=n)
             phi,theta = self._sample_position_angles(n=n)
@@ -209,8 +209,8 @@ class sphericaldf(df):
         vr = v*numpy.cos(eta)
         vtheta = v*numpy.sin(eta)*numpy.cos(psi)
         vT = v*numpy.sin(eta)*numpy.sin(psi)
-        vR_samples = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
-        vz_samples = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
+        vR = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
+        vz = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
         
         if return_orbit:
             o = Orbit(vxvv=numpy.array([R,vR,vT,z,vz,phi]).T,
