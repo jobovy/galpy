@@ -18,9 +18,9 @@ class constantbetadf(anisotropicsphericaldf):
 
             pot - Spherical potential which determines the DF
         """
+        self.beta = beta
         anisotropicsphericaldf.__init__(self,pot=pot,dftype='constant',
             ro=ro,vo=vo)
-        self.beta = beta
 
     def fE(self,E):
         # Stub for computing f_1(E) in BT08 nomenclature

@@ -115,16 +115,16 @@ class constantbetaHernquistdf(constantbetadf):
             f1 = ((20*Etilde**3-20*Etilde**4+6*Etilde**5)\
                /(1-Etilde)**4)/(4*numpy.pi**3*(_GMa)**2)
         elif self.beta < 1.0 and self.beta > 0.5:
-            f1 = self._f1_beta_gt05_Hernquist(Erel)
+            f1 = self._fE_beta_gt05(Erel)
         else:
-            f1 = self._f1_any_beta(Erel) # This function sits in the super class?
+            f1 = self._fE_any_beta(Erel) # This function sits in the super class?
         if len(Etilde_out)>0:
             f1[Etilde_out] = 0
         return f1
 
-    def _f1_beta_gt05_Hernquist(self,Erel):
-        """Calculate f1 for a Hernquist model when 0.5 < beta < 1.0"""
-        psi0 = evaluatePotentials(self._pot,0,0) 
+    def _fE_beta_gt05(self,Erel):
+        """Calculate fE for a Hernquist model when 0.5 < beta < 1.0"""
+        psi0 = -1*evaluatePotentials(self._pot,0,0,use_physical=False) 
         _a = self._pot.a
         _GM = psi0*_a
         Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self.beta)\
@@ -133,12 +133,16 @@ class constantbetaHernquistdf(constantbetadf):
         alpha = self.beta-0.5
         coeff = (Cbeta*_a**(2*self.beta-2))*(numpy.sin(alpha*numpy.pi))\
                 /(_GM*2*numpy.pi**2)
-        integral = scipy.integrate.quad(self.f1_beta_gt05_integral, 
-            a=0, b=Erel, args=(Erel,psi0) )[0]
+        integral = numpy.zeros_like(Erel)
+        for ii in range(Erel.shape[0]):
+            for jj in range(Erel.shape[1]):
+                    integral[ii,jj] = scipy.integrate.quad(
+                        self._fE_beta_gt05_integral, a=0, b=Erel[ii,jj], 
+                        args=(Erel[ii,jj],psi0) )[0]
         return coeff*integral
     
-    def _f1_beta_gt05_integral_Hernquist(self,psi,Erel,psi0):
-        """Integral for calculating f1 for a Hernquist when 0.5 < beta < 1.0"""
+    def _fE_beta_gt05_integral(self,psi,Erel,psi0):
+        """Integral for calculating fE for a Hernquist when 0.5 < beta < 1.0"""
         psiTilde = psi/psi0
         # Absolute value because the answer normally comes out imaginary?
         denom = numpy.abs( (Erel-psi)**(1.5-self.beta) ) 
