@@ -58,6 +58,7 @@ class sphericaldf(df):
             else:
                 self._scale = 1.
         self._xi_cmf_interpolator = self._make_cmf_interpolator()
+        self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
@@ -272,11 +273,10 @@ class sphericaldf(df):
 
     def _sample_v(self,r,n=1):
         """Generate velocity samples"""
-        assert hasattr(self,'_v_vesc_icdf_interpolator')
         vesc_vals = vesc(self._pot,r,use_physical=False)
-        icdf_samples = numpy.random.random(size=n)
-        v_vesc_samples = self._v_vesc_icdf_interpolator(numpy.log10(r/self._scale),
-            icdf_samples)
+        pvr_icdf_samples = numpy.random.random(size=n)
+        v_vesc_samples = self._v_vesc_pvr_interpolator(numpy.log10(r/self._scale),
+            pvr_icdf_samples)
         return numpy.diag(v_vesc_samples)*vesc_vals
 
     def _sample_velocity_angles(self,n=1):
@@ -308,13 +308,13 @@ class sphericaldf(df):
                   /scipy.special.gamma(1.5-self.beta)
         return p_eta
 
-    def calculate_velocity_sampling_grid(self, r_a_start=-3, r_a_end=3, 
+    def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, 
         r_a_interval=0.05, v_vesc_interval=0.01, set_interpolator=True,
         output_grid=False):
         '''
         NAME:
 
-        calculate_velocity_sampling_grid
+        _make_pvr_interpolator
 
         PURPOSE:
 
@@ -338,7 +338,7 @@ class sphericaldf(df):
 
         OUTPUT:
 
-            None (But sets self._v_vesc_icdf_interpolator)
+            None (But sets self._v_vesc_pvr_interpolator)
 
         HISTORY:
 
@@ -379,12 +379,10 @@ class sphericaldf(df):
         ###i
         
         # Create the interpolator
-        self._r_a_values = r_a_values
-        self._v_vesc_icdf_interpolator = scipy.interpolate.interp2d( 
-            numpy.log10(r_a_grid_reg.flatten()), icdf_pvr_grid_reg.flatten(), 
-            icdf_v_vesc_grid_reg.flatten(), kind='cubic', 
-            bounds_error=False, fill_value=None)
-        return None
+        v_vesc_icdf_interpolator = scipy.interpolate.interp2d(
+            numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
+            icdf_v_vesc_grid_reg, bounds_error=False,fill_value=None)
+        return v_vesc_icdf_interpolator
 
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
@@ -414,5 +412,5 @@ class anisotropicsphericaldf(sphericaldf):
             2020-07-22 - Written - 
 
         """
-        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._dftype = dftype
+        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
