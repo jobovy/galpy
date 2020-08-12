@@ -147,3 +147,8 @@ class constantbetaHernquistdf(constantbetadf):
               *numpy.power(1-psiTilde,2*self.beta-2)\
               *numpy.power(psiTilde,4-2*self.beta))
         return numer/denom
+        
+    def _icmf(self,ms):
+        '''Analytic expression for the normalized inverse cumulative mass 
+        function. The argument ms is normalized mass fraction [0,1]'''
+        return self._pot.a*numpy.sqrt(ms)/(1-numpy.sqrt(ms))

@@ -81,3 +81,8 @@ class isotropicHernquistdf(Eddingtondf):
             2020-08-09 - Written - James Lane (UofT)
         """
         return self.__call_internal__(E)
+
+    def _icmf(self,ms):
+        '''Analytic expression for the normalized inverse cumulative mass 
+        function. The argument ms is normalized mass fraction [0,1]'''
+        return self._pot.a*numpy.sqrt(ms)/(1-numpy.sqrt(ms))

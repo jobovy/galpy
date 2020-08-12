@@ -229,8 +229,12 @@ class sphericaldf(df):
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
         rand_mass_frac = numpy.random.random(size=n)
-        xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
-        return self._xi_to_r(xi_samples,a=self._scale)
+        if '_icmf' in dir(self):
+            r_samples = self._icmf(rand_mass_frac)
+        else:
+            xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
+            r_samples = self._xi_to_r(xi_samples,a=self._scale)
+        return r_samples
 
     def _make_cmf_interpolator(self):
         """Create the interpolator object for calculating radii from the CMF
@@ -246,6 +250,8 @@ class sphericaldf(df):
         rs = self._xi_to_r(xis,a=self._scale)
         ms = self._pot.mass(rs,use_physical=False)
         ms /= self._pot.mass(10**12,use_physical=False)
+        xis = numpy.append(xis,1)
+        ms = numpy.append(ms,1)
         xis_cmf_interp = scipy.interpolate.interp1d(ms,xis,
             kind='cubic',bounds_error=False,fill_value='extrapolate')
         return xis_cmf_interp
