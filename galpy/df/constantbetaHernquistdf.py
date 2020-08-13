@@ -104,23 +104,25 @@ class constantbetaHernquistdf(constantbetadf):
         # Evaluate depending on beta
         _GMa = psi0*self._pot.a**2.
         if self.beta == 0.:
-            f1 = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
+            fE = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
                *(numpy.sqrt(Etilde)/numpy.power(1-Etilde,2))\
                *((1-2*Etilde)*(8*numpy.power(Etilde,2)-8*Etilde-3)\
                +((3*numpy.arcsin(numpy.sqrt(Etilde)))\
                /numpy.sqrt(Etilde*(1-Etilde))))
         elif self.beta == 0.5:
-            f1 = (3*Etilde**2)/(4*(numpy.pi**3)*_GMa)
+            fE = (3*Etilde**2)/(4*(numpy.pi**3)*_GMa)
         elif self.beta == -0.5:
-            f1 = ((20*Etilde**3-20*Etilde**4+6*Etilde**5)\
+            fE = ((20*Etilde**3-20*Etilde**4+6*Etilde**5)\
                /(1-Etilde)**4)/(4*numpy.pi**3*(_GMa)**2)
         elif self.beta < 1.0 and self.beta > 0.5:
-            f1 = self._fE_beta_gt05(Erel)
+            fE = self._fE_beta_gt05(Erel)
+        elif self.beta < 0.5 and self.beta > -0.5:
+            fE = self._fE_beta_gtm05_lt05(Erel)
         else:
-            f1 = self._fE_any_beta(Erel) # This function sits in the super class?
+            fE = self._fE_any_beta(Erel) # This function sits in the super class?
         if len(Etilde_out)>0:
-            f1[Etilde_out] = 0
-        return f1
+            fE[Etilde_out] = 0
+        return fE
 
     def _fE_beta_gt05(self,Erel):
         """Calculate fE for a Hernquist model when 0.5 < beta < 1.0"""
@@ -133,12 +135,18 @@ class constantbetaHernquistdf(constantbetadf):
         alpha = self.beta-0.5
         coeff = (Cbeta*_a**(2*self.beta-2))*(numpy.sin(alpha*numpy.pi))\
                 /(_GM*2*numpy.pi**2)
-        integral = numpy.zeros_like(Erel)
-        for ii in range(Erel.shape[0]):
-            for jj in range(Erel.shape[1]):
-                    integral[ii,jj] = scipy.integrate.quad(
-                        self._fE_beta_gt05_integral, a=0, b=Erel[ii,jj], 
-                        args=(Erel[ii,jj],psi0) )[0]
+        if hasattr(Erel,'shape'):
+            _Erel_shape = Erel.shape
+            _Erel_flat = Erel.flatten()
+            integral = numpy.zeros_like(_Erel_flat)
+            for ii in range(len(_Erel_flat)):
+                integral[ii] = scipy.integrate.quad(
+                    self._fE_beta_gt05_integral, a=0, b=_Erel_flat[ii], 
+                    args=(_Erel_flat[ii],psi0))[0]
+        else:
+            integral = scipy.integrate.quad(
+                self._fE_beta_gt05_integral, a=0, b=Erel, 
+                args=(Erel,psi0))[0]
         return coeff*integral
     
     def _fE_beta_gt05_integral(self,psi,Erel,psi0):
@@ -150,6 +158,41 @@ class constantbetaHernquistdf(constantbetadf):
               *numpy.power(psiTilde,3-2*self.beta)+(1-2*self.beta)\
               *numpy.power(1-psiTilde,2*self.beta-2)\
               *numpy.power(psiTilde,4-2*self.beta))
+        return numer/denom
+        
+    def _fE_beta_gtm05_lt05(self,Erel):
+        """Calculate fE for a Hernquist model when -0.5 < beta < 0.5"""
+        psi0 = -1*evaluatePotentials(self._pot,0,0,use_physical=False) 
+        _a = self._pot.a
+        _GM = psi0*_a
+        alpha = 0.5-self.beta
+        Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self.beta)\
+              /scipy.special.gamma(1.5-self.beta)
+        Cbeta = 2**(self.beta-0.5)/(2*numpy.pi*Ibeta*alpha)
+        coeff = (Cbeta*_a**(2*self.beta-1))*(numpy.sin(alpha*numpy.pi))\
+                /((_GM**2)*2*numpy.pi**2)
+        if hasattr(Erel,'shape'):
+            _Erel_shape = Erel.shape
+            _Erel_flat = Erel.flatten()
+            integral = numpy.zeros_like(_Erel_flat)
+            for ii in range(len(_Erel_flat)):
+                integral[ii] = scipy.integrate.quad(
+                    self._fE_beta_gt05_integral, a=0, b=_Erel_flat[ii], 
+                    args=(_Erel_flat[ii],psi0))[0]
+        else:
+            integral = scipy.integrate.quad(
+                self._fE_beta_gt05_integral, a=0, b=Erel, 
+                args=(Erel,psi0))[0]
+        return coeff*integral
+
+    def _fE_beta_gtm05_lt05_integral(self,psi,Erel,psi0):
+        """Integral for calculating fE for a Hernquist when -0.5 < beta < 0.5"""
+        psiTilde = psi/psi0
+        # Absolute value because the answer normally comes out imaginary?
+        denom = numpy.abs( (Erel-psi)**(0.5-self.beta) ) 
+        numer = (4-2*self.beta-3*psiTilde)\
+            *numpy.power(1-psiTilde,2*self.beta-2)\
+            *numpy.power(psiTilde,3-2*self.beta)
         return numer/denom
         
     def _icmf(self,ms):
