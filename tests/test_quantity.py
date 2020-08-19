@@ -2509,6 +2509,16 @@ def test_potential_ampunits():
         R=2.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"
+    # TriaxialGaussianPotential
+    pot= potential.TriaxialGaussianPotential(amp=4.*10.**10.*units.Msun,
+                                             sigma=2.,ro=ro,vo=vo,
+                                             b=1.3,c=0.4)
+    pot_nounits= potential.TriaxialGaussianPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        sigma=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -2691,6 +2701,17 @@ def test_potential_ampunits_altunits():
         R=2.,ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"
+    # TriaxialGaussianPotential
+    pot= potential.TriaxialGaussianPotential(\
+        amp=4.*10.**10.*units.Msun*constants.G,
+        sigma=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    pot_nounits= potential.TriaxialGaussianPotential(\
+        amp=4./bovy_conversion.mass_in_1010msol(vo,ro),
+        sigma=2.,ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -2822,6 +2843,11 @@ def test_potential_ampunits_wrongunits():
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.HomogeneousSpherePotential(amp=40.*units.Msun,
                                              R=2.,ro=ro,vo=vo)
+    # TriaxialGaussianPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TriaxialGaussianPotential(amp=40.*units.Msun/units.pc**2,
+                                            sigma=2.,ro=ro,vo=vo,
+                                            b=1.3,c=0.4)
     return None
 
 def test_potential_paramunits():
@@ -3201,6 +3227,18 @@ def test_potential_paramunits():
         ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"   
+    # TriaxialGaussianPotential
+    pot= potential.TriaxialGaussianPotential(amp=4.*10.**10.*units.Msun,
+                                             sigma=5.*units.kpc,
+                                             ro=ro,vo=vo,
+                                             b=1.3,c=0.4)
+    pot_nounits= potential.TriaxialGaussianPotential(\
+        amp=4.*10.**10.*units.Msun,
+        sigma=5./ro,
+        ro=ro,vo=vo,
+        b=1.3,c=0.4)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
