@@ -695,6 +695,7 @@ def test_liouville_planar():
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('PerfectEllipsoidPotential')
+    rmpots.append('TriaxialGaussianPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
