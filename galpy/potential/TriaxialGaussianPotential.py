@@ -13,7 +13,7 @@ from .EllipsoidalPotential import EllipsoidalPotential
 if _APY_LOADED:
     from astropy import units
 class TriaxialGaussianPotential(EllipsoidalPotential):
-    """Potential of a triaxial Gaussian (Emsellem et al. 1994):
+    """Potential of a triaxial Gaussian (`Emsellem et al. 1994 <https://ui.adsabs.harvard.edu/abs/1994A%26A...285..723E/abstract>`__):
 
     .. math::
 

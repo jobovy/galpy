@@ -139,6 +139,10 @@ reasons, most spherical potentials in ``galpy`` are directly
 implemented (option a above), but for new spherical potentials it is
 typically easier to follow option b).
 
+Additional spherical potentials can be obtained by setting the axis
+ratios equal for the triaxial potentials listed in the section on
+ellipsoidal triaxial potentials below.
+
 .. toctree::
    :maxdepth: 2
 
@@ -162,6 +166,10 @@ typically easier to follow option b).
 Axisymmetric potentials
 ***********************
 
+Additional axisymmetric potentials can be obtained by setting the x/y
+axis ratio equal to 1 for the triaxial potentials listed in the
+section on ellipsoidal triaxial potentials below.
+
 .. toctree::
    :maxdepth: 2
 
@@ -178,8 +186,8 @@ Axisymmetric potentials
    potentialring.rst
    potentialsnapshotrzpotential.rst
 
-Ellipsoidal triaxial  potentials
-********************************
+Ellipsoidal triaxial potentials
+*******************************
 
 ``galpy`` has very general support for implementing triaxial (or the
 oblate and prolate special cases) of ellipsoidal potentials through
@@ -198,6 +206,7 @@ respectively. For adding a C implementation, follow similar steps (use
 
    potentialperfectellipsoid.rst
    potentialdoublepowertriaxial.rst
+   potentialtriaxialgaussian.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
