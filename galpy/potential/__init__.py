@@ -49,6 +49,7 @@ from . import IsothermalDiskPotential
 from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
 from . import interpSphericalPotential
+from . import TriaxialGaussianPotential
 #
 # Functions
 #
@@ -166,6 +167,7 @@ IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
 interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
+TriaxialGaussianPotential= TriaxialGaussianPotential.TriaxialGaussianPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
