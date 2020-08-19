@@ -183,6 +183,7 @@ def test_dynamfric_c():
                     rforce=potential.HomogeneousSpherePotential(normalize=0.02,
                                                                 R=82./8.),
                     rgrid=numpy.linspace(0.,82./8.,201)),
+           potential.TriaxialGaussianPotential(normalize=.03,sigma=4.,b=0.8,c=1.5,pa=3.,zvec=[1.,0.,0.]),
            potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
                                   normalize=1.,a=3.5),
            potential.SCFPotential(Acos=numpy.array([[[1.,0.],[.3,0.]]]), # nonaxi
