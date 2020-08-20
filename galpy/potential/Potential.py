@@ -962,6 +962,61 @@ class Potential(Force):
                              justcontours=justcontours,
                              aspect=aspect,log=log)
 
+    def plotSurfaceDensity(self,t=0.,z=numpy.inf,
+                           xmin=0.,xmax=1.5,nxs=21,ymin=-0.5,ymax=0.5,nys=21,
+                           ncontours=21,savefilename=None,aspect=None,
+                           log=False,justcontours=False):
+        """
+        NAME:
+
+           plotSurfaceDensity
+
+        PURPOSE:
+
+           plot the surface density of this potential
+
+        INPUT:
+
+           t= time to plot potential at
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity) 
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        return plotSurfaceDensities(self,xmin=xmin,xmax=xmax,nxs=nxs,
+                                    ymin=ymin,ymax=ymax,nys=nys,t=t,z=z,
+                                    ncontours=ncontours,
+                                    savefilename=savefilename,
+                                    justcontours=justcontours,
+                                    aspect=aspect,log=log)
+    
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R,phi=None,t=0.):
@@ -2521,6 +2576,115 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                 levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
                                                    ncontours))
 
+def plotSurfaceDensities(Pot,
+                         xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
+                         z=numpy.inf,t=0.,
+                         ncontours=21,savefilename=None,aspect=None,
+                         log=False,justcontours=False):
+        """
+        NAME:
+
+           plotSurfaceDensities
+
+        PURPOSE:
+
+           plot the surface density a set of potentials
+
+        INPUT:
+
+           Pot - Potential or list of Potential instances
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
+
+           t= (0.) time to use to evaluate potential
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        Pot= flatten(Pot)
+        if _APY_LOADED:
+            if hasattr(Pot,'_ro'):
+                tro= Pot._ro
+            else:
+                tro= Pot[0]._ro
+            if isinstance(xmin,units.Quantity):
+                xmin= rmin.to(units.kpc).value/tro
+            if isinstance(xmax,units.Quantity):
+                xmax= xmax.to(units.kpc).value/tro
+            if isinstance(ymin,units.Quantity):
+                ymin= ymin.to(units.kpc).value/tro
+            if isinstance(ymax,units.Quantity):
+                ymax= ymax.to(units.kpc).value/tro
+        if not savefilename == None and os.path.exists(savefilename):
+            print("Restoring savefile "+savefilename+" ...")
+            savefile= open(savefilename,'rb')
+            surfxy= pickle.load(savefile)
+            xs= pickle.load(savefile)
+            ys= pickle.load(savefile)
+            savefile.close()
+        else:
+            xs= numpy.linspace(xmin,xmax,nxs)
+            ys= numpy.linspace(ymin,ymax,nys)
+            surfxy= numpy.zeros((nxs,nys))
+            for ii in range(nxs):
+                for jj in range(nys):
+                    R,phi,_= bovy_coords.rect_to_cyl(xs[ii],ys[jj],0.)
+                    surfxy[ii,jj]= evaluateSurfaceDensities(Pot,
+                                                            numpy.fabs(R),z,
+                                                            phi=phi,
+                                                            t=t,
+                                                            use_physical=False)
+            if not savefilename == None:
+                print("Writing savefile "+savefilename+" ...")
+                savefile= open(savefilename,'wb')
+                pickle.dump(surfxy,savefile)
+                pickle.dump(xs,savefile)
+                pickle.dump(ys,savefile)
+                savefile.close()
+        if aspect is None:
+            aspect= 1.
+        if log:
+            surfxy= numpy.log(surfxy)
+        xlabel= r'$x/R_0$'
+        ylabel= r'$y/R_0$'
+        return plot.bovy_dens2d(surfxy.T,origin='lower',
+                                cmap='gist_yarg',contours=True,
+                                xlabel=xlabel,ylabel=ylabel,
+                                aspect=aspect,
+                                xrange=[xmin,xmax],
+                                yrange=[ymin,ymax],
+                                cntrls='-',
+                                justcontours=justcontours,
+                                levels=numpy.linspace(numpy.nanmin(surfxy),
+                                                      numpy.nanmax(surfxy),
+                                                      ncontours))
+    
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R,t=0.):

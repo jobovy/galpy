@@ -22,6 +22,10 @@ v1.7 (XXXX-XX-XX)
   [x,v] -> [J,O,a] transformation for the latter,
   actionAngleHarmonic).
 
+- Added Potential.plotSurfaceDensity (potential.plotSurfaceDensities)
+  method (function) to plot the surface density of a Potential
+  instance (of Potential instance of a list of Potential instances).
+
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 

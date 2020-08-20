@@ -3633,6 +3633,31 @@ def test_plotting():
                             aspect=1.,log=True,xy=True,
                             justcontours=True,
                             ncontours=11,savefilename=None)
+    #Plot the surface density of a LogarithmicHaloPotential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    lp.plotSurfaceDensity()
+    lp.plotSurfaceDensity(t=1.,z=2.,xmin=0.05,xmax=1.8,nxs=11,
+                          ymin=-0.55,ymax=0.55,nys=11, 
+                          aspect=1.,log=True,justcontours=True,
+                          ncontours=11,savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        lp.plotSurfaceDensity(savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        lp.plotSurfaceDensity(savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
+    potential.plotSurfaceDensities([lp])
+    potential.plotSurfaceDensities([lp],t=1.,z=2.,
+                                   xmin=0.05,xmax=1.8,nxs=11,
+                                   ymin=-0.55,ymax=0.55,nys=11, 
+                                   aspect=1.,log=True,
+                                   justcontours=True,
+                                   ncontours=11,savefilename=None)
     #Plot the potential itself for a 2D potential
     kp.toPlanar().plot()
     savefile, tmp_savefilename= tempfile.mkstemp()

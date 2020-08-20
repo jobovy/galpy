@@ -72,6 +72,7 @@ RZToverticalPotential= verticalPotential.RZToverticalPotential
 toVerticalPotential= verticalPotential.toVerticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
+plotSurfaceDensities= Potential.plotSurfaceDensities
 plotplanarPotentials= planarPotential.plotplanarPotentials
 plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
