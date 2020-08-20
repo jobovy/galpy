@@ -2281,6 +2281,8 @@ def test_plotting_inputAsQuantity():
              zmin=-4.*units.kpc,zmax=4.*units.kpc)
     pot.plotDensity(rmin=1.*units.kpc,rmax=4.*units.kpc,
                     zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    pot.plotSurfaceDensity(xmin=1.*units.kpc,xmax=4.*units.kpc,
+                           ymin=-4.*units.kpc,ymax=4.*units.kpc)
     potential.plotPotentials(pot,rmin=1.*units.kpc,rmax=4.*units.kpc,
                              zmin=-4.*units.kpc,zmax=4.*units.kpc)
     potential.plotPotentials([pot],rmin=1.*units.kpc,rmax=4.*units.kpc,
@@ -2289,6 +2291,10 @@ def test_plotting_inputAsQuantity():
                             zmin=-4.*units.kpc,zmax=4.*units.kpc)
     potential.plotDensities([pot],rmin=1.*units.kpc,rmax=4.*units.kpc,
                              zmin=-4.*units.kpc,zmax=4.*units.kpc)
+    potential.plotSurfaceDensities(pot,xmin=1.*units.kpc,xmax=4.*units.kpc,
+                                   ymin=-4.*units.kpc,ymax=4.*units.kpc)
+    potential.plotSurfaceDensities([pot],xmin=1.*units.kpc,xmax=4.*units.kpc,
+                                   ymin=-4.*units.kpc,ymax=4.*units.kpc)
     # Planar
     plpot= pot.toPlanar()
     plpot.plot(Rrange=[1.*units.kpc,8.*units.kpc],

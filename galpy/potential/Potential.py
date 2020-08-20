@@ -2634,7 +2634,7 @@ def plotSurfaceDensities(Pot,
             else:
                 tro= Pot[0]._ro
             if isinstance(xmin,units.Quantity):
-                xmin= rmin.to(units.kpc).value/tro
+                xmin= xmin.to(units.kpc).value/tro
             if isinstance(xmax,units.Quantity):
                 xmax= xmax.to(units.kpc).value/tro
             if isinstance(ymin,units.Quantity):
