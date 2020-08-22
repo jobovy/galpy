@@ -45,6 +45,7 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import re
+from pkg_resources import parse_version
 import numpy
 from scipy import special
 from scipy import interpolate
@@ -52,11 +53,13 @@ from scipy import ndimage
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
 import matplotlib.cm as cm
+import matplotlib
 from matplotlib import rc
 from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D # Necessary for 3D plotting (projection = '3d')
+_MPL_VERSION= parse_version(matplotlib.__version__)
 from ..util.config import __config__
 if __config__.getboolean('plot','seaborn-bovy-defaults'):
     try:
@@ -342,7 +345,11 @@ def bovy_plot(*args,**kwargs):
     #Add colorbar
     if colorbar:
         cbar= pyplot.colorbar(out,fraction=0.15)
-        cbar.set_clim(*climits)
+        if _MPL_VERSION < parse_version('3.1'): # pragma: no cover
+            # https://matplotlib.org/3.1.0/api/api_changes.html#colorbarbase-inheritance
+            cbar.set_clim(*climits)
+        else:
+            cbar.mappable.set_clim(*climits)
         if not clabel is None:
             cbar.set_label(clabel)
     #Add onedhists
