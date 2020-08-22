@@ -25,7 +25,7 @@ from ..util import bovy_plot as plot
 from ..util import bovy_coords
 from ..util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
-    get_physical
+    get_physical, parse_position, parse_energy, parse_angmom
 from ..util import galpyWarning
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
@@ -3474,3 +3474,122 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
        return numpy.linalg.eigvals(tij)
     else:
        return tij
+
+@physical_conversion('position',pop=True)
+def zvc(Pot,R,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc
+            
+    PURPOSE:
+        
+        Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        R - Galactocentric radius (can be Quantity)
+            
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        z such that Phi(R,z) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    R= parse_position(R,**get_physical(Pot))
+    E= parse_energy(E,**get_physical(Pot))
+    Lz= parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2R2= Lz**2./2./R**2.
+    # Check z=0 and whether a solution exists
+    if numpy.fabs(_evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2-E) < 1e-8:
+        return 0.
+    elif _evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2 > E:
+        return numpy.nan # s.t. this does not get plotted
+    # Find starting value
+    zstart= 1.
+    zmax= 1000.
+    while E-_evaluatePotentials(Pot,R,zstart,phi=phi,t=t)-Lz2over2R2 > 0. \
+          and zstart < zmax:
+        zstart*= 2.
+    try:
+        out= optimize.brentq(\
+                lambda z: _evaluatePotentials(Pot,R,z,phi=phi,t=t)+Lz2over2R2-E,
+                0.,zstart)
+    except ValueError:
+        raise ValueError('No solution for the zero-velocity curve found for this combination of parameters')
+    return out
+    
+@physical_conversion('position',pop=True)
+def zvc_range(Pot,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc_range
+            
+    PURPOSE:
+        
+        Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    E= parse_energy(E,**get_physical(Pot))
+    Lz= parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2= Lz**2./2.
+    # Check whether a solution exists
+    RLz= rl(Pot,Lz,t=t,use_physical=False)
+    Rstart= RLz
+    if _evaluatePotentials(Pot,Rstart,0.,phi=phi,t=t)+Lz2over2/Rstart**2. > E:
+        return numpy.array([numpy.nan,numpy.nan])
+    # Find starting value for Rmin
+    Rstartmin= 1e-8
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart > Rstartmin:
+        Rstart/= 2.
+    Rmin= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,Rstart,RLz)
+    # Find starting value for Rmax
+    Rstart= RLz
+    Rstartmax= 1000.
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart < Rstartmax:
+        Rstart*= 2.
+    Rmax= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,RLz,Rstart)
+    return numpy.array([Rmin,Rmax])
+    

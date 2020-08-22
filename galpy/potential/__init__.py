@@ -110,6 +110,8 @@ rtide= Potential.rtide
 ttensor= Potential.ttensor
 flatten= Potential.flatten
 to_amuse= Potential.to_amuse
+zvc= Potential.zvc
+zvc_range= Potential.zvc_range
 #
 # Classes
 #
