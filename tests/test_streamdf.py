@@ -1511,7 +1511,7 @@ def check_track_plotting(sdf,d1,d2,phys=False,interp=True,spread=2,ls='-'):
         sdf.plotProgenitor(d1=d1,d2=d2)
     else:
         sdf.plotTrack(d1=d1,d2=d2,interp=interp,spread=spread,
-                      scaleToPhysical=phys,ls='none',linestyle='--',
+                      scaleToPhysical=phys,ls='none',
                       color='k',lw=2.,marker='.')
         sdf.plotProgenitor(d1=d1,d2=d2,scaleToPhysical=phys)
     return None
