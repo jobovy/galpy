@@ -12,6 +12,12 @@ v1.7 (XXXX-XX-XX)
 - Added interpSphericalPotential class to build interpolated versions
   of spherical potentials (#424).
 
+- Added potential functions to compute the zero-velocity curve: zvc
+  and zvc_range; the latter computes the range in R over which the
+  zero-velocity curve is defined, the former gives the positive z
+  position on the zero-velocity curve for a given radius in this
+  range.
+
 - Added TriaxialGaussianPotential, the potential of a Gaussian that is
   stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
   implementing multi-Gaussian expansions of galactic potentials.

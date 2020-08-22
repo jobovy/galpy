@@ -108,6 +108,8 @@ Use as ``method(...)``
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
    vterm <potentialvterms.rst>
+   zvc <potentialzvcs.rst>
+   zvc_range <potentialzvcranges.rst>
 
 In addition to these, the following methods are available to compute expansion coefficients for the ``SCFPotential`` class for a given density
 
