@@ -1850,6 +1850,8 @@ def test_potential_function_returntype():
     assert isinstance(potential.rtide(pot,1.,0.,M=1.),units.Quantity), 'Potential function rtide does not return Quantity when it should'
     assert isinstance(potential.ttensor(pot,1.,0.),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
     assert isinstance(potential.ttensor(pot,1.,0.,eigenval=True),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
+    assert isinstance(potential.zvc_range(pot,-1.9,0.2),units.Quantity), 'Potential function zvc_range does not return Quantity when it should'
+    assert isinstance(potential.zvc(pot,0.4,-1.9,0.2),units.Quantity), 'Potential function zvc does not return Quantity when it should'
     return None
 
 def test_planarPotential_function_returntype():
@@ -1972,6 +1974,14 @@ def test_potential_function_returnunit():
         potential.ttensor(pot,1.,0.,eigenval=True).to(1/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function ttensor does not return Quantity with the right units')
+    try:
+        potential.zvc_range(pot,-1.9,0.2).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function zvc_range does not return Quantity with the right units')
+    try:
+        potential.zvc(pot,0.4,-1.9,0.2).to(units.kpc)
+    except units.UnitConversionError:
+        raise AssertionError('Potential function zvc does not return Quantity with the right units')
     return None
 
 def test_planarPotential_function_returnunit():
@@ -2062,6 +2072,8 @@ def test_potential_function_value():
     assert numpy.fabs(potential.rtide(pot,1.,0.,M=1.).to(units.kpc).value-potential.rtide(potu,1.,0.,M=1.)*ro) < 10.**-8., 'Potential function rtide does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.,eigenval=True).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.,eigenval=True)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.zvc_range(pot,-1.9,0.2).to(units.kpc).value-potential.zvc_range(potu,-1.9,0.2)*ro) < 10.**-8.), 'Potential function zvc_range does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(potential.zvc(pot,0.4,-1.9,0.2).to(units.kpc).value-potential.zvc(potu,0.4,-1.9,0.2)*ro) < 10.**-8.), 'Potential function zvc_range does not return the correct value as Quantity'
     return None
 
 def test_planarPotential_function_value():
@@ -2233,6 +2245,8 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.rtide(pot[0],1.1*ro,0.1*ro,M=constants.G*10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./bovy_conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,use_physical=False)-potential.ttensor(potu,1.1,0.1)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.1*ro,0.1*ro,eigenval=True,use_physical=False)-potential.ttensor(potu,1.1,0.1,eigenval=True)) < 10.**-8.), 'Potential function ttensor does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.zvc_range(pot,-92000*units.km**2/units.s**2,45.*units.kpc*units.km/units.s,use_physical=False)-potential.zvc_range(potu,-92000/vo**2,45./ro.to_value(units.kpc)/vo)) < 10.**-8.), 'Potential function zvc_range does not return the correct value when input is Quantity'
+    assert numpy.all(numpy.fabs(potential.zvc(pot,0.4*ro,-92000*units.km**2/units.s**2,45.*units.kpc*units.km/units.s,use_physical=False)-potential.zvc(potu,0.4,-92000/vo**2,45./ro.to_value(units.kpc)/vo)) < 10.**-8.), 'Potential function zvc_range does not return the correct value when input is Quantity'
     return None
 
 def test_dissipativeforce_function_inputAsQuantity():

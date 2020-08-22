@@ -3268,6 +3268,96 @@ def test_ttensor_nonaxi():
         dummy= potential.ttensor(lp,1.,0.,0.)
     return None
 
+# Test that zvc_range returns the range over which the zvc is defined for a
+# given E,Lz
+def test_zvc_range():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'
+    return None
+
+# Test that we get [NaN,NaN] when there are no orbits for this combination of E and Lz
+def test_zvc_range_undefined():
+    # Set up circular orbit at Rc, then ask for Lz > Lzmax(E)
+    Rc= 0.6653
+    E= potential.evaluatePotentials(potential.MWPotential2014,Rc,0.)\
+        +potential.vcirc(potential.MWPotential2014,Rc)**2./2.
+    Lzmax= Rc*potential.vcirc(potential.MWPotential2014,Rc)
+    assert numpy.all(numpy.isnan(potential.zvc_range(potential.MWPotential2014,E,Lzmax+1e-4))), 'zvc_range does not return [NaN,NaN] when no orbits exist at this combination of (E,Lz)'
+    return None
+
+def test_zvc_at_rminmax():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    return None
+
+def test_zvc():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    return None
+
+# Test that zvc outside of zvc_range is NaN
+def test_zvc_undefined():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmin-1e-4,E,Lz)), 'zvc at R < Rmin is not NaN'
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmax+1e-4,E,Lz)), 'zvc at R > Rmax is not NaN'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmin-1e-4,E,Lz)), 'zvc at R < Rmin is not NaN'
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmax+1e-4,E,Lz)), 'zvc at R > Rmax is not NaN'
+    return None
+
+# Check that we get the correct ValueError if no solution can be found
+def test_zvc_valueerror():
+    E, Lz= -1.25+100, 0.6
+    with pytest.raises(ValueError) as excinfo:
+        potential.zvc(potential.MWPotential2014,0.7,E+100,Lz)
+    return None
+        
 def test_NumericalPotentialDerivativesMixin():
     # Test that the NumericalPotentialDerivativesMixin works as expected
     def get_mixin_first_instance(cls,*args,**kwargs):
