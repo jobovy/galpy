@@ -524,6 +524,22 @@ def physical_compatible(obj,other_obj):
         out= out and m.fabs((phys['vo']-other_phys['vo'])/phys['vo']) < 1e-8
     return out
 
+# Parsers of different inputs with units
+def parse_position(x,ro=None,vo=None):
+    return x.to_value(units.kpc)/ro \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_energy(x,ro=None,vo=None):
+    return x.to_value(units.km**2/units.s**2)/vo**2. \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_angmom(x,ro=None,vo=None):
+    return x.to_value(units.kpc*units.km/units.s)/ro/vo \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
 #Decorator to apply these transformations
 # NOTE: names with underscores in them signify return values that *always* have
 # units, which is depended on in the Orbit returns (see issue #326)
