@@ -23,10 +23,10 @@ except ImportError:
     _MSOLAR10p30KG= 1.9891 #10^30 kg
     _EVIN10m19J= 1.60217657 #10^-19 J
 else:
-    _G= constants.G.to(units.pc/units.Msun*units.km**2/units.s**2).value
+    _G= constants.G.to_value(units.pc/units.Msun*units.km**2/units.s**2)
     _kmsInPcMyr= (units.km/units.s).to((units.pc/units.Myr))
     _PCIN10p18CM= units.pc.to(units.cm)/10.**18. #10^18 cm
-    _CIN10p5KMS= constants.c.to((units.km/units.s)).value/10.**5. #10^5 km/s
+    _CIN10p5KMS= constants.c.to_value(units.km/units.s)/10.**5. #10^5 km/s
     _MSOLAR10p30KG= units.Msun.to(units.kg)/10.**30. #10^30 kg
     _EVIN10m19J= units.eV.to(units.J)*10.**19. #10^-19 J
 _MyrIn1013Sec= 3.65242198*0.24*3.6 #use tropical year, like for pms
@@ -603,7 +603,7 @@ def physical_conversion(quantity,pop=False):
                 # For lists of Potentials
                 ro= args[0][0]._ro
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             vo= kwargs.get('vo',None)
             if vo is None and \
                     (voSet or (hasattr(args[0],'_voSet') and args[0]._voSet)):
@@ -613,7 +613,7 @@ def physical_conversion(quantity,pop=False):
                 # For lists of Potentials
                 vo= args[0][0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             # Override Quantity output?
             _apy_units= kwargs.get('quantity',_APY_UNITS)
             #Remove ro, vo, use_physical, and quantity kwargs if necessary
@@ -762,7 +762,7 @@ def potential_physical_input(method):
             # For lists of Potentials
             ro= Pot[0]._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         if 't' in kwargs or 'M' in kwargs:
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(Pot,'_vo'):
@@ -772,49 +772,49 @@ def potential_physical_input(method):
                 # For lists of Potentials
                 vo= Pot[0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
         # Loop through args
         newargs= (Pot,)
         for ii in range(1,len(args)):
             if _APY_LOADED and isinstance(args[ii],units.Quantity):
-                newargs= newargs+(args[ii].to(units.kpc).value/ro,)
+                newargs= newargs+(args[ii].to_value(units.kpc)/ro,)
             else:
                 newargs= newargs+(args[ii],)
         args= newargs
         # phi and t kwargs
         if 'phi' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['phi'],units.Quantity):
-            kwargs['phi']= kwargs['phi'].to(units.rad).value
+            kwargs['phi']= kwargs['phi'].to_value(units.rad)
         if 't' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['t'],units.Quantity):
-            kwargs['t']= kwargs['t'].to(units.Gyr).value\
+            kwargs['t']= kwargs['t'].to_value(units.Gyr)\
                 /time_in_Gyr(vo,ro)
         # v kwarg for dissipative forces
         if 'v' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['v'],units.Quantity):
-            kwargs['v']= kwargs['v'].to(units.km/units.s).value/vo
+            kwargs['v']= kwargs['v'].to_value(units.km/units.s)/vo
         # Mass kwarg for rtide
         if 'M' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['M'],units.Quantity):
             try:
-                kwargs['M']= kwargs['M'].to(units.Msun).value\
+                kwargs['M']= kwargs['M'].to_value(units.Msun)\
                     /mass_in_msol(vo,ro)
             except units.UnitConversionError:
-                kwargs['M']= kwargs['M'].to(units.pc*units.km**2/units.s**2)\
-                    .value/mass_in_msol(vo,ro)/_G
+                kwargs['M']= kwargs['M'].to_value(units.pc*units.km**2/units.s**2)\
+                    /mass_in_msol(vo,ro)/_G
         # kwargs that come up in quasiisothermaldf    
         if 'z' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['z'],units.Quantity):
-            kwargs['z']= kwargs['z'].to(units.kpc).value/ro
+            kwargs['z']= kwargs['z'].to_value(units.kpc)/ro
         if 'dz' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['dz'],units.Quantity):
-            kwargs['dz']= kwargs['dz'].to(units.kpc).value/ro
+            kwargs['dz']= kwargs['dz'].to_value(units.kpc)/ro
         if 'dR' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['dR'],units.Quantity):
-            kwargs['dR']= kwargs['dR'].to(units.kpc).value/ro
+            kwargs['dR']= kwargs['dR'].to_value(units.kpc)/ro
         if 'zmax' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['zmax'],units.Quantity):
-            kwargs['zmax']= kwargs['zmax'].to(units.kpc).value/ro
+            kwargs['zmax']= kwargs['zmax'].to_value(units.kpc)/ro
         return method(*args,**kwargs)
     return wrapper
 def physical_conversion_actionAngle(quantity,pop=False):
@@ -828,12 +828,12 @@ def physical_conversion_actionAngle(quantity,pop=False):
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
                 vo= args[0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             #Remove ro and vo kwargs if necessary
             if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
             if pop and 'ro' in kwargs: kwargs.pop('ro')
@@ -913,24 +913,24 @@ def actionAngle_physical_input(method):
         if ro is None and hasattr(args[0],'_ro'):
             ro= args[0]._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         vo= kwargs.get('vo',None)
         if vo is None and hasattr(args[0],'_vo'):
             vo= args[0]._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         # Loop through args
         newargs= ()
         for ii in range(len(args)):
             if _APY_LOADED and isinstance(args[ii],units.Quantity):
                 try:
-                    targ= args[ii].to(units.kpc).value/ro
+                    targ= args[ii].to_value(units.kpc)/ro
                 except units.UnitConversionError:
                     try:
-                        targ= args[ii].to(units.km/units.s).value/vo
+                        targ= args[ii].to_value(units.km/units.s)/vo
                     except units.UnitConversionError:
                         try:
-                            targ= args[ii].to(units.rad).value
+                            targ= args[ii].to_value(units.rad)
                         except units.UnitConversionError:
                             raise units.UnitConversionError("Input units not understood")               
                 newargs= newargs+(targ,)
@@ -951,12 +951,12 @@ def physical_conversion_actionAngleInverse(quantity,pop=False):
             if ro is None and hasattr(args[0],'_roSet') and args[0]._roSet:
                 ro= args[0]._ro
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             vo= kwargs.get('vo',None)
             if vo is None and hasattr(args[0],'_voSet') and args[0]._voSet:
                 vo= args[0]._vo
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             #Remove ro and vo kwargs if necessary
             if pop and 'use_physical' in kwargs: kwargs.pop('use_physical')
             if pop and 'ro' in kwargs: kwargs.pop('ro')
@@ -1019,21 +1019,21 @@ def actionAngleInverse_physical_input(method):
         if ro is None and hasattr(args[0],'_ro'):
             ro= args[0]._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         vo= kwargs.get('vo',None)
         if vo is None and hasattr(args[0],'_vo'):
             vo= args[0]._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         # Loop through args
         newargs= ()
         for ii in range(len(args)):
             if _APY_LOADED and isinstance(args[ii],units.Quantity):
                 try:
-                    targ= args[ii].to(units.kpc*units.km/units.s).value/ro/vo
+                    targ= args[ii].to_value(units.kpc*units.km/units.s)/ro/vo
                 except units.UnitConversionError:
                     try:
-                        targ= args[ii].to(units.rad).value
+                        targ= args[ii].to_value(units.rad)
                     except units.UnitConversionError:
                         raise units.UnitConversionError("Input units not understood")               
                 newargs= newargs+(targ,)
