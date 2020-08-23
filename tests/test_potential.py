@@ -3288,6 +3288,16 @@ def test_zvc_range():
     assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
     R_a_little_more= Rmax+1e-4
     assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'
+    # Also one for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(pot,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(pot,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'   
     return None
 
 # Test that we get [NaN,NaN] when there are no orbits for this combination of E and Lz
@@ -3310,6 +3320,12 @@ def test_zvc_at_rminmax():
     Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
     assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
     assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    # Also for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    assert numpy.fabs(pot.zvc(Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(pot.zvc(Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
     return None
 
 def test_zvc():
@@ -3336,6 +3352,19 @@ def test_zvc():
     Rtrial= Rmin+0.75*(Rmax-Rmin)
     ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
     assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    # Also for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
     return None
 
 # Test that zvc outside of zvc_range is NaN

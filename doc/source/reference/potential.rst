@@ -52,6 +52,8 @@ Use as ``Potential-instance.method(...)``
    vterm <potentialvterm.rst>
    z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
+   zvc <potentialzvc.rst>
+   zvc_range <potentialzvcrange.rst>
 
 In addition to these, the ``NFWPotential`` also has methods to calculate virial quantities
 

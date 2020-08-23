@@ -1639,6 +1639,72 @@ class Potential(Force):
         else:
             return tij
 
+    @physical_conversion('position',pop=True)
+    def zvc(self,R,E,Lz,phi=0.,t=0.):
+        """
+        
+        NAME:
+        
+           zvc
+            
+        PURPOSE:
+        
+           Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+        INPUT:
+        
+           R - Galactocentric radius (can be Quantity)
+            
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           z such that Phi(R,z) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc(self,R,E,Lz,phi=phi,t=t,use_physical=False)
+    
+    @physical_conversion('position',pop=True)
+    def zvc_range(self,E,Lz,phi=0.,t=0.):
+        """
+            
+        NAME:
+        
+           zvc_range
+            
+        PURPOSE:
+        
+          Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+        INPUT:
+        
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc_range(self,E,Lz,phi=phi,t=t,use_physical=False)
+    
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
