@@ -7,7 +7,7 @@
 #                         dens2d
 #                         hist
 #                         plot
-#                         print
+#                         start_print
 #                         scatterplot (like hogg_scatterplot)
 #                         text
 #
@@ -690,15 +690,15 @@ def dens2d(X,**kwargs):
     else:
         return out
 
-def print(fig_width=5,fig_height=5,axes_labelsize=16,
-          text_fontsize=11,legend_fontsize=12,
-          xtick_labelsize=10,ytick_labelsize=10,
-          xtick_minor_size=2,ytick_minor_size=2,
-          xtick_major_size=4,ytick_major_size=4):
+def start_print(fig_width=5,fig_height=5,axes_labelsize=16,
+                text_fontsize=11,legend_fontsize=12,
+                xtick_labelsize=10,ytick_labelsize=10,
+                xtick_minor_size=2,ytick_minor_size=2,
+                xtick_major_size=4,ytick_major_size=4):
     """
     NAME:
 
-       print
+       start_print
 
     PURPOSE:
 
