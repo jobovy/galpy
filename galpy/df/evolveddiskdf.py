@@ -22,7 +22,7 @@ from ..potential import calcRotcurve
 from .df import df, _APY_LOADED
 from ..potential.Potential import _check_c
 from ..util.bovy_quadpack import dblquad
-from ..util import bovy_plot
+from ..util import plot
 from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 if _APY_LOADED:
@@ -2025,13 +2025,13 @@ class evolveddiskdfGrid(object):
             plotthis= self.df[:,:,tt]
         else:
             plotthis= self.df
-        bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
-                              aspect=(xrange[1]-xrange[0])/\
-                                  (yrange[1]-yrange[0]),
-                              extent=[xrange[0],xrange[1],
-                                      yrange[0],yrange[1]],
-                              xlabel=r'$v_R / v_0$',
-                              ylabel=r'$v_T / v_0$')
+        plot.dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                    aspect=(xrange[1]-xrange[0])/\
+                    (yrange[1]-yrange[0]),
+                    extent=[xrange[0],xrange[1],
+                            yrange[0],yrange[1]],
+                    xlabel=r'$v_R / v_0$',
+                    ylabel=r'$v_T / v_0$')
 
 class evolveddiskdfHierarchicalGrid(object):
     """Class that holds a hierarchical velocity grid"""
@@ -2249,18 +2249,18 @@ class evolveddiskdfHierarchicalGrid(object):
                 (yrange[1]-yrange[0])
             extent=[xrange[0],xrange[1],
                     yrange[0],yrange[1]]
-            bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
-                                          interpolation='nearest',
-                                  aspect=aspect,
-                                  extent=extent,
-                                  xlabel=r'$v_R / v_0$',
-                                  ylabel=r'$v_T / v_0$',
-                                  vmin=0.,vmax=vmax)
+            plot.dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                        interpolation='nearest',
+                        aspect=aspect,
+                        extent=extent,
+                        xlabel=r'$v_R / v_0$',
+                        ylabel=r'$v_T / v_0$',
+                        vmin=0.,vmax=vmax)
         else:
-            bovy_plot.bovy_dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
-                                  aspect=aspect,extent=extent,
-                                  interpolation='nearest',
-                                  overplot=True,vmin=0.,vmax=vmax)
+            plot.dens2d(plotthis.T,cmap='gist_yarg',origin='lower',
+                        aspect=aspect,extent=extent,
+                        interpolation='nearest',
+                        overplot=True,vmin=0.,vmax=vmax)
         if not self.subgrid is None:
             self.subgrid.plot(tt=tt,vmax=vmax,aspect=aspect,extent=extent)
 

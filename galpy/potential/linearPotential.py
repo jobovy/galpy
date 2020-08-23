@@ -4,7 +4,7 @@ import os, os.path
 import copy
 import pickle
 import numpy
-from ..util import bovy_plot as plot
+from ..util import plot
 from ..util import config
 from .Potential import PotentialError, flatten
 from ..util.conversion import physical_conversion,\
@@ -307,9 +307,9 @@ class linearPotential(object):
                 pickle.dump(potx,savefile)
                 pickle.dump(xs,savefile)
                 savefile.close()
-        return plot.bovy_plot(xs,potx,
-                              xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
-                              xrange=[min,max])
+        return plot.plot(xs,potx,
+                         xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
+                         xrange=[min,max])
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)
@@ -446,7 +446,7 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
             pickle.dump(potx,savefile)
             pickle.dump(xs,savefile)
             savefile.close()
-    return plot.bovy_plot(xs,potx,
-                          xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
-                          xrange=[min,max])
+    return plot.plot(xs,potx,
+                     xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
+                     xrange=[min,max])
 

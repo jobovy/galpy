@@ -25,7 +25,7 @@ from ..util import galpyWarning, galpyWarningVerbose
 from ..util.conversion import physical_conversion, physical_compatible
 from ..util.coords import _K
 from ..util import coords
-from ..util import bovy_plot as plot
+from ..util import plot
 from ..util import conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
@@ -853,7 +853,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           matplotlib.plot inputs+bovy_plot.plot inputs
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
 
         OUTPUT:
 
@@ -4623,7 +4623,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           matplotlib.plot inputs+bovy_plot.plot inputs
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
 
         OUTPUT:
 
@@ -4739,7 +4739,7 @@ class Orbit(object):
             kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
         for ii,(tx,ty) in enumerate(zip(x,y)):
             kwargs['label']= labels[ii]
-            line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
+            line2d= plot.plot(tx,ty,*args,**kwargs)[0]
             kwargs['overplot']= True
         if auto_scale: line2d.axes.autoscale(enable=True)
         plot._add_ticks()
@@ -4769,7 +4769,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           bovy_plot3d args and kwargs
+           galpy.util.plot.plot3d args and kwargs
 
         OUTPUT:
 
@@ -4874,7 +4874,7 @@ class Orbit(object):
         if not 'zlabel' in kwargs:
             kwargs['zlabel']= labeldict.get(d3,r'${}$'.format(d3))
         for tx,ty,tz in zip(x,y,z):
-            line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
+            line3d= plot.plot3d(tx,ty,tz,*args,**kwargs)[0]
             kwargs['overplot']= True
         if auto_scale: line3d.axes.autoscale(enable=True)
         plot._add_ticks()

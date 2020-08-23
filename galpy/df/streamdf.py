@@ -16,7 +16,7 @@ else:
 from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import coords, fast_cholesky_invert, \
-    conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+    conversion, multi, plot, stable_cho_factor, bovy_ars
 from ..util.conversion import physical_conversion, _APY_UNITS
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
@@ -549,7 +549,7 @@ class streamdf(df):
 
            simple= (False), if True, use a simple estimate for the spread in perpendicular angle
 
-           bovy_plot.bovy_plot args and kwargs
+           galpy.util.plot.plotplot args and kwargs
 
         OUTPUT:
 
@@ -571,7 +571,7 @@ class streamdf(df):
         phys= kwargs.pop('scaleToPhysical',False)
         tx= self._parse_track_dim(d1,interp=interp,phys=phys)
         ty= self._parse_track_dim(d2,interp=interp,phys=phys)
-        bovy_plot.bovy_plot(tx,ty,*args,
+        plot.plot(tx,ty,*args,
                             xlabel=_labelDict[d1.lower()],
                             ylabel=_labelDict[d2.lower()],
                             **kwargs)
@@ -589,14 +589,14 @@ class streamdf(df):
             spreadmarker= kwargs.pop('marker',None)
             spreadcolor= kwargs.pop('color',None)
             spreadlw= kwargs.pop('lw',1.)
-            bovy_plot.bovy_plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
-                                marker=spreadmarker,color=spreadcolor,
-                                lw=spreadlw,
-                                overplot=True)
-            bovy_plot.bovy_plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
-                                marker=spreadmarker,color=spreadcolor,
-                                lw=spreadlw,
-                                overplot=True)            
+            plot.plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
+                      marker=spreadmarker,color=spreadcolor,
+                      lw=spreadlw,
+                      overplot=True)
+            plot.plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
+                      marker=spreadmarker,color=spreadcolor,
+                      lw=spreadlw,
+                      overplot=True)            
         return None
 
     def plotProgenitor(self,d1='x',d2='z',*args,**kwargs):
@@ -617,7 +617,7 @@ class streamdf(df):
 
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
 
-           bovy_plot.bovy_plot args and kwargs
+           galpy.util.plot.plot args and kwargs
 
         OUTPUT:
 
@@ -637,10 +637,10 @@ class streamdf(df):
                                        obs=obs,phys=phys)
         ty= self._parse_progenitor_dim(d2,tts,ro=self._ro,vo=self._vo,
                                        obs=obs,phys=phys)
-        bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1.lower()],
-                            ylabel=_labelDict[d2.lower()],
-                            **kwargs)
+        plot.plot(tx,ty,*args,
+                  xlabel=_labelDict[d1.lower()],
+                  ylabel=_labelDict[d2.lower()],
+                  **kwargs)
         return None
 
     def _parse_track_dim(self,d1,interp=True,phys=False):
@@ -863,7 +863,7 @@ class streamdf(df):
 
         INPUT:
 
-           bovy_plot.bovy_plot kwargs
+           galpy.util.plot.plot kwargs
 
         OUTPUT:
 
@@ -904,10 +904,10 @@ class streamdf(df):
                            [0.,numpy.amax(numpy.hstack((model_operp,track_operp)))*1.1])
         xlabel= kwargs.pop('xlabel',r'$\Delta \theta_R$')
         ylabel= kwargs.pop('ylabel',r'$\Delta \Omega_\parallel$')
-        bovy_plot.bovy_plot(model_adiff,model_operp,'k-',overplot=overplot,
-                            xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
-        bovy_plot.bovy_plot(track_adiff,track_operp,'ko',overplot=True,
-                            **kwargs)
+        plot.plot(model_adiff,model_operp,'k-',overplot=overplot,
+                  xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
+        plot.plot(track_adiff,track_operp,'ko',overplot=True,
+                  **kwargs)
         return None
 
     def _determine_nTrackIterations(self,nTrackIterations):

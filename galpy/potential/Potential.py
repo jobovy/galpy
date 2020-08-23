@@ -21,7 +21,7 @@ from functools import wraps
 import warnings
 import numpy
 from scipy import optimize, integrate
-from ..util import bovy_plot as plot
+from ..util import plot
 from ..util import coords
 from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
@@ -896,14 +896,14 @@ class Potential(Force):
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                xrange=xrange,
-                                yrange=yrange,
-                                aspect=.75*(rmax-rmin)/(zmax-zmin),
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           xrange=xrange,
+                           yrange=yrange,
+                           aspect=.75*(rmax-rmin)/(zmax-zmin),
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
     def plotDensity(self,t=0.,
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -1372,7 +1372,7 @@ class Potential(Force):
 
            savefilename=- save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1404,7 +1404,7 @@ class Potential(Force):
 
            savefilename= save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -2519,14 +2519,14 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
@@ -2631,16 +2631,16 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         else:
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
-        return plot.bovy_dens2d(potRz.T,origin='lower',
-                                cmap='gist_yarg',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
-                                                   ncontours))
+        return plot.dens2d(potRz.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
+                                                 ncontours))
 
 def plotSurfaceDensities(Pot,
                          xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
@@ -2739,17 +2739,17 @@ def plotSurfaceDensities(Pot,
             surfxy= numpy.log(surfxy)
         xlabel= r'$x/R_0$'
         ylabel= r'$y/R_0$'
-        return plot.bovy_dens2d(surfxy.T,origin='lower',
-                                cmap='gist_yarg',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[xmin,xmax],
-                                yrange=[ymin,ymax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=numpy.linspace(numpy.nanmin(surfxy),
-                                                      numpy.nanmax(surfxy),
-                                                      ncontours))
+        return plot.dens2d(surfxy.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[xmin,xmax],
+                           yrange=[ymin,ymax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(surfxy),
+                                                 numpy.nanmax(surfxy),
+                                                 ncontours))
     
 @potential_physical_input
 @physical_conversion('frequency',pop=True)

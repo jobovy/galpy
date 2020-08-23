@@ -1,4 +1,4 @@
-galpy.util.bovy_plot.scatterplot
-====================================
+galpy.util.plot.scatterplot
+===========================
 
-.. autofunction:: galpy.util.bovy_plot.scatterplot
+.. autofunction:: galpy.util.plot.scatterplot

@@ -1,15 +1,15 @@
 ##############################################################################
 #
-#   bovy_plot.py: general wrappers for matplotlib plotting
+#   plot.py: general wrappers for matplotlib plotting
 #
 #       'public' methods:
-#                         bovy_end_print
-#                         bovy_dens2d
-#                         bovy_hist
-#                         bovy_plot
-#                         bovy_print
+#                         end_print
+#                         dens2d
+#                         hist
+#                         plot
+#                         print
 #                         scatterplot (like hogg_scatterplot)
-#                         bovy_text
+#                         text
 #
 #                         this module also defines a custom matplotlib 
 #                         projection in which the polar azimuth increases
@@ -17,7 +17,7 @@
 #                         
 #############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2019, Jo Bovy
+#Copyright (c) 2010 - 2020, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 
@@ -86,11 +86,11 @@ if __config__.getboolean('plot','seaborn-bovy-defaults'):
                        'ytick.major.pad': 14.0,
                        'ytick.major.width': 2.0,})
 _DEFAULTNCNTR= 10
-def bovy_end_print(filename,**kwargs):
+def end_print(filename,**kwargs):
     """
     NAME:
 
-       bovy_end_print
+       end_print
 
     PURPOSE:
 
@@ -119,11 +119,11 @@ def bovy_end_print(filename,**kwargs):
         pyplot.savefig(filename,format=re.split(r'\.',filename)[-1],**kwargs)
     pyplot.close()
 
-def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
+def hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     """
     NAME:
 
-       bovy_hist
+       hist
 
     PURPOSE:
 
@@ -183,11 +183,11 @@ def bovy_hist(x,xlabel=None,ylabel=None,overplot=False,**kwargs):
     _add_ticks()
     return out
 
-def bovy_plot(*args,**kwargs):
+def plot(*args,**kwargs):
     """
     NAME:
 
-       bovy_plot
+       plot
 
     PURPOSE:
 
@@ -376,11 +376,11 @@ def bovy_plot(*args,**kwargs):
     axHisty.set_xlim( 0, 1.2*numpy.amax(histy))
     return (axScatter,axHistx,axHisty)
 
-def bovy_plot3d(*args,**kwargs):
+def plot3d(*args,**kwargs):
     """
     NAME:
 
-       bovy_plot3d
+       plot3d
 
     PURPOSE:
 
@@ -462,11 +462,11 @@ def bovy_plot3d(*args,**kwargs):
         ax.set_zlim3d(*zlimits)
     return out
 
-def bovy_dens2d(X,**kwargs):
+def dens2d(X,**kwargs):
     """
     NAME:
 
-       bovy_dens2d
+       dens2d
 
     PURPOSE:
 
@@ -690,15 +690,15 @@ def bovy_dens2d(X,**kwargs):
     else:
         return out
 
-def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
-               text_fontsize=11,legend_fontsize=12,
-               xtick_labelsize=10,ytick_labelsize=10,
-               xtick_minor_size=2,ytick_minor_size=2,
-               xtick_major_size=4,ytick_major_size=4):
+def print(fig_width=5,fig_height=5,axes_labelsize=16,
+          text_fontsize=11,legend_fontsize=12,
+          xtick_labelsize=10,ytick_labelsize=10,
+          xtick_minor_size=2,ytick_minor_size=2,
+          xtick_major_size=4,ytick_major_size=4):
     """
     NAME:
 
-       bovy_print
+       print
 
     PURPOSE:
 
@@ -754,11 +754,11 @@ def bovy_print(fig_width=5,fig_height=5,axes_labelsize=16,
     rc('text.latex', preamble=r'\usepackage{amsmath}'+'\n'
        +r'\usepackage{amssymb}')
 
-def bovy_text(*args,**kwargs):
+def text(*args,**kwargs):
     """
     NAME:
 
-       bovy_text
+       text
 
     PURPOSE:
 
@@ -848,7 +848,7 @@ def scatterplot(x,y,*args,**kwargs):
 
        justcontours - if True, only draw contours, no density
 
-       cntrcolors - color of contours (can be array as for bovy_dens2d)
+       cntrcolors - color of contours (can be array as for dens2d)
 
        cntrlw, cntrls - linewidths and linestyles for contour
 
@@ -958,26 +958,26 @@ def scatterplot(x,y,*args,**kwargs):
         hist, edges= numpy.histogramdd(data,bins=bins,range=[xrange,yrange],
                                     weights=weights)
     if contours:
-        cumimage= bovy_dens2d(hist.T,contours=contours,levels=levels,
-                              cntrmass=contours,cntrSmooth=cntrSmooth,
-                              cntrcolors=cntrcolors,cmap=cmap,origin='lower',
-                              xrange=xrange,yrange=yrange,xlabel=xlabel,
-                              ylabel=ylabel,interpolation='nearest',
-                              retCumImage=True,aspect=aspect,
-                              conditional=conditional,
-                              cntrlw=cntrlw,cntrls=cntrls,
-                              justcontours=justcontours,zorder=5*justcontours,
-                              overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
+        cumimage= dens2d(hist.T,contours=contours,levels=levels,
+                         cntrmass=contours,cntrSmooth=cntrSmooth,
+                         cntrcolors=cntrcolors,cmap=cmap,origin='lower',
+                         xrange=xrange,yrange=yrange,xlabel=xlabel,
+                         ylabel=ylabel,interpolation='nearest',
+                         retCumImage=True,aspect=aspect,
+                         conditional=conditional,
+                         cntrlw=cntrlw,cntrls=cntrls,
+                         justcontours=justcontours,zorder=5*justcontours,
+                         overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
     else:
-        cumimage= bovy_dens2d(hist.T,contours=contours,
-                              cntrcolors=cntrcolors,
-                              cmap=cmap,origin='lower',
-                              xrange=xrange,yrange=yrange,xlabel=xlabel,
-                              ylabel=ylabel,interpolation='nearest',
-                              conditional=conditional,
-                              retCumImage=True,aspect=aspect,
-                              cntrlw=cntrlw,cntrls=cntrls,
-                              overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
+        cumimage= dens2d(hist.T,contours=contours,
+                         cntrcolors=cntrcolors,
+                         cmap=cmap,origin='lower',
+                         xrange=xrange,yrange=yrange,xlabel=xlabel,
+                         ylabel=ylabel,interpolation='nearest',
+                         conditional=conditional,
+                         retCumImage=True,aspect=aspect,
+                         cntrlw=cntrlw,cntrls=cntrls,
+                         overplot=(gcf or onedhists or overplot or onedhistx or onedhisty))
     #Set axes and labels
     pyplot.axis(list(xrange)+list(yrange))
     if not overplot:
@@ -1005,10 +1005,10 @@ def scatterplot(x,y,*args,**kwargs):
         if not weights == None:
             w8= weights[cums > levels[-1]]
             for ii in range(len(plotx)):
-                bovy_plot(plotx[ii],ploty[ii],overplot=True,
-                          color='%.2f'%(1.-w8[ii]),*args,**kwargs)
+                plot(plotx[ii],ploty[ii],overplot=True,
+                     color='%.2f'%(1.-w8[ii]),*args,**kwargs)
         else:
-            bovy_plot(plotx,ploty,overplot=True,zorder=1,*args,**kwargs)
+            plot(plotx,ploty,overplot=True,zorder=1,*args,**kwargs)
     #Add onedhists
     if not (onedhists or onedhistx or onedhisty):
         if retAxes:

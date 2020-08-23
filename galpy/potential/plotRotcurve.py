@@ -3,7 +3,7 @@ from __future__ import division, print_function
 import os
 import pickle
 import numpy
-from ..util import bovy_plot as plot
+from ..util import plot
 from ..util.conversion import physical_conversion, potential_physical_input
 _APY_LOADED= True
 try:
@@ -33,7 +33,7 @@ def plotRotcurve(Pot,*args,**kwargs):
 
        savefilename= save to or restore from this savefile (pickle)
 
-       +bovy_plot.bovy_plot args and kwargs
+       +galpy.util.plot.plot args and kwargs
 
     OUTPUT:
 
@@ -119,8 +119,7 @@ def plotRotcurve(Pot,*args,**kwargs):
     kwargs.pop('ro',None)
     kwargs.pop('vo',None)
     kwargs.pop('use_physical',None)
-    return plot.bovy_plot(Rs,rotcurve,*args,
-                          **kwargs)
+    return plot.plot(Rs,rotcurve,*args,**kwargs)
 
 def calcRotcurve(Pot,Rs,phi=None,t=0.):
     """

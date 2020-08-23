@@ -891,7 +891,7 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>> from amuse.couple import bridge
 >>> from amuse.datamodel import Particles
 >>> from galpy.potential import to_amuse, MWPotential2014
->>> from galpy.util import bovy_plot
+>>> from galpy.util import plot as galpy_plot
 >>>
 >>> # Convert galpy MWPotential2014 to AMUSE representation
 >>> mwp_amuse= to_amuse(MWPotential2014)
@@ -959,7 +959,7 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>> channel_from_cluster_code_to_stars.copy()
 >>> gravity.stop()
 >>>
->>> bovy_plot.bovy_plot(stars.x.value_in(units.kpc),stars.y.value_in(units.kpc),'.',
+>>> galpy_plot.plot(stars.x.value_in(units.kpc),stars.y.value_in(units.kpc),'.',
 >>>                     xlabel=r'$X\,(\mathrm{kpc})$',ylabel=r'$Y\,(\mathrm{kpc})$')
 
 After about 30 seconds, you should get a plot like the following,
@@ -1163,7 +1163,7 @@ Wrappers all inherit from the general ``WrapperPotential`` or
 wrappers are ``Potentials`` or ``planarPotentials``). Depending on the
 complexity of the wrapper, wrappers can be implemented much more
 economically in Python than new ``Potential`` instances as described
-:ref:`above <addpot>`.
+:ref:`above <addpypot>`.
 
 To add a Python implementation of a new wrapper, classes need to
 inherit from ``parentWrapperPotential``, take the potentials to be

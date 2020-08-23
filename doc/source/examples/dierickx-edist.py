@@ -4,7 +4,7 @@ import math as m
 import numpy as nu
 import csv
 import cPickle as pickle
-import galpy.util.bovy_plot as plot
+from galpy.util import plot
 from galpy.potential import MiyamotoNagaiPotential, HernquistPotential, NFWPotential, LogarithmicHaloPotential
 from galpy.orbit import Orbit
 _degtorad= nu.pi/180.
@@ -72,20 +72,20 @@ def calc_es():
         savefile.close()
 
     #plot
-    plot.bovy_print()
-    plot.bovy_plot(nu.array([0.,1.]),nu.array([0.,1.]),'k-',
-                   xlabel=r'$\mathrm{Dierickx\ et\ al.}\ e$',
-                   ylabel=r'$\mathrm{galpy}\ e$')
-    plot.bovy_plot(e,mye,'k,',overplot=True)
-    plot.bovy_end_print('myee.png')
+    plot.print()
+    plot.plot(nu.array([0.,1.]),nu.array([0.,1.]),'k-',
+              xlabel=r'$\mathrm{Dierickx\ et\ al.}\ e$',
+              ylabel=r'$\mathrm{galpy}\ e$')
+    plot.plot(e,mye,'k,',overplot=True)
+    plot.end_print('myee.png')
 
-    plot.bovy_print()
-    plot.bovy_hist(e,bins=30,xlabel=r'$\mathrm{Dierickx\ et\ al.}\ e$')
-    plot.bovy_end_print('ehist.png')
+    plot.print()
+    plot.hist(e,bins=30,xlabel=r'$\mathrm{Dierickx\ et\ al.}\ e$')
+    plot.end_print('ehist.png')
 
-    plot.bovy_print()
-    plot.bovy_hist(mye,bins=30,xlabel=r'$\mathrm{galpy}\ e$')
-    plot.bovy_end_print('myehist.png')
+    plot.print()
+    plot.hist(mye,bins=30,xlabel=r'$\mathrm{galpy}\ e$')
+    plot.end_print('myehist.png')
 
 if __name__ == '__main__':
     calc_es()
