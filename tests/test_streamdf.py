@@ -12,7 +12,7 @@ def test_progenitor_coordtransformparams():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     from galpy.util import galpyWarning
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     #odeint to make sure that the C integration warning isn't thrown
@@ -29,7 +29,7 @@ def test_progenitor_coordtransformparams():
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
-                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=10.)
         # Should raise warning bc of Rnorm, might raise others
@@ -44,7 +44,7 @@ def test_progenitor_coordtransformparams():
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
-                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              R0=10.)
         # Should raise warning bc of R0, might raise others
@@ -59,7 +59,7 @@ def test_progenitor_coordtransformparams():
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
-                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=220.)
         # Should raise warning bc of Vnorm, might raise others
@@ -74,7 +74,7 @@ def test_progenitor_coordtransformparams():
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
-                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.025)
         # Should raise warning bc of zo, might raise others
@@ -89,7 +89,7 @@ def test_progenitor_coordtransformparams():
         sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                              leading=True,
                              nTrackChunks=11,
-                             tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                             tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                              nosetup=True, #won't look at track
                              Rnorm=8.5,R0=8.5,Vnorm=235.,Zsun=0.1,
                              vsun=[0.,220.,0.])
@@ -109,7 +109,7 @@ def test_bovy14_setup():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -132,7 +132,7 @@ def test_bovy14_setup():
     sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                          leading=True,
                          nTrackChunks=11,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                          custom_transform=T)
     assert not sdf_bovy14 is None, 'bovy14 streamdf setup did not work'
     return None
@@ -1097,7 +1097,7 @@ def test_bovy14_oppositetrailing_setup():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     lp_false= LogarithmicHaloPotential(normalize=1.,q=0.8)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
@@ -1125,7 +1125,7 @@ def test_bovy14_oppositetrailing_setup():
     sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                           multi=True, #test multi
                           leading=False,
-                          tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                          tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                           nTrackIterations=0,
                           sigangle=0.657)
     assert not sdft_bovy14 is None, 'bovy14 streamdf setup did not work'
@@ -1182,9 +1182,9 @@ def test_calcaAJacLB():
     return None
 
 def test_estimateTdisrupt():
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     td= numpy.log10(sdf_bovy14.estimateTdisrupt(1.)\
-                        *bovy_conversion.time_in_Gyr(220.,8.))
+                        *conversion.time_in_Gyr(220.,8.))
     assert (td > 0.)*(td < 1.), 'estimate of disruption time is not a few Gyr'
     return None
 
@@ -1221,7 +1221,7 @@ def test_2ndsetup():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -1230,12 +1230,12 @@ def test_2ndsetup():
     sdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                          leading=True,
                          nTrackChunks=11,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                          nosetup=True) #won't look at track
     rsdf_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                          leading=True,
                          nTrackChunks=11,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                         tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                          nosetup=True) #won't look at track
     assert numpy.fabs(sdf_bovy14.misalignment()-rsdf_bovy14.misalignment()) < 0.01, 'misalignment not the same when setting up the same streamdf w/ a previously used progenitor'
     assert numpy.fabs(sdf_bovy14.freqEigvalRatio()-rsdf_bovy14.freqEigvalRatio()) < 0.01, 'freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor'
@@ -1260,7 +1260,7 @@ def test_fardalpot_trackaa():
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential, FlattenedPowerPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     # test nested list of potentials
     pot= [IsochronePotential(b=0.8,normalize=0.8),
           [FlattenedPowerPotential(alpha=-0.7,q=0.6,normalize=0.2)]]
@@ -1270,7 +1270,7 @@ def test_fardalpot_trackaa():
     sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=pot,aA=aAI,
                          leading=True,
                          nTrackChunks=21,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                         tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
     assert numpy.fabs(sdf_fardal.misalignment()/numpy.pi*180.) > 4., 'misalignment in Fardal test is not large'
     #Now run the test
@@ -1292,14 +1292,14 @@ def test_fardalwmwpot_trackaa():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     aAI= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.6)
     obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
     sigv= 1.3 #km/s
     sdf_fardal= streamdf(sigv/220.,progenitor=obs,pot=MWPotential2014,aA=aAI,
                          leading=True,multi=True,
                          nTrackChunks=21,
-                         tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                         tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
     #First test that the misalignment is indeed large
     assert numpy.fabs(sdf_fardal.misalignment()/numpy.pi*180.) > 1., 'misalignment in Fardal test is not large enough'
     #Now run the test
@@ -1321,7 +1321,7 @@ def test_setup_progIsTrack():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -1331,7 +1331,7 @@ def test_setup_progIsTrack():
     sdfp= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,
                    leading=True,
                    nTrackChunks=11,
-                   tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                   tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                    progIsTrack=True)
     assert numpy.all(numpy.fabs(obs.vxvv[0]-sdfp._ObsTrack[0,:]) < 10.**-3.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start'
     # Integrate the orbit a little bit and test at a further point
@@ -1350,7 +1350,7 @@ def test_bovy14_useTM_poterror():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleTorus
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     elp= LogarithmicHaloPotential(normalize=1.,q=0.8)
@@ -1362,7 +1362,7 @@ def test_bovy14_useTM_poterror():
         sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
                         leading=True,
                         nTrackChunks=11,
-                        tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                        tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
     return None
 
 def test_bovy14_useTM():
@@ -1374,7 +1374,7 @@ def test_bovy14_useTM():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleTorus
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1384,7 +1384,7 @@ def test_bovy14_useTM():
     sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
                     leading=True,
                     nTrackChunks=11,
-                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+                    tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
     sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
     interpb= interpolate.InterpolatedUnivariateSpline(\
         sdftm._interpolatedObsTrackLB[sindx,0],
@@ -1409,7 +1409,7 @@ def test_bovy14_useTM_useTMHessian():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleTorus
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1419,7 +1419,7 @@ def test_bovy14_useTM_useTMHessian():
     sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
                     leading=True,
                     nTrackChunks=11,
-                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                    tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                     useTMHessian=True,multi=2)
     sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
     interpb= interpolate.InterpolatedUnivariateSpline(\
@@ -1447,7 +1447,7 @@ def test_bovy14_useTM_approxConstTrackFreq():
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox, \
         actionAngleTorus
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1457,7 +1457,7 @@ def test_bovy14_useTM_approxConstTrackFreq():
     sdftm= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,useTM=aAT,
                     leading=True,
                     nTrackChunks=11,
-                    tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.),
+                    tdisrupt=4.5/conversion.time_in_Gyr(220.,8.),
                     approxConstTrackFreq=True)
     sindx= numpy.argsort(sdftm._interpolatedObsTrackLB[:,0])
     interpb= interpolate.InterpolatedUnivariateSpline(\

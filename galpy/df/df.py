@@ -1,4 +1,4 @@
-from ..util.bovy_conversion import physical_compatible
+from ..util.conversion import physical_compatible
 _APY_LOADED= True
 try:
     from astropy import units

@@ -7,7 +7,7 @@ import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from ..util import coords, bovy_conversion
+from ..util import coords, conversion
 class SoftenedNeedleBarPotential(Potential):
     """Class that implements the softened needle bar potential from `Long & Murali (1992) <http://adsabs.harvard.edu/abs/1992ApJ...397...44L>`__
 
@@ -73,7 +73,7 @@ class SoftenedNeedleBarPotential(Potential):
             pa= pa.to(units.rad).value
         if _APY_LOADED and isinstance(omegab,units.Quantity):
             omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         self._a= a
         self._b= b
         self._c2= c**2.

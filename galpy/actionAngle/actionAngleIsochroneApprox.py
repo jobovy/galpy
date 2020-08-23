@@ -24,7 +24,7 @@ from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
 from ..potential import IsochronePotential, MWPotential
 from ..util import bovy_plot, galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 _TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered

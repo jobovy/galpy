@@ -105,13 +105,13 @@ but not further from the mid-plane
 
 As explained in :ref:`Units in galpy <units>`, these forces are in
 standard galpy units, and we can convert them to physical units using
-methods in the ``galpy.util.bovy_conversion`` module. For example,
+methods in the ``galpy.util.conversion`` module. For example,
 assuming a physical circular velocity of 220 km/s at R=8 kpc
 
->>> from galpy.util import bovy_conversion
->>> mp.zforce(1.,0.125)*bovy_conversion.force_in_kmsMyr(220.,8.)
+>>> from galpy.util import conversion
+>>> mp.zforce(1.,0.125)*conversion.force_in_kmsMyr(220.,8.)
 # -3.3095671288657584 #km/s/Myr
->>> mp.zforce(1.,0.125)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> mp.zforce(1.,0.125)*conversion.force_in_2piGmsolpc2(220.,8.)
 # -119.72021771473301 #2 \pi G Msol / pc^2
 
 Again, there are functions in ``galpy.potential`` that allow for the
@@ -121,7 +121,7 @@ evaluation of the forces for lists of Potential instances, such that
 >>> evaluateRforces(MWPotential2014,1.,0.)
 # -1.0
 >>> from galpy.potential import evaluatezforces
->>> evaluatezforces(MWPotential2014,1.,0.125)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> evaluatezforces(MWPotential2014,1.,0.125)*conversion.force_in_2piGmsolpc2(220.,8.)
 >>> -69.680720137571114 #2 \pi G Msol / pc^2
 
 We can evaluate the flattening of the potential as
@@ -166,7 +166,7 @@ have explicitly-implemented densities, so we can do
 
 In physical coordinates, this becomes
 
->>> evaluateDensities(MWPotential2014,1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
+>>> evaluateDensities(MWPotential2014,1.,0.)*conversion.dens_in_msolpc3(220.,8.)
 # 0.1010945632524705 #Msol / pc^3
 
 We can also plot densities
@@ -667,7 +667,7 @@ we also convert the simulation to physical units, but set `G=1` by
 doing the following
 
 >>> s.physical_units()
->>> from galpy.util.bovy_conversion import _G
+>>> from galpy.util.conversion import _G
 >>> g= pynbody.array.SimArray(_G/1000.)
 >>> g.units= 'kpc Msol**-1 km**2 s**-2 G**-1'
 >>> s._arrays['mass']= s._arrays['mass']*g
@@ -867,7 +867,7 @@ conversion parameters ``ro=`` and ``vo=`` as keyword parameters to
 perform the conversion between internal galpy units and physical
 units; if these are not explicitly set, ``to_amuse`` attempts to set
 them automatically using the potential that you input using the
-``galpy.util.bovy_conversion.get_physical`` function.
+``galpy.util.conversion.get_physical`` function.
 
 Another difference between ``galpy`` and AMUSE is that in AMUSE
 integration times can only be positive and they have to increase in

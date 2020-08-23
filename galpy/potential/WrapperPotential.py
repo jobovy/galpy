@@ -10,7 +10,7 @@ from .Potential import _evaluatePotentials, \
 from .planarPotential import _evaluateplanarPotentials, \
     _evaluateplanarRforces, _evaluateplanarphiforces, \
     evaluateplanarR2derivs
-from ..util.bovy_conversion import physical_compatible, get_physical
+from ..util.conversion import physical_compatible, get_physical
 def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)

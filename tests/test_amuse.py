@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import numpy
 from galpy.orbit import Orbit
 from galpy import potential
-from galpy.util import bovy_conversion
+from galpy.util import conversion
 
 from galpy.potential import to_amuse
 
@@ -15,7 +15,7 @@ from astropy import units as apy_u
 
 def test_amuse_potential_with_physical():
     ro, vo=8., 220.
-    amp= 1e8 / bovy_conversion.mass_in_msol(ro=ro, vo=vo)
+    amp= 1e8 / conversion.mass_in_msol(ro=ro, vo=vo)
     a= 0.8 / ro
 
     amp_u= 1e8 * apy_u.solMass
@@ -188,7 +188,7 @@ def test_amuse_MWPotential2014():
 
 def run_orbitIntegration_comparison(orb,pot,tmax,vo,ro,tol=0.01):
     # Integrate in galpy
-    ts= numpy.linspace(0.,tmax/bovy_conversion.time_in_Gyr(vo,ro),1001)
+    ts= numpy.linspace(0.,tmax/conversion.time_in_Gyr(vo,ro),1001)
     orb.integrate(ts,pot)
 
     # Integrate with amuse

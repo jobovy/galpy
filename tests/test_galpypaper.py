@@ -31,7 +31,8 @@ def test_import():
     return None
 
 def test_units():
-    import galpy.util.bovy_conversion as conversion
+    # Import changed becaose of bovy_conversion --> conversion name change
+    from galpy.util import conversion
     print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
     print(conversion.dens_in_msolpc3(220.,8.))#Msolar/pc^3

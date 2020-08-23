@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.dens_in_meanmatterdens
-==================================================
+galpy.util.conversion.dens_in_meanmatterdens
+============================================
 
-.. autofunction:: galpy.util.bovy_conversion.dens_in_meanmatterdens
+.. autofunction:: galpy.util.conversion.dens_in_meanmatterdens

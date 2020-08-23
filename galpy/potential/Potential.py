@@ -23,7 +23,7 @@ import numpy
 from scipy import optimize, integrate
 from ..util import bovy_plot as plot
 from ..util import coords
-from ..util.bovy_conversion import velocity_in_kpcGyr, \
+from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical, parse_position, parse_energy, parse_angmom
 from ..util import galpyWarning

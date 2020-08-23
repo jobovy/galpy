@@ -21,7 +21,7 @@ from ..potential.Potential import _evaluatePotentials, \
 from ..potential.Potential import flatten as flatten_potential
 from ..util import coords #for prolate confocal transforms
 from ..util import galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input
 from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c

@@ -5,13 +5,13 @@ import warnings
 import multiprocessing
 import numpy
 from scipy import integrate, interpolate, special
-from ..util import galpyWarning, coords, multi, bovy_conversion
+from ..util import galpyWarning, coords, multi, conversion
 from ..util import _rotate_to_arbitrary_vector
 from ..orbit import Orbit
 from ..potential import evaluateRforces, MovingObjectPotential, \
     PlummerPotential
 from .df import df, _APY_LOADED
-from ..util.bovy_conversion import physical_conversion
+from ..util.conversion import physical_conversion
 from . import streamdf
 from .streamdf import _determine_stream_track_single
 from ..potential import flatten as flatten_potential
@@ -104,11 +104,11 @@ class streamgapdf(streamdf.streamdf):
             try:
                 GM= GM.to(units.pc*units.km**2/units.s**2)\
                     .value\
-                    /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                    /bovy_conversion._G
+                    /conversion.mass_in_msol(self._vo,self._ro)\
+                    /conversion._G
             except units.UnitConversionError: pass
             GM= GM.to(units.Msun).value\
-                /bovy_conversion.mass_in_msol(self._vo,self._ro)
+                /conversion.mass_in_msol(self._vo,self._ro)
         rs= kwargs.pop('rs',None)
         if not rs is None \
                 and _APY_LOADED and isinstance(rs,units.Quantity):
@@ -117,7 +117,7 @@ class streamgapdf(streamdf.streamdf):
         timpact= kwargs.pop('timpact',1.)
         if _APY_LOADED and isinstance(timpact,units.Quantity):
             timpact= timpact.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         impact_angle= kwargs.pop('impact_angle',1.)
         if _APY_LOADED and isinstance(impact_angle,units.Quantity):
             impact_angle= impact_angle.to(units.rad).value
@@ -198,7 +198,7 @@ class streamgapdf(streamdf.streamdf):
         """
         if _APY_LOADED and isinstance(Opar,units.Quantity):
             Opar= Opar.to(1/units.Gyr).value\
-                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
+                /conversion.freq_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(apar,units.Quantity):
             apar= apar.to(units.rad).value
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):

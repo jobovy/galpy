@@ -432,7 +432,7 @@ You can then, for example, integrate the solar system for 10 years as follows
 
 >>> import astropy.units as u
 >>> from galpy.potential import KeplerPotential
->>> from galpy.util.bovy_conversion import get_physical
+>>> from galpy.util.conversion import get_physical
 >>> kp= KeplerPotential(amp=1.*u.Msun,**get_physical(o)) # Need to use **get_physical to get the ro= and vo= parameters, which differ from the default for the solar system
 >>> ts= numpy.linspace(0.,10.,1001)*u.yr
 >>> o.integrate(ts,kp)

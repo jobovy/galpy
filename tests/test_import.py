@@ -19,5 +19,5 @@ def test_util_import():
     import galpy.util.multi
     import galpy.util.bovy_plot
     import galpy.util.coords
-    import galpy.util.bovy_conversion
+    import galpy.util.conversion
         

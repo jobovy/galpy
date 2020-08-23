@@ -7,7 +7,7 @@ import numpy
 from scipy import integrate
 from ..util import bovy_plot as plot
 from ..util import config
-from ..util.bovy_conversion import physical_conversion,\
+from ..util.conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr, physical_compatible
 from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative

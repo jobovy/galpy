@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.force_in_kmsMyr
-============================================
+galpy.util.conversion.force_in_kmsMyr
+=====================================
 
-.. autofunction:: galpy.util.bovy_conversion.force_in_kmsMyr
+.. autofunction:: galpy.util.conversion.force_in_kmsMyr

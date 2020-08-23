@@ -2172,16 +2172,16 @@ def test_MWPotential2014():
 # Test that the McMillan17 potential is what it's supposed to be
 def test_McMillan17():
     from galpy.potential.mwpotentials import McMillan17
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= McMillan17[0]._ro, McMillan17[0]._vo
     # Check some numbers from Table 3 of McMillan17: vertical force at the Sun
     assert numpy.fabs(-potential.evaluatezforces(McMillan17,1.,1.1/8.21,
                                                  use_physical=False)
-                       *bovy_conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
+                       *conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
     # Halo density at the Sun
     assert numpy.fabs(potential.evaluateDensities(McMillan17[1],1.,0.,
                                                   use_physical=False)
-                      *bovy_conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
+                      *conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
     # Halo concentration
     assert numpy.fabs(McMillan17[1].conc(overdens=94.,wrtcrit=True,H=70.4)-15.4) < 1e-1, 'Halo concentration in McMillan17 does not agree with what it is supposed to be'
     # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
@@ -2253,7 +2253,7 @@ def test_DehnenBinney98():
     return None
 
 def check_DehnenBinney98_model(pot,model='model 1'):
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     truth= {'model 1':
                 {'SigmaR0':43.3,
                  'vc':222.,
@@ -2279,12 +2279,12 @@ def check_DehnenBinney98_model(pot,model='model 1'):
                  'A':13.8,
                  'B':-13.6}
             }
-    phys_kwargs= bovy_conversion.get_physical(pot) 
+    phys_kwargs= conversion.get_physical(pot) 
     ro= phys_kwargs.get('ro') 
     vo= phys_kwargs.get('vo')
     assert numpy.fabs(pot[1].surfdens(1.,10./ro)-truth[model]['SigmaR0']) < 0.2, 'Surface density at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(potential.vcirc(pot,1.)-truth[model]['vc']) < 0.5, 'Circular velocity at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
-    assert numpy.fabs(-potential.evaluatezforces(pot,1.,1.1/ro,use_physical=False)*bovy_conversion.force_in_2piGmsolpc2(vo,ro)-truth[model]['Fz']) < 0.2, 'Vertical force at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(-potential.evaluatezforces(pot,1.,1.1/ro,use_physical=False)*conversion.force_in_2piGmsolpc2(vo,ro)-truth[model]['Fz']) < 0.2, 'Vertical force at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(0.5*(potential.vcirc(pot,1.,use_physical=False)-potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['A']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(-0.5*(potential.vcirc(pot,1.,use_physical=False)+potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['B']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     return None
@@ -2372,7 +2372,7 @@ def test_mvir_attributeerror():
 
 # Test that virial quantities are correctly computed when specifying a different (ro,vo) pair from Potential setup (see issue #290)
 def test_NFW_virialquantities_diffrovo():
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     H, Om, overdens, wrtcrit= 71., 0.32, 201., False
     ro_setup, vo_setup= 220., 8.
     ros= [7.,8.,9.]
@@ -2389,7 +2389,7 @@ def test_NFW_virialquantities_diffrovo():
         od= (np.mvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)\
                  /4./numpy.pi*3.\
                  /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)**3.)\
-            *bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+            *conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
         assert numpy.fabs(od-overdens) < 0.01, "NFWPotential's virial quantities computed in internal units with different (ro,vo) from setup are incorrect"
         # Also test concentration
         assert numpy.fabs(np.conc(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
@@ -3046,11 +3046,11 @@ def test_Wrapper_incompatibleunitserror():
 def test_WrapperPotential_unittransfer_3d():
     # Test that units are properly transferred between a potential and its
     # wrapper
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 9., 230.
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
@@ -3058,14 +3058,14 @@ def test_WrapperPotential_unittransfer_3d():
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
@@ -3074,11 +3074,11 @@ def test_WrapperPotential_unittransfer_3d():
 def test_WrapperPotential_unittransfer_2d():
     # Test that units are properly transferred between a potential and its
     # wrapper
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 9., 230.
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
@@ -3086,14 +3086,14 @@ def test_WrapperPotential_unittransfer_2d():
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"

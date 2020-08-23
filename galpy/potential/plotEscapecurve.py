@@ -4,7 +4,7 @@ import os
 import pickle
 import numpy
 from ..util import bovy_plot as plot
-from ..util.bovy_conversion import physical_conversion,\
+from ..util.conversion import physical_conversion,\
     potential_physical_input
 _APY_LOADED= True
 try:

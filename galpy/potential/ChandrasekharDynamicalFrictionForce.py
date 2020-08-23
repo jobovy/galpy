@@ -6,7 +6,7 @@ import copy
 import hashlib
 import numpy
 from scipy import special, interpolate
-from ..util import bovy_conversion
+from ..util import conversion
 from .DissipativeForce import DissipativeForce
 from .Potential import _APY_LOADED, evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
@@ -147,14 +147,14 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         if _APY_LOADED and isinstance(gms,units.Quantity):
             try:
                 gms= gms.to(units.Msun).value\
-                    /bovy_conversion.mass_in_msol(self._vo,self._ro)
+                    /conversion.mass_in_msol(self._vo,self._ro)
             except units.UnitConversionError:
                 # Try G x mass
                 try:
                     gms= gms.to(units.pc*units.km**2/units.s**2)\
                         .value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                        /bovy_conversion._G
+                        /conversion.mass_in_msol(self._vo,self._ro)\
+                        /conversion._G
                 except units.UnitConversionError:
                     raise units.UnitConversionError('GMs for %s should have units of mass or G x mass' % (type(self).__name__))
         self._amp*= gms/self._ms

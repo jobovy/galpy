@@ -16,8 +16,8 @@ else:
 from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import coords, fast_cholesky_invert, \
-    bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from ..util.bovy_conversion import physical_conversion, _APY_UNITS
+    conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
+from ..util.conversion import physical_conversion, _APY_UNITS
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
 from ..util import galpyWarning
@@ -156,11 +156,11 @@ class streamdf(df):
             sigv= sigv.to(units.km/units.s).value/self._vo
         self._sigv= sigv
         if tdisrupt is None:
-            self._tdisrupt= 5./bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            self._tdisrupt= 5./conversion.time_in_Gyr(self._vo,self._ro)
         else:
             if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
                 tdisrupt= tdisrupt.to(units.Gyr).value\
-                    /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                    /conversion.time_in_Gyr(self._vo,self._ro)
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
@@ -1797,7 +1797,7 @@ class streamdf(df):
         """
         if _APY_LOADED and isinstance(Opar,units.Quantity):
             Opar= Opar.to(1/units.Gyr).value\
-                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
+                /conversion.freq_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(apar,units.Quantity):
             apar= apar.to(units.rad).value
         if tdisrupt is None: tdisrupt= self._tdisrupt
@@ -2932,11 +2932,11 @@ class streamdf(df):
             if _APY_UNITS and self._voSet and self._roSet:
                 Om=\
                     units.Quantity(\
-                    Om*bovy_conversion.freq_in_Gyr(self._vo,self._ro),
+                    Om*conversion.freq_in_Gyr(self._vo,self._ro),
                     unit=1/units.Gyr)
                 angle= units.Quantity(angle,unit=units.rad)
                 dt= units.Quantity(\
-                    dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                    dt*conversion.time_in_Gyr(self._vo,self._ro),
                     unit=units.Gyr)
             return (Om,angle,dt)
         if interp is None:
@@ -2954,7 +2954,7 @@ class streamdf(df):
                         units.Quantity(RvR[4]*self._vo,unit=units.km/units.s),
                         units.Quantity(RvR[5],unit=units.rad),
                         units.Quantity(\
-                        dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                        dt*conversion.time_in_Gyr(self._vo,self._ro),
                         unit=units.Gyr))
             return (RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],dt)
         elif not xy and not lb:
@@ -2988,7 +2988,7 @@ class streamdf(df):
                             units.Quantity(out[4]*self._vo,unit=units.km/units.s),
                             units.Quantity(out[5]*self._vo,unit=units.km/units.s),
                             units.Quantity(\
-                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            dt*conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
                 return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:
@@ -3033,7 +3033,7 @@ class streamdf(df):
                             units.Quantity(out[4],unit=units.mas/units.yr),
                             units.Quantity(out[5],unit=units.mas/units.yr),
                             units.Quantity(\
-                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            dt*conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
                 return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:

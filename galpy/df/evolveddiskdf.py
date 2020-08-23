@@ -23,7 +23,7 @@ from .df import df, _APY_LOADED
 from ..potential.Potential import _check_c
 from ..util.bovy_quadpack import dblquad
 from ..util import bovy_plot
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 if _APY_LOADED:
     from astropy import units

@@ -13,7 +13,7 @@
 ###############################################################################
 import numpy
 from .actionAngle import actionAngle
-from galpy.util import bovy_conversion
+from galpy.util import conversion
 _APY_LOADED= True
 try:
     from astropy import units
@@ -55,7 +55,7 @@ class actionAngleHarmonic(actionAngle):
         omega= kwargs.get('omega')
         if _APY_LOADED and isinstance(omega,units.Quantity):
             omega= omega.to(units.km/units.s/units.kpc).value \
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         self._omega= omega
         return None
     

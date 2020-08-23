@@ -28,7 +28,7 @@ from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
 from ..orbit import Orbit
 from ..util.bovy_ars import bovy_ars
 from ..util import save_pickles
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
 from ..potential import PowerSphericalPotential
 from ..actionAngle import actionAngleAdiabatic, actionAngleAxi

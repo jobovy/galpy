@@ -1,5 +1,5 @@
 import numpy
-from ..util import bovy_conversion
+from ..util import conversion
 from .linearPotential import linearPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -46,18 +46,18 @@ class KGPotential(linearPotential):
         if _APY_LOADED and isinstance(K,units.Quantity):
             try:
                 K= K.to(units.pc/units.Myr**2).value\
-                    /bovy_conversion.force_in_pcMyr2(self._vo,self._ro)
+                    /conversion.force_in_pcMyr2(self._vo,self._ro)
             except units.UnitConversionError: pass
         if _APY_LOADED and isinstance(K,units.Quantity):
             try:
                 K= K.to(units.Msun/units.pc**2).value\
-                    /bovy_conversion.force_in_2piGmsolpc2(self._vo,self._ro)
+                    /conversion.force_in_2piGmsolpc2(self._vo,self._ro)
             except units.UnitConversionError:
                 raise units.UnitConversionError("Units for K not understood; should be force or surface density")
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
                 F= F.to(units.Msun/units.pc**3).value\
-                    /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)*4.*numpy.pi
+                    /conversion.dens_in_msolpc3(self._vo,self._ro)*4.*numpy.pi
             except units.UnitConversionError: pass
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:

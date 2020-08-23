@@ -11,7 +11,7 @@ import hashlib
 import numpy
 from scipy import integrate
 from scipy.special import gamma
-from ..util import bovy_conversion, coords
+from ..util import conversion, coords
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -76,7 +76,7 @@ class FerrersPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(omegab,units.Quantity):
             omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
             pa= pa.to(units.rad).value
         self.a= a

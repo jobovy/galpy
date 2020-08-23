@@ -1,7 +1,7 @@
 ###############################################################################
 #
-# bovy_conversion: utilities to convert from galpy 'natural units' to physical
-#                  units
+# conversion: utilities to convert from galpy 'natural units' to physical
+#             units
 #
 ###############################################################################
 from functools import wraps
