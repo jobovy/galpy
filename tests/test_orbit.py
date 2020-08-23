@@ -16,7 +16,7 @@ _APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
-from galpy.util.bovy_coords import _K
+from galpy.util.coords import _K
 from test_actionAngle import reset_warning_registry
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -3175,7 +3175,7 @@ def test_orbitfit_radec():
 # Test orbit fit in custom coordinates (using Equatorial for testing)
 def test_orbitfit_custom():
     from galpy.orbit import Orbit
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
     ro, vo= 9., 230.
     o= Orbit([0.8,0.3,1.3,0.4,0.2,2.],ro=ro,vo=vo)
@@ -3198,8 +3198,8 @@ def test_orbitfit_custom():
     else: raise AssertionError('Orbit fit with custom sky coordinates but without the necessary coordinate-transformation functions did not raise an exception')
     of= Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
                        vxvv,pot=lp,tintJ=1.5,customsky=True,
-                       lb_to_customsky=bovy_coords.lb_to_radec,
-                       pmllpmbb_to_customsky=bovy_coords.pmllpmbb_to_pmrapmdec,
+                       lb_to_customsky=coords.lb_to_radec,
+                       pmllpmbb_to_customsky=coords.pmllpmbb_to_pmrapmdec,
                        ro=ro,vo=vo)
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
                        ro=ro,vo=vo)
@@ -3208,9 +3208,9 @@ def test_orbitfit_custom():
 
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
-    from galpy.util import bovy_coords
-    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
-    bovy_coords._APY_COORDS= False # too slow otherwise
+    from galpy.util import coords
+    coords._APY_COORDS_ORIG= coords._APY_COORDS
+    coords._APY_COORDS= False # too slow otherwise
     of.integrate(ts,pot)
     off= of.flip()
     off.integrate(ts,pot)
@@ -3243,7 +3243,7 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     out= []
     for ii in range(vxvv.shape[0]):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
-    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
+    coords._APY_COORDS= coords._APY_COORDS_ORIG
     return numpy.array(out)
 
 def test_MWPotential_warning():
@@ -4105,13 +4105,13 @@ def test_orbitint_dissipativefallback():
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():
     from galpy.orbit import Orbit
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     o= Orbit([0.9,0.,1.,0.,0.2,0.],ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
     # 04/2018: not quite anylonger w/ astropy def. of plane, but close
     l_true= 0.
     b_true= 0.
-    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True,
+    ra_true, dec_true= coords.lb_to_radec(l_true,b_true,degree=True,
                                                epoch=None)
     assert numpy.fabs(o.ra()-ra_true) < 10.**-3.8, 'Orbit.ra does not return correct ra in degree'
     assert numpy.fabs(o.dec()-dec_true) < 10.**-3.8, 'Orbit.dec does not return correct dec in degree'
@@ -4120,7 +4120,7 @@ def test_intrinsic_physical_output():
     assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
     pmll_true= -30./0.8/_K
     pmbb_true= 4./0.8/_K
-    pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
+    pmra_true, pmdec_true= coords.pmllpmbb_to_pmrapmdec(pmll_true,
                                                              pmbb_true,
                                                              l_true,b_true,
                                                              degree=True,

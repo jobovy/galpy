@@ -1,11 +1,9 @@
 # Test consistency between galpy and amuse
 from __future__ import print_function, division
-import os
 import numpy
-import subprocess
 from galpy.orbit import Orbit
 from galpy import potential
-from galpy.util import bovy_conversion,bovy_coords
+from galpy.util import bovy_conversion
 
 from galpy.potential import to_amuse
 

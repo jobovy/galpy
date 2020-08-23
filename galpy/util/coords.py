@@ -1,7 +1,7 @@
 ###############################################################################
 #
-#   bovy_coords: module for coordinate transformations between the equatorial
-#                and Galactic coordinate frame
+#   coords: module for coordinate transformations between the equatorial
+#           and Galactic coordinate frame
 #
 #
 #      Main included functions:
@@ -45,7 +45,7 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2019, Jo Bovy
+#Copyright (c) 2010 - 2020, Jo Bovy
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without 

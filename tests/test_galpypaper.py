@@ -423,18 +423,18 @@ def test_qdf():
     return None
 
 def test_coords():
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     ra, dec, dist= 161., 50., 8.5
     pmra, pmdec, vlos= -6.8, -10., -115.
   # Convert to Galactic and then to rect. Galactic
-    ll, bb= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=True)
-    X,Y,Z= bovy_coords.lbd_to_XYZ(ll,bb,dist,degree=True)
-    vX,vY,vZ= bovy_coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,X,Y,Z,XYZ=True)
+    ll, bb= coords.radec_to_lb(ra,dec,degree=True)
+    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=True)
+    X,Y,Z= coords.lbd_to_XYZ(ll,bb,dist,degree=True)
+    vX,vY,vZ= coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,X,Y,Z,XYZ=True)
     # Convert to cylindrical Galactocentric
     # Assuming Sun's distance to GC is (8,0.025) in (R,z)
-    R,phi,z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
-    vR,vT,vz= bovy_coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
+    R,phi,z= coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
+    vR,vT,vz= coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
     # 5/12/2016: test weakened, because improved galcen<->heliocen 
     #            transformation has changed these, but still close
     print(R,phi,z,vR,vT,vz)

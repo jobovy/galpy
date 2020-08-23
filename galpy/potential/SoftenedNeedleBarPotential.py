@@ -7,7 +7,7 @@ import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from ..util import bovy_coords, bovy_conversion
+from ..util import coords, bovy_conversion
 class SoftenedNeedleBarPotential(Potential):
     """Class that implements the softened needle bar potential from `Long & Murali (1992) <http://adsabs.harvard.edu/abs/1992ApJ...397...44L>`__
 
@@ -183,7 +183,7 @@ class SoftenedNeedleBarPotential(Potential):
         return self._omegab
 
     def _compute_xyz(self,R,phi,z,t):
-        return bovy_coords.cyl_to_rect(R,phi-self._pa-self._omegab*t,z)
+        return coords.cyl_to_rect(R,phi-self._pa-self._omegab*t,z)
 
     def _compute_TpTm(self,x,y,z):
         secondpart= y**2.+(self._b+numpy.sqrt(self._c2+z**2.))**2.

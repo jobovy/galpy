@@ -35,6 +35,9 @@ v1.7 (XXXX-XX-XX)
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 
+- Renamed galpy.util.bovy_coords to galpy.util.coords (but old from
+  galpy.util import bovy_coords will keep working for now).
+
 v1.6 (2020-04-24)
 =================
 

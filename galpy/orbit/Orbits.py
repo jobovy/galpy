@@ -23,8 +23,8 @@ else:
     from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
 from ..util.bovy_conversion import physical_conversion, physical_compatible
-from ..util.bovy_coords import _K
-from ..util import bovy_coords as coords
+from ..util.coords import _K
+from ..util import coords
 from ..util import bovy_plot as plot
 from ..util import bovy_conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\

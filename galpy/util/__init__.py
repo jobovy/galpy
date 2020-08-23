@@ -146,3 +146,6 @@ def _rotate_to_arbitrary_vector(v,a,inv=False,_dontcutsmall=False):
         out[numpy.fabs(costheta-1.) < 10.**-10.]= numpy.eye(3)
         out[numpy.fabs(costheta+1.) < 10.**-10.]= -numpy.eye(3)
     return out
+
+# backwards compatibility
+from . import coords as bovy_coords

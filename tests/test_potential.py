@@ -12,7 +12,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
-from galpy.util import bovy_coords
+from galpy.util import coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
@@ -2801,7 +2801,7 @@ def test_planeRotatedNFWPotential():
     return None
 
 def test_zaxisRotatedNFWPotential():
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     # Test that the rotation according to zvec works as expected
     pa= 30./180.*numpy.pi
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,c=0.5,
@@ -2813,7 +2813,7 @@ def test_zaxisRotatedNFWPotential():
     xs= numpy.zeros_like(phis)
     ys= Rs*numpy.cos(phis)
     zs= Rs*numpy.sin(phis)
-    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    tR,tphi,tz= coords.rect_to_cyl(xs,ys,zs)
     pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
@@ -2834,7 +2834,7 @@ def test_zaxisRotatedNFWPotential():
     xs= Rs*numpy.cos(phis)
     ys= numpy.zeros_like(phis)
     zs= Rs*numpy.sin(phis)
-    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    tR,tphi,tz= coords.rect_to_cyl(xs,ys,zs)
     pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
@@ -4173,17 +4173,17 @@ class mockTransientLogSpiralPotential(TransientLogSpiralPotential):
 
 ##Potentials used for mock SCF
 def rho_Zeeuw(R, z=0., phi=0., a=1.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
    
     
 def axi_density1(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential()
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
     
 def axi_density2(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     return rho_Zeeuw(R,z,phi)*(1 +numpy.cos(theta) + numpy.cos(theta)**2)
     
 def scf_density(R, z=0, phi=0.):

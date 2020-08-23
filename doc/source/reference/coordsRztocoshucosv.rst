@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.Rz_to_coshucosv
-===========================================
+galpy.util.coords.Rz_to_coshucosv
+=================================
 
-.. autofunction:: galpy.util.bovy_coords.Rz_to_coshucosv
+.. autofunction:: galpy.util.coords.Rz_to_coshucosv

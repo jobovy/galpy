@@ -22,7 +22,7 @@ import warnings
 import numpy
 from scipy import optimize, integrate
 from ..util import bovy_plot as plot
-from ..util import bovy_coords
+from ..util import coords
 from ..util.bovy_conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical, parse_position, parse_energy, parse_angmom
@@ -866,7 +866,7 @@ class Potential(Force):
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(self,
@@ -2492,7 +2492,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(Pot,numpy.fabs(R),
@@ -2608,7 +2608,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluateDensities(Pot,numpy.fabs(R),z,phi=phi,
@@ -2720,7 +2720,7 @@ def plotSurfaceDensities(Pot,
             surfxy= numpy.zeros((nxs,nys))
             for ii in range(nxs):
                 for jj in range(nys):
-                    R,phi,_= bovy_coords.rect_to_cyl(xs[ii],ys[jj],0.)
+                    R,phi,_= coords.rect_to_cyl(xs[ii],ys[jj],0.)
                     surfxy[ii,jj]= evaluateSurfaceDensities(Pot,
                                                             numpy.fabs(R),z,
                                                             phi=phi,

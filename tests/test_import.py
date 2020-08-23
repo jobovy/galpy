@@ -18,6 +18,6 @@ def test_util_import():
     import galpy.util
     import galpy.util.multi
     import galpy.util.bovy_plot
-    import galpy.util.bovy_coords
+    import galpy.util.coords
     import galpy.util.bovy_conversion
         

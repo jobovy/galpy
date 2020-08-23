@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.spher_to_cyl
-====================================
+galpy.util.coords.spher_to_cyl
+==============================
 
-.. autofunction:: galpy.util.bovy_coords.spher_to_cyl
+.. autofunction:: galpy.util.coords.spher_to_cyl
