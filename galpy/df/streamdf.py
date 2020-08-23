@@ -16,7 +16,7 @@ else:
 from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import coords, fast_cholesky_invert, \
-    conversion, multi, plot, stable_cho_factor, bovy_ars
+    conversion, multi, plot, stable_cho_factor, ars
 from ..util.conversion import physical_conversion, _APY_UNITS
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
@@ -3050,12 +3050,12 @@ class streamdf(df):
         """Sampling frequencies, angles, and times part of sampling"""
         #Sample frequency along largest eigenvalue using ARS
         dO1s=\
-            bovy_ars.bovy_ars([0.,0.],[True,False],
-                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
-                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
-                              _h_ars,_hp_ars,nsamples=n,
-                              hxparams=(self._meandO,self._sortedSigOEig[2]),
-                              maxn=100)
+            ars.ars([0.,0.],[True,False],
+                    [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
+                     self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
+                    _h_ars,_hp_ars,nsamples=n,
+                    hxparams=(self._meandO,self._sortedSigOEig[2]),
+                    maxn=100)
         dO1s= numpy.array(dO1s)*self._sigMeanSign
         dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
         dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])

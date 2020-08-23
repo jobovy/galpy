@@ -26,7 +26,7 @@ numpylog= numpy.lib.scimath.log # somehow, this code produces log(negative), whi
 from scipy import integrate, interpolate, stats, optimize
 from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
 from ..orbit import Orbit
-from ..util.bovy_ars import bovy_ars
+from ..util.ars import ars
 from ..util import save_pickles
 from ..util.conversion import physical_conversion, \
     potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
@@ -1755,15 +1755,15 @@ class dehnendf(diskdf):
                                   targetSigma2=targetSigma2)
         #First sample xE
         if self._correct:
-            xE= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            self._corr)))
+            xE= numpy.array(ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                _ars_hpx,nsamples=n,
+                                hxparams=(self._surfaceSigmaProfile,
+                                          self._corr)))
         else:
-            xE= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            None)))
+            xE= numpy.array(ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                _ars_hpx,nsamples=n,
+                                hxparams=(self._surfaceSigmaProfile,
+                                          None)))
         #Calculate E
         if self._beta == 0.:
             E= numpylog(xE)+0.5
@@ -2046,15 +2046,15 @@ class shudf(diskdf):
                                   targetSigma2=targetSigma2)
         #First sample xL
         if self._correct:
-            xL= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            self._corr)))
+            xL= numpy.array(ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                _ars_hpx,nsamples=n,
+                                hxparams=(self._surfaceSigmaProfile,
+                                          self._corr)))
         else:
-            xL= numpy.array(bovy_ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
-                                  _ars_hpx,nsamples=n,
-                                  hxparams=(self._surfaceSigmaProfile,
-                                            None)))
+            xL= numpy.array(ars([0.,0.],[True,False],[0.05,2.],_ars_hx,
+                                _ars_hpx,nsamples=n,
+                                hxparams=(self._surfaceSigmaProfile,
+                                          None)))
         #Calculate Lz
         Lz= xL**(self._beta+1.)
         #Then sample E
