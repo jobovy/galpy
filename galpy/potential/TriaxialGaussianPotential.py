@@ -64,7 +64,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.kpc).value/self._ro
+            sigma= sigma.to_value(units.kpc)/self._ro
         self._sigma= sigma
         self._twosigma2= 2.*self._sigma**2
         self._scale= self._sigma

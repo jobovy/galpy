@@ -34,7 +34,7 @@ class planarPotential(object):
             self._roSet= False
         else:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
             self._roSet= True
         if vo is None:
@@ -42,7 +42,7 @@ class planarPotential(object):
             self._voSet= False
         else:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
             self._voSet= True
         return None
@@ -185,11 +185,11 @@ class planarPotential(object):
         if not vo is False: self._voSet= True
         if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
         if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
         return None
 
@@ -617,7 +617,7 @@ class planarAxiPotential(planarPotential):
         
         """
         if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+            OmegaP= OmegaP.to_value(1/units.Gyr)/freq_in_Gyr(self._vo,self._ro)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
@@ -1345,17 +1345,17 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         else:
             tro= Pot[0]._ro
         if isinstance(Rrange[0],units.Quantity):
-            Rrange[0]= Rrange[0].to(units.kpc).value/tro
+            Rrange[0]= Rrange[0].to_value(units.kpc)/tro
         if isinstance(Rrange[1],units.Quantity):
-            Rrange[1]= Rrange[1].to(units.kpc).value/tro
+            Rrange[1]= Rrange[1].to_value(units.kpc)/tro
         if isinstance(xrange[0],units.Quantity):
-            xrange[0]= xrange[0].to(units.kpc).value/tro
+            xrange[0]= xrange[0].to_value(units.kpc)/tro
         if isinstance(xrange[1],units.Quantity):
-            xrange[1]= xrange[1].to(units.kpc).value/tro
+            xrange[1]= xrange[1].to_value(units.kpc)/tro
         if isinstance(yrange[0],units.Quantity):
-            yrange[0]= yrange[0].to(units.kpc).value/tro
+            yrange[0]= yrange[0].to_value(units.kpc)/tro
         if isinstance(yrange[1],units.Quantity):
-            yrange[1]= yrange[1].to(units.kpc).value/tro
+            yrange[1]= yrange[1].to_value(units.kpc)/tro
     grid= kwargs.pop('grid',100)
     gridx= kwargs.pop('gridx',100)
     gridy= kwargs.pop('gridy',gridx)

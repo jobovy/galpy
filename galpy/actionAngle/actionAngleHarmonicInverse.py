@@ -49,7 +49,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
             raise IOError("Must specify omega= for actionAngleHarmonic")
         omega= kwargs.get('omega')
         if _APY_LOADED and isinstance(omega,units.Quantity):
-            omega= omega.to(units.km/units.s/units.kpc).value \
+            omega= omega.to_value(units.km/units.s/units.kpc) \
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         self._omega= omega
         return None

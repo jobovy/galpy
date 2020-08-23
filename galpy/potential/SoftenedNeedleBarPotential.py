@@ -64,15 +64,15 @@ class SoftenedNeedleBarPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+            b= b.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(c,units.Quantity):
-            c= c.to(units.kpc).value/self._ro
+            c= c.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+            pa= pa.to_value(units.rad)
         if _APY_LOADED and isinstance(omegab,units.Quantity):
-            omegab= omegab.to(units.km/units.s/units.kpc).value\
+            omegab= omegab.to_value(units.km/units.s/units.kpc)\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         self._a= a
         self._b= b

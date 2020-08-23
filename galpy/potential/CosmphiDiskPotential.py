@@ -67,17 +67,17 @@ class CosmphiDiskPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(phib,units.Quantity):
-            phib= phib.to(units.rad).value
+            phib= phib.to_value(units.rad)
         if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
+            r1= r1.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(rb,units.Quantity):
-            rb= rb.to(units.kpc).value/self._ro
+            rb= rb.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(phio,units.Quantity):
-            phio= phio.to(units.km**2/units.s**2).value/self._vo**2.
+            phio= phio.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(cp,units.Quantity):
-            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
+            cp= cp.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(sp,units.Quantity):
-            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+            sp= sp.to_value(units.km**2/units.s**2)/self._vo**2.
         # Back to old definition
         self._r1p= r1**p
         self._amp/= self._r1p

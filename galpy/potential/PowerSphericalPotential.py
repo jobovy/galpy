@@ -53,7 +53,7 @@ class PowerSphericalPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
+            r1= r1.to_value(units.kpc)/self._ro
         self.alpha= alpha
         # Back to old definition
         if self.alpha != 3.:

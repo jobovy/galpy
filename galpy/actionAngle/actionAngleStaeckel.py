@@ -85,7 +85,7 @@ class actionAngleStaeckel(actionAngle):
         self._delta= kwargs['delta']
         self._order= kwargs.get('order',10)
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+            self._delta= self._delta.to_value(units.kpc)/self._ro
         # Check the units
         self._check_consistent_units()
         return None

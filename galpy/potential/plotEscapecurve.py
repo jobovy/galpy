@@ -73,13 +73,13 @@ def plotEscapecurve(Pot,*args,**kwargs):
     # Parse ro
     if _APY_LOADED:
         if isinstance(potro,units.Quantity):
-            potro= potro.to(units.kpc).value
+            potro= potro.to_value(units.kpc)
         if isinstance(potvo,units.Quantity):
-            potvo= potvo.to(units.km/units.s).value
+            potvo= potvo.to_value(units.km/units.s)
         if isinstance(Rrange[0],units.Quantity):
-            Rrange[0]= Rrange[0].to(units.kpc).value
+            Rrange[0]= Rrange[0].to_value(units.kpc)
         if isinstance(Rrange[1],units.Quantity):
-            Rrange[1]= Rrange[1].to(units.kpc).value
+            Rrange[1]= Rrange[1].to_value(units.kpc)
     if use_physical:
         Rrange[0]/= potro
         Rrange[1]/= potro

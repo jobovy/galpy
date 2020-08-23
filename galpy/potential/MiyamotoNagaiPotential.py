@@ -52,9 +52,9 @@ class MiyamotoNagaiPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+            b= b.to_value(units.kpc)/self._ro
         self._a= a
         self._scale= self._a
         self._b= b

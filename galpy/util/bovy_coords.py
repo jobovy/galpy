@@ -205,7 +205,7 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
         c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
                               equinox=epoch,frame=frame)
         c= c.transform_to(apycoords.Galactic)
-        return numpy.array([c.l.to(units.rad).value,c.b.to(units.rad).value]).T
+        return numpy.array([c.l.to_value(units.rad),c.b.to_value(units.rad)]).T
     #First calculate the transformation matrix T
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= numpy.dot(numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],[numpy.sin(theta),-numpy.cos(theta),0.],[0.,0.,1.]]),numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,numpy.cos(dec_ngp)],[0.,1.,0.],[numpy.cos(dec_ngp),0.,numpy.sin(dec_ngp)]]),numpy.array([[numpy.cos(ra_ngp),numpy.sin(ra_ngp),0.],[-numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],[0.,0.,1.]])))
@@ -268,7 +268,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
             c= c.transform_to(apycoords.FK4(equinox=epoch))
         else:
             c= c.transform_to(apycoords.ICRS)
-        return numpy.array([c.ra.to(units.rad).value,c.dec.to(units.rad).value]).T
+        return numpy.array([c.ra.to_value(units.rad),c.dec.to_value(units.rad)]).T
     #First calculate the transformation matrix T'
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],[numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],[0.,0.,1.]]),numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,numpy.cos(dec_ngp)],[0.,1.,0.],[numpy.cos(dec_ngp),0.,numpy.sin(dec_ngp)]]),numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],[numpy.sin(theta),-numpy.cos(theta),0.],[0.,0.,1.]])))
@@ -2472,7 +2472,7 @@ def get_epoch_angles(epoch=2000.0):
         c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
                               frame=frame,equinox=epoch)
         c= c.transform_to(apycoords.Galactic)
-        theta= c.l.to(units.rad).value
+        theta= c.l.to_value(units.rad)
         c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
                               frame='galactic')
         if not epoch is None and 'J' in epoch:
@@ -2481,8 +2481,8 @@ def get_epoch_angles(epoch=2000.0):
             c= c.transform_to(apycoords.FK4(equinox=epoch))
         else: # pragma: no cover
             raise ValueError('epoch input not understood; should be None for ICRS, JXXXX, or BXXXX')
-        dec_ngp= c.dec.to(units.rad).value
-        ra_ngp= c.ra.to(units.rad).value
+        dec_ngp= c.dec.to_value(units.rad)
+        ra_ngp= c.ra.to_value(units.rad)
     else:
         raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
@@ -2491,12 +2491,12 @@ def get_epoch_angles(epoch=2000.0):
 if _APY_LOADED:
     c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,frame='icrs')
     c= c.transform_to(apycoords.Galactic)
-    theta_icrs= c.l.to(units.rad).value
+    theta_icrs= c.l.to_value(units.rad)
     c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
                           frame='galactic')
     c= c.transform_to(apycoords.ICRS)
-    dec_ngp_icrs= c.dec.to(units.rad).value
-    ra_ngp_icrs= c.ra.to(units.rad).value
+    dec_ngp_icrs= c.dec.to_value(units.rad)
+    ra_ngp_icrs= c.ra.to_value(units.rad)
 else:
     theta_icrs= 2.1455668515225916
     dec_ngp_icrs= 0.4734773249532947

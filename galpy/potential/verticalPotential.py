@@ -114,9 +114,9 @@ def RZToverticalPotential(RZPot,R):
         raise NotImplementedError("Converting dissipative forces to 1D vertical potentials is currently not supported")
     if _APY_LOADED and isinstance(R,units.Quantity):
         if hasattr(RZPot,'_ro'):
-            R= R.to(units.kpc).value/RZPot._ro
+            R= R.to_value(units.kpc)/RZPot._ro
         else:
-            R= R.to(units.kpc).value/RZPot[0]._ro
+            R= R.to_value(units.kpc)/RZPot[0]._ro
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -173,17 +173,17 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
     if _APY_LOADED:
         if isinstance(R,units.Quantity):
             if hasattr(Pot,'_ro'):
-                R= R.to(units.kpc).value/Pot._ro
+                R= R.to_value(units.kpc)/Pot._ro
             else:
-                R= R.to(units.kpc).value/Pot[0]._ro
+                R= R.to_value(units.kpc)/Pot[0]._ro
         if isinstance(phi,units.Quantity):
-            phi= phi.to(units.rad).value
+            phi= phi.to_value(units.rad)
         if isinstance(t0,units.Quantity):
             if hasattr(Pot,'_ro'):
-                t0= t0.to(units.Gyr).value/bovy_conversion.time_in_Gyr(Pot._vo,
+                t0= t0.to_value(units.Gyr)/bovy_conversion.time_in_Gyr(Pot._vo,
                                                                        Pot._ro)
             else:
-                t0= t0.to(units.Gyr).value\
+                t0= t0.to_value(units.Gyr)\
                     /bovy_conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(Pot,list):
         out= []

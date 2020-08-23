@@ -301,27 +301,27 @@ class Orbit(object):
                                     radec,lb):
         # Parse coordinate-transformation inputs with units
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         if _APY_LOADED and isinstance(zo,units.Quantity):
-            zo= zo.to(units.kpc).value
+            zo= zo.to_value(units.kpc)
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         # if vxvv is SkyCoord, preferentially use its ro and zo
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
             if not _APY3: # pragma: no cover
                 raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
             if zo is None and not vxvv.z_sun is None:
-                zo= vxvv.z_sun.to(units.kpc).value
+                zo= vxvv.z_sun.to_value(units.kpc)
             elif not vxvv.z_sun is None:
-                if numpy.fabs(zo-vxvv.z_sun.to(units.kpc).value) > 1e-8:
+                if numpy.fabs(zo-vxvv.z_sun.to_value(units.kpc)) > 1e-8:
                     raise ValueError("Orbit initialization's zo different from SkyCoord's z_sun; these should be the same for consistency")
             elif zo is None and not vxvv.galcen_distance is None:
                 zo= 0.
             if ro is None and not vxvv.galcen_distance is None:
-                ro= numpy.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
+                ro= numpy.sqrt(vxvv.galcen_distance.to_value(units.kpc)**2.
                             -zo**2.)
             elif not vxvv.galcen_distance is None and \
-                    numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
+                    numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to_value(units.kpc)**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
         if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
@@ -334,7 +334,7 @@ class Orbit(object):
         # if vxvv is SkyCoord, preferentially use its solarmotion
         if _APY_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
-            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
+            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to_value(units.km/units.s)
             sc_solarmotion[0]= -sc_solarmotion[0] # right->left
             sc_solarmotion[1]-= vo
             if solarmotion is None:
@@ -349,7 +349,7 @@ class Orbit(object):
                 and solarmotion.lower() == 'schoenrich':
             vsolar= numpy.array([-11.1,12.24,7.25])
         elif _APY_LOADED and isinstance(solarmotion,units.Quantity):
-            vsolar= solarmotion.to(units.km/units.s).value
+            vsolar= solarmotion.to_value(units.km/units.s)
         else:
             vsolar= numpy.array(solarmotion)
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
@@ -437,17 +437,17 @@ class Orbit(object):
                 vxvvg.representation_type= 'cylindrical'
             else: #pragma: no cover
                 vxvvg.representation= 'cylindrical'
-            R= vxvvg.rho.to(units.kpc).value/self._ro
-            phi= numpy.pi-vxvvg.phi.to(units.rad).value
-            z= vxvvg.z.to(units.kpc).value/self._ro
+            R= vxvvg.rho.to_value(units.kpc)/self._ro
+            phi= numpy.pi-vxvvg.phi.to_value(units.rad)
+            z= vxvvg.z.to_value(units.kpc)/self._ro
             try:
-                vR= vxvvg.d_rho.to(units.km/units.s).value/self._vo
+                vR= vxvvg.d_rho.to_value(units.km/units.s)/self._vo
             except TypeError:
                 raise TypeError("SkyCoord given to Orbit initialization does not have velocity data, which is required to setup an Orbit")
             vT= -(vxvvg.d_phi*vxvvg.rho)\
                 .to(units.km/units.s,
                     equivalencies=units.dimensionless_angles()).value/self._vo
-            vz= vxvvg.d_z.to(units.km/units.s).value/self._vo
+            vz= vxvvg.d_z.to_value(units.km/units.s)/self._vo
             vxvv= numpy.array([R,vR,vT,z,vz,phi])
             # Make sure radec and lb are False (issue #402)
             radec= False
@@ -457,8 +457,8 @@ class Orbit(object):
         if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
                 if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
-                    ra, dec= vxvv[0].to(units.deg).value, \
-                        vxvv[1].to(units.deg).value
+                    ra, dec= vxvv[0].to_value(units.deg), \
+                        vxvv[1].to_value(units.deg)
                 else:
                     ra, dec= vxvv[0], vxvv[1]
                 l,b= coords.radec_to_lb(ra,dec,degree=True,epoch=None).T
@@ -470,12 +470,12 @@ class Orbit(object):
                 l,b= vxvv[0],vxvv[1]
                 _extra_rot= True
             if _APY_LOADED and isinstance(l,units.Quantity):
-                l= l.to(units.deg).value
+                l= l.to_value(units.deg)
             if _APY_LOADED and isinstance(b,units.Quantity):
-                b= b.to(units.deg).value
+                b= b.to_value(units.deg)
             if uvw:
                 if _APY_LOADED and isinstance(vxvv[2],units.Quantity):
-                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2].to(units.kpc).value,
+                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2].to_value(units.kpc),
                                              degree=True).T
                 else:
                     X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True).T
@@ -483,16 +483,16 @@ class Orbit(object):
                 vy= vxvv[4]
                 vz= vxvv[5]
                 if _APY_LOADED and isinstance(vx,units.Quantity):
-                    vx= vx.to(units.km/units.s).value
+                    vx= vx.to_value(units.km/units.s)
                 if _APY_LOADED and isinstance(vy,units.Quantity):
-                    vy= vy.to(units.km/units.s).value
+                    vy= vy.to_value(units.km/units.s)
                 if _APY_LOADED and isinstance(vz,units.Quantity):
-                    vz= vz.to(units.km/units.s).value
+                    vz= vz.to_value(units.km/units.s)
             else:
                 if radec:
                     if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
-                        pmra, pmdec= vxvv[3].to(units.mas/units.yr).value, \
-                            vxvv[4].to(units.mas/units.yr).value
+                        pmra, pmdec= vxvv[3].to_value(units.mas/units.yr), \
+                            vxvv[4].to_value(units.mas/units.yr)
                     else:
                         pmra, pmdec= vxvv[3], vxvv[4]
                     pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
@@ -506,13 +506,13 @@ class Orbit(object):
                     pmll, pmbb= vxvv[3], vxvv[4]
                     d, vlos= vxvv[2], vxvv[5]
                 if _APY_LOADED and isinstance(d,units.Quantity):
-                    d= d.to(units.kpc).value
+                    d= d.to_value(units.kpc)
                 if _APY_LOADED and isinstance(vlos,units.Quantity):
-                    vlos= vlos.to(units.km/units.s).value
+                    vlos= vlos.to_value(units.km/units.s)
                 if _APY_LOADED and isinstance(pmll,units.Quantity):
-                    pmll= pmll.to(units.mas/units.yr).value
+                    pmll= pmll.to_value(units.mas/units.yr)
                 if _APY_LOADED and isinstance(pmbb,units.Quantity):
-                    pmbb= pmbb.to(units.mas/units.yr).value
+                    pmbb= pmbb.to_value(units.mas/units.yr)
                 X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
                                                            vlos,pmll, pmbb,
                                                            degree=True).T
@@ -1029,11 +1029,11 @@ class Orbit(object):
         if not vo is False: self._voSet= True
         if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
         if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
         return None
 
@@ -1091,11 +1091,11 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
+            t= t.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         else: self._integrate_t_asQuantity= False
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
+            dt= dt.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         from ..potential import MWPotential
         if pot == MWPotential:
@@ -1278,11 +1278,11 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
+            t= t.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         else: self._integrate_t_asQuantity= False
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
+            dt= dt.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         # Parse dxdv
         dxdv= numpy.array(dxdv)
@@ -1825,7 +1825,7 @@ class Orbit(object):
             OmegaP= kwargs.pop('OmegaP')
         if _APY_LOADED:
             if isinstance(OmegaP,units.Quantity):
-                OmegaP = OmegaP.to(units.km/units.s/units.kpc).value \
+                OmegaP = OmegaP.to_value(units.km/units.s/units.kpc) \
                     /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
@@ -1877,11 +1877,11 @@ class Orbit(object):
         delta= kwargs.pop('delta',None)
         if _APY_LOADED and not delta is None \
                 and isinstance(delta,units.Quantity):
-            delta= delta.to(units.kpc).value/self._ro
+            delta= delta.to_value(units.kpc)/self._ro
         b= kwargs.pop('b',None)
         if _APY_LOADED and not b is None \
                 and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+            b= b.to_value(units.kpc)/self._ro
         if pot is None:
             try:
                 pot= self._pot
@@ -2871,7 +2871,7 @@ class Orbit(object):
         else:
             out= args[0]
             if _APY_LOADED and isinstance(out,units.Quantity):
-                out= out.to(units.Gyr).value\
+                out= out.to_value(units.Gyr)\
                     /bovy_conversion.time_in_Gyr(self._vo,self._ro)
             return out
 
@@ -3832,9 +3832,9 @@ class Orbit(object):
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
+            result= units.Quantity(dist.to_value(units.kpc)*_K*
                                    self.pmra(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
+                                       .to_value(units.mas/units.yr),
                                    unit=units.km/units.s)
         else:
             result= dist*_K*self.pmra(*args,**kwargs)
@@ -3881,9 +3881,9 @@ class Orbit(object):
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
+            result= units.Quantity(dist.to_value(units.kpc)*_K*
                                    self.pmdec(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
+                                       .to_value(units.mas/units.yr),
                                    unit=units.km/units.s)
         else:
             result= dist*_K*self.pmdec(*args,**kwargs)
@@ -3930,9 +3930,9 @@ class Orbit(object):
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
+            result= units.Quantity(dist.to_value(units.kpc)*_K*
                                    self.pmll(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
+                                       .to_value(units.mas/units.yr),
                                    unit=units.km/units.s)
         else:
             result= dist*_K*self.pmll(*args,**kwargs)
@@ -3979,9 +3979,9 @@ class Orbit(object):
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
         if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
+            result= units.Quantity(dist.to_value(units.kpc)*_K*
                                    self.pmbb(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
+                                       .to_value(units.mas/units.yr),
                                    unit=units.km/units.s)
         else:
             result= dist*_K*self.pmbb(*args,**kwargs)
@@ -4378,7 +4378,7 @@ class Orbit(object):
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value\
+            t= t.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
             # Need to re-evaluate now that t has changed...
             t_exact_integration_times= hasattr(t,'__len__') \
@@ -5534,7 +5534,7 @@ def _from_name_oneobject(name,obs):
     else:
         dist_str= str(simbad_table['Distance_distance'][0]) + \
             simbad_table['Distance_unit'][0]
-        dist= units.Quantity(dist_str).to(units.kpc).value
+        dist= units.Quantity(dist_str).to_value(units.kpc)
     return [ra,dec,dist,pmra,pmdec,vlos]
 
 def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
@@ -5857,9 +5857,9 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
             for ii in range(len(obs)):
                 if _APY_LOADED and isinstance(obs[ii],units.Quantity):
                     if ii < 3:
-                        obs[ii]= obs[ii].to(units.kpc).value
+                        obs[ii]= obs[ii].to_value(units.kpc)
                     else:
-                        obs[ii]= obs[ii].to(units.km/units.s).value
+                        obs[ii]= obs[ii].to_value(units.km/units.s)
     else:
         if vel:
             obs= [orb._ro,0.,orb._zo,
@@ -5870,7 +5870,7 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     if 'ro' in kwargs:
         ro= kwargs['ro']
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         if not dontpop:
             kwargs.pop('ro')
     else:
@@ -5878,7 +5878,7 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     if 'vo' in kwargs:
         vo= kwargs['vo']
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         if not dontpop:
             kwargs.pop('vo')
     else:

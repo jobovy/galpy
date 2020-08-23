@@ -78,7 +78,7 @@ class actionAngleStaeckelGrid(actionAngle):
             self._c= False
         self._delta= delta
         if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+            self._delta= self._delta.to_value(units.kpc)/self._ro
         self._Rmax= Rmax
         self._Rmin= 0.01
         #Set up the actionAngleStaeckel object that we will use to interpolate

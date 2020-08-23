@@ -43,7 +43,7 @@ class IsothermalDiskPotential(linearPotential):
         """
         linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.km/units.s).value/self._vo
+            sigma= sigma.to_value(units.km/units.s)/self._vo
         self._sigma2= sigma**2.
         self._H= sigma/numpy.sqrt(8.*numpy.pi*self._amp)
         self._amp= 1. # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2

@@ -67,9 +67,9 @@ class MN3ExponentialDiskPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
+            hr= hr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(hz,units.Quantity):
-            hz= hz.to(units.kpc).value/self._ro
+            hz= hz.to_value(units.kpc)/self._ro
         self._hr= hr
         self._hz= hz
         self._scale= self._hr

@@ -42,7 +42,7 @@ class KGPotential(linearPotential):
         """
         linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(D,units.Quantity):
-            D= D.to(units.kpc).value/self._ro
+            D= D.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(K,units.Quantity):
             try:
                 K= K.to(units.pc/units.Myr**2).value\
@@ -56,7 +56,7 @@ class KGPotential(linearPotential):
                 raise units.UnitConversionError("Units for K not understood; should be force or surface density")
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
-                F= F.to(units.Msun/units.pc**3).value\
+                F= F.to_value(units.Msun/units.pc**3)\
                     /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)*4.*numpy.pi
             except units.UnitConversionError: pass
         if _APY_LOADED and isinstance(F,units.Quantity):

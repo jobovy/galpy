@@ -68,19 +68,19 @@ class TransientLogSpiralPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(gamma,units.Quantity):
-            gamma= gamma.to(units.rad).value
+            gamma= gamma.to_value(units.rad)
         if _APY_LOADED and isinstance(p,units.Quantity):
-            p= p.to(units.rad).value
+            p= p.to_value(units.rad)
         if _APY_LOADED and isinstance(A,units.Quantity):
-            A= A.to(units.km**2/units.s**2).value/self._vo**2.
+            A= A.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(omegas,units.Quantity):
-            omegas= omegas.to(units.km/units.s/units.kpc).value\
+            omegas= omegas.to_value(units.km/units.s/units.kpc)\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value\
+            to= to.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.Gyr).value\
+            sigma= sigma.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._omegas= omegas
         self._A= A

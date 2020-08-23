@@ -81,19 +81,19 @@ class quasiisothermaldf(df):
         """
         df.__init__(self,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
+            hr= hr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(sr,units.Quantity):
-            sr= sr.to(units.km/units.s).value/self._vo
+            sr= sr.to_value(units.km/units.s)/self._vo
         if _APY_LOADED and isinstance(sz,units.Quantity):
-            sz= sz.to(units.km/units.s).value/self._vo
+            sz= sz.to_value(units.km/units.s)/self._vo
         if _APY_LOADED and isinstance(hsr,units.Quantity):
-            hsr= hsr.to(units.kpc).value/self._ro
+            hsr= hsr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(hsz,units.Quantity):
-            hsz= hsz.to(units.kpc).value/self._ro
+            hsz= hsz.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(refr,units.Quantity):
-            refr= refr.to(units.kpc).value/self._ro
+            refr= refr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(lo,units.Quantity):
-            lo= lo.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+            lo= lo.to_value(units.kpc*units.km/units.s)/self._ro/self._vo
         self._hr= hr
         self._sr= sr
         self._sz= sz
@@ -224,11 +224,11 @@ class quasiisothermaldf(df):
         if len(args) == 1 and not isinstance(args[0],Orbit): #(jr,lz,jz)
             jr,lz,jz= args[0]
             if _APY_LOADED and isinstance(jr,units.Quantity):
-                jr= jr.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+                jr= jr.to_value(units.kpc*units.km/units.s)/self._ro/self._vo
             if _APY_LOADED and isinstance(lz,units.Quantity):
-                lz= lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+                lz= lz.to_value(units.kpc*units.km/units.s)/self._ro/self._vo
             if _APY_LOADED and isinstance(jz,units.Quantity):
-                jz= jz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+                jz= jz.to_value(units.kpc*units.km/units.s)/self._ro/self._vo
         else:
             #Use self._aA to calculate the actions
             if isinstance(args[0],Orbit) and len(args[0].shape) > 1:
@@ -559,12 +559,12 @@ class quasiisothermaldf(df):
         if ro is None and hasattr(self,'_roSet') and self._roSet:
             ro= self._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         if use_physical and not vo is None and not ro is None:
             fac= vo**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
@@ -793,12 +793,12 @@ class quasiisothermaldf(df):
         if ro is None and hasattr(self,'_roSet') and self._roSet:
             ro= self._ro
         if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+            ro= ro.to_value(units.kpc)
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         if use_physical and not vo is None and not ro is None:
             fac= (ro*vo)**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
@@ -1660,7 +1660,7 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         #Determine the maximum of the velocity distribution
         maxVR= 0.
         maxVz= 0.
@@ -1745,7 +1745,7 @@ class quasiisothermaldf(df):
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
         if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+            vo= vo.to_value(units.km/units.s)
         #Initialize output array
         coord_v= numpy.empty((numpy.size(R), 3))
         #Since the sign of z doesn't matter, work with absolute value of z

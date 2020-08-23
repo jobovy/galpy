@@ -153,13 +153,13 @@ class streamdf(df):
             vo= Vnorm
         df.__init__(self,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(sigv,units.Quantity):
-            sigv= sigv.to(units.km/units.s).value/self._vo
+            sigv= sigv.to_value(units.km/units.s)/self._vo
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./bovy_conversion.time_in_Gyr(self._vo,self._ro)
         else:
             if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
-                tdisrupt= tdisrupt.to(units.Gyr).value\
+                tdisrupt= tdisrupt.to_value(units.Gyr)\
                     /bovy_conversion.time_in_Gyr(self._vo,self._ro)
             self._tdisrupt= tdisrupt
         self._sigMeanOffset= sigMeanOffset
@@ -185,24 +185,24 @@ class streamdf(df):
         self._progenitor_setup(progenitor,leading,useTMHessian)
         if not sigangle is None and \
                 _APY_LOADED and isinstance(sigangle,units.Quantity):
-            sigangle= sigangle.to(units.rad).value
+            sigangle= sigangle.to_value(units.rad)
         if not deltaAngleTrack is None and \
                 _APY_LOADED and isinstance(deltaAngleTrack,units.Quantity):
-            deltaAngleTrack= deltaAngleTrack.to(units.rad).value
+            deltaAngleTrack= deltaAngleTrack.to_value(units.rad)
         self._offset_setup(sigangle,leading,deltaAngleTrack)
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
         if _APY_LOADED and isinstance(R0,units.Quantity):
-            R0= R0.to(units.kpc).value
+            R0= R0.to_value(units.kpc)
         if _APY_LOADED and isinstance(Zsun,units.Quantity):
-            Zsun= Zsun.to(units.kpc).value
+            Zsun= Zsun.to_value(units.kpc)
         if _APY_LOADED and isinstance(vsun,units.Quantity):
-            vsun= vsun.to(units.km/units.s).value
+            vsun= vsun.to_value(units.km/units.s)
         elif _APY_LOADED and isinstance(vsun[0],units.Quantity):
-            vsun[0]= vsun[0].to(units.km/units.s).value
-            vsun[1]= vsun[1].to(units.km/units.s).value
-            vsun[2]= vsun[2].to(units.km/units.s).value
+            vsun[0]= vsun[0].to_value(units.km/units.s)
+            vsun[1]= vsun[1].to_value(units.km/units.s)
+            vsun[2]= vsun[2].to_value(units.km/units.s)
         self._setup_coord_transform(R0,Zsun,vsun,progenitor,custom_transform)
         #Determine the stream track
         if not nosetup:
@@ -495,13 +495,13 @@ class streamdf(df):
 
         """
         if _APY_LOADED and isinstance(venc,units.Quantity):
-            venc= venc.to(units.km/units.s).value/self._vo
+            venc= venc.to_value(units.km/units.s)/self._vo
         if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.km/units.s).value/self._vo
+            sigma= sigma.to_value(units.km/units.s)/self._vo
         if _APY_LOADED and isinstance(nsubhalo,units.Quantity):
-            nsubhalo= nsubhalo.to(1/units.kpc**3).value*self._ro**3.
+            nsubhalo= nsubhalo.to_value(1/units.kpc**3)*self._ro**3.
         if _APY_LOADED and isinstance(bmax,units.Quantity):
-            bmax= bmax.to(units.kpc).value/self._ro
+            bmax= bmax.to_value(units.kpc)/self._ro
         Ravg= numpy.mean(numpy.sqrt(self._progenitor.orbit[0,:,0]**2.
                                     +self._progenitor.orbit[0,:,3]**2.))
         if numpy.isinf(venc):
@@ -1796,10 +1796,10 @@ class streamdf(df):
 
         """
         if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
+            Opar= Opar.to_value(1/units.Gyr)\
                 /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+            apar= apar.to_value(units.rad)
         if tdisrupt is None: tdisrupt= self._tdisrupt
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])

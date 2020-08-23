@@ -57,7 +57,7 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
         if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
+            hr= hr.to_value(units.kpc)/self._ro
         self._new= new
         self._glorder= glorder
         self._hr= hr

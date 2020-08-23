@@ -102,16 +102,16 @@ class DehnenBarPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(barphi,units.Quantity):
-            barphi= barphi.to(units.rad).value
+            barphi= barphi.to_value(units.rad)
         if _APY_LOADED and isinstance(rolr,units.Quantity):
-            rolr= rolr.to(units.kpc).value/self._ro
+            rolr= rolr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(rb,units.Quantity):
-            rb= rb.to(units.kpc).value/self._ro
+            rb= rb.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(omegab,units.Quantity):
-            omegab= omegab.to(units.km/units.s/units.kpc).value\
+            omegab= omegab.to_value(units.km/units.s/units.kpc)\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(Af,units.Quantity):
-            Af= Af.to(units.km**2/units.s**2).value/self._vo**2.
+            Af= Af.to_value(units.km**2/units.s**2)/self._vo**2.
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi= True

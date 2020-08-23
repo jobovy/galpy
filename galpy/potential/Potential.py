@@ -841,13 +841,13 @@ class Potential(Force):
         """
         if _APY_LOADED:
             if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/self._ro
+                rmin= rmin.to_value(units.kpc)/self._ro
             if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
+                rmax= rmax.to_value(units.kpc)/self._ro
             if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/self._ro
+                zmin= zmin.to_value(units.kpc)/self._ro
             if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/self._ro
+                zmax= zmax.to_value(units.kpc)/self._ro
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
@@ -1211,7 +1211,7 @@ class Potential(Force):
         
         """
         if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+            OmegaP= OmegaP.to_value(1/units.Gyr)/freq_in_Gyr(self._vo,self._ro)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
@@ -1344,7 +1344,7 @@ class Potential(Force):
         
         """
         if _APY_LOADED and isinstance(l,units.Quantity):
-            l= l.to(units.rad).value
+            l= l.to_value(units.rad)
             deg= False
         if deg:
             sinl= numpy.sin(l/180.*numpy.pi)
@@ -2469,13 +2469,13 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             else:
                 tro= Pot[0]._ro
             if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
+                rmin= rmin.to_value(units.kpc)/tro
             if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
+                rmax= rmax.to_value(units.kpc)/tro
             if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
+                zmin= zmin.to_value(units.kpc)/tro
             if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+                zmax= zmax.to_value(units.kpc)/tro
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2587,13 +2587,13 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             else:
                 tro= Pot[0]._ro
             if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
+                rmin= rmin.to_value(units.kpc)/tro
             if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
+                rmax= rmax.to_value(units.kpc)/tro
             if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
+                zmin= zmin.to_value(units.kpc)/tro
             if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+                zmax= zmax.to_value(units.kpc)/tro
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2700,13 +2700,13 @@ def plotSurfaceDensities(Pot,
             else:
                 tro= Pot[0]._ro
             if isinstance(xmin,units.Quantity):
-                xmin= xmin.to(units.kpc).value/tro
+                xmin= xmin.to_value(units.kpc)/tro
             if isinstance(xmax,units.Quantity):
-                xmax= xmax.to(units.kpc).value/tro
+                xmax= xmax.to_value(units.kpc)/tro
             if isinstance(ymin,units.Quantity):
-                ymin= ymin.to(units.kpc).value/tro
+                ymin= ymin.to_value(units.kpc)/tro
             if isinstance(ymax,units.Quantity):
-                ymax= ymax.to(units.kpc).value/tro
+                ymax= ymax.to_value(units.kpc)/tro
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2898,7 +2898,7 @@ def vterm(Pot,l,t=0.,deg=True):
     """
     Pot= flatten(Pot)
     if _APY_LOADED and isinstance(l,units.Quantity):
-        l= l.to(units.rad).value
+        l= l.to_value(units.rad)
         deg= False
     if deg:
         sinl= numpy.sin(l/180.*numpy.pi)
@@ -3015,9 +3015,9 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     Pot= flatten(Pot)
     if _APY_LOADED and isinstance(OmegaP,units.Quantity):
         if hasattr(Pot,'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(Pot._vo,Pot._ro)
+            OmegaP= OmegaP.to_value(1/units.Gyr)/freq_in_Gyr(Pot._vo,Pot._ro)
         elif hasattr(Pot[0],'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value\
+            OmegaP= OmegaP.to_value(1/units.Gyr)\
                 /freq_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(m,str):
         if 'corot' in m.lower():

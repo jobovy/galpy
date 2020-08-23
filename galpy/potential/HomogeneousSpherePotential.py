@@ -49,7 +49,7 @@ class HomogeneousSpherePotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         if _APY_LOADED and isinstance(R,units.Quantity):
-            R= R.to(units.kpc).value/self._ro
+            R= R.to_value(units.kpc)/self._ro
         self.R= R
         self._R2= self.R**2.
         self._R3= self.R**3.

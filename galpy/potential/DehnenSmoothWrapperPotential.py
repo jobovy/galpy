@@ -60,10 +60,10 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
 
         """
         if _APY_LOADED and isinstance(tform,units.Quantity):
-            tform= tform.to(units.Gyr).value\
+            tform= tform.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(tsteady,units.Quantity):
-            tsteady= tsteady.to(units.Gyr).value\
+            tsteady= tsteady.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._tform= tform
         if tsteady is None:

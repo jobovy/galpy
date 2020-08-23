@@ -49,7 +49,7 @@ class PlummerPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+            b= b.to_value(units.kpc)/self._ro
         self._b= b
         self._scale= self._b
         self._b2= self._b**2.

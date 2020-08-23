@@ -70,15 +70,15 @@ class SpiralArmsPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         if _APY_LOADED:
             if isinstance(alpha, units.Quantity):
-                alpha = alpha.to(units.rad).value
+                alpha = alpha.to_value(units.rad)
             if isinstance(r_ref, units.Quantity):
-                r_ref = r_ref.to(units.kpc).value / self._ro
+                r_ref = r_ref.to_value(units.kpc) / self._ro
             if isinstance(phi_ref, units.Quantity):
-                phi_ref = phi_ref.to(units.rad).value
+                phi_ref = phi_ref.to_value(units.rad)
             if isinstance(Rs, units.Quantity):
-                Rs = Rs.to(units.kpc).value / self._ro
+                Rs = Rs.to_value(units.kpc) / self._ro
             if isinstance(H, units.Quantity):
-                H = H.to(units.kpc).value / self._ro
+                H = H.to_value(units.kpc) / self._ro
             if isinstance(omega, units.Quantity):
                 omega = omega.to(units.km / units.s / units.kpc).value \
                         / bovy_conversion.freq_in_kmskpc(self._vo, self._ro)

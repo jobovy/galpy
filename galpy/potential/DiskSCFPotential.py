@@ -99,7 +99,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """        
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=None)
         if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
         # Parse and store given functions
         self.isNonAxi= dens.__code__.co_argcount == 3
         self._parse_Sigma(Sigma_amp,Sigma,dSigmadR,d2SigmadR2)

@@ -96,14 +96,14 @@ class actionAngleIsochroneApprox(actionAngle):
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
             if _APY_LOADED and isinstance(kwargs['b'],units.Quantity):
-                b= kwargs['b'].to(units.kpc).value/self._ro
+                b= kwargs['b'].to_value(units.kpc)/self._ro
             else:
                 b= kwargs['b']
             self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=b,
                                                                   normalize=1.))
         self._tintJ= kwargs.get('tintJ',100.)
         if _APY_LOADED and isinstance(self._tintJ,units.Quantity):
-            self._tintJ= self._tintJ.to(units.Gyr).value\
+            self._tintJ= self._tintJ.to_value(units.Gyr)\
                 /time_in_Gyr(self._vo,self._ro)
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._integrate_dt= kwargs.get('dt',None)
@@ -238,7 +238,7 @@ class actionAngleIsochroneApprox(actionAngle):
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
             if _APY_LOADED and isinstance(ts,units.Quantity):
-                ts= ts.to(units.Gyr).value\
+                ts= ts.to_value(units.Gyr)\
                     /time_in_Gyr(self._vo,self._ro)
         else:
             ts= numpy.empty(R.shape[1])

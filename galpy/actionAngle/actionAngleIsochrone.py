@@ -64,7 +64,7 @@ class actionAngleIsochrone(actionAngle):
         else:
             self.b= kwargs['b']
             if _APY_LOADED and isinstance(self.b,units.Quantity):
-                self.b= self.b.to(units.kpc).value/self._ro
+                self.b= self.b.to_value(units.kpc)/self._ro
             rb= numpy.sqrt(self.b**2.+1.)
             self.amp= (self.b+rb)**2.*rb
         self._c= False

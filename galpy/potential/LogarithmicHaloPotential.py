@@ -61,7 +61,7 @@ class LogarithmicHaloPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
         if _APY_LOADED and isinstance(core,units.Quantity):
-            core= core.to(units.kpc).value/self._ro
+            core= core.to_value(units.kpc)/self._ro
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True

@@ -67,7 +67,7 @@ class evolveddiskdf(df):
         self._initdf= initdf
         self._pot= pot
         if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
+            to= to.to_value(units.Gyr)/time_in_Gyr(self._vo,self._ro)
         self._to= to
 
     @physical_conversion('phasespacedensity2d',pop=True)
@@ -139,7 +139,7 @@ class evolveddiskdf(df):
             tlist= True
         else: tlist= False
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
+            t= t.to_value(units.Gyr)/time_in_Gyr(self._vo,self._ro)
         if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):

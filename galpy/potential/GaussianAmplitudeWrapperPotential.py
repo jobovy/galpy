@@ -45,10 +45,10 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
 
         """
         if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value\
+            to= to.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.Gyr).value\
+            sigma= sigma.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         self._to= to
         self._sigma2= sigma**2.

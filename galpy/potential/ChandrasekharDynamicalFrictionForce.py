@@ -86,11 +86,11 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         DissipativeForce.__init__(self,amp=amp*GMs,ro=ro,vo=vo,
                                   amp_units='mass')
         if _APY_LOADED and isinstance(rhm,units.Quantity):
-            rhm= rhm.to(units.kpc).value/self._ro
+            rhm= rhm.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(minr,units.Quantity):
-            minr= minr.to(units.kpc).value/self._ro
+            minr= minr.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(maxr,units.Quantity):
-            maxr= maxr.to(units.kpc).value/self._ro
+            maxr= maxr.to_value(units.kpc)/self._ro
         self._gamma= gamma
         self._ms= self._amp/amp # from handling in __init__ above, should be ms in galpy units
         self._rhm= rhm
@@ -146,7 +146,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def GMs(self,gms):
         if _APY_LOADED and isinstance(gms,units.Quantity):
             try:
-                gms= gms.to(units.Msun).value\
+                gms= gms.to_value(units.Msun)\
                     /bovy_conversion.mass_in_msol(self._vo,self._ro)
             except units.UnitConversionError:
                 # Try G x mass
@@ -166,7 +166,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     def rhm(self,new_rhm):
         if _APY_LOADED and isinstance(new_rhm,units.Quantity):
-            new_rhm= new_rhm.to(units.kpc).value/self._ro
+            new_rhm= new_rhm.to_value(units.kpc)/self._ro
         self._rhm= new_rhm
         # Reset the hash
         self._force_hash= None

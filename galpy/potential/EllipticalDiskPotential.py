@@ -65,21 +65,21 @@ class EllipticalDiskPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         if _APY_LOADED and isinstance(phib,units.Quantity):
-            phib= phib.to(units.rad).value
+            phib= phib.to_value(units.rad)
         if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
+            r1= r1.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(tform,units.Quantity):
-            tform= tform.to(units.Gyr).value\
+            tform= tform.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(tsteady,units.Quantity):
-            tsteady= tsteady.to(units.Gyr).value\
+            tsteady= tsteady.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(twophio,units.Quantity):
-            twophio= twophio.to(units.km**2/units.s**2).value/self._vo**2.
+            twophio= twophio.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(cp,units.Quantity):
-            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
+            cp= cp.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(sp,units.Quantity):
-            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+            sp= sp.to_value(units.km**2/units.s**2)/self._vo**2.
         # Back to old definition
         self._amp/= r1**p
         self.hasC= True

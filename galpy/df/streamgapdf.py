@@ -92,10 +92,10 @@ class streamgapdf(streamdf.streamdf):
         # Parse kwargs
         impactb= kwargs.pop('impactb',1.)
         if _APY_LOADED and isinstance(impactb,units.Quantity):
-            impactb= impactb.to(units.kpc).value/self._ro
+            impactb= impactb.to_value(units.kpc)/self._ro
         subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
         if _APY_LOADED and isinstance(subhalovel,units.Quantity):
-            subhalovel= subhalovel.to(units.km/units.s).value/self._vo
+            subhalovel= subhalovel.to_value(units.km/units.s)/self._vo
         hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
         if not GM is None \
@@ -107,20 +107,20 @@ class streamgapdf(streamdf.streamdf):
                     /bovy_conversion.mass_in_msol(self._vo,self._ro)\
                     /bovy_conversion._G
             except units.UnitConversionError: pass
-            GM= GM.to(units.Msun).value\
+            GM= GM.to_value(units.Msun)\
                 /bovy_conversion.mass_in_msol(self._vo,self._ro)
         rs= kwargs.pop('rs',None)
         if not rs is None \
                 and _APY_LOADED and isinstance(rs,units.Quantity):
-            rs= rs.to(units.kpc).value/self._ro
+            rs= rs.to_value(units.kpc)/self._ro
         subhalopot= kwargs.pop('subhalopot',None)
         timpact= kwargs.pop('timpact',1.)
         if _APY_LOADED and isinstance(timpact,units.Quantity):
-            timpact= timpact.to(units.Gyr).value\
+            timpact= timpact.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         impact_angle= kwargs.pop('impact_angle',1.)
         if _APY_LOADED and isinstance(impact_angle,units.Quantity):
-            impact_angle= impact_angle.to(units.rad).value
+            impact_angle= impact_angle.to_value(units.rad)
         nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
@@ -197,10 +197,10 @@ class streamgapdf(streamdf.streamdf):
 
         """
         if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
+            Opar= Opar.to_value(1/units.Gyr)\
                 /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+            apar= apar.to_value(units.rad)
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
         out= numpy.zeros(len(Opar))

@@ -92,7 +92,7 @@ class EllipsoidalPotential(Potential):
     def _setup_zvec_pa(self,zvec,pa):
         if not pa is None:
             if _APY_LOADED and isinstance(pa,units.Quantity):
-                pa= pa.to(units.rad).value
+                pa= pa.to_value(units.rad)
         if zvec is None and (pa is None or numpy.fabs(pa) < 10.**-10.):
             self._aligned= True
         else:

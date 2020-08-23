@@ -57,12 +57,12 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
 
         """
         if _APY_LOADED and isinstance(vpo,units.Quantity):
-            vpo= vpo.to(units.km/units.s).value/self._vo
+            vpo= vpo.to_value(units.km/units.s)/self._vo
         if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value\
+            to= to.to_value(units.Gyr)\
                 /bovy_conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+            pa= pa.to_value(units.rad)
         self._vpo= vpo
         self._beta= beta
         self._pa= pa

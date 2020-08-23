@@ -64,7 +64,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
         self.a= a
         self.a2= self.a**2
         self._scale= self.a

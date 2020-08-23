@@ -55,7 +55,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._roSet= False
         else:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
             self._roSet= True
         if vo is None:
@@ -63,7 +63,7 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._voSet= False
         else:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
             self._voSet= True
         return None
@@ -134,11 +134,11 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
         if not vo is False: self._voSet= True
         if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
         if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
         return None  
 

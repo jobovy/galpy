@@ -79,7 +79,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro 
+            a= a.to_value(units.kpc)/self._ro 
             
         
         ##Errors

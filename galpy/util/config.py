@@ -70,7 +70,7 @@ def set_ro(ro):
        2016-01-05 - Written - Bovy (UofT)
     """
     if _APY_LOADED and isinstance(ro,units.Quantity):
-        ro= ro.to(units.kpc).value
+        ro= ro.to_value(units.kpc)
     __config__.set('normalization','ro',str(ro))
 
 def set_vo(vo):
@@ -87,5 +87,5 @@ def set_vo(vo):
        2016-01-05 - Written - Bovy (UofT)
     """
     if _APY_LOADED and isinstance(vo,units.Quantity):
-        vo= vo.to(units.km/units.s).value
+        vo= vo.to_value(units.km/units.s)
     __config__.set('normalization','vo',str(vo))

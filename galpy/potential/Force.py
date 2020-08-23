@@ -48,7 +48,7 @@ class Force(object):
             self._roSet= False
         else:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
             self._roSet= True
         if vo is None:
@@ -56,7 +56,7 @@ class Force(object):
             self._voSet= False
         else:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
             self._voSet= True
         # Parse amp if it has units
@@ -65,7 +65,7 @@ class Force(object):
             unitFound= False
             # velocity^2
             try:
-                self._amp= self._amp.to(units.km**2/units.s**2).value\
+                self._amp= self._amp.to_value(units.km**2/units.s**2)\
                     /self._vo**2.
             except units.UnitConversionError: pass
             else:
@@ -75,7 +75,7 @@ class Force(object):
             if not unitFound:
                 # mass
                 try:
-                    self._amp= self._amp.to(units.Msun).value\
+                    self._amp= self._amp.to_value(units.Msun)\
                         /bovy_conversion.mass_in_msol(self._vo,self._ro)
                 except units.UnitConversionError: pass
                 else:
@@ -97,7 +97,7 @@ class Force(object):
             if not unitFound:
                 # density
                 try:
-                    self._amp= self._amp.to(units.Msun/units.pc**3).value\
+                    self._amp= self._amp.to_value(units.Msun/units.pc**3)\
                         /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
                 except units.UnitConversionError: pass
                 else:
@@ -287,11 +287,11 @@ class Force(object):
         if not vo is False: self._voSet= True
         if not ro is None and ro:
             if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+                ro= ro.to_value(units.kpc)
             self._ro= ro
         if not vo is None and vo:
             if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+                vo= vo.to_value(units.km/units.s)
             self._vo= vo
         return None
 

@@ -55,7 +55,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         if _APY_LOADED and isinstance(Delta,units.Quantity):
-            Delta= Delta.to(units.kpc).value/self._ro
+            Delta= Delta.to_value(units.kpc)/self._ro
         self._ac    = ac
         self._Delta = Delta
         self._gamma = self._Delta**2 / (1.-self._ac**2)

@@ -51,7 +51,7 @@ class BurkertPotential(SphericalPotential):
         SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,
                                     amp_units='density')
         if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+            a= a.to_value(units.kpc)/self._ro
         self.a=a
         self._scale= self.a
         if normalize or \

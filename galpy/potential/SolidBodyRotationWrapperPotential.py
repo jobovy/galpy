@@ -47,10 +47,10 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
 
         """
         if _APY_LOADED and isinstance(omega,units.Quantity):
-            omega= omega.to(units.km/units.s/units.kpc).value\
+            omega= omega.to_value(units.km/units.s/units.kpc)\
                 /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+            pa= pa.to_value(units.rad)
         self._omega= omega
         self._pa= pa
         self.hasC= True
