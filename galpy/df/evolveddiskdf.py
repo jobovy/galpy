@@ -21,7 +21,7 @@ from ..orbit import Orbit
 from ..potential import calcRotcurve
 from .df import df, _APY_LOADED
 from ..potential.Potential import _check_c
-from ..util.bovy_quadpack import dblquad
+from ..util.quadpack import dblquad
 from ..util import plot
 from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr

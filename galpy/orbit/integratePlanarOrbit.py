@@ -11,7 +11,7 @@ from ..potential.planarPotential import _evaluateplanarRforces,\
 from ..potential.WrapperPotential import parentWrapperPotential
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
-from ..util import bovy_symplecticode as symplecticode
+from ..util import symplecticode
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()

@@ -2,7 +2,7 @@
 from __future__ import print_function
 import numpy as nu
 from numpy import linalg
-import galpy.util.bovy_symplecticode as symplecticode
+from galpy.util import symplecticode
 from galpy.potential.Potential import evaluateRforces, evaluatezforces,\
     evaluatephiforces
 from galpy.potential.planarPotential import evaluateplanarRforces,\
