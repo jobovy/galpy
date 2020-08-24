@@ -7,7 +7,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 from ..util import multi
 from .Potential import Potential
-from ..util.bovy_conversion import physical_conversion
+from ..util.conversion import physical_conversion
 from ..util import _load_extension_libs
 _DEBUG= False
 

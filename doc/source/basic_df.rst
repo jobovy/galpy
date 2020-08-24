@@ -63,8 +63,8 @@ Or we can plot the two-dimensional density at R=1.
 
 >>> dfro= [[dfc(Orbit([1.,-0.7+1.4/200*jj,1.-0.6+1.2/200*ii])) for jj in range(201)]for ii in range(201)]
 >>> dfro= numpy.array(dfro)
->>> from galpy.util.bovy_plot import bovy_dens2d
->>> bovy_dens2d(dfro,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
+>>> from galpy.util.plot import dens2d
+>>> dens2d(dfro,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
 
 .. image:: images/basic-df-2d.png
 
@@ -545,8 +545,8 @@ unpack the Orbit instance that contains all orbits)
 
 This gives
 
->>> from galpy.util.bovy_plot import bovy_dens2d
->>> bovy_dens2d(out,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
+>>> from galpy.util.plot import dens2d
+>>> dens2d(out,origin='lower',cmap='gist_yarg',contours=True,xrange=[-0.7,0.7],yrange=[0.4,1.6],xlabel=r'$v_R$',ylabel=r'$v_T$')
 
 .. image:: images/diskdf-dehnenhercules.png
 
@@ -559,7 +559,7 @@ much more easily as
 
 The gridded DF can be accessed as ``grid.df``, which we can plot as before
 
->>> bovy_dens2d(grid.df.T,origin='lower',cmap='gist_yarg',contours=True,xrange=[grid.vRgrid[0],grid.vRgrid[-1]],yrange=[grid.vTgrid[0],grid.vTgrid[-1]],xlabel=r'$v_R$',ylabel=r'$v_T$')
+>>> dens2d(grid.df.T,origin='lower',cmap='gist_yarg',contours=True,xrange=[grid.vRgrid[0],grid.vRgrid[-1]],yrange=[grid.vTgrid[0],grid.vTgrid[-1]],xlabel=r'$v_R$',ylabel=r'$v_T$')
 
 .. image:: images/diskdf-dehnenhercules-edf.png
 

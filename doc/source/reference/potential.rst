@@ -295,8 +295,8 @@ If one wants to add the supermassive black hole at the Galactic
 center, this can be done by
 
 >>> from galpy.potential import KeplerPotential
->>> from galpy.util import bovy_conversion
->>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))
+>>> from galpy.util import conversion
+>>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./conversion.mass_in_msol(220.,8.))
 
 for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`. If you
 want to take into account dynamical friction for, say, an object of
@@ -312,7 +312,7 @@ do
 
 where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
 
->>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./conversion.mass_in_msol(220.,8.),
 					     rhm=5./8.,
 					     dens=MWPotential2014)
 >>> MWPotential2014wDF= MWPotential2014+cdf
@@ -336,10 +336,10 @@ Unlike ``MWPotential2014``, these potentials have physical units
 turned on, using as the unit scaling parameters ``ro`` and ``vo`` the
 distance to the Galactic center and the circular velocity at the Sun's
 radius of each potential. These can be obtained using the
-``galpy.util.bovy_conversion.get_physical`` function, e.g.,
+``galpy.util.conversion.get_physical`` function, e.g.,
 
 >>> from galpy.potential.mwpotentials import McMillan17
->>> from galpy.util.bovy_conversion import get_physical
+>>> from galpy.util.conversion import get_physical
 >>> get_physical(McMillan17)
 # {'ro': 8.21, 'vo': 233.1}
 
@@ -359,7 +359,7 @@ As an example, we integrate the Sun's orbit for 10 Gyr in
 
 >>> from galpy.potential.mwpotentials import MWPotential2014, McMillan17, Irrgang13I
 >>> from galpy.orbit import Orbit
->>> from galpy.util.bovy_conversion import get_physical
+>>> from galpy.util.conversion import get_physical
 >>> from astropy import units
 >>> times= numpy.linspace(0.,10.,3001)*units.Gyr
 >>> o_mwp14= Orbit(ro=8.,vo=220.) # Need to set these by hand

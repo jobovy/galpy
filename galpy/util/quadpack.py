@@ -1,5 +1,5 @@
 ###############################################################################
-#   bovy_quadpack: some variations on scipy's quadpack
+#   galpy.util.quadpack: some variations on scipy's quadpack
 ###############################################################################
 from scipy.integrate import quad
 def _infunc(x,func,gfun,hfun,more_args,epsrel,epsabs):

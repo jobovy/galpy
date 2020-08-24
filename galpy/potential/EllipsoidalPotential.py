@@ -11,7 +11,7 @@
 import hashlib
 import numpy
 from scipy import integrate
-from ..util import bovy_coords
+from ..util import coords
 from ..util import _rotate_to_arbitrary_vector
 from .Potential import Potential, _APY_LOADED, \
     check_potential_inputs_not_arrays
@@ -145,7 +145,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if self._aligned:
             return self._evaluate_xyz(x,y,z)
         else:
@@ -178,7 +178,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -222,7 +222,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -266,7 +266,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -317,7 +317,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
@@ -345,7 +345,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         phixz= self._2ndderiv_xyz(x,y,z,0,2)
@@ -371,7 +371,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         return self._2ndderiv_xyz(x,y,z,2,2)
@@ -395,7 +395,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         Fx= self._force_xyz(x,y,z,0)
@@ -426,7 +426,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
             raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
         Fx= self._force_xyz(x,y,z,0)
@@ -464,7 +464,7 @@ class EllipsoidalPotential(Potential):
         HISTORY:
            2018-08-06 - Written - Bovy (UofT)
         """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if self._aligned:
             xp, yp, zp= x, y, z
         else:

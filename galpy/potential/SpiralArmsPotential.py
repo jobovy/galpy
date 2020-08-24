@@ -8,7 +8,7 @@
 ###############################################################################
 from __future__ import division
 from .Potential import Potential, _APY_LOADED
-from ..util import bovy_conversion
+from ..util import conversion
 import numpy
 if _APY_LOADED:
     from astropy import units
@@ -81,7 +81,7 @@ class SpiralArmsPotential(Potential):
                 H = H.to_value(units.kpc) / self._ro
             if isinstance(omega, units.Quantity):
                 omega = omega.to(units.km / units.s / units.kpc).value \
-                        / bovy_conversion.freq_in_kmskpc(self._vo, self._ro)
+                        / conversion.freq_in_kmskpc(self._vo, self._ro)
 
         self._N = -N  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
         self._alpha = -alpha  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)

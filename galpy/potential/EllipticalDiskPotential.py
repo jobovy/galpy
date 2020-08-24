@@ -3,7 +3,7 @@
 #   potential
 ###############################################################################
 import numpy
-from ..util import bovy_conversion
+from ..util import conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -70,10 +70,10 @@ class EllipticalDiskPotential(planarPotential):
             r1= r1.to_value(units.kpc)/self._ro
         if _APY_LOADED and isinstance(tform,units.Quantity):
             tform= tform.to_value(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(tsteady,units.Quantity):
             tsteady= tsteady.to_value(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(twophio,units.Quantity):
             twophio= twophio.to_value(units.km**2/units.s**2)/self._vo**2.
         if _APY_LOADED and isinstance(cp,units.Quantity):

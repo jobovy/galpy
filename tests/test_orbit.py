@@ -16,7 +16,7 @@ _APY3= astropy.__version__ > '3'
 from galpy import potential
 from galpy.potential.Potential import  _check_c
 from galpy.util import galpyWarning
-from galpy.util.bovy_coords import _K
+from galpy.util.coords import _K
 from test_actionAngle import reset_warning_registry
 from test_potential import testplanarMWPotential, testMWPotential, \
     testlinearMWPotential, \
@@ -2862,7 +2862,7 @@ def test_newOrbit_badinterpolation():
 # Check the routines that should return physical coordinates
 def test_physical_output():
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     lp= LogarithmicHaloPotential(normalize=1.)
     plp= lp.toPlanar()
     for ii in range(4):
@@ -2906,12 +2906,12 @@ def test_physical_output():
             assert numpy.fabs(o.jr(pot=lp,type='staeckel',delta=0.5)/vo/ro-o.jr(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jr() output for Orbit setup with ro=,vo= does not work as expected'
             assert numpy.fabs(o.jp(pot=lp,type='staeckel',delta=0.5)/vo/ro-o.jp(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jp() output for Orbit setup with ro=,vo= does not work as expected'
             assert numpy.fabs(o.jz(pot=lp,type='staeckel',delta=0.5)/vo/ro-o.jz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.jz() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Tr(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.time_in_Gyr(vo,ro)-o.Tr(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tr() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Tp(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.time_in_Gyr(vo,ro)-o.Tp(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tp() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Tz(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.time_in_Gyr(vo,ro)-o.Tz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tz() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Or(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.freq_in_Gyr(vo,ro)-o.Or(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Or() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.freq_in_Gyr(vo,ro)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
-            assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)/bovy_conversion.freq_in_Gyr(vo,ro)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Tr(pot=lp,type='staeckel',delta=0.5)/conversion.time_in_Gyr(vo,ro)-o.Tr(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tr() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Tp(pot=lp,type='staeckel',delta=0.5)/conversion.time_in_Gyr(vo,ro)-o.Tp(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tp() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Tz(pot=lp,type='staeckel',delta=0.5)/conversion.time_in_Gyr(vo,ro)-o.Tz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Tz() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Or(pot=lp,type='staeckel',delta=0.5)/conversion.freq_in_Gyr(vo,ro)-o.Or(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Or() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)/conversion.freq_in_Gyr(vo,ro)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
+            assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)/conversion.freq_in_Gyr(vo,ro)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
     assert numpy.fabs((o.time(1.)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
@@ -3175,7 +3175,7 @@ def test_orbitfit_radec():
 # Test orbit fit in custom coordinates (using Equatorial for testing)
 def test_orbitfit_custom():
     from galpy.orbit import Orbit
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
     ro, vo= 9., 230.
     o= Orbit([0.8,0.3,1.3,0.4,0.2,2.],ro=ro,vo=vo)
@@ -3198,8 +3198,8 @@ def test_orbitfit_custom():
     else: raise AssertionError('Orbit fit with custom sky coordinates but without the necessary coordinate-transformation functions did not raise an exception')
     of= Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
                        vxvv,pot=lp,tintJ=1.5,customsky=True,
-                       lb_to_customsky=bovy_coords.lb_to_radec,
-                       pmllpmbb_to_customsky=bovy_coords.pmllpmbb_to_pmrapmdec,
+                       lb_to_customsky=coords.lb_to_radec,
+                       pmllpmbb_to_customsky=coords.pmllpmbb_to_pmrapmdec,
                        ro=ro,vo=vo)
     compf= comp_orbfit(of,vxvv,numpy.linspace(0.,2.,1001),lp,lb=False,radec=True,
                        ro=ro,vo=vo)
@@ -3208,9 +3208,9 @@ def test_orbitfit_custom():
 
 def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     """Compare the output of the orbit fit properly, ro and vo only implemented for radec"""
-    from galpy.util import bovy_coords
-    bovy_coords._APY_COORDS_ORIG= bovy_coords._APY_COORDS
-    bovy_coords._APY_COORDS= False # too slow otherwise
+    from galpy.util import coords
+    coords._APY_COORDS_ORIG= coords._APY_COORDS
+    coords._APY_COORDS= False # too slow otherwise
     of.integrate(ts,pot)
     off= of.flip()
     off.integrate(ts,pot)
@@ -3243,7 +3243,7 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
     out= []
     for ii in range(vxvv.shape[0]):
         out.append(numpy.amin(numpy.sum((allvxvv-vxvv[ii])**2.,axis=1)))
-    bovy_coords._APY_COORDS= bovy_coords._APY_COORDS_ORIG
+    coords._APY_COORDS= coords._APY_COORDS_ORIG
     return numpy.array(out)
 
 def test_MWPotential_warning():
@@ -3653,14 +3653,14 @@ def test_orbit_obsvel_Orbits_issue322():
 def test_orbit_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     ell_p= potential.EllipticalDiskPotential()
     pota=[b_p,ell_p]
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+    ts= numpy.linspace(0.,3.5/conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="odeint")
@@ -3669,13 +3669,13 @@ def test_orbit_dim_2dPot_3dOrb():
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     pota= potential.RZToverticalPotential(b_p,1.1)
     o= Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],radec=True,ro=8.0,vo=220.0)
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+    ts= numpy.linspace(0.,3.5/conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="odeint")
@@ -4105,13 +4105,13 @@ def test_orbitint_dissipativefallback():
 # units actually do so; see issue #294
 def test_intrinsic_physical_output():
     from galpy.orbit import Orbit
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     o= Orbit([0.9,0.,1.,0.,0.2,0.],ro=8.,vo=220.,zo=0.,
              solarmotion=[-20.,30.,40.])
     # 04/2018: not quite anylonger w/ astropy def. of plane, but close
     l_true= 0.
     b_true= 0.
-    ra_true, dec_true= bovy_coords.lb_to_radec(l_true,b_true,degree=True,
+    ra_true, dec_true= coords.lb_to_radec(l_true,b_true,degree=True,
                                                epoch=None)
     assert numpy.fabs(o.ra()-ra_true) < 10.**-3.8, 'Orbit.ra does not return correct ra in degree'
     assert numpy.fabs(o.dec()-dec_true) < 10.**-3.8, 'Orbit.dec does not return correct dec in degree'
@@ -4120,7 +4120,7 @@ def test_intrinsic_physical_output():
     assert numpy.fabs(o.dist()-0.8) < 10.**-8., 'Orbit.dist does not return correct dist in kpc'
     pmll_true= -30./0.8/_K
     pmbb_true= 4./0.8/_K
-    pmra_true, pmdec_true= bovy_coords.pmllpmbb_to_pmrapmdec(pmll_true,
+    pmra_true, pmdec_true= coords.pmllpmbb_to_pmrapmdec(pmll_true,
                                                              pmbb_true,
                                                              l_true,b_true,
                                                              degree=True,
@@ -4915,7 +4915,7 @@ def test_orbit_time():
     # required
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from astropy import units as u
     ts= numpy.linspace(0.,1.,1001)*u.Gyr
     o= Orbit()
@@ -4926,12 +4926,12 @@ def test_orbit_time():
     assert numpy.all(numpy.fabs((ts-o.time(ts,quantity=True))/ts[-1]).value < 1e-10), 'Orbit.time does not return the correct times'
     assert numpy.fabs((ts[-1]-o.time(ts[-1],quantity=True))/ts[-1]).value < 1e-10, 'Orbit.time does not return the correct times'
     # with argument without units --> units
-    assert numpy.all(numpy.fabs((ts-o.time(ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10), 'Orbit.time does not return the correct times'
-    assert numpy.fabs((ts[-1]-o.time(ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10, 'Orbit.time does not return the correct times'
+    assert numpy.all(numpy.fabs((ts-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs((ts[-1]-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10, 'Orbit.time does not return the correct times'
     # Now should get without units
     o.turn_physical_off()
-    assert numpy.all(numpy.fabs((ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts.to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10), 'Orbit.time does not return the correct times'
-    assert numpy.fabs((ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/bovy_conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10, 'Orbit.time does not return the correct times'
+    assert numpy.all(numpy.fabs((ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs((ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10, 'Orbit.time does not return the correct times'
     return None
 
 def test_noDeprecationWarning_timeInCall():

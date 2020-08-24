@@ -64,7 +64,7 @@ def test_actionAngleHarmonic_linear_angles():
 def test_physical_harmonic():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonic
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 7., 230.
     ip= IsochronePotential(normalize=5.,b=10000.)
     # Omega = sqrt(4piG density / 3)
@@ -75,10 +75,10 @@ def test_physical_harmonic():
     assert numpy.fabs(aAH(-0.1,0.1)-aAHnu(-0.1,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value for actionAngleHarmonic'
     # actionsFreqs
     assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[0]-aAHnu.actionsFreqs(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
-    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[1]-aAHnu.actionsFreqs(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqs(0.2,0.1)[1]-aAHnu.actionsFreqs(0.2,0.1)[1]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic'
     # actionsFreqsAngles
     assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[0]-aAHnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
-    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[1]-aAHnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
+    assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[1]-aAHnu.actionsFreqsAngles(0.2,0.1)[1]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
     assert numpy.fabs(aAH.actionsFreqsAngles(0.2,0.1)[2]-aAHnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic'
     return None
 
@@ -2747,7 +2747,7 @@ def test_orbit_interface_actionAngleIsochroneApprox():
 def test_physical_staeckel():
     from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 7., 230.
     aA= actionAngleStaeckel(pot=MWPotential,delta=0.71,ro=ro,vo=vo)
     aAnu= actionAngleStaeckel(pot=MWPotential,delta=0.71)
@@ -2756,11 +2756,11 @@ def test_physical_staeckel():
     for ii in range(3):
         assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
     for ii in range(3,6):
-        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
+        assert numpy.fabs(aA.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqs(1.1,0.1,1.1,0.1,0.2,0.)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value'
     for ii in range(3):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     for ii in range(3,6):
-        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
+        assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     for ii in range(6,9):
         assert numpy.fabs(aA.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]-aAnu.actionsFreqsAngles(1.1,0.1,1.1,0.1,0.2,0.)[ii]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value'
     return None
@@ -2990,7 +2990,7 @@ def test_physical_actionAngleHarmonicInverse():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonicInverse
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ip= IsochronePotential(normalize=5.,b=10000.)
     ro,vo= 7., 230.
     aAHI= actionAngleHarmonicInverse(\
@@ -3000,10 +3000,10 @@ def test_physical_actionAngleHarmonicInverse():
     correct_fac= [ro,vo]
     for ii in range(2):
         assert numpy.fabs(aAHI(0.1,-0.2)[ii]-aAHInu(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
-    correct_fac= [ro,vo,bovy_conversion.freq_in_Gyr(vo,ro)]
+    correct_fac= [ro,vo,conversion.freq_in_Gyr(vo,ro)]
     for ii in range(3):
         assert numpy.fabs(aAHI.xvFreqs(0.1,-0.2)[ii]-aAHInu.xvFreqs(0.1,-0.2)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
-    assert numpy.fabs(aAHI.Freqs(0.1)-aAHInu.Freqs(0.1)*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    assert numpy.fabs(aAHI.Freqs(0.1)-aAHInu.Freqs(0.1)*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
     return None
 
 # Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
@@ -3186,7 +3186,7 @@ def test_actionAngleIsochroneInverse_orbit():
 def test_physical_actionAngleIsochroneInverse():
     from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneInverse
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 7., 230.
     ip= IsochronePotential(normalize=1.01,b=1.02)
     aAII= actionAngleIsochroneInverse(ip=ip,ro=ro,vo=vo)
@@ -3195,13 +3195,13 @@ def test_physical_actionAngleIsochroneInverse():
     for ii in range(6):
         assert numpy.fabs(aAII(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function __call__ does not return Quantity with the right value'
     correct_fac= [ro,vo,vo,ro,vo,1.,
-                  bovy_conversion.freq_in_Gyr(vo,ro),
-                  bovy_conversion.freq_in_Gyr(vo,ro),
-                  bovy_conversion.freq_in_Gyr(vo,ro)]
+                  conversion.freq_in_Gyr(vo,ro),
+                  conversion.freq_in_Gyr(vo,ro),
+                  conversion.freq_in_Gyr(vo,ro)]
     for ii in range(9):
         assert numpy.fabs(aAII.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
     for ii in range(3):
-        assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+        assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
     return None
 
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,

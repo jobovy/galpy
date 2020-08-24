@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.rect_to_cyl
-====================================
+galpy.util.coords.rect_to_cyl
+=============================
 
-.. autofunction:: galpy.util.bovy_coords.rect_to_cyl
+.. autofunction:: galpy.util.coords.rect_to_cyl

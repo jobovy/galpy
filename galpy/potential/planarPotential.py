@@ -5,9 +5,9 @@ import copy
 import pickle
 import numpy
 from scipy import integrate
-from ..util import bovy_plot as plot
+from ..util import plot
 from ..util import config
-from ..util.bovy_conversion import physical_conversion,\
+from ..util.conversion import physical_conversion,\
     potential_physical_input, freq_in_Gyr, physical_compatible
 from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative
@@ -432,7 +432,7 @@ class planarPotential(object):
            Rrange - range (can be Quantity)
            grid - number of points to plot
            savefilename - save to or restore from this savefile (pickle)
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
         OUTPUT:
            plot to output device
         HISTORY:
@@ -671,7 +671,7 @@ class planarAxiPotential(planarPotential):
 
            savefilename - save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -702,7 +702,7 @@ class planarAxiPotential(planarPotential):
 
            savefilename - save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1324,7 +1324,7 @@ def plotplanarPotentials(Pot,*args,**kwargs):
 
        ncontours - number of contours to plot (if applicable)
 
-       +bovy_plot(*args,**kwargs) or bovy_dens2d(**kwargs)
+       +galpy.util.plot.plot(*args,**kwargs) or galpy.util.plot.dens2d(**kwargs)
 
     OUTPUT:
 
@@ -1421,13 +1421,13 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         ncontours= kwargs.pop('ncontours',10)
         if not 'levels' in kwargs:
             kwargs['levels']= numpy.linspace(numpy.nanmin(potR),numpy.nanmax(potR),ncontours)
-        return plot.bovy_dens2d(potR.T,
-                                xrange=xrange,
-                                yrange=yrange,**kwargs)
+        return plot.dens2d(potR.T,
+                           xrange=xrange,
+                           yrange=yrange,**kwargs)
     else:
         kwargs['xlabel']=r"$R/R_0$"
         kwargs['ylabel']=r"$\Phi(R)$"
         kwargs['xrange']=Rrange
-        return plot.bovy_plot(Rs,potR,*args,**kwargs)
+        return plot.plot(Rs,potR,*args,**kwargs)
                               
     

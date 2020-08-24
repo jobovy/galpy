@@ -4,7 +4,7 @@ import os, os.path
 import numpy as nu
 import csv
 import cPickle as pickle
-import galpy.util.bovy_plot as plot
+from galpy.util import plot
 from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
 from galpy.orbit import Orbit
 _degtorad= nu.pi/180.
@@ -97,31 +97,31 @@ def calcj(rotcurve):
 
     #plot
     if rotcurve == 'flat':
-        plot.bovy_print()
-        plot.bovy_plot(nu.array([0.,1.]),nu.array([0.,1.]),'k-',
-                       xlabel=r'$\mathrm{Holmberg\ et\ al.}\ e$',
-                       ylabel=r'$\mathrm{galpy}\ e$')
-        plot.bovy_plot(e,mye,'k,',overplot=True)
-        plot.bovy_end_print('myee.png')
+        plot.print()
+        plot.plot(nu.array([0.,1.]),nu.array([0.,1.]),'k-',
+                  xlabel=r'$\mathrm{Holmberg\ et\ al.}\ e$',
+                  ylabel=r'$\mathrm{galpy}\ e$')
+        plot.plot(e,mye,'k,',overplot=True)
+        plot.end_print('myee.png')
         
-        plot.bovy_print()
-        plot.bovy_plot(nu.array([0.,2.5]),
-                       nu.array([0.,2.5]),'k-',
-                       xlabel=r'$\mathrm{Holmberg\ et\ al.}\ z_{\mathrm{max}}$',
-                   ylabel=r'$\mathrm{galpy}\ z_{\mathrm{max}}$')
-        plot.bovy_plot(zmax,myzmax,'k,',overplot=True)
-        plot.bovy_end_print('myzmaxzmax.png')
+        plot.print()
+        plot.plot(nu.array([0.,2.5]),
+                  nu.array([0.,2.5]),'k-',
+                  xlabel=r'$\mathrm{Holmberg\ et\ al.}\ z_{\mathrm{max}}$',
+                  ylabel=r'$\mathrm{galpy}\ z_{\mathrm{max}}$')
+        plot.plot(zmax,myzmax,'k,',overplot=True)
+        plot.end_print('myzmaxzmax.png')
 
-    plot.bovy_print()
-    plot.bovy_plot(myjp,myjr,'k.',ms=2.,
-                   xlabel=r'$J_{\phi}$',
-                   ylabel=r'$J_R$',
-                   xrange=[0.7,1.3],
-                   yrange=[0.,0.05])
+    plot.print()
+    plot.plot(myjp,myjr,'k.',ms=2.,
+              xlabel=r'$J_{\phi}$',
+              ylabel=r'$J_R$',
+              xrange=[0.7,1.3],
+              yrange=[0.,0.05])
     if rotcurve == 'flat':
-        plot.bovy_end_print('jrjp.png')
+        plot.end_print('jrjp.png')
     else:
-        plot.bovy_end_print('jrjp_power.png')
+        plot.end_print('jrjp_power.png')
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:

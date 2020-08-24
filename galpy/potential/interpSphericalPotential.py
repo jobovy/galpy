@@ -5,7 +5,7 @@ import numpy
 from scipy import interpolate
 from .SphericalPotential import SphericalPotential
 from .Potential import _evaluateRforces, _evaluatePotentials
-from ..util.bovy_conversion import physical_compatible, get_physical
+from ..util.conversion import physical_compatible, get_physical
 class interpSphericalPotential(SphericalPotential):
     """__init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,ro=None,vo=None)
 

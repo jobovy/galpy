@@ -6,7 +6,7 @@ from scipy.special import gammaln
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from ..util import bovy_coords
+from ..util import coords
 
 from .NumericalPotentialDerivativesMixin import \
     NumericalPotentialDerivativesMixin
@@ -242,7 +242,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         
         
    
@@ -370,7 +370,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         new_hash= hashlib.md5(numpy.array([R, z,phi])).hexdigest()
         
         if new_hash == self._force_hash:
@@ -455,7 +455,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = R
         dr_dR = numpy.divide(R,r); dtheta_dR = numpy.divide(z,r**2); dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
@@ -478,7 +478,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = z
         dr_dz = numpy.divide(z,r); dtheta_dz = numpy.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
@@ -501,7 +501,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = phi
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
         return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)

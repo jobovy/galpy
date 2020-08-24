@@ -19,7 +19,7 @@ from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..util import multi, bovy_coords
+from ..util import multi, coords
 _PRINTOUTSIDEGRID= False
 _APY_LOADED= True
 try:
@@ -629,7 +629,7 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
            2012-11-29 - Written - Bovy (IAS)
         """                           
-        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        u,v= coords.Rz_to_uv(R,z,self._delta)
         pu= (vR*numpy.cosh(u)*numpy.sin(v)
              +vz*numpy.sinh(u)*numpy.cos(v)) #no delta, bc we will divide it out
         out= (pu**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sinh(u)**2.-1./sinh2u0)
@@ -656,7 +656,7 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
            2012-12-23 - Written - Bovy (IAS)
         """                           
-        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        u,v= coords.Rz_to_uv(R,z,self._delta)
         pv= (vR*numpy.sinh(u)*numpy.cos(v)
              -vz*numpy.cosh(u)*numpy.sin(v)) #no delta, bc we will divide it out
         out= (pv**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sin(v)**2.-1.)

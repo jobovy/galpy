@@ -3,7 +3,7 @@ from .linearPotential import linearPotential
 from .planarPotential import planarPotential
 from .Potential import PotentialError, Potential, flatten
 from .DissipativeForce import _isDissipative
-from ..util import bovy_conversion
+from ..util import conversion
 _APY_LOADED= True
 try:
     from astropy import units
@@ -180,11 +180,10 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
             phi= phi.to_value(units.rad)
         if isinstance(t0,units.Quantity):
             if hasattr(Pot,'_ro'):
-                t0= t0.to_value(units.Gyr)/bovy_conversion.time_in_Gyr(Pot._vo,
-                                                                       Pot._ro)
+                t0= t0.to_value(units.Gyr)/conversion.time_in_Gyr(Pot._vo, Pot._ro)
             else:
                 t0= t0.to_value(units.Gyr)\
-                    /bovy_conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
+                    /conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
     if isinstance(Pot,list):
         out= []
         for pot in Pot:

@@ -3,7 +3,7 @@
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
-from ..util import bovy_conversion
+from ..util import conversion
 if _APY_LOADED:
     from astropy import units
 class DehnenSmoothWrapperPotential(parentWrapperPotential):
@@ -61,10 +61,10 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         """
         if _APY_LOADED and isinstance(tform,units.Quantity):
             tform= tform.to_value(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(tsteady,units.Quantity):
             tsteady= tsteady.to_value(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         self._tform= tform
         if tsteady is None:
             self._tsteady= self._tform/2.

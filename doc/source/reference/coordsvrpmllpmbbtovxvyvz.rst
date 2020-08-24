@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.vrpmllpmbb_to_vxvyvz
-===========================================
+galpy.util.coords.vrpmllpmbb_to_vxvyvz
+======================================
 
-.. autofunction:: galpy.util.bovy_coords.vrpmllpmbb_to_vxvyvz
+.. autofunction:: galpy.util.coords.vrpmllpmbb_to_vxvyvz

@@ -5,7 +5,7 @@ import sys
 import numpy
 from galpy import potential
 from galpy.potential import SCFPotential
-from galpy.util import bovy_coords
+from galpy.util import coords
 from galpy.orbit import Orbit
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
@@ -458,7 +458,7 @@ def sphericalHernquistDensity(R, z=0, phi=0):
     return h.dens(R,z,phi)
 
 def rho_Zeeuw(R,z,phi,a=1.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
     
 def rho_NFW(R, z=0, phi=0.):
@@ -467,19 +467,19 @@ def rho_NFW(R, z=0, phi=0.):
     
     
 def axi_density1(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential()
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
     
     
 def axi_density2(R, z=0, phi=0.):
-    spherical_coords = bovy_coords.cyl_to_spher(R,z, phi)
+    spherical_coords = coords.cyl_to_spher(R,z, phi)
     theta = spherical_coords[1]
     return rho_Zeeuw(R,z,phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2)
     
     
 def density1(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential(2)
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)*(1 + numpy.cos(phi) + numpy.sin(phi))
     

@@ -11,7 +11,7 @@ from ..potential import flatten as flatten_potential
 from ..orbit import Orbit
 from .df import df, _APY_LOADED
 from ..util import galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
     physical_compatible
 if _APY_LOADED:

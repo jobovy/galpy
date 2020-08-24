@@ -10,7 +10,7 @@ import numpy
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-from ..util import bovy_coords #for prolate spherical coordinate transforms
+from ..util import coords #for prolate spherical coordinate transforms
 class KuzminKutuzovStaeckelPotential(Potential):
     """Class that implements the Kuzmin-Kutuzov Staeckel potential
 
@@ -83,7 +83,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        l,n = bovy_coords.Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
+        l,n = coords.Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
         return -1./(numpy.sqrt(l) + numpy.sqrt(n))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
@@ -102,8 +102,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        l,n = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         dldR = jac[0,0]
         dndR = jac[1,0]
         return - (dldR * self._lderiv(l,n) + \
@@ -126,8 +126,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        l,n = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
         dldz = jac[0,1]
         dndz = jac[1,1]
         return - (dldz * self._lderiv(l,n) + \
@@ -149,9 +149,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = bovy_coords.Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = bovy_coords.Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
-        hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
+        l,n    = coords.Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = coords.Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
+        hess   = coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
         dldR   = jac[0,0]
         dndR   = jac[1,0]
         d2ldR2 = hess[0,0,0]
@@ -178,9 +178,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
+        l,n    = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        hess   = coords.Rz_to_lambdanu_hess(R,z,           Delta=self._Delta)
         dldz = jac[0,1]
         dndz = jac[1,1]
         d2ldz2 = hess[0,1,1]
@@ -208,9 +208,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = bovy_coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = bovy_coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        hess   = bovy_coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
+        l,n    = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
+        jac    = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
+        hess   = coords.Rz_to_lambdanu_hess(R,z,           Delta=self._Delta)
         dldR = jac[0,0]
         dndR = jac[1,0]
         dldz = jac[0,1]
