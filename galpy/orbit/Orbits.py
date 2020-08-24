@@ -334,7 +334,8 @@ class Orbit(object):
         # if vxvv is SkyCoord, preferentially use its solarmotion
         if _APY_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
-            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to_value(units.km/units.s)
+            # use .to(unit).value to make explicit copy
+            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
             sc_solarmotion[0]= -sc_solarmotion[0] # right->left
             sc_solarmotion[1]-= vo
             if solarmotion is None:
