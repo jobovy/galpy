@@ -1797,7 +1797,7 @@ class streamdf(df):
         """
         if _APY_LOADED and isinstance(Opar,units.Quantity):
             Opar= Opar.to_value(1/units.Gyr)\
-                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
+                /conversion.freq_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(apar,units.Quantity):
             apar= apar.to_value(units.rad)
         if tdisrupt is None: tdisrupt= self._tdisrupt

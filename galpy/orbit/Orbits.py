@@ -1091,7 +1091,7 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to_value(units.Gyr) / bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= t.to_value(units.Gyr) / conversion.time_in_Gyr(self._vo,self._ro)
         else: self._integrate_t_asQuantity= False
         if _APY_LOADED and dt is not None and isinstance(dt,units.Quantity):
             dt= dt.to_value(units.Gyr) / conversion.time_in_Gyr(self._vo,self._ro)
