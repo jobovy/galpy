@@ -308,7 +308,7 @@ class interpRZPotential(Potential):
     def _evaluate(self,R,z,phi=0.,t=0.):
         from ..potential import evaluatePotentials
         if self._interpPot:
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
@@ -332,7 +332,7 @@ class interpRZPotential(Potential):
     def _Rforce(self,R,z,phi=0.,t=0.):
         from ..potential import evaluateRforces
         if self._interpRforce:
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
@@ -356,7 +356,7 @@ class interpRZPotential(Potential):
     def _zforce(self,R,z,phi=0.,t=0.):
         from ..potential import evaluatezforces
         if self._interpzforce:
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
@@ -386,7 +386,7 @@ class interpRZPotential(Potential):
     def _dens(self,R,z,phi=0.,t=0.):
         from ..potential import evaluateDensities
         if self._interpDens:
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])\
                 *(z <= self._zgrid[-1])*(z >= self._zgrid[0])
             if numpy.sum(indx) > 0:
@@ -408,7 +408,7 @@ class interpRZPotential(Potential):
         from ..potential import vcirc
         if self._interpvcirc:
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
                 if self._logR:
                     out[indx]= self._vcircInterp(numpy.log(R[indx]))
@@ -426,7 +426,7 @@ class interpRZPotential(Potential):
         from ..potential import dvcircdR
         if self._interpdvcircdr:
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
                 if self._logR:
                     out[indx]= self._dvcircdrInterp(numpy.log(R[indx]))
@@ -444,7 +444,7 @@ class interpRZPotential(Potential):
         from ..potential import epifreq
         if self._interpepifreq:
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
                 if self._logR:
                     out[indx]= self._epifreqInterp(numpy.log(R[indx]))
@@ -462,7 +462,7 @@ class interpRZPotential(Potential):
         from ..potential import verticalfreq
         if self._interpverticalfreq:
             indx= (R >= self._rgrid[0])*(R <= self._rgrid[-1])
-            out= numpy.empty_like(R)
+            out= numpy.empty(R.shape)
             if numpy.sum(indx) > 0:
                 if self._logR:
                     out[indx]= self._verticalfreqInterp(numpy.log(R[indx]))
