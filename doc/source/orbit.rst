@@ -1102,9 +1102,9 @@ it:
 >>> o.plot(d1='t',d2='r')
 
 .. image:: images/lmc-mwp14.png
-        :scale: 50 %
+        :scale: 100 %
 
-We see that the LMC is indeed bound, with an apocenter just over 250
+We see that the LMC is indeed bound, with an apocenter just over 200
 kpc. Now let's add dynamical friction for the LMC, assuming that its
 mass is :math:`5\times 10^{10}\,M_\odot`. We setup the
 dynamical-friction object:
@@ -1127,14 +1127,14 @@ Overlaying the orbits, we can see the difference in the evolution:
 
 >>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
 >>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
->>> ylim(0.,400.)
->>> legend()
+>>> ylim(0.,660.)
+>>> legend(fontsize=17.)
 
 .. image:: images/lmc-mwp14-plusdynfric-51010msun.png
-        :scale: 50 %
+        :scale: 100 %
 
 We see that dynamical friction removes energy from the LMC's orbit,
-such that its past apocenter is now around 400 kpc rather than 250
+such that its past apocenter is now around 500 kpc rather than 200
 kpc! The period of the orbit is therefore also much longer. Clearly,
 dynamical friction has a big impact on the orbit of the LMC.
 
@@ -1161,16 +1161,15 @@ and
 >>> o.plot(d1='t',d2='r',label=r'$\mathrm{No\ DF}$')
 >>> odf.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=5\times10^{10}\,M_\odot$')
 >>> odf2.plot(d1='t',d2='r',overplot=True,label=r'$\mathrm{DF}, M=1\times10^{11}\,M_\odot$')
->>> ylim(0.,740.)
->>> legend()
+>>> ylim(0.,660.)
+>>> legend(fontsize=17.)
 
 which gives
 
 .. image:: images/lmc-mwp14-plusdynfric-1011msun.png
-        :scale: 50 %
+        :scale: 100 %
 
-Now the apocenter increases to about 600 kpc and the LMC doesn't
-perform a full orbit over the last 10 Gyr.
+Now the LMC barely performs a full orbit over the last 10 Gyr.
 
 Finally, let's see what will happen in the future if the LMC is as
 massive as :math:`10^{11}\,M_\odot`. We simply flip the sign of the
@@ -1180,7 +1179,7 @@ integration times to get the future trajectory:
 >>> odf2.plot(d1='t',d2='r')
 
 .. image:: images/lmc-mwp14-plusdynfric-1011msun-future.png
-   :scale: 50 %
+   :scale: 100 %
 
 Because of the large effect of dynamical friction, the LMC will merge
 with the Milky-Way in about 4 Gyr after a few more pericenter
