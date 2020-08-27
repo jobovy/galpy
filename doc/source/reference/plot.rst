@@ -13,7 +13,7 @@ Various plotting routines:
    end_print <plotendprint.rst>
    hist <plothist.rst>
    plot <plotplot.rst>
-   print <plotprint.rst>
+   print <plotstartprint.rst>
    text <plottext.rst>
    scatterplot <scatterplot.rst>
 
