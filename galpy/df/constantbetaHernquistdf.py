@@ -12,7 +12,7 @@ if _APY_LOADED:
 
 class constantbetaHernquistdf(constantbetadf):
     """Class that implements the anisotropic spherical Hernquist DF with constant beta parameter"""
-    def __init__(self,pot=None,beta=0,ro=None,vo=None):
+    def __init__(self,pot=None,beta=0,use_BD02=True,ro=None,vo=None):
         """
         NAME:
 
@@ -26,7 +26,10 @@ class constantbetaHernquistdf(constantbetadf):
 
             pot - Hernquist potential which determines the DF
 
-            beta - anisotropy parameter
+            beta - anisotropy parameter, must be in range [-0.5, 1.0)
+
+            use_BD02 - Use Baes & Dejonghe (2002) solution for f(E) when
+                non-trivial algebraic solution does not exist
 
         OUTPUT:
 
@@ -37,6 +40,8 @@ class constantbetaHernquistdf(constantbetadf):
             2020-07-22 - Written
         """
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
+        assert -0.5 <= beta and beta < 1.0,'Beta must be in range [-0.5,1.0)'
+        self._use_BD02 = use_BD02
         constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
 
     def __call_internal__(self,*args):
@@ -101,7 +106,7 @@ class constantbetaHernquistdf(constantbetadf):
             # Dummy variable now and 0 later, prevents numerical issues?
             Etilde[Etilde_out]=0.5
 
-        # Evaluate depending on beta
+        # First check algebraic solutions
         _GMa = psi0*self._pot.a**2.
         if self.beta == 0.:
             fE = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
@@ -114,12 +119,12 @@ class constantbetaHernquistdf(constantbetadf):
         elif self.beta == -0.5:
             fE = ((20*Etilde**3-20*Etilde**4+6*Etilde**5)\
                /(1-Etilde)**4)/(4*numpy.pi**3*(_GMa)**2)
+        elif self._use_BD02:
+            fE = self._fE_BD02(Etilde)
         elif self.beta < 1.0 and self.beta > 0.5:
             fE = self._fE_beta_gt05(Erel)
         elif self.beta < 0.5 and self.beta > -0.5:
             fE = self._fE_beta_gtm05_lt05(Erel)
-        else:
-            fE = self._fE_any_beta(Erel) # This function sits in the super class?
         if len(Etilde_out)>0:
             fE[Etilde_out] = 0
         return fE
@@ -194,6 +199,15 @@ class constantbetaHernquistdf(constantbetadf):
             *numpy.power(1-psiTilde,2*self.beta-2)\
             *numpy.power(psiTilde,3-2*self.beta)
         return numer/denom
+
+    def _fE_BD02(self,Erel):
+        """Calculate fE according to the hypergeometric solution of Baes & 
+        Dejonghe (2002)"""
+        coeff = (2.**self.beta/(2.*numpy.pi)**2.5)*scipy.special.gamma(5.-2.*self.beta)/\
+                ( scipy.special.gamma(1.-self.beta)*scipy.special.gamma(3.5-self.beta) )
+        fE = coeff*numpy.power(Erel,2.5-self.beta)*\
+            scipy.special.hyp2f1(5.-2.*self.beta,1.-2.*self.beta,3.5-self.beta,Erel)
+        return fE
         
     def _icmf(self,ms):
         '''Analytic expression for the normalized inverse cumulative mass 
