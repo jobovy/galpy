@@ -1,15 +1,12 @@
 # Class that implements isotropic spherical Hernquist DF
 # computed using the Eddington formula
-from .sphericaldf import sphericaldf
 from .Eddingtondf import Eddingtondf
 
 class isotropicHernquistdf(Eddingtondf):
     """Class that implements isotropic spherical Hernquist DF computed using the Eddington formula"""
     def __init__(self,pot=None,ro=None,vo=None):
-        # Initialize using sphericaldf rather than Eddingtondf, because
-        # Eddingtondf will have code specific to computing the Eddington
-        # integral, which is not necessary for Hernquist
-        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
+        assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
+        Eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
 
     def __call_internal__(self,*args):
         """
