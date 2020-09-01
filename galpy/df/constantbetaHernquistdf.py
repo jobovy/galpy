@@ -44,11 +44,11 @@ class constantbetaHernquistdf(constantbetadf):
         self._use_BD02 = use_BD02
         constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
 
-    def __call_internal__(self,*args):
+    def _call_internal(self,*args):
         """
         NAME:
 
-            __call_internal
+            _call_internal
 
         PURPOSE:
 

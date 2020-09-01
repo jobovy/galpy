@@ -1,11 +1,17 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
 from .sphericaldf import sphericaldf
+import numpy
+import scipy.interpolate
 
 class Eddingtondf(sphericaldf):
     """Class that implements isotropic spherical DFs computed using the Eddington formula"""
-    def __init__(self,ro=None,vo=None):
-        sphericaldf.__init__(self,ro=ro,vo=vo)
+    def __init__(self,pot=None,ro=None,vo=None):
+        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
+
+    def _call_internal(self,*args):
+        # Stub for calling
+        return None
 
     def fE(self,E):
         # Stub for computing f(E)

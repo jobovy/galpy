@@ -1,6 +1,8 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
 from .sphericaldf import anisotropicsphericaldf
+import numpy
+import scipy.interpolate
 
 class constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
@@ -21,6 +23,10 @@ class constantbetadf(anisotropicsphericaldf):
         self.beta = beta
         anisotropicsphericaldf.__init__(self,pot=pot,dftype='constant',
             ro=ro,vo=vo)
+
+    def _call_internal(self,*args):
+        # Stub for calling
+        return None
 
     def fE(self,E):
         # Stub for computing f_1(E) in BT08 nomenclature

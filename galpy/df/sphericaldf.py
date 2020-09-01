@@ -146,7 +146,7 @@ class sphericaldf(df):
             r = numpy.sqrt(R**2.+z**2.)
             vrad = (R*vR+z*vz)/r
             L = numpy.sqrt(vtotSq-vrad**2.)*r
-        f = self.__call_internal__(E,L,Lz) # Some function for each sub-class
+        f = self._call_internal(E,L,Lz) # Some function for each sub-class
         return f
 
 ############################### SAMPLING THE DF################################
