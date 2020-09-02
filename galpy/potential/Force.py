@@ -6,8 +6,8 @@
 import copy
 import numpy
 from ..util import config
-from ..util import bovy_conversion
-from ..util.bovy_conversion import physical_conversion, \
+from ..util import conversion
+from ..util.conversion import physical_conversion, \
     potential_physical_input, physical_compatible
 _APY_LOADED= True
 try:
@@ -76,7 +76,7 @@ class Force(object):
                 # mass
                 try:
                     self._amp= self._amp.to(units.Msun).value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)
+                        /conversion.mass_in_msol(self._vo,self._ro)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
@@ -87,8 +87,8 @@ class Force(object):
                 try:
                     self._amp= self._amp.to(units.pc*units.km**2/units.s**2)\
                         .value\
-                        /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                        /bovy_conversion._G
+                        /conversion.mass_in_msol(self._vo,self._ro)\
+                        /conversion._G
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
@@ -98,7 +98,7 @@ class Force(object):
                 # density
                 try:
                     self._amp= self._amp.to(units.Msun/units.pc**3).value\
-                        /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)
+                        /conversion.dens_in_msolpc3(self._vo,self._ro)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
@@ -109,8 +109,8 @@ class Force(object):
                 try:
                     self._amp= self._amp.to(units.km**2/units.s**2\
                                                 /units.pc**2).value\
-                        /bovy_conversion.dens_in_msolpc3(self._vo,self._ro)\
-                        /bovy_conversion._G
+                        /conversion.dens_in_msolpc3(self._vo,self._ro)\
+                        /conversion._G
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
@@ -120,7 +120,7 @@ class Force(object):
                 # surface density
                 try:
                     self._amp= self._amp.to(units.Msun/units.pc**2).value\
-                        /bovy_conversion.surfdens_in_msolpc2(self._vo,self._ro)
+                        /conversion.surfdens_in_msolpc2(self._vo,self._ro)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
@@ -131,8 +131,8 @@ class Force(object):
                 try:
                     self._amp= self._amp.to(units.km**2/units.s**2\
                                                 /units.pc).value\
-                        /bovy_conversion.surfdens_in_msolpc2(self._vo,self._ro)\
-                        /bovy_conversion._G
+                        /conversion.surfdens_in_msolpc2(self._vo,self._ro)\
+                        /conversion._G
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True

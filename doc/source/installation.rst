@@ -62,7 +62,10 @@ or to upgrade without upgrading the dependencies::
 
 Installing with pip will automatically install the required
 dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
-optional dependencies.
+optional dependencies. On a Mac/UNIX system, you can make sure to include 
+the necessary GSL environment variables by doing (see :ref:`below <gsl_cflags>`)::
+
+  export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
 
 Latest version
 --------------
@@ -310,9 +313,17 @@ to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
 If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
 
    gsl-config --cflags
-   gsl-config --libs
+   gsl-config --prefix
 
-(don't include the ``-lgsl lgslcblas`` portion of the latter output.)
+where you should add ``/lib`` to the output of the latter. In a bash shell, you could also simply do::
+
+   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
+   
+or::
+
+   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && python setup.py install
+
+depending on whether you are installing using ``pip`` or from source.
 
 I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -366,7 +377,7 @@ currently used:
 
 	  * to set a default set of distance and velocity scales (``ro`` and ``vo`` throughout galpy) for conversion between physical and internal galpy unit
 
-    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), 
+    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.plot``), 
 
 	  * to specify whether output from functions or methods should be given as an `astropy Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ with units as much as possible or not, and whether or not to use astropy's `coordinate transformations <http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these are typically somewhat slower than galpy's own coordinate transformations, but they are more accurate and more general)
 

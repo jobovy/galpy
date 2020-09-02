@@ -3,7 +3,7 @@ import types
 import copy
 import numpy
 from ..util import config
-from ..util.bovy_conversion import physical_conversion_actionAngle, \
+from ..util.conversion import physical_conversion_actionAngle, \
     actionAngle_physical_input, physical_compatible
 _APY_LOADED= True
 try:

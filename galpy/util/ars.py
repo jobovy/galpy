@@ -32,9 +32,9 @@ import scipy.stats as stats
 #TO DO:
 #Throw errors in the sample_hull routine
 
-def bovy_ars(domain,isDomainFinite,abcissae,hx,hpx,nsamples=1,
-             hxparams=(),maxn=100):
-    """bovy_ars: Implementation of the Adaptive-Rejection Sampling
+def ars(domain,isDomainFinite,abcissae,hx,hpx,nsamples=1,
+        hxparams=(),maxn=100):
+    """ars: Implementation of the Adaptive-Rejection Sampling
     algorithm by Gilks & Wild (1992): Adaptive Rejection Sampling
     for Gibbs Sampling, Applied Statistics, 41, 337
     Based on Wild & Gilks (1993), Algorithm AS 287: Adaptive Rejection

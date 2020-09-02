@@ -6,14 +6,14 @@ from ..potential import DiskSCFPotential
 from ..potential import SCFPotential
 from ..potential import scf_compute_coeffs_axi
 from ..potential import mwpot_helpers
-from ..util import bovy_conversion
+from ..util import conversion
 # Suppress the numpy floating-point warnings that this code generates...
 old_error_settings= numpy.seterr(all='ignore')
 # Unit normalizations
 ro= 8.21
 vo= 233.1
-sigo= bovy_conversion.surfdens_in_msolpc2(vo=vo,ro=ro)
-rhoo= bovy_conversion.dens_in_msolpc3(vo=vo,ro=ro)
+sigo= conversion.surfdens_in_msolpc2(vo=vo,ro=ro)
+rhoo= conversion.dens_in_msolpc3(vo=vo,ro=ro)
 #gas disk parameters (fixed in McMillan 2017...)
 Rd_HI= 7./ro
 Rm_HI= 4./ro

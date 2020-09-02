@@ -1,7 +1,7 @@
 import numpy as nu
 from galpy.orbit import Orbit
 from galpy.potential.planarPotential import RZToplanarPotential
-import galpy.util.bovy_plot as plot
+from galpy.util import plot
 from directnbody import direct_nbody
 class Snapshot(object):
     """General snapshot = collection of particles class"""
@@ -161,7 +161,7 @@ class Snapshot(object):
 
            d2= second dimension to plot
 
-           matplotlib.plot inputs+bovy_plot.plot inputs
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
 
         OUTPUT:
 
@@ -252,7 +252,7 @@ class Snapshot(object):
             kwargs['ylabel']= labeldict[d2]
         if len(args) == 0:
             args= (',',)
-        plot.bovy_plot(x,y,*args,**kwargs)
+        plot.plot(x,y,*args,**kwargs)
 
     def plot3d(self,*args,**kwargs):
         """
@@ -272,7 +272,7 @@ class Snapshot(object):
 
            d3= third dimension to plot
 
-           matplotlib.plot inputs+bovy_plot.plot3d inputs
+           matplotlib.plot inputs+galpy.util.plot.plot3d inputs
 
         OUTPUT:
 
@@ -387,7 +387,7 @@ class Snapshot(object):
         if not kwargs.has_key('zlabel'):
             kwargs['zlabel']= labeldict[d3]
         if len(args) == 0: args= (',',)
-        plot.bovy_plot3d(x,y,z,*args,**kwargs)
+        plot.plot3d(x,y,z,*args,**kwargs)
 
 
     #Pickling

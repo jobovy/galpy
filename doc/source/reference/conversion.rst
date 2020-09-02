@@ -1,7 +1,7 @@
 .. _bovyconversion:
 
-galpy.util.bovy_conversion
-===========================
+galpy.util.conversion
+=====================
 
 Utility functions that provide conversions between galpy's *natural*
 units and *physical* units. These can be used to translate galpy
@@ -13,8 +13,8 @@ different units. For example, if you want to know how many
 :math:`\mathrm{GeV\,cm}^{-3}` correspond to
 :math:`1\,M_\odot\,\mathrm{pc}^{-3}`, you can calculate
 
->>> from galpy.util import bovy_conversion
->>> bovy_conversion.dens_in_gevcc(1.,1.)/bovy_conversion.dens_in_msolpc3(1.,1.)
+>>> from galpy.util import conversion
+>>> conversion.dens_in_gevcc(1.,1.)/conversion.dens_in_msolpc3(1.,1.)
 # 37.978342941703616
 
 or :math:`1\,M_\odot\,\mathrm{pc}^{-3} \approx 40\,\mathrm{GeV\,cm}^{-3}`.

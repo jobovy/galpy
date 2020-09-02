@@ -21,11 +21,11 @@ from functools import wraps
 import warnings
 import numpy
 from scipy import optimize, integrate
-from ..util import bovy_plot as plot
-from ..util import bovy_coords
-from ..util.bovy_conversion import velocity_in_kpcGyr, \
+from ..util import plot
+from ..util import coords
+from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
-    get_physical
+    get_physical, parse_position, parse_energy, parse_angmom
 from ..util import galpyWarning
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
@@ -866,7 +866,7 @@ class Potential(Force):
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(self,
@@ -896,14 +896,14 @@ class Potential(Force):
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                xrange=xrange,
-                                yrange=yrange,
-                                aspect=.75*(rmax-rmin)/(zmax-zmin),
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           xrange=xrange,
+                           yrange=yrange,
+                           aspect=.75*(rmax-rmin)/(zmax-zmin),
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
     def plotDensity(self,t=0.,
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -962,6 +962,61 @@ class Potential(Force):
                              justcontours=justcontours,
                              aspect=aspect,log=log)
 
+    def plotSurfaceDensity(self,t=0.,z=numpy.inf,
+                           xmin=0.,xmax=1.5,nxs=21,ymin=-0.5,ymax=0.5,nys=21,
+                           ncontours=21,savefilename=None,aspect=None,
+                           log=False,justcontours=False):
+        """
+        NAME:
+
+           plotSurfaceDensity
+
+        PURPOSE:
+
+           plot the surface density of this potential
+
+        INPUT:
+
+           t= time to plot potential at
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity) 
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        return plotSurfaceDensities(self,xmin=xmin,xmax=xmax,nxs=nxs,
+                                    ymin=ymin,ymax=ymax,nys=nys,t=t,z=z,
+                                    ncontours=ncontours,
+                                    savefilename=savefilename,
+                                    justcontours=justcontours,
+                                    aspect=aspect,log=log)
+    
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R,phi=None,t=0.):
@@ -1317,7 +1372,7 @@ class Potential(Force):
 
            savefilename=- save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1349,7 +1404,7 @@ class Potential(Force):
 
            savefilename= save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1584,6 +1639,72 @@ class Potential(Force):
         else:
             return tij
 
+    @physical_conversion('position',pop=True)
+    def zvc(self,R,E,Lz,phi=0.,t=0.):
+        """
+        
+        NAME:
+        
+           zvc
+            
+        PURPOSE:
+        
+           Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+        INPUT:
+        
+           R - Galactocentric radius (can be Quantity)
+            
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           z such that Phi(R,z) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc(self,R,E,Lz,phi=phi,t=t,use_physical=False)
+    
+    @physical_conversion('position',pop=True)
+    def zvc_range(self,E,Lz,phi=0.,t=0.):
+        """
+            
+        NAME:
+        
+           zvc_range
+            
+        PURPOSE:
+        
+          Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+        INPUT:
+        
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc_range(self,E,Lz,phi=phi,t=t,use_physical=False)
+    
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -2371,7 +2492,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(Pot,numpy.fabs(R),
@@ -2398,14 +2519,14 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
@@ -2487,7 +2608,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluateDensities(Pot,numpy.fabs(R),z,phi=phi,
@@ -2510,17 +2631,126 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         else:
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
-        return plot.bovy_dens2d(potRz.T,origin='lower',
-                                cmap='gist_yarg',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
-                                                   ncontours))
+        return plot.dens2d(potRz.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
+                                                 ncontours))
 
+def plotSurfaceDensities(Pot,
+                         xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
+                         z=numpy.inf,t=0.,
+                         ncontours=21,savefilename=None,aspect=None,
+                         log=False,justcontours=False):
+        """
+        NAME:
+
+           plotSurfaceDensities
+
+        PURPOSE:
+
+           plot the surface density a set of potentials
+
+        INPUT:
+
+           Pot - Potential or list of Potential instances
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
+
+           t= (0.) time to use to evaluate potential
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        Pot= flatten(Pot)
+        if _APY_LOADED:
+            if hasattr(Pot,'_ro'):
+                tro= Pot._ro
+            else:
+                tro= Pot[0]._ro
+            if isinstance(xmin,units.Quantity):
+                xmin= xmin.to(units.kpc).value/tro
+            if isinstance(xmax,units.Quantity):
+                xmax= xmax.to(units.kpc).value/tro
+            if isinstance(ymin,units.Quantity):
+                ymin= ymin.to(units.kpc).value/tro
+            if isinstance(ymax,units.Quantity):
+                ymax= ymax.to(units.kpc).value/tro
+        if not savefilename == None and os.path.exists(savefilename):
+            print("Restoring savefile "+savefilename+" ...")
+            savefile= open(savefilename,'rb')
+            surfxy= pickle.load(savefile)
+            xs= pickle.load(savefile)
+            ys= pickle.load(savefile)
+            savefile.close()
+        else:
+            xs= numpy.linspace(xmin,xmax,nxs)
+            ys= numpy.linspace(ymin,ymax,nys)
+            surfxy= numpy.zeros((nxs,nys))
+            for ii in range(nxs):
+                for jj in range(nys):
+                    R,phi,_= coords.rect_to_cyl(xs[ii],ys[jj],0.)
+                    surfxy[ii,jj]= evaluateSurfaceDensities(Pot,
+                                                            numpy.fabs(R),z,
+                                                            phi=phi,
+                                                            t=t,
+                                                            use_physical=False)
+            if not savefilename == None:
+                print("Writing savefile "+savefilename+" ...")
+                savefile= open(savefilename,'wb')
+                pickle.dump(surfxy,savefile)
+                pickle.dump(xs,savefile)
+                pickle.dump(ys,savefile)
+                savefile.close()
+        if aspect is None:
+            aspect= 1.
+        if log:
+            surfxy= numpy.log(surfxy)
+        xlabel= r'$x/R_0$'
+        ylabel= r'$y/R_0$'
+        return plot.dens2d(surfxy.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[xmin,xmax],
+                           yrange=[ymin,ymax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(surfxy),
+                                                 numpy.nanmax(surfxy),
+                                                 ncontours))
+    
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R,t=0.):
@@ -3310,3 +3540,122 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
        return numpy.linalg.eigvals(tij)
     else:
        return tij
+
+@physical_conversion('position',pop=True)
+def zvc(Pot,R,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc
+            
+    PURPOSE:
+        
+        Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        R - Galactocentric radius (can be Quantity)
+            
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        z such that Phi(R,z) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    R= parse_position(R,**get_physical(Pot))
+    E= parse_energy(E,**get_physical(Pot))
+    Lz= parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2R2= Lz**2./2./R**2.
+    # Check z=0 and whether a solution exists
+    if numpy.fabs(_evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2-E) < 1e-8:
+        return 0.
+    elif _evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2 > E:
+        return numpy.nan # s.t. this does not get plotted
+    # Find starting value
+    zstart= 1.
+    zmax= 1000.
+    while E-_evaluatePotentials(Pot,R,zstart,phi=phi,t=t)-Lz2over2R2 > 0. \
+          and zstart < zmax:
+        zstart*= 2.
+    try:
+        out= optimize.brentq(\
+                lambda z: _evaluatePotentials(Pot,R,z,phi=phi,t=t)+Lz2over2R2-E,
+                0.,zstart)
+    except ValueError:
+        raise ValueError('No solution for the zero-velocity curve found for this combination of parameters')
+    return out
+    
+@physical_conversion('position',pop=True)
+def zvc_range(Pot,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc_range
+            
+    PURPOSE:
+        
+        Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    E= parse_energy(E,**get_physical(Pot))
+    Lz= parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2= Lz**2./2.
+    # Check whether a solution exists
+    RLz= rl(Pot,Lz,t=t,use_physical=False)
+    Rstart= RLz
+    if _evaluatePotentials(Pot,Rstart,0.,phi=phi,t=t)+Lz2over2/Rstart**2. > E:
+        return numpy.array([numpy.nan,numpy.nan])
+    # Find starting value for Rmin
+    Rstartmin= 1e-8
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart > Rstartmin:
+        Rstart/= 2.
+    Rmin= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,Rstart,RLz)
+    # Find starting value for Rmax
+    Rstart= RLz
+    Rstartmax= 1000.
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart < Rstartmax:
+        Rstart*= 2.
+    Rmax= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,RLz,Rstart)
+    return numpy.array([Rmin,Rmax])
+    

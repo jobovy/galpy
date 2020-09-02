@@ -23,8 +23,8 @@ from ..potential.Potential import flatten as flatten_potential
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
 from ..potential import IsochronePotential, MWPotential
-from ..util import bovy_plot, galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util import plot, galpyWarning
+from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 _TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
@@ -430,18 +430,18 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= ts
                     ploty= jr[0,:]/jr[0,-1]
                     plotz= anglerI[0,:-1]
-                bovy_plot.bovy_plot(plotx,ploty,
-                                    c=plotz,
-                                    s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    xlabel=r'$t$',
-                                    ylabel=r'$J^A_R / \langle J^A_R \rangle$',
-                                    clabel=r'$\theta^A_R$',
-                                    vmin=0.,vmax=2.*numpy.pi,
-                                    crange=[0.,2.*numpy.pi],
-                                    colorbar=True,
-                                    **kwargs)
+                plot.plot(plotx,ploty,
+                          c=plotz,
+                          s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          xlabel=r'$t$',
+                          ylabel=r'$J^A_R / \langle J^A_R \rangle$',
+                          clabel=r'$\theta^A_R$',
+                          vmin=0.,vmax=2.*numpy.pi,
+                          crange=[0.,2.*numpy.pi],
+                          colorbar=True,
+                          **kwargs)
             elif type == 'lz':
                 if downsample:
                     plotx= ts[::int(round(self._ntintJ//400))]
@@ -451,16 +451,16 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= ts
                     ploty= lz[0,:]/lz[0,-1]
                     plotz= anglephiI[0,:-1]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    xlabel=r'$t$',
-                                    ylabel=r'$L^A_Z / \langle L^A_Z \rangle$',
-                                    clabel=r'$\theta^A_\phi$',
-                                    vmin=0.,vmax=2.*numpy.pi,
-                                    crange=[0.,2.*numpy.pi],
-                                    colorbar=True,
-                                    **kwargs)
+                plot.plot(plotx,ploty,c=plotz,s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          xlabel=r'$t$',
+                          ylabel=r'$L^A_Z / \langle L^A_Z \rangle$',
+                          clabel=r'$\theta^A_\phi$',
+                          vmin=0.,vmax=2.*numpy.pi,
+                          crange=[0.,2.*numpy.pi],
+                          colorbar=True,
+                          **kwargs)
             elif type == 'jz':
                 if downsample:
                     plotx= ts[::int(round(self._ntintJ//400))]
@@ -470,16 +470,16 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= ts
                     ploty= jz[0,:]/jz[0,-1]
                     plotz= anglezI[0,:-1]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    xlabel=r'$t$',
-                                    ylabel=r'$J^A_Z / \langle J^A_Z \rangle$',
-                                    clabel=r'$\theta^A_Z$',
-                                    vmin=0.,vmax=2.*numpy.pi,
-                                    crange=[0.,2.*numpy.pi],
-                                    colorbar=True,
-                                    **kwargs)
+                plot.plot(plotx,ploty,c=plotz,s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          xlabel=r'$t$',
+                          ylabel=r'$J^A_Z / \langle J^A_Z \rangle$',
+                          clabel=r'$\theta^A_Z$',
+                          vmin=0.,vmax=2.*numpy.pi,
+                          crange=[0.,2.*numpy.pi],
+                          colorbar=True,
+                          **kwargs)
         else:
             if deperiod:
                 if 'ar' in type:
@@ -519,17 +519,17 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= angleRT[0,:]
                     ploty= angleZT[0,:]
                     plotz= anglephiT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    xlabel=r'$\theta^A_R$',
-                                    ylabel=r'$\theta^A_Z$',
-                                    clabel=r'$\theta^A_\phi$',
-                                    xrange=xrange,yrange=yrange,
-                                    vmin=vmin,vmax=vmax,
-                                    crange=crange,
-                                    colorbar=True,
-                                    **kwargs)           
+                plot.plot(plotx,ploty,c=plotz,s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          xlabel=r'$\theta^A_R$',
+                          ylabel=r'$\theta^A_Z$',
+                          clabel=r'$\theta^A_\phi$',
+                          xrange=xrange,yrange=yrange,
+                          vmin=vmin,vmax=vmax,
+                          crange=crange,
+                          colorbar=True,
+                          **kwargs)           
             elif type == 'araphi':
                 if downsample:
                     plotx= angleRT[0,::int(round(self._ntintJ//400))]
@@ -539,17 +539,17 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= angleRT[0,:]
                     ploty= anglephiT[0,:]
                     plotz= angleZT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    xlabel=r'$\theta^A_R$',
-                                    clabel=r'$\theta^A_Z$',
-                                    ylabel=r'$\theta^A_\phi$',
-                                    xrange=xrange,yrange=yrange,
-                                    vmin=vmin,vmax=vmax,
-                                    crange=crange,
-                                    colorbar=True,
-                                    **kwargs)           
+                plot.plot(plotx,ploty,c=plotz,s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          xlabel=r'$\theta^A_R$',
+                          clabel=r'$\theta^A_Z$',
+                          ylabel=r'$\theta^A_\phi$',
+                          xrange=xrange,yrange=yrange,
+                          vmin=vmin,vmax=vmax,
+                          crange=crange,
+                          colorbar=True,
+                          **kwargs)           
             elif type == 'azaphi':
                 if downsample:
                     plotx= angleZT[0,::int(round(self._ntintJ//400))]
@@ -559,17 +559,17 @@ class actionAngleIsochroneApprox(actionAngle):
                     plotx= angleZT[0,:]
                     ploty= anglephiT[0,:]
                     plotz= angleRT[0,:]
-                bovy_plot.bovy_plot(plotx,ploty,c=plotz,s=20.,
-                                    scatter=True,
-                                    edgecolor='none',
-                                    clabel=r'$\theta^A_R$',
-                                    xlabel=r'$\theta^A_Z$',
-                                    ylabel=r'$\theta^A_\phi$',
-                                    xrange=xrange,yrange=yrange,
-                                    vmin=vmin,vmax=vmax,
-                                    crange=crange,
-                                    colorbar=True,
-                                    **kwargs)           
+                plot.plot(plotx,ploty,c=plotz,s=20.,
+                          scatter=True,
+                          edgecolor='none',
+                          clabel=r'$\theta^A_R$',
+                          xlabel=r'$\theta^A_Z$',
+                          ylabel=r'$\theta^A_\phi$',
+                          xrange=xrange,yrange=yrange,
+                          vmin=vmin,vmax=vmax,
+                          crange=crange,
+                          colorbar=True,
+                          **kwargs)           
         return None
 
     def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):

@@ -35,7 +35,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units that depend on the specific spheroidal potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or G x mass
 
            a - scale radius (can be Quantity)
 

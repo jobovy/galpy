@@ -98,7 +98,7 @@ modules
 >>> from galpy.orbit import Orbit
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
->>> from galpy.util import bovy_conversion #for unit conversions
+>>> from galpy.util import conversion #for unit conversions
 
 setup the potential and actionAngle instances
 
@@ -112,7 +112,7 @@ define a progenitor Orbit instance
 and instantiate the streamdf model
 
 >>> sigv= 0.365 #km/s
->>> sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,nTrackChunks=11,tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+>>> sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,nTrackChunks=11,tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
 
 for a leading stream. This runs in about half a minute on a 2011
 Macbook Air. 
@@ -416,7 +416,7 @@ modifications in Sec. 6.1) is as follows. Imports:
 >>> from galpy.orbit import Orbit
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
->>> from galpy.util import bovy_conversion
+>>> from galpy.util import conversion
 
 Parameters for the smooth stream and the potential:
 
@@ -430,15 +430,15 @@ Parameters for the smooth stream and the potential:
                           0.24218273922966019])
 >>> V0, R0= 220., 8.
 >>> sigv= 0.365*(10./2.)**(1./3.) # km/s
->>> tdisrupt= 10.88/bovy_conversion.time_in_Gyr(V0,R0)
+>>> tdisrupt= 10.88/conversion.time_in_Gyr(V0,R0)
 
 and the parameters of the impact
 
->>> GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+>>> GM= 10.**-2./conversion.mass_in_1010msol(V0,R0)
 >>> rs= 0.625/R0
 >>> impactb= 0.
 >>> subhalovel= numpy.array([6.82200571,132.7700529,149.4174464])/V0
->>> timpact= 0.88/bovy_conversion.time_in_Gyr(V0,R0)
+>>> timpact= 0.88/conversion.time_in_Gyr(V0,R0)
 >>> impact_angle= -2.34
 
 The setup is then

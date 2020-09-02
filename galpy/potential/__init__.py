@@ -48,6 +48,8 @@ from . import PerfectEllipsoidPotential
 from . import IsothermalDiskPotential
 from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
+from . import interpSphericalPotential
+from . import TriaxialGaussianPotential
 #
 # Functions
 #
@@ -70,6 +72,7 @@ RZToverticalPotential= verticalPotential.RZToverticalPotential
 toVerticalPotential= verticalPotential.toVerticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
+plotSurfaceDensities= Potential.plotSurfaceDensities
 plotplanarPotentials= planarPotential.plotplanarPotentials
 plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
@@ -107,6 +110,8 @@ rtide= Potential.rtide
 ttensor= Potential.ttensor
 flatten= Potential.flatten
 to_amuse= Potential.to_amuse
+zvc= Potential.zvc
+zvc_range= Potential.zvc_range
 #
 # Classes
 #
@@ -164,6 +169,8 @@ PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
 IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
+interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
+TriaxialGaussianPotential= TriaxialGaussianPotential.TriaxialGaussianPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential

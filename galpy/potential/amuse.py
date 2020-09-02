@@ -4,7 +4,7 @@ from amuse.units import units
 from amuse.units.quantities import ScalarQuantity
 from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
-from ..util import bovy_conversion
+from ..util import conversion
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
@@ -53,12 +53,12 @@ class galpy_profile(LiteratureReferencesMixIn):
             self.model_time= t
         else:
             self.model_time= \
-                t*bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
+                t*conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
                 | units.Gyr
         #Initialize galpy time
         if isinstance(tgalpy,ScalarQuantity):
             self.tgalpy= tgalpy.value_in(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
             self.tgalpy= tgalpy
 
@@ -79,10 +79,10 @@ class galpy_profile(LiteratureReferencesMixIn):
         self.model_time= time  
         if self.reverse:
             self.tgalpy-= dt.value_in(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
         else:
             self.tgalpy+= dt.value_in(units.Gyr)\
-                /bovy_conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
 
     def get_potential_at_point(self,eps,x,y,z):
         """
@@ -140,13 +140,13 @@ class galpy_profile(LiteratureReferencesMixIn):
         # Convert cylindrical force --> rectangular
         cp, sp= numpy.cos(phi), numpy.sin(phi)
         ax= (Rforce*cp - phiforce*sp)\
-            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
             | units.kms / units.Myr
         ay= (Rforce*sp + phiforce*cp)\
-            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
             | units.kms / units.Myr
         az= zforce\
-            *bovy_conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
             | units.kms / units.Myr
         return ax,ay,az
 
@@ -172,7 +172,7 @@ class galpy_profile(LiteratureReferencesMixIn):
                                           phi=phi,t=self.tgalpy,
                                           ro=self.ro,vo=self.vo,
                                           use_physical=False) *
-              bovy_conversion.dens_in_msolpc3(self.vo,self.ro))
+              conversion.dens_in_msolpc3(self.vo,self.ro))
         return res | units.MSun / units.parsec**3
 
     def circular_velocity(self,r):
@@ -211,7 +211,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
                             t=self.tgalpy,ro=self.ro,vo=self.vo,
                             use_physical=False) * self.vo
-        return (vc**2.)*r.value_in(units.parsec)/bovy_conversion._G \
+        return (vc**2.)*r.value_in(units.parsec)/conversion._G \
             | units.MSun
 
     def stop(self):
