@@ -2,10 +2,10 @@
 import numpy
 from scipy import special
 from galpy import potential
-from galpy.df import isotropicHernquistdf
+from galpy.df import isotropicHernquistdf, kingdf
 from galpy.df import jeans
 
-# Test that the density distribution of the isotropic Hernquist is correct
+############################# ISOTROPIC HERNQUIST DF ##########################
 def test_isotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -58,6 +58,66 @@ def test_isotropic_hernquist_beta():
     tol= 6*1e-2
     check_beta(samp,pot,tol,beta=0.,
                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+               
+################################# KING DF #####################################
+def test_king_dens_spherically_symmetric():
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    numpy.random.seed(10)
+    samp= dfk.sample(n=100000)
+    # Check spherical symmetry for different harmonics l,m
+    tol= 1e-2
+    check_spherical_symmetry(samp,0,0,tol)
+    check_spherical_symmetry(samp,1,0,tol)
+    check_spherical_symmetry(samp,1,-1,tol)
+    check_spherical_symmetry(samp,1,1,tol)
+    check_spherical_symmetry(samp,2,0,tol)
+    check_spherical_symmetry(samp,2,-1,tol)
+    check_spherical_symmetry(samp,2,-2,tol)
+    check_spherical_symmetry(samp,2,1,tol)
+    check_spherical_symmetry(samp,2,2,tol)
+    # and some higher order ones
+    check_spherical_symmetry(samp,3,1,tol)
+    check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_king_dens_massprofile():
+    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    numpy.random.seed(10)
+    samp= dfk.sample(n=100000)
+    tol= 1e-2
+    check_spherical_massprofile(samp,
+                                lambda r: pot.mass(r,use_physical=False)\
+                                   /pot.mass(numpy.amax(samp.r(use_physical=False)),
+                                             use_physical=False),
+                                tol,skip=4000)
+    return None
+
+def test_king_sigmar():
+    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    numpy.random.seed(10)
+    samp= dfk.sample(n=1000000)
+    # lower tolerance closer to rt because fewer stars there
+    tol= 0.07
+    check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+                               rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
+    tol= 0.2
+    check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+                               rmin=dfk.rt*0.8,rmax=dfk.rt,bins=5)
+    return None
+
+def test_king_beta():
+    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    numpy.random.seed(10)
+    samp= dfk.sample(n=1000000)
+    tol= 6*1e-2
+    # lower tolerance closer to rt because fewer stars there
+    tol= 0.12
+    check_beta(samp,pot,tol,beta=0.,rmin=dfk._scale/10.,rmax=dfk.rt,
+               bins=31)
     return None
                
 def check_spherical_symmetry(samp,l,m,tol):
