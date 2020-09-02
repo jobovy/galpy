@@ -50,6 +50,16 @@ def test_isotropic_hernquist_sigmar():
                                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
 
+def test_isotropic_hernquist_beta():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfh.sample(n=1000000)
+    tol= 6*1e-2
+    check_beta(samp,pot,tol,beta=0.,
+               rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+               
 def check_spherical_symmetry(samp,l,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
@@ -73,9 +83,9 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
     """Check that sigma_r(r) obtained from a sampling agrees with that coming 
     from the Jeans equation
     Does this by logarithmically binning in r between rmin and rmax"""
-    vrs= ((samp.vR(use_physical=False)*samp.R(use_physical=False)
-           +samp.vz(use_physical=False)*samp.z(use_physical=False))\
-          /samp.r(use_physical=False))
+    vrs= (samp.vR(use_physical=False)*samp.R(use_physical=False)
+          +samp.vz(use_physical=False)*samp.z(use_physical=False))\
+          /samp.r(use_physical=False)
     logrs= numpy.log(samp.r(use_physical=False))
     if rmin is None: numpy.exp(numpy.amin(logrs))
     if rmax is None: numpy.exp(numpy.amax(logrs))
@@ -89,4 +99,39 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
         assert numpy.fabs(samp_sigr[ii]/jeans.sigmar(pot,br,beta=beta,
                                                      use_physical=False)-1.) < tol, \
                                                      "sigma_r(r) from samples does not agree with that obtained from the Jeans equation"
+    return None
+
+def check_beta(samp,pot,tol,beta=0.,
+               rmin=None,rmax=None,bins=31):
+    """Check that beta(r) obtained from a sampling agrees with the expected
+    value
+    Does this by logarithmically binning in r between rmin and rmax"""
+    vrs= (samp.vR(use_physical=False)*samp.R(use_physical=False)
+           +samp.vz(use_physical=False)*samp.z(use_physical=False))\
+          /samp.r(use_physical=False)
+    vthetas=(samp.z(use_physical=False)*samp.vR(use_physical=False)
+             -samp.R(use_physical=False)*samp.vz(use_physical=False))\
+             /samp.r(use_physical=False)
+    vphis= samp.vT(use_physical=False)    
+    logrs= numpy.log(samp.r(use_physical=False))
+    if rmin is None: numpy.exp(numpy.amin(logrs))
+    if rmax is None: numpy.exp(numpy.amax(logrs))
+    w,e= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
+                         bins=bins,weights=numpy.ones_like(logrs))
+    mvr2,_= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
+                            bins=bins,weights=vrs**2.)
+    mvt2,_= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
+                            bins=bins,weights=vthetas**2.)
+    mvp2,_= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
+                            bins=bins,weights=vphis**2.)
+    samp_sigr= numpy.sqrt(mvr2/w)
+    samp_sigt= numpy.sqrt(mvt2/w)
+    samp_sigp= numpy.sqrt(mvp2/w)
+    samp_beta= 1.-(samp_sigt**2.+samp_sigp**2.)/2./samp_sigr**2.
+    brs= numpy.exp((numpy.roll(e,-1)+e)[:-1]/2.)
+    if not callable(beta):
+        beta_func= lambda r: beta
+    else:
+        beta_func= beta
+    assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value"
     return None
