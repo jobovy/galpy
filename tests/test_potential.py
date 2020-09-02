@@ -12,7 +12,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
-from galpy.util import bovy_coords
+from galpy.util import coords
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
@@ -1070,6 +1070,7 @@ def test_potential_array_input():
     rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
+    rmpots.append('TriaxialGaussianPotential')
     # These cannot be setup without arguments
     rmpots.append('MovingObjectPotential')
     rmpots.append('SnapshotRZPotential')
@@ -1171,6 +1172,7 @@ def test_toVertical_array():
     rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
+    rmpots.append('TriaxialGaussianPotential')
     # These cannot be setup without arguments
     rmpots.append('MovingObjectPotential')
     rmpots.append('SnapshotRZPotential')
@@ -2170,16 +2172,16 @@ def test_MWPotential2014():
 # Test that the McMillan17 potential is what it's supposed to be
 def test_McMillan17():
     from galpy.potential.mwpotentials import McMillan17
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= McMillan17[0]._ro, McMillan17[0]._vo
     # Check some numbers from Table 3 of McMillan17: vertical force at the Sun
     assert numpy.fabs(-potential.evaluatezforces(McMillan17,1.,1.1/8.21,
                                                  use_physical=False)
-                       *bovy_conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
+                       *conversion.force_in_2piGmsolpc2(vo,ro)-73.9) < 0.2, 'Vertical force at the Sun in McMillan17 does not agree with what it should be'
     # Halo density at the Sun
     assert numpy.fabs(potential.evaluateDensities(McMillan17[1],1.,0.,
                                                   use_physical=False)
-                      *bovy_conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
+                      *conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
     # Halo concentration
     assert numpy.fabs(McMillan17[1].conc(overdens=94.,wrtcrit=True,H=70.4)-15.4) < 1e-1, 'Halo concentration in McMillan17 does not agree with what it is supposed to be'
     # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
@@ -2251,7 +2253,7 @@ def test_DehnenBinney98():
     return None
 
 def check_DehnenBinney98_model(pot,model='model 1'):
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     truth= {'model 1':
                 {'SigmaR0':43.3,
                  'vc':222.,
@@ -2277,12 +2279,12 @@ def check_DehnenBinney98_model(pot,model='model 1'):
                  'A':13.8,
                  'B':-13.6}
             }
-    phys_kwargs= bovy_conversion.get_physical(pot) 
+    phys_kwargs= conversion.get_physical(pot) 
     ro= phys_kwargs.get('ro') 
     vo= phys_kwargs.get('vo')
     assert numpy.fabs(pot[1].surfdens(1.,10./ro)-truth[model]['SigmaR0']) < 0.2, 'Surface density at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(potential.vcirc(pot,1.)-truth[model]['vc']) < 0.5, 'Circular velocity at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
-    assert numpy.fabs(-potential.evaluatezforces(pot,1.,1.1/ro,use_physical=False)*bovy_conversion.force_in_2piGmsolpc2(vo,ro)-truth[model]['Fz']) < 0.2, 'Vertical force at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
+    assert numpy.fabs(-potential.evaluatezforces(pot,1.,1.1/ro,use_physical=False)*conversion.force_in_2piGmsolpc2(vo,ro)-truth[model]['Fz']) < 0.2, 'Vertical force at R0 in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(0.5*(potential.vcirc(pot,1.,use_physical=False)-potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['A']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     assert numpy.fabs(-0.5*(potential.vcirc(pot,1.,use_physical=False)+potential.dvcircdR(pot,1.,use_physical=False))*vo/ro-truth[model]['B']) < 0.05, 'Oort A in Dehnen & Binney (1998) {} does not agree with paper value'.format(model)
     return None
@@ -2370,7 +2372,7 @@ def test_mvir_attributeerror():
 
 # Test that virial quantities are correctly computed when specifying a different (ro,vo) pair from Potential setup (see issue #290)
 def test_NFW_virialquantities_diffrovo():
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     H, Om, overdens, wrtcrit= 71., 0.32, 201., False
     ro_setup, vo_setup= 220., 8.
     ros= [7.,8.,9.]
@@ -2387,7 +2389,7 @@ def test_NFW_virialquantities_diffrovo():
         od= (np.mvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)\
                  /4./numpy.pi*3.\
                  /np.rvir(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit,use_physical=False)**3.)\
-            *bovy_conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
+            *conversion.dens_in_meanmatterdens(vo,ro,H=H,Om=Om)
         assert numpy.fabs(od-overdens) < 0.01, "NFWPotential's virial quantities computed in internal units with different (ro,vo) from setup are incorrect"
         # Also test concentration
         assert numpy.fabs(np.conc(ro=ro,vo=vo,H=H,Om=Om,overdens=overdens,wrtcrit=wrtcrit)\
@@ -2799,7 +2801,7 @@ def test_planeRotatedNFWPotential():
     return None
 
 def test_zaxisRotatedNFWPotential():
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     # Test that the rotation according to zvec works as expected
     pa= 30./180.*numpy.pi
     tnp= potential.TriaxialNFWPotential(normalize=1.,a=1.5,c=0.5,
@@ -2811,7 +2813,7 @@ def test_zaxisRotatedNFWPotential():
     xs= numpy.zeros_like(phis)
     ys= Rs*numpy.cos(phis)
     zs= Rs*numpy.sin(phis)
-    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    tR,tphi,tz= coords.rect_to_cyl(xs,ys,zs)
     pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-30./180.*numpy.pi))
@@ -2832,7 +2834,7 @@ def test_zaxisRotatedNFWPotential():
     xs= Rs*numpy.cos(phis)
     ys= numpy.zeros_like(phis)
     zs= Rs*numpy.sin(phis)
-    tR,tphi,tz= bovy_coords.rect_to_cyl(xs,ys,zs)
+    tR,tphi,tz= coords.rect_to_cyl(xs,ys,zs)
     pot= numpy.array([tnp(r,z,phi=phi) for r,z,phi in zip(tR,tz,tphi)])
     minphi= numpy.argmin(pot)
     minphi_pred= numpy.argmin(numpy.fabs(phis-120./180.*numpy.pi))
@@ -3044,11 +3046,11 @@ def test_Wrapper_incompatibleunitserror():
 def test_WrapperPotential_unittransfer_3d():
     # Test that units are properly transferred between a potential and its
     # wrapper
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 9., 230.
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
@@ -3056,14 +3058,14 @@ def test_WrapperPotential_unittransfer_3d():
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
@@ -3072,11 +3074,11 @@ def test_WrapperPotential_unittransfer_3d():
 def test_WrapperPotential_unittransfer_2d():
     # Test that units are properly transferred between a potential and its
     # wrapper
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 9., 230.
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro,vo=vo).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
@@ -3084,14 +3086,14 @@ def test_WrapperPotential_unittransfer_2d():
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
-    hpw_phys= bovy_conversion.get_physical(hpw,include_set=True)
+    hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
@@ -3266,6 +3268,125 @@ def test_ttensor_nonaxi():
         dummy= potential.ttensor(lp,1.,0.,0.)
     return None
 
+# Test that zvc_range returns the range over which the zvc is defined for a
+# given E,Lz
+def test_zvc_range():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(potential.MWPotential2014,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'
+    # Also one for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rmin,0.)+Lz**2./2./Rmin**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rmax,0.)+Lz**2./2./Rmax**2.-E) < 1e-8, 'zvc_range does not return radius at which Phi_eff(R,0) = E'
+    R_a_little_less= Rmin-1e-4
+    assert potential.evaluatePotentials(pot,R_a_little_less,0.)+Lz**2./2./R_a_little_less**2. > E, 'zvc_range does not give the minimum R for which Phi_eff(R,0) < E'
+    R_a_little_more= Rmax+1e-4
+    assert potential.evaluatePotentials(pot,R_a_little_more,0.)+Lz**2./2./R_a_little_more**2. > E, 'zvc_range does not give the maximum R for which Phi_eff(R,0) < E'   
+    return None
+
+# Test that we get [NaN,NaN] when there are no orbits for this combination of E and Lz
+def test_zvc_range_undefined():
+    # Set up circular orbit at Rc, then ask for Lz > Lzmax(E)
+    Rc= 0.6653
+    E= potential.evaluatePotentials(potential.MWPotential2014,Rc,0.)\
+        +potential.vcirc(potential.MWPotential2014,Rc)**2./2.
+    Lzmax= Rc*potential.vcirc(potential.MWPotential2014,Rc)
+    assert numpy.all(numpy.isnan(potential.zvc_range(potential.MWPotential2014,E,Lzmax+1e-4))), 'zvc_range does not return [NaN,NaN] when no orbits exist at this combination of (E,Lz)'
+    return None
+
+def test_zvc_at_rminmax():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(potential.zvc(potential.MWPotential2014,Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    # Also for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    assert numpy.fabs(pot.zvc(Rmin,E,Lz)) < 1e-8, 'zvc at minimum from zvc_range is not at zero height'
+    assert numpy.fabs(pot.zvc(Rmax,E,Lz)) < 1e-8, 'zvc at maximum from zvc_range is not at zero height'
+    return None
+
+def test_zvc():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= potential.zvc(potential.MWPotential2014,Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(potential.MWPotential2014,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    # Also for a single potential
+    pot= potential.PlummerPotential(normalize=True)
+    E, Lz= -1.9, 0.2
+    Rmin, Rmax= pot.zvc_range(E,Lz)
+    Rtrial= 0.5*(Rmin+Rmax)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.25*(Rmax-Rmin)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    Rtrial= Rmin+0.75*(Rmax-Rmin)
+    ztrial= pot.zvc(Rtrial,E,Lz)
+    assert numpy.fabs(potential.evaluatePotentials(pot,Rtrial,ztrial)+Lz**2./2./Rtrial**2.-E) < 1e-8, 'zvc does not return the height at which Phi_eff(R,z) = E'
+    return None
+
+# Test that zvc outside of zvc_range is NaN
+def test_zvc_undefined():
+    E, Lz= -1.25, 0.6
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmin-1e-4,E,Lz)), 'zvc at R < Rmin is not NaN'
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmax+1e-4,E,Lz)), 'zvc at R > Rmax is not NaN'
+    # Another one for good measure
+    E, Lz= -2.25, 0.2
+    Rmin, Rmax= potential.zvc_range(potential.MWPotential2014,E,Lz)
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmin-1e-4,E,Lz)), 'zvc at R < Rmin is not NaN'
+    assert numpy.isnan(potential.zvc(potential.MWPotential2014,Rmax+1e-4,E,Lz)), 'zvc at R > Rmax is not NaN'
+    return None
+
+# Check that we get the correct ValueError if no solution can be found
+def test_zvc_valueerror():
+    E, Lz= -1.25+100, 0.6
+    with pytest.raises(ValueError) as excinfo:
+        potential.zvc(potential.MWPotential2014,0.7,E+100,Lz)
+    return None
+        
 def test_NumericalPotentialDerivativesMixin():
     # Test that the NumericalPotentialDerivativesMixin works as expected
     def get_mixin_first_instance(cls,*args,**kwargs):
@@ -3631,6 +3752,31 @@ def test_plotting():
                             aspect=1.,log=True,xy=True,
                             justcontours=True,
                             ncontours=11,savefilename=None)
+    #Plot the surface density of a LogarithmicHaloPotential
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    lp.plotSurfaceDensity()
+    lp.plotSurfaceDensity(t=1.,z=2.,xmin=0.05,xmax=1.8,nxs=11,
+                          ymin=-0.55,ymax=0.55,nys=11, 
+                          aspect=1.,log=True,justcontours=True,
+                          ncontours=11,savefilename=None)
+    #Also while saving the result
+    savefile, tmp_savefilename= tempfile.mkstemp()
+    try:
+        os.close(savefile) #Easier this way 
+        os.remove(tmp_savefilename)
+        #First save
+        lp.plotSurfaceDensity(savefilename=tmp_savefilename)
+        #Then plot using the saved file
+        lp.plotSurfaceDensity(savefilename=tmp_savefilename)
+    finally:
+        os.remove(tmp_savefilename)
+    potential.plotSurfaceDensities([lp])
+    potential.plotSurfaceDensities([lp],t=1.,z=2.,
+                                   xmin=0.05,xmax=1.8,nxs=11,
+                                   ymin=-0.55,ymax=0.55,nys=11, 
+                                   aspect=1.,log=True,
+                                   justcontours=True,
+                                   ncontours=11,savefilename=None)
     #Plot the potential itself for a 2D potential
     kp.toPlanar().plot()
     savefile, tmp_savefilename= tempfile.mkstemp()
@@ -4027,17 +4173,17 @@ class mockTransientLogSpiralPotential(TransientLogSpiralPotential):
 
 ##Potentials used for mock SCF
 def rho_Zeeuw(R, z=0., phi=0., a=1.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     return 3./(4*numpy.pi) * numpy.power((a + r),-4.) * a
    
     
 def axi_density1(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential()
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)
     
 def axi_density2(R, z=0, phi=0.):
-    r, theta, phi = bovy_coords.cyl_to_spher(R,z, phi)
+    r, theta, phi = coords.cyl_to_spher(R,z, phi)
     return rho_Zeeuw(R,z,phi)*(1 +numpy.cos(theta) + numpy.cos(theta)**2)
     
 def scf_density(R, z=0, phi=0.):

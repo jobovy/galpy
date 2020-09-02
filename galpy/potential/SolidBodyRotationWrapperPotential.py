@@ -5,7 +5,7 @@
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
-from ..util import bovy_conversion
+from ..util import conversion
 if _APY_LOADED:
     from astropy import units
 class SolidBodyRotationWrapperPotential(parentWrapperPotential):
@@ -48,7 +48,7 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         """
         if _APY_LOADED and isinstance(omega,units.Quantity):
             omega= omega.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
             pa= pa.to(units.rad).value
         self._omega= omega

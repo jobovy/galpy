@@ -6,7 +6,7 @@ import tempfile
 import shutil
 import subprocess
 import math as m
-import galpy.util.bovy_plot as bovy_plot
+import galpy.util.plot as galpy_plot
 from Snapshot import *
 def snapshotToMovie(snap,filename,*args,**kwargs):
     """
@@ -98,9 +98,9 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
     for ii in range(nsnap):
         tmpfiles.append(os.path.join(tempdir,
                                      str(ii).zfill(file_length)))
-        bovy_plot.bovy_print()
+        galpy_plot.print()
         snap[ii].plot(*args,**kwargs)
-        bovy_plot.bovy_end_print(tmpfiles[ii]+'.pdf')
+        galpy_plot.end_print(tmpfiles[ii]+'.pdf')
         #Convert to jpeg
         try:
             subprocess.check_call(['convert',

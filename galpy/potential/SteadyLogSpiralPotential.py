@@ -2,7 +2,7 @@
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import numpy
-from ..util import bovy_conversion
+from ..util import conversion
 from .planarPotential import planarPotential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -71,7 +71,7 @@ class SteadyLogSpiralPotential(planarPotential):
             A= A.to(units.km**2/units.s**2).value/self._vo**2.
         if _APY_LOADED and isinstance(omegas,units.Quantity):
             omegas= omegas.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         self._omegas= omegas
         self._A= A
         self._m= m

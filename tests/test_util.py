@@ -60,7 +60,7 @@ def test_fast_cholesky_invert():
     return None
 
 def test_quadpack():
-    from galpy.util.bovy_quadpack import dblquad
+    from galpy.util.quadpack import dblquad
     int= dblquad(lambda y,x: 4.*x*y,0.,1.,lambda z: 0.,lambda z: 1.)
-    assert numpy.fabs(int[0]-1.) < int[1], 'bovy_quadpack.dblquad did not work as expected'
+    assert numpy.fabs(int[0]-1.) < int[1], 'galpy.util.quadpack.dblquad did not work as expected'
     return None

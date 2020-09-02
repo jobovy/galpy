@@ -15,7 +15,7 @@ def test_setupimpact_error():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -32,16 +32,16 @@ def test_setupimpact_error():
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
                          tdisrupt=10.88\
-                             /bovy_conversion.time_in_Gyr(V0,R0),
+                             /conversion.time_in_Gyr(V0,R0),
                          Vnorm=V0,Rnorm=R0,
                          impactb=0.,
                          subhalovel=numpy.array([6.82200571,132.7700529,
                                                  149.4174464])/V0,
-                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         timpact=0.88/conversion.time_in_Gyr(V0,R0),
                          impact_angle=-2.34)
     # Should be including these:
     #                 GM=10.**-2.\
-    #                     /bovy_conversion.mass_in_1010msol(V0,R0),
+    #                     /conversion.mass_in_1010msol(V0,R0),
     #                 rs=0.625/R0)
     return None
 
@@ -51,7 +51,7 @@ def test_leadingwtrailingimpact_error():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -68,15 +68,15 @@ def test_leadingwtrailingimpact_error():
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
                          tdisrupt=10.88\
-                             /bovy_conversion.time_in_Gyr(V0,R0),
+                             /conversion.time_in_Gyr(V0,R0),
                          Vnorm=V0,Rnorm=R0,
                          impactb=0.,
                          subhalovel=numpy.array([6.82200571,132.7700529,
                                                  149.4174464])/V0,
-                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         timpact=0.88/conversion.time_in_Gyr(V0,R0),
                          impact_angle=-2.34,
                          GM=10.**-2.\
-                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                             /conversion.mass_in_1010msol(V0,R0),
                          rs=0.625/R0)
     return None
 
@@ -86,7 +86,7 @@ def test_trailingwleadingimpact_error():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -103,15 +103,15 @@ def test_trailingwleadingimpact_error():
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
                          tdisrupt=10.88\
-                             /bovy_conversion.time_in_Gyr(V0,R0),
+                             /conversion.time_in_Gyr(V0,R0),
                          Vnorm=V0,Rnorm=R0,
                          impactb=0.,
                          subhalovel=numpy.array([6.82200571,132.7700529,
                                                  149.4174464])/V0,
-                         timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                         timpact=0.88/conversion.time_in_Gyr(V0,R0),
                          impact_angle=2.34,
                          GM=10.**-2.\
-                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                             /conversion.mass_in_1010msol(V0,R0),
                          rs=0.625/R0)
     return None
 
@@ -122,7 +122,7 @@ def test_sanders15_setup():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -139,15 +139,15 @@ def test_sanders15_setup():
                                nTrackIterations=1,
                                sigMeanOffset=4.5,
                                tdisrupt=10.88\
-                                   /bovy_conversion.time_in_Gyr(V0,R0),
+                                   /conversion.time_in_Gyr(V0,R0),
                                Vnorm=V0,Rnorm=R0,
                                impactb=0.,
                                subhalovel=numpy.array([6.82200571,132.7700529,
                                                        149.4174464])/V0,
-                               timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                               timpact=0.88/conversion.time_in_Gyr(V0,R0),
                                impact_angle=-2.34,
                                GM=10.**-2.\
-                                   /bovy_conversion.mass_in_1010msol(V0,R0),
+                                   /conversion.mass_in_1010msol(V0,R0),
                                rs=0.625/R0)
     assert not sdf_sanders15 is None, 'sanders15 streamgapdf setup did not work'
     # Also setup the unperturbed model
@@ -157,7 +157,7 @@ def test_sanders15_setup():
                                nTrackIterations=1,
                                sigMeanOffset=4.5,
                                tdisrupt=10.88\
-                                   /bovy_conversion.time_in_Gyr(V0,R0),
+                                   /conversion.time_in_Gyr(V0,R0),
                                Vnorm=V0,Rnorm=R0)
     assert not sdf_sanders15_unp is None, \
         'sanders15 unperturbed streamdf setup did not work'
@@ -169,7 +169,7 @@ def test_sanders15_leading_setup():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, PlummerPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import bovy_conversion #for unit conversions
+    from galpy.util import conversion #for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -183,7 +183,7 @@ def test_sanders15_leading_setup():
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     # Use a Potential object for the impact
     pp= PlummerPotential(amp=10.**-2.\
-                             /bovy_conversion.mass_in_1010msol(V0,R0),
+                             /conversion.mass_in_1010msol(V0,R0),
                          b=0.625/R0)
     import warnings
     from galpy.util import galpyWarning
@@ -196,13 +196,13 @@ def test_sanders15_leading_setup():
                                     nTrackIterations=1,
                                     sigMeanOffset=4.5,
                                     tdisrupt=10.88\
-                                        /bovy_conversion.time_in_Gyr(V0,R0),
+                                        /conversion.time_in_Gyr(V0,R0),
                                     Vnorm=V0,Rnorm=R0,
                                     impactb=0.,
                                     subhalovel=numpy.array([49.447319,
                                                             116.179436,
                                                             155.104156])/V0,
-                                    timpact=0.88/bovy_conversion.time_in_Gyr(V0,R0),
+                                    timpact=0.88/conversion.time_in_Gyr(V0,R0),
                                     impact_angle=2.09,
                                     subhalopot=pp,
                                     nKickPoints=290,
@@ -223,7 +223,7 @@ def test_sanders15_leading_setup():
                                  nTrackIterations=1,
                                  sigMeanOffset=4.5,
                                  tdisrupt=10.88\
-                                     /bovy_conversion.time_in_Gyr(V0,R0),
+                                     /conversion.time_in_Gyr(V0,R0),
                                  Vnorm=V0,Rnorm=R0)
     assert not sdfl_sanders15_unp is None, \
         'sanders15 unperturbed streamdf setup did not work'
@@ -307,22 +307,22 @@ def test_kickdv():
 
 # Test the calculation of the kicks in dO
 def test_kickdO():
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     # Closest one to the impact point, should be close to zero
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
                                        -sdf_sanders15._impact_angle))
-    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)) < 0.03), 'Kick near the impact point not close to zero'
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)) < 0.03), 'Kick near the impact point not close to zero'
     # The peak, size and location
-    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,0]*bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.085) < 0.01, 'Peak dOR incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,0]*conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.085) < 0.01, 'Peak dOR incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,0])]-sdf_sanders15._impact_angle < 0., 'Location of peak dOR incorrect'
-    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,1]*bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.07) < 0.01, 'Peak dOp incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,1]*conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.07) < 0.01, 'Peak dOp incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,1])]-sdf_sanders15._impact_angle < 0., 'Location of peak dvy incorrect'
-    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,2]*bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.075) < 0.01, 'Peak dOz incorrect'
+    assert numpy.fabs(numpy.amax(numpy.fabs(sdf_sanders15._kick_dOap[:,2]*conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)))-0.075) < 0.01, 'Peak dOz incorrect'
     assert sdf_sanders15._kick_interpolatedThetasTrack[numpy.argmax(sdf_sanders15._kick_dOap[:,2])]-sdf_sanders15._impact_angle < 0., 'Location of peak dOz incorrect'
     # Close to zero far from impact point
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
                                        -sdf_sanders15._impact_angle-1.5))
-    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)) < 0.03), 'Kick far the impact point not close to zero'
+    assert numpy.all(numpy.fabs(sdf_sanders15._kick_dOap[tIndx,:3]*conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)) < 0.03), 'Kick far the impact point not close to zero'
     return None
 
 def test_kickda():
@@ -333,8 +333,8 @@ def test_kickda():
 
 # Test the interpolation of the kicks
 def test_interpKickdO():
-    from galpy.util import bovy_conversion
-    freqConv= bovy_conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)
+    from galpy.util import conversion
+    freqConv= conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)
     # Bunch of spot checks at some interesting angles
     # Impact angle
     theta= sdf_sanders15._impact_angle
@@ -510,14 +510,14 @@ def test_meanOmega_approx_higherorder():
 def test_hernquist():
     # Test that Hernquist kicks are similar to Plummer kicks, but are
     # different in understood ways (...)
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     # Switch to Hernquist
     V0, R0= 220., 8.
     impactb=0.
     subhalovel=numpy.array([6.82200571,132.7700529,
                             149.4174464])/V0
     impact_angle=-2.34
-    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    GM=10.**-2./conversion.mass_in_1010msol(V0,R0)
     rs=0.625/R0
     sdf_sanders15._determine_deltav_kick(impact_angle,impactb,subhalovel,
                                          GM,rs,None,
@@ -549,14 +549,14 @@ def test_hernquist():
 def test_determine_deltav_valueerrort():
     # Test that modeling leading (trailing) impact for trailing (leading) arm
     # raises a ValueError when using _determine_deltav_kick
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     # Switch to Hernquist
     V0, R0= 220., 8.
     impactb=0.
     subhalovel=numpy.array([6.82200571,132.7700529,
                             149.4174464])/V0
     impact_angle=-2.34
-    GM=10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    GM=10.**-2./conversion.mass_in_1010msol(V0,R0)
     rs=0.625/R0
     # Can't do minus impact angle!
     with pytest.raises(ValueError) as excinfo:
@@ -1039,9 +1039,9 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
 # stream paper
 def test_impulse_deltav_plummerstream():
     from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     V0, R0= 220., 8.
-    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    GM= 10.**-2./conversion.mass_in_1010msol(V0,R0)
     rs= 0.625/R0
     b= rs
     stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
@@ -1055,14 +1055,14 @@ def test_impulse_deltav_plummerstream():
     # Plummer sphere kick
     kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
     # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
-    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    dt= 0.01*rs*R0/wmag/V0*conversion.freq_in_kmskpc(V0,R0)
     stream_kick= impulse_deltav_plummerstream(\
         v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
     assert numpy.all(numpy.fabs((kick-stream_kick)/kick) < 10.**tol), 'Short stream impulse kick calculation does not agree with Plummer calculation by %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)))
     # Same for a bunch of positions
     kick= impulse_deltav_plummer(v_gc,x_gc,-b,w,GM,rs)
     # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
-    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    dt= 0.01*rs*R0/wmag/V0*conversion.freq_in_kmskpc(V0,R0)
     stream_kick=\
         impulse_deltav_plummerstream(\
         v_gc,x_gc,-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
@@ -1071,9 +1071,9 @@ def test_impulse_deltav_plummerstream():
 
 def test_impulse_deltav_plummerstream_tmaxerror():
     from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     V0, R0= 220., 8.
-    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    GM= 10.**-2./conversion.mass_in_1010msol(V0,R0)
     rs= 0.625/R0
     b= rs
     stream_phi= numpy.linspace(-numpy.pi/2.,numpy.pi/2.,201)
@@ -1087,7 +1087,7 @@ def test_impulse_deltav_plummerstream_tmaxerror():
     # Same for infinite integration limits
     kick= impulse_deltav_plummer(v_gc[101],x_gc[101],-b,w,GM,rs)
     # Kick from stream with length 0.01 r_s (should be ~Plummer sphere)
-    dt= 0.01*rs*R0/wmag/V0*bovy_conversion.freq_in_kmskpc(V0,R0)
+    dt= 0.01*rs*R0/wmag/V0*conversion.freq_in_kmskpc(V0,R0)
     with pytest.raises(ValueError) as excinfo:
         stream_kick= impulse_deltav_plummerstream(\
             v_gc[101],x_gc[101],-b,w,lambda t: GM/dt,rs)
@@ -1096,14 +1096,14 @@ def test_impulse_deltav_plummerstream_tmaxerror():
 # Test the Plummer curved calculation for a perpendicular stream impact:
 # short impact should be the same as a Plummer-sphere impact
 def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.potential import LogarithmicHaloPotential
     from galpy.df import impulse_deltav_plummer_curvedstream, \
         impulse_deltav_plummerstream_curvedstream
     R0, V0= 8., 220.
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     tol= -5.
-    GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+    GM= 10.**-2./conversion.mass_in_1010msol(V0,R0)
     rs= 0.625/R0
     dt= 0.01*rs/(numpy.pi/4.)
     kick= impulse_deltav_plummer_curvedstream(\

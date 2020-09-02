@@ -2,7 +2,7 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import numpy
-from ..util import bovy_conversion
+from ..util import conversion
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -109,7 +109,7 @@ class DehnenBarPotential(Potential):
             rb= rb.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(omegab,units.Quantity):
             omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(Af,units.Quantity):
             Af= Af.to(units.km**2/units.s**2).value/self._vo**2.
         self.hasC= True

@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.force_in_pcMyr2
-============================================
+galpy.util.conversion.force_in_pcMyr2
+=====================================
 
-.. autofunction:: galpy.util.bovy_conversion.force_in_pcMyr2
+.. autofunction:: galpy.util.conversion.force_in_pcMyr2

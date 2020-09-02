@@ -372,6 +372,19 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->nargs = (int) 6;
       potentialArgs->requiresVelocity= false;
       break;
+    case 37: // TriaxialGaussianPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialGaussianPotentialpsi;
+      potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

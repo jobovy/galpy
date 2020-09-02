@@ -11,7 +11,7 @@ import hashlib
 import numpy
 from scipy import integrate
 from scipy.special import gamma
-from ..util import bovy_conversion, bovy_coords
+from ..util import conversion, coords
 from .Potential import Potential, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -76,7 +76,7 @@ class FerrersPotential(Potential):
             a= a.to(units.kpc).value/self._ro
         if _APY_LOADED and isinstance(omegab,units.Quantity):
             omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+                /conversion.freq_in_kmskpc(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
             pa= pa.to(units.rad).value
         self.a= a
@@ -117,7 +117,7 @@ class FerrersPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         xy= numpy.dot(self.rot(t),numpy.array([x,y]))
         x,y= xy[0],xy[1]
         return self._evaluate_xyz(x,y,z)
@@ -187,7 +187,7 @@ class FerrersPotential(Potential):
         return self._cached_Fz
 
     def _compute_xyz(self,R,phi,z,t):
-        return bovy_coords.cyl_to_rect(R,phi-self._pa-self._omegab*t,z)
+        return coords.cyl_to_rect(R,phi-self._pa-self._omegab*t,z)
 
     def _compute_xyzforces(self,R,z,phi,t):
         # Compute all rectangular forces

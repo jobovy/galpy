@@ -5,7 +5,7 @@ from ..potential import DiskSCFPotential
 from ..potential import SCFPotential
 from ..potential import scf_compute_coeffs_axi
 from ..potential import mwpot_helpers
-from ..util import bovy_conversion
+from ..util import conversion
 # Unit normalization, all models have R0 = 8 kpc
 ro= 8.0
 # Parameters in common between all models
@@ -64,8 +64,8 @@ def define_dehnenbinney98_models(model=1):
         alpha_halo= 1.629
         beta_halo= 2.167
         r0_halo= 1.899/ro
-    sigo= bovy_conversion.surfdens_in_msolpc2(vo=vo,ro=ro)
-    rhoo= bovy_conversion.dens_in_msolpc3(vo=vo,ro=ro)
+    sigo= conversion.surfdens_in_msolpc2(vo=vo,ro=ro)
+    rhoo= conversion.dens_in_msolpc3(vo=vo,ro=ro)
     Sigma0/= sigo
     rho0_bulge/= rhoo
     rho0_halo/= rhoo

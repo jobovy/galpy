@@ -12,14 +12,14 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # with velocity dispersion sigma and for constant Lambda:
     # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
     # (e.g., B&T08, p. 648)
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     ro,vo= 8.,220.
     # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    GMs= 10.**9./conversion.mass_in_msol(vo,ro)
     const_lnLambda= 7.
     r_init= 2.
-    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    dt= 2./conversion.time_in_Gyr(vo,ro)
     # Compute
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\
@@ -38,13 +38,13 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
     # the variable lambda
     # Also tests that giving an axisymmetric list of potentials for the 
     # density works
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     ro,vo= 8.,220.
     # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    GMs= 10.**9./conversion.mass_in_msol(vo,ro)
     r_init= 3.
-    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    dt= 2./conversion.time_in_Gyr(vo,ro)
     # Compute evolution with variable ln Lambda
     cdf= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=GMs,rhm=0.125,
@@ -66,10 +66,10 @@ def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
     # outside of the [minr,maxr] range over which sigmar is interpolated:
     # 0 at r < minr
     # using sigmar(r) for r > maxr
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    GMs= 10.**9./conversion.mass_in_msol(vo,ro)
     # Compute evolution with variable ln Lambda
     sigmar= lambda r: 1./r
     cdf= potential.ChandrasekharDynamicalFrictionForce(\
@@ -94,10 +94,10 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
     # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be 
     # pickled as expected
     import pickle
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    GMs= 10.**9./conversion.mass_in_msol(vo,ro)
     # sigmar internally computed, should be able to be pickled
     # Compute evolution with variable ln Lambda
     cdf= potential.ChandrasekharDynamicalFrictionForce(\
@@ -183,6 +183,7 @@ def test_dynamfric_c():
                     rforce=potential.HomogeneousSpherePotential(normalize=0.02,
                                                                 R=82./8.),
                     rgrid=numpy.linspace(0.,82./8.,201)),
+           potential.TriaxialGaussianPotential(normalize=.03,sigma=4.,b=0.8,c=1.5,pa=3.,zvec=[1.,0.,0.]),
            potential.SCFPotential(Acos=numpy.array([[[1.]]]), # same as Hernquist
                                   normalize=1.,a=3.5),
            potential.SCFPotential(Acos=numpy.array([[[1.,0.],[.3,0.]]]), # nonaxi

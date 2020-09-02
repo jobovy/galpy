@@ -5,7 +5,7 @@
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
 from .Potential import _APY_LOADED
-from ..util import bovy_conversion
+from ..util import conversion
 if _APY_LOADED:
     from astropy import units
 class CorotatingRotationWrapperPotential(parentWrapperPotential):
@@ -60,7 +60,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             vpo= vpo.to(units.km/units.s).value/self._vo
         if _APY_LOADED and isinstance(to,units.Quantity):
             to= to.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+                /conversion.time_in_Gyr(self._vo,self._ro)
         if _APY_LOADED and isinstance(pa,units.Quantity):
             pa= pa.to(units.rad).value
         self._vpo= vpo
