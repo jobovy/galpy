@@ -20,9 +20,25 @@ class constantbetadf(anisotropicsphericaldf):
 
             pot - Spherical potential which determines the DF
         """
+        anisotropicsphericaldf.__init__(self,ro=ro,vo=vo)
         self.beta = beta
-        anisotropicsphericaldf.__init__(self,pot=pot,dftype='constant',
-            ro=ro,vo=vo)
+        if pot is None:
+            raise IOError("pot= must be set")
+        # Some sort of check for spherical symmetry in the potential?
+        assert not isinstance(pot,(list,tuple)), 'Lists of potentials not yet supported'
+        self._pot = pot
+        self._potInf = evaluatePotentials(pot,10**12,0)
+        try:
+            self._scale = pot._scale
+        except AttributeError:
+            if scale is not None:
+                if _APY_LOADED and isinstance(scale,units.Quantity):
+                    scale= scale.to(u.kpc).value/self._ro
+                self._scale = scale
+            else:
+                self._scale = 1.
+        self._xi_cmf_interpolator = self._make_cmf_interpolator()
+        self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
 
     def _call_internal(self,*args):
         # Stub for calling

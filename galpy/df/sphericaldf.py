@@ -1,11 +1,10 @@
 # Superclass for spherical distribution functions, contains
 #   - sphericaldf: superclass of all spherical DFs
+#   - isotropicsphericaldf: superclass of all isotropic spherical DFs
 #   - anisotropicsphericaldf: superclass of all anisotropic spherical DFs
 import numpy
-import pdb
 import scipy.interpolate
 from .df import df, _APY_LOADED
-from ..potential import flatten as flatten_potential
 from ..potential import evaluatePotentials, vesc
 from ..orbit import Orbit
 from ..util.bovy_conversion import physical_conversion
@@ -14,7 +13,7 @@ if _APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,pot=None,scale=None,ro=None,vo=None):
+    def __init__(self,ro=None,vo=None):
         """
         NAME:
 
@@ -26,11 +25,7 @@ class sphericaldf(df):
 
         INPUT:
 
-            pot - Spherical potential which determines the DF
-
-            scale - Characteristic scale radius to aid sampling calculations. 
-                Not necessary, and will also be overridden by value from pot if 
-                available.
+           ro= ,vo= galpy unit parameters
 
         OUTPUT:
 
@@ -42,23 +37,6 @@ class sphericaldf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
-        if pot is None:
-            raise IOError("pot= must be set")
-        # Some sort of check for spherical symmetry in the potential?
-        assert not isinstance(pot,(list,tuple)), 'Lists of potentials not yet supported'
-        self._pot = pot
-        self._potInf = evaluatePotentials(pot,10**12,0)
-        try:
-            self._scale = pot._scale
-        except AttributeError:
-            if scale is not None:
-                if _APY_LOADED and isinstance(scale,units.Quantity):
-                    scale= scale.to(u.kpc).value/self._ro
-                self._scale = scale
-            else:
-                self._scale = 1.
-        self._xi_cmf_interpolator = self._make_cmf_interpolator()
-        self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
@@ -359,9 +337,40 @@ class sphericaldf(df):
             icdf_v_vesc_grid_reg.T)
         return v_vesc_icdf_interpolator
 
+class isotropicsphericaldf(sphericaldf):
+    """Superclass for isotropic spherical distribution functions"""
+    def __init__(self,ro=None,vo=None):
+        """
+        NAME:
+
+            __init__
+
+        PURPOSE:
+
+            Initialize an isotropic distribution function
+
+        INPUT:
+
+           ro=, vo= galpy unit parameters
+
+        OUTPUT:
+        
+            None
+
+        HISTORY:
+
+            2020-09-02 - Written - Bovy (UofT)
+
+        """
+        sphericaldf.__init__(self,ro=ro,vo=vo)
+
+    def _sample_eta(self,n=1):
+        """Sample the angle eta which defines radial vs tangential velocities"""
+        return numpy.arccos(1.-2.*numpy.random.uniform(size=n))
+
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,pot=None,dftype=None,ro=None,vo=None):
+    def __init__(self,ro=None,vo=None):
         """
         NAME:
 
@@ -373,10 +382,7 @@ class anisotropicsphericaldf(sphericaldf):
 
         INPUT:
 
-            dftype= Type of anisotropic DF, either 'constant' for constant beta 
-                over all r, or 'ossipkov-merrit'
-
-            pot - Spherical potential which determines the DF
+           ro= ,vo= galpy unit parameters
 
         OUTPUT:
         
@@ -387,5 +393,4 @@ class anisotropicsphericaldf(sphericaldf):
             2020-07-22 - Written - 
 
         """
-        self._dftype = dftype
-        sphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
+        sphericaldf.__init__(self,ro=ro,vo=vo)
