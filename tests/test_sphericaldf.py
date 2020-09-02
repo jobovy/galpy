@@ -2,7 +2,7 @@
 import numpy
 from scipy import special
 from galpy import potential
-from galpy.df import isotropicHernquistdf, kingdf
+from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -58,6 +58,70 @@ def test_isotropic_hernquist_beta():
     tol= 6*1e-2
     check_beta(samp,pot,tol,beta=0.,
                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+               
+############################# ANISOTROPIC HERNQUIST DF ########################
+def test_anisotropic_hernquist_dens_spherically_symmetric():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        # Check spherical symmetry for different harmonics l,m
+        tol= 1e-2
+        check_spherical_symmetry(samp,0,0,tol)
+        check_spherical_symmetry(samp,1,0,tol)
+        check_spherical_symmetry(samp,1,-1,tol)
+        check_spherical_symmetry(samp,1,1,tol)
+        check_spherical_symmetry(samp,2,0,tol)
+        check_spherical_symmetry(samp,2,-1,tol)
+        check_spherical_symmetry(samp,2,-2,tol)
+        check_spherical_symmetry(samp,2,1,tol)
+        check_spherical_symmetry(samp,2,2,tol)
+        # and some higher order ones
+        check_spherical_symmetry(samp,3,1,tol)
+        check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_anisotropic_hernquist_dens_massprofile():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 5*1e-3
+        check_spherical_massprofile(samp,
+                                    lambda r: pot.mass(r,use_physical=False)\
+                                   /pot.mass(numpy.amax(samp.r(use_physical=False)),
+                                             use_physical=False),
+                                tol,skip=1000)
+    return None
+
+def test_anisotropic_hernquist_sigmar():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 0.05
+        check_sigmar_against_jeans(samp,pot,tol,beta=beta,
+                                   rmin=pot._scale/10.,rmax=pot._scale*10.,
+                                   bins=31)
+    return None
+
+def test_anisotropic_hernquist_beta():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 8*1e-2
+        check_beta(samp,pot,tol,beta=beta,
+                   rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
                
 ################################# KING DF #####################################

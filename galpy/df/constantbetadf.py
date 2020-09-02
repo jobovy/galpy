@@ -1,12 +1,15 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
-from .sphericaldf import anisotropicsphericaldf
 import numpy
 import scipy.interpolate
+from ..potential import evaluatePotentials
+from .sphericaldf import anisotropicsphericaldf, _APY_LOADED
+if _APY_LOADED:
+    from astropy import units
 
 class constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
-    def __init__(self,pot=None,beta=None,ro=None,vo=None):
+    def __init__(self,pot=None,beta=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -19,6 +22,11 @@ class constantbetadf(anisotropicsphericaldf):
         INPUT:
 
             pot - Spherical potential which determines the DF
+
+            scale - Characteristic scale radius to aid sampling calculations. 
+                Not necessary, and will also be overridden by value from pot if 
+                available.
+
         """
         anisotropicsphericaldf.__init__(self,ro=ro,vo=vo)
         self.beta = beta
@@ -33,7 +41,7 @@ class constantbetadf(anisotropicsphericaldf):
         except AttributeError:
             if scale is not None:
                 if _APY_LOADED and isinstance(scale,units.Quantity):
-                    scale= scale.to(u.kpc).value/self._ro
+                    scale= scale.to(units.kpc).value/self._ro
                 self._scale = scale
             else:
                 self._scale = 1.
