@@ -63,7 +63,7 @@ class isotropicHernquistdf(Eddingtondf):
             2020-08-09 - Written - James Lane (UofT)
         """
         if _APY_LOADED and isinstance(E,units.quantity.Quantity):
-            E= E.to(units.km**2/units.s**2).value/vo**2.
+            E= E.to(units.km**2/units.s**2).value/self._vo**2.
         phi0 = -evaluatePotentials(self._pot,0,0,use_physical=False)
         Erel = -E
         Etilde = Erel/phi0

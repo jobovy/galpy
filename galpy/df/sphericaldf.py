@@ -6,6 +6,7 @@ import numpy
 import scipy.interpolate
 from .df import df, _APY_LOADED
 from ..potential import evaluatePotentials, vesc
+from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
 from ..util.bovy_conversion import physical_conversion
 if _APY_LOADED:
@@ -33,7 +34,7 @@ class sphericaldf(df):
 
         HISTORY:
 
-            2020-07-22 - Written - 
+            2020-07-22 - Written - Lane (UofT)
 
         """
         df.__init__(self,ro=ro,vo=vo)
@@ -62,18 +63,13 @@ class sphericaldf(df):
                 c) Orbit instance: orbit.Orbit instance and if specific time 
                     then orbit.Orbit(t) 
 
-        KWARGS:
-
-            return_fE= if True then return the full distribution function plus 
-                just the energy component (for e.g. an anisotropic DF)
-
         OUTPUT:
 
             Value of DF
 
         HISTORY:
 
-            2020-07-22 - Written -
+            2020-07-22 - Written - Lane (UofT)
 
         """
         # Stub for calling the DF as a function of either a) R,vR,vT,z,vz,phi,
@@ -166,7 +162,7 @@ class sphericaldf(df):
 
         HISTORY:
 
-            2020-07-22 - Written - 
+            2020-07-22 - Written - Lane (UofT)
 
         """
         if R is None or z is None: # Full 6D samples
@@ -190,8 +186,9 @@ class sphericaldf(df):
         vz = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
         
         if return_orbit:
-            o = Orbit(vxvv=numpy.array([R,vR,vT,z,vz,phi]).T,
-                      ro=self._ro,vo=self._vo)
+            o = Orbit(vxvv=numpy.array([R,vR,vT,z,vz,phi]).T)
+            if self._roSet and self._voSet:
+                o.turn_physical_on(ro=self._ro,vo=self._vo)
             return o
         else:
             return (R,vR,vT,z,vz,phi)
@@ -201,16 +198,16 @@ class sphericaldf(df):
         Note - the function interpolates the normalized CMF onto the variable 
         xi defined as:
         
-        .. math:: \\xi = \\frac{r-1}{r+1}
+        .. math:: \\xi = \\frac{r/a-1}{r/a+1}
         
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
-        rand_mass_frac = numpy.random.random(size=n)
-        if '_icmf' in dir(self):
+        rand_mass_frac = numpy.random.uniform(size=n)
+        if hasattr(self,'_icmf'):
             r_samples = self._icmf(rand_mass_frac)
         else:
             xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
-            r_samples = self._xi_to_r(xi_samples,a=self._scale)
+            r_samples = _xiToR(xi_samples,a=self._scale)
         return r_samples
 
     def _make_cmf_interpolator(self):
@@ -224,36 +221,26 @@ class sphericaldf(df):
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
         xis = numpy.arange(-1,1,1e-6)
-        rs = self._xi_to_r(xis,a=self._scale)
+        rs = _xiToR(xis,a=self._scale)
         ms = self._pot.mass(rs,use_physical=False)
         ms /= self._pot.mass(10**12,use_physical=False)
+        # Add total mass point
         xis = numpy.append(xis,1)
         ms = numpy.append(ms,1)
-        xis_cmf_interp = scipy.interpolate.interp1d(ms,xis,
-            kind='cubic',bounds_error=False,fill_value='extrapolate')
-        return xis_cmf_interp
-
-    def _xi_to_r(self,xi,a=1):
-        """Calculate r from xi"""
-        return a*numpy.divide(1+xi,1-xi)
-    
-    def r_to_xi(self,r,a=1):
-        """Calculate xi from r"""
-        return numpy.divide(r/a-1,r/a+1)
+        return scipy.interpolate.InterpolatedUnivariateSpline(ms,xis,k=3)
 
     def _sample_position_angles(self,n=1):
         """Generate spherical angle samples"""
         phi_samples = numpy.random.uniform(size=n)*2*numpy.pi
-        theta_samples = numpy.arccos(2*numpy.random.uniform(size=n)-1)
+        theta_samples = numpy.arccos(1.-2*numpy.random.uniform(size=n))
         return phi_samples,theta_samples
 
     def _sample_v(self,r,n=1):
         """Generate velocity samples"""
-        vesc_vals = vesc(self._pot,r,use_physical=False)
-        pvr_icdf_samples = numpy.random.random(size=n)
-        v_vesc_samples = self._v_vesc_pvr_interpolator(numpy.log10(r/self._scale),
-            pvr_icdf_samples,grid=False)
-        return v_vesc_samples*vesc_vals
+        return self._v_vesc_pvr_interpolator(\
+                    numpy.log10(r/self._scale),numpy.random.uniform(size=n),
+                    grid=False)\
+                *vesc(self._pot,r,use_physical=False)
 
     def _sample_velocity_angles(self,n=1):
         """Generate samples of angles that set radial vs tangential velocities"""
@@ -262,9 +249,8 @@ class sphericaldf(df):
         return eta_samples,psi_samples
 
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, 
-        r_a_interval=0.05, v_vesc_interval=0.01, set_interpolator=True,
-        output_grid=False):
-        '''
+                               r_a_interval=0.05, v_vesc_interval=0.01):
+        """
         NAME:
 
         _make_pvr_interpolator
@@ -296,30 +282,24 @@ class sphericaldf(df):
         HISTORY:
 
             Written 2020-07-24 - James Lane (UofT)
-        '''
-        # Make an array of r/a by v/vesc and then orbits to calculate fE
-        r_a_values = numpy.power(10,numpy.arange(r_a_start,r_a_end,r_a_interval))
+        """
+        # Make an array of r/a by v/vesc and then calculate p(v|r)
+        r_a_values = 10.**numpy.arange(r_a_start,r_a_end,r_a_interval)
         v_vesc_values = numpy.arange(0,1,v_vesc_interval)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values,v_vesc_values)
         vesc_grid = vesc(self._pot,r_a_grid*self._scale,use_physical=False)
-        E_grid = evaluatePotentials(self._pot,r_a_grid*self._scale,0,
-            use_physical=False)+0.5*(numpy.multiply(v_vesc_grid,vesc_grid))**2.
-
-        # Calculate cumulative p(v|r)
-        fE_grid = self.fE(E_grid).reshape(E_grid.shape)
-        _beta = 0
-        if hasattr(self,'beta'):
-            _beta = self.beta
-        pvr_grid = numpy.multiply(fE_grid,(v_vesc_grid*vesc_grid)**(2-2*_beta))
-        pvr_grid_cml = numpy.cumsum( pvr_grid, axis=0 )
+        r_grid= r_a_grid*self._scale
+        vr_grid= v_vesc_grid*vesc_grid
+        # Calculate p(v|r) and normalize
+        pvr_grid= self._p_v_at_r(vr_grid,r_grid)
+        pvr_grid_cml = numpy.cumsum(pvr_grid,axis=0)
         pvr_grid_cml_norm = pvr_grid_cml\
         /numpy.repeat(pvr_grid_cml[-1,:][:,numpy.newaxis],pvr_grid_cml.shape[0],axis=1).T
         
-        # Construct the inverse cumulative distribution
+        # Construct the inverse cumulative distribution on a regular grid
         n_new_pvr = 100 # Must be multiple of r_a_grid.shape[0]
         icdf_pvr_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
-        r_a_grid_reg = numpy.repeat(r_a_grid,n_new_pvr/r_a_grid.shape[0],axis=0)
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:,i]
             # Deal with the fact that the escape velocity might be beyond
@@ -330,20 +310,16 @@ class sphericaldf(df):
                 end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
             except ValueError:
                 end_indx= len(cml_pvr)
-            cml_pvr_inv_interp = scipy.interpolate.interp1d(cml_pvr[:end_indx], 
-                v_vesc_values[:end_indx], kind='cubic', bounds_error=None, 
-                fill_value='extrapolate')
-            pvr_samples_reg = numpy.linspace(0,1,num=n_new_pvr)
+            cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(cml_pvr[:end_indx], 
+                v_vesc_values[:end_indx],k=3)
+            pvr_samples_reg = numpy.linspace(0,1,n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:,i] = pvr_samples_reg
             icdf_v_vesc_grid_reg[:,i] = v_vesc_samples_reg
-        ###i
-        
         # Create the interpolator
-        v_vesc_icdf_interpolator = scipy.interpolate.RectBivariateSpline(
+        return scipy.interpolate.RectBivariateSpline(
             numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
             icdf_v_vesc_grid_reg.T)
-        return v_vesc_icdf_interpolator
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
@@ -376,6 +352,10 @@ class isotropicsphericaldf(sphericaldf):
         """Sample the angle eta which defines radial vs tangential velocities"""
         return numpy.arccos(1.-2.*numpy.random.uniform(size=n))
 
+    def _p_v_at_r(self,v,r):
+        return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
+                       +0.5*v**2.)*v**2.
+    
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
     def __init__(self,ro=None,vo=None):

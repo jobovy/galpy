@@ -31,11 +31,3 @@ class Eddingtondf(isotropicsphericaldf):
                 self._scale = 1.
         self._xi_cmf_interpolator = self._make_cmf_interpolator()
         self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
-
-    def _call_internal(self,*args):
-        # Stub for calling
-        return None
-
-    def fE(self,E):
-        # Stub for computing f(E)
-        return None

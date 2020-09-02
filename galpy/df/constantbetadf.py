@@ -66,3 +66,8 @@ class constantbetadf(anisotropicsphericaldf):
             bounds_error=False, fill_value='extrapolate')
         eta_samples = eta_icml_interp(numpy.random.uniform(size=n))
         return eta_samples
+
+    def _p_v_at_r(self,v,r):
+        return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
+                       +0.5*v**2.)*v**(2.-2.*self.beta)
+    
