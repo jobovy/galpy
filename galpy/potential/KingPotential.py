@@ -13,7 +13,7 @@ class KingPotential(interpSphericalPotential):
 
     where :math:`\mathcal{E}` is the binding energy.
     """
-    def __init__(self,W0=2.,M=3.,rt=1.5,npt=1001,ro=None,vo=None):
+    def __init__(self,W0=2.,M=3.,rt=1.5,npt=1001,_sfkdf=None,ro=None,vo=None):
         """
         NAME:
 
@@ -33,10 +33,6 @@ class KingPotential(interpSphericalPotential):
 
            npt= (1001) number of points to use to solve for Psi(r) when solving the King DF
 
-           scfa= (1.) scale parameter used in the SCF representation of the potential
-
-           scfN= (30) number of expansion coefficients to use in the SCF representation of the potential     
-
            ro=, vo= standard galpy unit scaling parameters
 
         OUTPUT:
@@ -49,14 +45,20 @@ class KingPotential(interpSphericalPotential):
 
         """
         # Set up King DF
-        from ..df.kingdf import kingdf
-        kdf= kingdf(W0,M=M,rt=rt,ro=ro,vo=vo)
+        if _sfkdf is None:
+            from ..df.kingdf import _scalefreekingdf
+            sfkdf= _scalefreekingdf(W0)
+            sfkdf.solve(npt)
+        else:
+            sfkdf= _sfkdf
+        mass_scale= M/sfkdf.mass
+        radius_scale= rt/sfkdf.rt
         interpSphericalPotential.__init__(\
             self,
-            rforce=lambda r: kdf._mass_scale/kdf._radius_scale**2.
-                            *numpy.interp(r/kdf._radius_scale,
-                                          kdf._scalefree_kdf._r,
-                                          kdf._scalefree_kdf._dWdr),
-            rgrid=kdf._scalefree_kdf._r*kdf._radius_scale,
-            Phi0=-kdf.W0*kdf._mass_scale/kdf._radius_scale,
+            rforce=lambda r: mass_scale/radius_scale**2.
+                            *numpy.interp(r/radius_scale,
+                                          sfkdf._r,
+                                          sfkdf._dWdr),
+            rgrid=sfkdf._r*radius_scale,
+            Phi0=-W0*mass_scale/radius_scale,
             ro=ro,vo=vo)

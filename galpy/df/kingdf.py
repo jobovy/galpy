@@ -74,7 +74,6 @@ class _scalefreekingdf(object):
         r= numpy.zeros(npt)
         W= numpy.zeros(npt)
         dWdr= numpy.zeros(npt)
-        m= numpy.zeros(npt)
         # Initialize (r[0]=0 already)
         W[0]= self.W0
         # Determine central density and r0
