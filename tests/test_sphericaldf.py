@@ -34,9 +34,9 @@ def test_isotropic_hernquist_dens_massprofile():
     samp= dfh.sample(n=100000)
     tol= 5*1e-3
     check_spherical_massprofile(samp,
-                                lambda r: pot.mass(r,use_physical=False)\
-                                   /pot.mass(numpy.amax(samp.r(use_physical=False)),
-                                             use_physical=False),
+                                lambda r: pot.mass(r)\
+                                   /pot.mass(numpy.amax(samp.r()),
+                                             ),
                                 tol,skip=1000)
     return None
 
@@ -92,11 +92,9 @@ def test_anisotropic_hernquist_dens_massprofile():
         numpy.random.seed(10)
         samp= dfh.sample(n=100000)
         tol= 5*1e-3
-        check_spherical_massprofile(samp,
-                                    lambda r: pot.mass(r,use_physical=False)\
-                                   /pot.mass(numpy.amax(samp.r(use_physical=False)),
-                                             use_physical=False),
-                                tol,skip=1000)
+        check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                    /pot.mass(numpy.amax(samp.r())),
+                                    tol,skip=1000)
     return None
 
 def test_anisotropic_hernquist_sigmar():
@@ -151,10 +149,8 @@ def test_king_dens_massprofile():
     numpy.random.seed(10)
     samp= dfk.sample(n=100000)
     tol= 1e-2
-    check_spherical_massprofile(samp,
-                                lambda r: pot.mass(r,use_physical=False)\
-                                   /pot.mass(numpy.amax(samp.r(use_physical=False)),
-                                             use_physical=False),
+    check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                /pot.mass(numpy.amax(samp.r())),
                                 tol,skip=4000)
     return None
 
@@ -187,14 +183,14 @@ def test_king_beta():
 def check_spherical_symmetry(samp,l,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
-    thetas, phis= numpy.arctan2(samp.R(use_physical=False),samp.z(use_physical=False)), samp.phi(use_physical=False)
+    thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
     assert numpy.fabs(numpy.sum(special.lpmv(m,l,numpy.cos(thetas))*numpy.cos(m*phis))/samp.size-(l==0)*(m==0)) < tol, 'Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({},{})'.format(l,m)
     return None
 
 def check_spherical_massprofile(samp,mass_profile,tol,skip=100):
     """Check that the cumulative distribution of radii follows the 
     cumulative mass profile (normalized such that total mass = 1)"""
-    rs= samp.r(use_physical=False)
+    rs= samp.r()
     cumul_rs= numpy.sort(rs)
     cumul_mass= numpy.linspace(0.,1.,len(rs))
     for ii in range(len(rs)//skip-1):
@@ -207,10 +203,8 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
     """Check that sigma_r(r) obtained from a sampling agrees with that coming 
     from the Jeans equation
     Does this by logarithmically binning in r between rmin and rmax"""
-    vrs= (samp.vR(use_physical=False)*samp.R(use_physical=False)
-          +samp.vz(use_physical=False)*samp.z(use_physical=False))\
-          /samp.r(use_physical=False)
-    logrs= numpy.log(samp.r(use_physical=False))
+    vrs= (samp.vR()*samp.R()+samp.vz()*samp.z())/samp.r()
+    logrs= numpy.log(samp.r())
     if rmin is None: numpy.exp(numpy.amin(logrs))
     if rmax is None: numpy.exp(numpy.amax(logrs))
     w,e= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
@@ -221,7 +215,7 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
     brs= numpy.exp((numpy.roll(e,-1)+e)[:-1]/2.)
     for ii,br in enumerate(brs):
         assert numpy.fabs(samp_sigr[ii]/jeans.sigmar(pot,br,beta=beta,
-                                                     use_physical=False)-1.) < tol, \
+                                                     )-1.) < tol, \
                                                      "sigma_r(r) from samples does not agree with that obtained from the Jeans equation"
     return None
 
@@ -230,14 +224,10 @@ def check_beta(samp,pot,tol,beta=0.,
     """Check that beta(r) obtained from a sampling agrees with the expected
     value
     Does this by logarithmically binning in r between rmin and rmax"""
-    vrs= (samp.vR(use_physical=False)*samp.R(use_physical=False)
-           +samp.vz(use_physical=False)*samp.z(use_physical=False))\
-          /samp.r(use_physical=False)
-    vthetas=(samp.z(use_physical=False)*samp.vR(use_physical=False)
-             -samp.R(use_physical=False)*samp.vz(use_physical=False))\
-             /samp.r(use_physical=False)
-    vphis= samp.vT(use_physical=False)    
-    logrs= numpy.log(samp.r(use_physical=False))
+    vrs= (samp.vR()*samp.R()+samp.vz()*samp.z())/samp.r()
+    vthetas=(samp.z()*samp.vR()-samp.R()*samp.vz())/samp.r()
+    vphis= samp.vT()    
+    logrs= numpy.log(samp.r())
     if rmin is None: numpy.exp(numpy.amin(logrs))
     if rmax is None: numpy.exp(numpy.amax(logrs))
     w,e= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
