@@ -322,8 +322,16 @@ class sphericaldf(df):
         r_a_grid_reg = numpy.repeat(r_a_grid,n_new_pvr/r_a_grid.shape[0],axis=0)
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:,i]
-            cml_pvr_inv_interp = scipy.interpolate.interp1d(cml_pvr, 
-                v_vesc_values, kind='cubic', bounds_error=None, 
+            # Deal with the fact that the escape velocity might be beyond
+            # allowed velocities for the DF (e.g., King, where any start that
+            # escapes to r > rt is unbound, but v_esc is still defined by the
+            # escape to infinity)
+            try:
+                end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
+            except ValueError:
+                end_indx= len(cml_pvr)
+            cml_pvr_inv_interp = scipy.interpolate.interp1d(cml_pvr[:end_indx], 
+                v_vesc_values[:end_indx], kind='cubic', bounds_error=None, 
                 fill_value='extrapolate')
             pvr_samples_reg = numpy.linspace(0,1,num=n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)

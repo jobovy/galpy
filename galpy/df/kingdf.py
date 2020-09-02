@@ -1,12 +1,12 @@
 # Class that represents a King DF
 import numpy
 from scipy import special, integrate, interpolate
-from .sphericaldf import sphericaldf
+from .sphericaldf import isotropicsphericaldf
 
 _FOURPI= 4.*numpy.pi
 _TWOOVERSQRTPI= 2./numpy.sqrt(numpy.pi)
 
-class kingdf(sphericaldf):
+class kingdf(isotropicsphericaldf):
     """Class that represents a King DF"""
     def __init__(self,W0,M=1.,rt=1.,npt=1001,ro=None,vo=None):
         """
@@ -39,7 +39,7 @@ class kingdf(sphericaldf):
            2020-07-09 - Written - Bovy (UofT)
 
         """
-        sphericaldf.__init__(self,ro=ro,vo=vo)
+        isotropicsphericaldf.__init__(self,ro=ro,vo=vo)
         # Need to add parsing of Quantity inputs...
         
         self.W0= W0
@@ -57,10 +57,33 @@ class kingdf(sphericaldf):
         self.r0= self._scalefree_kdf.r0*self._radius_scale
         self.c= self._scalefree_kdf.c # invariant
         self.rt= rt # for convenience
-
+        self.M= M # for convenience
+        self.sigma= self._velocity_scale
+        self._sigma2= self.sigma**2.
+        self.rho1= self._density_scale
+        # Setup the potential
+        from ..potential import KingPotential
+        self._pot= KingPotential(W0=self.W0,M=self.M,rt=self.rt,
+                                 _sfkdf=self._scalefree_kdf)
+        self._potInf= self._pot(self.rt,0.)
+        # Setup inverse cumulative mass function for radius sampling
+        self._scale= self.r0
+        self._icmf= interpolate.InterpolatedUnivariateSpline(\
+                        self._mass_scale*self._scalefree_kdf._cumul_mass/self.M,
+                        self._radius_scale*self._scalefree_kdf._r,
+                        k=3)
+        self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=numpy.log10(self.rt/self._scale))
+        
     def dens(self,r):
         return self._scalefree_kdf.dens(r/self._radius_scale)\
             *self._density_scale
+
+    def fE(self,E):
+        out= numpy.zeros(numpy.atleast_1d(E).shape)
+        varE= self._potInf-E
+        out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
+            *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
+        return out        
         
 class _scalefreekingdf(object):
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
@@ -122,7 +145,9 @@ class _scalefreekingdf(object):
         mass_shells= numpy.array([\
             integrate.quad(lambda r: _FOURPI*r**2*self.dens(r),
                            rlo,rhi)[0] for rlo,rhi in zip(r[:-1],r[1:])])
-        self._cumul_mass= numpy.cumsum(mass_shells)
+        self._cumul_mass= numpy.hstack((\
+                integrate.quad(lambda r: _FOURPI*r**2*self.dens(r),0.,r[0])[0],
+                numpy.cumsum(mass_shells)))
         self.mass= self._cumul_mass[-1]
         return None
         

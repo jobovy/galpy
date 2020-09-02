@@ -8,6 +8,7 @@ from . import jeans
 from . import Eddingtondf
 from . import isotropicHernquistdf
 from . import constantbetaHernquistdf
+from . import kingdf
 #
 # Functions
 #
@@ -38,3 +39,4 @@ streamgapdf= streamgapdf.streamgapdf
 Eddingtondf= Eddingtondf.Eddingtondf
 isotropicHernquistdf= isotropicHernquistdf.isotropicHernquistdf
 constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
+kingdf= kingdf.kingdf
