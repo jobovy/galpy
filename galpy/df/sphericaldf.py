@@ -193,7 +193,6 @@ class sphericaldf(df):
         """
         if R is None or z is None: # Full 6D samples
             r = self._sample_r(n=n)
-            v = self._sample_v(r,n=n)
             phi,theta = self._sample_position_angles(n=n)
             R = r*numpy.sin(theta)
             z = r*numpy.cos(theta) 
@@ -202,10 +201,9 @@ class sphericaldf(df):
                 assert len(R) == len(z)
                 n = len(R)
             r = numpy.sqrt(R**2.+z**2.)
-            v = self._sample_v(r,n=n)
             if phi is None: # Otherwise assume phi input type matches R,z
                 phi,_ = self._sample_position_angles(n=n)
-        
+        v = self._sample_v(r,n=n)
         eta,psi = self._sample_velocity_angles(n=n)
         vr = v*numpy.cos(eta)
         vtheta = v*numpy.sin(eta)*numpy.cos(psi)
