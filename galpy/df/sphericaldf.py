@@ -274,8 +274,8 @@ class sphericaldf(df):
         vesc_vals = vesc(self._pot,r,use_physical=False)
         pvr_icdf_samples = numpy.random.random(size=n)
         v_vesc_samples = self._v_vesc_pvr_interpolator(numpy.log10(r/self._scale),
-            pvr_icdf_samples)
-        return numpy.diag(v_vesc_samples)*vesc_vals
+            pvr_icdf_samples,grid=False)
+        return v_vesc_samples*vesc_vals
 
     def _sample_velocity_angles(self,n=1):
         """Generate samples of angles that set radial vs tangential velocities"""
@@ -347,16 +347,16 @@ class sphericaldf(df):
             cml_pvr_inv_interp = scipy.interpolate.interp1d(cml_pvr, 
                 v_vesc_values, kind='cubic', bounds_error=None, 
                 fill_value='extrapolate')
-            pvr_samples_reg = numpy.linspace(0,1,num=n_new_pvr,endpoint=False)
+            pvr_samples_reg = numpy.linspace(0,1,num=n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:,i] = pvr_samples_reg
             icdf_v_vesc_grid_reg[:,i] = v_vesc_samples_reg
         ###i
         
         # Create the interpolator
-        v_vesc_icdf_interpolator = scipy.interpolate.interp2d(
+        v_vesc_icdf_interpolator = scipy.interpolate.RectBivariateSpline(
             numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
-            icdf_v_vesc_grid_reg, bounds_error=False,fill_value=None)
+            icdf_v_vesc_grid_reg.T)
         return v_vesc_icdf_interpolator
 
 class anisotropicsphericaldf(sphericaldf):
