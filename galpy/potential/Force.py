@@ -8,12 +8,9 @@ import numpy
 from ..util import config
 from ..util import conversion
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, physical_compatible
-_APY_LOADED= True
-try:
+    potential_physical_input, physical_compatible, _APY_LOADED
+if _APY_LOADED:
     from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class Force(object):
     """Top-level class for any force, conservative or dissipative"""
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
@@ -47,17 +44,13 @@ class Force(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
             self._voSet= True
         # Parse amp if it has units
         if _APY_LOADED and isinstance(self._amp,units.Quantity):
@@ -65,8 +58,7 @@ class Force(object):
             unitFound= False
             # velocity^2
             try:
-                self._amp= self._amp.to(units.km**2/units.s**2).value\
-                    /self._vo**2.
+                self._amp= conversion.parse_energy(self._amp,vo=self._vo)
             except units.UnitConversionError: pass
             else:
                 unitFound= True
@@ -75,69 +67,30 @@ class Force(object):
             if not unitFound:
                 # mass
                 try:
-                    self._amp= self._amp.to(units.Msun).value\
-                        /conversion.mass_in_msol(self._vo,self._ro)
+                    self._amp= conversion.parse_mass(self._amp,ro=self._ro,vo=self._vo)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
                     if not amp_units == 'mass':
                         raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of mass instead' % (type(self).__name__,amp_units))
             if not unitFound:
-                # G x mass
-                try:
-                    self._amp= self._amp.to(units.pc*units.km**2/units.s**2)\
-                        .value\
-                        /conversion.mass_in_msol(self._vo,self._ro)\
-                        /conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'mass':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x mass instead' % (type(self).__name__,amp_units))
-            if not unitFound:
                 # density
                 try:
-                    self._amp= self._amp.to(units.Msun/units.pc**3).value\
-                        /conversion.dens_in_msolpc3(self._vo,self._ro)
+                    self._amp= conversion.parse_dens(self._amp,ro=self._ro,vo=self._vo)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
                     if not amp_units == 'density':
                         raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of density instead' % (type(self).__name__,amp_units))
             if not unitFound:
-                # G x density
-                try:
-                    self._amp= self._amp.to(units.km**2/units.s**2\
-                                                /units.pc**2).value\
-                        /conversion.dens_in_msolpc3(self._vo,self._ro)\
-                        /conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'density':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
                 # surface density
                 try:
-                    self._amp= self._amp.to(units.Msun/units.pc**2).value\
-                        /conversion.surfdens_in_msolpc2(self._vo,self._ro)
+                    self._amp= conversion.parse_surfdens(self._amp,ro=self._ro,vo=self._vo)
                 except units.UnitConversionError: pass
                 else:
                     unitFound= True
                     if not amp_units == 'surfacedensity':
                         raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of surface density instead' % (type(self).__name__,amp_units))
-            if not unitFound:
-                # G x surface density
-                try:
-                    self._amp= self._amp.to(units.km**2/units.s**2\
-                                                /units.pc).value\
-                        /conversion.surfdens_in_msolpc2(self._vo,self._ro)\
-                        /conversion._G
-                except units.UnitConversionError: pass
-                else:
-                    unitFound= True
-                    if not amp_units == 'surfacedensity':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of G x surface density instead' % (type(self).__name__,amp_units))
             if not unitFound:
                 raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
             else:
@@ -286,13 +239,9 @@ class Force(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None
 
     @potential_physical_input

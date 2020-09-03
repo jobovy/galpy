@@ -1,6 +1,7 @@
 import numpy
 from ..util import conversion
-from .linearPotential import linearPotential, _APY_LOADED
+from ..util.conversion import _APY_LOADED
+from .linearPotential import linearPotential
 if _APY_LOADED:
     from astropy import units
 class KGPotential(linearPotential):
@@ -41,19 +42,8 @@ class KGPotential(linearPotential):
 
         """
         linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(D,units.Quantity):
-            D= D.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(K,units.Quantity):
-            try:
-                K= K.to(units.pc/units.Myr**2).value\
-                    /conversion.force_in_pcMyr2(self._vo,self._ro)
-            except units.UnitConversionError: pass
-        if _APY_LOADED and isinstance(K,units.Quantity):
-            try:
-                K= K.to(units.Msun/units.pc**2).value\
-                    /conversion.force_in_2piGmsolpc2(self._vo,self._ro)
-            except units.UnitConversionError:
-                raise units.UnitConversionError("Units for K not understood; should be force or surface density")
+        D= conversion.parse_length(D,ro=self._ro)
+        K= conversion.parse_force(K,ro=self._ro,vo=self._vo)
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
                 F= F.to(units.Msun/units.pc**3).value\

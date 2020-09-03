@@ -4,16 +4,10 @@ import os, os.path
 import copy
 import pickle
 import numpy
-from ..util import plot
-from ..util import config
+from ..util import plot, conversion, config
 from .Potential import PotentialError, flatten
 from ..util.conversion import physical_conversion,\
     potential_physical_input, physical_compatible
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class linearPotential(object):
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -28,16 +22,14 @@ class linearPotential(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
+            ro= conversion.parse_length_kpc(ro)
             self._ro= ro
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
+            vo= conversion.parse_velocity_kms(vo)
             self._vo= vo
             self._voSet= True
         return None
@@ -180,13 +172,9 @@ class linearPotential(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None
 
     @potential_physical_input

@@ -3,10 +3,8 @@ import numpy
 from numpy.polynomial.legendre import leggauss
 from scipy.special import lpmn
 from scipy.special import gammaln
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-from ..util import coords
+from ..util import coords, conversion
+from .Potential import Potential
 
 from .NumericalPotentialDerivativesMixin import \
     NumericalPotentialDerivativesMixin
@@ -78,10 +76,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """        
         NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro 
-            
-        
+        a= conversion.parse_length(a,ro=self._ro)
         ##Errors
         shape = Acos.shape
         errorMessage = None

@@ -4,10 +4,8 @@
 ###############################################################################
 import warnings
 import numpy
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-from ..util import galpyWarning
+from .Potential import Potential, kms_to_kpcGyrDecorator
+from ..util import galpyWarning, conversion
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential
@@ -60,8 +58,7 @@ class LogarithmicHaloPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        if _APY_LOADED and isinstance(core,units.Quantity):
-            core= core.to(units.kpc).value/self._ro
+        core= conversion.parse_length(core,ro=self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True

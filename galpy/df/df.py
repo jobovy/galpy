@@ -1,10 +1,5 @@
 from ..util.conversion import physical_compatible
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
-from ..util import config
+from ..util import config, conversion
 class df(object):
     """Top-level class for DF classes"""
     def __init__(self,ro=None,vo=None):
@@ -25,17 +20,13 @@ class df(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
             self._voSet= True
         return None
 
@@ -100,11 +91,7 @@ class df(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None  

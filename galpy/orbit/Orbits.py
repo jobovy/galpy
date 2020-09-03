@@ -300,12 +300,9 @@ class Orbit(object):
     def _setup_parse_coordtransform(self,vxvv,ro,vo,zo,solarmotion,
                                     radec,lb):
         # Parse coordinate-transformation inputs with units
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
-        if _APY_LOADED and isinstance(zo,units.Quantity):
-            zo= zo.to(units.kpc).value
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        ro= conversion.parse_length_kpc(ro)
+        zo= conversion.parse_length_kpc(zo)
+        vo= conversion.parse_velocity_kms(vo)
         # if vxvv is SkyCoord, preferentially use its ro and zo
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
             if not _APY3: # pragma: no cover
@@ -348,10 +345,8 @@ class Orbit(object):
         elif isinstance(solarmotion,str) \
                 and solarmotion.lower() == 'schoenrich':
             vsolar= numpy.array([-11.1,12.24,7.25])
-        elif _APY_LOADED and isinstance(solarmotion,units.Quantity):
-            vsolar= solarmotion.to(units.km/units.s).value
         else:
-            vsolar= numpy.array(solarmotion)
+            vsolar= numpy.array(conversion.parse_velocity_kms(solarmotion))
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
         if _APY_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
@@ -479,15 +474,9 @@ class Orbit(object):
                                              degree=True).T
                 else:
                     X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True).T
-                vx= vxvv[3]
-                vy= vxvv[4]
-                vz= vxvv[5]
-                if _APY_LOADED and isinstance(vx,units.Quantity):
-                    vx= vx.to(units.km/units.s).value
-                if _APY_LOADED and isinstance(vy,units.Quantity):
-                    vy= vy.to(units.km/units.s).value
-                if _APY_LOADED and isinstance(vz,units.Quantity):
-                    vz= vz.to(units.km/units.s).value
+                vx= conversion.parse_velocity_kms(vxvv[3])
+                vy= conversion.parse_velocity_kms(vxvv[4])
+                vz= conversion.parse_velocity_kms(vxvv[5])
             else:
                 if radec:
                     if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
@@ -505,10 +494,8 @@ class Orbit(object):
                 else:
                     pmll, pmbb= vxvv[3], vxvv[4]
                     d, vlos= vxvv[2], vxvv[5]
-                if _APY_LOADED and isinstance(d,units.Quantity):
-                    d= d.to(units.kpc).value
-                if _APY_LOADED and isinstance(vlos,units.Quantity):
-                    vlos= vlos.to(units.km/units.s).value
+                d= conversion.parse_length_kpc(d)
+                vlos= conversion.parse_velocity_kms(vlos)
                 if _APY_LOADED and isinstance(pmll,units.Quantity):
                     pmll= pmll.to(units.mas/units.yr).value
                 if _APY_LOADED and isinstance(pmbb,units.Quantity):
@@ -1028,13 +1015,9 @@ class Orbit(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None
 
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
@@ -1091,12 +1074,10 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
         else: self._integrate_t_asQuantity= False
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
         from ..potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -1278,12 +1259,10 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
         else: self._integrate_t_asQuantity= False
-        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+        if not dt is None:
+            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
         # Parse dxdv
         dxdv= numpy.array(dxdv)
         if dxdv.ndim > 1:
@@ -1823,10 +1802,7 @@ class Orbit(object):
             kwargs.pop('OmegaP',None)
         else:
             OmegaP= kwargs.pop('OmegaP')
-        if _APY_LOADED:
-            if isinstance(OmegaP,units.Quantity):
-                OmegaP = OmegaP.to(units.km/units.s/units.kpc).value \
-                    /conversion.freq_in_kmskpc(self._vo,self._ro)
+        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -1875,13 +1851,11 @@ class Orbit(object):
         elif self.dim() == 1:
             raise RuntimeError("Orbit action-angle methods are not supported for 1D orbits")
         delta= kwargs.pop('delta',None)
-        if _APY_LOADED and not delta is None \
-                and isinstance(delta,units.Quantity):
-            delta= delta.to(units.kpc).value/self._ro
+        if not delta is None:
+            delta= conversion.parse_length(delta,ro=self._ro)
         b= kwargs.pop('b',None)
-        if _APY_LOADED and not b is None \
-                and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+        if not b is None:
+            b= conversion.parse_length(b,ro=self._ro)
         if pot is None:
             try:
                 pot= self._pot
@@ -2870,10 +2844,7 @@ class Orbit(object):
                 return 0.
         else:
             out= args[0]
-            if _APY_LOADED and isinstance(out,units.Quantity):
-                out= out.to(units.Gyr).value\
-                    /conversion.time_in_Gyr(self._vo,self._ro)
-            return out
+            return conversion.parse_time(out,ro=self._ro,vo=self._vo)
 
     @physical_conversion('position')
     @shapeDecorator
@@ -4378,8 +4349,7 @@ class Orbit(object):
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
             # Need to re-evaluate now that t has changed...
             t_exact_integration_times= hasattr(t,'__len__') \
                 and (len(t) == len(self.t)) \
@@ -5857,9 +5827,9 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
             for ii in range(len(obs)):
                 if _APY_LOADED and isinstance(obs[ii],units.Quantity):
                     if ii < 3:
-                        obs[ii]= obs[ii].to(units.kpc).value
+                        obs[ii]= conversion.parse_length_kpc(obs[ii])
                     else:
-                        obs[ii]= obs[ii].to(units.km/units.s).value
+                        obs[ii]= conversion.parse_velocity_kms(obs[ii])
     else:
         if vel:
             obs= [orb._ro,0.,orb._zo,
@@ -5868,17 +5838,13 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
         else:
             obs= [orb._ro,0.,orb._zo]
     if 'ro' in kwargs:
-        ro= kwargs['ro']
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+        ro= conversion.parse_length_kpc(kwargs['ro'])
         if not dontpop:
             kwargs.pop('ro')
     else:
         ro= orb._ro
     if 'vo' in kwargs:
-        vo= kwargs['vo']
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= conversion.parse_velocity_kms(kwargs['vo'])
         if not dontpop:
             kwargs.pop('vo')
     else:

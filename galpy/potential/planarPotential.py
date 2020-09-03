@@ -5,19 +5,13 @@ import copy
 import pickle
 import numpy
 from scipy import integrate
-from ..util import plot
-from ..util import config
+from ..util import plot, config, conversion
 from ..util.conversion import physical_conversion,\
-    potential_physical_input, freq_in_Gyr, physical_compatible
+    potential_physical_input, physical_compatible
 from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class planarPotential(object):
     """Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -33,17 +27,13 @@ class planarPotential(object):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
             self._voSet= True
         return None
 
@@ -184,13 +174,9 @@ class planarPotential(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None
 
     @potential_physical_input
@@ -616,8 +602,7 @@ class planarAxiPotential(planarPotential):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
@@ -1339,23 +1324,16 @@ def plotplanarPotentials(Pot,*args,**kwargs):
     Rrange= kwargs.pop('Rrange',[0.01,5.])
     xrange= kwargs.pop('xrange',[-5.,5.])
     yrange= kwargs.pop('yrange',[-5.,5.])
-    if _APY_LOADED:
-        if hasattr(Pot,'_ro'):
-            tro= Pot._ro
-        else:
-            tro= Pot[0]._ro
-        if isinstance(Rrange[0],units.Quantity):
-            Rrange[0]= Rrange[0].to(units.kpc).value/tro
-        if isinstance(Rrange[1],units.Quantity):
-            Rrange[1]= Rrange[1].to(units.kpc).value/tro
-        if isinstance(xrange[0],units.Quantity):
-            xrange[0]= xrange[0].to(units.kpc).value/tro
-        if isinstance(xrange[1],units.Quantity):
-            xrange[1]= xrange[1].to(units.kpc).value/tro
-        if isinstance(yrange[0],units.Quantity):
-            yrange[0]= yrange[0].to(units.kpc).value/tro
-        if isinstance(yrange[1],units.Quantity):
-            yrange[1]= yrange[1].to(units.kpc).value/tro
+    if hasattr(Pot,'_ro'):
+        tro= Pot._ro
+    else:
+        tro= Pot[0]._ro
+    Rrange[0]= conversion.parse_length(Rrange[0],ro=tro)
+    Rrange[1]= conversion.parse_length(Rrange[1],ro=tro)
+    xrange[0]= conversion.parse_length(xrange[0],ro=tro)
+    xrange[1]= conversion.parse_length(xrange[1],ro=tro)
+    yrange[0]= conversion.parse_length(yrange[0],ro=tro)
+    yrange[1]= conversion.parse_length(yrange[1],ro=tro)
     grid= kwargs.pop('grid',100)
     gridx= kwargs.pop('gridx',100)
     gridy= kwargs.pop('gridy',gridx)

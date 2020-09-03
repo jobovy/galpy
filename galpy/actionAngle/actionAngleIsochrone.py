@@ -16,12 +16,7 @@ import warnings
 import numpy
 from .actionAngle import actionAngle
 from ..potential import IsochronePotential
-from ..util import galpyWarning
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
+from ..util import galpyWarning, conversion
 class actionAngleIsochrone(actionAngle):
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
     def __init__(self,*args,**kwargs):
@@ -62,9 +57,7 @@ class actionAngleIsochrone(actionAngle):
             self.b= ip.b
             self.amp= ip._amp
         else:
-            self.b= kwargs['b']
-            if _APY_LOADED and isinstance(self.b,units.Quantity):
-                self.b= self.b.to(units.kpc).value/self._ro
+            self.b= conversion.parse_length(kwargs['b'],ro=self._ro)
             rb= numpy.sqrt(self.b**2.+1.)
             self.amp= (self.b+rb)**2.*rb
         self._c= False

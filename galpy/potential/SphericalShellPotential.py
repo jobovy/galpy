@@ -3,10 +3,8 @@
 #                               spherical shell
 ###############################################################################
 import numpy
-from .Potential import _APY_LOADED
+from ..util import conversion
 from .SphericalPotential import SphericalPotential
-if _APY_LOADED:
-    from astropy import units
 class SphericalShellPotential(SphericalPotential):
     """Class that implements the potential of an infinitesimally-thin, spherical shell
 
@@ -48,8 +46,7 @@ class SphericalShellPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self.a2= a**2
         if normalize or \

@@ -10,12 +10,12 @@ sdf_sanders15_nou= None #so we can set this up and then use in other tests
 def test_parsers():
     from galpy.util import conversion
     # Unitless
-    assert numpy.fabs(conversion.parse_position(2.)-2.) < 1e-10, 'parse_position does not parse unitless position correctly'
+    assert numpy.fabs(conversion.parse_length(2.)-2.) < 1e-10, 'parse_length does not parse unitless position correctly'
     assert numpy.fabs(conversion.parse_energy(3.)-3.) < 1e-10, 'parse_energy does not parse unitless energy correctly'
     assert numpy.fabs(conversion.parse_angmom(-1.5)+1.5) < 1e-10, 'parse_angmom does not parse unitless angular momentum correctly'
     # Quantity input
     ro,vo= 7., 230.
-    assert numpy.fabs(conversion.parse_position(2.*units.parsec,ro=ro,vo=vo)-(0.002/ro)) < 1e-10, 'parse_position does parse Quantity position correctly'
+    assert numpy.fabs(conversion.parse_length(2.*units.parsec,ro=ro,vo=vo)-(0.002/ro)) < 1e-10, 'parse_length does parse Quantity position correctly'
     assert numpy.fabs(conversion.parse_energy(-30.*units.km**2/units.s**2,ro=ro,vo=vo)-(-30./vo**2)) < 1e-10, 'parse_energy does parse Quantity energy correctly'
     assert numpy.fabs(conversion.parse_angmom(2200.*units.kpc*units.km/units.s,ro=ro,vo=vo)-(2200./ro/vo)) < 1e-10, 'parse_angmom does parse Quantity angular momentum correctly'
     return None

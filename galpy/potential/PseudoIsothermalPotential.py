@@ -3,9 +3,8 @@
 #                                 halo potential
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class PseudoIsothermalPotential(Potential):
     """Class that implements the pseudo-isothermal potential
 
@@ -45,8 +44,7 @@ class PseudoIsothermalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True

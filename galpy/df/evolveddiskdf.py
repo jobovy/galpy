@@ -19,14 +19,12 @@ from scipy import integrate
 from ..util import galpyWarning
 from ..orbit import Orbit
 from ..potential import calcRotcurve
-from .df import df, _APY_LOADED
+from .df import df
 from ..potential.Potential import _check_c
 from ..util.quadpack import dblquad
 from ..util import plot
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, time_in_Gyr
-if _APY_LOADED:
-    from astropy import units
+    potential_physical_input, parse_time
 _DEGTORAD= numpy.pi/180.
 _RADTODEG= 180./numpy.pi
 _NAN= numpy.nan
@@ -66,9 +64,7 @@ class evolveddiskdf(df):
         df.__init__(self,ro=ro,vo=vo)
         self._initdf= initdf
         self._pot= pot
-        if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
-        self._to= to
+        self._to= parse_time(to,ro=self._ro,vo=self._vo)
 
     @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
@@ -138,8 +134,7 @@ class evolveddiskdf(df):
                 not (hasattr(t,'isscalar') and t.isscalar):
             tlist= True
         else: tlist= False
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value/time_in_Gyr(self._vo,self._ro)
+        t= parse_time(t,ro=self._ro,vo=self._vo)
         if kwargs.pop('marginalizeVperp',False):
             if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):

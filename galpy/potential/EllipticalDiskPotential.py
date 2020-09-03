@@ -4,9 +4,7 @@
 ###############################################################################
 import numpy
 from ..util import conversion
-from .planarPotential import planarPotential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .planarPotential import planarPotential
 _degtorad= numpy.pi/180.
 class EllipticalDiskPotential(planarPotential):
     """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
@@ -64,22 +62,13 @@ class EllipticalDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(phib,units.Quantity):
-            phib= phib.to(units.rad).value
-        if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(tform,units.Quantity):
-            tform= tform.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(tsteady,units.Quantity):
-            tsteady= tsteady.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(twophio,units.Quantity):
-            twophio= twophio.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(cp,units.Quantity):
-            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(sp,units.Quantity):
-            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+        phib= conversion.parse_angle(phib)
+        r1= conversion.parse_length(r1,ro=self._ro)
+        tform= conversion.parse_time(tform,ro=self._ro,vo=self._vo)
+        tsteady= conversion.parse_time(tsteady,ro=self._ro,vo=self._vo)
+        twophio= conversion.parse_energy(twophio,vo=self._vo)
+        cp= conversion.parse_energy(cp,vo=self._vo)
+        sp= conversion.parse_energy(sp,vo=self._vo)
         # Back to old definition
         self._amp/= r1**p
         self.hasC= True

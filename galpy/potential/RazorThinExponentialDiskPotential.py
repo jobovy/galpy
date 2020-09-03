@@ -6,9 +6,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class RazorThinExponentialDiskPotential(Potential):
@@ -56,8 +55,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
-        if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
+        hr= conversion.parse_length(hr,ro=self._ro)
         self._new= new
         self._glorder= glorder
         self._hr= hr
