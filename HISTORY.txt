@@ -35,6 +35,9 @@ v1.7 (XXXX-XX-XX)
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 
+- Replace Quantity parsing through the package as much as possible
+  with a set of centralized parsers (#430).
+
 - Renamed galpy.util.bovy_coords to galpy.util.coords,
   galpy.util.bovy_conversion to galpy.util.conversion, and
   galpy.util.bovy_plot to galpy.util.plot (but old 'from galpy.util
