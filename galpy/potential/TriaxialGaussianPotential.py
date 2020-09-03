@@ -8,10 +8,8 @@
 #
 ###############################################################################
 import numpy
-from .Potential import _APY_LOADED
+from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
-if _APY_LOADED:
-    from astropy import units
 class TriaxialGaussianPotential(EllipsoidalPotential):
     """Potential of a triaxial Gaussian (`Emsellem et al. 1994 <https://ui.adsabs.harvard.edu/abs/1994A%26A...285..723E/abstract>`__):
 
@@ -63,8 +61,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.kpc).value/self._ro
+        sigma= conversion.parse_length(sigma,ro=self._ro)
         self._sigma= sigma
         self._twosigma2= 2.*self._sigma**2
         self._scale= self._sigma

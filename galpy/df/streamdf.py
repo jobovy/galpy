@@ -14,10 +14,10 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..orbit import Orbit
-from .df import df, _APY_LOADED
+from .df import df
 from ..util import coords, fast_cholesky_invert, \
     conversion, multi, plot, stable_cho_factor, ars
-from ..util.conversion import physical_conversion, _APY_UNITS
+from ..util.conversion import physical_conversion, _APY_UNITS, _APY_LOADED
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
 from ..util import galpyWarning
@@ -152,16 +152,12 @@ class streamdf(df):
             warnings.warn("WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword", galpyWarning)
             vo= Vnorm
         df.__init__(self,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(sigv,units.Quantity):
-            sigv= sigv.to(units.km/units.s).value/self._vo
+        sigv= conversion.parse_velocity(sigv,vo=self._vo)
         self._sigv= sigv
         if tdisrupt is None:
             self._tdisrupt= 5./conversion.time_in_Gyr(self._vo,self._ro)
         else:
-            if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
-                tdisrupt= tdisrupt.to(units.Gyr).value\
-                    /conversion.time_in_Gyr(self._vo,self._ro)
-            self._tdisrupt= tdisrupt
+            self._tdisrupt= conversion.parse_time(tdisrupt,ro=self._ro,vo=self._vo)
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
@@ -183,26 +179,18 @@ class streamdf(df):
         else:
             self._multi= multi
         self._progenitor_setup(progenitor,leading,useTMHessian)
-        if not sigangle is None and \
-                _APY_LOADED and isinstance(sigangle,units.Quantity):
-            sigangle= sigangle.to(units.rad).value
-        if not deltaAngleTrack is None and \
-                _APY_LOADED and isinstance(deltaAngleTrack,units.Quantity):
-            deltaAngleTrack= deltaAngleTrack.to(units.rad).value
+        sigangle= conversion.parse_angle(sigangle)
+        deltaAngleTrack= conversion.parse_angle(deltaAngleTrack)
         self._offset_setup(sigangle,leading,deltaAngleTrack)
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        if _APY_LOADED and isinstance(R0,units.Quantity):
-            R0= R0.to(units.kpc).value
-        if _APY_LOADED and isinstance(Zsun,units.Quantity):
-            Zsun= Zsun.to(units.kpc).value
-        if _APY_LOADED and isinstance(vsun,units.Quantity):
-            vsun= vsun.to(units.km/units.s).value
-        elif _APY_LOADED and isinstance(vsun[0],units.Quantity):
-            vsun[0]= vsun[0].to(units.km/units.s).value
-            vsun[1]= vsun[1].to(units.km/units.s).value
-            vsun[2]= vsun[2].to(units.km/units.s).value
+        R0= conversion.parse_length_kpc(R0)
+        Zsun= conversion.parse_length_kpc(Zsun)
+        vsun= conversion.parse_velocity_kms(vsun)
+        vsun[0]= conversion.parse_velocity_kms(vsun[0])
+        vsun[1]= conversion.parse_velocity_kms(vsun[1])
+        vsun[2]= conversion.parse_velocity_kms(vsun[2])
         self._setup_coord_transform(R0,Zsun,vsun,progenitor,custom_transform)
         #Determine the stream track
         if not nosetup:
@@ -494,14 +482,10 @@ class streamdf(df):
            2016-01-19 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(venc,units.Quantity):
-            venc= venc.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(nsubhalo,units.Quantity):
-            nsubhalo= nsubhalo.to(1/units.kpc**3).value*self._ro**3.
-        if _APY_LOADED and isinstance(bmax,units.Quantity):
-            bmax= bmax.to(units.kpc).value/self._ro
+        venc= conversion.parse_velocity(venc,vo=self._vo)
+        sigma= conversion.parse_velocity(sigma,vo=self._vo)
+        nsubhalo= conversion.parse_numdens(nsubhalo,ro=self._ro)
+        bmax= conversion.parse_length(bmax,ro=self._ro)
         Ravg= numpy.mean(numpy.sqrt(self._progenitor.orbit[0,:,0]**2.
                                     +self._progenitor.orbit[0,:,3]**2.))
         if numpy.isinf(venc):
@@ -1795,11 +1779,8 @@ class streamdf(df):
            2015-12-07 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
-                /conversion.freq_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+        Opar= conversion.parse_frequency(Opar,ro=self._ro,vo=self._vo)
+        apar= conversion.parse_angle(apar)
         if tdisrupt is None: tdisrupt= self._tdisrupt
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])

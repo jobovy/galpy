@@ -3,9 +3,7 @@
 ###############################################################################
 import numpy
 from ..util import conversion
-from .planarPotential import planarPotential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .planarPotential import planarPotential
 _degtorad= numpy.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
@@ -63,15 +61,10 @@ class SteadyLogSpiralPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(gamma,units.Quantity):
-            gamma= gamma.to(units.rad).value
-        if _APY_LOADED and isinstance(p,units.Quantity):
-            p= p.to(units.rad).value
-        if _APY_LOADED and isinstance(A,units.Quantity):
-            A= A.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(omegas,units.Quantity):
-            omegas= omegas.to(units.km/units.s/units.kpc).value\
-                /conversion.freq_in_kmskpc(self._vo,self._ro)
+        gamma= conversion.parse_angle(gamma)
+        p= conversion.parse_angle(p)
+        A= conversion.parse_energy(A,vo=self._vo)
+        omegas= conversion.parse_frequency(omegas,ro=self._ro,vo=self._vo)
         self._omegas= omegas
         self._A= A
         self._m= m

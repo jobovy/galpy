@@ -27,12 +27,12 @@ from scipy import integrate, interpolate, stats, optimize
 from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
 from ..orbit import Orbit
 from ..util.ars import ars
-from ..util import save_pickles
+from ..util import save_pickles, conversion
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, _APY_UNITS, surfdens_in_msolpc2
+    potential_physical_input, _APY_UNITS, _APY_LOADED, surfdens_in_msolpc2
 from ..potential import PowerSphericalPotential
 from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
-from .df import df, _APY_LOADED
+from .df import df
 if _APY_LOADED:
     from astropy import units
 #scipy version
@@ -79,9 +79,9 @@ class diskdf(df):
         else:
             if _APY_LOADED and isinstance(profileParams[0],units.Quantity):
                 newprofileParams=\
-                    (profileParams[0].to(units.kpc).value/self._ro,
-                     profileParams[1].to(units.kpc).value/self._ro,
-                     profileParams[2].to(units.km/units.s).value/self._vo)
+                    (conversion.parse_length(profileParams[0],ro=self._ro),
+                     conversion.parse_length(profileParams[1],ro=self._ro),
+                     conversion.parse_velocity(profileParams[2],vo=self._vo))
                 self._roSet= True
                 self._voSet= True
                 profileParams= newprofileParams
@@ -372,13 +372,12 @@ class diskdf(df):
         """
         #Calculate R and phi
         if _APY_LOADED and isinstance(l,units.Quantity):
-            lrad= l.to(units.rad).value
+            lrad= conversion.parse_angle(l)
         elif deg:
             lrad= l*_DEGTORAD
         else:
             lrad= l
-        if _APY_LOADED and isinstance(d,units.Quantity):
-            d= d.to(units.kpc).value/self._ro
+        d= conversion.parse_length(d,ro=self._ro)
         R, phi= _dlToRphi(d,lrad)
         if log:
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
@@ -428,13 +427,12 @@ class diskdf(df):
         """
         #Calculate R and phi
         if _APY_LOADED and isinstance(l,units.Quantity):
-            lrad= l.to(units.rad).value
+            lrad= conversion.parse_angle(l)
         elif deg:
             lrad= l*_DEGTORAD
         else:
             lrad= l
-        if _APY_LOADED and isinstance(d,units.Quantity):
-            d= d.to(units.kpc).value/self._ro
+        d= conversion.parse_length(d,ro=self._ro)
         R, phi= _dlToRphi(d,lrad)
         if target:
             if relative: return d
@@ -491,10 +489,8 @@ class diskdf(df):
                                      0.,disp=False)[0]
             maxSM= self.surfacemassLOS(minR,l,deg=False,use_physical=False)
         #Now rejection-sample
-        if _APY_LOADED and isinstance(l,units.Quantity):
-                l= l.to(units.rad).value
-        if _APY_LOADED and isinstance(maxd,units.Quantity):
-            maxd= maxd.to(units.kpc).value/self._ro
+        l= conversion.parse_angle(l)
+        maxd= conversion.parse_length(maxd,ro=self._ro)
         if maxd is None:
             maxd= _MAXD_REJECTLOS
         out= []
@@ -603,7 +599,7 @@ class diskdf(df):
 
         """
         if _APY_LOADED and isinstance(los,units.Quantity):
-            l= los.to(units.rad).value
+            l= conversion.parse_angle(los)
         elif deg:
             l= los*_DEGTORAD
         else:
@@ -830,13 +826,11 @@ class diskdf(df):
         ro= kwargs.pop('ro',None)
         if ro is None and hasattr(self,'_roSet') and self._roSet:
             ro= self._ro
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+        ro= conversion.parse_length_kpc(ro)
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= conversion.parse_velocity_kms(vo)
         if use_physical and not vo is None and not ro is None:
             fac= surfdens_in_msolpc2(vo,ro)*vo**(args[1]+args[2])
             if _APY_UNITS:
@@ -1685,10 +1679,8 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             import time
             start= time.time()
-        if _APY_LOADED and isinstance(E,units.Quantity):
-            E= E.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(L,units.Quantity):
-            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+        E= conversion.parse_energy(E,vo=self._vo)
+        L= conversion.parse_angmom(L,ro=self._ro,vo=self._vo)
         #Calculate Re,LE, OmegaE
         if self._beta == 0.:
             xE= numpy.exp(E-.5)
@@ -1779,10 +1771,9 @@ class dehnendf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
-            if not rrange is None \
-                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
-                rrange[0]= rrange[0].to(units.kpc).value/self._ro
-                rrange[1]= rrange[1].to(units.kpc).value/self._ro
+            if not rrange is None:
+                rrange[0]= conversion.parse_length(rrange[0],ro=self._ro)
+                rrange[1]= conversion.parse_length(rrange[1],ro=self._ro)
             if not hasattr(self,'_psp'):
                 self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
@@ -1990,10 +1981,8 @@ class shudf(diskdf):
         HISTORY:
            2010-05-09 - Written - Bovy (NYU)
         """
-        if _APY_LOADED and isinstance(E,units.Quantity):
-            E= E.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(L,units.Quantity):
-            L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+        E= conversion.parse_energy(E,vo=self._vo)
+        L= conversion.parse_angmom(L,ro=self._ro,vo=self._vo)
         #Calculate RL,LL, OmegaL
         if self._beta == 0.:
             xL= L
@@ -2069,10 +2058,9 @@ class shudf(diskdf):
         if not returnROrbit and not returnOrbit:
             out= [[e,l] for e,l in zip(E,Lz)]
         else:
-            if not rrange is None \
-                    and _APY_LOADED and isinstance(rrange[0],units.Quantity):
-                rrange[0]= rrange[0].to(units.kpc).value/self._ro
-                rrange[1]= rrange[1].to(units.kpc).value/self._ro
+            if not rrange is None:
+                rrange[0]= conversion.parse_length(rrange[0],ro=self._ro)
+                rrange[1]= conversion.parse_length(rrange[1],ro=self._ro)
             if not hasattr(self,'_psp'):
                 self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []

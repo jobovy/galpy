@@ -4,9 +4,7 @@
 ###############################################################################
 import hashlib
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .Potential import Potential
 from ..util import coords, conversion
 class SoftenedNeedleBarPotential(Potential):
     """Class that implements the softened needle bar potential from `Long & Murali (1992) <http://adsabs.harvard.edu/abs/1992ApJ...397...44L>`__
@@ -63,17 +61,11 @@ class SoftenedNeedleBarPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(c,units.Quantity):
-            c= c.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
-        if _APY_LOADED and isinstance(omegab,units.Quantity):
-            omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /conversion.freq_in_kmskpc(self._vo,self._ro)
+        a= conversion.parse_length(a,ro=self._ro)
+        b= conversion.parse_length(b,ro=self._ro)
+        c= conversion.parse_length(c,ro=self._ro)
+        pa= conversion.parse_angle(pa)
+        omegab= conversion.parse_frequency(omegab,ro=self._ro,vo=self._vo)
         self._a= a
         self._b= b
         self._c2= c**2.

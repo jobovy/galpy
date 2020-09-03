@@ -8,10 +8,8 @@ import numpy
 from scipy import special, interpolate
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _APY_LOADED, evaluateDensities, _check_c
+from .Potential import evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
-if _APY_LOADED:
-    from astropy import units
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 _INVSQRTPI= 1./numpy.sqrt(numpy.pi)
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
@@ -85,12 +83,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         """
         DissipativeForce.__init__(self,amp=amp*GMs,ro=ro,vo=vo,
                                   amp_units='mass')
-        if _APY_LOADED and isinstance(rhm,units.Quantity):
-            rhm= rhm.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(minr,units.Quantity):
-            minr= minr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(maxr,units.Quantity):
-            maxr= maxr.to(units.kpc).value/self._ro
+        rhm= conversion.parse_length(rhm,ro=self._ro)
+        minr= conversion.parse_length(minr,ro=self._ro)
+        maxr= conversion.parse_length(maxr,ro=self._ro)
         self._gamma= gamma
         self._ms= self._amp/amp # from handling in __init__ above, should be ms in galpy units
         self._rhm= rhm
@@ -144,19 +139,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return None
 
     def GMs(self,gms):
-        if _APY_LOADED and isinstance(gms,units.Quantity):
-            try:
-                gms= gms.to(units.Msun).value\
-                    /conversion.mass_in_msol(self._vo,self._ro)
-            except units.UnitConversionError:
-                # Try G x mass
-                try:
-                    gms= gms.to(units.pc*units.km**2/units.s**2)\
-                        .value\
-                        /conversion.mass_in_msol(self._vo,self._ro)\
-                        /conversion._G
-                except units.UnitConversionError:
-                    raise units.UnitConversionError('GMs for %s should have units of mass or G x mass' % (type(self).__name__))
+        gms= conversion.parse_mass(gms,ro=self._ro,vo=self._vo)
         self._amp*= gms/self._ms
         self._ms= gms
         # Reset the hash
@@ -165,9 +148,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     GMs= property(None,GMs)
 
     def rhm(self,new_rhm):
-        if _APY_LOADED and isinstance(new_rhm,units.Quantity):
-            new_rhm= new_rhm.to(units.kpc).value/self._ro
-        self._rhm= new_rhm
+        self._rhm= conversion.parse_length(new_rhm,ro=self._ro)
         # Reset the hash
         self._force_hash= None
         return None

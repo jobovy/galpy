@@ -19,13 +19,8 @@ from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..util import multi, coords
+from ..util import multi, coords, conversion
 _PRINTOUTSIDEGRID= False
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
@@ -76,9 +71,7 @@ class actionAngleStaeckelGrid(actionAngle):
             self._c= True
         else:
             self._c= False
-        self._delta= delta
-        if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+        self._delta= conversion.parse_length(delta,ro=self._ro)
         self._Rmax= Rmax
         self._Rmin= 0.01
         #Set up the actionAngleStaeckel object that we will use to interpolate

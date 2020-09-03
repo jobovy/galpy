@@ -6,9 +6,8 @@
 #                            \sqrt{R^2 + (a + |z|)^2} 
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class KuzminDiskPotential(Potential):
     """Class that implements the Kuzmin Disk potential
 
@@ -48,8 +47,7 @@ class KuzminDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro 
+        a= conversion.parse_length(a,ro=self._ro)
         self._a = a ## a must be greater or equal to 0. 
         if normalize or \
                 (isinstance(normalize,(int,float)) \

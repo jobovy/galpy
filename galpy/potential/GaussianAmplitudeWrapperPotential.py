@@ -4,10 +4,7 @@
 ###############################################################################
 import numpy
 from .WrapperPotential import parentWrapperPotential
-from .Potential import _APY_LOADED
 from ..util import conversion
-if _APY_LOADED:
-    from astropy import units
 class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that allows the amplitude of a Potential object to be modulated as a Gaussian. The amplitude A applied to a potential wrapped by an instance of this class is changed as
 
@@ -44,12 +41,8 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
            2018-02-21 - Started - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
+        to= conversion.parse_time(to,ro=self._ro,vo=self._vo)
+        sigma= conversion.parse_time(sigma,ro=self._ro,vo=self._vo)
         self._to= to
         self._sigma2= sigma**2.
         self.hasC= True

@@ -11,12 +11,9 @@
 import hashlib
 import numpy
 from scipy import integrate
-from ..util import coords
+from ..util import coords, conversion
 from ..util import _rotate_to_arbitrary_vector
-from .Potential import Potential, _APY_LOADED, \
-    check_potential_inputs_not_arrays
-if _APY_LOADED:
-    from astropy import units
+from .Potential import Potential, check_potential_inputs_not_arrays
 class EllipsoidalPotential(Potential):
     """Base class for potentials corresponding to density profiles that are stratified on ellipsoids:
 
@@ -91,8 +88,7 @@ class EllipsoidalPotential(Potential):
 
     def _setup_zvec_pa(self,zvec,pa):
         if not pa is None:
-            if _APY_LOADED and isinstance(pa,units.Quantity):
-                pa= pa.to(units.rad).value
+            pa= conversion.parse_angle(pa)
         if zvec is None and (pa is None or numpy.fabs(pa) < 10.**-10.):
             self._aligned= True
         else:

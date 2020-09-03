@@ -6,10 +6,8 @@
 ###############################################################################
 import warnings
 import numpy
-from ..util import galpyWarning
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import galpyWarning, conversion
+from .Potential import Potential, kms_to_kpcGyrDecorator
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
     """class that implements the three Miyamoto-Nagai approximation to a radially-exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
@@ -66,10 +64,8 @@ class MN3ExponentialDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
-        if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(hz,units.Quantity):
-            hz= hz.to(units.kpc).value/self._ro
+        hr= conversion.parse_length(hr,ro=self._ro)
+        hz= conversion.parse_length(hz,ro=self._ro)
         self._hr= hr
         self._hz= hz
         self._scale= self._hr
