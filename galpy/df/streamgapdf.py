@@ -10,13 +10,11 @@ from ..util import _rotate_to_arbitrary_vector
 from ..orbit import Orbit
 from ..potential import evaluateRforces, MovingObjectPotential, \
     PlummerPotential
-from .df import df, _APY_LOADED
+from .df import df
 from ..util.conversion import physical_conversion
 from . import streamdf
 from .streamdf import _determine_stream_track_single
 from ..potential import flatten as flatten_potential
-if _APY_LOADED:
-    from astropy import units
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -90,37 +88,21 @@ class streamgapdf(streamdf.streamdf):
         """
         df.__init__(self,ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         # Parse kwargs
-        impactb= kwargs.pop('impactb',1.)
-        if _APY_LOADED and isinstance(impactb,units.Quantity):
-            impactb= impactb.to(units.kpc).value/self._ro
-        subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
-        if _APY_LOADED and isinstance(subhalovel,units.Quantity):
-            subhalovel= subhalovel.to(units.km/units.s).value/self._vo
+        impactb= conversion.parse_length(kwargs.pop('impactb',1.),ro=self._ro)
+        subhalovel= conversion.parse_velocity(\
+                            kwargs.pop('subhalovel',numpy.array([0.,1.,0.])),
+                                              vo=self._vo)
         hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
-        if not GM is None \
-                and _APY_LOADED and isinstance(GM,units.Quantity):
-            # GM can be GM or M
-            try:
-                GM= GM.to(units.pc*units.km**2/units.s**2)\
-                    .value\
-                    /conversion.mass_in_msol(self._vo,self._ro)\
-                    /conversion._G
-            except units.UnitConversionError: pass
-            GM= GM.to(units.Msun).value\
-                /conversion.mass_in_msol(self._vo,self._ro)
+        if not GM is None:
+            GM= conversion.parse_mass(GM,ro=self._ro,vo=self._vo)
         rs= kwargs.pop('rs',None)
-        if not rs is None \
-                and _APY_LOADED and isinstance(rs,units.Quantity):
-            rs= rs.to(units.kpc).value/self._ro
+        if not rs is None:
+            rs= conversion.parse_length(rs,ro=self._ro)
         subhalopot= kwargs.pop('subhalopot',None)
-        timpact= kwargs.pop('timpact',1.)
-        if _APY_LOADED and isinstance(timpact,units.Quantity):
-            timpact= timpact.to(units.Gyr).value\
-                /conversion.time_in_Gyr(self._vo,self._ro)
-        impact_angle= kwargs.pop('impact_angle',1.)
-        if _APY_LOADED and isinstance(impact_angle,units.Quantity):
-            impact_angle= impact_angle.to(units.rad).value
+        timpact= conversion.parse_time(kwargs.pop('timpact',1.),
+                                       ro=self._ro,vo=self._vo)
+        impact_angle= conversion.parse_angle(kwargs.pop('impact_angle',1.))
         nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
@@ -196,11 +178,8 @@ class streamgapdf(streamdf.streamdf):
            2015-11-17 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
-                /conversion.freq_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+        Opar= conversion.parse_frequency(Opar,ro=self._ro,vo=self._vo)
+        apar= conversion.parse_angle(apar)
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
         out= numpy.zeros(len(Opar))

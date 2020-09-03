@@ -21,11 +21,10 @@ from functools import wraps
 import warnings
 import numpy
 from scipy import optimize, integrate
-from ..util import plot
-from ..util import coords
+from ..util import plot, coords, conversion
 from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
-    get_physical, parse_position, parse_energy, parse_angmom
+    get_physical
 from ..util import galpyWarning
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
@@ -839,15 +838,10 @@ class Potential(Force):
            2014-04-08 - Added effective= - Bovy (IAS)
 
         """
-        if _APY_LOADED:
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/self._ro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/self._ro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/self._ro
+        rmin= conversion.parse_length(rmin,ro=self._ro)
+        rmax= conversion.parse_length(rmax,ro=self._ro)
+        zmin= conversion.parse_length(zmin,ro=self._ro)
+        zmax= conversion.parse_length(zmax,ro=self._ro)
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
@@ -1210,8 +1204,7 @@ class Potential(Force):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
@@ -1277,8 +1270,7 @@ class Potential(Force):
             ~0.75 ms for a MWPotential
         
         """
-        if _APY_LOADED and isinstance(lz,units.Quantity):
-            lz= lz.to(units.km/units.s*units.kpc).value/self._vo/self._ro
+        lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
 
     @potential_physical_input
@@ -1344,7 +1336,7 @@ class Potential(Force):
         
         """
         if _APY_LOADED and isinstance(l,units.Quantity):
-            l= l.to(units.rad).value
+            l= conversion.parse_angle(l)
             deg= False
         if deg:
             sinl= numpy.sin(l/180.*numpy.pi)
@@ -2463,19 +2455,10 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         Pot= flatten(Pot)
-        if _APY_LOADED:
-            if hasattr(Pot,'_ro'):
-                tro= Pot._ro
-            else:
-                tro= Pot[0]._ro
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+        rmin= conversion.parse_length(rmin,**get_physical(Pot))
+        rmax= conversion.parse_length(rmax,**get_physical(Pot))
+        zmin= conversion.parse_length(zmin,**get_physical(Pot))
+        zmax= conversion.parse_length(zmax,**get_physical(Pot))
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2581,19 +2564,10 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         Pot= flatten(Pot)
-        if _APY_LOADED:
-            if hasattr(Pot,'_ro'):
-                tro= Pot._ro
-            else:
-                tro= Pot[0]._ro
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+        rmin= conversion.parse_length(rmin,**get_physical(Pot))
+        rmax= conversion.parse_length(rmax,**get_physical(Pot))
+        zmin= conversion.parse_length(zmin,**get_physical(Pot))
+        zmax= conversion.parse_length(zmax,**get_physical(Pot))
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2694,19 +2668,10 @@ def plotSurfaceDensities(Pot,
 
         """
         Pot= flatten(Pot)
-        if _APY_LOADED:
-            if hasattr(Pot,'_ro'):
-                tro= Pot._ro
-            else:
-                tro= Pot[0]._ro
-            if isinstance(xmin,units.Quantity):
-                xmin= xmin.to(units.kpc).value/tro
-            if isinstance(xmax,units.Quantity):
-                xmax= xmax.to(units.kpc).value/tro
-            if isinstance(ymin,units.Quantity):
-                ymin= ymin.to(units.kpc).value/tro
-            if isinstance(ymax,units.Quantity):
-                ymax= ymax.to(units.kpc).value/tro
+        xmin= conversion.parse_length(xmin,**get_physical(Pot))
+        xmax= conversion.parse_length(xmax,**get_physical(Pot))
+        ymin= conversion.parse_length(ymin,**get_physical(Pot))
+        ymax= conversion.parse_length(ymax,**get_physical(Pot))
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2898,7 +2863,7 @@ def vterm(Pot,l,t=0.,deg=True):
     """
     Pot= flatten(Pot)
     if _APY_LOADED and isinstance(l,units.Quantity):
-        l= l.to(units.rad).value
+        l= conversion.parse_angle(l)
         deg= False
     if deg:
         sinl= numpy.sin(l/180.*numpy.pi)
@@ -2941,11 +2906,7 @@ def rl(Pot,lz,t=0.):
 
     """
     Pot= flatten(Pot)
-    if _APY_LOADED and isinstance(lz,units.Quantity):
-        if hasattr(Pot,'_ro'):
-            lz= lz.to(units.km/units.s*units.kpc).value/Pot._vo/Pot._ro
-        elif hasattr(Pot[0],'_ro'):
-            lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
+    lz= conversion.parse_angmom(lz,**conversion.get_physical(Pot))
     #Find interval
     rstart= _rlFindStart(numpy.fabs(lz),#assumes vo=1.
                          numpy.fabs(lz),
@@ -3013,12 +2974,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
 
     """
     Pot= flatten(Pot)
-    if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-        if hasattr(Pot,'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(Pot._vo,Pot._ro)
-        elif hasattr(Pot[0],'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value\
-                /freq_in_Gyr(Pot[0]._vo,Pot[0]._ro)
+    OmegaP= conversion.parse_frequency(OmegaP,**conversion.get_physical(Pot))
     if isinstance(m,str):
         if 'corot' in m.lower():
             corotation= True
@@ -3576,9 +3532,9 @@ def zvc(Pot,R,E,Lz,phi=0.,t=0.):
         2020-08-20 - Written - Bovy (UofT)
     """
     Pot= flatten(Pot)
-    R= parse_position(R,**get_physical(Pot))
-    E= parse_energy(E,**get_physical(Pot))
-    Lz= parse_angmom(Lz,**get_physical(Pot))
+    R= conversion.parse_length(R,**get_physical(Pot))
+    E= conversion.parse_energy(E,**get_physical(Pot))
+    Lz= conversion.parse_angmom(Lz,**get_physical(Pot))
     Lz2over2R2= Lz**2./2./R**2.
     # Check z=0 and whether a solution exists
     if numpy.fabs(_evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2-E) < 1e-8:
@@ -3632,8 +3588,8 @@ def zvc_range(Pot,E,Lz,phi=0.,t=0.):
         2020-08-20 - Written - Bovy (UofT)
     """
     Pot= flatten(Pot)
-    E= parse_energy(E,**get_physical(Pot))
-    Lz= parse_angmom(Lz,**get_physical(Pot))
+    E= conversion.parse_energy(E,**get_physical(Pot))
+    Lz= conversion.parse_angmom(Lz,**get_physical(Pot))
     Lz2over2= Lz**2./2.
     # Check whether a solution exists
     RLz= rl(Pot,Lz,t=t,use_physical=False)

@@ -6,9 +6,8 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
@@ -49,8 +48,7 @@ class IsochronePotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+        b= conversion.parse_length(b,ro=self._ro)
         self.b= b
         self._scale= self.b
         self.b2= self.b**2.

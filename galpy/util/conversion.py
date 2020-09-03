@@ -525,18 +525,103 @@ def physical_compatible(obj,other_obj):
     return out
 
 # Parsers of different inputs with units
-def parse_position(x,ro=None,vo=None):
-    return x.to_value(units.kpc)/ro \
+def parse_length(x,ro=None,vo=None):
+    return x.to(units.kpc).value/ro \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+def parse_length_kpc(x):
+    return x.to(units.kpc).value \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_velocity(x,ro=None,vo=None):
+    return x.to(units.km/units.s).value/vo \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_velocity_kms(x):
+    return x.to(units.km/units.s).value \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_angle(x):
+    return x.to(units.rad).value \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_time(x,ro=None,vo=None):
+    return x.to(units.Gyr).value/time_in_Gyr(vo,ro) \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_mass(x,ro=None,vo=None):
+    try:
+        return x.to(units.pc*units.km**2/units.s**2).value\
+            /mass_in_msol(vo,ro)/_G \
+            if _APY_LOADED and isinstance(x,units.Quantity) \
+               else x
+    except units.UnitConversionError: pass
+    return x.to(1e10*units.Msun).value/mass_in_1010msol(vo,ro) \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+           else x
+
 def parse_energy(x,ro=None,vo=None):
-    return x.to_value(units.km**2/units.s**2)/vo**2. \
+    return x.to(units.km**2/units.s**2).value/vo**2. \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_angmom(x,ro=None,vo=None):
-    return x.to_value(units.kpc*units.km/units.s)/ro/vo \
+    return x.to(units.kpc*units.km/units.s).value/ro/vo \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_frequency(x,ro=None,vo=None):
+    return x.to(units.km/units.s/units.kpc).value/\
+        freq_in_kmskpc(vo,ro) \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_force(x,ro=None,vo=None):
+    try:
+        return x.to(units.pc/units.Myr**2).value\
+            /force_in_pcMyr2(vo,ro) \
+            if _APY_LOADED and isinstance(x,units.Quantity) \
+            else x
+    except units.UnitConversionError: pass
+    return x.to(units.Msun/units.pc**2).value\
+        /force_in_2piGmsolpc2(vo,ro) \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+
+def parse_dens(x,ro=None,vo=None):
+    try:
+        return x.to(units.Msun/units.pc**3).value\
+            /dens_in_msolpc3(vo,ro) \
+            if _APY_LOADED and isinstance(x,units.Quantity) \
+            else x
+    except units.UnitConversionError: pass
+    # Try Gxdens
+    return x.to(units.km**2/units.s**2/units.pc**2).value\
+        /dens_in_msolpc3(vo,ro)/_G \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+   
+def parse_surfdens(x,ro=None,vo=None):
+    try:
+        return x.to(units.Msun/units.pc**2).value\
+            /surfdens_in_msolpc2(vo,ro) \
+            if _APY_LOADED and isinstance(x,units.Quantity) \
+            else x
+    except units.UnitConversionError: pass
+    # Try Gxsurfdens
+    return x.to(units.km**2/units.s**2/units.pc).value\
+        /surfdens_in_msolpc2(vo,ro)/_G \
+        if _APY_LOADED and isinstance(x,units.Quantity) \
+        else x
+   
+def parse_numdens(x,ro=None,vo=None):
+    return x.to(1/units.kpc**3).value*ro**3 \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 

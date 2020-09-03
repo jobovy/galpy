@@ -12,11 +12,10 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from .Potential import Potential, _APY_LOADED
+from ..util import conversion
+from .Potential import Potential
 from .SCFPotential import SCFPotential, \
     scf_compute_coeffs_axi, scf_compute_coeffs
-if _APY_LOADED:
-    from astropy import units
 class DiskSCFPotential(Potential):
     """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \mathrm{d}^2 H(z) / \mathrm{d} z^2` and search for solutions of the form
 
@@ -98,8 +97,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
            2016-12-26 - Written - Bovy (UofT)
         """        
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=None)
-        if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         # Parse and store given functions
         self.isNonAxi= dens.__code__.co_argcount == 3
         self._parse_Sigma(Sigma_amp,Sigma,dSigmadR,d2SigmadR2)

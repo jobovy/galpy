@@ -23,16 +23,11 @@ from ..potential.Potential import flatten as flatten_potential
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngle import actionAngle
 from ..potential import IsochronePotential, MWPotential
-from ..util import plot, galpyWarning
+from ..util import plot, galpyWarning, conversion
 from ..util.conversion import physical_conversion, \
     potential_physical_input, time_in_Gyr
 _TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleIsochroneApprox(actionAngle):
     """Action-angle formalism using an isochrone potential as an approximate potential and using a Fox & Binney (2014?) like algorithm to calculate the actions using orbit integrations and a torus-machinery-like angle-fit to get the angles and frequencies (Bovy 2014)"""
     def __init__(self,*args,**kwargs):
@@ -95,16 +90,11 @@ class actionAngleIsochroneApprox(actionAngle):
                 raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
-            if _APY_LOADED and isinstance(kwargs['b'],units.Quantity):
-                b= kwargs['b'].to(units.kpc).value/self._ro
-            else:
-                b= kwargs['b']
+            b= conversion.parse_length(kwargs['b'],ro=self._ro)
             self._aAI= actionAngleIsochrone(ip=IsochronePotential(b=b,
                                                                   normalize=1.))
         self._tintJ= kwargs.get('tintJ',100.)
-        if _APY_LOADED and isinstance(self._tintJ,units.Quantity):
-            self._tintJ= self._tintJ.to(units.Gyr).value\
-                /time_in_Gyr(self._vo,self._ro)
+        self._tintJ= conversion.parse_time(self._tintJ,ro=self._ro,vo=self._vo)
         self._ntintJ= kwargs.get('ntintJ',10000)
         self._integrate_dt= kwargs.get('dt',None)
         self._tsJ= numpy.linspace(0.,self._tintJ,self._ntintJ)
@@ -237,9 +227,7 @@ class actionAngleIsochroneApprox(actionAngle):
         R,vR,vT,z,vz,phi= self._parse_args(True,_firstFlip,*args)
         if 'ts' in kwargs and not kwargs['ts'] is None:
             ts= kwargs['ts']
-            if _APY_LOADED and isinstance(ts,units.Quantity):
-                ts= ts.to(units.Gyr).value\
-                    /time_in_Gyr(self._vo,self._ro)
+            ts= conversion.parse_time(ts,ro=self._ro,vo=self._vo)
         else:
             ts= numpy.empty(R.shape[1])
             ts[self._ntintJ-1:]= self._tsJ

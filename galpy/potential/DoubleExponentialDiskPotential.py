@@ -6,10 +6,9 @@
 ###############################################################################
 import numpy
 from scipy import special
+from ..util import conversion
 from .PowerSphericalPotential import KeplerPotential
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 class DoubleExponentialDiskPotential(Potential):
@@ -61,10 +60,8 @@ class DoubleExponentialDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
-        if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(hz,units.Quantity):
-            hz= hz.to(units.kpc).value/self._ro
+        hr= conversion.parse_length(hr,ro=self._ro)
+        hz= conversion.parse_length(hz,ro=self._ro)
         self.hasC= True
         self.hasC_dens= True
         self._kmaxFac= kmaxFac

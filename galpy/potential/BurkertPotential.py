@@ -2,10 +2,8 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
-from .Potential import  _APY_LOADED
 from .SphericalPotential import SphericalPotential
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
 class BurkertPotential(SphericalPotential):
     """BurkertPotential.py: Potential with a Burkert density
 
@@ -50,8 +48,7 @@ class BurkertPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,
                                     amp_units='density')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro,vo=self._vo)
         self.a=a
         self._scale= self.a
         if normalize or \

@@ -12,9 +12,7 @@ import numpy
 from scipy import integrate
 from scipy.special import gamma
 from ..util import conversion, coords
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .Potential import Potential
 
 class FerrersPotential(Potential):
     """Class that implements triaxial Ferrers potential for the ellipsoidal density profile with the short axis along the z-direction
@@ -72,13 +70,9 @@ class FerrersPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(omegab,units.Quantity):
-            omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /conversion.freq_in_kmskpc(self._vo,self._ro)
-        if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+        a= conversion.parse_length(a,ro=self._ro)
+        omegab= conversion.parse_frequency(omegab,ro=self._ro,vo=self._vo)
+        pa= conversion.parse_angle(pa)
         self.a= a
         self._scale= self.a
         if n <= 0:

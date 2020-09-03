@@ -72,8 +72,7 @@ class TwoPowerSphericalPotential(Potential):
             elif int(alpha) == 1 and int(beta) == 3:
                 self._specialSelf= NFWPotential(amp=1.,a=a,normalize=False)
         # correcting quantities
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to_value(units.kpc)/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         # setting properties
         self.a= a
         self._scale= self.a
@@ -919,8 +918,7 @@ class JaffePotential(DehnenSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -1149,8 +1147,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
@@ -1161,10 +1158,10 @@ class NFWPotential(TwoPowerSphericalPotential):
                 self.normalize(normalize)
         elif not rmax is None:
             if _APY_LOADED and isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
+                rmax= conversion.parse_length(rmax,ro=self._ro)
                 self._roSet= True
             if _APY_LOADED and isinstance(vmax,units.Quantity):
-                vmax= vmax.to(units.km/units.s).value/self._vo
+                vmax= conversion.parse_velocity(vmax,vo=self._vo)
                 self._voSet= True
             self.a= rmax/2.1625815870646098349
             self._amp= vmax**2.*self.a/0.21621659550187311005

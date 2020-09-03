@@ -3,14 +3,9 @@ from __future__ import division, print_function
 import os
 import pickle
 import numpy
-from ..util import plot
+from ..util import plot, conversion
 from ..util.conversion import physical_conversion,\
     potential_physical_input
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
@@ -71,15 +66,10 @@ def plotEscapecurve(Pot,*args,**kwargs):
         ylabel= r"$v_e(R)/v_c(R_0)$"
         Rrange= kwargs.pop('Rrange',[0.01,5.])
     # Parse ro
-    if _APY_LOADED:
-        if isinstance(potro,units.Quantity):
-            potro= potro.to(units.kpc).value
-        if isinstance(potvo,units.Quantity):
-            potvo= potvo.to(units.km/units.s).value
-        if isinstance(Rrange[0],units.Quantity):
-            Rrange[0]= Rrange[0].to(units.kpc).value
-        if isinstance(Rrange[1],units.Quantity):
-            Rrange[1]= Rrange[1].to(units.kpc).value
+    potro= conversion.parse_length_kpc(potro)
+    potvo= conversion.parse_velocity_kms(potvo)
+    Rrange[0]= conversion.parse_length_kpc(Rrange[0])
+    Rrange[1]= conversion.parse_length_kpc(Rrange[1])
     if use_physical:
         Rrange[0]/= potro
         Rrange[1]/= potro

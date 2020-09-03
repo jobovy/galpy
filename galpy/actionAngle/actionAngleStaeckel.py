@@ -20,18 +20,13 @@ from ..potential.Potential import _evaluatePotentials, \
     _evaluateRforces, _evaluatezforces
 from ..potential.Potential import flatten as flatten_potential
 from ..util import coords #for prolate confocal transforms
-from ..util import galpyWarning
+from ..util import galpyWarning, conversion
 from ..util.conversion import physical_conversion, \
     potential_physical_input
 from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from ..potential.Potential import _check_c
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -84,8 +79,7 @@ class actionAngleStaeckel(actionAngle):
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
         self._order= kwargs.get('order',10)
-        if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+        self._delta= conversion.parse_length(self._delta,ro=self._ro)
         # Check the units
         self._check_consistent_units()
         return None
