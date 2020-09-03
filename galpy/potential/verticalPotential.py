@@ -130,7 +130,9 @@ def RZToverticalPotential(RZPot,R):
         return RZPot
     elif isinstance(RZPot,planarPotential):
         raise PotentialError("Input to 'RZToverticalPotential' cannot be a planarPotential")
-    else:
+    else: # pragma: no cover
+        # All other cases should have been caught by the
+        # conversion.get_physical test above
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
 
 def toVerticalPotential(Pot,R,phi=None,t0=0.):
@@ -181,7 +183,9 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
                 out.append(verticalPotential(pot,R,phi=phi,t0=t0))
             elif isinstance(pot,planarPotential):
                 raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
-            else:
+            else: # pragma: no cover
+                # All other cases should have been caught by the
+                # conversion.get_physical test above
                 raise PotentialError("Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
@@ -190,6 +194,8 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
         return Pot
     elif isinstance(Pot,planarPotential):
         raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
-    else:
+    else: # pragma: no cover
+        # All other cases should have been caught by the
+        # conversion.get_physical test above
         raise PotentialError("Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances")
 
