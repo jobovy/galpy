@@ -4,13 +4,12 @@
 #   - anisotropicsphericaldf: superclass of all anisotropic spherical DFs
 import numpy
 import scipy.interpolate
-from .df import df, _APY_LOADED
+from .df import df
 from ..potential import evaluatePotentials, vesc
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
-from ..util.bovy_conversion import physical_conversion
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from ..util.conversion import physical_conversion
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
@@ -90,30 +89,21 @@ class sphericaldf(df):
                 E = args[0].E(pot=self._pot)
                 L = numpy.sqrt(numpy.sum(numpy.square(args[0].L())))
                 Lz = args[0].Lz()
-            if _APY_LOADED and isinstance(E,units.Quantity):
-                E= E.to(units.km**2/units.s**2).value/self._vo**2.
-            if _APY_LOADED and isinstance(L,units.Quantity):
-                L= L.to(units.kpc*units.km/units.s).value/self._ro/self._vo
-            if _APY_LOADED and isinstance(Lz,units.Quantity):
-                Lz= Lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+            E= conversion.parse_energy(E,vo=self._vo)
+            L= conversion.parse_angmom(L,ro=self._vo,vo=self._vo)
+            Lz= conversion.parse_angmom(Lz,ro=self._vo,vo=self._vo)
         else: # Assume R,vR,vT,z,vz,(phi)
             if len(args) == 5:
                 R,vR,vT,z,vz = args
                 phi = None
             else:
                 R,vR,vT,z,vz,phi = args
-            if _APY_LOADED and isinstance(R,units.Quantity):
-                R= R.to(units.kpc).value/self._ro
-            if _APY_LOADED and isinstance(vR,units.Quantity):
-                vR= vR.to(units.km/units.s).value/self._vo
-            if _APY_LOADED and isinstance(vT,units.Quantity):
-                vT= vT.to(units.km/units.s).value/self._vo
-            if _APY_LOADED and isinstance(z,units.Quantity):
-                z= z.to(units.kpc).value/self._ro
-            if _APY_LOADED and isinstance(vz,units.Quantity):
-                vz= vz.to(units.km/units.s).value/self._vo
-            if _APY_LOADED and isinstance(phi,units.Quantity):
-                phi= phi.to(units.rad).value
+            R= conversion.parse_length(R,ro=self._ro)
+            vR= conversion.parse_velocity(vR,vo=self._vo)
+            vT= conversion.parse_velocity(vT,vo=self._vo)
+            z= conversion.parse_length(z,ro=self._ro)
+            vz= conversion.parse_velocity(vz,vo=self._vo)
+            phi= conversion.parse_angle(phi)
             vtotSq = vR**2.+vT**2.+vz**2.
             E = 0.5*vtotSq + evaluatePotentials(R,z)
             Lz = R*vT

@@ -1,14 +1,11 @@
 # Class that implements the anisotropic spherical Hernquist DF with constant
 # beta parameter
 import numpy
-import pdb
 import scipy.special
 import scipy.integrate
-from .constantbetadf import constantbetadf
-from .df import _APY_LOADED
+from ..util import conversion
 from ..potential import evaluatePotentials,HernquistPotential
-if _APY_LOADED:
-    from astropy import units
+from .constantbetadf import constantbetadf
 
 class constantbetaHernquistdf(constantbetadf):
     """Class that implements the anisotropic spherical Hernquist DF with constant beta parameter"""
@@ -95,8 +92,7 @@ class constantbetaHernquistdf(constantbetadf):
 
             2020-07-22 - Written
         """
-        if _APY_LOADED and isinstance(E,units.quantity.Quantity):
-            E= E.to(units.km**2/units.s**2).value/self._vo**2.
+        E= conversion.parse_energy(E,vo=self._vo)
         psi0 = -evaluatePotentials(self._pot,0,0,use_physical=False)
         Erel = -E
         Etilde = Erel/psi0

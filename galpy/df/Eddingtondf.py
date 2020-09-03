@@ -1,9 +1,8 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
+from ..util import conversion
 from ..potential import evaluatePotentials
-from .sphericaldf import isotropicsphericaldf, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .sphericaldf import isotropicsphericaldf
 
 class Eddingtondf(isotropicsphericaldf):
     """Class that implements isotropic spherical DFs computed using the Eddington formula"""
@@ -24,9 +23,7 @@ class Eddingtondf(isotropicsphericaldf):
             self._scale = pot._scale
         except AttributeError:
             if scale is not None:
-                if _APY_LOADED and isinstance(scale,units.Quantity):
-                    scale= scale.to(units.kpc).value/self._ro
-                self._scale = scale
+                self._scale= conversion.parse_length(scale,ro=self._ro)
             else:
                 self._scale = 1.
         self._xi_cmf_interpolator = self._make_cmf_interpolator()

@@ -2,10 +2,9 @@
 # beta anisotropy parameter
 import numpy
 import scipy.interpolate
+from ..util import conversion
 from ..potential import evaluatePotentials
-from .sphericaldf import anisotropicsphericaldf, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from .sphericaldf import anisotropicsphericaldf
 
 class constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
@@ -40,9 +39,7 @@ class constantbetadf(anisotropicsphericaldf):
             self._scale = pot._scale
         except AttributeError:
             if scale is not None:
-                if _APY_LOADED and isinstance(scale,units.Quantity):
-                    scale= scale.to(units.kpc).value/self._ro
-                self._scale = scale
+                self._scale= conversion.parse_length(scale,ro=self._ro)
             else:
                 self._scale = 1.
         self._xi_cmf_interpolator = self._make_cmf_interpolator()
