@@ -62,10 +62,10 @@ class kingdf(isotropicsphericaldf):
         self.sigma= self._velocity_scale
         self._sigma2= self.sigma**2.
         self.rho1= self._density_scale
-        # Setup the potential
+        # Setup the potential, use original params in case they had units
+        # because then the initialization will turn on units for this object
         from ..potential import KingPotential
-        pot= KingPotential(W0=self.W0,M=self.M,rt=self.rt,
-                           _sfkdf=self._scalefree_kdf)
+        pot= KingPotential(W0=self.W0,M=M,rt=rt,_sfkdf=self._scalefree_kdf)
         # Now initialize the isotropic DF
         isotropicsphericaldf.__init__(self,pot=pot,scale=self.r0,ro=ro,vo=vo)
         self._potInf= self._pot(self.rt,0.,use_physical=False)

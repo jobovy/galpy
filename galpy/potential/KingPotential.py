@@ -2,6 +2,8 @@
 #   KingPotential.py: Potential of a King profile
 ###############################################################################
 import numpy
+from ..util import conversion
+from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
 class KingPotential(interpSphericalPotential):
     """KingPotential.py: Potential of a King profile, defined from the distribution function
@@ -44,6 +46,13 @@ class KingPotential(interpSphericalPotential):
            2020-07-11 - Written - Bovy (UofT)
 
         """
+        # Initialize with Force just to parse (ro,vo)
+        Force.__init__(self,ro=ro,vo=vo)
+        newM= conversion.parse_mass(M,ro=self._ro,vo=self._vo)
+        if newM != M:
+            self.turn_physical_on(ro=self._ro,vo=self._vo)
+        M= newM
+        rt= conversion.parse_length(rt,ro=self._ro)
         # Set up King DF
         if _sfkdf is None:
             from ..df.kingdf import _scalefreekingdf
@@ -53,6 +62,9 @@ class KingPotential(interpSphericalPotential):
             sfkdf= _sfkdf
         mass_scale= M/sfkdf.mass
         radius_scale= rt/sfkdf.rt
+        # Remember whether to turn units on
+        ro= self._ro if self._roSet else ro
+        vo= self._vo if self._voSet else vo
         interpSphericalPotential.__init__(\
             self,
             rforce=lambda r: mass_scale/radius_scale**2.

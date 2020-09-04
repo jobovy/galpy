@@ -42,6 +42,13 @@ class sphericaldf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
+        if not conversion.physical_compatible(self,pot):
+            raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the DF instance")
+        phys= conversion.get_physical(pot,include_set=True)
+        # if pot has physical units, transfer them (if already on, we know
+        # they are compaible)
+        if phys['roSet'] and phys['voSet']:
+            self.turn_physical_on(ro=phys['ro'],vo=phys['vo'])
         if pot is None:
             raise IOError("pot= must be set")
         self._pot = pot
