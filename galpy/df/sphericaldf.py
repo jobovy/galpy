@@ -4,6 +4,7 @@
 #   - anisotropicsphericaldf: superclass of all anisotropic spherical DFs
 import numpy
 import scipy.interpolate
+from scipy import integrate, special
 from .df import df
 from ..potential import evaluatePotentials, vesc
 from ..potential.SCFPotential import _xiToR
@@ -111,13 +112,62 @@ class sphericaldf(df):
             z= conversion.parse_length(z,ro=self._ro)
             vz= conversion.parse_velocity(vz,vo=self._vo)
             vtotSq = vR**2.+vT**2.+vz**2.
-            E = 0.5*vtotSq + evaluatePotentials(R,z)
+            E= 0.5*vtotSq+evaluatePotentials(self._pot,R,z,use_physical=False)
             Lz = R*vT
             r = numpy.sqrt(R**2.+z**2.)
             vrad = (R*vR+z*vz)/r
             L = numpy.sqrt(vtotSq-vrad**2.)*r
         return self._call_internal(E,L,Lz) # Some function for each sub-class
 
+    def vmomentdensity(self,r,n,m):
+         """
+        NAME:
+
+           vmomentdensity
+
+        PURPOSE:
+
+           calculate the an arbitrary moment of the velocity distribution 
+           at r times the density
+
+        INPUT:
+
+           r - spherical radius at which to calculate the moment
+
+           n - vr^n, where vr = v x cos eta
+
+           m - vt^m, where vt = v x sin eta
+
+        OUTPUT:
+
+           <vr^n vt^m x density> at r (no support for units)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+         """
+         return 2.*numpy.pi\
+           *integrate.dblquad(lambda eta,v: v**(2.+m+n)
+                              *numpy.sin(eta)**(1+m)*numpy.cos(eta)**n
+                              *self(r,v*numpy.cos(eta),v*numpy.sin(eta),0.,0.,
+                                    use_physical=False),
+                              0.,self._vmax_at_r(self._pot,r),
+                              lambda x: 0.,lambda x: numpy.pi)[0]
+         
+    @physical_conversion('velocity',pop=True)
+    def sigmar(self,r):
+        return numpy.sqrt(self.vmomentdensity(r,2,0)
+                          /self.vmomentdensity(r,0,0))
+    
+    @physical_conversion('velocity',pop=True)
+    def sigmat(self,r):
+        return numpy.sqrt(self.vmomentdensity(r,0,2)
+                          /self.vmomentdensity(r,0,0))
+
+    def beta(self,r):
+        return 1.-self.sigmat(r,use_physical=False)**2./2.\
+            /self.sigmar(r,use_physical=False)**2.
+    
 ############################### SAMPLING THE DF################################
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
         """
@@ -357,6 +407,44 @@ class isotropicsphericaldf(sphericaldf):
         """
         sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
 
+    def vmomentdensity(self,r,n,m):
+         """
+        NAME:
+
+           vmomentdensity
+
+        PURPOSE:
+
+           calculate the an arbitrary moment of the velocity distribution 
+           at r times the density
+
+        INPUT:
+
+           r - spherical radius at which to calculate the moment
+
+           n - vr^n, where vr = v x cos eta
+
+           m - vt^m, where vt = v x sin eta
+
+        OUTPUT:
+
+           <vr^n vt^m x density> at r (no support for units)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+         """
+         if m%2 == 1 or n%2 == 1:
+             return 0.
+         return 2.*numpy.pi\
+             *integrate.quad(lambda v: v**(2.+m+n)*
+                             self.fE(evaluatePotentials(self._pot,r,0,
+                                                        use_physical=False)
+                                     +0.5*v**2.),
+                             0.,self._vmax_at_r(self._pot,r))[0]\
+            *special.gamma(m//2+1)*special.gamma(n//2+0.5)\
+            /2./special.gamma(m//2+n//2+1.5)
+         
     def _sample_eta(self,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
         return numpy.arccos(1.-2.*numpy.random.uniform(size=n))

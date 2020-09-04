@@ -2,8 +2,8 @@
 # beta anisotropy parameter
 import numpy
 import scipy.interpolate
-from ..util import conversion
-from ..potential import evaluatePotentials
+from scipy import integrate, special
+from ..potential import evaluatePotentials, vesc
 from .sphericaldf import anisotropicsphericaldf
 
 class constantbetadf(anisotropicsphericaldf):
@@ -52,5 +52,42 @@ class constantbetadf(anisotropicsphericaldf):
 
     def _p_v_at_r(self,v,r):
         return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
-                       +0.5*v**2.)*v**(2.-2.*self.beta)
+                       +0.5*v**2.)*v**(2.-2.*self._beta)
     
+    def vmomentdensity(self,r,n,m):
+         """
+        NAME:
+
+           vmomentdensity
+
+        PURPOSE:
+
+           calculate the an arbitrary moment of the velocity distribution 
+           at r times the density
+
+        INPUT:
+
+           r - spherical radius at which to calculate the moment
+
+           n - vr^n, where vr = v x cos eta
+
+           m - vt^m, where vt = v x sin eta
+
+        OUTPUT:
+
+           <vr^n vt^m x density> at r (no support for units)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+         """
+         if m%2 == 1 or n%2 == 1:
+             return 0.
+         return 2.*numpy.pi\
+             *integrate.quad(lambda v: v**(2.-2.*self._beta+m+n)
+                             *self.fE(evaluatePotentials(self._pot,r,0,
+                                                         use_physical=False)
+                                      +0.5*v**2.),
+                             0.,self._vmax_at_r(self._pot,r))[0]\
+            *special.gamma(m/2.-self._beta+1.)*special.gamma((n+1)/2.)/\
+               2./special.gamma(0.5*(m+n-2.*self._beta+3.))

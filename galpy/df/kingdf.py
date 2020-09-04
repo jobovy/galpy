@@ -68,7 +68,7 @@ class kingdf(isotropicsphericaldf):
                            _sfkdf=self._scalefree_kdf)
         # Now initialize the isotropic DF
         isotropicsphericaldf.__init__(self,pot=pot,scale=self.r0,ro=ro,vo=vo)
-        self._potInf= self._pot(self.rt,0.)
+        self._potInf= self._pot(self.rt,0.,use_physical=False)
         # Setup inverse cumulative mass function for radius sampling
         self._icmf= interpolate.InterpolatedUnivariateSpline(\
                         self._mass_scale*self._scalefree_kdf._cumul_mass/self.M,
