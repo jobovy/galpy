@@ -1,6 +1,8 @@
 # Class that represents a King DF
 import numpy
 from scipy import special, integrate, interpolate
+from ..util import conversion
+from .df import df
 from .sphericaldf import isotropicsphericaldf
 
 _FOURPI= 4.*numpy.pi
@@ -39,40 +41,42 @@ class kingdf(isotropicsphericaldf):
            2020-07-09 - Written - Bovy (UofT)
 
         """
-        isotropicsphericaldf.__init__(self,ro=ro,vo=vo)
-        # Need to add parsing of Quantity inputs...
-        
+        # Just run df init to set up unit-conversion parameters
+        df.__init__(self,ro=ro,vo=vo)
         self.W0= W0
+        self.M= conversion.parse_mass(M,ro=self._ro,vo=self._vo)
+        self.rt= conversion.parse_length(rt,ro=self._ro)
         # Solve (mass,rtidal)-scale-free model, which is the basis for
         # the full solution
         self._scalefree_kdf= _scalefreekingdf(self.W0)
         self._scalefree_kdf.solve(npt)
         # Set up scaling factors
-        self._radius_scale= rt/self._scalefree_kdf.rt
-        self._mass_scale= M/self._scalefree_kdf.mass
+        self._radius_scale= self.rt/self._scalefree_kdf.rt
+        self._mass_scale= self.M/self._scalefree_kdf.mass
         self._velocity_scale= numpy.sqrt(self._mass_scale/self._radius_scale)
         self._density_scale= self._mass_scale/self._radius_scale**3.
         # Store central density, r0...
         self.rho0= self._scalefree_kdf.rho0*self._density_scale
         self.r0= self._scalefree_kdf.r0*self._radius_scale
         self.c= self._scalefree_kdf.c # invariant
-        self.rt= rt # for convenience
-        self.M= M # for convenience
         self.sigma= self._velocity_scale
         self._sigma2= self.sigma**2.
         self.rho1= self._density_scale
         # Setup the potential
         from ..potential import KingPotential
-        self._pot= KingPotential(W0=self.W0,M=self.M,rt=self.rt,
-                                 _sfkdf=self._scalefree_kdf)
+        pot= KingPotential(W0=self.W0,M=self.M,rt=self.rt,
+                           _sfkdf=self._scalefree_kdf)
+        # Now initialize the isotropic DF
+        isotropicsphericaldf.__init__(self,pot=pot,scale=self.r0,ro=ro,vo=vo)
         self._potInf= self._pot(self.rt,0.)
         # Setup inverse cumulative mass function for radius sampling
-        self._scale= self.r0
         self._icmf= interpolate.InterpolatedUnivariateSpline(\
                         self._mass_scale*self._scalefree_kdf._cumul_mass/self.M,
                         self._radius_scale*self._scalefree_kdf._r,
                         k=3)
-        self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=numpy.log10(self.rt/self._scale))
+        # Setup velocity DF interpolator for velocity sampling here
+        self._v_vesc_pvr_interpolator= self._make_pvr_interpolator(\
+                                    r_a_end=numpy.log10(self.rt/self._scale))
         
     def dens(self,r):
         return self._scalefree_kdf.dens(r/self._radius_scale)\

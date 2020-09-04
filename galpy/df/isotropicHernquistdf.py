@@ -10,6 +10,9 @@ class isotropicHernquistdf(Eddingtondf):
     def __init__(self,pot=None,ro=None,vo=None):
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
         Eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
+        self._phi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
+        self._GMa = self._phi0*self._pot.a**2.
+        self._fEnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
 
     def _call_internal(self,*args):
         """
@@ -23,19 +26,18 @@ class isotropicHernquistdf(Eddingtondf):
 
         INPUT:
 
-            E - The energy
+            E,L,Lz - The energy, angular momemtum magnitude, and its z component (only E is used)
 
         OUTPUT:
 
-            fH - The distribution function
+            f(x,v) = f(E[x,v])
 
         HISTORY:
 
-            2020-07 - Written
+            2020-07 - Written - Lane (UofT)
 
         """
-        E = args[0]
-        return self.fE(E)
+        return self.fE(args[0])
 
     def fE(self,E):
         """
@@ -45,8 +47,7 @@ class isotropicHernquistdf(Eddingtondf):
 
         PURPOSE
 
-            Calculate the energy portion of an isotropic Hernquist distribution 
-            function
+            Calculate the energy portion of an isotropic Hernquist distribution function
 
         INPUT:
 
@@ -60,22 +61,17 @@ class isotropicHernquistdf(Eddingtondf):
 
             2020-08-09 - Written - James Lane (UofT)
         """
-        E= conversion.parse_energy(E,vo=self._vo)
-        phi0 = -evaluatePotentials(self._pot,0,0,use_physical=False)
-        Erel = -E
-        Etilde = Erel/phi0
-        # Handle potential E out of bounds
+        Etilde= -conversion.parse_energy(E,vo=self._vo)/self._phi0
+        # Handle E out of bounds
         Etilde_out = numpy.where(numpy.logical_or(Etilde<0,Etilde>1))[0]
         if len(Etilde_out)>0:
             # Set to dummy and 0 later, prevents functions throwing errors?
             Etilde[Etilde_out]=0.5
-
-        _GMa = phi0*self._pot.a**2.
-        fE = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
-           *(numpy.sqrt(Etilde)/numpy.power(1-Etilde,2))\
-           *((1-2*Etilde)*(8*numpy.power(Etilde,2)-8*Etilde-3)\
-           +((3*numpy.arcsin(numpy.sqrt(Etilde)))\
-           /numpy.sqrt(Etilde*(1-Etilde))))
+        sqrtEtilde= numpy.sqrt(Etilde)
+        fE= self._fEnorm*sqrtEtilde/(1-Etilde)**2.\
+            *((1.-2.*Etilde)*(8.*Etilde**2.-8.*Etilde-3.)\
+              +((3.*numpy.arcsin(sqrtEtilde))\
+                /numpy.sqrt(Etilde*(1.-Etilde))))
         # Fix out of bounds values
         if len(Etilde_out) > 0:
             fE[Etilde_out] = 0

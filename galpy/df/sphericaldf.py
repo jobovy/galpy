@@ -13,7 +13,7 @@ from ..util.conversion import physical_conversion
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,ro=None,vo=None):
+    def __init__(self,pot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -24,6 +24,10 @@ class sphericaldf(df):
             Initializes a spherical DF
 
         INPUT:
+
+           pot= (None) Potential instance or list thereof
+
+           scale= (None) length-scale parameter to be used internally
 
            ro= ,vo= galpy unit parameters
 
@@ -37,6 +41,16 @@ class sphericaldf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
+        if pot is None:
+            raise IOError("pot= must be set")
+        self._pot = pot
+        try:
+            self._scale = pot._scale
+        except AttributeError:
+            if scale is not None:
+                self._scale= conversion.parse_length(scale,ro=self._ro)
+            else:
+                self._scale = 1.
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
@@ -71,10 +85,7 @@ class sphericaldf(df):
             2020-07-22 - Written - Lane (UofT)
 
         """
-        # Stub for calling the DF as a function of either a) R,vR,vT,z,vz,phi,
-        # b) Orbit, c) E,L (Lz?) --> maybe depends on the actual form?
-        
-        # Get E,L,Lz. Generic requirements for any possible spherical DF?
+        # Get E,L,Lz
         if len(args) == 1:
             if not isinstance(args[0],Orbit): # Assume tuple (E,L,Lz)
                 if len(args[0]) == 1:
@@ -86,32 +97,26 @@ class sphericaldf(df):
                 elif len(args[0]) == 3:
                     E,L,Lz = args[0]
             else: # Orbit
-                E = args[0].E(pot=self._pot)
-                L = numpy.sqrt(numpy.sum(numpy.square(args[0].L())))
-                Lz = args[0].Lz()
+                E = args[0].E(pot=self._pot,use_physical=False)
+                L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False)**2.))
+                Lz = args[0].Lz(use_physical=False)
             E= conversion.parse_energy(E,vo=self._vo)
             L= conversion.parse_angmom(L,ro=self._vo,vo=self._vo)
             Lz= conversion.parse_angmom(Lz,ro=self._vo,vo=self._vo)
         else: # Assume R,vR,vT,z,vz,(phi)
-            if len(args) == 5:
-                R,vR,vT,z,vz = args
-                phi = None
-            else:
-                R,vR,vT,z,vz,phi = args
+            R,vR,vT,z,vz, *phi = args
             R= conversion.parse_length(R,ro=self._ro)
             vR= conversion.parse_velocity(vR,vo=self._vo)
             vT= conversion.parse_velocity(vT,vo=self._vo)
             z= conversion.parse_length(z,ro=self._ro)
             vz= conversion.parse_velocity(vz,vo=self._vo)
-            phi= conversion.parse_angle(phi)
             vtotSq = vR**2.+vT**2.+vz**2.
             E = 0.5*vtotSq + evaluatePotentials(R,z)
             Lz = R*vT
             r = numpy.sqrt(R**2.+z**2.)
             vrad = (R*vR+z*vz)/r
             L = numpy.sqrt(vtotSq-vrad**2.)*r
-        f = self._call_internal(E,L,Lz) # Some function for each sub-class
-        return f
+        return self._call_internal(E,L,Lz) # Some function for each sub-class
 
 ############################### SAMPLING THE DF################################
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
@@ -126,18 +131,17 @@ class sphericaldf(df):
 
         INPUT:
 
-            R= Radius at which to generate samples (can be Quantity)
+            R= cylindrical radius at which to generate samples (can be Quantity)
 
-            z= Height at which to generate samples (can be Quantity)
+            z= height at which to generate samples (can be Quantity)
             
-            phi= Azimuth at which to generate samples (can be Quantity)
+            phi= azimuth at which to generate samples (can be Quantity)
 
             n= number of samples to generate
 
         OPTIONAL INPUT:
 
-            return_orbit= If True output is orbit.Orbit object, if False 
-                output is (R,vR,vT,z,vz,phi)
+            return_orbit= (True) If True output is orbit.Orbit object, if False output is (R,vR,vT,z,vz,phi)
 
         OUTPUT:
 
@@ -162,7 +166,9 @@ class sphericaldf(df):
             z = r*numpy.cos(theta) 
         else: # 3D velocity samples
             if isinstance(R,numpy.ndarray):
-                assert len(R) == len(z)
+                assert len(R) == len(z), \
+                    """When R= is set to an array, z= needs to be set to """\
+                    """an equal-length array"""
                 n = len(R)
             r = numpy.sqrt(R**2.+z**2.)
             if phi is None: # Otherwise assume phi input type matches R,z
@@ -174,7 +180,6 @@ class sphericaldf(df):
         vT = v*numpy.sin(eta)*numpy.sin(psi)
         vR = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
         vz = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
-        
         if return_orbit:
             o = Orbit(vxvv=numpy.array([R,vR,vT,z,vz,phi]).T)
             if self._roSet and self._voSet:
@@ -196,6 +201,8 @@ class sphericaldf(df):
         if hasattr(self,'_icmf'):
             r_samples = self._icmf(rand_mass_frac)
         else:
+            if not hasattr(self,'_xi_cmf_interpolator'):
+                self._xi_cmf_interpolator= self._make_cmf_interpolator()
             xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
             r_samples = _xiToR(xi_samples,a=self._scale)
         return r_samples
@@ -227,13 +234,16 @@ class sphericaldf(df):
 
     def _sample_v(self,r,n=1):
         """Generate velocity samples"""
+        if not hasattr(self,'_v_vesc_pvr_interpolator'):
+            self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
         return self._v_vesc_pvr_interpolator(\
                     numpy.log10(r/self._scale),numpy.random.uniform(size=n),
                     grid=False)\
                 *vesc(self._pot,r,use_physical=False)
 
     def _sample_velocity_angles(self,n=1):
-        """Generate samples of angles that set radial vs tangential velocities"""
+        """Generate samples of angles that set radial vs tangential 
+        velocities"""
         eta_samples = self._sample_eta(n)
         psi_samples = numpy.random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
@@ -313,7 +323,7 @@ class sphericaldf(df):
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
-    def __init__(self,ro=None,vo=None):
+    def __init__(self,pot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -324,6 +334,10 @@ class isotropicsphericaldf(sphericaldf):
             Initialize an isotropic distribution function
 
         INPUT:
+
+           pot= (None) Potential instance or list thereof
+
+           scale= scale parameter to be used internally
 
            ro=, vo= galpy unit parameters
 
@@ -336,7 +350,7 @@ class isotropicsphericaldf(sphericaldf):
             2020-09-02 - Written - Bovy (UofT)
 
         """
-        sphericaldf.__init__(self,ro=ro,vo=vo)
+        sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
 
     def _sample_eta(self,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
@@ -348,7 +362,7 @@ class isotropicsphericaldf(sphericaldf):
     
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,ro=None,vo=None):
+    def __init__(self,pot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -360,6 +374,10 @@ class anisotropicsphericaldf(sphericaldf):
 
         INPUT:
 
+           pot= (None) Potential instance or list thereof
+
+           scale= (None) length-scale parameter to be used internally
+
            ro= ,vo= galpy unit parameters
 
         OUTPUT:
@@ -368,7 +386,7 @@ class anisotropicsphericaldf(sphericaldf):
 
         HISTORY:
 
-            2020-07-22 - Written - 
+            2020-07-22 - Written - Lane (UofT)
 
         """
-        sphericaldf.__init__(self,ro=ro,vo=vo)
+        sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
