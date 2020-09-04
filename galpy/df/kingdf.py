@@ -85,9 +85,13 @@ class kingdf(isotropicsphericaldf):
     def fE(self,E):
         out= numpy.zeros(numpy.atleast_1d(E).shape)
         varE= self._potInf-E
-        out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
-            *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
-        return out        
+        if numpy.sum(varE > 0.) > 0:
+            out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
+                *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
+        return out
+
+    def _vmax_at_r(self,pot,r):
+        return numpy.sqrt(2.*(self._potInf-self._pot(r,0.,use_physical=False)))
         
 class _scalefreekingdf(object):
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""

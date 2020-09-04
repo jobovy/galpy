@@ -238,8 +238,7 @@ class sphericaldf(df):
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
         return self._v_vesc_pvr_interpolator(\
                     numpy.log10(r/self._scale),numpy.random.uniform(size=n),
-                    grid=False)\
-                *vesc(self._pot,r,use_physical=False)
+                    grid=False)*self._vmax_at_r(self._pot,r)
 
     def _sample_velocity_angles(self,n=1):
         """Generate samples of angles that set radial vs tangential 
@@ -248,6 +247,12 @@ class sphericaldf(df):
         psi_samples = numpy.random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
 
+    def _vmax_at_r(self,pot,r,**kwargs):
+        """Function that gives the max velocity in the DF at r; 
+        typically equal to vesc, but not necessarily for finite systems 
+        such as King"""
+        return vesc(pot,r,use_physical=False)
+    
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, 
                                r_a_interval=0.05, v_vesc_interval=0.01):
         """
@@ -287,7 +292,7 @@ class sphericaldf(df):
         r_a_values = 10.**numpy.arange(r_a_start,r_a_end,r_a_interval)
         v_vesc_values = numpy.arange(0,1,v_vesc_interval)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values,v_vesc_values)
-        vesc_grid = vesc(self._pot,r_a_grid*self._scale,use_physical=False)
+        vesc_grid = self._vmax_at_r(self._pot,r_a_grid*self._scale)
         r_grid= r_a_grid*self._scale
         vr_grid= v_vesc_grid*vesc_grid
         # Calculate p(v|r) and normalize
