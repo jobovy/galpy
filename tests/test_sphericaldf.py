@@ -59,7 +59,27 @@ def test_isotropic_hernquist_beta():
     check_beta(samp,pot,tol,beta=0.,
                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
-               
+
+def test_isotropic_hernquist_sigmar_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    tol= 1e-5
+    check_sigmar_against_jeans_directint(dfh,pot,tol,beta=0.,
+                                         rmin=pot._scale/10.,
+                                         rmax=pot._scale*10.,
+                                         bins=31)
+    return None
+
+def test_isotropic_hernquist_beta_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    tol= 1e-8
+    check_beta_directint(dfh,tol,beta=0.,
+                         rmin=pot._scale/10.,
+                         rmax=pot._scale*10.,
+                         bins=31)
+    return None
+
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
@@ -122,6 +142,30 @@ def test_anisotropic_hernquist_beta():
                    rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
                
+def test_anisotropic_hernquist_sigmar_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        tol= 1e-5
+        check_sigmar_against_jeans_directint(dfh,pot,tol,beta=beta,
+                                             rmin=pot._scale/10.,
+                                             rmax=pot._scale*10.,
+                                             bins=31)
+    return None
+
+def test_anisotropic_hernquist_beta_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        tol= 1e-8
+        check_beta_directint(dfh,tol,beta=beta,
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,
+                             bins=31)
+    return None
+
 ################################# KING DF #####################################
 def test_king_dens_spherically_symmetric():
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -180,6 +224,23 @@ def test_king_beta():
                bins=31)
     return None
                
+def test_king_sigmar_directint():
+    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    tol= 0.05 # Jeans isn't that accurate for this rather difficult case
+    check_sigmar_against_jeans_directint(dfk,pot,tol,beta=0.,
+                                         rmin=dfk._scale/10.,
+                                         rmax=dfk.rt*0.7,bins=31)
+    return None
+
+def test_king_beta_directint():
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    tol= 1e-8
+    check_beta_directint(dfk,tol,beta=0.,
+                         rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
+    return None
+
+############################### HELPER FUNCTIONS ##############################
 def check_spherical_symmetry(samp,l,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
@@ -249,3 +310,28 @@ def check_beta(samp,pot,tol,beta=0.,
         beta_func= beta
     assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value"
     return None
+
+def check_sigmar_against_jeans_directint(dfi,pot,tol,beta=0.,
+                                         rmin=None,rmax=None,bins=31):
+    """Check that sigma_r(r) obtained from integrating over the DF agrees 
+    with that coming from the Jeans equation"""
+    rs= numpy.linspace(rmin,rmax,bins)
+    intsr= numpy.array([dfi.sigmar(r,use_physical=False) for r in rs])
+    jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,use_physical=False) for r in rs])
+    assert numpy.all(numpy.fabs(intsr/jeanssr-1) < tol), \
+                     "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    return None
+
+def check_beta_directint(dfi,tol,beta=0.,rmin=None,rmax=None,bins=31):
+    """Check that beta(r) obtained from integrating over the DF agrees 
+    with the expected behavior"""
+    rs= numpy.linspace(rmin,rmax,bins)
+    intbeta= numpy.array([dfi.beta(r) for r in rs])
+    if not callable(beta):
+        beta_func= lambda r: beta
+    else:
+        beta_func= beta
+    assert numpy.all(numpy.fabs(intbeta-beta_func(rs)) < tol), \
+        "beta(r) from direct integration does not agree with the expected value"
+    return None
+
