@@ -28,7 +28,7 @@ class constantbetadf(anisotropicsphericaldf):
 
         """
         anisotropicsphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
-        self.beta = beta
+        self._beta = beta
         self._potInf = evaluatePotentials(pot,10**12,0)
 
     def _call_internal(self,*args):
@@ -43,7 +43,7 @@ class constantbetadf(anisotropicsphericaldf):
         """Sample the angle eta which defines radial vs tangential velocities"""
         deta = 0.00005*numpy.pi
         etas = (numpy.arange(0, numpy.pi, deta)+deta/2)
-        eta_pdf_cml = numpy.cumsum(numpy.power(numpy.sin(etas),1.-2.*self.beta))
+        eta_pdf_cml = numpy.cumsum(numpy.power(numpy.sin(etas),1.-2.*self._beta))
         eta_pdf_cml_norm = eta_pdf_cml / eta_pdf_cml[-1]
         eta_icml_interp = scipy.interpolate.interp1d(eta_pdf_cml_norm, etas, 
             bounds_error=False, fill_value='extrapolate')

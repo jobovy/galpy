@@ -68,7 +68,7 @@ class constantbetaHernquistdf(constantbetadf):
         E = args[0]
         L = args[1]
         fE = self.fE(E)
-        return L**(-2*self.beta)*fE
+        return L**(-2*self._beta)*fE
 
     def fE(self,E):
         """
@@ -104,22 +104,22 @@ class constantbetaHernquistdf(constantbetadf):
 
         # First check algebraic solutions
         _GMa = psi0*self._pot.a**2.
-        if self.beta == 0.:
+        if self._beta == 0.:
             fE = numpy.power((2**0.5)*((2*numpy.pi)**3)*((_GMa)**1.5),-1)\
                *(numpy.sqrt(Etilde)/numpy.power(1-Etilde,2))\
                *((1-2*Etilde)*(8*numpy.power(Etilde,2)-8*Etilde-3)\
                +((3*numpy.arcsin(numpy.sqrt(Etilde)))\
                /numpy.sqrt(Etilde*(1-Etilde))))
-        elif self.beta == 0.5:
+        elif self._beta == 0.5:
             fE = (3*Etilde**2)/(4*(numpy.pi**3)*_GMa)
-        elif self.beta == -0.5:
+        elif self._beta == -0.5:
             fE = ((20*Etilde**3-20*Etilde**4+6*Etilde**5)\
                /(1-Etilde)**4)/(4*numpy.pi**3*(_GMa)**2)
         elif self._use_BD02:
             fE = self._fE_BD02(Etilde)
-        elif self.beta < 1.0 and self.beta > 0.5:
+        elif self._beta < 1.0 and self._beta > 0.5:
             fE = self._fE_beta_gt05(Erel)
-        elif self.beta < 0.5 and self.beta > -0.5:
+        elif self._beta < 0.5 and self._beta > -0.5:
             fE = self._fE_beta_gtm05_lt05(Erel)
         if len(Etilde_out)>0:
             fE[Etilde_out] = 0
@@ -130,11 +130,11 @@ class constantbetaHernquistdf(constantbetadf):
         psi0 = -1*evaluatePotentials(self._pot,0,0,use_physical=False) 
         _a = self._pot.a
         _GM = psi0*_a
-        Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self.beta)\
-              /scipy.special.gamma(1.5-self.beta)
-        Cbeta = 2**(self.beta-0.5)/(2*numpy.pi*Ibeta)
-        alpha = self.beta-0.5
-        coeff = (Cbeta*_a**(2*self.beta-2))*(numpy.sin(alpha*numpy.pi))\
+        Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self._beta)\
+              /scipy.special.gamma(1.5-self._beta)
+        Cbeta = 2**(self._beta-0.5)/(2*numpy.pi*Ibeta)
+        alpha = self._beta-0.5
+        coeff = (Cbeta*_a**(2*self._beta-2))*(numpy.sin(alpha*numpy.pi))\
                 /(_GM*2*numpy.pi**2)
         if hasattr(Erel,'shape'):
             _Erel_shape = Erel.shape
@@ -154,11 +154,11 @@ class constantbetaHernquistdf(constantbetadf):
         """Integral for calculating fE for a Hernquist when 0.5 < beta < 1.0"""
         psiTilde = psi/psi0
         # Absolute value because the answer normally comes out imaginary?
-        denom = numpy.abs( (Erel-psi)**(1.5-self.beta) ) 
-        numer = ((4-2*self.beta)*numpy.power(1-psiTilde,2*self.beta-1)\
-              *numpy.power(psiTilde,3-2*self.beta)+(1-2*self.beta)\
-              *numpy.power(1-psiTilde,2*self.beta-2)\
-              *numpy.power(psiTilde,4-2*self.beta))
+        denom = numpy.abs( (Erel-psi)**(1.5-self._beta) ) 
+        numer = ((4-2*self._beta)*numpy.power(1-psiTilde,2*self._beta-1)\
+              *numpy.power(psiTilde,3-2*self._beta)+(1-2*self._beta)\
+              *numpy.power(1-psiTilde,2*self._beta-2)\
+              *numpy.power(psiTilde,4-2*self._beta))
         return numer/denom
         
     def _fE_beta_gtm05_lt05(self,Erel):
@@ -166,11 +166,11 @@ class constantbetaHernquistdf(constantbetadf):
         psi0 = -1*evaluatePotentials(self._pot,0,0,use_physical=False) 
         _a = self._pot.a
         _GM = psi0*_a
-        alpha = 0.5-self.beta
-        Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self.beta)\
-              /scipy.special.gamma(1.5-self.beta)
-        Cbeta = 2**(self.beta-0.5)/(2*numpy.pi*Ibeta*alpha)
-        coeff = (Cbeta*_a**(2*self.beta-1))*(numpy.sin(alpha*numpy.pi))\
+        alpha = 0.5-self._beta
+        Ibeta = numpy.sqrt(numpy.pi)*scipy.special.gamma(1-self._beta)\
+              /scipy.special.gamma(1.5-self._beta)
+        Cbeta = 2**(self._beta-0.5)/(2*numpy.pi*Ibeta*alpha)
+        coeff = (Cbeta*_a**(2*self._beta-1))*(numpy.sin(alpha*numpy.pi))\
                 /((_GM**2)*2*numpy.pi**2)
         if hasattr(Erel,'shape'):
             _Erel_shape = Erel.shape
@@ -190,19 +190,19 @@ class constantbetaHernquistdf(constantbetadf):
         """Integral for calculating fE for a Hernquist when -0.5 < beta < 0.5"""
         psiTilde = psi/psi0
         # Absolute value because the answer normally comes out imaginary?
-        denom = numpy.abs( (Erel-psi)**(0.5-self.beta) ) 
-        numer = (4-2*self.beta-3*psiTilde)\
-            *numpy.power(1-psiTilde,2*self.beta-2)\
-            *numpy.power(psiTilde,3-2*self.beta)
+        denom = numpy.abs( (Erel-psi)**(0.5-self._beta) ) 
+        numer = (4-2*self._beta-3*psiTilde)\
+            *numpy.power(1-psiTilde,2*self._beta-2)\
+            *numpy.power(psiTilde,3-2*self._beta)
         return numer/denom
 
     def _fE_BD02(self,Erel):
         """Calculate fE according to the hypergeometric solution of Baes & 
         Dejonghe (2002)"""
-        coeff = (2.**self.beta/(2.*numpy.pi)**2.5)*scipy.special.gamma(5.-2.*self.beta)/\
-                ( scipy.special.gamma(1.-self.beta)*scipy.special.gamma(3.5-self.beta) )
-        fE = coeff*numpy.power(Erel,2.5-self.beta)*\
-            scipy.special.hyp2f1(5.-2.*self.beta,1.-2.*self.beta,3.5-self.beta,Erel)
+        coeff = (2.**self._beta/(2.*numpy.pi)**2.5)*scipy.special.gamma(5.-2.*self._beta)/\
+                ( scipy.special.gamma(1.-self._beta)*scipy.special.gamma(3.5-self._beta) )
+        fE = coeff*numpy.power(Erel,2.5-self._beta)*\
+            scipy.special.hyp2f1(5.-2.*self._beta,1.-2.*self._beta,3.5-self._beta,Erel)
         return fE
         
     def _icmf(self,ms):
