@@ -60,6 +60,14 @@ def test_isotropic_hernquist_beta():
                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
 
+def test_isotropic_hernquist_meanvr_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    tol= 1e-8
+    check_meanvr_directint(dfh,pot,tol,beta=0.,rmin=pot._scale/10.,
+                           rmax=pot._scale*10.,bins=31)
+    return None
+
 def test_isotropic_hernquist_sigmar_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -68,6 +76,16 @@ def test_isotropic_hernquist_sigmar_directint():
                                          rmin=pot._scale/10.,
                                          rmax=pot._scale*10.,
                                          bins=31)
+    return None
+
+def test_isotropic_hernquist_sigmar_directint_forcevmoment():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    tol= 1e-5
+    check_sigmar_against_jeans_directint_forcevmoment(dfh,pot,tol,beta=0.,
+                                                      rmin=pot._scale/10.,
+                                                      rmax=pot._scale*10.,
+                                                      bins=31)
     return None
 
 def test_isotropic_hernquist_beta_directint():
@@ -142,6 +160,16 @@ def test_anisotropic_hernquist_beta():
                    rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
                
+def test_anisotropic_hernquist_meanvr_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.4,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        tol= 1e-8
+        check_meanvr_directint(dfh,pot,tol,beta=beta,rmin=pot._scale/10.,
+                               rmax=pot._scale*10.,bins=31)
+    return None
+
 def test_anisotropic_hernquist_sigmar_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     betas= [-0.4,0.5]
@@ -311,12 +339,39 @@ def check_beta(samp,pot,tol,beta=0.,
     assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value"
     return None
 
+def check_meanvr_directint(dfi,pot,tol,beta=0.,
+                           rmin=None,rmax=None,bins=31):
+    """Check that the mean v_r(r) obtained from integrating over the DF agrees 
+    with the expected zero"""
+    rs= numpy.linspace(rmin,rmax,bins)
+    intmvr= numpy.array([dfi.vmomentdensity(r,1,0)/dfi.vmomentdensity(r,0,0)
+                         for r in rs])
+    assert numpy.all(numpy.fabs(intmvr) < tol), \
+        "mean v_r(r) from direct integration is not zero"
+    return None
+
 def check_sigmar_against_jeans_directint(dfi,pot,tol,beta=0.,
                                          rmin=None,rmax=None,bins=31):
     """Check that sigma_r(r) obtained from integrating over the DF agrees 
     with that coming from the Jeans equation"""
     rs= numpy.linspace(rmin,rmax,bins)
     intsr= numpy.array([dfi.sigmar(r,use_physical=False) for r in rs])
+    jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,use_physical=False) for r in rs])
+    assert numpy.all(numpy.fabs(intsr/jeanssr-1) < tol), \
+                     "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    return None
+
+def check_sigmar_against_jeans_directint_forcevmoment(dfi,pot,tol,beta=0.,
+                                                      rmin=None,rmax=None,
+                                                      bins=31):
+    """Check that sigma_r(r) obtained from integrating over the DF agrees 
+    with that coming from the Jeans equation, using the general sphericaldf
+    class' vmomentdensity"""
+    from galpy.df.sphericaldf import sphericaldf
+    rs= numpy.linspace(rmin,rmax,bins)
+    intsr= numpy.array([numpy.sqrt(sphericaldf.vmomentdensity(dfi,r,2,0)/
+                                   sphericaldf.vmomentdensity(dfi,r,0,0))
+                        for r in rs])
     jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,use_physical=False) for r in rs])
     assert numpy.all(numpy.fabs(intsr/jeanssr-1) < tol), \
                      "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
