@@ -112,7 +112,7 @@ class sphericaldf(df):
             L= conversion.parse_angmom(L,ro=self._vo,vo=self._vo)
             Lz= conversion.parse_angmom(Lz,ro=self._vo,vo=self._vo)
         else: # Assume R,vR,vT,z,vz,(phi)
-            R,vR,vT,z,vz, *phi = args
+            R,vR,vT,z,vz, phi = (args+(None,))[:6]
             R= conversion.parse_length(R,ro=self._ro)
             vR= conversion.parse_velocity(vR,vo=self._vo)
             vT= conversion.parse_velocity(vT,vo=self._vo)
