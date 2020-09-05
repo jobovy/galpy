@@ -96,14 +96,7 @@ class sphericaldf(df):
         # Get E,L,Lz
         if len(args) == 1:
             if not isinstance(args[0],Orbit): # Assume tuple (E,L,Lz)
-                if len(args[0]) == 1:
-                    E = args[0][0]
-                    L,Lz = None,None
-                elif len(args[0]) == 2:
-                    E,L = args[0]
-                    Lz = None
-                elif len(args[0]) == 3:
-                    E,L,Lz = args[0]
+                E,L,Lz= (args[0]+(None,None))[:3]
             else: # Orbit
                 E = args[0].E(pot=self._pot,use_physical=False)
                 L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False)**2.))
