@@ -10,8 +10,8 @@ class isotropicHernquistdf(Eddingtondf):
     def __init__(self,pot=None,ro=None,vo=None):
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
         Eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
-        self._phi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
-        self._GMa = self._phi0*self._pot.a**2.
+        self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
+        self._GMa = self._psi0*self._pot.a**2.
         self._fEnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
 
     def _call_internal(self,*args):
@@ -61,7 +61,7 @@ class isotropicHernquistdf(Eddingtondf):
 
             2020-08-09 - Written - James Lane (UofT)
         """
-        Etilde= -conversion.parse_energy(E,vo=self._vo)/self._phi0
+        Etilde= -conversion.parse_energy(E,vo=self._vo)/self._psi0
         # Handle E out of bounds
         Etilde_out = numpy.where(numpy.logical_or(Etilde<0,Etilde>1))[0]
         if len(Etilde_out)>0:
