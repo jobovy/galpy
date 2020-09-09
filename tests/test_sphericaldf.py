@@ -40,6 +40,23 @@ def test_isotropic_hernquist_dens_massprofile():
                                 tol,skip=1000)
     return None
 
+def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    # Remove the inverse cumulative mass function to force its interpolation
+    class isotropicHernquistdfNoICMF(isotropicHernquistdf):
+        _icmf= property()
+    dfh= isotropicHernquistdfNoICMF(pot=pot)
+    print(hasattr(dfh,'_icmf'))
+    numpy.random.seed(10)
+    samp= dfh.sample(n=100000)
+    tol= 5*1e-3
+    check_spherical_massprofile(samp,
+                                lambda r: pot.mass(r)\
+                                   /pot.mass(numpy.amax(samp.r()),
+                                             ),
+                                tol,skip=1000)
+    return None
+
 def test_isotropic_hernquist_sigmar():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
