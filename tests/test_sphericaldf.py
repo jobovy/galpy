@@ -101,7 +101,7 @@ def test_isotropic_hernquist_beta_directint():
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         numpy.random.seed(10)
@@ -124,7 +124,7 @@ def test_anisotropic_hernquist_dens_spherically_symmetric():
     
 def test_anisotropic_hernquist_dens_massprofile():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         numpy.random.seed(10)
@@ -137,7 +137,7 @@ def test_anisotropic_hernquist_dens_massprofile():
 
 def test_anisotropic_hernquist_sigmar():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         numpy.random.seed(10)
@@ -150,19 +150,19 @@ def test_anisotropic_hernquist_sigmar():
 
 def test_anisotropic_hernquist_beta():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         numpy.random.seed(10)
         samp= dfh.sample(n=1000000)
-        tol= 8*1e-2
+        tol= 8*1e-2 * (beta > -0.7) + 0.12 * (beta == -0.7)
         check_beta(samp,pot,tol,beta=beta,
                    rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
                
 def test_anisotropic_hernquist_meanvr_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         tol= 1e-8
@@ -172,7 +172,7 @@ def test_anisotropic_hernquist_meanvr_directint():
 
 def test_anisotropic_hernquist_sigmar_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         tol= 1e-5
@@ -184,7 +184,7 @@ def test_anisotropic_hernquist_sigmar_directint():
 
 def test_anisotropic_hernquist_beta_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
-    betas= [-0.4,0.5]
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         tol= 1e-8
@@ -335,8 +335,8 @@ def check_beta(samp,pot,tol,beta=0.,
     if not callable(beta):
         beta_func= lambda r: beta
     else:
-        beta_func= beta
-    assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value"
+        beta_func= beta 
+    assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value for beta = {}".format(beta)
     return None
 
 def check_meanvr_directint(dfi,pot,tol,beta=0.,
