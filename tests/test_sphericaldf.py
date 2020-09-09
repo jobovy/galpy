@@ -1,4 +1,5 @@
 # Tests of spherical distribution functions
+import pytest
 import numpy
 from scipy import special
 from galpy import potential
@@ -284,6 +285,69 @@ def test_king_beta_directint():
     check_beta_directint(dfk,tol,beta=0.,
                          rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
     return None
+
+################################ TESTS OF ERRORS###############################
+
+def test_isotropic_hernquist_nopot():
+    with pytest.raises(AssertionError)  as excinfo:
+        dfh= isotropicHernquistdf()
+    assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
+    return None
+
+def test_isotropic_hernquist_wrongpot():
+    pot= potential.JaffePotential(amp=2.,a=1.3)   
+    with pytest.raises(AssertionError)  as excinfo:
+        dfh= isotropicHernquistdf(pot=pot)
+    assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
+    return None
+
+def test_anisotropic_hernquist_nopot():
+    with pytest.raises(AssertionError)  as excinfo:
+        dfh= constantbetaHernquistdf()
+    assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
+    return None
+
+def test_anisotropic_hernquist_wrongpot():
+    pot= potential.JaffePotential(amp=2.,a=1.3)   
+    with pytest.raises(AssertionError)  as excinfo:
+        dfh= constantbetaHernquistdf(pot=pot)
+    assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
+    return None
+
+############################# TESTS OF UNIT HANDLING###########################
+
+# Test that setting up a DF with unit conversion parameters that are
+# incompatible with that of the underlying potential fails
+def test_isotropic_hernquist_incompatibleunits():
+    pot= potential.HernquistPotential(amp=2.,a=1.3,ro=9.,vo=210.)
+    with pytest.raises(RuntimeError):
+        dfh= isotropicHernquistdf(pot=pot,ro=8.,vo=210.)
+    with pytest.raises(RuntimeError):
+        dfh= isotropicHernquistdf(pot=pot,ro=9.,vo=230.)
+    with pytest.raises(RuntimeError):
+        dfh= isotropicHernquistdf(pot=pot,ro=8.,vo=230.)
+    return None
+
+# Test that the unit system is correctly transfered
+def test_isotropic_hernquist_unittransfer():
+    from galpy.util import conversion
+    ro, vo= 9., 210.
+    pot= potential.HernquistPotential(amp=2.,a=1.3,ro=ro,vo=vo)
+    dfh= isotropicHernquistdf(pot=pot)
+    phys= conversion.get_physical(dfh,include_set=True)
+    assert phys['roSet'], "sphericaldf's ro not set when that of the underlying potential is set"
+    assert phys['voSet'], "sphericaldf's vo not set when that of the underlying potential is set"
+    assert numpy.fabs(phys['ro']-ro) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
+    assert numpy.fabs(phys['vo']-vo) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
+    # Following should not be on
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    phys= conversion.get_physical(dfh,include_set=True)
+    assert not phys['roSet'], "sphericaldf's ro set when that of the underlying potential is not set"
+    assert not phys['voSet'], "sphericaldf's vo set when that of the underlying potential is not set"
+    return None
+
+
 
 ############################### HELPER FUNCTIONS ##############################
 def check_spherical_symmetry(samp,l,m,tol):
