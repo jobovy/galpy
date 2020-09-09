@@ -40,36 +40,7 @@ class constantbetaHernquistdf(constantbetadf):
         self._fEnorm= (2.**self._beta/(2.*numpy.pi)**2.5)\
             *scipy.special.gamma(5.-2.*self._beta)/\
             ( scipy.special.gamma(1.-self._beta)*scipy.special.gamma(3.5-self._beta) )
-
-    
-
-    def _call_internal(self,*args):
-        """
-        NAME:
-
-            _call_internal
-
-        PURPOSE:
-
-            Evaluate the DF for a constant anisotropy Hernquist
-
-        INPUT:
-
-            E - The energy
-
-            L - The angular momentum
-
-        OUTPUT:
-
-            fH - The value of the DF
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
-        """
-        E, L= args
-        return L**(-2*self._beta)*self.fE(E)
-
+  
     def fE(self,E):
         """
         NAME:

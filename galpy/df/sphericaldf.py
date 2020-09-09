@@ -267,7 +267,7 @@ class sphericaldf(df):
         
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
-        xis = numpy.arange(-1,1,1e-6)
+        xis = numpy.arange(-1,1,1e-4)
         rs = _xiToR(xis,a=self._scale)
         ms = self._pot.mass(rs,use_physical=False)
         ms /= self._pot.mass(10**12,use_physical=False)

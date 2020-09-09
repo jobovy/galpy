@@ -3,7 +3,7 @@
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
-from ..potential import evaluatePotentials, vesc
+from ..potential import evaluatePotentials
 from .sphericaldf import anisotropicsphericaldf
 
 class constantbetadf(anisotropicsphericaldf):
@@ -28,16 +28,35 @@ class constantbetadf(anisotropicsphericaldf):
 
         """
         anisotropicsphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
-        self._beta = beta
-        self._potInf = evaluatePotentials(pot,10**12,0)
+        self._beta= beta
+        self._potInf= evaluatePotentials(pot,10**12,0)
 
     def _call_internal(self,*args):
-        # Stub for calling
-        return None
+        """
+        NAME:
 
-    def fE(self,E):
-        # Stub for computing f_1(E) in BT08 nomenclature
-        return None
+            _call_internal
+
+        PURPOSE:
+
+            Evaluate the DF for a constant anisotropy Hernquist
+
+        INPUT:
+
+            E - The energy
+
+            L - The angular momentum
+
+        OUTPUT:
+
+            fH - The value of the DF
+
+        HISTORY:
+
+            2020-07-22 - Written - Lane (UofT)
+        """
+        E, L= args
+        return L**(-2*self._beta)*self.fE(E)
 
     def _sample_eta(self,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
