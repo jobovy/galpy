@@ -220,7 +220,11 @@ class sphericaldf(df):
                     """When R= is set to an array, z= needs to be set to """\
                     """an equal-length array"""
                 n = len(R)
-            r = numpy.sqrt(R**2.+z**2.)
+            else:
+                R= R*numpy.ones(n)
+                z= z*numpy.ones(n)
+            r= numpy.sqrt(R**2.+z**2.)
+            theta= numpy.arctan2(R,z)
             if phi is None: # Otherwise assume phi input type matches R,z
                 phi,_ = self._sample_position_angles(n=n)
         v = self._sample_v(r,n=n)
