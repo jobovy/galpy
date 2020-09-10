@@ -3287,6 +3287,17 @@ def test_potential_paramunits():
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
+    # KingPotential
+    pot= potential.KingPotential(W0=3.,M=4.*10.**6.*units.Msun,
+                                 rt=10.*units.pc,
+                                 ro=ro,vo=vo)
+    pot_nounits= potential.KingPotential(\
+                    W0=3.,M=4.*10.**6./conversion.mass_in_msol(vo,ro),
+                    rt=10./1000/ro,
+                    ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "KingPotential w/ amp w/ units does not behave as expected"   
+    # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
 def test_potential_paramunits_2d():
