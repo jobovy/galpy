@@ -443,7 +443,7 @@ class isotropicsphericaldf(sphericaldf):
                                      +0.5*v**2.),
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m//2+1)*special.gamma(n//2+0.5)\
-            /2./special.gamma(m//2+n//2+1.5)
+            /special.gamma(m//2+n//2+1.5)
          
     def _sample_eta(self,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""

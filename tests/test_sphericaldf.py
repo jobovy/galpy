@@ -261,17 +261,19 @@ def test_king_dens_massprofile():
     return None
 
 def test_king_sigmar():
-    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
-    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
-    numpy.random.seed(10)
-    samp= dfk.sample(n=1000000)
-    # lower tolerance closer to rt because fewer stars there
-    tol= 0.07
-    check_sigmar_against_jeans(samp,pot,tol,beta=0.,
-                               rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
-    tol= 0.2
-    check_sigmar_against_jeans(samp,pot,tol,beta=0.,
-                               rmin=dfk.rt*0.8,rmax=dfk.rt,bins=5)
+    W0s= [1.,3.,9.]
+    for W0 in W0s:
+        pot= potential.KingPotential(W0=W0,M=2.3,rt=1.76)
+        dfk= kingdf(W0=W0,M=2.3,rt=1.76)
+        numpy.random.seed(10)
+        samp= dfk.sample(n=1000000)
+        # lower tolerance closer to rt because fewer stars there
+        tol= 0.09
+        check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+                                   rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
+        tol= 0.2
+        check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+                                   rmin=dfk.rt*0.8,rmax=dfk.rt*0.95,bins=5)
     return None
 
 def test_king_beta():
@@ -286,6 +288,15 @@ def test_king_beta():
                bins=31)
     return None
                
+def test_king_dens_directint():
+    pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
+    dfk= kingdf(W0=3.,M=2.3,rt=1.76)
+    tol= 0.02
+    check_dens_directint(dfk,pot,tol,dfk.dens,
+                         rmin=dfk._scale/10.,
+                         rmax=dfk.rt*0.7,bins=31)
+    return None
+
 def test_king_sigmar_directint():
     pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -434,6 +445,17 @@ def check_beta(samp,pot,tol,beta=0.,
     else:
         beta_func= beta 
     assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value for beta = {}".format(beta)
+    return None
+
+def check_dens_directint(dfi,pot,tol,dens,
+                         rmin=None,rmax=None,bins=31):
+    """Check that the density obtained from integrating over the DF agrees 
+    with the expected density"""
+    rs= numpy.linspace(rmin,rmax,bins)
+    intdens= numpy.array([dfi.vmomentdensity(r,0,0) for r in rs])
+    expdens= numpy.array([dens(r) for r in rs])
+    assert numpy.all(numpy.fabs(intdens/expdens-1.) < tol), \
+        "Density from direct integration is not equal to the expected value"
     return None
 
 def check_meanvr_directint(dfi,pot,tol,beta=0.,
