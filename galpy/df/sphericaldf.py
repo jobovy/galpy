@@ -99,9 +99,11 @@ class sphericaldf(df):
                 E = args[0].E(pot=self._pot,use_physical=False)
                 L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False)**2.))
                 Lz = args[0].Lz(use_physical=False)
-            E= conversion.parse_energy(E,vo=self._vo)
-            L= conversion.parse_angmom(L,ro=self._vo,vo=self._vo)
-            Lz= conversion.parse_angmom(Lz,ro=self._vo,vo=self._vo)
+            E= numpy.atleast_1d(conversion.parse_energy(E,vo=self._vo))
+            L= numpy.atleast_1d(conversion.parse_angmom(L,ro=self._ro,
+                                                        vo=self._vo))
+            Lz= numpy.atleast_1d(conversion.parse_angmom(Lz,ro=self._vo,
+                                                         vo=self._vo))
         else: # Assume R,vR,vT,z,vz,(phi)
             R,vR,vT,z,vz, phi = (args+(None,))[:6]
             R= conversion.parse_length(R,ro=self._ro)

@@ -116,6 +116,13 @@ def test_isotropic_hernquist_beta_directint():
                          bins=31)
     return None
 
+def test_isotropic_hernquist_energyoutofbounds():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E > 0 does not give zero'
+    assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
+    return None
+
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
@@ -210,6 +217,15 @@ def test_anisotropic_hernquist_beta_directint():
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,
                              bins=31)
+    return None
+
+def test_anisotropic_hernquist_energyoutofbounds():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E > 0 does not give zero'
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
     return None
 
 ################################# KING DF #####################################

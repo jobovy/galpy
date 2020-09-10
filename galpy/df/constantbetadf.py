@@ -55,7 +55,7 @@ class constantbetadf(anisotropicsphericaldf):
 
             2020-07-22 - Written - Lane (UofT)
         """
-        E, L= args
+        E, L, _= args
         return L**(-2*self._beta)*self.fE(E)
 
     def _sample_eta(self,n=1):
