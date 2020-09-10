@@ -198,6 +198,20 @@ def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
     assert numpy.all(numpy.fabs(samp_orbits.phi()-samp_RvR[5]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
     return None
 
+def test_isotropic_hernquist_diffcalls():
+    from galpy.orbit import Orbit
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    # R,vR... vs. E
+    R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
+    # Calculate E directly
+    assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
+    # Also L
+    assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
+    # Also as orbit
+    assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+    return None
+
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
@@ -301,6 +315,20 @@ def test_anisotropic_hernquist_energyoutofbounds():
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E > 0 does not give zero'
         assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
+    return None
+
+def test_anisotropic_hernquist_diffcalls():
+    from galpy.orbit import Orbit
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        # R,vR... vs. E
+        R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
+        # Calculate E directly and L from Orbit
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
+        # Also as orbit
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
     return None
 
 ################################# KING DF #####################################
