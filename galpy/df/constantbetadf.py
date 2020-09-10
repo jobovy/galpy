@@ -109,4 +109,4 @@ class constantbetadf(anisotropicsphericaldf):
                                       +0.5*v**2.),
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m/2.-self._beta+1.)*special.gamma((n+1)/2.)/\
-               2./special.gamma(0.5*(m+n-2.*self._beta+3.))
+            special.gamma(0.5*(m+n-2.*self._beta+3.))
