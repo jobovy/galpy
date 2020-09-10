@@ -432,7 +432,24 @@ def test_isotropic_hernquist_unittransfer():
     assert not phys['voSet'], "sphericaldf's vo set when that of the underlying potential is not set"
     return None
 
-
+# Test that output orbits from sampling correctly have units on or off
+def test_isotropic_hernquist_unitsofsamples():
+    from galpy.util import conversion
+    ro, vo= 9., 210.
+    pot= potential.HernquistPotential(amp=2.,a=1.3,ro=ro,vo=vo)
+    dfh= isotropicHernquistdf(pot=pot)
+    samp= dfh.sample(n=100)
+    assert conversion.get_physical(samp,include_set=True)['roSet'], 'Orbit samples from spherical DF with units on do not have units on'
+    assert conversion.get_physical(samp,include_set=True)['voSet'], 'Orbit samples from spherical DF with units on do not have units on'
+    assert numpy.fabs(conversion.get_physical(samp,include_set=True)['ro']-ro) < 1e-8, 'Orbit samples from spherical DF with units on do not have correct ro'
+    assert numpy.fabs(conversion.get_physical(samp,include_set=True)['vo']-vo) < 1e-8, 'Orbit samples from spherical DF with units on do not have correct vo'
+    # Also test a case where they should be off
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    samp= dfh.sample(n=100)
+    assert not conversion.get_physical(samp,include_set=True)['roSet'], 'Orbit samples from spherical DF with units off do not have units off'
+    assert not conversion.get_physical(samp,include_set=True)['voSet'], 'Orbit samples from spherical DF with units off do not have units off'
+    return None
 
 ############################### HELPER FUNCTIONS ##############################
 def check_spherical_symmetry(samp,l,m,tol):
