@@ -102,7 +102,7 @@ class constantbetadf(anisotropicsphericaldf):
          """
          if m%2 == 1 or n%2 == 1:
              return 0.
-         return 2.*numpy.pi\
+         return 2.*numpy.pi*r**(-2.*self._beta)\
              *integrate.quad(lambda v: v**(2.-2.*self._beta+m+n)
                              *self.fE(evaluatePotentials(self._pot,r,0,
                                                          use_physical=False)
