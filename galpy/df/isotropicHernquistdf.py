@@ -3,13 +3,13 @@
 import numpy
 from ..util import conversion
 from ..potential import evaluatePotentials,HernquistPotential
-from .Eddingtondf import Eddingtondf
+from .eddingtondf import eddingtondf
 
-class isotropicHernquistdf(Eddingtondf):
+class isotropicHernquistdf(eddingtondf):
     """Class that implements isotropic spherical Hernquist DF computed using the Eddington formula"""
     def __init__(self,pot=None,ro=None,vo=None):
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
-        Eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
+        eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
         self._fEnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5

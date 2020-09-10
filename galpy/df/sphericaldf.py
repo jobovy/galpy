@@ -49,7 +49,7 @@ class sphericaldf(df):
         # they are compaible)
         if phys['roSet'] and phys['voSet']:
             self.turn_physical_on(ro=phys['ro'],vo=phys['vo'])
-        if pot is None:
+        if pot is None: # pragma: no cover
             raise IOError("pot= must be set")
         self._pot = pot
         try:

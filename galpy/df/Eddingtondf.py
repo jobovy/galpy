@@ -3,7 +3,7 @@
 from ..potential import evaluatePotentials
 from .sphericaldf import isotropicsphericaldf
 
-class Eddingtondf(isotropicsphericaldf):
+class eddingtondf(isotropicsphericaldf):
     """Class that implements isotropic spherical DFs computed using the Eddington formula"""
     def __init__(self,pot=None,scale=None,ro=None,vo=None):
         """
