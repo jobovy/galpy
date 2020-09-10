@@ -7,6 +7,8 @@ from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
+# Note that we use the Hernquist case to check a bunch of code in the
+# sphericaldf realm that doesn't need to be check for each new spherical DF
 def test_isotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -41,6 +43,51 @@ def test_isotropic_hernquist_dens_massprofile():
                                 tol,skip=1000)
     return None
 
+def test_isotropic_hernquist_singler_is_atsingler():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfh.sample(R=1.3,z=0.,n=100000)
+    assert numpy.all(numpy.fabs(samp.r()-1.3) < 1e-8), 'Sampling a spherical distribution function at a single r does not produce orbits at a single r'
+    return None
+
+def test_isotropic_hernquist_singler_is_atrandomphi():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfh.sample(R=1.3,z=0.,n=100000)
+    tol= 1e-2
+    check_azimuthal_symmetry(samp,0,tol)
+    check_azimuthal_symmetry(samp,1,tol)
+    check_azimuthal_symmetry(samp,2,tol)
+    check_azimuthal_symmetry(samp,3,tol)
+    check_azimuthal_symmetry(samp,4,tol)
+    check_azimuthal_symmetry(samp,5,tol)
+    check_azimuthal_symmetry(samp,6,tol)
+    return None
+
+def test_isotropic_hernquist_singlerphi_is_atsinglephi():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfh.sample(R=1.3,z=0.,phi=numpy.pi-0.3,n=100000)
+    assert numpy.all(numpy.fabs(samp.phi()-numpy.pi+0.3) < 1e-8), 'Sampling a spherical distribution function at a single r and phi oes not produce orbits at a single phi'
+    return None
+
+def test_isotropic_hernquist_givenr_are_atgivenr():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    r= numpy.linspace(0.1,10.,1001)
+    theta= numpy.random.uniform(size=len(r))*numpy.pi
+    # n should be ignored in the following
+    samp= dfh.sample(R=r*numpy.sin(theta),z=r*numpy.cos(theta),n=100000)
+    assert len(samp) == len(r), 'Length of sample with given r array is not equal to length of r'
+    assert numpy.all(numpy.fabs(samp.r()-r) < 1e-8), 'Sampling a spherical distribution function at given r does not produce orbits at these given r'
+    assert numpy.all(numpy.fabs(samp.R()-r*numpy.sin(theta)) < 1e-8), 'Sampling a spherical distribution function at given R does not produce orbits at these given R'
+    assert numpy.all(numpy.fabs(samp.z()-r*numpy.cos(theta)) < 1e-8), 'Sampling a spherical distribution function at given z does not produce orbits at these given z'
+    return None
+
 def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     # Remove the inverse cumulative mass function to force its interpolation
@@ -66,6 +113,17 @@ def test_isotropic_hernquist_sigmar():
     tol= 0.05
     check_sigmar_against_jeans(samp,pot,tol,beta=0.,
                                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_hernquist_singler_sigmar():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    for r in [0.3,1.3,2.3]:
+        samp= dfh.sample(R=r,z=0.,n=100000)
+        tol= 0.01
+        check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+                                   rmin=r-0.1,rmax=r+0.1,bins=1)
     return None
 
 def test_isotropic_hernquist_beta():
@@ -382,6 +440,13 @@ def check_spherical_symmetry(samp,l,m,tol):
     spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
     thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
     assert numpy.fabs(numpy.sum(special.lpmv(m,l,numpy.cos(thetas))*numpy.cos(m*phis))/samp.size-(l==0)*(m==0)) < tol, 'Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({},{})'.format(l,m)
+    return None
+
+def check_azimuthal_symmetry(samp,m,tol):
+    """Check for spherical symmetry by Monte Carlo integration of the
+    spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
+    thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
+    assert numpy.fabs(numpy.sum(numpy.cos(m*phis))/samp.size-(m==0)) < tol, 'Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {}'.format(m)
     return None
 
 def check_spherical_massprofile(samp,mass_profile,tol,skip=100):
