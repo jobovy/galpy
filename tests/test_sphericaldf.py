@@ -181,6 +181,23 @@ def test_isotropic_hernquist_energyoutofbounds():
     assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
     return None
 
+# Check that samples of R,vR,.. are the same as orbit samples
+def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)    
+    samp_orbits= dfh.sample(n=1000)
+    # Reset seed such that we should get the same
+    numpy.random.seed(10)
+    samp_RvR= dfh.sample(n=1000,return_orbit=False)
+    assert numpy.all(numpy.fabs(samp_orbits.R()-samp_RvR[0]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    assert numpy.all(numpy.fabs(samp_orbits.vR()-samp_RvR[1]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    assert numpy.all(numpy.fabs(samp_orbits.vT()-samp_RvR[2]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    assert numpy.all(numpy.fabs(samp_orbits.z()-samp_RvR[3]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    assert numpy.all(numpy.fabs(samp_orbits.vz()-samp_RvR[4]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    assert numpy.all(numpy.fabs(samp_orbits.phi()-samp_RvR[5]) < 1e-8), 'Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits'
+    return None
+
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
