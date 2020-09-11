@@ -639,8 +639,8 @@ def check_sigmar_against_jeans_directint_forcevmoment(dfi,pot,tol,beta=0.,
     class' vmomentdensity"""
     from galpy.df.sphericaldf import sphericaldf
     rs= numpy.linspace(rmin,rmax,bins)
-    intsr= numpy.array([numpy.sqrt(sphericaldf.vmomentdensity(dfi,r,2,0)/
-                                   sphericaldf.vmomentdensity(dfi,r,0,0))
+    intsr= numpy.array([numpy.sqrt(sphericaldf._vmomentdensity(dfi,r,2,0)/
+                                   sphericaldf._vmomentdensity(dfi,r,0,0))
                         for r in rs])
     jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,use_physical=False) for r in rs])
     assert numpy.all(numpy.fabs(intsr/jeanssr-1) < tol), \

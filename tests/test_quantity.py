@@ -5911,6 +5911,11 @@ def test_sphericaldf_method_value():
     assert numpy.fabs(dfa.vmomentdensity(1.1,0,0).to(1/units.kpc**3).value-dfa_nou.vmomentdensity(1.1,0,0)/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfh.vmomentdensity(1.1,1,0).to(1/units.kpc**3*units.km/units.s).value-dfh_nou.vmomentdensity(1.1,1,0)*vo/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfa.vmomentdensity(1.1,1,0).to(1/units.kpc**3*units.km/units.s).value-dfa_nou.vmomentdensity(1.1,1,0)*vo/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
+    # One with no quantity output
+    from galpy.util import conversion
+    conversion._APY_UNITS= False # Hack
+    assert numpy.fabs(dfh.vmomentdensity(1.1,0,2)-dfh_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
+    conversion._APY_UNITS= True # Hack
     assert numpy.fabs(dfh.vmomentdensity(1.1,0,2).to(1/units.kpc**3*units.km**2/units.s**2).value-dfh_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfa.vmomentdensity(1.1,0,2).to(1/units.kpc**3*units.km**2/units.s**2).value-dfa_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfh.sigmar(1.1).to(units.km/units.s).value-dfh_nou.sigmar(1.1)*vo) < 10.**-8., 'sphericaldf method sigmar does not return correct Quantity'
