@@ -38,8 +38,10 @@ class constantbetaHernquistdf(constantbetadf):
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
         self._fEnorm= (2.**self._beta/(2.*numpy.pi)**2.5)\
-            *scipy.special.gamma(5.-2.*self._beta)/\
-            ( scipy.special.gamma(1.-self._beta)*scipy.special.gamma(3.5-self._beta) )
+            *scipy.special.gamma(5.-2.*self._beta)\
+            /scipy.special.gamma(1.-self._beta)\
+            /scipy.special.gamma(3.5-self._beta)\
+            /self._GMa**(1.5-self._beta)
   
     def fE(self,E):
         """
