@@ -10,7 +10,7 @@ from galpy.df import jeans
 # Note that we use the Hernquist case to check a bunch of code in the
 # sphericaldf realm that doesn't need to be check for each new spherical DF
 def test_isotropic_hernquist_dens_spherically_symmetric():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(n=100000)
@@ -31,7 +31,7 @@ def test_isotropic_hernquist_dens_spherically_symmetric():
     return None
     
 def test_isotropic_hernquist_dens_massprofile():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(n=100000)
@@ -44,7 +44,7 @@ def test_isotropic_hernquist_dens_massprofile():
     return None
 
 def test_isotropic_hernquist_singler_is_atsingler():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(R=1.3,z=0.,n=100000)
@@ -52,7 +52,7 @@ def test_isotropic_hernquist_singler_is_atsingler():
     return None
 
 def test_isotropic_hernquist_singler_is_atrandomphi():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(R=1.3,z=0.,n=100000)
@@ -67,7 +67,7 @@ def test_isotropic_hernquist_singler_is_atrandomphi():
     return None
 
 def test_isotropic_hernquist_singlerphi_is_atsinglephi():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(R=1.3,z=0.,phi=numpy.pi-0.3,n=100000)
@@ -75,7 +75,7 @@ def test_isotropic_hernquist_singlerphi_is_atsinglephi():
     return None
 
 def test_isotropic_hernquist_givenr_are_atgivenr():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     r= numpy.linspace(0.1,10.,1001)
@@ -89,12 +89,11 @@ def test_isotropic_hernquist_givenr_are_atgivenr():
     return None
 
 def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     # Remove the inverse cumulative mass function to force its interpolation
     class isotropicHernquistdfNoICMF(isotropicHernquistdf):
         _icmf= property()
     dfh= isotropicHernquistdfNoICMF(pot=pot)
-    print(hasattr(dfh,'_icmf'))
     numpy.random.seed(10)
     samp= dfh.sample(n=100000)
     tol= 5*1e-3
@@ -106,7 +105,7 @@ def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
     return None
 
 def test_isotropic_hernquist_sigmar():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(n=100000)
@@ -116,7 +115,7 @@ def test_isotropic_hernquist_sigmar():
     return None
 
 def test_isotropic_hernquist_singler_sigmar():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     for r in [0.3,1.3,2.3]:
@@ -127,7 +126,7 @@ def test_isotropic_hernquist_singler_sigmar():
     return None
 
 def test_isotropic_hernquist_beta():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp= dfh.sample(n=1000000)
@@ -137,17 +136,17 @@ def test_isotropic_hernquist_beta():
     return None
 
 def test_isotropic_hernquist_dens_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-8
     check_dens_directint(dfh,pot,tol,
-                         lambda r: pot.dens(r,0)/1., # need to divide by mass
+                         lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
                          rmin=pot._scale/10.,
                          rmax=pot._scale*10.,bins=31)
     return None
 
 def test_isotropic_hernquist_meanvr_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-8
     check_meanvr_directint(dfh,pot,tol,beta=0.,rmin=pot._scale/10.,
@@ -155,7 +154,7 @@ def test_isotropic_hernquist_meanvr_directint():
     return None
 
 def test_isotropic_hernquist_sigmar_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-5
     check_sigmar_against_jeans_directint(dfh,pot,tol,beta=0.,
@@ -165,7 +164,7 @@ def test_isotropic_hernquist_sigmar_directint():
     return None
 
 def test_isotropic_hernquist_sigmar_directint_forcevmoment():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-5
     check_sigmar_against_jeans_directint_forcevmoment(dfh,pot,tol,beta=0.,
@@ -175,7 +174,7 @@ def test_isotropic_hernquist_sigmar_directint_forcevmoment():
     return None
 
 def test_isotropic_hernquist_beta_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-8
     check_beta_directint(dfh,tol,beta=0.,
@@ -185,7 +184,7 @@ def test_isotropic_hernquist_beta_directint():
     return None
 
 def test_isotropic_hernquist_energyoutofbounds():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E > 0 does not give zero'
     assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
@@ -193,7 +192,7 @@ def test_isotropic_hernquist_energyoutofbounds():
 
 # Check that samples of R,vR,.. are the same as orbit samples
 def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)    
     samp_orbits= dfh.sample(n=1000)
@@ -210,7 +209,7 @@ def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
 
 def test_isotropic_hernquist_diffcalls():
     from galpy.orbit import Orbit
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     # R,vR... vs. E
     R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
@@ -224,7 +223,7 @@ def test_isotropic_hernquist_diffcalls():
 
 ############################# ANISOTROPIC HERNQUIST DF ########################
 def test_anisotropic_hernquist_dens_spherically_symmetric():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -247,7 +246,7 @@ def test_anisotropic_hernquist_dens_spherically_symmetric():
     return None
     
 def test_anisotropic_hernquist_dens_massprofile():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -260,7 +259,7 @@ def test_anisotropic_hernquist_dens_massprofile():
     return None
 
 def test_anisotropic_hernquist_sigmar():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -273,7 +272,7 @@ def test_anisotropic_hernquist_sigmar():
     return None
 
 def test_anisotropic_hernquist_beta():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -284,21 +283,20 @@ def test_anisotropic_hernquist_beta():
                    rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
 
-@pytest.mark.xfail(raises=AssertionError,strict=True)
 def test_anisotropic_hernquist_dens_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
-        tol= 1e-8
+        tol= 1e-7
         check_dens_directint(dfh,pot,tol,
-                             lambda r: pot.dens(r,0)/1., # need to divide by mass
+                             lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,bins=31)
     return None
 
 def test_anisotropic_hernquist_meanvr_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -308,7 +306,7 @@ def test_anisotropic_hernquist_meanvr_directint():
     return None
 
 def test_anisotropic_hernquist_sigmar_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -320,7 +318,7 @@ def test_anisotropic_hernquist_sigmar_directint():
     return None
 
 def test_anisotropic_hernquist_beta_directint():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -332,7 +330,7 @@ def test_anisotropic_hernquist_beta_directint():
     return None
 
 def test_anisotropic_hernquist_energyoutofbounds():
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
@@ -342,7 +340,7 @@ def test_anisotropic_hernquist_energyoutofbounds():
 
 def test_anisotropic_hernquist_diffcalls():
     from galpy.orbit import Orbit
-    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
