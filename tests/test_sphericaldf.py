@@ -136,6 +136,16 @@ def test_isotropic_hernquist_beta():
                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
 
+def test_isotropic_hernquist_dens_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot)
+    tol= 1e-8
+    check_dens_directint(dfh,pot,tol,
+                         lambda r: pot.dens(r,0)/1., # need to divide by mass
+                         rmin=pot._scale/10.,
+                         rmax=pot._scale*10.,bins=31)
+    return None
+
 def test_isotropic_hernquist_meanvr_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -273,7 +283,20 @@ def test_anisotropic_hernquist_beta():
         check_beta(samp,pot,tol,beta=beta,
                    rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
     return None
-               
+
+@pytest.mark.xfail(raises=AssertionError,strict=True)
+def test_anisotropic_hernquist_dens_directint():
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        tol= 1e-8
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0)/1., # need to divide by mass
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,bins=31)
+    return None
+
 def test_anisotropic_hernquist_meanvr_directint():
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
