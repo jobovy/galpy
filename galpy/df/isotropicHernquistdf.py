@@ -14,31 +14,6 @@ class isotropicHernquistdf(eddingtondf):
         self._GMa = self._psi0*self._pot.a**2.
         self._fEnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
 
-    def _call_internal(self,*args):
-        """
-        NAME:
-
-            _call_internal
-
-        PURPOSE
-
-            Calculate the distribution function for an isotropic Hernquist
-
-        INPUT:
-
-            E,L,Lz - The energy, angular momemtum magnitude, and its z component (only E is used)
-
-        OUTPUT:
-
-            f(x,v) = f(E[x,v])
-
-        HISTORY:
-
-            2020-07 - Written - Lane (UofT)
-
-        """
-        return self.fE(args[0])
-
     def fE(self,E):
         """
         NAME:

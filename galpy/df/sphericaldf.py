@@ -2,6 +2,24 @@
 #   - sphericaldf: superclass of all spherical DFs
 #   - isotropicsphericaldf: superclass of all isotropic spherical DFs
 #   - anisotropicsphericaldf: superclass of all anisotropic spherical DFs
+#
+# To implement a new DF do something like:
+#   - Inherit from isotropicsphericaldf for an isotropic DF and implement
+#     fE(self,E) which returns the DF as a function of E (see kingdf), then
+#     you should be set! You may also have to implement _vmax_at_r(self,pot,r)
+#     when the maximum velocity at a given position is less than the escape
+#     velocity
+#   - Inherit from anisotropicsphericaldf for an anisotropic DF, then you need
+#     to implement a bunch of functions:
+#       * _call_internal(self,*args,**kwargs): which returns the DF as a
+#                                              function of (E,L,Lz)
+#       * _sample_eta(self,n=1): to sample the velocity angle
+#       * _p_v_at_r(self,v,r): whcih returns p(v|r)
+#     constantbetadf is an example of this
+#
+#  Note that we may have to re-think the implementation of anisotropic DFs to
+#  allow more general forms such as Osipkov-Merritt...
+#
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
@@ -439,6 +457,31 @@ class isotropicsphericaldf(sphericaldf):
 
         """
         sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
+
+    def _call_internal(self,*args):
+        """
+        NAME:
+
+            _call_internal
+
+        PURPOSE
+
+            Calculate the distribution function for an isotropic DF
+
+        INPUT:
+
+            E,L,Lz - The energy, angular momemtum magnitude, and its z component (only E is used)
+
+        OUTPUT:
+
+            f(x,v) = f(E[x,v])
+
+        HISTORY:
+
+            2020-07 - Written - Lane (UofT)
+
+        """
+        return self.fE(args[0])
 
     def _vmomentdensity(self,r,n,m):
          if m%2 == 1 or n%2 == 1:
