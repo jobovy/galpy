@@ -89,7 +89,7 @@ class kingdf(isotropicsphericaldf):
         if numpy.sum(varE > 0.) > 0:
             out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
                 *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
-        return out
+        return out/self.M # number density
 
     def _vmax_at_r(self,pot,r):
         return numpy.sqrt(2.*(self._potInf-self._pot(r,0.,use_physical=False)))

@@ -395,7 +395,8 @@ def test_king_dens_directint():
     pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
     tol= 0.02
-    check_dens_directint(dfk,pot,tol,dfk.dens,
+    check_dens_directint(dfk,pot,tol,
+                         lambda r: dfk.dens(r)/2.3, # need to divide by mass
                          rmin=dfk._scale/10.,
                          rmax=dfk.rt*0.7,bins=31)
     return None
