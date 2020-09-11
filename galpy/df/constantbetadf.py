@@ -73,33 +73,7 @@ class constantbetadf(anisotropicsphericaldf):
         return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
                        +0.5*v**2.)*v**(2.-2.*self._beta)
     
-    def vmomentdensity(self,r,n,m):
-         """
-        NAME:
-
-           vmomentdensity
-
-        PURPOSE:
-
-           calculate the an arbitrary moment of the velocity distribution 
-           at r times the density
-
-        INPUT:
-
-           r - spherical radius at which to calculate the moment
-
-           n - vr^n, where vr = v x cos eta
-
-           m - vt^m, where vt = v x sin eta
-
-        OUTPUT:
-
-           <vr^n vt^m x density> at r (no support for units)
-
-        HISTORY:
-         
-            2020-09-04 - Written - Bovy (UofT)
-         """
+    def _vmomentdensity(self,r,n,m):
          if m%2 == 1 or n%2 == 1:
              return 0.
          return 2.*numpy.pi*r**(-2.*self._beta)\

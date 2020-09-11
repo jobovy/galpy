@@ -11,6 +11,8 @@ from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
 from ..util import conversion
 from ..util.conversion import physical_conversion
+if conversion._APY_LOADED:
+    from astropy import units
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
@@ -112,15 +114,17 @@ class sphericaldf(df):
             z= conversion.parse_length(z,ro=self._ro)
             vz= conversion.parse_velocity(vz,vo=self._vo)
             vtotSq = vR**2.+vT**2.+vz**2.
-            E= 0.5*vtotSq+evaluatePotentials(self._pot,R,z,use_physical=False)
-            Lz = R*vT
+            E= numpy.atleast_1d(0.5*vtotSq
+                                +evaluatePotentials(self._pot,R,z,
+                                                    use_physical=False))
+            Lz = numpy.atleast_1d(R*vT)
             r = numpy.sqrt(R**2.+z**2.)
             vrad = (R*vR+z*vz)/r
-            L = numpy.sqrt(vtotSq-vrad**2.)*r
+            L = numpy.atleast_1d(numpy.sqrt(vtotSq-vrad**2.)*r)
         return self._call_internal(E,L,Lz) # Some function for each sub-class
 
-    def vmomentdensity(self,r,n,m):
-         """
+    def vmomentdensity(self,r,n,m,**kwargs):
+        """
         NAME:
 
            vmomentdensity
@@ -145,24 +149,49 @@ class sphericaldf(df):
         HISTORY:
          
             2020-09-04 - Written - Bovy (UofT)
-         """
-         return 2.*numpy.pi\
-           *integrate.dblquad(lambda eta,v: v**(2.+m+n)
-                              *numpy.sin(eta)**(1+m)*numpy.cos(eta)**n
-                              *self(r,v*numpy.cos(eta),v*numpy.sin(eta),0.,0.,
-                                    use_physical=False),
-                              0.,self._vmax_at_r(self._pot,r),
-                              lambda x: 0.,lambda x: numpy.pi)[0]
-         
+        """
+        r= conversion.parse_length(r,ro=self._ro)
+        use_physical= kwargs.pop('use_physical',True)
+        ro= kwargs.pop('ro',None)
+        if ro is None and hasattr(self,'_roSet') and self._roSet:
+            ro= self._ro
+        ro= conversion.parse_length_kpc(ro)
+        vo= kwargs.pop('vo',None)
+        if vo is None and hasattr(self,'_voSet') and self._voSet:
+            vo= self._vo
+        vo= conversion.parse_velocity_kms(vo)
+        if use_physical and not vo is None and not ro is None:
+            fac= vo**(n+m)/ro**3
+            if conversion._APY_UNITS:
+                u= 1/units.kpc**3*(units.km/units.s)**(n+m)
+            out= self._vmomentdensity(r,n,m)
+            if conversion._APY_UNITS:
+                return units.Quantity(out*fac,unit=u)
+            else:
+                return out*fac
+        else:
+            return self._vmomentdensity(r,n,m)
+
+    def _vmomentdensity(self,r,n,m):
+        return 2.*numpy.pi\
+            *integrate.dblquad(lambda eta,v: v**(2.+m+n)
+                               *numpy.sin(eta)**(1+m)*numpy.cos(eta)**n
+                               *self(r,v*numpy.cos(eta),v*numpy.sin(eta),0.,0.,
+                                     use_physical=False),
+                               0.,self._vmax_at_r(self._pot,r),
+                               lambda x: 0.,lambda x: numpy.pi)[0]
+    
     @physical_conversion('velocity',pop=True)
     def sigmar(self,r):
-        return numpy.sqrt(self.vmomentdensity(r,2,0)
-                          /self.vmomentdensity(r,0,0))
+        r= conversion.parse_length(r,ro=self._ro)
+        return numpy.sqrt(self._vmomentdensity(r,2,0)
+                          /self._vmomentdensity(r,0,0))
     
     @physical_conversion('velocity',pop=True)
     def sigmat(self,r):
-        return numpy.sqrt(self.vmomentdensity(r,0,2)
-                          /self.vmomentdensity(r,0,0))
+        r= conversion.parse_length(r,ro=self._ro)
+        return numpy.sqrt(self._vmomentdensity(r,0,2)
+                          /self._vmomentdensity(r,0,0))
 
     def beta(self,r):
         return 1.-self.sigmat(r,use_physical=False)**2./2.\
@@ -215,6 +244,8 @@ class sphericaldf(df):
             R = r*numpy.sin(theta)
             z = r*numpy.cos(theta) 
         else: # 3D velocity samples
+            R= conversion.parse_length(R,ro=self._ro)
+            z= conversion.parse_length(z,ro=self._ro)
             if isinstance(R,numpy.ndarray):
                 assert len(R) == len(z), \
                     """When R= is set to an array, z= needs to be set to """\
@@ -227,6 +258,11 @@ class sphericaldf(df):
             theta= numpy.arctan2(R,z)
             if phi is None: # Otherwise assume phi input type matches R,z
                 phi,_ = self._sample_position_angles(n=n)
+            else:
+                phi= conversion.parse_angle(phi)
+                phi= phi*numpy.ones(n) \
+                    if not hasattr(phi,'__len__') or len(phi) < n \
+                    else phi
         v = self._sample_v(r,n=n)
         eta,psi = self._sample_velocity_angles(n=n)
         vr = v*numpy.cos(eta)
@@ -404,33 +440,7 @@ class isotropicsphericaldf(sphericaldf):
         """
         sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
 
-    def vmomentdensity(self,r,n,m):
-         """
-        NAME:
-
-           vmomentdensity
-
-        PURPOSE:
-
-           calculate the an arbitrary moment of the velocity distribution 
-           at r times the density
-
-        INPUT:
-
-           r - spherical radius at which to calculate the moment
-
-           n - vr^n, where vr = v x cos eta
-
-           m - vt^m, where vt = v x sin eta
-
-        OUTPUT:
-
-           <vr^n vt^m x density> at r (no support for units)
-
-        HISTORY:
-         
-            2020-09-04 - Written - Bovy (UofT)
-         """
+    def _vmomentdensity(self,r,n,m):
          if m%2 == 1 or n%2 == 1:
              return 0.
          return 2.*numpy.pi\
