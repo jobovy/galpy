@@ -50,6 +50,7 @@ from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
 from . import interpSphericalPotential
 from . import TriaxialGaussianPotential
+from . import KingPotential
 #
 # Functions
 #
@@ -171,6 +172,7 @@ NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.Numerical
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
 interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
 TriaxialGaussianPotential= TriaxialGaussianPotential.TriaxialGaussianPotential
+KingPotential= KingPotential.KingPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
