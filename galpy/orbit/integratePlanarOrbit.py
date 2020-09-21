@@ -11,7 +11,7 @@ from ..potential.planarPotential import _evaluateplanarRforces,\
 from ..potential.WrapperPotential import parentWrapperPotential
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
-from ..util import bovy_symplecticode as symplecticode
+from ..util import symplecticode
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
@@ -168,6 +168,9 @@ def _parse_pot(pot):
             elif isinstance(p._Pot,potential.PerfectEllipsoidPotential):
                 pot_type.append(30)
                 pot_args.extend([1,p._Pot.a2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p._Pot,potential.TriaxialGaussianPotential):
+                pot_type.append(37)
+                pot_args.extend([1,-p._Pot._twosigma2]) # for psi, mdens, mdens_deriv
             pot_args.extend([p._Pot._b2,p._Pot._c2,
                              int(p._Pot._aligned)]) # Reg. Ellipsoidal
             if not p._Pot._aligned:
@@ -246,9 +249,19 @@ def _parse_pot(pot):
             pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         # 35: HomogeneousSpherePotential
         elif isinstance(p,planarPotentialFromRZPotential) \
-                 and isinstance(p._Pot,potential.HomogeneousSpherePotential):
+             and isinstance(p._Pot,potential.HomogeneousSpherePotential):
             pot_type.append(35)
             pot_args.extend([p._Pot._amp,p._Pot._R2,p._Pot._R3])
+        # 36: interpSphericalPotential
+        elif isinstance(p,planarPotentialFromRZPotential) \
+             and isinstance(p._Pot,potential.interpSphericalPotential):
+            pot_type.append(36)
+            pot_args.append(len(p._Pot._rgrid))
+            pot_args.extend(p._Pot._rgrid)
+            pot_args.extend(p._Pot._rforce_grid)
+            pot_args.extend([p._Pot._amp,p._Pot._rmin,p._Pot._rmax,
+                             p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
+        # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

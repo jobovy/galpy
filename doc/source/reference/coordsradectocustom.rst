@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.radec_to_custom
-=======================================
+galpy.util.coords.radec_to_custom
+=================================
 
-.. autofunction:: galpy.util.bovy_coords.radec_to_custom
+.. autofunction:: galpy.util.coords.radec_to_custom

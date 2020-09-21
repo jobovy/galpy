@@ -71,7 +71,8 @@ install:
  - if [[ $TRAVIS_PYTHON_VERSION == $PYTHON_COVREPORTS_VERSION ]]; then easy_install --upgrade coveralls; fi
 # pynbody, install deps with conda as much as possible
  - if $REQUIRES_PYNBODY; then conda install h5py pandas pytz; fi
- - if $REQUIRES_PYNBODY; then pip install git+git://github.com/pynbody/pynbody.git; fi
+ - if $REQUIRES_PYNBODY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install pynbody==0.48; fi
+ - if $REQUIRES_PYNBODY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then pip install git+git://github.com/pynbody/pynbody.git; fi
  # clone my version of the torus code, don't do this for one test, to make sure the code installs without the torus code
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then cd galpy/actionAngle/actionAngleTorus_c_ext/torus; fi
@@ -79,13 +80,23 @@ install:
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install astropy --no-deps; fi
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then conda install astropy --no-deps; fi
- - if $REQUIRES_ASTROQUERY; then pip install astroquery; fi
+ - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install astroquery==0.4; fi
+ - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then pip install astroquery; fi
+ - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install "pytest>=4.6.2"; fi
 # Compile w/o OpenMP for one, to make sure that works
  - if [[ $TRAVIS_PYTHON_VERSION != $PYTHON_COVREPORTS_VERSION ]] && [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then python setup.py build_ext --coverage --single_ext --inplace --no-openmp; else python setup.py build_ext --coverage --single_ext --inplace; fi
  - python setup.py develop --single_ext
 # Following tests that we can start from an incomplete configuration file
  - if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
  - if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
+# Print versions of everything relevant
+ - python -c "import numpy; print(numpy.__version__)"
+ - python -c "import scipy; print(scipy.__version__)"
+ - python -c "import matplotlib; print(matplotlib.__version__)"
+ - if $REQUIRES_ASTROPY; then python -c "import astropy; print(astropy.__version__)"; fi
+ - if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print(astroquery.__version__)"; fi
+ - if $REQUIRES_PYNBODY; then python -c "import pynbody; print(pynbody.__version__)"; fi
+# RUN TESTS
 script:
 # only wait longer for orbit integrations
  - if [[ $TEST_FILES == 'tests/test_orbit.py tests/test_orbits.py' ]]; then travis_wait 40 pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; else pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings; fi

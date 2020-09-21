@@ -5,18 +5,16 @@ import warnings
 import multiprocessing
 import numpy
 from scipy import integrate, interpolate, special
-from ..util import galpyWarning, bovy_coords, multi, bovy_conversion
+from ..util import galpyWarning, coords, multi, conversion
 from ..util import _rotate_to_arbitrary_vector
 from ..orbit import Orbit
 from ..potential import evaluateRforces, MovingObjectPotential, \
     PlummerPotential
-from .df import df, _APY_LOADED
-from ..util.bovy_conversion import physical_conversion
+from .df import df
+from ..util.conversion import physical_conversion
 from . import streamdf
 from .streamdf import _determine_stream_track_single
 from ..potential import flatten as flatten_potential
-if _APY_LOADED:
-    from astropy import units
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -90,37 +88,21 @@ class streamgapdf(streamdf.streamdf):
         """
         df.__init__(self,ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         # Parse kwargs
-        impactb= kwargs.pop('impactb',1.)
-        if _APY_LOADED and isinstance(impactb,units.Quantity):
-            impactb= impactb.to(units.kpc).value/self._ro
-        subhalovel= kwargs.pop('subhalovel',numpy.array([0.,1.,0.]))
-        if _APY_LOADED and isinstance(subhalovel,units.Quantity):
-            subhalovel= subhalovel.to(units.km/units.s).value/self._vo
+        impactb= conversion.parse_length(kwargs.pop('impactb',1.),ro=self._ro)
+        subhalovel= conversion.parse_velocity(\
+                            kwargs.pop('subhalovel',numpy.array([0.,1.,0.])),
+                                              vo=self._vo)
         hernquist= kwargs.pop('hernquist',False)
         GM= kwargs.pop('GM',None)
-        if not GM is None \
-                and _APY_LOADED and isinstance(GM,units.Quantity):
-            # GM can be GM or M
-            try:
-                GM= GM.to(units.pc*units.km**2/units.s**2)\
-                    .value\
-                    /bovy_conversion.mass_in_msol(self._vo,self._ro)\
-                    /bovy_conversion._G
-            except units.UnitConversionError: pass
-            GM= GM.to(units.Msun).value\
-                /bovy_conversion.mass_in_msol(self._vo,self._ro)
+        if not GM is None:
+            GM= conversion.parse_mass(GM,ro=self._ro,vo=self._vo)
         rs= kwargs.pop('rs',None)
-        if not rs is None \
-                and _APY_LOADED and isinstance(rs,units.Quantity):
-            rs= rs.to(units.kpc).value/self._ro
+        if not rs is None:
+            rs= conversion.parse_length(rs,ro=self._ro)
         subhalopot= kwargs.pop('subhalopot',None)
-        timpact= kwargs.pop('timpact',1.)
-        if _APY_LOADED and isinstance(timpact,units.Quantity):
-            timpact= timpact.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-        impact_angle= kwargs.pop('impact_angle',1.)
-        if _APY_LOADED and isinstance(impact_angle,units.Quantity):
-            impact_angle= impact_angle.to(units.rad).value
+        timpact= conversion.parse_time(kwargs.pop('timpact',1.),
+                                       ro=self._ro,vo=self._vo)
+        impact_angle= conversion.parse_angle(kwargs.pop('impact_angle',1.))
         nokicksetup= kwargs.pop('nokicksetup',False)
         deltaAngleTrackImpact= kwargs.pop('deltaAngleTrackImpact',None)
         nTrackChunksImpact= kwargs.pop('nTrackChunksImpact',None)
@@ -196,11 +178,8 @@ class streamgapdf(streamdf.streamdf):
            2015-11-17 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
-                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+        Opar= conversion.parse_frequency(Opar,ro=self._ro,vo=self._vo)
+        apar= conversion.parse_angle(apar)
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
         out= numpy.zeros(len(Opar))
@@ -544,11 +523,11 @@ class streamgapdf(streamdf.streamdf):
         vYp= self._kick_interpolatedObsTrackXY[:,4]+self._kick_deltav[:,1]
         vZp= self._kick_interpolatedObsTrackXY[:,5]+self._kick_deltav[:,2]
         vRp,vTp,vZp=\
-            bovy_coords.rect_to_cyl_vec(vXp,vYp,vZp,
-                                        self._kick_interpolatedObsTrack[:,0],
-                                        self._kick_interpolatedObsTrack[:,5],
-                                        self._kick_interpolatedObsTrack[:,3],
-                                        cyl=True)
+            coords.rect_to_cyl_vec(vXp,vYp,vZp,
+                                   self._kick_interpolatedObsTrack[:,0],
+                                   self._kick_interpolatedObsTrack[:,5],
+                                   self._kick_interpolatedObsTrack[:,3],
+                                   cyl=True)
         # We will abuse streamdf functions for doing the (O,a) -> (R,vR)
         # coordinate transformation, to do this, we assign some of the
         # attributes related to the track near the impact to the equivalent
@@ -682,10 +661,10 @@ class streamgapdf(streamdf.streamdf):
         TrackY= self._gap_ObsTrack[:,0]*numpy.sin(self._gap_ObsTrack[:,5])
         TrackZ= self._gap_ObsTrack[:,3]
         TrackvX, TrackvY, TrackvZ=\
-            bovy_coords.cyl_to_rect_vec(self._gap_ObsTrack[:,1],
-                                        self._gap_ObsTrack[:,2],
-                                        self._gap_ObsTrack[:,4],
-                                        self._gap_ObsTrack[:,5])
+            coords.cyl_to_rect_vec(self._gap_ObsTrack[:,1],
+                                   self._gap_ObsTrack[:,2],
+                                   self._gap_ObsTrack[:,4],
+                                   self._gap_ObsTrack[:,5])
         #Interpolate
         self._kick_interpTrackX=\
             interpolate.InterpolatedUnivariateSpline(self._gap_thetasTrack,
@@ -722,14 +701,14 @@ class streamgapdf(streamdf.streamdf):
         #Also in cylindrical coordinates
         self._kick_interpolatedObsTrack= \
             numpy.empty((len(self._kick_interpolatedThetasTrack),6))
-        tR,tphi,tZ= bovy_coords.rect_to_cyl(self._kick_interpolatedObsTrackXY[:,0],
-                                            self._kick_interpolatedObsTrackXY[:,1],
-                                            self._kick_interpolatedObsTrackXY[:,2])
+        tR,tphi,tZ= coords.rect_to_cyl(self._kick_interpolatedObsTrackXY[:,0],
+                                       self._kick_interpolatedObsTrackXY[:,1],
+                                       self._kick_interpolatedObsTrackXY[:,2])
         tvR,tvT,tvZ=\
-            bovy_coords.rect_to_cyl_vec(self._kick_interpolatedObsTrackXY[:,3],
-                                        self._kick_interpolatedObsTrackXY[:,4],
-                                        self._kick_interpolatedObsTrackXY[:,5],
-                                        tR,tphi,tZ,cyl=True)
+            coords.rect_to_cyl_vec(self._kick_interpolatedObsTrackXY[:,3],
+                                   self._kick_interpolatedObsTrackXY[:,4],
+                                   self._kick_interpolatedObsTrackXY[:,5],
+                                   tR,tphi,tZ,cyl=True)
         self._kick_interpolatedObsTrack[:,0]= tR
         self._kick_interpolatedObsTrack[:,1]= tvR
         self._kick_interpolatedObsTrack[:,2]= tvT
@@ -948,10 +927,10 @@ class streamgapdf(streamdf.streamdf):
         TrackY= self._gap_ObsTrack[:,0]*numpy.sin(self._gap_ObsTrack[:,5])
         TrackZ= self._gap_ObsTrack[:,3]
         TrackvX, TrackvY, TrackvZ=\
-            bovy_coords.cyl_to_rect_vec(self._gap_ObsTrack[:,1],
-                                        self._gap_ObsTrack[:,2],
-                                        self._gap_ObsTrack[:,4],
-                                        self._gap_ObsTrack[:,5])
+            coords.cyl_to_rect_vec(self._gap_ObsTrack[:,1],
+                                   self._gap_ObsTrack[:,2],
+                                   self._gap_ObsTrack[:,4],
+                                   self._gap_ObsTrack[:,5])
         self._gap_ObsTrackXY[:,0]= TrackX
         self._gap_ObsTrackXY[:,1]= TrackY
         self._gap_ObsTrackXY[:,2]= TrackZ
@@ -1395,9 +1374,9 @@ def impulse_deltav_general_orbitintegration(v,x,b,w,x0,v0,pot,tmax,galpot,
     b0 *= b/numpy.sqrt(numpy.sum(b0**2))
     times = numpy.linspace(0.,tmax,nsamp)
     xres = numpy.zeros(shape=(len(x),nsamp*2-1,3))
-    R, phi, z= bovy_coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
-    vR, vp, vz= bovy_coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
-                                            R,phi,z,cyl=True)
+    R, phi, z= coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
+    vR, vp, vz= coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
+                                       R,phi,z,cyl=True)
     for i in range(nstar):
         o = Orbit([R[i],vR[i],vp[i],z[i],vz[i],phi[i]])
         o.integrate(times,galpot,method=integrate_method)
@@ -1473,8 +1452,8 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     X = x0-b0
 
     # Setup Plummer orbit
-    R, phi, z= bovy_coords.rect_to_cyl(X[0],X[1],X[2])
-    vR, vp, vz= bovy_coords.rect_to_cyl_vec(w[0],w[1],w[2],R,phi,z,cyl=True)
+    R, phi, z= coords.rect_to_cyl(X[0],X[1],X[2])
+    vR, vp, vz= coords.rect_to_cyl_vec(w[0],w[1],w[2],R,phi,z,cyl=True)
     tmax = tmaxfac*rs/numpy.sqrt(numpy.sum((w-v0)**2))
     times = numpy.linspace(0.,tmax,N)
     dtimes = numpy.linspace(-tmax,tmax,2*N)
@@ -1488,9 +1467,9 @@ def impulse_deltav_general_fullplummerintegration(v,x,b,w,x0,v0,galpot,GM,rs,
     # Now integrate each particle backwards in galaxy potential, forwards in combined potential and backwards again in galaxy and take diff
 
     deltav = numpy.zeros((nstar,3))
-    R, phi, z= bovy_coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
-    vR, vp, vz= bovy_coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
-                                            R,phi,z,cyl=True)
+    R, phi, z= coords.rect_to_cyl(x[:,0],x[:,1],x[:,2])
+    vR, vp, vz= coords.rect_to_cyl_vec(v[:,0],v[:,1],v[:,2],
+                                       R,phi,z,cyl=True)
     for i in range(nstar):
       ostar= Orbit(vxvv=[R[i],-vR[i],-vp[i],z[i],-vz[i],phi[i]])
       ostar.integrate(times,galpot,method=integrate_method)
@@ -1662,8 +1641,8 @@ def impulse_deltav_plummerstream_curvedstream(v,x,t,b,w,x0,v0,GSigma,rs,
     if len(v.shape) == 1: v= numpy.reshape(v,(1,3))
     if len(x.shape) == 1: x= numpy.reshape(x,(1,3))
     # Integrate an orbit to use to figure out where each (v,x) is at each time
-    R, phi, z= bovy_coords.rect_to_cyl(x0[0],x0[1],x0[2])
-    vR, vT, vz= bovy_coords.rect_to_cyl_vec(v0[0],v0[1],v0[2],R,phi,z,cyl=True)
+    R, phi, z= coords.rect_to_cyl(x0[0],x0[1],x0[2])
+    vR, vT, vz= coords.rect_to_cyl_vec(v0[0],v0[1],v0[2],R,phi,z,cyl=True)
     # First back, then forward to cover the entire range with 1 orbit
     o= Orbit([R,vR,vT,z,vz,phi]).flip()
     ts= numpy.linspace(0.,numpy.fabs(numpy.amin(t)+tmin),101)

@@ -942,7 +942,8 @@ etc.
 
 Plotting the radial action versus the angular momentum
 
->>> plot.bovy_plot(myjp,myjr,'k.',ms=2.,xlabel=r'$J_{\phi}$',ylabel=r'$J_R$',xrange=[0.7,1.3],yrange=[0.,0.05])
+>>> import galpy.util.plot as galpy_plot
+>>> galpy_plot.plot(myjp,myjr,'k.',ms=2.,xlabel=r'$J_{\phi}$',ylabel=r'$J_R$',xrange=[0.7,1.3],yrange=[0.,0.05])
 
 shows a feature in the distribution
 
@@ -1026,8 +1027,8 @@ We can now calculate the actions by doing
 These actions are also in `natural units`; you can obtain physical
 units by multiplying with `ro*vo`. We can now plot these actions
 
->>> from galpy.util import bovy_plot
->>> bovy_plot.scatterplot(lz,jr,'k.',xlabel=r'$J_\phi$',ylabel=r'$J_R$',xrange=[0.,1.3],yrange=[0.,.6])
+>>> from galpy.util import plot as galpy_plot
+>>> galpy_plot.scatterplot(lz,jr,'k.',xlabel=r'$J_\phi$',ylabel=r'$J_R$',xrange=[0.,1.3],yrange=[0.,.6])
 
 which gives
 
@@ -1040,7 +1041,7 @@ therefore have large radial action) and the density gradient in
 angular momentum is due to the falling surface density of the disk. We
 can also look at the distribution of radial and vertical actions.
 
->>> bovy_plot.bovy_plot(jr,jz,'k,',xlabel=r'$J_R$',ylabel=r'$J_z$',xrange=[0.,.4],yrange=[0.,0.2],onedhists=True)
+>>> galpy_plot.plot(jr,jz,'k,',xlabel=r'$J_R$',ylabel=r'$J_z$',xrange=[0.,.4],yrange=[0.,0.2],onedhists=True)
 
 .. image:: images/actionAngle-nbody-jrjz.png
 

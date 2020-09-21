@@ -12,10 +12,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import _APY_LOADED
+from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
-if _APY_LOADED:
-    from astropy import units
 class TwoPowerTriaxialPotential(EllipsoidalPotential):
     """Class that implements triaxial potentials that are derived from 
     two-power density models
@@ -84,8 +82,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         if beta <= 2. or alpha >= 3.:
@@ -194,8 +191,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         # Adjust amp
@@ -283,8 +279,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         # Adjust amp
@@ -392,8 +387,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         if conc is None:
             self.a= a
         else:

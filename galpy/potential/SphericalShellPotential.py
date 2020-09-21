@@ -3,10 +3,9 @@
 #                               spherical shell
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-class SphericalShellPotential(Potential):
+from ..util import conversion
+from .SphericalPotential import SphericalPotential
+class SphericalShellPotential(SphericalPotential):
     """Class that implements the potential of an infinitesimally-thin, spherical shell
 
     .. math::
@@ -43,10 +42,11 @@ class SphericalShellPotential(Potential):
 
            2018-08-04 - Written - Bovy (UofT)
 
+           2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
+
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self.a2= a**2
         if normalize or \
@@ -58,152 +58,30 @@ class SphericalShellPotential(Potential):
         self.hasC= False
         self.hasC_dxdv= False
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        r2= R**2+z**2
-        if r2 <= self.a2:
+    def _revaluate(self,r,t=0.):
+        """The potential as a function of r"""
+        if r <= self.a:
             return -1./self.a
         else:
-            return -1./numpy.sqrt(r2)
+            return -1./r
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        r= numpy.sqrt(R**2+z**2)
+    def _rforce(self,r,t=0.):
+        """The force as a function of r"""
         if r <= self.a:
             return 0.
         else:
-            return -R/r**3
+            return -1/r**2.
 
-    def _zforce(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        r= numpy.sqrt(R**2+z**2)
+    def _r2deriv(self,r,t=0.):
+        """The second radial derivative as a function of r"""
         if r <= self.a:
             return 0.
         else:
-            return -z/r**3
+            return -2./r**3.
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rderiv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        r= numpy.sqrt(R**2+z**2)
-        if r <= self.a:
-            return 0.
-        else:
-            return (z**2-2*R**2)/r**5
-
-    def _z2deriv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        return self._R2deriv(z,R) #Spherical potential
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
-        r= numpy.sqrt(R**2+z**2)
-        if r <= self.a:
-            return 0.
-        else:
-            return -3*R*z/r**5
-
-    def _dens(self,R,z,phi=0.,t=0.):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
-        r2= R**2+z**2
-        if r2 != self.a2:
+    def _rdens(self,r,t=0.):
+        """The density as a function of r"""
+        if r != self.a:
             return 0.
         else: # pragma: no cover
             return numpy.infty

@@ -3,9 +3,8 @@
 #                               self-gravitating isothermal disk
 ###############################################################################
 import numpy
-from .linearPotential import linearPotential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .linearPotential import linearPotential
 class IsothermalDiskPotential(linearPotential):
     """Class representing the one-dimensional self-gravitating isothermal disk
 
@@ -42,8 +41,7 @@ class IsothermalDiskPotential(linearPotential):
 
         """
         linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.km/units.s).value/self._vo
+        sigma= conversion.parse_velocity(sigma,vo=self._vo)
         self._sigma2= sigma**2.
         self._H= sigma/numpy.sqrt(8.*numpy.pi*self._amp)
         self._amp= 1. # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2

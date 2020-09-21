@@ -9,11 +9,12 @@ from ..actionAngle import actionAngleIsochrone
 from ..potential import IsochronePotential
 from ..potential import flatten as flatten_potential
 from ..orbit import Orbit
-from .df import df, _APY_LOADED
+from .df import df
 from ..util import galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util.conversion import physical_conversion, \
     potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
-    physical_compatible
+    physical_compatible, parse_length, parse_velocity, parse_angmom, \
+    parse_length_kpc, parse_velocity_kms, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -80,27 +81,13 @@ class quasiisothermaldf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(sr,units.Quantity):
-            sr= sr.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(sz,units.Quantity):
-            sz= sz.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(hsr,units.Quantity):
-            hsr= hsr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(hsz,units.Quantity):
-            hsz= hsz.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(refr,units.Quantity):
-            refr= refr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(lo,units.Quantity):
-            lo= lo.to(units.kpc*units.km/units.s).value/self._ro/self._vo
-        self._hr= hr
-        self._sr= sr
-        self._sz= sz
-        self._hsr= hsr
-        self._hsz= hsz
-        self._refr= refr
-        self._lo= lo
+        self._hr= parse_length(hr,ro=self._ro)
+        self._sr= parse_velocity(sr,vo=self._vo)
+        self._sz= parse_velocity(sz,vo=self._vo)
+        self._hsr= parse_length(hsr,ro=self._ro)
+        self._hsz= parse_length(hsz,ro=self._ro)
+        self._refr= parse_length(refr,ro=self._ro)
+        self._lo= parse_angmom(lo,ro=self._ro,vo=self._vo)
         self._lnsr= numpy.log(self._sr)
         self._lnsz= numpy.log(self._sz)
         self._maxVT_hash= None
@@ -223,12 +210,9 @@ class quasiisothermaldf(df):
         #First parse args
         if len(args) == 1 and not isinstance(args[0],Orbit): #(jr,lz,jz)
             jr,lz,jz= args[0]
-            if _APY_LOADED and isinstance(jr,units.Quantity):
-                jr= jr.to(units.kpc*units.km/units.s).value/self._ro/self._vo
-            if _APY_LOADED and isinstance(lz,units.Quantity):
-                lz= lz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
-            if _APY_LOADED and isinstance(jz,units.Quantity):
-                jz= jz.to(units.kpc*units.km/units.s).value/self._ro/self._vo
+            jr= parse_angmom(jr,ro=self._ro,vo=self._vo)
+            lz= parse_angmom(lz,ro=self._ro,vo=self._vo)
+            jz= parse_angmom(jz,ro=self._ro,vo=self._vo)
         else:
             #Use self._aA to calculate the actions
             if isinstance(args[0],Orbit) and len(args[0].shape) > 1:
@@ -558,13 +542,11 @@ class quasiisothermaldf(df):
         ro= kwargs.pop('ro',None)
         if ro is None and hasattr(self,'_roSet') and self._roSet:
             ro= self._ro
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+        ro= parse_length_kpc(ro)
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= parse_velocity_kms(vo)
         if use_physical and not vo is None and not ro is None:
             fac= vo**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
@@ -792,13 +774,11 @@ class quasiisothermaldf(df):
         ro= kwargs.pop('ro',None)
         if ro is None and hasattr(self,'_roSet') and self._roSet:
             ro= self._ro
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+        ro= parse_length_kpc(ro)
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= parse_velocity_kms(vo)
         if use_physical and not vo is None and not ro is None:
             fac= (ro*vo)**(args[2]+args[3]+args[4])/ro**3
             if _APY_UNITS:
@@ -1659,14 +1639,16 @@ class quasiisothermaldf(df):
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= parse_velocity_kms(vo)
         #Determine the maximum of the velocity distribution
         maxVR= 0.
         maxVz= 0.
-        maxVT= optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
+        # scipy 1.5.0: issue scipy#12298: fmin_powell now returns multiD array,
+        # so squeeze out single dimensions by hand
+        maxVT= numpy.squeeze(\
+                             optimize.fmin_powell((lambda x: -self(R,0.,x,z,0.,log=True,
                                                      use_physical=False)),
-                                    1.)
+                                    1.))
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
         vRs= []
@@ -1741,8 +1723,7 @@ class quasiisothermaldf(df):
         vo= kwargs.pop('vo',None)
         if vo is None and hasattr(self,'_voSet') and self._voSet:
             vo= self._vo
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= parse_velocity_kms(vo)
         #Initialize output array
         coord_v= numpy.empty((numpy.size(R), 3))
         #Since the sign of z doesn't matter, work with absolute value of z
@@ -1791,8 +1772,10 @@ class quasiisothermaldf(df):
             for i in range(z_number):
                 for j in range(R_number):
                     R, z= grid[i][j]
-                    grid_max_vT[i][j]= optimize.fmin_powell((lambda x: -self(
-                            R,0.,x,z,0.,log=True, use_physical=False)),1.)
+                    grid_max_vT[i][j]= numpy.squeeze(\
+                                        optimize.fmin_powell((lambda x: -self(
+                                            R,0.,x,z,0.,log=True,
+                                            use_physical=False)),1.))
             #Determine degree of interpolation
             ky= numpy.min([R_number-1,3])
             kx= numpy.min([z_number-1,3])

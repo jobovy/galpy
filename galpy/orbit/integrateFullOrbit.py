@@ -11,7 +11,7 @@ from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
-from ..util import bovy_symplecticode as symplecticode
+from ..util import symplecticode
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
@@ -139,6 +139,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             elif isinstance(p,potential.PerfectEllipsoidPotential):
                 pot_type.append(30)
                 pot_args.extend([1,p.a2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p,potential.TriaxialGaussianPotential):
+                pot_type.append(37)
+                pot_args.extend([1,-p._twosigma2]) # for psi, mdens, mdens_deriv
             pot_args.extend([p._b2,p._c2,int(p._aligned)]) # Reg. Ellipsoidal
             if not p._aligned:
                 pot_args.extend(list(p._rot.flatten()))
@@ -204,6 +207,14 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.HomogeneousSpherePotential):
             pot_type.append(35)
             pot_args.extend([p._amp,p._R2,p._R3])
+        elif isinstance(p,potential.interpSphericalPotential):
+            pot_type.append(36)
+            pot_args.append(len(p._rgrid))
+            pot_args.extend(p._rgrid)
+            pot_args.extend(p._rforce_grid)
+            pot_args.extend([p._amp,p._rmin,p._rmax,p._total_mass,
+                             p._Phi0,p._Phimax])
+        # 37: TriaxialGaussianPotential, done with others above
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)

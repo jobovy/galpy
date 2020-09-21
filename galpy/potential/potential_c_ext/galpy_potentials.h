@@ -71,6 +71,11 @@ struct potentialArg{
   double (*psi)(double m,double * args);
   double (*mdens)(double m,double * args);
   double (*mdensDeriv)(double m,double * args);
+  // For SphericalPotentials
+  double (*revaluate)(double r,double t,struct potentialArg *);
+  double (*rforce)(double r,double t,struct potentialArg *);
+  double (*r2deriv)(double r,double t,struct potentialArg *);
+  double (*rdens)(double r,double t,struct potentialArg *);
 };
 /*
   Function declarations
@@ -547,6 +552,29 @@ double HomogeneousSpherePotentialPlanarR2deriv(double ,double, double,
 					       struct potentialArg *);
 double HomogeneousSpherePotentialDens(double ,double , double, double,
 				      struct potentialArg *);
+//SphericalPotential
+double SphericalPotentialEval(double,double,double,double,
+			      struct potentialArg *);
+double SphericalPotentialRforce(double,double,double,double,
+				struct potentialArg *);
+double SphericalPotentialPlanarRforce(double,double,double,
+				      struct potentialArg *);
+double SphericalPotentialzforce(double,double,double,double,
+				struct potentialArg *);
+double SphericalPotentialPlanarR2deriv(double ,double, double,
+				       struct potentialArg *);
+double SphericalPotentialDens(double,double,double,double,
+			      struct potentialArg *);
+//interpSphericalPotential: uses SphericalPotential, only need revaluate, rforce, r2deriv
+double interpSphericalPotentialrevaluate(double,double,struct potentialArg *);
+double interpSphericalPotentialrforce(double,double,struct potentialArg *);
+double interpSphericalPotentialr2deriv(double,double,struct potentialArg *);
+double interpSphericalPotentialrdens(double,double,struct potentialArg *);
+  
+//TriaxialGaussian: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double TriaxialGaussianPotentialpsi(double,double *);
+double TriaxialGaussianPotentialmdens(double,double *);
+double TriaxialGaussianPotentialmdensDeriv(double,double *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential

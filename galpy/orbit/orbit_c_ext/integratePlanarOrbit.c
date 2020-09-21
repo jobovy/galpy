@@ -44,6 +44,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			int ** pot_type,
 			double ** pot_args){
   int ii,jj;
+  int nr;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *(*pot_type)++ ) {
@@ -342,6 +343,47 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 3;
+      break;
+    case 36: //interpSphericalPotential, XX arguments
+      // Set up 1 spline in potentialArgs
+      potentialArgs->nspline1d= 1;
+      potentialArgs->spline1d= (gsl_spline **)			\
+	malloc ( potentialArgs->nspline1d*sizeof ( gsl_spline *) );
+      potentialArgs->acc1d= (gsl_interp_accel **)			\
+	malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+      // allocate accelerator
+      *potentialArgs->acc1d= gsl_interp_accel_alloc();
+      // Set up interpolater
+      nr= (int) **pot_args;
+      *potentialArgs->spline1d= gsl_spline_alloc(gsl_interp_cspline,nr);
+      gsl_spline_init(*potentialArgs->spline1d,*pot_args+1,*pot_args+1+nr,nr);
+      *pot_args+= 2*nr+1;
+      // Bind forces
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->planarRforce = &SphericalPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &SphericalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      // Also assign functions specific to SphericalPotential
+      potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
+      potentialArgs->rforce= &interpSphericalPotentialrforce;
+      potentialArgs->r2deriv= &interpSphericalPotentialr2deriv;
+      potentialArgs->nargs = (int) 6;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 37: // TriaxialGaussianPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialGaussianPotentialpsi;
+      potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential

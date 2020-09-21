@@ -7,11 +7,9 @@
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
 from __future__ import division
-from .Potential import Potential, _APY_LOADED
-from ..util import bovy_conversion
+from .Potential import Potential
+from ..util import conversion
 import numpy
-if _APY_LOADED:
-    from astropy import units
 class SpiralArmsPotential(Potential):
     """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside).
     
@@ -68,21 +66,12 @@ class SpiralArmsPotential(Potential):
         """
 
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
-        if _APY_LOADED:
-            if isinstance(alpha, units.Quantity):
-                alpha = alpha.to(units.rad).value
-            if isinstance(r_ref, units.Quantity):
-                r_ref = r_ref.to(units.kpc).value / self._ro
-            if isinstance(phi_ref, units.Quantity):
-                phi_ref = phi_ref.to(units.rad).value
-            if isinstance(Rs, units.Quantity):
-                Rs = Rs.to(units.kpc).value / self._ro
-            if isinstance(H, units.Quantity):
-                H = H.to(units.kpc).value / self._ro
-            if isinstance(omega, units.Quantity):
-                omega = omega.to(units.km / units.s / units.kpc).value \
-                        / bovy_conversion.freq_in_kmskpc(self._vo, self._ro)
-
+        alpha= conversion.parse_angle(alpha)
+        r_ref= conversion.parse_length(r_ref,ro=self._ro)
+        phi_ref= conversion.parse_angle(phi_ref)
+        Rs= conversion.parse_length(Rs,ro=self._ro)
+        H= conversion.parse_length(H,ro=self._ro)
+        omega= conversion.parse_frequency(omega,ro=self._ro,vo=self._vo)
         self._N = -N  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
         self._alpha = -alpha  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)
         self._sin_alpha = numpy.sin(-alpha)

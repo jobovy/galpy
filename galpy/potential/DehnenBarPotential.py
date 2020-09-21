@@ -2,10 +2,8 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import numpy
-from ..util import bovy_conversion
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 _degtorad= numpy.pi/180.
 class DehnenBarPotential(Potential):
     """Class that implements the Dehnen bar potential (`Dehnen 2000 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__), generalized to 3D following `Monari et al. (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.461.3835M>`__
@@ -101,17 +99,11 @@ class DehnenBarPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(barphi,units.Quantity):
-            barphi= barphi.to(units.rad).value
-        if _APY_LOADED and isinstance(rolr,units.Quantity):
-            rolr= rolr.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(rb,units.Quantity):
-            rb= rb.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(omegab,units.Quantity):
-            omegab= omegab.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
-        if _APY_LOADED and isinstance(Af,units.Quantity):
-            Af= Af.to(units.km**2/units.s**2).value/self._vo**2.
+        barphi= conversion.parse_angle(barphi)
+        rolr= conversion.parse_length(rolr,ro=self._ro)
+        rb= conversion.parse_length(rb,ro=self._ro)
+        omegab= conversion.parse_frequency(omegab,ro=self._ro,vo=self._vo)
+        Af= conversion.parse_energy(Af,vo=self._vo)
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi= True

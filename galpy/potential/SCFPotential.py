@@ -3,10 +3,8 @@ import numpy
 from numpy.polynomial.legendre import leggauss
 from scipy.special import lpmn
 from scipy.special import gammaln
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-from ..util import bovy_coords
+from ..util import coords, conversion
+from .Potential import Potential
 
 from .NumericalPotentialDerivativesMixin import \
     NumericalPotentialDerivativesMixin
@@ -78,10 +76,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """        
         NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro 
-            
-        
+        a= conversion.parse_length(a,ro=self._ro)
         ##Errors
         shape = Acos.shape
         errorMessage = None
@@ -242,7 +237,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         
         
    
@@ -370,7 +365,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape    
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         new_hash= hashlib.md5(numpy.array([R, z,phi])).hexdigest()
         
         if new_hash == self._force_hash:
@@ -455,7 +450,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = R
         dr_dR = numpy.divide(R,r); dtheta_dR = numpy.divide(z,r**2); dphi_dR = 0
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R,z,phi)
@@ -478,7 +473,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = z
         dr_dz = numpy.divide(z,r); dtheta_dz = numpy.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
@@ -501,7 +496,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         """
         if not self.isNonAxi and phi is None:
             phi= 0.
-        r, theta, phi = bovy_coords.cyl_to_spher(R,z,phi)
+        r, theta, phi = coords.cyl_to_spher(R,z,phi)
         #x = phi
         dr_dphi = 0; dtheta_dphi = 0; dphi_dphi = 1
         return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R,z,phi)

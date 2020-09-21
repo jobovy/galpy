@@ -1,5 +1,5 @@
-galpy.util.bovy_coords
-=======================
+galpy.util.coords
+=================
 
 .. WARNING::
    ``galpy`` uses a left-handed Galactocentric coordinate frame, as is common in studies of the kinematics of the Milky Way. Care should be taken when using the coordinate transformation routines below for coordinates in a right-handed frame, the routines do not always apply and are only tested for the standard ``galpy`` left-handed frame.
@@ -16,6 +16,8 @@ self-explanatory names:
    custom_to_radec <coordscustomtoradec.rst>
    cyl_to_rect <coordscyltorect.rst>
    cyl_to_rect_vec <coordscyltorectvec.rst>
+   cyl_to_spher <coordscyltospher.rst>
+   cyl_to_spher_vec <coordscyltosphervec.rst>
    dl_to_rphi_2d <coordsdltorphi2d.rst>
    galcencyl_to_XYZ <coordsgalcencyltoxyz.rst>
    galcencyl_to_vxvyvz <coordsgalcencyltovxvyvz.rst>
@@ -36,6 +38,8 @@ self-explanatory names:
    Rz_to_coshucosv <coordsRztocoshucosv.rst>
    Rz_to_uv <coordsRztouv.rst>
    sphergal_to_rectgal <coordssphergaltorectgal.rst>
+   spher_to_cyl <coordssphertocyl.rst>
+   spher_to_cyl_vec <coordssphertocylvec.rst>
    uv_to_Rz <coordsuvtoRz.rst>
    vrpmllpmbb_to_vxvyvz <coordsvrpmllpmbbtovxvyvz.rst>
    vRvz_to_pupv <coordsvRvztopupv.rst>

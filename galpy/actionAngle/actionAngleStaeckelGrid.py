@@ -19,13 +19,8 @@ from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..util import multi, bovy_coords
+from ..util import multi, coords, conversion
 _PRINTOUTSIDEGRID= False
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
     def __init__(self,pot=None,delta=None,Rmax=5.,
@@ -76,9 +71,7 @@ class actionAngleStaeckelGrid(actionAngle):
             self._c= True
         else:
             self._c= False
-        self._delta= delta
-        if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+        self._delta= conversion.parse_length(delta,ro=self._ro)
         self._Rmax= Rmax
         self._Rmin= 0.01
         #Set up the actionAngleStaeckel object that we will use to interpolate
@@ -629,7 +622,7 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
            2012-11-29 - Written - Bovy (IAS)
         """                           
-        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        u,v= coords.Rz_to_uv(R,z,self._delta)
         pu= (vR*numpy.cosh(u)*numpy.sin(v)
              +vz*numpy.sinh(u)*numpy.cos(v)) #no delta, bc we will divide it out
         out= (pu**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sinh(u)**2.-1./sinh2u0)
@@ -656,7 +649,7 @@ class actionAngleStaeckelGrid(actionAngle):
         HISTORY:
            2012-12-23 - Written - Bovy (IAS)
         """                           
-        u,v= bovy_coords.Rz_to_uv(R,z,self._delta)
+        u,v= coords.Rz_to_uv(R,z,self._delta)
         pv= (vR*numpy.sinh(u)*numpy.cos(v)
              -vz*numpy.cosh(u)*numpy.sin(v)) #no delta, bc we will divide it out
         out= (pv**2./2.+Lz**2./2./self._delta**2.*(1./numpy.sin(v)**2.-1.)

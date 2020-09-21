@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.dens_in_gevcc
-============================================
+galpy.util.conversion.dens_in_gevcc
+===================================
 
-.. autofunction:: galpy.util.bovy_conversion.dens_in_gevcc
+.. autofunction:: galpy.util.conversion.dens_in_gevcc

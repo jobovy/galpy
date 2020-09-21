@@ -2,9 +2,8 @@
 #   CosmphiDiskPotential: cos(mphi) potential
 ###############################################################################
 import numpy
-from .planarPotential import planarPotential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .planarPotential import planarPotential
 _degtorad= numpy.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
@@ -66,18 +65,12 @@ class CosmphiDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(phib,units.Quantity):
-            phib= phib.to(units.rad).value
-        if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(rb,units.Quantity):
-            rb= rb.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(phio,units.Quantity):
-            phio= phio.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(cp,units.Quantity):
-            cp= cp.to(units.km**2/units.s**2).value/self._vo**2.
-        if _APY_LOADED and isinstance(sp,units.Quantity):
-            sp= sp.to(units.km**2/units.s**2).value/self._vo**2.
+        phib= conversion.parse_angle(phib)
+        r1= conversion.parse_length(r1,ro=self._ro)
+        rb= conversion.parse_length(rb,ro=self._ro)
+        phio= conversion.parse_energy(phio,vo=self._vo)
+        cp= conversion.parse_energy(cp,vo=self._vo)
+        sp= conversion.parse_energy(sp,vo=self._vo)       
         # Back to old definition
         self._r1p= r1**p
         self._amp/= self._r1p

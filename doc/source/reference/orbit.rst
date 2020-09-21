@@ -89,6 +89,7 @@ Methods
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
    SkyCoord <orbitskycoord.rst>
+   theta <orbittheta.rst>
    time <orbittime.rst>
    toLinear <orbittolinear.rst>
    toPlanar <orbittoplanar.rst>
@@ -105,8 +106,10 @@ Methods
    vll <orbitvll.rst>
    vlos <orbitvlos.rst>
    vphi <orbitvphi.rst>
+   vr <orbitsphvr.rst>
    vR <orbitvr.rst>
    vra <orbitvra.rst>
+   vtheta <orbitvtheta.rst>
    vT <orbitvt.rst>
    vx <orbitvx.rst>
    vy <orbitvy.rst>

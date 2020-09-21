@@ -2,10 +2,7 @@
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
-from .Potential import _APY_LOADED
-from ..util import bovy_conversion
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
 class DehnenSmoothWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements the growth of a gravitational potential following `Dehnen (2000) <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. The amplitude A applied to a potential wrapped by an instance of this class is changed as
 
@@ -59,12 +56,8 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
            2018-10-07 - Added 'decay' option - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(tform,units.Quantity):
-            tform= tform.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(tsteady,units.Quantity):
-            tsteady= tsteady.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        tform= conversion.parse_time(tform,ro=self._ro,vo=self._vo)
+        tsteady= conversion.parse_time(tsteady,ro=self._ro,vo=self._vo)
         self._tform= tform
         if tsteady is None:
             self._tsteady= self._tform/2.

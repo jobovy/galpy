@@ -3,9 +3,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class RingPotential(Potential):
     """Class that implements the potential of an infinitesimally-thin, circular ring
 
@@ -45,8 +44,7 @@ class RingPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self.a2= self.a**2
         self._amp/= 2.*numpy.pi*self.a

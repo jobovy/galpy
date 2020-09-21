@@ -2,14 +2,9 @@ from six import with_metaclass
 import types
 import copy
 import numpy
-from ..util import config
-from ..util.bovy_conversion import physical_conversion_actionAngle, \
+from ..util import config, conversion
+from ..util.conversion import physical_conversion_actionAngle, \
     actionAngle_physical_input, physical_compatible
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 # Metaclass for copying docstrings from subclass methods, first func 
 # to copy func
 def copyfunc(func):
@@ -54,17 +49,13 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
             self._ro= config.__config__.getfloat('normalization','ro')
             self._roSet= False
         else:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
             self._roSet= True
         if vo is None:
             self._vo= config.__config__.getfloat('normalization','vo')
             self._voSet= False
         else:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
             self._voSet= True
         return None
 
@@ -133,13 +124,9 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None  
 
     def _parse_eval_args(self,*args,**kwargs):

@@ -4,10 +4,7 @@
 #                                         the z axis
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
-from .Potential import _APY_LOADED
-from ..util import bovy_conversion
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
 class SolidBodyRotationWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing 
 
@@ -46,11 +43,8 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
            2017-08-22 - Started - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(omega,units.Quantity):
-            omega= omega.to(units.km/units.s/units.kpc).value\
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
-        if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+        omega= conversion.parse_frequency(omega,ro=self._ro,vo=self._vo)
+        pa= conversion.parse_angle(pa)
         self._omega= omega
         self._pa= pa
         self.hasC= True

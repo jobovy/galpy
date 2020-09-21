@@ -6,14 +6,45 @@ v1.7 (XXXX-XX-XX)
   and vmax methods to NFWPotential to compute these quantities for any
   NFWPotential.
 
+- Added general class SphericalPotential to make defining spherical
+  potentials easier (#424).
+
+- Added interpSphericalPotential class to build interpolated versions
+  of spherical potentials (#424).
+
+- Added potential functions to compute the zero-velocity curve: zvc
+  and zvc_range; the latter computes the range in R over which the
+  zero-velocity curve is defined, the former gives the positive z
+  position on the zero-velocity curve for a given radius in this
+  range.
+
+- Added TriaxialGaussianPotential, the potential of a Gaussian that is
+  stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
+  implementing multi-Gaussian expansions of galactic potentials.
+
 - Added inverse action-angle transformations for the isochrone
   potential (actionAngleIsochroneInverse) and for a one-dimensional
   harmonic oscillator (actionAngleHarmonicInverse; also added the
   [x,v] -> [J,O,a] transformation for the latter,
   actionAngleHarmonic).
 
+- Added Potential.plotSurfaceDensity (potential.plotSurfaceDensities)
+  method (function) to plot the surface density of a Potential
+  instance (of Potential instance of a list of Potential instances).
+
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
+
+- Replace Quantity parsing through the package as much as possible
+  with a set of centralized parsers (#430).
+
+- Renamed galpy.util.bovy_coords to galpy.util.coords,
+  galpy.util.bovy_conversion to galpy.util.conversion, and
+  galpy.util.bovy_plot to galpy.util.plot (but old 'from galpy.util
+  import bovy_X' will keep working for now). Also renamed some other
+  interna utility modules in the same way (bovy_symplecticode,
+  bovy_quadpack, and bovy_ars; these are not kept
+  backwards-compatible).
 
 v1.6 (2020-04-24)
 =================

@@ -720,7 +720,7 @@ def test_orbits_stringsolarmotion():
 def test_orbits_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
@@ -730,7 +730,7 @@ def test_orbits_dim_2dPot_3dOrb():
                     radec=True,ro=8.0,vo=220.0),
               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
                     radec=True,ro=8.0,vo=220.0)])
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+    ts= numpy.linspace(0.,3.5/conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="odeint")
@@ -739,7 +739,7 @@ def test_orbits_dim_2dPot_3dOrb():
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
@@ -748,7 +748,7 @@ def test_orbit_dim_1dPot_3dOrb():
                     radec=True,ro=8.0,vo=220.0),
               Orbit(vxvv=[20.,10.,2.,3.2,3.4,-100.],
                     radec=True,ro=8.0,vo=220.0)])
-    ts= numpy.linspace(0.,3.5/bovy_conversion.time_in_Gyr(vo=220.0,ro=8.0),
+    ts= numpy.linspace(0.,3.5/conversion.time_in_Gyr(vo=220.0,ro=8.0),
                        1000,endpoint=True)
     with pytest.raises(AssertionError) as excinfo:
         o.integrate(ts,pota,method="odeint")
@@ -2815,14 +2815,14 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # with velocity dispersion sigma and for constant Lambda:
     # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
     # (e.g., B&T08, p. 648)
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     from galpy.orbit import Orbit
     ro,vo= 8.,220.
     # Parameters
-    GMs= 10.**9./bovy_conversion.mass_in_msol(vo,ro)
+    GMs= 10.**9./conversion.mass_in_msol(vo,ro)
     const_lnLambda= 7.
     r_inits= [2.,2.5]
-    dt= 2./bovy_conversion.time_in_Gyr(vo,ro)
+    dt= 2./conversion.time_in_Gyr(vo,ro)
     # Compute
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     cdfc= potential.ChandrasekharDynamicalFrictionForce(\

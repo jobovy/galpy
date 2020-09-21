@@ -3,12 +3,7 @@ from .linearPotential import linearPotential
 from .planarPotential import planarPotential
 from .Potential import PotentialError, Potential, flatten
 from .DissipativeForce import _isDissipative
-from ..util import bovy_conversion
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
+from ..util import conversion
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a 3D Potential:
     phi(z,t;R,phi)= phi(R,z,phi,t)-phi(R,0.,phi,t0)"""
@@ -112,11 +107,11 @@ def RZToverticalPotential(RZPot,R):
     RZPot= flatten(RZPot)
     if _isDissipative(RZPot):
         raise NotImplementedError("Converting dissipative forces to 1D vertical potentials is currently not supported")
-    if _APY_LOADED and isinstance(R,units.Quantity):
-        if hasattr(RZPot,'_ro'):
-            R= R.to(units.kpc).value/RZPot._ro
-        else:
-            R= R.to(units.kpc).value/RZPot[0]._ro
+    try:
+        conversion.get_physical(RZPot)
+    except:
+        raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
+    R= conversion.parse_length(R,**conversion.get_physical(RZPot))
     if isinstance(RZPot,list):
         out= []
         for pot in RZPot:
@@ -135,7 +130,9 @@ def RZToverticalPotential(RZPot,R):
         return RZPot
     elif isinstance(RZPot,planarPotential):
         raise PotentialError("Input to 'RZToverticalPotential' cannot be a planarPotential")
-    else:
+    else: # pragma: no cover
+        # All other cases should have been caught by the
+        # conversion.get_physical test above
         raise PotentialError("Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances")
 
 def toVerticalPotential(Pot,R,phi=None,t0=0.):
@@ -170,21 +167,13 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
     Pot= flatten(Pot)
     if _isDissipative(Pot):
         raise NotImplementedError("Converting dissipative forces to 1D vertical potentials is currently not supported")
-    if _APY_LOADED:
-        if isinstance(R,units.Quantity):
-            if hasattr(Pot,'_ro'):
-                R= R.to(units.kpc).value/Pot._ro
-            else:
-                R= R.to(units.kpc).value/Pot[0]._ro
-        if isinstance(phi,units.Quantity):
-            phi= phi.to(units.rad).value
-        if isinstance(t0,units.Quantity):
-            if hasattr(Pot,'_ro'):
-                t0= t0.to(units.Gyr).value/bovy_conversion.time_in_Gyr(Pot._vo,
-                                                                       Pot._ro)
-            else:
-                t0= t0.to(units.Gyr).value\
-                    /bovy_conversion.time_in_Gyr(Pot[0]._vo,Pot[0]._ro)
+    try:
+        conversion.get_physical(Pot)
+    except:
+        raise PotentialError("Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances")
+    R= conversion.parse_length(R,**conversion.get_physical(Pot))
+    phi= conversion.parse_angle(phi)
+    t0= conversion.parse_time(t0,**conversion.get_physical(Pot))
     if isinstance(Pot,list):
         out= []
         for pot in Pot:
@@ -194,7 +183,9 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
                 out.append(verticalPotential(pot,R,phi=phi,t0=t0))
             elif isinstance(pot,planarPotential):
                 raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
-            else:
+            else: # pragma: no cover
+                # All other cases should have been caught by the
+                # conversion.get_physical test above
                 raise PotentialError("Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances")
         return out
     elif isinstance(Pot,Potential):
@@ -203,6 +194,8 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
         return Pot
     elif isinstance(Pot,planarPotential):
         raise PotentialError("Input to 'toVerticalPotential' cannot be a planarPotential")
-    else:
+    else: # pragma: no cover
+        # All other cases should have been caught by the
+        # conversion.get_physical test above
         raise PotentialError("Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances")
 

@@ -61,7 +61,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     int ** pot_type,
 			     double ** pot_args){
   int ii,jj,kk;
-  int nR, nz;
+  int nR, nz, nr;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
@@ -409,6 +409,53 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->dens= &HomogeneousSpherePotentialDens;
       potentialArgs->nargs= 3;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 36: //interpSphericalPotential, XX arguments
+      // Set up 1 spline in potentialArgs
+      potentialArgs->nspline1d= 1;
+      potentialArgs->spline1d= (gsl_spline **)			\
+	malloc ( potentialArgs->nspline1d*sizeof ( gsl_spline *) );
+      potentialArgs->acc1d= (gsl_interp_accel **)			\
+	malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+      // allocate accelerator
+      *potentialArgs->acc1d= gsl_interp_accel_alloc();
+      // Set up interpolater
+      nr= (int) **pot_args;
+      *potentialArgs->spline1d= gsl_spline_alloc(gsl_interp_cspline,nr);
+      gsl_spline_init(*potentialArgs->spline1d,*pot_args+1,*pot_args+1+nr,nr);
+      *pot_args+= 2*nr+1;
+      // Bind forces
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->Rforce = &SphericalPotentialRforce;
+      potentialArgs->zforce = &SphericalPotentialzforce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &SphericalPotentialDens;
+      // Also assign functions specific to SphericalPotential
+      potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
+      potentialArgs->rforce= &interpSphericalPotentialrforce;
+      potentialArgs->r2deriv= &interpSphericalPotentialr2deriv;
+      potentialArgs->rdens= &interpSphericalPotentialrdens;
+      potentialArgs->nargs = (int) 6;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 37: // TriaxialGaussianPotential, lots of arguments
+      potentialArgs->potentialEval= &EllipsoidalPotentialEval;
+      potentialArgs->Rforce = &EllipsoidalPotentialRforce;
+      potentialArgs->zforce = &EllipsoidalPotentialzforce;
+      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->dens= &EllipsoidalPotentialDens;
+      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialGaussianPotentialpsi;
+      potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////

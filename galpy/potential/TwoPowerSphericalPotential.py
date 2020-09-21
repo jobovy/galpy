@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy
 from scipy import special, optimize
-from ..util import bovy_conversion
+from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -72,8 +72,7 @@ class TwoPowerSphericalPotential(Potential):
             elif int(alpha) == 1 and int(beta) == 3:
                 self._specialSelf= NFWPotential(amp=1.,a=a,normalize=False)
         # correcting quantities
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to_value(units.kpc)/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         # setting properties
         self.a= a
         self._scale= self.a
@@ -919,8 +918,7 @@ class JaffePotential(DehnenSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -1149,8 +1147,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
@@ -1161,22 +1158,22 @@ class NFWPotential(TwoPowerSphericalPotential):
                 self.normalize(normalize)
         elif not rmax is None:
             if _APY_LOADED and isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
+                rmax= conversion.parse_length(rmax,ro=self._ro)
                 self._roSet= True
             if _APY_LOADED and isinstance(vmax,units.Quantity):
-                vmax= vmax.to(units.km/units.s).value/self._vo
+                vmax= conversion.parse_velocity(vmax,vo=self._vo)
                 self._voSet= True
             self.a= rmax/2.1625815870646098349
             self._amp= vmax**2.*self.a/0.21621659550187311005
         else:
             if wrtcrit:
-                od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
+                od= overdens/conversion.dens_in_criticaldens(self._vo,
                                                                   self._ro,H=H)
             else:
-                od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
+                od= overdens/conversion.dens_in_meanmatterdens(self._vo,
                                                                     self._ro,
                                                                     H=H,Om=Om)
-            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
+            mvirNatural= mvir*100./conversion.mass_in_1010msol(self._vo,
                                                                     self._ro)
             rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
             self.a= rvir/conc
@@ -1334,7 +1331,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
         return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
 
-    @bovy_conversion.physical_conversion('position',pop=False)
+    @conversion.physical_conversion('position',pop=False)
     def rvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,ro=None,vo=None,
              use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
@@ -1372,16 +1369,16 @@ class NFWPotential(TwoPowerSphericalPotential):
         if ro is None: ro= self._ro
         if vo is None: vo= self._vo
         if wrtcrit:
-            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+            od= overdens/conversion.dens_in_criticaldens(vo,ro,H=H)
         else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,
+            od= overdens/conversion.dens_in_meanmatterdens(vo,ro,
                                                                 H=H,Om=Om)
         dc= 12.*self.dens(self.a,0.,t=t,use_physical=False)/od
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
                            0.01,100.)
         return x*self.a
 
-    @bovy_conversion.physical_conversion('position',pop=True)
+    @conversion.physical_conversion('position',pop=True)
     def rmax(self):
         """
         NAME:
@@ -1408,7 +1405,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         # Magical number, solve(derivative (ln(1+x)-x/(1+x))/x wrt x=0,x)
         return 2.1625815870646098349*self.a
 
-    @bovy_conversion.physical_conversion('velocity',pop=True)
+    @conversion.physical_conversion('velocity',pop=True)
     def vmax(self):
         """
         NAME:
