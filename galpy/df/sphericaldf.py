@@ -20,6 +20,7 @@
 #  Note that we may have to re-think the implementation of anisotropic DFs to
 #  allow more general forms such as Osipkov-Merritt...
 #
+import warnings
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
@@ -27,7 +28,7 @@ from .df import df
 from ..potential import evaluatePotentials, vesc
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
-from ..util import conversion
+from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion
 if conversion._APY_LOADED:
     from astropy import units
@@ -415,6 +416,8 @@ class sphericaldf(df):
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:,i]
+            if numpy.any(cml_pvr < 0):
+                warnings.warn("The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",galpyWarning)
             cml_pvr[cml_pvr < 0] = 0.
             start_indx= numpy.amax(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amin(cml_pvr)])
             end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
