@@ -415,9 +415,11 @@ class sphericaldf(df):
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:,i]
+            cml_pvr[cml_pvr < 0] = 0.
+            start_indx= numpy.amax(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amin(cml_pvr)])
             end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
-            cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(cml_pvr[:end_indx], 
-                v_vesc_values[:end_indx],k=3)
+            cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(
+                cml_pvr[start_indx:end_indx], v_vesc_values[start_indx:end_indx],k=3)
             pvr_samples_reg = numpy.linspace(0,1,n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:,i] = pvr_samples_reg
