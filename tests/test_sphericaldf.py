@@ -535,7 +535,7 @@ def test_king_beta_directint():
                          rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
     return None
 
-################################ TESTS OF ERRORS###############################
+########################### TESTS OF ERRORS AND WARNINGS#######################
 
 def test_isotropic_hernquist_nopot():
     with pytest.raises(AssertionError)  as excinfo:
@@ -563,6 +563,18 @@ def test_anisotropic_hernquist_wrongpot():
     assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
     return None
 
+def test_anisotropic_hernquist_negdf():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    # beta > 0.5 has negative DF parts
+    dfh= constantbetaHernquistdf(pot=pot,beta=0.7)
+    with pytest.warns(None) as record:
+        samp= dfh.sample(n=100)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!")
+    assert raisedWarning, "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
+    
 ############################# TESTS OF UNIT HANDLING###########################
 
 # Test that setting up a DF with unit conversion parameters that are
