@@ -327,8 +327,13 @@ class sphericaldf(df):
         [0,infinity)"""
         xis = numpy.arange(-1,1,1e-4)
         rs = _xiToR(xis,a=self._scale)
+        # try/except necessary when mass doesn't take arrays, also need to
+        # switch to a more general mass method at some point...
+        #try: 
         ms = self._pot.mass(rs,use_physical=False)
-        ms /= self._pot.mass(10**12,use_physical=False)
+        #except ValueError:
+        #    ms= numpy.array([self._pot.mass(r,use_physical=False) for r in rs])
+        ms/= self._pot.mass(numpy.inf,use_physical=False)
         # Add total mass point
         xis = numpy.append(xis,1)
         ms = numpy.append(ms,1)

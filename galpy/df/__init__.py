@@ -9,6 +9,7 @@ from . import eddingtondf
 from . import isotropicHernquistdf
 from . import constantbetaHernquistdf
 from . import kingdf
+from . import isotropicPlummerdf
 #
 # Functions
 #
@@ -40,3 +41,4 @@ eddingtondf= eddingtondf.eddingtondf
 isotropicHernquistdf= isotropicHernquistdf.isotropicHernquistdf
 constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
 kingdf= kingdf.kingdf
+isotropicPlummerdf= isotropicPlummerdf.isotropicPlummerdf
