@@ -467,7 +467,7 @@ def test_orbit_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Orbit method phi does not return Quantity with the right units')
     try:
-        o.vphi().to(units.km/units.s)
+        o.vphi().to(units.km/units.s/units.kpc)
     except units.UnitConversionError:
         raise AssertionError('Orbit method vphi does not return Quantity with the right units')
     try:
@@ -606,7 +606,7 @@ def test_orbit_method_value():
     assert numpy.fabs(o.z().to(units.kpc).value-oc.z()*o._ro) < 10.**-8., 'Orbit method z does not return the correct value as Quantity'
     assert numpy.fabs(o.vz().to(units.km/units.s).value-oc.vz()*o._vo) < 10.**-8., 'Orbit method vz does not return the correct value as Quantity'
     assert numpy.fabs(o.phi().to(units.rad).value-oc.phi()) < 10.**-8., 'Orbit method phi does not return the correct value as Quantity'
-    assert numpy.fabs(o.vphi().to(units.km/units.s).value-oc.vphi()*o._vo) < 10.**-8., 'Orbit method vphi does not return the correct value as Quantity'
+    assert numpy.fabs(o.vphi().to(units.km/units.s/units.kpc).value-oc.vphi()*o._vo/o._ro) < 10.**-8., 'Orbit method vphi does not return the correct value as Quantity'
     assert numpy.fabs(o.x().to(units.kpc).value-oc.x()*o._ro) < 10.**-8., 'Orbit method x does not return the correct value as Quantity'
     assert numpy.fabs(o.y().to(units.kpc).value-oc.y()*o._ro) < 10.**-8., 'Orbit method y does not return the correct value as Quantity'
     assert numpy.fabs(o.vx().to(units.km/units.s).value-oc.vx()*o._vo) < 10.**-8., 'Orbit method vx does not return the correct value as Quantity'
@@ -671,7 +671,7 @@ def test_orbit_method_value_turnquantityoff():
     assert numpy.fabs(o.z(quantity=False)-oc.z()*o._ro) < 10.**-8., 'Orbit method z does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.vz(quantity=False)-oc.vz()*o._vo) < 10.**-8., 'Orbit method vz does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.phi(quantity=False)-oc.phi()) < 10.**-8., 'Orbit method phi does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.vphi(quantity=False)-oc.vphi()*o._vo) < 10.**-8., 'Orbit method vphi does not return the correct value when Quantity turned off'
+    assert numpy.fabs(o.vphi(quantity=False)-oc.vphi()*o._vo/o._ro) < 10.**-8., 'Orbit method vphi does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.x(quantity=False)-oc.x()*o._ro) < 10.**-8., 'Orbit method x does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.y(quantity=False)-oc.y()*o._ro) < 10.**-8., 'Orbit method y does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.vx(quantity=False)-oc.vx()*o._vo) < 10.**-8., 'Orbit method vx does not return the correct value when Quantity turned off'
@@ -1106,7 +1106,7 @@ def test_orbits_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Orbit method phi does not return Quantity with the right units')
     try:
-        o.vphi().to(units.km/units.s)
+        o.vphi().to(units.km/units.s/units.kpc)
     except units.UnitConversionError:
         raise AssertionError('Orbit method vphi does not return Quantity with the right units')
     try:
@@ -1247,7 +1247,7 @@ def test_orbits_method_value():
     assert numpy.all(numpy.fabs(o.z().to(units.kpc).value-oc.z()*o._ro) < 10.**-8.), 'Orbit method z does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.vz().to(units.km/units.s).value-oc.vz()*o._vo) < 10.**-8.), 'Orbit method vz does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.phi().to(units.rad).value-oc.phi()) < 10.**-8.), 'Orbit method phi does not return the correct value as Quantity'
-    assert numpy.all(numpy.fabs(o.vphi().to(units.km/units.s).value-oc.vphi()*o._vo) < 10.**-8.), 'Orbit method vphi does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(o.vphi().to(units.km/units.s/units.kpc).value-oc.vphi()*o._vo/o._ro) < 10.**-8.), 'Orbit method vphi does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.x().to(units.kpc).value-oc.x()*o._ro) < 10.**-8.), 'Orbit method x does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.y().to(units.kpc).value-oc.y()*o._ro) < 10.**-8.), 'Orbit method y does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.vx().to(units.km/units.s).value-oc.vx()*o._vo) < 10.**-8.), 'Orbit method vx does not return the correct value as Quantity'
@@ -1314,7 +1314,7 @@ def test_orbits_method_value_turnquantityoff():
     assert numpy.all(numpy.fabs(o.z(quantity=False)-oc.z()*o._ro) < 10.**-8.), 'Orbit method z does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.vz(quantity=False)-oc.vz()*o._vo) < 10.**-8.), 'Orbit method vz does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.phi(quantity=False)-oc.phi()) < 10.**-8.), 'Orbit method phi does not return the correct value when Quantity turned off'
-    assert numpy.all(numpy.fabs(o.vphi(quantity=False)-oc.vphi()*o._vo) < 10.**-8.), 'Orbit method vphi does not return the correct value when Quantity turned off'
+    assert numpy.all(numpy.fabs(o.vphi(quantity=False)-oc.vphi()*o._vo/o._ro) < 10.**-8.), 'Orbit method vphi does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.x(quantity=False)-oc.x()*o._ro) < 10.**-8.), 'Orbit method x does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.y(quantity=False)-oc.y()*o._ro) < 10.**-8.), 'Orbit method y does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.vx(quantity=False)-oc.vx()*o._vo) < 10.**-8.), 'Orbit method vx does not return the correct value when Quantity turned off'

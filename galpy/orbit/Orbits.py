@@ -3215,7 +3215,7 @@ class Orbit(object):
             return (thiso[2]*numpy.cos(thiso[-1])
                     +thiso[1]*numpy.sin(thiso[-1])).T
 
-    @physical_conversion('velocity')
+    @physical_conversion('frequency-kmskpc')
     @shapeDecorator
     def vphi(self,*args,**kwargs):
         """
