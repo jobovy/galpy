@@ -26,6 +26,51 @@ General instance routines for all df classes
    turn_physical_off <dfturnphysicaloff.rst>
    turn_physical_on <dfturnphysicalon.rst>
 
+Spherical distribution functions
+--------------------------------
+
+Isotropic and anisotropic distribution functions for spherical systems.
+
+General instance routines
++++++++++++++++++++++++++
+
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <sphericaldfcall.rst>
+   beta <sphericaldfbeta.rst>
+   sigmar <sphericaldfsigmar.rst>
+   sigmar <sphericaldfsigmat.rst>
+   vmomentdensity <sphericaldfvmomentdensity.rst>
+   
+Sampling routines
+^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 2
+
+   sample <sphericaldfsample.rst>
+
+Specific distribution functions
++++++++++++++++++++++++++++++++
+
+The following are isotropic distribution functions
+
+.. toctree::
+   :maxdepth: 2
+
+   Hernquist DF <dfhernquist.rst>
+   King DF <dfking.rst>
+   Plummer DF <dfplummer.rst>
+
+Anisotropic versions also exist:
+
+.. toctree::
+   :maxdepth: 2
+
+   Hernquist DF with constant anisotropy beta <dfhernquistconstantbeta.rst>
+
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
 

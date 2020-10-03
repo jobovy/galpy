@@ -150,7 +150,7 @@ class sphericaldf(df):
 
         PURPOSE:
 
-           calculate the an arbitrary moment of the velocity distribution 
+           calculate an arbitrary moment of the velocity distribution 
            at r times the density
 
         INPUT:
@@ -163,7 +163,7 @@ class sphericaldf(df):
 
         OUTPUT:
 
-           <vr^n vt^m x density> at r (no support for units)
+           <vr^n vt^m x density> at r
 
         HISTORY:
          
@@ -202,17 +202,80 @@ class sphericaldf(df):
     
     @physical_conversion('velocity',pop=True)
     def sigmar(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the radial velocity dispersion at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the radial velocity dispersion
+
+        OUTPUT:
+
+           sigma_r(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         r= conversion.parse_length(r,ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r,2,0)
                           /self._vmomentdensity(r,0,0))
     
     @physical_conversion('velocity',pop=True)
     def sigmat(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the tangential velocity dispersion at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the tangential velocity dispersion
+
+        OUTPUT:
+
+           sigma_t(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         r= conversion.parse_length(r,ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r,0,2)
                           /self._vmomentdensity(r,0,0))
 
     def beta(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the anisotropy at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the anisotropy
+
+        OUTPUT:
+
+           beta(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         return 1.-self.sigmat(r,use_physical=False)**2./2.\
             /self.sigmar(r,use_physical=False)**2.
     
