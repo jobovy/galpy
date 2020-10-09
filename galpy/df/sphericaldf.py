@@ -477,7 +477,7 @@ class sphericaldf(df):
         pvr_grid_cml = numpy.cumsum(pvr_grid,axis=0)
         pvr_grid_cml_norm = pvr_grid_cml\
         /numpy.repeat(pvr_grid_cml[-1,:][:,numpy.newaxis],pvr_grid_cml.shape[0],axis=1).T
-        
+
         # Construct the inverse cumulative distribution on a regular grid
         n_new_pvr = 100 # Must be multiple of r_a_grid.shape[0]
         icdf_pvr_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
@@ -490,7 +490,7 @@ class sphericaldf(df):
             start_indx= numpy.amax(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amin(cml_pvr)])
             end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
             cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(
-                cml_pvr[start_indx:end_indx], v_vesc_values[start_indx:end_indx],k=3)
+                cml_pvr[start_indx:end_indx], v_vesc_values[start_indx:end_indx],k=1)
             pvr_samples_reg = numpy.linspace(0,1,n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:,i] = pvr_samples_reg
@@ -498,7 +498,7 @@ class sphericaldf(df):
         # Create the interpolator
         return scipy.interpolate.RectBivariateSpline(
             numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
-            icdf_v_vesc_grid_reg.T)
+            icdf_v_vesc_grid_reg.T,kx=1,ky=1)
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
