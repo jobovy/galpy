@@ -1085,10 +1085,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   degree=True,
                                                   plx=False)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
-                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one
     l,b,d= 180., 0., 1./2.
     e_d, e_vr= 0.05, 2.
@@ -1101,11 +1101,11 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   b/180.*numpy.pi,
                                                   degree=False,
                                                   plx=True)
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
-                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one, w/ arrays
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -1122,9 +1122,9 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   plx=False)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-9., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     return None
 
@@ -1392,20 +1392,20 @@ def test_lbd_to_XYZ_jac():
     assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[2,2]-0.5) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.all(numpy.fabs(jac[:3,3:]) < 10.**-9.), 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,1]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,2]-pmll*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,3]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,4]-d*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[3,5]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,0]-pmll*d*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,0]-pmll*d*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,2]-0.5*4.740470463496208*pmbb) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,3]+numpy.sqrt(3.)/2.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,4]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[4,5]-4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,0]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,1]+0.5*d*4.740470463496208*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,1]+0.5*d*4.740470463496208*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.740470463496208*pmbb) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,3]-0.5) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     assert numpy.fabs(jac[5,4]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
