@@ -368,32 +368,32 @@ def test_vrpmllpmbb_to_vxvyvz():
     vr,pmll,pmbb= 10.,20./4.740470463496208,-10./4.740470463496208
     vxvyvz= coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,
                                              degree=True,XYZ=False)
-    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
     vxvyvz= coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l/180.*numpy.pi,
                                              b/180.*numpy.pi,d,
                                              degree=False,XYZ=False)
-    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
     vxvyvz= coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,0.,1,0.,
                                              XYZ=True)
-    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
     vxvyvz= coords.vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,0.,1,0.,
                                              XYZ=True,degree=True)
-    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-10., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[0]+20.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[1]-10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.fabs(vxvyvz[2]+10.) < 10.**-9., 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
     #Also test for arrays
     os= numpy.ones(2)
     vxvyvz= coords.vrpmllpmbb_to_vxvyvz(os*vr,os*pmll,os*pmbb,os*l,os*b,
                                              os*d,degree=True,XYZ=False)
-    assert numpy.all(numpy.fabs(vxvyvz[:,0]+20.) < 10.**-10.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxvyvz[:,1]-10.) < 10.**-10.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vxvyvz[:,2]+10.) < 10.**-10.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxvyvz[:,0]+20.) < 10.**-9.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxvyvz[:,1]-10.) < 10.**-9.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vxvyvz[:,2]+10.) < 10.**-9.), 'vrpmllpmbb_to_vxvyvz conversion did not work as expected'
     return None
 
 def test_vxvyvz_to_vrpmllpmbb():
@@ -401,35 +401,35 @@ def test_vxvyvz_to_vrpmllpmbb():
     X,Y,Z= 0.,1.,0.
     vrpmllpmbb= coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,
                                                  XYZ=True)
-    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     # also try with degree=True (that shouldn't fail!)
     vrpmllpmbb= coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,
                                                  XYZ=True,
                                                  degree=True)
-    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     # also for lbd
     vrpmllpmbb= coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,90.,0.,1.,
                                                  XYZ=False,degree=True)
-    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     # also for lbd, not in degree
     vrpmllpmbb= coords.vxvyvz_to_vrpmllpmbb(vx,vy,vz,numpy.pi/2.,0.,1.,
                                                  XYZ=False,degree=False)
-    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-10., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[0]-10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[1]-20.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.fabs(vrpmllpmbb[2]+10.) < 10.**-9., 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     # and for arrays
     os= numpy.ones(2)
     vrpmllpmbb= coords.vxvyvz_to_vrpmllpmbb(os*vx,os*vy,os*vz,
                                                  os*numpy.pi/2.,os*0.,os,
                                                  XYZ=False,degree=False)
-    assert numpy.all(numpy.fabs(vrpmllpmbb[:,0]-10.) < 10.**-10.), 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vrpmllpmbb[:,1]-20.) < 10.**-10.), 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vrpmllpmbb[:,0]-10.) < 10.**-9.), 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vrpmllpmbb[:,1]-20.) < 10.**-9.), 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     assert numpy.all(numpy.fabs(vrpmllpmbb[:,2]+10.) < 10.**-10.), 'vxvyvz_to_vrpmllpmbb conversion did not work as expected'
     return None
 
@@ -877,23 +877,23 @@ def test_sphergal_to_rectgal():
     vr,pmll,pmbb= 10.,-20./4.740470463496208,30./4.740470463496208
     X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,
                                                     degree=True)
-    assert numpy.fabs(X-0.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(Y-1.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(Z-0.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vx-20.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vy-10.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vz-30.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(X-0.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(Y-1.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(Z-0.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vx-20.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vy-10.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vz-30.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
     #Also test for degree=False
     X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l/180.*numpy.pi,
                                                     b/180.*numpy.pi,
                                                     d,vr,pmll,pmbb,
                                                     degree=False)
-    assert numpy.fabs(X-0.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(Y-1.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(Z-0.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vx-20.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vy-10.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.fabs(vz-30.) < 10.**-10., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(X-0.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(Y-1.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(Z-0.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vx-20.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vy-10.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.fabs(vz-30.) < 10.**-9., 'sphergal_to_rectgal conversion did not work as expected'
     #Also test for arrays
     os= numpy.ones(2)
     XYZvxvyvz= coords.sphergal_to_rectgal(os*l,os*b,os*d,
@@ -905,12 +905,12 @@ def test_sphergal_to_rectgal():
     vx= XYZvxvyvz[:,3]
     vy= XYZvxvyvz[:,4]
     vz= XYZvxvyvz[:,5]
-    assert numpy.all(numpy.fabs(X-0.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(Y-1.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(Z-0.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vx-20.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vy-10.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(vz-30.) < 10.**-10.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(X-0.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(Y-1.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(Z-0.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vx-20.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vy-10.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
+    assert numpy.all(numpy.fabs(vz-30.) < 10.**-9.), 'sphergal_to_rectgal conversion did not work as expected'
     return None
 
 def test_rectgal_to_sphergal():
@@ -1085,10 +1085,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   degree=True,
                                                   plx=False)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
-                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one
     l,b,d= 180., 0., 1./2.
     e_d, e_vr= 0.05, 2.
@@ -1101,11 +1101,11 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   b/180.*numpy.pi,
                                                   degree=False,
                                                   plx=True)
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
-                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one, w/ arrays
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -1122,9 +1122,9 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   plx=False)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     return None
 
@@ -1382,34 +1382,34 @@ def test_lbd_to_XYZ_jac():
     l,b,d= 3.*numpy.pi/2.,numpy.pi/6.,2.
     vr,pmll,pmbb= 10.,20.,-30.
     jac= coords.lbd_to_XYZ_jac(l,b,d,vr,pmll,pmbb,degree=False)
-    assert numpy.fabs(jac[0,0]-numpy.sqrt(3.)) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[0,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[0,2]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[1,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[1,1]-1.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[1,2]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[2,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[2,2]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.all(numpy.fabs(jac[:3,3:]) < 10.**-10.), 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,1]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,2]-pmll*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,3]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,4]-d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[3,5]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,0]-pmll*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,2]-0.5*4.740470463496208*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,3]+numpy.sqrt(3.)/2.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[4,5]-4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,0]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,1]+0.5*d*4.740470463496208*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.740470463496208*pmbb) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,3]-0.5) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,4]-0.) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
-    assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.740470463496208) < 10.**-10., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,0]-numpy.sqrt(3.)) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,1]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[0,2]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,0]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,1]-1.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[1,2]+numpy.sqrt(3.)/2.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,0]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,1]-numpy.sqrt(3.)) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[2,2]-0.5) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.all(numpy.fabs(jac[:3,3:]) < 10.**-9.), 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,0]-numpy.sqrt(3.)/2.*vr+0.5*pmbb*d*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,1]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,2]-pmll*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,3]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,4]-d*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[3,5]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,0]-pmll*d*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,1]-vr/2.-numpy.sqrt(3.)/2.*d*pmbb*4.740470463496208) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,2]-0.5*4.740470463496208*pmbb) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,3]+numpy.sqrt(3.)/2.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,4]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[4,5]-4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,0]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,1]+0.5*d*4.740470463496208*pmbb-numpy.sqrt(3.)/2.*vr) < 10.**-8., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,2]-numpy.sqrt(3.)/2.*4.740470463496208*pmbb) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,3]-0.5) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,4]-0.) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
+    assert numpy.fabs(jac[5,5]-numpy.sqrt(3.)/2.*d*4.740470463496208) < 10.**-9., 'lbd_to_XYZ_jac calculation did not work as expected'
     return None
 
 def test_cyl_to_spher_vec():

@@ -156,6 +156,7 @@ Quantity            Default unit
 =================== =================
 position            kpc
 velocity            km/s
+angular velocity    km/s/kpc
 energy              (km/s)^2
 Jacobi integral     (km/s)^2
 angular momentum    km/s x kpc

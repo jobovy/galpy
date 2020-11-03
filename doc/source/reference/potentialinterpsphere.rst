@@ -18,13 +18,13 @@ function that returns the radial force and the grid to interpolate it
 on, as for example,
 
 >>> from galpy import potential
->>> ip= potential.interpSphericalPotential(rforce=lambda r: 1./r,
+>>> ip= potential.interpSphericalPotential(rforce=lambda r: -1./r,
                         rgrid=numpy.geomspace(0.01,20,101),Phi0=0.)
 
 which sets up an ``interpSphericalPotential`` instance that has the
 same radial force as the spherical ``LogarithmicHaloPotential``. If
 you have a function that gives the enclosed mass within a given
-radius, simply pass it divided by :math:`r^2` to set up a
+radius, simply pass it divided by :math:`-r^2` to set up a
 ``interpSphericalPotential`` instance for this enclosed-mass profile.
 
 Alternatively, you can specify a ``galpy`` potential or list of

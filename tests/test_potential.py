@@ -1356,6 +1356,7 @@ def test_mass_spher_analytic():
     np= potential.NFWPotential(amp=2.)
     tp= potential.TwoPowerSphericalPotential(amp=2.)
     dp= potential.DehnenSphericalPotential(amp=2.)
+    pp= potential.PlummerPotential(amp=2.,b=1.3)
     tR= 2.
     assert numpy.fabs(dcp.mass(tR,forceint=True)-dcp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Dehnen Core potential'
     assert numpy.fabs(jp.mass(tR,forceint=True)-jp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Jaffe potential'
@@ -1364,6 +1365,7 @@ def test_mass_spher_analytic():
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential, for not z is None'
     assert numpy.fabs(dp.mass(tR,forceint=True)-dp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for DehnenSphericalPotential potential, for not z is None'
+    assert numpy.fabs(pp.mass(tR,forceint=True)-pp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Plummer potential'
     return None
 
 # Check that the masses are calculated correctly for axisymmetric potentials

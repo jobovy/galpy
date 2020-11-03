@@ -20,6 +20,7 @@
 #  Note that we may have to re-think the implementation of anisotropic DFs to
 #  allow more general forms such as Osipkov-Merritt...
 #
+import warnings
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
@@ -27,7 +28,7 @@ from .df import df
 from ..potential import evaluatePotentials, vesc
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
-from ..util import conversion
+from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion
 if conversion._APY_LOADED:
     from astropy import units
@@ -149,7 +150,7 @@ class sphericaldf(df):
 
         PURPOSE:
 
-           calculate the an arbitrary moment of the velocity distribution 
+           calculate an arbitrary moment of the velocity distribution 
            at r times the density
 
         INPUT:
@@ -162,7 +163,7 @@ class sphericaldf(df):
 
         OUTPUT:
 
-           <vr^n vt^m x density> at r (no support for units)
+           <vr^n vt^m x density> at r
 
         HISTORY:
          
@@ -201,17 +202,80 @@ class sphericaldf(df):
     
     @physical_conversion('velocity',pop=True)
     def sigmar(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the radial velocity dispersion at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the radial velocity dispersion
+
+        OUTPUT:
+
+           sigma_r(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         r= conversion.parse_length(r,ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r,2,0)
                           /self._vmomentdensity(r,0,0))
     
     @physical_conversion('velocity',pop=True)
     def sigmat(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the tangential velocity dispersion at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the tangential velocity dispersion
+
+        OUTPUT:
+
+           sigma_t(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         r= conversion.parse_length(r,ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r,0,2)
                           /self._vmomentdensity(r,0,0))
 
     def beta(self,r):
+        """
+        NAME:
+
+           sigmar
+
+        PURPOSE:
+
+           calculate the anisotropy at radius r
+
+        INPUT:
+
+           r - spherical radius at which to calculate the anisotropy
+
+        OUTPUT:
+
+           beta(r)
+
+        HISTORY:
+         
+            2020-09-04 - Written - Bovy (UofT)
+        """
         return 1.-self.sigmat(r,use_physical=False)**2./2.\
             /self.sigmar(r,use_physical=False)**2.
     
@@ -327,8 +391,13 @@ class sphericaldf(df):
         [0,infinity)"""
         xis = numpy.arange(-1,1,1e-4)
         rs = _xiToR(xis,a=self._scale)
+        # try/except necessary when mass doesn't take arrays, also need to
+        # switch to a more general mass method at some point...
+        #try: 
         ms = self._pot.mass(rs,use_physical=False)
-        ms /= self._pot.mass(10**12,use_physical=False)
+        #except ValueError:
+        #    ms= numpy.array([self._pot.mass(r,use_physical=False) for r in rs])
+        ms/= self._pot.mass(numpy.inf,use_physical=False)
         # Add total mass point
         xis = numpy.append(xis,1)
         ms = numpy.append(ms,1)
@@ -408,16 +477,20 @@ class sphericaldf(df):
         pvr_grid_cml = numpy.cumsum(pvr_grid,axis=0)
         pvr_grid_cml_norm = pvr_grid_cml\
         /numpy.repeat(pvr_grid_cml[-1,:][:,numpy.newaxis],pvr_grid_cml.shape[0],axis=1).T
-        
+
         # Construct the inverse cumulative distribution on a regular grid
         n_new_pvr = 100 # Must be multiple of r_a_grid.shape[0]
         icdf_pvr_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr,len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:,i]
+            if numpy.any(cml_pvr < 0):
+                warnings.warn("The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",galpyWarning)
+            cml_pvr[cml_pvr < 0] = 0.
+            start_indx= numpy.amax(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amin(cml_pvr)])
             end_indx= numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])+1
-            cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(cml_pvr[:end_indx], 
-                v_vesc_values[:end_indx],k=3)
+            cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(
+                cml_pvr[start_indx:end_indx], v_vesc_values[start_indx:end_indx],k=1)
             pvr_samples_reg = numpy.linspace(0,1,n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:,i] = pvr_samples_reg
@@ -425,7 +498,7 @@ class sphericaldf(df):
         # Create the interpolator
         return scipy.interpolate.RectBivariateSpline(
             numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
-            icdf_v_vesc_grid_reg.T)
+            icdf_v_vesc_grid_reg.T,kx=1,ky=1)
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""

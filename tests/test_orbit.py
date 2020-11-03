@@ -2887,7 +2887,7 @@ def test_physical_output():
         #Test velocities
         assert numpy.fabs(o.vR()/vo-o.vR(use_physical=False)) < 10.**-10., 'o.vR() output for Orbit setup with vo= does not work as expected'
         assert numpy.fabs(o.vT()/vo-o.vT(use_physical=False)) < 10.**-10., 'o.vT() output for Orbit setup with vo= does not work as expected'
-        assert numpy.fabs(o.vphi()/vo-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected'
+        assert numpy.fabs(o.vphi()*ro/vo-o.vphi(use_physical=False)) < 10.**-10., 'o.vphi() output for Orbit setup with vo= does not work as expected'
         if ii % 2 == 1:
             assert numpy.fabs(o.vx()/vo-o.vx(use_physical=False)) < 10.**-10., 'o.vx() output for Orbit setup with vo= does not work as expected'
             assert numpy.fabs(o.vy()/vo-o.vy(use_physical=False)) < 10.**-10., 'o.vy() output for Orbit setup with vo= does not work as expected'

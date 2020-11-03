@@ -459,7 +459,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**(3.-self.alpha)/(3.-self.alpha)
+        return 1./(1.+self.a/r)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf 
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
@@ -657,7 +657,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**3./3.
+        return 1./(1.+self.a/r)**3./3. # written so it works for r=numpy.inf 
 
 class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
@@ -848,7 +848,7 @@ class HernquistPotential(DehnenSphericalPotential):
            2014-01-29 - Written - Bovy (IAS)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**2./2./(1.+r/self.a)**2.
+        return 1./(1.+self.a/r)**2./2. # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
@@ -1074,7 +1074,7 @@ class JaffePotential(DehnenSphericalPotential):
            2014-01-29 - Written - Bovy (IAS)
         """
         r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return r/self.a/(1.+r/self.a)
+        return 1./(1.+self.a/r) # written so it works for r=numpy.inf 
 
 class NFWPotential(TwoPowerSphericalPotential):
     """Class that implements the NFW potential

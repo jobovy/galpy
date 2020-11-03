@@ -3,7 +3,8 @@ import pytest
 import numpy
 from scipy import special
 from galpy import potential
-from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf
+from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
+    isotropicPlummerdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -352,6 +353,102 @@ def test_anisotropic_hernquist_diffcalls():
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
     return None
 
+############################# ISOTROPIC PLUMMER DF ############################
+def test_isotropic_plummer_dens_spherically_symmetric():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    # Check spherical symmetry for different harmonics l,m
+    tol= 1e-2
+    check_spherical_symmetry(samp,0,0,tol)
+    check_spherical_symmetry(samp,1,0,tol)
+    check_spherical_symmetry(samp,1,-1,tol)
+    check_spherical_symmetry(samp,1,1,tol)
+    check_spherical_symmetry(samp,2,0,tol)
+    check_spherical_symmetry(samp,2,-1,tol)
+    check_spherical_symmetry(samp,2,-2,tol)
+    check_spherical_symmetry(samp,2,1,tol)
+    check_spherical_symmetry(samp,2,2,tol)
+    # and some higher order ones
+    check_spherical_symmetry(samp,3,1,tol)
+    check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_isotropic_plummer_dens_massprofile():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    tol= 5*1e-3
+    check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                /pot.mass(numpy.amax(samp.r())),
+                                tol,skip=1000)
+    return None
+
+def test_isotropic_plummer_sigmar():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=1000000)
+    tol= 0.05
+    check_sigmar_against_jeans(samp,pot,tol,
+                               rmin=pot._scale/10.,rmax=pot._scale*10.,
+                               bins=31)
+    return None
+
+def test_isotropic_plummer_beta():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=1000000)
+    tol= 6*1e-2
+    check_beta(samp,pot,tol,rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_plummer_dens_directint():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    tol= 1e-7
+    check_dens_directint(dfp,pot,tol,
+                         lambda r: pot.dens(r,0)/2.3, # need to divide by mass
+                         rmin=pot._scale/10.,
+                         rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_plummer_meanvr_directint():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    tol= 1e-8
+    check_meanvr_directint(dfp,pot,tol,rmin=pot._scale/10.,
+                           rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_plummer_sigmar_directint():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    tol= 1e-5
+    check_sigmar_against_jeans_directint(dfp,pot,tol,
+                                         rmin=pot._scale/10.,
+                                         rmax=pot._scale*10.,
+                                         bins=31)
+    return None
+
+def test_isotropic_plummer_beta_directint():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    tol= 1e-8
+    check_beta_directint(dfp,tol,rmin=pot._scale/10.,rmax=pot._scale*10.,
+                         bins=31)
+    return None
+
+def test_isotropic_plummer_energyoutofbounds():
+    pot= potential.PlummerPotential(amp=2.3,b=1.3)
+    dfp= isotropicPlummerdf(pot=pot)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic Plummer DF at E > 0 does not give zero'
+    assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Plummer DF at E < -GM/a does not give zero'
+    return None
+
 ################################# KING DF #####################################
 def test_king_dens_spherically_symmetric():
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -438,7 +535,7 @@ def test_king_beta_directint():
                          rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
     return None
 
-################################ TESTS OF ERRORS###############################
+########################### TESTS OF ERRORS AND WARNINGS#######################
 
 def test_isotropic_hernquist_nopot():
     with pytest.raises(AssertionError)  as excinfo:
@@ -466,6 +563,18 @@ def test_anisotropic_hernquist_wrongpot():
     assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
     return None
 
+def test_anisotropic_hernquist_negdf():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    # beta > 0.5 has negative DF parts
+    dfh= constantbetaHernquistdf(pot=pot,beta=0.7)
+    with pytest.warns(None) as record:
+        samp= dfh.sample(n=100)
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!")
+    assert raisedWarning, "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
+    
 ############################# TESTS OF UNIT HANDLING###########################
 
 # Test that setting up a DF with unit conversion parameters that are
