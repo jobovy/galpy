@@ -713,7 +713,7 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
     return (numpy.array([[cosphi,sinphi],[-sinphi,cosphi]]).T\
                 *numpy.array([[pmll,pmll],[pmbb,pmbb]]).T).sum(-1)
 
-def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_einsum=False):
+def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     """
     NAME:
 
@@ -746,21 +746,11 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0, no_e
 
     """
     if len(cov_pmradec.shape) == 3:
-        if no_einsum:
-            out= numpy.zeros(cov_pmradec.shape)
-            ndata= out.shape[0]
-            lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-            for ii in range(ndata):
-                out[ii,:,:]= cov_pmradec_to_pmllbb_single(cov_pmradec[ii,:,:],
-                                                          ra[ii],dec[ii],lb[ii,1],
-                                                          degree,epoch)
-            return out
-        else:
-            lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-            out = cov_pmradec_to_pmllbb_array(cov_pmradec,
-                                              ra, dec, lb[:,1],
-                                              degree, epoch)
-            return out
+        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
+        out = cov_pmradec_to_pmllbb_array(cov_pmradec,
+                                          ra, dec, lb[:,1],
+                                          degree, epoch)
+        return out
     else:
         lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
         return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[1],degree,epoch)
@@ -863,7 +853,7 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
     return numpy.dot(P,numpy.dot(cov_pmradec,P.T))
 
 def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
-                          plx=False,degree=False,no_einsum=False):
+                          plx=False,degree=False):
     """
     NAME:
 
@@ -917,16 +907,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
         return cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,
                                             l,b)
     else:
-        if no_einsum:
-            ndata= len(d)
-            out= numpy.zeros((ndata,3,3))
-            for ii in range(ndata):
-                out[ii,:,:]= cov_dvrpmllbb_to_vxyz_single(d[ii],e_d[ii],e_vr[ii],
-                                                          pmll[ii],pmbb[ii],
-                                                          cov_pmllbb[ii,:,:],
-                                                          l[ii],b[ii])
-        else:
-            out = cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b)
+        out = cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b)
         return out
 
 def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):

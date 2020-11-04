@@ -1057,21 +1057,6 @@ def test_cov_pmradec_to_pmllbb():
                                                         epoch=1950.)
     assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb)-numpy.linalg.det(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(numpy.trace(cov_pmllpmbb)-numpy.trace(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
-    # This is a random position, check that the conversion makes sense, arrays (no einsum)
-    ra, dec= 132.25, -23.4
-    icov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
-    cov_pmrapmdec= numpy.empty((3,2,2))
-    for ii in range(3): cov_pmrapmdec[ii,:,:]= icov_pmrapmdec
-    os= numpy.ones(3)
-    cov_pmllpmbb= coords.cov_pmrapmdec_to_pmllpmbb(cov_pmrapmdec,
-                                                        os*ra,
-                                                        os*dec,
-                                                        degree=True,
-                                                        epoch=1950.,
-                                                        no_einsum=True)
-    for ii in range(3):
-        assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb[ii,:,:])-numpy.linalg.det(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
-        assert numpy.fabs(numpy.trace(cov_pmllpmbb[ii,:,:])-numpy.trace(cov_pmrapmdec[ii,:,:])) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     # This is a random position, check that the conversion makes sense, arrays (using einsum)
     ra, dec= 132.25, -23.4
     icov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
@@ -1121,27 +1106,6 @@ def test_cov_dvrpmllbb_to_vxyz():
                       -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
                       -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-    #Another one, w/ arrays (no einsum)
-    l,b,d= 90., 90., 2.
-    e_d, e_vr= 0.2, 2.
-    tcov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
-    cov_pmllpmbb= numpy.empty((3,2,2))
-    for ii in range(3): cov_pmllpmbb[ii,:,:]= tcov_pmllpmbb
-    pmll,pmbb= 20.,30.
-    os= numpy.ones(3)
-    cov_vxvyvz= coords.cov_dvrpmllbb_to_vxyz(os*d,os*e_d,os*e_vr,
-                                                  os*pmll,os*pmbb,
-                                                  cov_pmllpmbb,
-                                                  os*l,os*b,
-                                                  degree=True,
-                                                  plx=False,
-                                                  no_einsum=True)
-    for ii in range(3):
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     #Another one, w/ arrays (using einsum)
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -1155,8 +1119,7 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   cov_pmllpmbb,
                                                   os*l,os*b,
                                                   degree=True,
-                                                  plx=False,
-                                                  no_einsum=False)
+                                                  plx=False)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
                           -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
