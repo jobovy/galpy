@@ -28,7 +28,7 @@ $(document).ready(function() {
 		.attr("alt",`Figure from ${bibentry.title}, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}`)
 		.attr("title",`Figure from ${bibentry.title}, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}`).appendTo(`#${key}-div2`);
 	    $("<div>").attr("id",key).addClass("papers-gallery-item").appendTo(`#${key}-link`);
-	    $("<img>").attr("data-src","http://www.galpy.org.s3-website.us-east-2.amazonaws.com/data/paper-figs/"+bibentry.img).attr("loading","lazy").addClass("lazyload").appendTo(`#${key}`);
+	    $("<img>").attr("data-src","https://d2g2jw00kypyq.cloudfront.net/data/paper-figs/"+bibentry.img).attr("loading","lazy").addClass("lazyload").appendTo(`#${key}`);
 	    $("<div>"+`<font size="-3"><i>${bibentry.title}</i>, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}</font>`+"</div>").addClass("desc").appendTo(`#${key}-div2`);
 	}
 	  });
