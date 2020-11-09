@@ -1,7 +1,7 @@
 build: off
 
 environment:
-  PYTHON_VERSION: 3.8
+  PYTHON_VERSION: 3.9
   MINICONDA: C:\\Miniconda37-x64
 
   matrix:
@@ -29,7 +29,7 @@ install:
   - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
   - conda config --set always_yes yes --set changeps1 no
   - conda info -a
-  - conda config --append channels astropy 
+  - conda config --append channels conda-forge
   - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib numexpr setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage
@@ -54,6 +54,15 @@ after_test:
       }
   - conda deactivate
   - conda remove --name test-environment --all
+  # Python 3.9
+  - conda create -n py39 python=3.9 numpy scipy matplotlib setuptools pip pytest gsl
+  - conda activate py39
+  - pip install wheel
+  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+  - python setup.py bdist_wheel
+  - conda deactivate
   # Python 3.8
   - conda create -n py38 python=3.8 numpy scipy matplotlib setuptools pip pytest gsl
   - conda activate py38

@@ -48,11 +48,11 @@ PYTHON VERSIONS AND DEPENDENCIES
 ================================
 
 `galpy` supports both Python 2 and 3. Specifically, galpy supports
-Python 2.7 and Python 3.6, 3.7, and 3.8. It should also work on earlier Python
-3.\* versions, but this is not extensively tested on an ongoing basis.
-Travis CI builds regularly check support for Python 3.8 (and of
-2.7, 3.6, and 3.7 using a more limited, core set of tests) and Appveyor builds
-regularly check support for Python 3.8 on Windows.
+Python 2.7 and Python 3.7, 3.8, 3.9. It should also work on earlier
+Python 3.\* versions, but this is not extensively tested on an ongoing
+basis.  Travis CI builds regularly check support for Python 3.9 (and
+of 2.7, 3.7, and 3.8 using a more limited, core set of tests) and
+Appveyor builds regularly check support for Python 3.9 on Windows.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
