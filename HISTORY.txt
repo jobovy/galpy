@@ -32,7 +32,7 @@ v1.7 (XXXX-XX-XX)
   method (function) to plot the surface density of a Potential
   instance (of Potential instance of a list of Potential instances).
 
-- Made potentials as much as possible numerically stable at
+- Made potentials as much as possible numerically stable at r=0 and
   r=numpy.inf (i.e., they don't give NaN). Still a few missing, but
   the majority of potentials are well behaved now.
 
