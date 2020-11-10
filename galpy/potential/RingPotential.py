@@ -73,7 +73,8 @@ class RingPotential(Potential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        m= 4.*R*self.a/((R+self.a)**2+z**2)
+        # Stable as r -> infty
+        m= 4.*self.a/((numpy.sqrt(R)+self.a/numpy.sqrt(R))**2+z**2/R)
         return -4.*self.a/numpy.sqrt((R+self.a)**2+z**2)*special.ellipk(m)
 
     def _Rforce(self,R,z,phi=0.,t=0.):

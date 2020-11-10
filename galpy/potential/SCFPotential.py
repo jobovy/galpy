@@ -169,7 +169,8 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
            2016-05-18 - Written - Aladdin 
         """
         a = self._a
-        return  (r - a)/(r + a)  
+        return  (1.-a/r)/(1.+a/r)
+    
     def _rhoTilde(self, r, N,L):
         """
         NAME:
@@ -216,7 +217,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         phi = numpy.zeros((N,L), float)
         n = numpy.arange(0,N)[:, numpy.newaxis]
         l = numpy.arange(0, L)[numpy.newaxis,:]
-        phi[:,:] = - (r*a)**l/ ((a + r)**(2*l + 1.)) * CC[:,:]* (4*numpy.pi)**0.5
+        phi[:,:] = - a**l*r**(-l-1.)/ ((1.+a/r)**(2*l + 1.)) * CC[:,:]* (4*numpy.pi)**0.5
         return phi  
         
     def _compute(self, funcTilde, R, z, phi):

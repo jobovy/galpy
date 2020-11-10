@@ -173,11 +173,13 @@ class DehnenBarPotential(Potential):
         if isinstance(r,numpy.ndarray):
             if not isinstance(R,numpy.ndarray):
                 R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
-            out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx]
+            out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx] 
             indx=numpy.invert(indx)
-            out[indx]= -(self._rb/r[indx])**3.*R[indx]**2./r2[indx] 
+            out[indx]= -(self._rb/r[indx])**3.*1./(1.+z[indx]**2./R[indx]**2.)
 
             out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
             return out        
@@ -189,7 +191,7 @@ class DehnenBarPotential(Potential):
                 return -self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-
                                                       self._barphi))\
                                                       *(self._rb/r)**3.\
-                                                      *R**2./r2
+                                                      *1./(1.+z**2./R**2.)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

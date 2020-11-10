@@ -311,8 +311,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
           return self._specialSelf._evaluate(R,z,phi=phi,t=t)
       else:  # valid for alpha != 2, 3
         r= numpy.sqrt(R**2.+z**2.)
-        return -((1.-(r/(r+self.a))**(2.-self.alpha))/
-                 (self.a * (2.-self.alpha) * (3.-self.alpha)))
+        return -(1.-1./(1.+self.a/r)**(2.-self.alpha))/\
+                 (self.a * (2.-self.alpha) * (3.-self.alpha))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -526,7 +526,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
          2019-11-20 - Written - Starkman (UofT)
       """
       r= numpy.sqrt(R**2.+z**2.)
-      return -((1.-numpy.square(r/(r+self.a)))/(6.*self.a))
+      return -(1.-1./(1.+self.a/r)**2.)/(6.*self.a)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -1202,7 +1202,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return -numpy.log(1.+r/self.a)/r
+        return -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

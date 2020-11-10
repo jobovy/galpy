@@ -2,6 +2,7 @@
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
 import numpy
+from scipy import special
 from .SphericalPotential import SphericalPotential
 from ..util import conversion
 class BurkertPotential(SphericalPotential):
@@ -63,9 +64,14 @@ class BurkertPotential(SphericalPotential):
     def _revaluate(self,r,t=0.):
         """Potential as a function of r and time"""
         x= r/self.a
-        return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
-                                        +2.*(1.+x)*numpy.log(1.+x)
-                                        +(1.-x)*numpy.log(1.+x**2.))
+        return -self.a**2.*numpy.pi*(-numpy.pi/x+2.*(1./x+1)*numpy.arctan(1/x)
+                                +(1./x+1)*numpy.log((1.+1./x)**2./(1.+1/x**2.))
+                                     +special.xlogy(2./x,1.+x**2.))
+    #Previous way, not stable as r -> infty
+    #return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
+    #                                +2.*(1.+x)*numpy.log(1.+x)
+    #                                +(1.-x)*numpy.log(1.+x**2.))
+
     def _rforce(self,r,t=0.):
         x= r/self.a
         return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)

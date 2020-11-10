@@ -142,6 +142,7 @@ class EllipsoidalPotential(Potential):
         if not self.isNonAxi:
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
+        if numpy.isinf(R): y= 0.
         if self._aligned:
             return self._evaluate_xyz(x,y,z)
         else:

@@ -296,7 +296,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
 
     def _psi(self,m):
         """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
-        return 2.*self.a2*(1./(1.+m/self.a)+numpy.log(m/(m+self.a)))
+        return 2.*self.a2*(1./(1.+m/self.a)+numpy.log(1./(1.+self.a/m)))
 
     def _mdens(self,m):
         """Density as a function of m"""
