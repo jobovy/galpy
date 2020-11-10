@@ -94,7 +94,6 @@ def test_forceAsDeriv_potential():
                and not 'toVertical' in p)]
     pots.append('specialTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
-    pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerSphericalPotential')
     pots.append('JaffeTwoPowerSphericalPotential')
@@ -281,7 +280,6 @@ def test_2ndDeriv_potential():
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     pots.append('specialTwoPowerSphericalPotential')
-    pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerSphericalPotential')
@@ -742,7 +740,6 @@ def test_evaluateAndDerivs_potential():
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     pots.append('specialTwoPowerSphericalPotential')
-    pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerSphericalPotential')
@@ -1212,8 +1209,108 @@ def test_toVertical_array():
         '{} force evaluation does not work as expected for array inputs for toVerticalPotential'.format(p)
     return None
 
-#Test that all potentials that go to a finite value at infinity can be
-# evaluate with large numbers and with infinity
+#Test that all potentials can be evaluated at zero
+def test_potential_at_zero():
+    #Grab all of the potentials
+    pots= [p for p in dir(potential) 
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+               and not 'FullTo' in p and not 'toPlanar' in p
+               and not 'evaluate' in p and not 'Wrapper' in p
+               and not 'toVertical' in p)]
+    #pots.append('specialTwoPowerSphericalPotential')
+    #pots.append('DehnenTwoPowerSphericalPotential')
+    #pots.append('DehnenCoreTwoPowerSphericalPotential')
+    #pots.append('HernquistTwoPowerSphericalPotential')
+    #pots.append('JaffeTwoPowerSphericalPotential')
+    #pots.append('NFWTwoPowerSphericalPotential') # Difficult, and who cares?
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
+    pots.append('specialPowerSphericalPotential')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('testMWPotential')
+    pots.append('mockInterpRZPotential')
+    if _PYNBODY_LOADED:
+        pots.append('mockSnapshotRZPotential')
+        pots.append('mockInterpSnapshotRZPotential')
+    pots.append('oblateHernquistPotential')
+    pots.append('oblateNFWPotential')
+    pots.append('oblatenoGLNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('zRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    pots.append('yRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    pots.append('fullyRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    pots.append('fullyRotatednoGLTriaxialNFWPotential') # Difficult bc of rotation
+    pots.append('HernquistTwoPowerTriaxialPotential')
+    pots.append('NFWTwoPowerTriaxialPotential')
+    #pots.append('JaffeTwoPowerTriaxialPotential') # not finite
+    pots.append('mockSCFZeeuwPotential')
+    pots.append('mockSCFNFWPotential')
+    pots.append('mockSCFAxiDensity1Potential')
+    pots.append('mockSCFAxiDensity2Potential')
+    pots.append('mockSCFDensityPotential')
+    pots.append('sech2DiskSCFPotential')
+    pots.append('expwholeDiskSCFPotential')
+    pots.append('nonaxiDiskSCFPotential')
+    pots.append('mockInterpSphericalPotential')
+    pots.append('mockInterpSphericalPotentialwForce')
+    rmpots= ['Potential','MWPotential','MWPotential2014',
+             'MovingObjectPotential',
+             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
+             'planarPotential', 'verticalPotential','PotentialError',
+             'SnapshotRZPotential','InterpSnapshotRZPotential',
+             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
+             'SphericalPotential','interpSphericalPotential']
+    # Remove some more potentials that we don't support for now TO DO
+    rmpots.append('BurkertPotential') # Need to figure out...
+    #rmpots.append('FerrersPotential') # Need to figure out...
+    #rmpots.append('KuzminKutuzovStaeckelPotential') # Need to figure out...
+    rmpots.append('RazorThinExponentialDiskPotential') # Need to figure out...
+    rmpots.append('RingPotential') # Easy, but who cares?
+    #rmpots.append('SoftenedNeedleBarPotential') # Not that hard, but haven't done it
+    rmpots.append('SpiralArmsPotential')
+    rmpots.append('TwoPowerSphericalPotential') # Need to figure out
+    #rmpots.append('TwoPowerTriaxialPotential') # Need to figure out
+    # 2D ones that cannot use this test
+    rmpots.append('CosmphiDiskPotential')
+    rmpots.append('EllipticalDiskPotential')
+    rmpots.append('LopsidedDiskPotential')
+    rmpots.append('HenonHeilesPotential')
+    rmpots.append('TransientLogSpiralPotential')
+    rmpots.append('SteadyLogSpiralPotential')
+    # 1D ones that cannot use this test
+    rmpots.append('IsothermalDiskPotential')
+    rmpots.append('KGPotential')
+    for p in rmpots:
+        pots.remove(p)
+    for p in pots:
+        #Setup instance of potential
+        try:
+            tclass= getattr(potential,p)
+        except AttributeError:
+            tclass= getattr(sys.modules[__name__],p)
+        tp= tclass()
+        if hasattr(tp,'normalize'): tp.normalize(1.)
+        assert not numpy.isnan(potential.evaluatePotentials(tp,0,0,phi=0.,t=0.)), 'Potential {} evaluated at zero gave NaN'.format(p)
+        # Also for arrays
+        if p == 'FerrersPotential' \
+           or p == 'HomogeneousSpherePotential' \
+           or p == 'PerfectEllipsoidPotential' \
+           or p == 'SphericalShellPotential' \
+           or 'riaxial' in p \
+           or 'oblate' in p \
+           or 'prolate' in p:
+            continue
+        assert not numpy.any(numpy.isnan(potential.evaluatePotentials(tp,numpy.zeros(4),numpy.zeros(4),phi=0.,t=0.))), 'Potential {} evaluated at zero gave NaN'.format(p)
+    return None
+
+#Test that all potentials can be evaluated with large numbers and with infinity
 def test_potential_at_infinity():
     # One of the main reasons for this test is the implementation of vesc,
     # which uses the potential at infinity. Import what vesc uses for infinity
@@ -1225,7 +1322,6 @@ def test_potential_at_infinity():
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     #pots.append('specialTwoPowerSphericalPotential')
-    pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenTwoPowerSphericalPotential')
     pots.append('DehnenCoreTwoPowerSphericalPotential')
     pots.append('HernquistTwoPowerSphericalPotential')
@@ -1304,6 +1400,16 @@ def test_potential_at_infinity():
         if hasattr(tp,'normalize'): tp.normalize(1.)
         assert not numpy.isnan(potential.evaluatePotentials(tp,numpy.inf,0,phi=0.,t=0.)), 'Potential {} evaluated at infinity gave NaN'.format(p)
         assert not numpy.isnan(potential.evaluatePotentials(tp,_INF,0,phi=0.,t=0.)), 'Potential {} evaluated at vesc _INF gave NaN'.format(p)
+        # Also for arrays
+        if p == 'HomogeneousSpherePotential' \
+           or p == 'PerfectEllipsoidPotential' \
+           or p == 'SphericalShellPotential' \
+           or 'riaxial' in p \
+           or 'oblate' in p \
+           or 'prolate' in p:
+            continue
+        assert not numpy.any(numpy.isnan(potential.evaluatePotentials(tp,numpy.inf*numpy.ones(4),numpy.zeros(4),phi=0.,t=0.))), 'Potential {} evaluated at infinity gave NaN'.format(p)
+        assert not numpy.any(numpy.isnan(potential.evaluatePotentials(tp,_INF*numpy.ones(4),numpy.zeros(4),phi=0.,t=0.))), 'Potential {} evaluated at vesc _INF gave NaN'.format(p)
     return None
 
 # Test that the amplitude for potentials with a finite mass and amp=mass is 

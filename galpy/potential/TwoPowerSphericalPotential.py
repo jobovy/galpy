@@ -1202,7 +1202,14 @@ class NFWPotential(TwoPowerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
+        if isinstance(r,(float,int)) and r == 0:
+            return -1./self.a
+        elif isinstance(r,(float,int)):
+            return -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
+        else:
+            out= -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
+            out[r == 0]= -1./self.a
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

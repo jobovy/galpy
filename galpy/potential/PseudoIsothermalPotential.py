@@ -75,8 +75,16 @@ class PseudoIsothermalPotential(Potential):
         """
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-        return (0.5*numpy.log(1+r2/self._a2)\
-                    +self._a/r*numpy.arctan(r/self._a))/self._a
+        out= (0.5*numpy.log(1+r2/self._a2)
+              +self._a/r*numpy.arctan(r/self._a))/self._a
+        if isinstance(r,(float,int)):
+            if r == 0:
+                return 1./self._a
+            else:
+                return out
+        else:
+            out[r==0]= 1./self._a
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

@@ -177,14 +177,18 @@ class DehnenBarPotential(Potential):
                 z=numpy.repeat(z,len(r))
             out=numpy.empty(len(r))
             indx= r <= self._rb  
-            out[indx]= ((r[indx]/self._rb)**3.-2.)*R[indx]**2./r2[indx] 
+            out[indx]= ((r[indx]/self._rb)**3.-2.)\
+                *numpy.divide(R[indx]**2.,r2[indx],numpy.ones_like(R[indx]),
+                              where=R[indx]!=0)
             indx=numpy.invert(indx)
             out[indx]= -(self._rb/r[indx])**3.*1./(1.+z[indx]**2./R[indx]**2.)
 
             out*=self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
             return out        
         else:
-            if r <= self._rb:
+            if r == 0:
+                return -2.*self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))
+            elif r <= self._rb:
                 return self._af*smooth*numpy.cos(2.*(phi-self._omegab*t-self._barphi))\
                     *((r/self._rb)**3.-2.)*R**2./r2
             else:

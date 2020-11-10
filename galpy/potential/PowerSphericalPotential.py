@@ -80,10 +80,16 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2010-07-10 - Started - Bovy (NYU)
         """
+        r2= R**2.+z**2.
         if self.alpha == 2.:
-            return numpy.log(R**2.+z**2.)/2. 
+            return numpy.log(r2)/2. 
+        elif isinstance(r2,(float,int)) and r2 == 0 and self.alpha > 2:
+            return -numpy.inf
         else:
-            return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
+            out= -r2**(1.-self.alpha/2.)/(self.alpha-2.)
+            if isinstance(r2,numpy.ndarray) and self.alpha > 2:
+                out[r2 == 0]= -numpy.inf
+            return out                
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
