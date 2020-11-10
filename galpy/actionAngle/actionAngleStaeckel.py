@@ -710,7 +710,15 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'): #pragma: no cover
             return self._uminumax
         E, L= self._E, self._Lz
-        if numpy.fabs(self._pux) < 10.**-7.: #We are at umin or umax
+        # Calculate value of the integrand at current point, to check whether
+        # we are at a turning point
+        current_val= _JRStaeckelIntegrandSquared(self._ux,
+                                             E,L,self._I3U,self._delta,
+                                             self._u0,self._sinhu0**2.,
+                                             self._vx,self._sinvx**2.,
+                                             self._potu0v0,self._pot)
+        if numpy.fabs(self._pux) < 1e-7 \
+           or numpy.fabs(current_val) < 1e-10: #We are at umin or umax
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
