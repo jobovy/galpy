@@ -32,6 +32,10 @@ v1.7 (XXXX-XX-XX)
   method (function) to plot the surface density of a Potential
   instance (of Potential instance of a list of Potential instances).
 
+- Made potentials as much as possible numerically stable at
+  r=numpy.inf (i.e., they don't give NaN). Still a few missing, but
+  the majority of potentials are well behaved now.
+
 - Fixed angle calculation for actionAngleIsochrone and
   actionAngleSpherical for non-inclined orbits (which are tricky).
 
@@ -42,9 +46,11 @@ v1.7 (XXXX-XX-XX)
   galpy.util.bovy_conversion to galpy.util.conversion, and
   galpy.util.bovy_plot to galpy.util.plot (but old 'from galpy.util
   import bovy_X' will keep working for now). Also renamed some other
-  interna utility modules in the same way (bovy_symplecticode,
+  internal utility modules in the same way (bovy_symplecticode,
   bovy_quadpack, and bovy_ars; these are not kept
   backwards-compatible).
+
+- Added Python 3.9 support.
 
 v1.6 (2020-04-24)
 =================
