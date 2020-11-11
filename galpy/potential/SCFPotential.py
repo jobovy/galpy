@@ -169,9 +169,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
            2016-05-18 - Written - Aladdin 
         """
         a = self._a
-        if isinstance(r,numpy.ndarray):
-            return numpy.divide(1.-a/r,1.+a/r,-numpy.ones_like(r),where=r!=0)
-        elif r == 0:
+        if r == 0:
             return -1
         else:
             return (1.-a/r)/(1.+a/r)
