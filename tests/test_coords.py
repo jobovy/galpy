@@ -1129,6 +1129,25 @@ def test_cov_dvrpmllbb_to_vxyz():
 
     return None
 
+def test_cov_vxyz_to_galcencyl():
+    #test point - system should flip with phi = pi
+    cov_vxyz = [[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]]
+    phi = numpy.pi
+    cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phi)
+    assert (cov_galcencyl[0,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[2,0] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[2,1] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    #try an array
+    cov_vxyz = [[[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]],[[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]]]
+    phis = [0., numpy.pi]
+    cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phis)
+    assert (cov_galcencyl[1,0,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,1,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2,0] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2,1] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[0] - 1. < 10**-8).all()
+
 def test_dl_to_rphi_2d():
     #This is a tangent point
     l= numpy.arcsin(0.75)
