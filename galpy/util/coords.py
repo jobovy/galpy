@@ -745,20 +745,49 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
        2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
-    if len(cov_pmradec.shape) == 3:
-        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        out = cov_pmradec_to_pmllbb_array(cov_pmradec,
-                                          ra, dec, lb[:,1],
-                                          degree, epoch)
-        return out
+    if hasattr(ra, '__iter__'):
+        array=True
+        ndata = len(ra)
     else:
-        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,lb[1],degree,epoch)
+        array=False
+        ndata=1
+    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
+    if degree:
+        sindec_ngp= numpy.sin(dec_ngp)
+        cosdec_ngp= numpy.cos(dec_ngp)
+        sindec= numpy.sin(dec*_DEGTORAD)
+        cosdec= numpy.cos(dec*_DEGTORAD)
+        sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
+        cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
+    else:
+        sindec_ngp= numpy.sin(dec_ngp)
+        cosdec_ngp= numpy.cos(dec_ngp)
+        sindec= numpy.sin(dec)
+        cosdec= numpy.cos(dec)
+        sinrarangp= numpy.sin(ra-ra_ngp)
+        cosrarangp= numpy.cos(ra-ra_ngp)
+    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    #sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
+    sinphi= sinrarangp*cosdec_ngp
+    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
+    cosphi/= norm
+    sinphi/= norm
+    P = numpy.zeros([ndata,2,2])
+    P[:,0,0] = cosphi
+    P[:,0,1] = sinphi
+    P[:,1,0] = -sinphi
+    P[:,1,1] = cosphi
+    if not array:
+        return numpy.einsum('ij,jk->ik', P[0], numpy.einsum('ij,jk->ik', cov_pmradec, P[0].T))
+    else:
+        return numpy.einsum('aij,ajk->aik', P, numpy.einsum('aij,jka->aik', cov_pmradec, P.T))
 
 def cov_pmradec_to_pmllbb_array(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
     """
     NAME:
-       cov_pmradec_to_pmllbb_single
+       cov_pmradec_to_pmllbb_array
     PURPOSE:
        propagate the proper motions errors through the rotation from (ra,dec)
        to (l,b) for array inputs using np.einsum
