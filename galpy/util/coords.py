@@ -889,63 +889,45 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
        2018-03-22 - Written - Mackereth (LJMU)
        2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
-    if len(numpy.shape(cov_vxyz)) == 3:
-        cov_galcencyl = numpy.empty(numpy.shape(cov_vxyz))
-        cov_galcenrect = cov_vxyz_to_galcenrect_array(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
-        cov_galcencyl = cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi)
-        return cov_galcencyl
+    cov_galcenrect = cov_vxyz_to_galcenrect(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
+    cov_galcencyl = cov_galcenrect_to_galcencyl(cov_galcenrect, phi)
+    return cov_galcencyl
+
+def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
+    """
+    NAME:
+       cov_vxyz_to_galcenrect
+    PURPOSE:
+       propagate uncertainties in vxyz to galactocentric rectangular coordinates
+    INPUT:
+       cov_vxyz - uncertainty covariance in U,V,W
+    OUTPUT:
+       cov(vx,vy,vz) [3,3]
+    HISTORY:
+       2018-03-22 - Written - Mackereth (LJMU)
+       2020-09-21- Moved to coords.py - Mackereth (UofT)
+    """
+    if len(numpy.shape(cov_vxyz)) < 3:
+        array = False
+        ndata = 1
     else:
-        cov_galcenrect = cov_vxyz_to_galcenrect_single(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
-        cov_galcencyl = cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi)
-        return cov_galcencyl
-
-def cov_vxyz_to_galcenrect_single(cov_vxyz,Xsun=1.,Zsun=0.):
-    """
-    NAME:
-       cov_vxyz_to_galcenrect_single
-    PURPOSE:
-       propagate uncertainties in vxyz to galactocentric rectangular coordinates
-    INPUT:
-       cov_vxyz - uncertainty covariance in U,V,W
-    OUTPUT:
-       cov(vx,vy,vz) [3,3]
-    HISTORY:
-       2018-03-22 - Written - Mackereth (LJMU)
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-    """
+        array = True
+        ndata = len(cov_vxyz)
     dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     R = numpy.array([[costheta,0.,-sintheta],
                   [0.,1.,0.],
                   [sintheta,0.,costheta]])
-    return numpy.dot(R.T,numpy.dot(cov_vxyz,R))
+    R = numpy.ones([ndata,3,3])*R
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vxyz, R[0]))
+    else:
+        return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
 
-def cov_vxyz_to_galcenrect_array(cov_vxyz,Xsun=1.,Zsun=0.):
+def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
     """
     NAME:
-       cov_vxyz_to_galcenrect_single
-    PURPOSE:
-       propagate uncertainties in vxyz to galactocentric rectangular coordinates
-    INPUT:
-       cov_vxyz - uncertainty covariance in U,V,W
-    OUTPUT:
-       cov(vx,vy,vz) [3,3]
-    HISTORY:
-       2018-03-22 - Written - Mackereth (LJMU)
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-    """
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
-                  [0.,1.,0.],
-                  [sintheta,0.,costheta]])
-    R = numpy.ones([len(cov_vxyz),3,3])*R
-    return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
-
-def cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi):
-    """
-    NAME:
-       cov_galcenrect_to_galcencyl_single
+       cov_galcenrect_to_galcencyl
     PURPOSE:
        propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
     INPUT:
@@ -956,36 +938,24 @@ def cov_galcenrect_to_galcencyl_single(cov_galcenrect, phi):
        2018-03-22 - Written - Mackereth (LJMU)
        2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
+    if len(numpy.shape(cov_galcenrect)) < 3:
+        array = False
+        ndata = 1
+    else:
+        array = True
+        ndata = len(cov_galcenrect)
     cosphi = numpy.cos(phi)
     sinphi = numpy.sin(phi)
-    R = numpy.array([[cosphi, sinphi, 0.],
-                 [-sinphi, cosphi, 0.],
-                 [0., 0., 1.]])
-    return numpy.dot(R, numpy.dot(cov_galcenrect, R.T))
-
-def cov_galcenrect_to_galcencyl_array(cov_galcenrect, phi):
-    """
-    NAME:
-       cov_galcenrect_to_galcencyl_single
-    PURPOSE:
-       propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
-    INPUT:
-       cov_galcenrect - uncertainty covariance in Galactocentric rectangular coords
-    OUTPUT:
-       cov(vR,vT,vz) [3,3]
-    HISTORY:
-       2018-03-22 - Written - Mackereth (LJMU)
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-    """
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
-    R = numpy.zeros([len(cov_galcenrect),3,3])
+    R = numpy.zeros([ndata,3,3])
     R[:,0,0] = cosphi
     R[:,0,1] = sinphi
     R[:,1,0] = -sinphi
     R[:,1,1] = cosphi
     R[:,2,2] = 1.
-    return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0], numpy.einsum('ij,jk->ik', cov_galcenrect, R[0].T))
+    else:
+        return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
 
 @scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
