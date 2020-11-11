@@ -836,11 +836,41 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     if degree:
         l*= _DEGTORAD
         b*= _DEGTORAD
-    if numpy.array(d).shape == ():
-        return cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,
-                                            l,b)
+    if hasattr(d, '__iter__'):
+        array=True
+        ndata = len(d)
     else:
-        out = cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b)
+        array=False
+        ndata=1
+    M = numpy.zeros((ndata,2,3))
+    M[:,0,0] = pmll
+    M[:,1,0] = pmbb
+    M[:,0,1] = d
+    M[:,1,2] = d
+    M= _K*M
+    cov_dpmllbb= numpy.zeros((ndata,3,3))
+    cov_dpmllbb[:,0,0]= e_d**2.
+    cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
+    if not array:
+        cov_vlvb = numpy.einsum('ij,jk->ik', M[0], numpy.einsum('ij,jk->ik', cov_dpmllbb[0], M[0].T))
+    else:
+        cov_vlvb = numpy.einsum('aij,ajk->aik', M, numpy.einsum('aij,jka->aik', cov_dpmllbb, M.T))
+    cov_vrvlvb= numpy.zeros((ndata,3,3))
+    cov_vrvlvb[:,0,0]= e_vr**2.
+    cov_vrvlvb[:,1:3,1:3]= cov_vlvb
+    R = numpy.zeros((ndata,3,3))
+    R[:,0,0] = numpy.cos(l)*numpy.cos(b)
+    R[:,0,1] = numpy.sin(l)*numpy.cos(b)
+    R[:,0,2] =  numpy.sin(b)
+    R[:,1,0] = -numpy.sin(l)
+    R[:,1,1] = numpy.cos(l)
+    R[:,2,0] = -numpy.cos(l)*numpy.sin(b)
+    R[:,2,1] = -numpy.sin(l)*numpy.sin(b)
+    R[:,2,2] =  numpy.cos(b)
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vrvlvb[0], R[0]))
+    else:
+        out = numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vrvlvb, R))
         return out
 
 def cov_dvrpmllbb_to_vxyz_array(d,e_d,e_vr,pmll,pmbb,cov_pmllbb, l, b):
