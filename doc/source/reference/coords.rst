@@ -12,6 +12,7 @@ self-explanatory names:
 
    cov_dvrpmllbb_to_vxyz <coordscovdvrpmllbbtovxyz.rst>
    cov_pmrapmdec_to_pmllpmbb <coordscovpmrapmdectopmllpmbb.rst>
+   cov_vxyz_to_galcencyl <coordscovvxyztogalcencyl.rst>
    custom_to_pmrapmdec <coordscustomtopmrapmdec.rst>
    custom_to_radec <coordscustomtoradec.rst>
    cyl_to_rect <coordscyltorect.rst>

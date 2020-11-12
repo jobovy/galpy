@@ -170,7 +170,7 @@ def test_radec_to_lb_otherepochs():
     ra, dec= 180., 90.
     try:
         lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
-                                    degree=False,epoch=1975.)   
+                                    degree=False,epoch=1975.)
     except IOError:
         pass
     else:
@@ -184,7 +184,7 @@ def test_radec_to_lb_otherepochs_apy():
     ra, dec= 180., 90.
     try:
         lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
-                                    degree=False,epoch='J2015')   
+                                    degree=False,epoch='J2015')
     except IOError:
         raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
     else:
@@ -214,13 +214,13 @@ def test_lb_to_radec():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= coords.lb_to_radec(l,b,degree=True)
     lt,bt= coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     _turn_on_apy()
     return None
 
@@ -245,13 +245,13 @@ def test_lb_to_radec_apy():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= coords.lb_to_radec(l,b,degree=True)
     lt,bt= coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     return None
 
 # Test that radec_to_lb and lb_to_radec are each other's inverse, using astropy
@@ -275,13 +275,13 @@ def test_lb_to_radec_apy_icrs():
     rat= ratdect[:,0]
     dect= ratdect[:,1]
     assert numpy.all(numpy.fabs(ra/180.*numpy.pi-rat) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
-    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.all(numpy.fabs(dec/180.*numpy.pi-dect) < 10.**-10.), 'lb_to_radec is not the inverse of radec_to_lb'
     #Also test for a negative l
     l,b= 240., 60.
     ra,dec= coords.lb_to_radec(l,b,degree=True)
     lt,bt= coords.radec_to_lb(ra,dec,degree=True)
-    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
-    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'   
+    assert numpy.fabs(lt-l) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
+    assert numpy.fabs(bt-b) < 10.**-10., 'lb_to_radec is not the inverse of radec_to_lb'
     return None
 
 def test_radec_to_lb_galpyvsastropy():
@@ -735,7 +735,7 @@ def test_vxvyvz_to_galcencyl():
     assert numpy.fabs(vgc[1]-6.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
     assert numpy.fabs(vgc[2]-35.) < 10.**-4., 'vxvyvz_to_galcenrect conversion did not work as expected'
     return None
-    
+
 def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     # Only run this for astropy>3
     if not _APY3: return None
@@ -847,7 +847,7 @@ def test_galcencyl_to_vxvyvz():
     assert numpy.fabs(vxyz[0]-10.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[1]+20.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
     assert numpy.fabs(vxyz[2]-30.) < 10.**-4., 'galcenrect_to_vxvyvz conversion did not work as expected'
-    return None   
+    return None
 
 def test_galcencyl_to_vxvyvz_asInverse():
     # Test that galcencyl_to_vxvyvz is the inverse of vxvyvz_to_galcencyl
@@ -955,7 +955,7 @@ def test_rectgal_to_sphergal():
     assert numpy.all(numpy.fabs(dt-d) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(vrt-vr) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     assert numpy.all(numpy.fabs(pmllt-pmll) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
-    assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'    
+    assert numpy.all(numpy.fabs(pmbbt-pmbb) < 10.**-10.), 'rectgal_to_sphergal conversion did not work as expected'
     return None
 
 def test_pmrapmdec_to_pmllpmbb():
@@ -972,7 +972,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmllpmbb= coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
                                                   os*ra,os*dec,
                                                   degree=True,epoch=1950.)
-    
+
     pmll= pmllpmbb[:,0]
     pmbb= pmllpmbb[:,1]
     assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmrapmdec_to_pmllpmbb conversion did not work as expected close to the NGP'
@@ -983,7 +983,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmllpmbb= coords.pmrapmdec_to_pmllpmbb(os*pmra,os*pmdec,
                                                   os*ra,os*dec,
                                                   degree=True,epoch=1950.)
-    
+
     pmll= pmllpmbb[:,0]
     pmbb= pmllpmbb[:,1]
     assert numpy.all(numpy.fabs(numpy.sqrt(pmll**2.+pmbb**2.)-numpy.sqrt(pmra**2.+pmdec**2.)) < 10.**-10.), 'pmrapmdec_to_pmllpmbb conversion did not work as expected for the NGP'
@@ -1042,7 +1042,7 @@ def test_cov_pmradec_to_pmllbb():
                                                        ra,dec,
                                                        degree=True,
                                                        epoch=1950.)
-    
+
     assert numpy.fabs(cov_pmllpmbb[0,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(cov_pmllpmbb[0,1]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(cov_pmllpmbb[1,0]-100.) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
@@ -1057,7 +1057,7 @@ def test_cov_pmradec_to_pmllbb():
                                                         epoch=1950.)
     assert numpy.fabs(numpy.linalg.det(cov_pmllpmbb)-numpy.linalg.det(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
     assert numpy.fabs(numpy.trace(cov_pmllpmbb)-numpy.trace(cov_pmrapmdec)) < 10.**-10., 'cov_pmradec_to_pmllbb conversion did not work as expected'
-    # This is a random position, check that the conversion makes sense, arrays
+    # This is a random position, check that the conversion makes sense, arrays (using einsum)
     ra, dec= 132.25, -23.4
     icov_pmrapmdec= numpy.array([[100.,100.],[100.,400.]])
     cov_pmrapmdec= numpy.empty((3,2,2))
@@ -1106,7 +1106,7 @@ def test_cov_dvrpmllbb_to_vxyz():
                       -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
                       -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-    #Another one, w/ arrays
+    #Another one, w/ arrays (using einsum)
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
     tcov_pmllpmbb= numpy.array([[100.,0.],[0.,400.]])
@@ -1126,7 +1126,27 @@ def test_cov_dvrpmllbb_to_vxyz():
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
                           -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+
     return None
+
+def test_cov_vxyz_to_galcencyl():
+    #test point - system should flip with phi = pi
+    cov_vxyz = [[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]]
+    phi = numpy.pi
+    cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phi)
+    assert (cov_galcencyl[0,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[2,0] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[2,1] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    #try an array
+    cov_vxyz = [[[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]],[[1.,1.,1.],[1.,1.,1.],[1.,1.,1.]]]
+    phis = [0., numpy.pi]
+    cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phis)
+    assert (cov_galcencyl[1,0,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,1,2] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2,0] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[1,2,1] + 1 < 10.**-8).all(), 'cov_vxyz_to_galcencyl conversion did not work as expected'
+    assert (cov_galcencyl[0] - 1. < 10**-8).all()
 
 def test_dl_to_rphi_2d():
     #This is a tangent point

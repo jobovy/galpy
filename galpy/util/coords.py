@@ -48,15 +48,15 @@
 #Copyright (c) 2010 - 2020, Jo Bovy
 #All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without 
+#Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are met:
 #
-#   Redistributions of source code must retain the above copyright notice, 
+#   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
-#   Redistributions in binary form must reproduce the above copyright notice, 
-#      this list of conditions and the following disclaimer in the 
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#   The name of the author may not be used to endorse or promote products 
+#   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
 #THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -458,8 +458,8 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
     #Whether to use degrees and scalar input is handled by decorators
     if XYZ: #undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./numpy.pi 
-            b*= 180./numpy.pi 
+            l*= 180./numpy.pi
+            b*= 180./numpy.pi
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -524,8 +524,8 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
     #Whether to use degrees and scalar input is handled by decorators
     if XYZ: #undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./numpy.pi 
-            b*= 180./numpy.pi 
+            l*= 180./numpy.pi
+            b*= 180./numpy.pi
         lbd= XYZ_to_lbd(l,b,d,degree=False)
         l= lbd[:,0]
         b= lbd[:,1]
@@ -742,40 +742,15 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     HISTORY:
 
        2010-04-12 - Written - Bovy (NYU)
+       2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
-    if len(cov_pmradec.shape) == 3:
-        out= numpy.zeros(cov_pmradec.shape)
-        ndata= out.shape[0]
-        lb = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        for ii in range(ndata):
-            out[ii,:,:]= cov_pmradec_to_pmllbb_single(cov_pmradec[ii,:,:],
-                                                      ra[ii],dec[ii],lb[ii,1],
-                                                      degree,epoch)
-        return out
+    if hasattr(ra, '__iter__'):
+        array=True
+        ndata = len(ra)
     else:
-        l,b = radec_to_lb(ra,dec,degree=degree,epoch=epoch)
-        return cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree,epoch)
-
-def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0):
-    """
-    NAME:
-       cov_pmradec_to_pmllbb_single
-    PURPOSE:
-       propagate the proper motions errors through the rotation from (ra,dec)
-       to (l,b) for scalar inputs
-    INPUT:
-       covar_pmradec - uncertainty covariance matrix of the proper motion
-                      in ra (multplied with cos(dec)) and dec [2,2] or [:,2,2]
-       ra - right ascension
-       dec - declination
-       degree - if True, ra and dec are given in degrees (default=False)
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-    OUTPUT:
-       cov_pmllbb
-    HISTORY:
-       2010-04-12 - Written - Bovy (NYU)
-    """
+        array=False
+        ndata=1
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
         sindec_ngp= numpy.sin(dec_ngp)
@@ -799,8 +774,16 @@ def cov_pmradec_to_pmllbb_single(cov_pmradec,ra,dec,b,degree=False,epoch=2000.0)
     norm= numpy.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    P= numpy.array([[cosphi,sinphi],[-sinphi,cosphi]])
-    return numpy.dot(P,numpy.dot(cov_pmradec,P.T))
+    P = numpy.zeros([ndata,2,2])
+    P[:,0,0] = cosphi
+    P[:,0,1] = sinphi
+    P[:,1,0] = -sinphi
+    P[:,1,1] = cosphi
+    if not array:
+        return numpy.einsum('ij,jk->ik', P[0], numpy.einsum('ij,jk->ik', cov_pmradec, P[0].T))
+    else:
+        return numpy.einsum('aij,ajk->aik', P, numpy.einsum('aij,jka->aik', cov_pmradec, P.T))
+
 
 def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
                           plx=False,degree=False):
@@ -844,6 +827,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     HISTORY:
 
        2010-04-12 - Written - Bovy (NYU)
+       2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
     if plx:
@@ -852,53 +836,126 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     if degree:
         l*= _DEGTORAD
         b*= _DEGTORAD
-    if numpy.array(d).shape == ():
-        return cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,
-                                            l,b)
+    if hasattr(d, '__iter__'):
+        array=True
+        ndata = len(d)
     else:
-        ndata= len(d)
-        out= numpy.zeros((ndata,3,3))
-        for ii in range(ndata):
-            out[ii,:,:]= cov_dvrpmllbb_to_vxyz_single(d[ii],e_d[ii],e_vr[ii],
-                                                      pmll[ii],pmbb[ii],
-                                                      cov_pmllbb[ii,:,:],
-                                                      l[ii],b[ii])
-
+        array=False
+        ndata=1
+    M = numpy.zeros((ndata,2,3))
+    M[:,0,0] = pmll
+    M[:,1,0] = pmbb
+    M[:,0,1] = d
+    M[:,1,2] = d
+    M= _K*M
+    cov_dpmllbb= numpy.zeros((ndata,3,3))
+    cov_dpmllbb[:,0,0]= e_d**2.
+    cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
+    if not array:
+        cov_vlvb = numpy.einsum('ij,jk->ik', M[0], numpy.einsum('ij,jk->ik', cov_dpmllbb[0], M[0].T))
+    else:
+        cov_vlvb = numpy.einsum('aij,ajk->aik', M, numpy.einsum('aij,jka->aik', cov_dpmllbb, M.T))
+    cov_vrvlvb= numpy.zeros((ndata,3,3))
+    cov_vrvlvb[:,0,0]= e_vr**2.
+    cov_vrvlvb[:,1:3,1:3]= cov_vlvb
+    R = numpy.zeros((ndata,3,3))
+    R[:,0,0] = numpy.cos(l)*numpy.cos(b)
+    R[:,0,1] = numpy.sin(l)*numpy.cos(b)
+    R[:,0,2] =  numpy.sin(b)
+    R[:,1,0] = -numpy.sin(l)
+    R[:,1,1] = numpy.cos(l)
+    R[:,2,0] = -numpy.cos(l)*numpy.sin(b)
+    R[:,2,1] = -numpy.sin(l)*numpy.sin(b)
+    R[:,2,2] =  numpy.cos(b)
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vrvlvb[0], R[0]))
+    else:
+        out = numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vrvlvb, R))
         return out
-    
-def cov_dvrpmllbb_to_vxyz_single(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b):
+
+
+def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
     """
     NAME:
-       cov_dvrpmllbb_to_vxyz
+       cov_vxyz_to_galcencyl
     PURPOSE:
-       propagate distance, radial velocity, and proper motion uncertainties to
-       Galactic coordinates for scalar inputs
+       propagate uncertainties in vxyz to galactocentric cylindrical coordinates
     INPUT:
-       d - distance [kpc, as/mas for plx]
-       e_d - distance uncertainty [kpc, [as/mas] for plx]
-       e_vr  - low velocity uncertainty [km/s]
-       pmll - proper motion in l (*cos(b)) [ [as/mas]/yr ]
-       pmbb - proper motion in b [ [as/mas]/yr ]
-       cov_pmllbb - uncertainty covariance for proper motion
-       l - Galactic longitude [rad]
-       b - Galactic lattitude [rad]
+       cov_vxyz - uncertainty covariance in U,V,W
+       phi - angular position of star in galactocentric cylindrical coords
+    OUTPUT:
+       cov(vR,vT,vz) [3,3]
+    HISTORY:
+       2018-03-22 - Written - Mackereth (LJMU)
+       2020-09-21- Moved to coords.py - Mackereth (UofT)
+    """
+    cov_galcenrect = cov_vxyz_to_galcenrect(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
+    cov_galcencyl = cov_galcenrect_to_galcencyl(cov_galcenrect, phi)
+    return cov_galcencyl
+
+def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
+    """
+    NAME:
+       cov_vxyz_to_galcenrect
+    PURPOSE:
+       propagate uncertainties in vxyz to galactocentric rectangular coordinates
+    INPUT:
+       cov_vxyz - uncertainty covariance in U,V,W
     OUTPUT:
        cov(vx,vy,vz) [3,3]
     HISTORY:
-       2010-04-12 - Written - Bovy (NYU)
+       2018-03-22 - Written - Mackereth (LJMU)
+       2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
-    M= _K*numpy.array([[pmll,d,0.],[pmbb,0.,d]])
-    cov_dpmllbb= numpy.zeros((3,3))
-    cov_dpmllbb[0,0]= e_d**2.
-    cov_dpmllbb[1:3,1:3]= cov_pmllbb
-    cov_vlvb= numpy.dot(M,numpy.dot(cov_dpmllbb,M.T))
-    cov_vrvlvb= numpy.zeros((3,3))
-    cov_vrvlvb[0,0]= e_vr**2.
-    cov_vrvlvb[1:3,1:3]= cov_vlvb
-    R= numpy.array([[numpy.cos(l)*numpy.cos(b), numpy.sin(l)*numpy.cos(b), numpy.sin(b)],
-                 [-numpy.sin(l),numpy.cos(l),0.],
-                 [-numpy.cos(l)*numpy.sin(b),-numpy.sin(l)*numpy.sin(b), numpy.cos(b)]])
-    return numpy.dot(R.T,numpy.dot(cov_vrvlvb,R))
+    if len(numpy.shape(cov_vxyz)) < 3:
+        array = False
+        ndata = 1
+    else:
+        array = True
+        ndata = len(cov_vxyz)
+    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
+    costheta, sintheta= Xsun/dgc, Zsun/dgc
+    R = numpy.array([[costheta,0.,-sintheta],
+                  [0.,1.,0.],
+                  [sintheta,0.,costheta]])
+    R = numpy.ones([ndata,3,3])*R
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vxyz, R[0]))
+    else:
+        return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
+
+def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
+    """
+    NAME:
+       cov_galcenrect_to_galcencyl
+    PURPOSE:
+       propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
+    INPUT:
+       cov_galcenrect - uncertainty covariance in Galactocentric rectangular coords
+    OUTPUT:
+       cov(vR,vT,vz) [3,3]
+    HISTORY:
+       2018-03-22 - Written - Mackereth (LJMU)
+       2020-09-21- Moved to coords.py - Mackereth (UofT)
+    """
+    if len(numpy.shape(cov_galcenrect)) < 3:
+        array = False
+        ndata = 1
+    else:
+        array = True
+        ndata = len(cov_galcenrect)
+    cosphi = numpy.cos(phi)
+    sinphi = numpy.sin(phi)
+    R = numpy.zeros([ndata,3,3])
+    R[:,0,0] = cosphi
+    R[:,0,1] = sinphi
+    R[:,1,0] = -sinphi
+    R[:,1,1] = cosphi
+    R[:,2,2] = 1.
+    if not array:
+        return numpy.einsum('ij,jk->ik', R[0], numpy.einsum('ij,jk->ik', cov_galcenrect, R[0].T))
+    else:
+        return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
 
 @scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
@@ -920,7 +977,7 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        Z - Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -963,7 +1020,7 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        X, Y, Z - Galactocentric rectangular coordinates
 
        Xsun - cylindrical distance to the GC (can be array of same length as X)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as X)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1001,7 +1058,7 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
                                 numpy.sign(Xsun)*costheta]]),
                     numpy.array([X,Y,Z])).T+numpy.array([dgc,0.,0.])
     if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T,out.T).T    
+        return numpy.dot(galcen_extra_rot.T,out.T).T
     else:
         return out
 
@@ -1056,7 +1113,7 @@ def cyl_to_rect(R,phi,Z):
 
     """
     return (R*numpy.cos(phi),R*numpy.sin(phi),Z)
-    
+
 def cyl_to_spher(R,Z, phi):
     """
     NAME:
@@ -1083,7 +1140,7 @@ def cyl_to_spher(R,Z, phi):
     theta = numpy.arctan2(R, Z)
     r = (R**2 + Z**2)**.5
     return (r,theta, phi)
-    
+
 def spher_to_cyl(r, theta, phi):
     """
     NAME:
@@ -1131,7 +1188,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        Z - Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1148,7 +1205,7 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     XYZ= numpy.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun,
                                          _extra_rot=_extra_rot))
     return numpy.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
-    
+
 @scalarDecorator
 def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     """
@@ -1165,7 +1222,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        R, phi, Z - Galactocentric cylindrical coordinates
 
        Xsun - cylindrical distance to the GC (can be array of same length as R)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as R)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1184,7 +1241,7 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
     Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
     return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun,
                              _extra_rot=_extra_rot)
-    
+
 @scalarDecorator
 def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
                          _extra_rot=True):
@@ -1208,7 +1265,7 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        vsun - velocity of the sun in the GC frame ndarray[3]
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1264,7 +1321,7 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        vsun - velocity of the sun in the GC frame ndarray[3]
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
@@ -1308,7 +1365,7 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vXg; shape [3,N])
 
        Xsun - cylindrical distance to the GC (can be array of same length as vXg)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1377,7 +1434,7 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vRg; shape [3,N])
 
        Xsun - cylindrical distance to the GC (can be array of same length as vRg)
-       
+
        Zsun - Sun's height above the midplane (can be array of same length as vRg)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
@@ -1450,7 +1507,7 @@ def spher_to_cyl_vec(vr,vT,vtheta,theta):
        vT - Galactocentric spherical azimuthal velocity
 
        vtheta - Galactocentric spherical polar velocity
-       
+
        theta - Galactocentric spherical polar angle
 
     OUTPUT:
@@ -1478,11 +1535,11 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
 
     INPUT:
 
-       vx - 
+       vx -
 
-       vy - 
+       vy -
 
-       vz - 
+       vz -
 
        X - X
 
@@ -1618,7 +1675,7 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        if 3: X,Y,Z
 
        Xsun - cylindrical distance to the GC
-       
+
        Zsun - Sun's height above the midplane
 
     OUTPUT:
@@ -2062,7 +2119,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     PURPOSE:
 
        calculate the prolate spheroidal coordinates (lambda,nu) from
-       galactocentric cylindrical coordinates (R,z)            
+       galactocentric cylindrical coordinates (R,z)
        by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
             R^2 = (l+a) * (n+a) / (a-g)
             z^2 = (l+g) * (n+g) / (g-a)
@@ -2072,7 +2129,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
 
         R     - Galactocentric cylindrical radius
         z     - vertical height
-        ac    - axis ratio of the coordinate surfaces 
+        ac    - axis ratio of the coordinate surfaces
                 (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
         Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
                 Delta=sqrt(g-a)
@@ -2090,7 +2147,7 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
     a = g - Delta**2
     term  =  R**2 + z**2 - a - g
     discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-    l = 0.5 * (term + numpy.sqrt(discr))  
+    l = 0.5 * (term + numpy.sqrt(discr))
     n = 0.5 * (term - numpy.sqrt(discr))
     if isinstance(z,float) and z == 0.:
         l = R**2 - a
@@ -2215,7 +2272,7 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
 
         l     - prolate spheroidal coordinate lambda
         n     - prolate spheroidal coordinate nu
-        ac    - axis ratio of the coordinate surfaces 
+        ac    - axis ratio of the coordinate surfaces
                 (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
         Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
                 Delta=sqrt(g-a)
@@ -2510,11 +2567,11 @@ def _parse_epoch_frame_apy(epoch):
     else: frame= 'icrs'
     return (epoch,frame)
 
-# Matrix to rotate to the astropy Galactocentric frame: astropy's 
-# Galactocentric frame is slightly off from the one that we get by simply 
+# Matrix to rotate to the astropy Galactocentric frame: astropy's
+# Galactocentric frame is slightly off from the one that we get by simply
 # taking Galactic coordinates and transforming them: transformation from
 # Bovy (2011) maps NGP --> (0,0,1), astropy to (v. small, v. small, 1-v. small)
-# so we rotate Bovy (2011) such that we agree; for that we compute what NGP 
+# so we rotate Bovy (2011) such that we agree; for that we compute what NGP
 # goes to using astropy's transformations
 theta,dec_ngp,ra_ngp= get_epoch_angles(None) # None = ICRS, basis for astropy
 dec_gc,ra_gc= -28.936175/180.*numpy.pi,266.4051/180.*numpy.pi # from apy def.
