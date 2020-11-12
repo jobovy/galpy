@@ -3257,7 +3257,9 @@ def flatten(Pot):
         2018-03-14 - Written - Bovy (UofT)
     
     """
-    if isinstance(Pot,list):
+    if isinstance(Pot, Potential):
+        return Pot
+    elif isinstance(Pot, list):
         return list(_flatten_list(Pot))
     else:
         return Pot
