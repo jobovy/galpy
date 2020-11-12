@@ -742,6 +742,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     HISTORY:
 
        2010-04-12 - Written - Bovy (NYU)
+
        2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
@@ -827,6 +828,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     HISTORY:
 
        2010-04-12 - Written - Bovy (NYU)
+
        2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
@@ -873,21 +875,32 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
         out = numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vrvlvb, R))
         return out
 
-
 def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
     """
     NAME:
+
        cov_vxyz_to_galcencyl
+
     PURPOSE:
+
        propagate uncertainties in vxyz to galactocentric cylindrical coordinates
+
     INPUT:
+
        cov_vxyz - uncertainty covariance in U,V,W
+
        phi - angular position of star in galactocentric cylindrical coords
+
     OUTPUT:
+
        cov(vR,vT,vz) [3,3]
+
     HISTORY:
+
        2018-03-22 - Written - Mackereth (LJMU)
+
        2020-09-21- Moved to coords.py - Mackereth (UofT)
+
     """
     cov_galcenrect = cov_vxyz_to_galcenrect(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
     cov_galcencyl = cov_galcenrect_to_galcencyl(cov_galcenrect, phi)
@@ -896,16 +909,27 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
 def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
     """
     NAME:
+
        cov_vxyz_to_galcenrect
+
     PURPOSE:
+
        propagate uncertainties in vxyz to galactocentric rectangular coordinates
+
     INPUT:
+
        cov_vxyz - uncertainty covariance in U,V,W
+
     OUTPUT:
+
        cov(vx,vy,vz) [3,3]
+
     HISTORY:
+
        2018-03-22 - Written - Mackereth (LJMU)
+
        2020-09-21- Moved to coords.py - Mackereth (UofT)
+
     """
     if len(numpy.shape(cov_vxyz)) < 3:
         array = False
@@ -927,16 +951,27 @@ def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
 def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
     """
     NAME:
+
        cov_galcenrect_to_galcencyl
+
     PURPOSE:
+
        propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
+
     INPUT:
+
        cov_galcenrect - uncertainty covariance in Galactocentric rectangular coords
+
     OUTPUT:
+
        cov(vR,vT,vz) [3,3]
+
     HISTORY:
+
        2018-03-22 - Written - Mackereth (LJMU)
+
        2020-09-21- Moved to coords.py - Mackereth (UofT)
+
     """
     if len(numpy.shape(cov_galcenrect)) < 3:
         array = False
