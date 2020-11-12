@@ -746,12 +746,9 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
        2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
-    if hasattr(ra, '__iter__'):
-        array=True
-        ndata = len(ra)
-    else:
-        array=False
-        ndata=1
+    scalar= not hasattr(ra, '__iter__')
+    if scalar:
+        cov_pmradec= cov_pmradec[numpy.newaxis,:,:]
     theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
     if degree:
         sindec_ngp= numpy.sin(dec_ngp)
@@ -775,16 +772,17 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
     norm= numpy.sqrt(cosphi**2.+sinphi**2.)
     cosphi/= norm
     sinphi/= norm
-    P = numpy.zeros([ndata,2,2])
+    P = numpy.zeros([len(cov_pmradec),2,2])
     P[:,0,0] = cosphi
     P[:,0,1] = sinphi
     P[:,1,0] = -sinphi
     P[:,1,1] = cosphi
-    if not array:
-        return numpy.einsum('ij,jk->ik', P[0], numpy.einsum('ij,jk->ik', cov_pmradec, P[0].T))
+    out= numpy.einsum('aij,ajk->aik',P,
+                     numpy.einsum('aij,jka->aik',cov_pmradec,P.T))
+    if scalar:
+        return out[0]
     else:
-        return numpy.einsum('aij,ajk->aik', P, numpy.einsum('aij,jka->aik', cov_pmradec, P.T))
-
+        return out
 
 def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
                           plx=False,degree=False):
@@ -838,12 +836,10 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     if degree:
         l*= _DEGTORAD
         b*= _DEGTORAD
-    if hasattr(d, '__iter__'):
-        array=True
-        ndata = len(d)
-    else:
-        array=False
-        ndata=1
+    scalar= not hasattr(d,'__iter__')
+    if scalar:
+        cov_pmllbb= cov_pmllbb[numpy.newaxis,:,:]
+    ndata= len(cov_pmllbb)
     M = numpy.zeros((ndata,2,3))
     M[:,0,0] = pmll
     M[:,1,0] = pmbb
@@ -853,10 +849,10 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     cov_dpmllbb= numpy.zeros((ndata,3,3))
     cov_dpmllbb[:,0,0]= e_d**2.
     cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
-    if not array:
-        cov_vlvb = numpy.einsum('ij,jk->ik', M[0], numpy.einsum('ij,jk->ik', cov_dpmllbb[0], M[0].T))
-    else:
-        cov_vlvb = numpy.einsum('aij,ajk->aik', M, numpy.einsum('aij,jka->aik', cov_dpmllbb, M.T))
+    cov_vlvb= numpy.einsum('aij,ajk->aik',M,
+                           numpy.einsum('aij,jka->aik',cov_dpmllbb,M.T))
+    if scalar:
+        cov_vlvb= cov_vlvb[0]
     cov_vrvlvb= numpy.zeros((ndata,3,3))
     cov_vrvlvb[:,0,0]= e_vr**2.
     cov_vrvlvb[:,1:3,1:3]= cov_vlvb
@@ -869,10 +865,11 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
     R[:,2,0] = -numpy.cos(l)*numpy.sin(b)
     R[:,2,1] = -numpy.sin(l)*numpy.sin(b)
     R[:,2,2] =  numpy.cos(b)
-    if not array:
-        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vrvlvb[0], R[0]))
+    out= numpy.einsum('ija,ajk->aik',R.T,
+                      numpy.einsum('aij,ajk->aik',cov_vrvlvb,R))
+    if scalar:
+        return out[0]
     else:
-        out = numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vrvlvb, R))
         return out
 
 def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
@@ -931,22 +928,21 @@ def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
        2020-09-21- Moved to coords.py - Mackereth (UofT)
 
     """
-    if len(numpy.shape(cov_vxyz)) < 3:
-        array = False
-        ndata = 1
-    else:
-        array = True
-        ndata = len(cov_vxyz)
+    scalar= cov_vxyz.ndim < 3
+    if scalar:
+        cov_vxyz= cov_vxyz[numpy.newaxis,:,:]
     dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
     costheta, sintheta= Xsun/dgc, Zsun/dgc
     R = numpy.array([[costheta,0.,-sintheta],
                   [0.,1.,0.],
                   [sintheta,0.,costheta]])
-    R = numpy.ones([ndata,3,3])*R
-    if not array:
-        return numpy.einsum('ij,jk->ik', R[0].T, numpy.einsum('ij,jk->ik', cov_vxyz, R[0]))
+    R = numpy.ones([len(cov_vxyz),3,3])*R
+    out= numpy.einsum('ija,ajk->aik',R.T,
+                      numpy.einsum('aij,ajk->aik',cov_vxyz,R))
+    if scalar:
+        return out[0]
     else:
-        return numpy.einsum('ija,ajk->aik', R.T, numpy.einsum('aij,ajk->aik', cov_vxyz, R))
+        return out
 
 def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
     """
@@ -973,24 +969,23 @@ def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
        2020-09-21- Moved to coords.py - Mackereth (UofT)
 
     """
-    if len(numpy.shape(cov_galcenrect)) < 3:
-        array = False
-        ndata = 1
-    else:
-        array = True
-        ndata = len(cov_galcenrect)
+    scalar= cov_galcenrect.ndim < 3
+    if scalar:
+        cov_galcenrect= cov_galcenrect[numpy.newaxis,:,:]
     cosphi = numpy.cos(phi)
     sinphi = numpy.sin(phi)
-    R = numpy.zeros([ndata,3,3])
+    R = numpy.zeros([len(cov_galcenrect),3,3])
     R[:,0,0] = cosphi
     R[:,0,1] = sinphi
     R[:,1,0] = -sinphi
     R[:,1,1] = cosphi
     R[:,2,2] = 1.
-    if not array:
-        return numpy.einsum('ij,jk->ik', R[0], numpy.einsum('ij,jk->ik', cov_galcenrect, R[0].T))
+    out= numpy.einsum('aij,ajk->aik',R,
+                      numpy.einsum('aij,jka->aik',cov_galcenrect,R.T))
+    if scalar:
+        return out[0]
     else:
-        return numpy.einsum('aij,ajk->aik', R, numpy.einsum('aij,jka->aik', cov_galcenrect, R.T))
+        return out
 
 @scalarDecorator
 def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
