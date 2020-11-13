@@ -1,5 +1,6 @@
 # Class that implements anisotropic DFs of the Osipkov-Merritt type
 import numpy
+from scipy import integrate, special
 from ..util import conversion
 from ..potential import evaluatePotentials
 from .sphericaldf import anisotropicsphericaldf
@@ -99,3 +100,16 @@ class osipkovmerrittdf(anisotropicsphericaldf):
         out= super(osipkovmerrittdf,self)._sample_v(r,eta,n=n)
         # Transform to v
         return out/numpy.sqrt(1.+r**2./self._ra2*numpy.sin(eta)**2.)
+
+    def _vmomentdensity(self,r,n,m):
+         if m%2 == 1 or n%2 == 1:
+             return 0.
+         psir= -evaluatePotentials(self._pot,r,0,use_physical=False)
+         return 2.*numpy.pi*integrate.quad(lambda v: v**(2.+m+n)
+                                    *self.fQ(-evaluatePotentials(self._pot,r,0,
+                                                         use_physical=False)
+                                             -0.5*v**2.),
+                             0.,self._vmax_at_r(self._pot,r))[0]\
+            *special.gamma(m/2.+1.)*special.gamma((n+1)/2.)/\
+            special.gamma(0.5*(m+n+3.))/(1+r**2./self._ra2)**(m/2+1)
+    

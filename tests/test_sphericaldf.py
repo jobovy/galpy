@@ -421,7 +421,7 @@ def test_osipkovmerritt_hernquist_dens_directint():
     ras= [0.3,2.3,5.7]
     for ra in ras:
         dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
-        tol= 1e-7
+        tol= 1e-5
         check_dens_directint(dfh,pot,tol,
                              lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
                              rmin=pot._scale/10.,
@@ -443,7 +443,7 @@ def test_osipkovmerritt_hernquist_sigmar_directint():
     ras= [0.3,2.3,5.7]
     for ra in ras:
         dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
-        tol= 1e-5
+        tol= 1e-4
         check_sigmar_against_jeans_directint(dfh,pot,tol,
                                              beta=lambda r: 1./(1.+ra**2./r**2.),
                                              rmin=pot._scale/10.,
