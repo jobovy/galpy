@@ -58,7 +58,7 @@ class constantbetadf(anisotropicsphericaldf):
         E, L, _= args
         return L**(-2*self._beta)*self.fE(E)
 
-    def _sample_eta(self,n=1):
+    def _sample_eta(self,r,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
         deta = 0.00005*numpy.pi
         etas = (numpy.arange(0, numpy.pi, deta)+deta/2)

@@ -4,7 +4,7 @@ import numpy
 from scipy import special
 from galpy import potential
 from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
-    isotropicPlummerdf
+    isotropicPlummerdf, osipkovmerrittHernquistdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -109,7 +109,7 @@ def test_isotropic_hernquist_sigmar():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
-    samp= dfh.sample(n=100000)
+    samp= dfh.sample(n=300000)
     tol= 0.05
     check_sigmar_against_jeans(samp,pot,tol,beta=0.,
                                rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
@@ -265,7 +265,7 @@ def test_anisotropic_hernquist_sigmar():
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         numpy.random.seed(10)
-        samp= dfh.sample(n=100000)
+        samp= dfh.sample(n=300000)
         tol= 0.05
         check_sigmar_against_jeans(samp,pot,tol,beta=beta,
                                    rmin=pot._scale/10.,rmax=pot._scale*10.,
@@ -351,6 +351,116 @@ def test_anisotropic_hernquist_diffcalls():
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
         # Also as orbit
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+    return None
+
+########################### OSIPKOV-MERRITT HERNQUIST DF ######################
+def test_osipkovmerritt_hernquist_dens_spherically_symmetric():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        # Check spherical symmetry for different harmonics l,m
+        tol= 1e-2
+        check_spherical_symmetry(samp,0,0,tol)
+        check_spherical_symmetry(samp,1,0,tol)
+        check_spherical_symmetry(samp,1,-1,tol)
+        check_spherical_symmetry(samp,1,1,tol)
+        check_spherical_symmetry(samp,2,0,tol)
+        check_spherical_symmetry(samp,2,-1,tol)
+        check_spherical_symmetry(samp,2,-2,tol)
+        check_spherical_symmetry(samp,2,1,tol)
+        check_spherical_symmetry(samp,2,2,tol)
+        # and some higher order ones
+        check_spherical_symmetry(samp,3,1,tol)
+        check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_osipkovmerritt_hernquist_dens_massprofile():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 5*1e-3
+        check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                    /pot.mass(numpy.amax(samp.r())),
+                                    tol,skip=1000)
+    return None
+
+def test_osipkovmerritt_hernquist_sigmar():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 0.05
+        check_sigmar_against_jeans(samp,pot,tol,
+                                   beta=lambda r: 1./(1.+ra**2./r**2.),
+                                   rmin=pot._scale/10.,rmax=pot._scale*10.,
+                                   bins=31)
+    return None
+
+def test_osipkovmerritt_hernquist_beta():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.06
+        check_beta(samp,pot,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
+                   rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_osipkovmerritt_hernquist_dens_directint():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        tol= 1e-7
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,bins=6)
+    return None
+
+def test_osipkovmerritt_hernquist_meanvr_directint():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        tol= 1e-8
+        check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
+                               rmax=pot._scale*10.,bins=6)
+    return None
+
+def test_osipkovmerritt_hernquist_sigmar_directint():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        tol= 1e-5
+        check_sigmar_against_jeans_directint(dfh,pot,tol,
+                                             beta=lambda r: 1./(1.+ra**2./r**2.),
+                                             rmin=pot._scale/10.,
+                                             rmax=pot._scale*10.,
+                                             bins=6)
+    return None
+
+def test_osipkovmerritt_hernquist_beta_directint():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        tol= 1e-8
+        check_beta_directint(dfh,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,
+                             bins=6)
     return None
 
 ############################# ISOTROPIC PLUMMER DF ############################
@@ -489,7 +599,7 @@ def test_king_sigmar():
         numpy.random.seed(10)
         samp= dfk.sample(n=1000000)
         # lower tolerance closer to rt because fewer stars there
-        tol= 0.09
+        tol= 0.1
         check_sigmar_against_jeans(samp,pot,tol,beta=0.,
                                    rmin=dfk._scale/10.,rmax=dfk.rt*0.7,bins=31)
         tol= 0.2
@@ -504,7 +614,7 @@ def test_king_beta():
     samp= dfk.sample(n=1000000)
     tol= 6*1e-2
     # lower tolerance closer to rt because fewer stars there
-    tol= 0.12
+    tol= 0.135
     check_beta(samp,pot,tol,beta=0.,rmin=dfk._scale/10.,rmax=dfk.rt,
                bins=31)
     return None
@@ -630,14 +740,14 @@ def test_isotropic_hernquist_unitsofsamples():
 ############################### HELPER FUNCTIONS ##############################
 def check_spherical_symmetry(samp,l,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
-    spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
+    spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
     thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
     assert numpy.fabs(numpy.sum(special.lpmv(m,l,numpy.cos(thetas))*numpy.cos(m*phis))/samp.size-(l==0)*(m==0)) < tol, 'Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({},{})'.format(l,m)
     return None
 
 def check_azimuthal_symmetry(samp,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
-    spherical harmonic |Y_mn|^2 over the sample, should be zero unless l=m=0"""
+    spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
     thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
     assert numpy.fabs(numpy.sum(numpy.cos(m*phis))/samp.size-(m==0)) < tol, 'Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {}'.format(m)
     return None
@@ -701,7 +811,7 @@ def check_beta(samp,pot,tol,beta=0.,
     if not callable(beta):
         beta_func= lambda r: beta
     else:
-        beta_func= beta 
+        beta_func= beta
     assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value for beta = {}".format(beta)
     return None
 
