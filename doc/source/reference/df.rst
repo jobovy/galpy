@@ -70,6 +70,7 @@ Anisotropic versions also exist:
    :maxdepth: 2
 
    Hernquist DF with constant anisotropy beta <dfhernquistconstantbeta.rst>
+   Hernquist DF with Osipkov-Merritt anisotropy <dfhernquistosipkov.rst>
 
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
