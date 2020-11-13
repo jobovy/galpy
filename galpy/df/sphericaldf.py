@@ -276,8 +276,8 @@ class sphericaldf(df):
          
             2020-09-04 - Written - Bovy (UofT)
         """
-        return 1.-self.sigmat(r,use_physical=False)**2./2.\
-            /self.sigmar(r,use_physical=False)**2.
+        r= conversion.parse_length(r,ro=self._ro)
+        return 1.-self._vmomentdensity(r,0,2)/2./self._vmomentdensity(r,2,0)
     
 ############################### SAMPLING THE DF################################
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
