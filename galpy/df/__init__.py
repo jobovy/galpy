@@ -9,6 +9,7 @@ from . import sphericaldf
 from . import eddingtondf
 from . import isotropicHernquistdf
 from . import constantbetaHernquistdf
+from . import osipkovmerrittHernquistdf
 from . import kingdf
 from . import isotropicPlummerdf
 #
@@ -42,5 +43,6 @@ sphericaldf= sphericaldf.sphericaldf
 eddingtondf= eddingtondf.eddingtondf
 isotropicHernquistdf= isotropicHernquistdf.isotropicHernquistdf
 constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
+osipkovmerrittHernquistdf= osipkovmerrittHernquistdf.osipkovmerrittHernquistdf
 kingdf= kingdf.kingdf
 isotropicPlummerdf= isotropicPlummerdf.isotropicPlummerdf

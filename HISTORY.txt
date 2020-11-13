@@ -1,6 +1,15 @@
 v1.7 (XXXX-XX-XX)
 =================
 
+- Added a general framework for spherical distribution function as
+  well as implementations of a few well-known distribution functions,
+  including (a) Hernquist distribution functions that are isotropic,
+  have constant anisotropy, or have Osipkov-Merritt type anisotropy;
+  (b) an isotropic Plummer profile; (c) the King model (also added as
+  a potential as KingPotential). These distribution functions can be
+  evaluated and sampled, and their velocity moments can be
+  computed. Work started in #432 and continued on from there.
+
 - Added NFWPotential initialization method using rmax and vmax, the
   radius and alue at which the rotation curve peaks; also added rmax
   and vmax methods to NFWPotential to compute these quantities for any

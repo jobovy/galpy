@@ -58,16 +58,20 @@ class constantbetadf(anisotropicsphericaldf):
         E, L, _= args
         return L**(-2*self._beta)*self.fE(E)
 
-    def _sample_eta(self,n=1):
+    def _sample_eta(self,r,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
-        deta = 0.00005*numpy.pi
-        etas = (numpy.arange(0, numpy.pi, deta)+deta/2)
-        eta_pdf_cml = numpy.cumsum(numpy.power(numpy.sin(etas),1.-2.*self._beta))
-        eta_pdf_cml_norm = eta_pdf_cml / eta_pdf_cml[-1]
-        eta_icml_interp = scipy.interpolate.interp1d(eta_pdf_cml_norm, etas, 
-            bounds_error=False, fill_value='extrapolate')
-        eta_samples = eta_icml_interp(numpy.random.uniform(size=n))
-        return eta_samples
+        if not hasattr(self,'_coseta_icmf_interp'):
+            # Cumulative dist for cos(eta) =
+            # 0.5 + x 2F1(0.5,beta,1.5,x^2)/sqrt(pi)/Gamma(1-beta)*Gamma(1.5-beta)
+            cosetas= numpy.linspace(-1.,1.,20001)
+            coseta_cmf= cosetas*special.hyp2f1(0.5,self._beta,1.5,cosetas**2.)\
+                /numpy.sqrt(numpy.pi)/special.gamma(1.-self._beta)\
+                *special.gamma(1.5-self._beta)+0.5
+            self._coseta_icmf_interp= scipy.interpolate.interp1d(\
+                                coseta_cmf,cosetas,
+                                bounds_error=False,fill_value='extrapolate')
+        return numpy.arccos(self._coseta_icmf_interp(\
+                                                numpy.random.uniform(size=n)))
 
     def _p_v_at_r(self,v,r):
         return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
