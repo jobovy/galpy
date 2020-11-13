@@ -335,8 +335,8 @@ def test_anisotropic_hernquist_energyoutofbounds():
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
     for beta in betas:
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E > 0 does not give zero'
-        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the anisotropic Hernquist DF at E > 0 does not give zero'
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the anisotropic Hernquist DF at E < -GM/a does not give zero'
     return None
 
 def test_anisotropic_hernquist_diffcalls():
@@ -348,9 +348,9 @@ def test_anisotropic_hernquist_diffcalls():
         # R,vR... vs. E
         R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
         # Calculate E directly and L from Orbit
-        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
         # Also as orbit
-        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
     return None
 
 ########################### OSIPKOV-MERRITT HERNQUIST DF ######################
@@ -461,6 +461,31 @@ def test_osipkovmerritt_hernquist_beta_directint():
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,
                              bins=6)
+    return None
+
+def test_osipkovmerritt_hernquist_Qoutofbounds():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt Hernquist DF at E > 0 does not give zero'
+        # The next one is not actually a physical orbit...
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt Hernquist DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt Hernquist DF at Q < 0 does not give zero'
+    return None
+
+def test_osipkovmerritt_hernquist_diffcalls():
+    from galpy.orbit import Orbit
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    ras= [0.3,2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
+        # R,vR... vs. E
+        R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
+        # Calculate E directly and L from Orbit
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the Osipkov-Merritt anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
+        # Also as orbit
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
     return None
 
 ############################# ISOTROPIC PLUMMER DF ############################
