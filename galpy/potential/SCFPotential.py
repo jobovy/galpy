@@ -506,7 +506,10 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
 
         
 def _xiToR(xi, a =1):
-    return a*numpy.divide((1. + xi),(1. - xi))    
+    return a*numpy.divide((1. + xi),(1. - xi))  
+
+def _RToxi(r, a=1):
+    return numpy.divide((r/a-1.),(r/a+1.))
         
         
 def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
@@ -546,7 +549,33 @@ def _dC(xi, N, L):
     CC[0, :] = 0
     CC *= 2*(2*l + 3./2)
     return CC
-     
+
+def scf_compute_coeffs_spherical_nbody(pos,m,N,a=1.):
+
+        '''
+        INPUT:
+            pos - position of particles in your nbody snapshot
+
+            m - masses of particles
+
+            N - size of expansion coefficients                                                                         
+
+            a - parameter used to shift the basis functions 
+
+        '''               
+        Acos = numpy.zeros((N,1,1), float)
+        Asin = None
+        
+        r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+        Cs= numpy.array([_C(_RToxi(ri,a=a),N,1)[:,0] for ri in r])
+        RhoSum= numpy.sum((m/(4.*numpy.pi)/(r/a+1))[:,None]*Cs,axis=0)
+        n = numpy.arange(0,N)
+        K = 16*numpy.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+        Acos[n,0,0] = 2*K*RhoSum
+                       
+        return Acos, Asin 
+
+
 def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
         """
         NAME:
@@ -684,6 +713,89 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         constants = -2.**(-2*l)*(2*l + 1.)**.5 
         Acos[:,:,0] = 2*I**-1 * integrated*constants
         
+        return Acos, Asin
+    
+def scf_compute_coeffs_nbody(pos,mass,N,L,a=1., radial_order=None, costheta_order=None, phi_order=None):
+        
+        """        
+        NAME:
+
+           scf_compute_coeffs
+
+        PURPOSE:
+
+           Numerically compute the expansion coefficients for a given triaxial density
+
+        INPUT:
+
+           pos - Positions of particles
+           
+           m - mass of particles
+
+           N - size of the Nth dimension of the expansion coefficients
+
+           L - size of the Lth and Mth dimension of the expansion coefficients
+           
+           a - parameter used to shift the basis functions
+
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
+
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
+
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
+
+        OUTPUT:
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
+        HISTORY:
+
+           2016-05-27 - Written - Aladdin 
+
+        """
+        def integrand(xi, costheta, phi):
+            l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+            m = numpy.arange(0, L)[numpy.newaxis,numpy.newaxis,:]
+            r = _xiToR(xi, a)
+            R = r*numpy.sqrt(1 - costheta**2.)
+            z = r*costheta
+            Legendre = lpmn(L - 1,L-1,costheta)[0].T[numpy.newaxis,:,:]            
+            phi_nl = - a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,numpy.newaxis]
+            
+            return dens(R,z, phi) * phi_nl[numpy.newaxis, :,:,:]*numpy.array([numpy.cos(m*phi), numpy.sin(m*phi)])*dV
+            
+               
+        Acos = numpy.zeros((N,L,L), float)
+        Asin = numpy.zeros((N,L,L), float)
+        
+        n = numpy.arange(0,N)[:,numpy.newaxis, numpy.newaxis]
+        l = numpy.arange(0,L)[numpy.newaxis,:, numpy.newaxis]
+        m = numpy.arange(0,L)[numpy.newaxis,numpy.newaxis,:]
+        K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
+        
+        r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+        phi = numpy.arctan2(pos[1],pos[0])
+        costheta = pos[2]/r
+        
+        Legendre = numpy.array([lpmn(L - 1,L-1,cth)[0].T[numpy.newaxis,:,:] for cth in costheta])
+        Cn= numpy.array([_C(_RToxi(ri,a=a),N,L)[:,:,numpy.newaxis] for ri in r])
+        
+        rl= ((r[:,numpy.newaxis,numpy.newaxis]/a)**l)[:,numpy.newaxis,:,:]
+        r12l1= ((1.+(r[:,numpy.newaxis,numpy.newaxis]/a))**(2.*l+1))[:,numpy.newaxis,:,:]
+        mphi= (phi[:,numpy.newaxis,numpy.newaxis]*m)[:,numpy.newaxis,:,:]
+        
+        Sum = numpy.sum((mass[:,numpy.newaxis,numpy.newaxis,numpy.newaxis]*rl/r12l1*Cn*Legendre)[numpy.newaxis,:,:,:,:]*[numpy.cos(mphi),numpy.sin(mphi)],axis=1)
+
+        Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1)
+        NN = numpy.e**(Nln)
+
+        NN[numpy.where(NN == numpy.inf)] = 0 ## To account for the fact that m cant be bigger than l
+            
+        constants = NN*(2*l + 1.)**.5
+        
+        lnI = -(8*l + 6)*numpy.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - numpy.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
+        I = K*(4*numpy.pi) * numpy.e**(lnI)
+        Acos[:,:,:], Asin[:,:,:] = 2*(I**-1.)[numpy.newaxis,:,:,:] * Sum * constants[numpy.newaxis,:,:,:]
         return Acos, Asin
         
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
