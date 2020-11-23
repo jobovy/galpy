@@ -191,6 +191,39 @@ class TwoPowerSphericalPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
 
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second cylindrically radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second cylindrically radial derivative
+        HISTORY:
+           2020-11-23 - Written - Beane (CfA)
+        """
+        r = numpy.sqrt(R**2.+z**2.)
+        A = self.a**(self.alpha-3.)/(3.-self.alpha)
+        hyper = special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
+        hyper_deriv = (3.-self.alpha) * (self.beta - self.alpha) / (4.-self.alpha) \
+               * special.hyp2f1(4.-self.alpha,
+                                1.+self.beta-self.alpha,
+                                5.-self.alpha,
+                                -r/self.a)
+        
+        term1 = A * r**(-self.alpha) * hyper
+        term2 = -self.alpha * A * R**2. * r**(-self.alpha-2.) * hyper
+        term3 = -A * R**2 * r**(-self.alpha-1.) / self.a * hyper_deriv
+        return term1 + term2 + term3
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
