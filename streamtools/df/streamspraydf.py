@@ -1,10 +1,11 @@
 import numpy
 from galpy.orbit import Orbit
-from galpy.df.df import df, _APY_LOADED
+from galpy.df.df import df
 from galpy.potential import flatten as flatten_potential
 from galpy.potential import rtide, evaluateRforces
 from galpy.util import bovy_coords, bovy_conversion, \
     _rotate_to_arbitrary_vector
+_APY_LOADED= bovy_conversion._APY_LOADED
 if _APY_LOADED:
     from astropy import units
 class streamspraydf(df):
