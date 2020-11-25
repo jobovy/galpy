@@ -2650,22 +2650,24 @@ def test_orbit_interface_staeckel_PotentialErrors():
     from galpy.potential import PotentialError
     from galpy.orbit import Orbit
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
-    # Currently doesn't have second derivs
-    tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
+    # Version of TwoPowerSphericalPotential that does not have R2deriv
+    class TwoPowerSphericalPotentialNoR2deriv(TwoPowerSphericalPotential):
+        _R2deriv= property() # turns it off!
+    tp= TwoPowerSphericalPotentialNoR2deriv(normalize=1.,alpha=1.2,beta=2.5)
     # Check that this potential indeed does not have second derivs
     with pytest.raises(PotentialError) as excinfo:
         dummy= tp.R2deriv(1.,0.1)
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=tp,type='staeckel')
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
     # Generic non-axi
     sp= SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=sp,type='staeckel')
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
     return None
 
@@ -2676,22 +2678,24 @@ def test_orbits_interface_staeckel_PotentialErrors():
     from galpy.orbit import Orbit
     obs= Orbit([[1.05, 0.02, 1.05, 0.03,0.,2.],
                 [1.15, -0.02, 1.02, -0.03,0.,2.]])
-    # Currently doesn't have second derivs
-    tp= TwoPowerSphericalPotential(normalize=1.,alpha=1.2,beta=2.5)
+    # Version of TwoPowerSphericalPotential that does not have R2deriv
+    class TwoPowerSphericalPotentialNoR2deriv(TwoPowerSphericalPotential):
+        _R2deriv= property() # turns it off!
+    tp= TwoPowerSphericalPotentialNoR2deriv(normalize=1.,alpha=1.2,beta=2.5)
     # Check that this potential indeed does not have second derivs
     with pytest.raises(PotentialError) as excinfo:
         dummy= tp.R2deriv(1.,0.1)
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=tp,type='staeckel')
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'second derivatives' in str(excinfo.value), 'Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives'
     # Generic non-axi
     sp= SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=sp,type='staeckel')
-        pytest.fail('TwoPowerSphericalPotential appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
+        pytest.fail('SpiralArms appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer')
     assert 'not axisymmetric' in str(excinfo.value), 'Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric'
     return None
 
