@@ -224,6 +224,38 @@ class TwoPowerSphericalPotential(Potential):
         term3 = -A * R**2 * r**(-self.alpha-1.) / self.a * hyper_deriv
         return term1 + term2 + term3
 
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the mixed radial/vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the mixed radial/vertical derivative
+        HISTORY:
+           2020-11-28 - Written - Beane (CfA)
+        """
+        r = numpy.sqrt(R**2.+z**2.)
+        A = self.a**(self.alpha-3.)/(3.-self.alpha)
+        hyper = special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
+        hyper_deriv = (3.-self.alpha) * (self.beta - self.alpha) / (4.-self.alpha) \
+               * special.hyp2f1(4.-self.alpha,
+                                1.+self.beta-self.alpha,
+                                5.-self.alpha,
+                                -r/self.a)
+        
+        term1 = -self.alpha * A * R * r**(-self.alpha-2.) * z * hyper
+        term2 = -A * R * r**(-self.alpha-1.) * z / self.a * hyper_deriv
+        return term1 + term2
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
