@@ -79,7 +79,7 @@ install:
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then git checkout galpy; fi
  - if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then cd -; fi
  - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install astropy --no-deps; fi
- - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then conda install astropy --no-deps; fi
+ - if $REQUIRES_ASTROPY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then conda install astropy pyerfa --no-deps; fi
  - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install astroquery==0.4; fi
  - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION != 2.7 ]]; then pip install astroquery; fi
  - if $REQUIRES_ASTROQUERY && [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then pip install "pytest>=4.6.2"; fi
