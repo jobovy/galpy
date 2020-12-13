@@ -1045,7 +1045,8 @@ class Orbit(object):
                      'rk4_c' for a 4th-order Runge-Kutta integrator in C
                      'rk6_c' for a 6-th order Runge-Kutta integrator in C
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
+                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
