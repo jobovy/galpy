@@ -1611,7 +1611,7 @@ def test_potential_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential method zforce does not return Quantity with the right units')
     try:
-        pot.phiforce(1.1,0.1).to(units.km/units.s**2)
+        pot.phiforce(1.1,0.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential method phiforce does not return Quantity with the right units')
     try:
@@ -1720,7 +1720,7 @@ def test_planarPotential_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential method Rforce does not return Quantity with the right units')
     try:
-        pot.phiforce(1.1).to(units.km/units.s**2)
+        pot.phiforce(1.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential method phiforce does not return Quantity with the right units')
     try:
@@ -1780,7 +1780,7 @@ def test_potential_method_value():
     assert numpy.fabs(pot.Rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.Rforce(1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method Rforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.rforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.rforce(1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method rforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.zforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.zforce(1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method zforce does not return the correct value as Quantity'
-    assert numpy.fabs(pot.phiforce(1.1,0.1).to(units.km/units.s**2).value*10.**13.-potu.phiforce(1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(pot.phiforce(1.1,0.1).to(units.km**2/units.s**2).value-potu.phiforce(1.1,0.1)*vo**2) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.dens(1.1,0.1).to(units.Msun/units.pc**3).value-potu.dens(1.1,0.1)*conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential method dens does not return the correct value as Quantity'
     assert numpy.fabs(pot.surfdens(1.1,0.1).to(units.Msun/units.pc**2).value-potu.surfdens(1.1,0.1)*conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'Potential method surfdens does not return the correct value as Quantity'
     assert numpy.fabs(pot.mass(1.1,0.1).to(units.Msun).value/10.**10.-potu.mass(1.1,0.1)*conversion.mass_in_1010msol(vo,ro)) < 10.**-8., 'Potential method mass does not return the correct value as Quantity'
@@ -1814,7 +1814,7 @@ def test_planarPotential_method_value():
     potu= PlummerPotential(normalize=True).toPlanar()
     assert numpy.fabs(pot(1.1).to(units.km**2/units.s**2).value-potu(1.1)*vo**2.) < 10.**-8., 'Potential method __call__ does not return the correct value as Quantity'
     assert numpy.fabs(pot.Rforce(1.1).to(units.km/units.s**2).value*10.**13.-potu.Rforce(1.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method Rforce does not return the correct value as Quantity'
-    assert numpy.fabs(pot.phiforce(1.1).to(units.km/units.s**2).value*10.**13.-potu.phiforce(1.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(pot.phiforce(1.1).to(units.km**2/units.s**2).value-potu.phiforce(1.1)*vo**2) < 10.**-4., 'Potential method phiforce does not return the correct value as Quantity'
     assert numpy.fabs(pot.R2deriv(1.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.R2deriv(1.1)*vo**2./ro**2.) < 10.**-8., 'Potential method R2deriv does not return the correct value as Quantity'
     assert numpy.fabs(pot.Rphideriv(1.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.Rphideriv(1.1)*vo**2./ro**2.) < 10.**-8., 'Potential method Rphideriv does not return the correct value as Quantity'
     assert numpy.fabs(pot.phi2deriv(1.1).to(units.km**2/units.s**2./units.kpc**2).value-potu.phi2deriv(1.1)*vo**2./ro**2.) < 10.**-8., 'Potential method phi2deriv does not return the correct value as Quantity'
@@ -1911,7 +1911,7 @@ def test_potential_function_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential function zforce does not return Quantity with the right units')
     try:
-        potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2)
+        potential.evaluatephiforces(pot,1.1,0.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function phiforce does not return Quantity with the right units')
     try:
@@ -2010,7 +2010,7 @@ def test_planarPotential_function_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential function Rforce does not return Quantity with the right units')
     try:
-        potential.evaluateplanarphiforces(pot,1.1,phi=0.1).to(units.km/units.s**2)
+        potential.evaluateplanarphiforces(pot,1.1,phi=0.1).to(units.km**2/units.s**2)
     except units.UnitConversionError:
         raise AssertionError('Potential function phiforce does not return Quantity with the right units')
     try:
@@ -2065,7 +2065,7 @@ def test_potential_function_value():
     assert numpy.fabs(potential.evaluateRforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateRforces(potu,1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluaterforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluaterforces(potu,1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function rforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluatezforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatezforces(potu,1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function zforce does not return the correct value as Quantity'
-    assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km/units.s**2).value*10.**13.-potential.evaluatephiforces(potu,1.1,0.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluatephiforces(pot,1.1,0.1).to(units.km**2/units.s**2).value-potential.evaluatephiforces(potu,1.1,0.1)*vo**2) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateDensities(pot,1.1,0.1).to(units.Msun/units.pc**3).value-potential.evaluateDensities(potu,1.1,0.1)*conversion.dens_in_msolpc3(vo,ro)) < 10.**-8., 'Potential function dens does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateSurfaceDensities(pot,1.1,0.1).to(units.Msun/units.pc**2).value-potential.evaluateSurfaceDensities(potu,1.1,0.1)*conversion.surfdens_in_msolpc2(vo,ro)) < 10.**-8., 'Potential function surfdens does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateR2derivs(pot,1.1,0.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateR2derivs(potu,1.1,0.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
@@ -2097,7 +2097,7 @@ def test_planarPotential_function_value():
     potu= [PlummerPotential(normalize=True).toPlanar()]
     assert numpy.fabs(potential.evaluateplanarPotentials(pot,1.1).to(units.km**2/units.s**2).value-potential.evaluateplanarPotentials(potu,1.1)*vo**2.) < 10.**-8., 'Potential function __call__ does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateplanarRforces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateplanarRforces(potu,1.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function Rforce does not return the correct value as Quantity'
-    assert numpy.fabs(potential.evaluateplanarphiforces(pot,1.1).to(units.km/units.s**2).value*10.**13.-potential.evaluateplanarphiforces(potu,1.1)*conversion.force_in_10m13kms2(vo,ro)) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
+    assert numpy.fabs(potential.evaluateplanarphiforces(pot,1.1).to(units.km**2/units.s**2).value-potential.evaluateplanarphiforces(potu,1.1)*vo**2) < 10.**-4., 'Potential function phiforce does not return the correct value as Quantity'
     assert numpy.fabs(potential.evaluateplanarR2derivs(pot,1.1).to(units.km**2/units.s**2./units.kpc**2).value-potential.evaluateplanarR2derivs(potu,1.1)*vo**2./ro**2.) < 10.**-8., 'Potential function R2deriv does not return the correct value as Quantity'
     assert numpy.fabs(potential.vcirc(pot,1.1).to(units.km/units.s).value-potential.vcirc(potu,1.1)*vo) < 10.**-8., 'Potential function vcirc does not return the correct value as Quantity'
     assert numpy.fabs(potential.omegac(pot,1.1).to(units.km/units.s/units.kpc).value-potential.omegac(potu,1.1)*vo/ro) < 10.**-8., 'Potential function omegac does not return the correct value as Quantity'

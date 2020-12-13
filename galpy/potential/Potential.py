@@ -604,7 +604,7 @@ class Potential(Force):
         self._amp*= norm/numpy.fabs(self.Rforce(1.,0.,use_physical=False))
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
+    @physical_conversion('energy',pop=True)
     def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -613,7 +613,7 @@ class Potential(Force):
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi  (R,z,phi,t)
+           evaluate the azimuthal force F_phi = -d Phi / d phi (R,z,phi,t) [note that this is a torque, not a force!)
 
         INPUT:
 
@@ -1927,7 +1927,7 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('force',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:

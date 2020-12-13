@@ -269,7 +269,7 @@ class planarPotential(object):
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
+    @physical_conversion('energy',pop=True)
     def phiforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -278,7 +278,7 @@ class planarPotential(object):
 
         PURPOSE:
 
-           evaluate the phi force
+           evaluate the phi force = - d Phi / d phi (note that this is a torque, not a force!)
 
         INPUT:
 
@@ -1125,7 +1125,7 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('force',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
     """
     NAME:
