@@ -1,7 +1,7 @@
 $(document).ready(function() {
   // Create the list of image divs with papers using galpy
-  //https://d2g2jw00kypyq.cloudfront.net = https://www.galpy.org (but latter doesn't work)
-  $.getJSON("https://d2g2jw00kypyq.cloudfront.net/data/papers-using-galpy.json")
+    //https://d2g2jw00kypyq.cloudfront.net = https://www.galpy.org (but latter doesn't work); ?+new Date etc. to make sure file isn't cached
+    $.getJSON("https://d2g2jw00kypyq.cloudfront.net/data/papers-using-galpy.json?"+new Date().getTime())
     .done(function(data) {
     // First update the number of papers using galpy listed on the page
     let paperSpan= document.getElementById("span-number-of-papers-using-galpy");
