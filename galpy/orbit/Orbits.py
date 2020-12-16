@@ -5853,7 +5853,7 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     return (obs,ro,vo)
 
 def _check_integrate_dt(t,dt):
-    """Check that the stepszie in t is an integer x dt"""
+    """Check that the stepsize in t is an integer x dt"""
     if dt is None:
         return True
     mult= round((t[1]-t[0])/dt)
@@ -5866,6 +5866,7 @@ def _check_potential_dim(orb,pot):
     from ..potential import _dim
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
+    assert pot is None or not (orb.dim() == 1 and _dim(pot) != 1), 'Orbit dimensionality is 1, but potential dimensionality is %i != 1; 1D orbits can only be integrated in 1D potentials; you convert your potential to a 1D potential---if appropriate---using potential.toVerticalPotential' % (_dim(pot))
 
 def _check_consistent_units(orb,pot):
     if pot is None: return None

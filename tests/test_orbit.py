@@ -3697,6 +3697,34 @@ def test_orbit_dim_1dPot_2dOrb():
         o.integrate(ts,pota,method="dop853")
     return None
 
+def test_orbit_dim_3dPot_1dOrb():
+    # Test that orbit integration throws an error when using a 3D potential
+    # for a 1D orbit
+    from galpy.orbit import Orbit
+    pota= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05)
+    o= Orbit(vxvv=[1.1,0.1])
+    ts= numpy.linspace(0.,10.,1001)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="dop853")
+    return None
+
+def test_orbit_dim_2dPot_1dOrb():
+    # Test that orbit integration throws an error when using a 2D potential
+    # for a 1D orbit
+    from galpy.orbit import Orbit
+    pota= potential.PowerSphericalPotentialwCutoff(\
+        alpha=1.8,rc=1.9/8.,normalize=0.05).toPlanar()
+    o= Orbit(vxvv=[1.1,0.1])
+    ts= numpy.linspace(0.,10.,1001)
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="leapfrog")
+    with pytest.raises(AssertionError) as excinfo:
+        o.integrate(ts,pota,method="dop853")
+    return None
+
 # Test whether ro warning is sounded when calling ra etc.
 def test_orbit_radecetc_roWarning():
     from galpy.orbit import Orbit
