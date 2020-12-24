@@ -11,6 +11,28 @@ from .PowerSphericalPotential import KeplerPotential
 from .Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
+
+def de_psi(t):
+    return t*numpy.tanh(numpy.pi/2.*numpy.sinh(t))
+def de_psiprime(t):
+    return (numpy.sinh(numpy.pi*numpy.sinh(t))
+            +numpy.pi*t*numpy.cosh(t))/(numpy.cosh(numpy.pi*numpy.sinh(t))+1)
+
+def de_xinuk(nu,nzeros):
+    return special.jn_zeros(nu,nzeros)/numpy.pi
+def de_wnuk(nu,nzeros,xinuk=None):
+    if xinuk is None: xinuk= de_xinuk(nu,nzeros)
+    return 2./(numpy.pi**2.*xinuk*special.jv(nu+1,numpy.pi*xinuk)**2.)
+
+def de_approx(fun,nu,h,nzeros):
+    xinuk= de_xinuk(nu,nzeros)
+    sumthis= fun(numpy.pi/h*de_psi(h*xinuk))\
+        *special.jv(nu,numpy.pi/h*de_psi(h*xinuk))\
+        *de_psiprime(h*xinuk)
+    sumthis[numpy.fabs(sumthis) < 1e-15]= 0.
+    sumthis[numpy.isnan(sumthis)]= 0.
+    return numpy.pi*numpy.sum(de_wnuk(nu,nzeros,xinuk=xinuk)*sumthis)
+
 class DoubleExponentialDiskPotential(Potential):
     """Class that implements the double exponential disk potential
 
@@ -22,7 +44,8 @@ class DoubleExponentialDiskPotential(Potential):
     def __init__(self,amp=1.,hr=1./3.,hz=1./16.,
                  maxiter=_MAXITER,tol=0.001,normalize=False,
                  ro=None,vo=None,
-                 new=True,kmaxFac=2.,glorder=10):
+                 new=True,kmaxFac=2.,glorder=10,
+                 de=True,de_h=1e-3,de_n=10000):
         """
         NAME:
 
@@ -57,6 +80,8 @@ class DoubleExponentialDiskPotential(Potential):
            2010-04-16 - Written - Bovy (NYU)
 
            2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
+
+           2020-12-24 - Re-implemented again using more accurate integration techniques for Bessel integrals - Bovy (UofT)
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
@@ -93,6 +118,25 @@ class DoubleExponentialDiskPotential(Potential):
         self._j2zeros[1:self._nzeros+1]= special.jn_zeros(2,self._nzeros)
         self._dj2zeros= self._j2zeros-numpy.roll(self._j2zeros,1)
         self._dj2zeros[0]= self._j2zeros[0]
+        # For double-exponential formula
+        self._de= de
+        self._de_h= de_h
+        self._de_n= de_n
+        self._de_j0zeros= special.jn_zeros(0,self._de_n)/numpy.pi
+        self._de_j1zeros= special.jn_zeros(1,self._de_n)/numpy.pi
+        self._de_pot_xs= numpy.pi/self._de_h\
+            *de_psi(self._de_h*self._de_j0zeros)
+        self._de_pot_weights= 2./(numpy.pi*self._de_j0zeros\
+                               *special.j1(numpy.pi*self._de_j0zeros)**2.)\
+                               *special.j0(self._de_pot_xs)\
+                               *de_psiprime(self._de_h*self._de_j0zeros)
+        self._de_Rfo_xs= numpy.pi/self._de_h\
+            *de_psi(self._de_h*self._de_j1zeros)
+        self._de_Rfo_weights= 2./(numpy.pi*self._de_j1zeros\
+                               *special.jv(2,numpy.pi*self._de_j1zeros)**2.)\
+                               *special.j1(self._de_Rfo_xs)\
+                               *de_psiprime(self._de_h*self._de_j1zeros)
+        # Normalize?
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
@@ -116,24 +160,30 @@ class DoubleExponentialDiskPotential(Potential):
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
            2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
-        DOCTEST:
-           >>> doubleExpPot= DoubleExponentialDiskPotential()
-           >>> r= doubleExpPot(1.,0) #doctest: +ELLIPSIS
-           ...
-           >>> assert( r+1.89595350484)**2.< 10.**-6.
+           2020-12-24 - New method using Ogata's Bessel integral formula
         """
+        if isinstance(R,(float,int)):
+            floatIn= True
+            R= numpy.array([R])
+            z= numpy.array([z])
+        else:
+            if isinstance(z,float):
+                z= z*numpy.ones_like(R)
+            floatIn= False
+            outShape= R.shape # this code can't do arbitrary shapes
+            R= R.flatten()
+            z= z.flatten()
+        if self._de:
+            fun= lambda x: (self._alpha**2.+(x/R[:,numpy.newaxis])**2.)**-1.5\
+                *(self._beta*numpy.exp(-x/R[:,numpy.newaxis]*numpy.fabs(z[:,numpy.newaxis]))
+                  -x/R[:,numpy.newaxis]*numpy.exp(-self._beta*numpy.fabs(z[:,numpy.newaxis])))\
+                  /(self._beta**2.-(x/R[:,numpy.newaxis])**2.)
+            out= -4.*numpy.pi*self._alpha/R*\
+                numpy.nansum(fun(self._de_pot_xs)*self._de_pot_weights,
+                             axis=1)
+            if floatIn: return out[0]
+            else: return numpy.reshape(out,outShape)
         if True:
-            if isinstance(R,(float,int)):
-                floatIn= True
-                R= numpy.array([R])
-                z= numpy.array([z])
-            else:
-                if isinstance(z,float):
-                    z= z*numpy.ones_like(R)
-                floatIn= False
-                outShape= R.shape # this code can't do arbitrary shapes
-                R= R.flatten()
-                z= z.flatten()
             out= numpy.empty(len(R))
             indx= (R <= 6.)
             if numpy.sum(True^indx) > 0:
@@ -166,8 +216,16 @@ class DoubleExponentialDiskPotential(Potential):
            K_R (R,z)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
-        DOCTEST:
+           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
+           2020-12-24 - New method using Ogata's Bessel integral formula
         """
+        if self._de:
+            fun=  lambda x: x*(self._alpha**2.+(x/R)**2.)**-1.5\
+                *(self._beta*numpy.exp(-x/R*numpy.fabs(z))
+                  -x/R*numpy.exp(-self._beta*numpy.fabs(z)))\
+                  /(self._beta**2.-(x/R)**2.)
+            return -4.*numpy.pi*self._alpha/R**2.\
+                *numpy.nansum(fun(self._de_Rfo_xs)*self._de_Rfo_weights)
         if True:
             if isinstance(R,numpy.ndarray):
                 if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
@@ -199,8 +257,20 @@ class DoubleExponentialDiskPotential(Potential):
            K_z (R,z)
         HISTORY:
            2010-04-16 - Written - Bovy (NYU)
-        DOCTEST:
+           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
+           2020-12-24 - New method using Ogata's Bessel integral formula
         """
+        if self._de:
+            fun= lambda x: (self._alpha**2.+(x/R)**2.)**-1.5*x/R\
+                *(numpy.exp(-x/R*numpy.fabs(z))
+                  -numpy.exp(-self._beta*numpy.fabs(z)))\
+                  /(self._beta**2.-(x/R)**2.)
+            out= -4.*numpy.pi*self._alpha*self._beta/R*\
+                numpy.nansum(fun(self._de_pot_xs)*self._de_pot_weights)
+            if z > 0.:
+                return out
+            else:
+                return -out
         if True:
             if isinstance(R,numpy.ndarray):
                 if not isinstance(z,numpy.ndarray): z= numpy.ones_like(R)*z
