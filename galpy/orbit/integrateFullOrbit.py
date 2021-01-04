@@ -53,7 +53,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([-4.*numpy.pi*p._alpha*p._amp,
+            pot_args.extend([p._amp,-4.*numpy.pi*p._alpha*p._amp,
                              p._alpha,p._beta,len(p._de_j1_xs)])
             pot_args.extend(p._de_j0_xs)
             pot_args.extend(p._de_j1_xs)

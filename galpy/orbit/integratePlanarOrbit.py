@@ -99,7 +99,8 @@ def _parse_pot(pot):
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([-4.*numpy.pi*p._Pot._alpha*p._Pot._amp,
+            pot_args.extend([p._Pot._amp,
+                             -4.*numpy.pi*p._Pot._alpha*p._Pot._amp,
                              p._Pot._alpha,p._Pot._beta,len(p._Pot._de_j1_xs)])
             pot_args.extend(p._Pot._de_j0_xs)
             pot_args.extend(p._Pot._de_j1_xs)

@@ -152,7 +152,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &ZeroForce;
       potentialArgs->dens= &DoubleExponentialDiskPotentialDens;
       //Look at pot_args to figure out the number of arguments
-      potentialArgs->nargs= (int) (4 + 4 * *(*pot_args+3) );
+      potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
       potentialArgs->requiresVelocity= false;
       break;
     case 12: //FlattenedPowerPotential, 4 arguments

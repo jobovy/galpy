@@ -7,12 +7,12 @@ double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
   double x;
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args++;
-  int de_n= (int) *args++;
-  double * de_j0_xs= args;
-  double * de_j0_ws= args + 2 * de_n;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j0_xs= args + 5;
+  double * de_j0_ws= args + 5 + 2 * de_n;
   double alpha2= alpha * alpha;
   double beta2= beta * beta;
   double fz= fabs(z);
@@ -37,12 +37,12 @@ double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
   double x;
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args++;
-  int de_n= (int) *args++;
-  double * de_j1_xs= args +     de_n;
-  double * de_j1_ws= args + 3 * de_n;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j1_xs= args + 5 +     de_n;
+  double * de_j1_ws= args + 5 + 3 * de_n;
   double alpha2= alpha * alpha;
   double beta2= beta * beta;
   double fz= fabs(z);
@@ -67,12 +67,12 @@ double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
   double x;
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args++;
-  int de_n= (int) *args++;
-  double * de_j1_xs= args +     de_n;
-  double * de_j1_ws= args + 3 * de_n;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j1_xs= args + 5 +     de_n;
+  double * de_j1_ws= args + 5 + 3 * de_n;
   double alpha2= alpha * alpha;
   double out= 0;
   double prev_term= 1;
@@ -92,12 +92,12 @@ double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
   double x;
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args++;
-  int de_n= (int) *args++;
-  double * de_j0_xs= args;
-  double * de_j0_ws= args + 2 * de_n;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j0_xs= args + 5;
+  double * de_j0_ws= args + 5 + 2 * de_n;
   double alpha2= alpha * alpha;
   double beta2= beta * beta;
   double fz= fabs(z);
@@ -124,9 +124,9 @@ double DoubleExponentialDiskPotentialDens(double R,double z, double phi,
 					  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args;
+  double amp= *args;
+  double alpha= *(args+2);
+  double beta= *(args+3);
   // calculate density
   return amp * exp ( - alpha * R - beta * fabs ( z ) );
 }

@@ -144,7 +144,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments
-      potentialArgs->nargs= (int) (4 + 4 * *(*pot_args+3) );
+      potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
