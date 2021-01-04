@@ -41,6 +41,13 @@ v1.7 (XXXX-XX-XX)
   method (function) to plot the surface density of a Potential
   instance (of Potential instance of a list of Potential instances).
 
+- Re-implemented the DoubleExponentialDiskPotential in a simpler and
+  more accurate manner, using the double-exponential formula (no
+  relation) for integrals of Bessel functions from Ogata 2005. The
+  DoubleExponentialDiskPotential is now calculated to ~machine
+  precision almost everywhere and there is no longer any switch to a
+  Keplerian behavior at large R.
+
 - Made potentials as much as possible numerically stable at r=0 and
   r=numpy.inf (i.e., they don't give NaN). Still a few missing, but
   the majority of potentials are well behaved now.
