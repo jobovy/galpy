@@ -92,6 +92,15 @@ class DoubleExponentialDiskPotential(Potential):
                                *special.jv(2,numpy.pi*self._de_j1zeros)**2.)\
                                *special.j1(self._de_j1_xs)\
                                *_de_psiprime(self._de_h*self._de_j1zeros)
+        # Potential at zero in case we want that
+        _gamma= self._beta/self._alpha
+        _gamma2= _gamma**2.
+        self._pot_zero= (2.*(_gamma-1.)*numpy.sqrt(1.+_gamma2)
+                         +2.*numpy.arctanh(1./numpy.sqrt(1.+_gamma2))
+                         -numpy.log(1.-_gamma/numpy.sqrt(1.+_gamma2))
+                         +numpy.log(1.+_gamma/numpy.sqrt(1.+_gamma2)))\
+                         /(2.*(1.+_gamma2)**1.5)
+        self._pot_zero*= -4.*numpy.pi/self._alpha**2.
         # Normalize?
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -134,6 +143,7 @@ class DoubleExponentialDiskPotential(Potential):
         out= -4.*numpy.pi*self._alpha/R*\
             numpy.nansum(fun(self._de_j0_xs)*self._de_j0_weights,
                          axis=1)
+        out[(R == 0)*(z == 0)]= self._pot_zero
         if floatIn: return out[0]
         else: return numpy.reshape(out,outShape)
     
