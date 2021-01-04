@@ -31,7 +31,7 @@ def test_import():
     return None
 
 def test_units():
-    # Import changed becaose of bovy_conversion --> conversion name change
+    # Import changed because of bovy_conversion --> conversion name change
     from galpy.util import conversion
     print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
@@ -59,9 +59,11 @@ def test_potmethods():
     dp.zforce(1.,0.1) # The vertical force
     assert numpy.fabs(dp.zforce(1.,0.1)+0.50056789703079607) < 10.**-4., 'potmethods has changed'
     dp.R2deriv(1.,0.1) # The second radial derivative
-    assert numpy.fabs(dp.R2deriv(1.,0.1)+1.0189440730205248) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 3e-4
+    assert numpy.fabs(dp.R2deriv(1.,0.1)+1.0189440730205248) < 3 * 10.**-4., 'potmethods has changed'
     dp.z2deriv(1.,0.1) # The second vertical derivative
-    assert numpy.fabs(dp.z2deriv(1.,0.1)-1.0648350937842703) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 4e-4
+    assert numpy.fabs(dp.z2deriv(1.,0.1)-1.0648350937842703) < 4 * 10.**-4., 'potmethods has changed'
     dp.Rzderiv(1.,0.1) # The mixed radial,vertical derivative
     assert numpy.fabs(dp.Rzderiv(1.,0.1)+1.1872449759212851) < 10.**-4., 'potmethods has changed'
     dp.dens(1.,0.1) # The density
@@ -75,9 +77,11 @@ def test_potmethods():
     dp.omegac(1.) # The rotational frequency
     assert numpy.fabs(dp.omegac(1.)-1.0) < 10.**-4., 'potmethods has changed' # Also because of normalize=1.
     dp.epifreq(1.) # The epicycle frequency
-    assert numpy.fabs(dp.epifreq(1.)-1.3301123099210266) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 1e-3
+    assert numpy.fabs(dp.epifreq(1.)-1.3301123099210266) < 2 * 10.**-3., 'potmethods has changed'
     dp.verticalfreq(1.) # The vertical frequency
-    assert numpy.fabs(dp.verticalfreq(1.)-3.7510872575640293) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 1e-3
+    assert numpy.fabs(dp.verticalfreq(1.)-3.7510872575640293) < 10.**-3., 'potmethods has changed'
     dp.flattening(1.,0.1) #The flattening (see caption)
     assert numpy.fabs(dp.flattening(1.,0.1)-0.42748757564198159) < 10.**-4., 'potmethods has changed'
     dp.lindbladR(1.75,m='corotation') # co-rotation resonance

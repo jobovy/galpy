@@ -2987,7 +2987,12 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
             out= optimize.brentq(_corotationR_eq,0.0000001,1000.,
                                  args=(Pot,OmegaP,t),**kwargs)
         except ValueError:
-            return None
+            try:
+                # Sometimes 0.0000001 is numerically too small to start...
+                out= optimize.brentq(_corotationR_eq,0.01,1000.,
+                                     args=(Pot,OmegaP,t),**kwargs)
+            except ValueError:
+                return None
         except RuntimeError: #pragma: no cover 
             raise
         return out
