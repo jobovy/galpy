@@ -99,16 +99,12 @@ def _parse_pot(pot):
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([p._Pot._amp,p._Pot._alpha,
-                             p._Pot._beta,p._Pot._kmaxFac,
-                             p._Pot._nzeros,p._Pot._glorder])
-            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([p._Pot._j0zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._dj0zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._j1zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._dj1zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._kp._amp,p._Pot._kp.alpha])
+            pot_args.extend([-4.*numpy.pi*p._Pot._alpha*p._Pot._amp,
+                             p._Pot._alpha,p._Pot._beta,len(p._Pot._de_j1_xs)])
+            pot_args.extend(p._Pot._de_j0_xs)
+            pot_args.extend(p._Pot._de_j1_xs)
+            pot_args.extend(p._Pot._de_j0_weights)
+            pot_args.extend(p._Pot._de_j1_weights)
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.FlattenedPowerPotential):
             pot_type.append(12)

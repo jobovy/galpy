@@ -53,15 +53,12 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,
-                             p._nzeros,p._glorder])
-            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._j0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._j1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._kp._amp,p._kp.alpha])
+            pot_args.extend([-4.*numpy.pi*p._alpha*p._amp,
+                             p._alpha,p._beta,len(p._de_j1_xs)])
+            pot_args.extend(p._de_j0_xs)
+            pot_args.extend(p._de_j1_xs)
+            pot_args.extend(p._de_j0_weights)
+            pot_args.extend(p._de_j1_weights)
         elif isinstance(p,potential.FlattenedPowerPotential):
             pot_type.append(12)
             pot_args.extend([p._amp,p.alpha,p.q2,p.core2])

@@ -12,9 +12,9 @@ from .Potential import Potential
 _TOL= 1.4899999999999999e-15
 _MAXITER= 20
 
-def de_psi(t):
+def _de_psi(t):
     return t*numpy.tanh(numpy.pi/2.*numpy.sinh(t))
-def de_psiprime(t):
+def _de_psiprime(t):
     return (numpy.sinh(numpy.pi*numpy.sinh(t))
             +numpy.pi*t*numpy.cosh(t))/(numpy.cosh(numpy.pi*numpy.sinh(t))+1)
 
@@ -110,17 +110,17 @@ class DoubleExponentialDiskPotential(Potential):
         self._de_j0zeros= special.jn_zeros(0,self._de_n)/numpy.pi
         self._de_j1zeros= special.jn_zeros(1,self._de_n)/numpy.pi
         self._de_j0_xs= numpy.pi/self._de_h\
-            *de_psi(self._de_h*self._de_j0zeros)
+            *_de_psi(self._de_h*self._de_j0zeros)
         self._de_j0_weights= 2./(numpy.pi*self._de_j0zeros\
                                *special.j1(numpy.pi*self._de_j0zeros)**2.)\
                                *special.j0(self._de_j0_xs)\
-                               *de_psiprime(self._de_h*self._de_j0zeros)
+                               *_de_psiprime(self._de_h*self._de_j0zeros)
         self._de_j1_xs= numpy.pi/self._de_h\
-            *de_psi(self._de_h*self._de_j1zeros)
+            *_de_psi(self._de_h*self._de_j1zeros)
         self._de_j1_weights= 2./(numpy.pi*self._de_j1zeros\
                                *special.jv(2,numpy.pi*self._de_j1zeros)**2.)\
                                *special.j1(self._de_j1_xs)\
-                               *de_psiprime(self._de_h*self._de_j1zeros)
+                               *_de_psiprime(self._de_h*self._de_j1zeros)
         # Normalize?
         if normalize or \
                 (isinstance(normalize,(int,float)) \
