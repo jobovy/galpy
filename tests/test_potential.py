@@ -187,7 +187,7 @@ def test_forceAsDeriv_potential():
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
-    tol['AnyAxisymmetricRazorThinDiskPotential']= -6.
+    tol['AnyAxisymmetricRazorThinDiskPotential']= -4.9
     tol['mockInterpRZPotential']= -4.
     tol['FerrersPotential']= -7.
     for p in pots:
