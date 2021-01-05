@@ -5,7 +5,11 @@
 ###############################################################################
 import numpy
 from scipy import integrate, special
-from .Potential import Potential, check_potential_inputs_not_arrays
+from .Potential import Potential, check_potential_inputs_not_arrays, \
+    _APY_LOADED
+from ..util import conversion
+if _APY_LOADED:
+    from astropy import units
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
     def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.5),amp=1.,
@@ -21,9 +25,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         INPUT:
 
-           amp= (1.) amplitude to be applied to the potential
-
            surfdens= (1.5 e^[-R/0.3]) function of a single variable that gives the surface density as a function of radius (can return a Quantity)
+
+           amp= (1.) amplitude to be applied to the potential
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -39,7 +43,37 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
-        self._sdens= surfdens
+        # Parse surface density: does it have units? does it expect them?
+        if _APY_LOADED:
+            _sdens_unit_input= False
+            try:
+                surfdens(1)
+            except (units.UnitConversionError,units.UnitTypeError):
+                _sdens_unit_input= True
+            _sdens_unit_output= False
+            if _sdens_unit_input:
+                try:
+                    surfdens(1.*units.kpc).to(units.Msun/units.pc**2)
+                except (AttributeError,units.UnitConversionError): pass
+                else: _sdens_unit_output= True
+            else:
+                try:
+                    surfdens(1.).to(units.Msun/units.pc**2)
+                except (AttributeError,units.UnitConversionError): pass
+                else: _sdens_unit_output= True
+            if _sdens_unit_input and _sdens_unit_output:
+                self._sdens= lambda R: conversion.parse_surfdens(\
+                                            surfdens(R*self._ro*units.kpc),
+                                            ro=self._ro,vo=self._vo)
+            elif _sdens_unit_input:
+                self._sdens= lambda R: surfdens(R*self._ro*units.kpc)
+            elif _sdens_unit_output:
+                self._sdens= lambda R: conversion.parse_surfdens(surfdens(R),
+                                                                 ro=self._ro,
+                                                                 vo=self._vo)
+        if not hasattr(self,'_sdens'): # unitless
+            self._sdens= surfdens
+        # The potential at zero, in case it's asked for
         self._pot_zero= -2.*numpy.pi*integrate.quad(lambda a: self._sdens(a),
                                                     0,numpy.inf)[0]
         if normalize or \

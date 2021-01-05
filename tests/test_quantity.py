@@ -3297,6 +3297,35 @@ def test_potential_paramunits():
                     ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "KingPotential w/ amp w/ units does not behave as expected"   
+    # AnyAxisymmetricRazorThinDiskPotential
+    pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*conversion.surfdens_in_msolpc2(vo,ro)
+                            *units.Msun/units.pc**2*numpy.exp(-R),
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*numpy.exp(-R),
+                                                         ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    # AnyAxisymmetricRazorThinDiskPotential, r in surfdens also has units
+    pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*conversion.surfdens_in_msolpc2(vo,ro)
+                            *units.Msun/units.pc**2*numpy.exp(-R/ro/units.kpc),
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*numpy.exp(-R),
+                                                         ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    # AnyAxisymmetricRazorThinDiskPotential, r in surfdens only has units
+    pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*numpy.exp(-R/ro/units.kpc),
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnyAxisymmetricRazorThinDiskPotential(\
+            surfdens=lambda R: 1.5*numpy.exp(-R),
+                                                         ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
