@@ -5,7 +5,7 @@
 ###############################################################################
 import numpy
 from scipy import integrate, special
-from .Potential import Potential
+from .Potential import Potential, check_potential_inputs_not_arrays
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
     def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.3),amp=1.,
@@ -41,6 +41,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         self._pot_zero= -2.*numpy.pi*integrate.quad(lambda a: self._sdens(a),
                                                     0,numpy.inf)[0]
 
+    @check_potential_inputs_not_arrays
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -66,6 +67,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -4*(integrate.quad(potint,0,2*R,points=[R])[0]
                    +integrate.quad(potint,2*R,numpy.inf)[0])
     
+    @check_potential_inputs_not_arrays
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -95,6 +97,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return 2*(integrate.quad(rforceint,0,2*R,points=[R])[0]
                   +integrate.quad(rforceint,2*R,numpy.inf)[0])
 
+    @check_potential_inputs_not_arrays
     def _zforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -122,6 +125,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -4*z*(integrate.quad(zforceint,0,2*R,points=[R])[0]
                      +integrate.quad(zforceint,2*R,numpy.inf)[0])
     
+    @check_potential_inputs_not_arrays
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -153,6 +157,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -4*(integrate.quad(r2derivint,0,2*R,points=[R])[0]
                   +integrate.quad(r2derivint,2*R,numpy.inf)[0])
 
+    @check_potential_inputs_not_arrays
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -182,6 +187,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return -4*(integrate.quad(z2derivint,0,2*R,points=[R])[0]
                   +integrate.quad(z2derivint,2*R,numpy.inf)[0])
 
+    @check_potential_inputs_not_arrays
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
