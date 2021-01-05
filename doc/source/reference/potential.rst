@@ -152,6 +152,7 @@ ellipsoidal triaxial potentials below.
 .. toctree::
    :maxdepth: 2
 
+   potentialanyspherical.rst
    potentialburkert.rst
    potentialdoublepowerspher.rst
    potentialcoredehnen.rst

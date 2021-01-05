@@ -52,6 +52,7 @@ from . import interpSphericalPotential
 from . import TriaxialGaussianPotential
 from . import KingPotential
 from . import AnyAxisymmetricRazorThinDiskPotential
+from . import AnySphericalPotential
 #
 # Functions
 #
@@ -175,6 +176,7 @@ interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
 TriaxialGaussianPotential= TriaxialGaussianPotential.TriaxialGaussianPotential
 KingPotential= KingPotential.KingPotential
 AnyAxisymmetricRazorThinDiskPotential= AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
+AnySphericalPotential= AnySphericalPotential.AnySphericalPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential

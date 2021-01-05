@@ -1069,6 +1069,7 @@ def test_potential_array_input():
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
+    rmpots.append('AnySphericalPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
@@ -1173,6 +1174,7 @@ def test_toVertical_array():
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
+    rmpots.append('AnySphericalPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
@@ -1310,6 +1312,7 @@ def test_potential_at_zero():
            or p == 'PerfectEllipsoidPotential' \
            or p == 'SphericalShellPotential' \
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
+           or p == 'AnySphericalPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1412,7 +1415,8 @@ def test_potential_at_infinity():
            or p == 'PerfectEllipsoidPotential' \
            or p == 'SphericalShellPotential' \
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
-           or 'riaxial' in p \
+           or p == 'AnySphericalPotential' \
+          or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
             continue
