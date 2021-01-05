@@ -9,7 +9,7 @@ from .Potential import Potential, check_potential_inputs_not_arrays
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
     def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.5),amp=1.,
-                 ro=None,vo=None):
+                 normalize=False,ro=None,vo=None):
         """
         NAME:
 
@@ -24,6 +24,8 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
            amp= (1.) amplitude to be applied to the potential
 
            surfdens= (1.5 e^[-R/0.3]) function of a single variable that gives the surface density as a function of radius (can return a Quantity)
+
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -40,6 +42,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         self._sdens= surfdens
         self._pot_zero= -2.*numpy.pi*integrate.quad(lambda a: self._sdens(a),
                                                     0,numpy.inf)[0]
+        if normalize or \
+                (isinstance(normalize,(int,float)) \
+                     and not isinstance(normalize,bool)): #pragma: no cover
+            self.normalize(normalize)
 
     @check_potential_inputs_not_arrays
     def _evaluate(self,R,z,phi=0.,t=0.):
