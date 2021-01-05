@@ -269,6 +269,8 @@ def test_energy_jacobi_conservation():
                                      or ('Burkert' in p and not tp.hasC)):
                     break
                 else: continue
+            # AnyAxisymmetricRazorThinDiskPot has bad behavior for odeint and isn't really meant for orbit integration
+            if 'AnyAxisymmetricRazorThinDiskPotential' in p: break
             #Now do axisymmetric
             if not tp.isNonAxi:
                 o= setup_orbit_energy(tp,axi=True,henon='Henon' in p)
@@ -552,7 +554,8 @@ def test_energy_conservation_linear():
                 ttimes= growtimes
             elif integrator == 'dopr54_c' \
                     and not 'MovingObject' in p \
-                    and not p == 'FerrersPotential': ttimes= times
+                    and not p == 'FerrersPotential' \
+                    and not p == 'AnyAxisymmetricRazorThinDiskPotential': ttimes= times
             else: ttimes= fasttimes
             #First track azimuth
             o= setup_orbit_energy(tp)
@@ -684,6 +687,8 @@ def test_liouville_planar():
     #Don't have C implementations of the relevant 2nd derivatives
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
+    # Doesn't have C at all
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     #rmpots.append('PowerSphericalPotentialwCutoff')
     #Doesn't have the R2deriv
     rmpots.append('TwoPowerSphericalPotential')
@@ -1196,6 +1201,8 @@ def test_zmax():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
+    # No C and therefore annoying
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1309,6 +1316,8 @@ def test_analytic_ecc_rperi_rap():
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    # No C and therefore annoying
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
@@ -1633,6 +1642,8 @@ def test_analytic_zmax():
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    # No C and therefore annoying
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_TRAVIS: #travis CI
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')

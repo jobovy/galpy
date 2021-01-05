@@ -8,7 +8,7 @@ from scipy import integrate, special
 from .Potential import Potential, check_potential_inputs_not_arrays
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
-    def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.3),amp=1.,
+    def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.5),amp=1.,
                  ro=None,vo=None):
         """
         NAME:
