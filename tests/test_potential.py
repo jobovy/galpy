@@ -187,6 +187,7 @@ def test_forceAsDeriv_potential():
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
+    tol['AnyAxisymmetricRazorThinDiskPotential']= -6.
     tol['mockInterpRZPotential']= -4.
     tol['FerrersPotential']= -7.
     for p in pots:
@@ -357,6 +358,7 @@ def test_2ndDeriv_potential():
     tol['default']= -8.
     tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
     tol['RazorThinExponentialDiskPotential']= -6.
+    tol['AnyAxisymmetricRazorThinDiskPotential']= -4.5
     tol['mockInterpRZPotential']= -4.
     tol['DehnenBarPotential']= -7.
     for p in pots:
@@ -1066,6 +1068,7 @@ def test_potential_array_input():
     rmpots.append('TwoPowerTriaxialPotential')
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
@@ -1169,6 +1172,7 @@ def test_toVertical_array():
     rmpots.append('TwoPowerTriaxialPotential')
     rmpots.append('DoubleExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential')
+    rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
@@ -1305,6 +1309,7 @@ def test_potential_at_zero():
            or p == 'HomogeneousSpherePotential' \
            or p == 'PerfectEllipsoidPotential' \
            or p == 'SphericalShellPotential' \
+           or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1406,6 +1411,7 @@ def test_potential_at_infinity():
         if p == 'HomogeneousSpherePotential' \
            or p == 'PerfectEllipsoidPotential' \
            or p == 'SphericalShellPotential' \
+           or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:

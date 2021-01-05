@@ -8,8 +8,6 @@ import numpy
 from scipy import special
 from ..util import conversion
 from .Potential import Potential
-_TOL= 1.4899999999999999e-15
-_MAXITER= 20
 class RazorThinExponentialDiskPotential(Potential):
     """Class that implements the razor-thin exponential disk potential
 
@@ -18,8 +16,7 @@ class RazorThinExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
 
     """
-    def __init__(self,amp=1.,hr=1./3.,
-                 maxiter=_MAXITER,tol=0.001,normalize=False,
+    def __init__(self,amp=1.,hr=1./3.,normalize=False,
                  ro=None,vo=None,
                  new=True,glorder=100):
         """
@@ -36,10 +33,6 @@ class RazorThinExponentialDiskPotential(Potential):
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of surface-mass or Gxsurface-mass
 
            hr - disk scale-length (can be Quantity)
-
-           tol - relative accuracy of potential-evaluations
-
-           maxiter - scipy.integrate keyword
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
@@ -61,15 +54,11 @@ class RazorThinExponentialDiskPotential(Potential):
         self._hr= hr
         self._scale= self._hr
         self._alpha= 1./self._hr
-        self._maxiter= maxiter
-        self._tol= tol
         self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        #Load Kepler potential for large R
-        #self._kp= KeplerPotential(normalize=4.*numpy.pi/self._alpha**2./self._beta)
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -88,7 +77,6 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-26 - Written - Bovy (IAS)
         """
         if self._new:
-            #if R > 6.: return self._kp(R,z)
             if numpy.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
                 return -numpy.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))

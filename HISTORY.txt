@@ -31,6 +31,9 @@ v1.7 (XXXX-XX-XX)
   stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
   implementing multi-Gaussian expansions of galactic potentials.
 
+- Added AnyAxisymmetricRazorThinDiskPotential, the potential of an
+  arbitrary razor-thin, axisymmetric disk.
+
 - Added inverse action-angle transformations for the isochrone
   potential (actionAngleIsochroneInverse) and for a one-dimensional
   harmonic oscillator (actionAngleHarmonicInverse; also added the

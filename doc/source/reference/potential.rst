@@ -179,6 +179,7 @@ section on ellipsoidal triaxial potentials below.
 .. toctree::
    :maxdepth: 2
 
+   potentialanyaxirazorthin.rst
    potentialdoubleexp.rst
    potentialflattenedpower.rst
    potentialinterprz.rst
