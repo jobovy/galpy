@@ -3326,6 +3326,32 @@ def test_potential_paramunits():
                                                          ro=ro,vo=vo)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    # AnySphericalPotential
+    pot= potential.AnySphericalPotential(
+            dens=lambda r: 0.64/r/(1+r)**3*conversion.dens_in_msolpc3(vo,ro)\
+        *units.Msun/units.pc**3,       
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
+                                                 ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "potential.AnySphericalPotential w/ parameters w/ units does not behave as expected"   
+    # AnySphericalPotential, r in dens also has units
+    pot= potential.AnySphericalPotential(
+            dens=lambda r: 0.64/(r/ro/units.kpc)/(1+r/ro/units.kpc)**3*conversion.dens_in_msolpc3(vo,ro)\
+        *units.Msun/units.pc**3,       
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
+                                                 ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    # AnySphericalPotential, r in dens only has units
+    pot= potential.AnySphericalPotential(
+            dens=lambda r: 0.64/(r/ro/units.kpc)/(1+r/ro/units.kpc)**3,
+                                                         ro=ro,vo=vo)
+    pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
+                                                 ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 

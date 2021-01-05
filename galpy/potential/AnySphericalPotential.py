@@ -4,6 +4,10 @@
 import numpy
 from scipy import integrate
 from .SphericalPotential import SphericalPotential
+from .Force import _APY_LOADED
+from ..util import conversion
+if _APY_LOADED:
+    from astropy import units
 class AnySphericalPotential(SphericalPotential):
     """Class that implements the potential of an arbitrary spherical density distribution :math:`\\rho(r)`"""
     def __init__(self,dens=lambda r: 0.64/r/(1+r)**3,amp=1.,normalize=False,
@@ -39,7 +43,36 @@ class AnySphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        self._rawdens= dens
+        # Parse density: does it have units? does it expect them?
+        if _APY_LOADED:
+            _dens_unit_input= False
+            try:
+                dens(1)
+            except (units.UnitConversionError,units.UnitTypeError):
+                _dens_unit_input= True
+            _dens_unit_output= False
+            if _dens_unit_input:
+                try:
+                    dens(1.*units.kpc).to(units.Msun/units.pc**3)
+                except (AttributeError,units.UnitConversionError): pass
+                else: _dens_unit_output= True
+            else:
+                try:
+                    dens(1.).to(units.Msun/units.pc**3)
+                except (AttributeError,units.UnitConversionError): pass
+                else: _dens_unit_output= True
+            if _dens_unit_input and _dens_unit_output:
+                self._rawdens= lambda R: conversion.parse_dens(\
+                                            dens(R*self._ro*units.kpc),
+                                            ro=self._ro,vo=self._vo)
+            elif _dens_unit_input:
+                self._rawdens= lambda R: dens(R*self._ro*units.kpc)
+            elif _dens_unit_output:
+                self._rawdens= lambda R: conversion.parse_dens(dens(R),
+                                                               ro=self._ro,
+                                                               vo=self._vo)
+        if not hasattr(self,'_rawdens'): # unitless
+            self._rawdens= dens
         self._rawmass= lambda r: 4.*numpy.pi\
             *integrate.quad(lambda a: a**2*self._rawdens(a),0,r)[0]
         # The potential at zero, try to figure out whether it's finite
