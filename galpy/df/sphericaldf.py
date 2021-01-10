@@ -33,6 +33,9 @@ from ..util.conversion import physical_conversion
 if conversion._APY_LOADED:
     from astropy import units
 
+
+_default_random = numpy.random.RandomState(seed=None)  # random seed
+
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
     def __init__(self,pot=None,scale=None,ro=None,vo=None):
@@ -280,7 +283,7 @@ class sphericaldf(df):
         return 1.-self._vmomentdensity(r,0,2)/2./self._vmomentdensity(r,2,0)
     
 ############################### SAMPLING THE DF################################
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True, random=None):
         """
         NAME:
 
@@ -320,9 +323,12 @@ class sphericaldf(df):
             2020-07-22 - Written - Lane (UofT)
 
         """
+        if random is None:
+            random= _default_random
+
         if R is None or z is None: # Full 6D samples
-            r = self._sample_r(n=n)
-            phi,theta = self._sample_position_angles(n=n)
+            r = self._sample_r(n=n, random=random)
+            phi,theta = self._sample_position_angles(n=n, random=random)
             R = r*numpy.sin(theta)
             z = r*numpy.cos(theta) 
         else: # 3D velocity samples
@@ -339,14 +345,14 @@ class sphericaldf(df):
             r= numpy.sqrt(R**2.+z**2.)
             theta= numpy.arctan2(R,z)
             if phi is None: # Otherwise assume phi input type matches R,z
-                phi,_ = self._sample_position_angles(n=n)
+                phi,_ = self._sample_position_angles(n=n, random=random)
             else:
                 phi= conversion.parse_angle(phi)
                 phi= phi*numpy.ones(n) \
                     if not hasattr(phi,'__len__') or len(phi) < n \
                     else phi
-        eta,psi = self._sample_velocity_angles(r,n=n)
-        v = self._sample_v(r,eta,n=n)
+        eta,psi = self._sample_velocity_angles(r,n=n, random=random)
+        v = self._sample_v(r,eta,n=n, random=random)
         vr = v*numpy.cos(eta)
         vtheta = v*numpy.sin(eta)*numpy.cos(psi)
         vT = v*numpy.sin(eta)*numpy.sin(psi)
@@ -360,7 +366,7 @@ class sphericaldf(df):
         else:
             return (R,vR,vT,z,vz,phi)
 
-    def _sample_r(self,n=1):
+    def _sample_r(self,n=1, random=_default_random):
         """Generate radial position samples from potential
         Note - the function interpolates the normalized CMF onto the variable 
         xi defined as:
@@ -369,7 +375,7 @@ class sphericaldf(df):
         
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
-        rand_mass_frac = numpy.random.uniform(size=n)
+        rand_mass_frac = random.uniform(size=n)
         if hasattr(self,'_icmf'):
             r_samples = self._icmf(rand_mass_frac)
         else:
@@ -403,25 +409,25 @@ class sphericaldf(df):
         ms = numpy.append(ms,1)
         return scipy.interpolate.InterpolatedUnivariateSpline(ms,xis,k=3)
 
-    def _sample_position_angles(self,n=1):
+    def _sample_position_angles(self,n=1, random=_default_random):
         """Generate spherical angle samples"""
-        phi_samples = numpy.random.uniform(size=n)*2*numpy.pi
-        theta_samples = numpy.arccos(1.-2*numpy.random.uniform(size=n))
+        phi_samples = random.uniform(size=n)*2*numpy.pi
+        theta_samples = numpy.arccos(1.-2*random.uniform(size=n))
         return phi_samples,theta_samples
 
-    def _sample_v(self,r,eta,n=1):
+    def _sample_v(self,r,eta,n=1, random=_default_random):
         """Generate velocity samples: typically the total velocity, but not for OM"""
         if not hasattr(self,'_v_vesc_pvr_interpolator'):
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
         return self._v_vesc_pvr_interpolator(\
-                    numpy.log10(r/self._scale),numpy.random.uniform(size=n),
+                    numpy.log10(r/self._scale),random.uniform(size=n),
                     grid=False)*self._vmax_at_r(self._pot,r)
 
-    def _sample_velocity_angles(self,r,n=1):
+    def _sample_velocity_angles(self,r,n=1, random=_default_random):
         """Generate samples of angles that set radial vs tangential 
         velocities"""
-        eta_samples= self._sample_eta(r,n)
-        psi_samples= numpy.random.uniform(size=n)*2*numpy.pi
+        eta_samples= self._sample_eta(r,n, random=random)
+        psi_samples= random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
 
     def _vmax_at_r(self,pot,r,**kwargs):
@@ -568,9 +574,9 @@ class isotropicsphericaldf(sphericaldf):
             *special.gamma(m//2+1)*special.gamma(n//2+0.5)\
             /special.gamma(m//2+n//2+1.5)
          
-    def _sample_eta(self,r,n=1):
+    def _sample_eta(self,r,n=1, random=_default_random):
         """Sample the angle eta which defines radial vs tangential velocities"""
-        return numpy.arccos(1.-2.*numpy.random.uniform(size=n))
+        return numpy.arccos(1.-2.*random.uniform(size=n))
 
     def _p_v_at_r(self,v,r):
         return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
