@@ -1,8 +1,8 @@
 import hashlib
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.special import lpmn
-from scipy.special import gammaln
+from scipy.special import lpmn,lpmv
+from scipy.special import gammaln, gamma, gegenbauer
 from ..util import coords, conversion
 from .Potential import Potential
 
@@ -750,53 +750,72 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1., radial_order=None, costheta_orde
 
         HISTORY:
 
-           2016-05-27 - Written - Aladdin 
+           2020-11-18 - Written - Morgan Bennett
 
-        """
-        def integrand(xi, costheta, phi):
-            l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
-            m = numpy.arange(0, L)[numpy.newaxis,numpy.newaxis,:]
-            r = _xiToR(xi, a)
-            R = r*numpy.sqrt(1 - costheta**2.)
-            z = r*costheta
-            Legendre = lpmn(L - 1,L-1,costheta)[0].T[numpy.newaxis,:,:]            
-            phi_nl = - a**3*(1. + xi)**l * (1. - xi)**(l + 1.)*_C(xi, N, L)[:,:,numpy.newaxis]
-            
-            return dens(R,z, phi) * phi_nl[numpy.newaxis, :,:,:]*numpy.array([numpy.cos(m*phi), numpy.sin(m*phi)])*dV
-            
-               
-        Acos = numpy.zeros((N,L,L), float)
-        Asin = numpy.zeros((N,L,L), float)
+        """ 
         
-        n = numpy.arange(0,N)[:,numpy.newaxis, numpy.newaxis]
-        l = numpy.arange(0,L)[numpy.newaxis,:, numpy.newaxis]
-        m = numpy.arange(0,L)[numpy.newaxis,numpy.newaxis,:]
-        K = .5*n*(n + 4*l + 3) + (l + 1)*(2*l + 1)
-        
+        n = numpy.arange(0,N)
+        l = numpy.arange(0,L)
+        m = numpy.arange(0,L)
+
         r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
         phi = numpy.arctan2(pos[1],pos[0])
         costheta = pos[2]/r
-        
-        Legendre = numpy.array([lpmn(L - 1,L-1,cth)[0].T[numpy.newaxis,:,:] for cth in costheta])
-        Cn= numpy.array([_C(_RToxi(ri,a=a),N,L)[:,:,numpy.newaxis] for ri in r])
-        
-        rl= ((r[:,numpy.newaxis,numpy.newaxis]/a)**l)[:,numpy.newaxis,:,:]
-        r12l1= ((1.+(r[:,numpy.newaxis,numpy.newaxis]/a))**(2.*l+1))[:,numpy.newaxis,:,:]
-        mphi= (phi[:,numpy.newaxis,numpy.newaxis]*m)[:,numpy.newaxis,:,:]
-        
-        Sum = numpy.sum((mass[:,numpy.newaxis,numpy.newaxis,numpy.newaxis]*rl/r12l1*Cn*Legendre)[numpy.newaxis,:,:,:,:]*[numpy.cos(mphi),numpy.sin(mphi)],axis=1)
+        '''
+        Plm= numpy.zeros([len(costheta),1,L,L])
+        for i,ll in enumerate(l):
+            for j,mm in enumerate(m):
+                Plm[:,0,j,i]= lpmv(ll,mm,costheta)
 
-        Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1)
-        NN = numpy.e**(Nln)
-
-        NN[numpy.where(NN == numpy.inf)] = 0 ## To account for the fact that m cant be bigger than l
-            
-        constants = NN*(2*l + 1.)**.5
+        cosmphi= numpy.cos(phi[:,None]*m[None,:])[:,None,None,:]
+        sinmphi= numpy.sin(phi[:,None]*m[None,:])[:,None,None,:]
         
-        lnI = -(8*l + 6)*numpy.log(2) + gammaln(n + 4*l + 3) - gammaln(n + 1) - numpy.log(n + 2*l + 3./2) - 2*gammaln(2*l + 3./2)
-        I = K*(4*numpy.pi) * numpy.e**(lnI)
-        Acos[:,:,:], Asin[:,:,:] = 2*(I**-1.)[numpy.newaxis,:,:,:] * Sum * constants[numpy.newaxis,:,:,:]
-        return Acos, Asin
+        Ylm= (numpy.sqrt((2.*l[:,None]+1)*gamma(l[:,None]-m[None,:]+1)/gamma(l[:,None]+m[None,:]+1))[None,None,:,:]*Plm)[None,:,:,:,:]*numpy.array([cosmphi,sinmphi])
+        Ylm= numpy.nan_to_num(Ylm)
+
+        C= [[gegenbauer(nn,2.*ll+1.5) for ll in l] for nn in n] 
+        Cn= numpy.zeros((1,len(r),N,L,1))
+        for i in range(N):
+            for j in range(L):
+                Cn[0,:,i,j,0]= C[i][j]((r/a-1)/(r/a+1))
+
+        rl= ((r[:,None]/a)**l[None,:])[None,:,None,:,None]
+        r12l1= ((1+(r[:,None]/a))**(2.*l[None,:]+1))[None,:,None,:,None]
+
+        phinlm= -rl/r12l1*Cn*Ylm
+
+        Sum= numpy.sum(mass[None,:,None,None,None]*phinlm,axis=1)
+        Knl= 0.5*n[:,None]*(n[:,None]+4.*l[None,:]+3.)+(l[None,:]+1)*(2.*l[None,:]+1.)
+
+        Inl= (-Knl*4.*numpy.pi/2.**(8.*l[None,:]+6.)*gamma(n[:,None]+4.*l[None,:]+3.)/gamma(n[:,None]+1)/(n[:,None]+2.*l[None,:]+1.5)/gamma(2.*l[None,:]+1.5)**2)[None,:,:,None]
+
+        Anlm= Inl**(-1)*Sum'''
+        Anlm= numpy.zeros([2,L,L,L])
+        for i,nn in enumerate(n):
+            for j,ll in enumerate(l):
+                for k,mm in enumerate(m[:j+1]):
+
+                    Plm= lpmv(mm,ll,costheta)
+
+                    cosmphi= numpy.cos(phi*mm)
+                    sinmphi= numpy.sin(phi*mm)
+
+                    Ylm= (numpy.sqrt((2.*ll+1)*gamma(ll-mm+1)/gamma(ll+mm+1))*Plm)[None,:]*numpy.array([cosmphi,sinmphi])
+                    Ylm= numpy.nan_to_num(Ylm)
+
+                    C= gegenbauer(nn,2.*ll+1.5)
+                    Cn= C((r/a-1)/(r/a+1))
+
+                    phinlm= (-(r/a)**ll/(r/a+1)**(2.*ll+1)*Cn)[None,:]*Ylm
+
+                    Sum= numpy.sum(mass[None,:]*phinlm,axis=1)
+
+                    Knl= 0.5*nn*(nn+4.*ll+3.)+(ll+1)*(2.*ll+1.)
+                    Inl= (-Knl*4.*numpy.pi/2.**(8.*ll+6.)*gamma(nn+4.*ll+3.)/gamma(nn+1)/(nn+2.*ll+1.5)/gamma(2.*ll+1.5)**2)
+
+                    Anlm[:,i,j,k]= Inl**(-1)*Sum
+        
+        return 2.*Anlm
         
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
         """        
