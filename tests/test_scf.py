@@ -4,9 +4,10 @@ import os
 import sys
 import numpy
 from galpy import potential
-from galpy.potential import SCFPotential
+from galpy.potential import SCFPotential,scf_compute_coeffs,scf_compute_coeffs_nbody
 from galpy.util import coords
 from galpy.orbit import Orbit
+from galpy import df
 _TRAVIS= bool(os.getenv('TRAVIS'))
 
 EPS = 1e-13 ## default epsilon
@@ -365,6 +366,42 @@ def test_phiforceMatches_nfw():
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
+
+##############Test nbody coefficiennt calculation###############   
+    
+def test_spherical():
+    #Test that the SCF coefficient estimators make a spherical potential
+    
+    N= int(1e6)
+    Mh= 10.
+    ah= 50./8.
+    m= Mh/N
+
+    pothern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hdf= df.isotropicHernquistdf(pothern)
+    samp= hdf.sample(n=N)
+    
+    positions= numpy.array([samp.x(),samp.y(),samp.z()])
+
+    Acdens, Asdens= scf_compute_coeffs(pothern.dens,10,10,a=50./8.)
+    Acnbdy, Asnbdy= scf_compute_coeffs_nbody(positions,m*numpy.ones(N),10,10,a=50./8.)
+    
+    potdens= SCFPotential(Acos=Acdens,Asin=Asdens,a=50./8.)
+    potnbdy= SCFPotential(Acos=Acnbdy,Asin=Asnbdy,a=50./8.)
+
+    potdens.turn_physical_off()
+    potnbdy.turn_physical_off()
+    pothern.turn_physical_off()
+    
+    r= numpy.linspace(0,1,100)
+    z= numpy.linspace(-0.5,0.5,100)
+
+    phern= pothern.dens(r[:,None],z[None,:])
+    pdens= potdens.dens(r[:,None],z[None,:])
+    pnbdy= potnbdy.dens(r[:,None],z[None,:])
+
+    assert numpy.max(numpy.abs((phern-pdens)/phern))<1.e-3, 'scf_compute_coeffs did not meet the required tolerance of 1e-3'
+    assert numpy.max(numpy.abs((phern-pnbdy)/phern))<0.2, 'scf_compute_coeffs_nbody did not meet the required tolerance of 0.1'
  
 ##############GENERIC FUNCTIONS BELOW###############
 
@@ -482,5 +519,6 @@ def density1(R, z=0, phi=0.):
     r, theta, phi = coords.cyl_to_spher(R,z, phi)
     h = potential.HernquistPotential(2)
     return h.dens(R, z, phi)*(1 + numpy.cos(theta) + numpy.cos(theta)**2.)*(1 + numpy.cos(phi) + numpy.sin(phi))
+    
     
     
