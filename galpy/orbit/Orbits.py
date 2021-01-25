@@ -1393,7 +1393,7 @@ class Orbit(object):
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        return self.orbit
+        return self.orbit.copy()
 
     @shapeDecorator
     def getOrbit_dxdv(self):
@@ -1420,7 +1420,7 @@ class Orbit(object):
            2019-05-21 - Written - Bovy (UofT)
 
         """
-        return self.orbit_dxdv[...,4:]
+        return self.orbit_dxdv[...,4:].copy()
 
     @physical_conversion('energy')
     @shapeDecorator
@@ -2840,7 +2840,7 @@ class Orbit(object):
         """
         if len(args) == 0:
             try:
-                return self.t
+                return self.t.copy()
             except AttributeError:
                 return 0.
         else:
@@ -4361,7 +4361,7 @@ class Orbit(object):
             # Not doing hasattr in above elif, bc currently slow due to overwrite of __getattribute__
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if t_exact_integration_times: # Common case where one wants all integrated times
-            return self.orbit.T
+            return self.orbit.T.copy()
         elif isinstance(t,(int,float,numpy.number)) and hasattr(self,'t') \
                 and t in list(self.t):
             return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
