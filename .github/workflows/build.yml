@@ -126,6 +126,7 @@ jobs:
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
       run: |
         lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
+        lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
     - name: Upload coverage reports to codecov
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
       uses: codecov/codecov-action@v1
