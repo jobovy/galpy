@@ -41,13 +41,13 @@ static inline void calculateXi(double r, double a, double *xi)
 
 
 //Potentials, forces, and derivative functions
-//LCOV_EXCL_START
+// LCOV_EXCL_START
 // Also used for density, just with rhoTilde
 double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
 {
     return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
-//LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 double computeAxiPhi(double Acos_val, double P, double phiTilde)
 {
     return Acos_val*P*phiTilde;
@@ -660,10 +660,10 @@ double SCFPotentialEval(double R,double Z, double phi,
     int M = (int) *args++;
     double* Acos = args;
     double* Asin;
-    if (isNonAxi==1) //LCOV_EXCL_START
+    if (isNonAxi==1) // LCOV_EXCL_START
     {
         Asin = args + N*L*M;
-    } //LCOV_EXCL_STOP
+    } // LCOV_EXCL_STOP
     //convert R,Z to r, theta
     double r;
     double theta;
@@ -688,9 +688,9 @@ double SCFPotentialEval(double R,double Z, double phi,
     {
     M_eff = 1;
     size = L;    
-    } else{ //LCOV_EXCL_START
+    } else{ // LCOV_EXCL_START
     size = L*L - L*(L-1)/2;
-    } //LCOV_EXCL_STOP
+    } // LCOV_EXCL_STOP
     
     double *P= (double *) malloc ( size * sizeof(double) );
 
@@ -703,12 +703,12 @@ double SCFPotentialEval(double R,double Z, double phi,
 
     double Constant[1] = {1.};
 
-    if (isNonAxi==1) //LCOV_EXCL_START
+    if (isNonAxi==1) // LCOV_EXCL_START
     {
         double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
         equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
         computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);
-    } //LCOV_EXCL_STOP
+    } // LCOV_EXCL_STOP
     else
     {
         double (*Eq[1])(double, double, double) = {&computeAxiPhi};

@@ -1571,13 +1571,13 @@ void calcUminUmax(int ndata,
 					       4.4408920985006262e-16);
 	    }
 	  while (status == GSL_CONTINUE && iter < max_iter);
-	  // LCOV_EXCL_START
+// LCOV_EXCL_START
 	  if (status == GSL_EINVAL) {//Shouldn't ever get here
 	    *(umin+ii) = -9999.99;
 	    *(umax+ii) = -9999.99;
 	    continue;
 	  }
-	  // LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 	  *(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
 	}
       }
@@ -1608,13 +1608,13 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	// LCOV_EXCL_START
+// LCOV_EXCL_START
 	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	// LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 	*(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
     }
@@ -1647,13 +1647,13 @@ void calcUminUmax(int ndata,
 					     4.4408920985006262e-16);
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
-	// LCOV_EXCL_START
+// LCOV_EXCL_START
 	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(umin+ii) = -9999.99;
 	  *(umax+ii) = -9999.99;
 	  continue;
 	}
-	// LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 	*(umin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       }
       //Find starting points for maximum
@@ -1683,13 +1683,13 @@ void calcUminUmax(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      // LCOV_EXCL_START
+// LCOV_EXCL_START
       if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(umin+ii) = -9999.99;
 	*(umax+ii) = -9999.99;
 	continue;
       }
-      // LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
       *(umax+ii) = gsl_root_fsolver_root ((s+tid)->s);
     }
   }
@@ -1792,12 +1792,12 @@ void calcVmin(int ndata,
 					   4.4408920985006262e-16);
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
-      // LCOV_EXCL_START
+// LCOV_EXCL_START
       if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(vmin+ii) = -9999.99;
 	continue;
       }
-      // LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
       *(vmin+ii) = gsl_root_fsolver_root ((s+tid)->s);
       fflush(stdout);
     }
