@@ -13,10 +13,10 @@ jobs:
       matrix:
         python-version: [3.7,3.8,3.9]
     env:
-      REQUIRES_PYNBODY=false
-      REQUIRES_ASTROPY=true
-      REQUIRES_ASTROQUERY=true
-      PYTHON_COVREPORTS_VERSION: 3.9      
+      REQUIRES_PYNBODY= false
+      REQUIRES_ASTROPY= true
+      REQUIRES_ASTROQUERY= true
+      PYTHON_COVREPORTS_VERSION= 3.9      
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -39,18 +39,18 @@ jobs:
       run: |
          pip install h5py pandas pytz
          pip install git+git://github.com/pynbody/pynbody.git
-     - name: Install astropy
-       if: ${{ REQUIRES_ASTROPY }}
-       run: pip install astropy pyerfa
-     - name: Install astroquery
-       if: ${{ REQUIRES_ASTROQUERY }}
-       run: pip install astroquery
-     - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
-       run: |
-          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
-          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
-          git checkout galpy
-          cd -
+    - name: Install astropy
+      if: ${{ REQUIRES_ASTROPY }}
+      run: pip install astropy pyerfa
+    - name: Install astroquery
+      if: ${{ REQUIRES_ASTROQUERY }}
+      run: pip install astroquery
+    - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
+      run: |
+         git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+         cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+         git checkout galpy
+         cd -
     - name: Download dfcorrections
       run: |
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
