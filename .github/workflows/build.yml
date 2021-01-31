@@ -11,11 +11,37 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9,3.8,3.7]
+        include:
+          - python-version: 3.9
+            TEST_FILES: tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py
+            REQUIRES_PYNBODY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            REQUIRES_ASTROPY: true # needs to be separate for different config
+          - python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py
+          - python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py
+          - python-version: 3.9
+            TEST_FILES: tests/test_diskdf.py
+          - python-version: 3.9
+            TEST_FILES: tests/test_streamdf.py
+          - python-version: 3.8
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.7
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
     env:
-      REQUIRES_PYNBODY: false
-      REQUIRES_ASTROPY: true
-      REQUIRES_ASTROQUERY: true
       PYTHON_COVREPORTS_VERSION: 3.9      
     steps:
     - uses: actions/checkout@v2
@@ -35,15 +61,15 @@ jobs:
       run: |
          pip install numpy scipy matplotlib numexpr setuptools cython pytest
     - name: Install pynbody
-      if: ${{ env.REQUIRES_PYNBODY == true }}
+      if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
          pip install h5py pandas pytz
          pip install git+git://github.com/pynbody/pynbody.git
     - name: Install astropy
-      if: ${{ env.REQUIRES_ASTROPY == true }}
+      if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
     - name: Install astroquery
-      if: ${{ env.REQUIRES_ASTROQUERY == true }}
+      if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
     - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
       run: |
@@ -60,22 +86,17 @@ jobs:
         python setup.py build_ext --coverage --single_ext --inplace
         python setup.py develop --single_ext
     - name: Print debug info
+      env:
+         REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
+         REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
+         REQUIRES_PYNBODY : ${{ matrix.REQUIRES_PYNBODY }}
       run: |
-         python -c "import numpy; print(numpy.__version__)"
-         python -c "import scipy; print(scipy.__version__)"
-         python -c "import matplotlib; print(matplotlib.__version__)"
-         # - if $REQUIRES_ASTROPY; then python -c "import astropy; print(astropy.__version__)"; fi
-         #- if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print(astroquery.__version__)"; fi
-         # - if $REQUIRES_PYNBODY; then python -c "import pynbody; print(pynbody.__version__)"; fi
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - TEST_FILES: tests/test_coords.py
-          - TEST_FILES: tests/test_conversion.py
-    steps:
+         python -c "import numpy; print("numpy: {}".format(numpy.__version__))"
+         python -c "import scipy; print("scipy: {}".format(scipy.__version__))"
+         python -c "import matplotlib; print("matplotlib: {}".format(matplotlib.__version__))"
+         if $REQUIRES_ASTROPY; then python -c "import astropy; print("astropy: {}".format(astropy.__version__))"; fi
+         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print("astroquery: {}".format(astroquery.__version__))"; fi
+         if $REQUIRES_PYNBODY; then python -c "import pynbody; print(:pynbody: {}".format(pynbody.__version__))"; fi
     - name: Test with pytest
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
