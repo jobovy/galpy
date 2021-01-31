@@ -15,9 +15,14 @@ jobs:
           - python-version: 3.9
             TEST_FILES: tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py
             REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.9
             TEST_FILES: tests/test_quantity.py tests/test_coords.py
-            REQUIRES_ASTROPY: true # needs to be separate for different config
+            REQUIRES_PYNBODY: false
+            # needs to be separate for different config
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py'
             REQUIRES_PYNBODY: true
@@ -25,12 +30,24 @@ jobs:
             REQUIRES_ASTROQUERY: true
           - python-version: 3.9
             TEST_FILES: tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.9
             TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.9
             TEST_FILES: tests/test_diskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.9
             TEST_FILES: tests/test_streamdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
           - python-version: 3.8
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py
             REQUIRES_PYNBODY: true
@@ -91,12 +108,12 @@ jobs:
          REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
          REQUIRES_PYNBODY : ${{ matrix.REQUIRES_PYNBODY }}
       run: |
-         python -c "import numpy; print("numpy: {}".format(numpy.__version__))"
-         python -c "import scipy; print("scipy: {}".format(scipy.__version__))"
-         python -c "import matplotlib; print("matplotlib: {}".format(matplotlib.__version__))"
-         if $REQUIRES_ASTROPY; then python -c "import astropy; print("astropy: {}".format(astropy.__version__))"; fi
-         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print("astroquery: {}".format(astroquery.__version__))"; fi
-         if $REQUIRES_PYNBODY; then python -c "import pynbody; print(:pynbody: {}".format(pynbody.__version__))"; fi
+         python -c "import numpy; print('numpy: {}'.format(numpy.__version__))"
+         python -c "import scipy; print('scipy: {}'.format(scipy.__version__))"
+         python -c "import matplotlib; print('matplotlib: {}'.format(matplotlib.__version__))"
+         if $REQUIRES_ASTROPY; then python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"; fi
+         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"; fi
+         if $REQUIRES_PYNBODY; then python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"; fi
     - name: Test with pytest
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
