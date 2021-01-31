@@ -69,6 +69,7 @@ jobs:
          # - if $REQUIRES_PYNBODY; then python -c "import pynbody; print(pynbody.__version__)"; fi
   test:
     needs: setup
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
