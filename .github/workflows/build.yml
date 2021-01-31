@@ -14,56 +14,51 @@ jobs:
       matrix:
         include:
           - python-version: 3.9
-            TEST_FILES: tests/test_coords.py
+            TEST_FILES: tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            REQUIRES_PYNBODY: false
+            # needs to be separate for different config
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
-#          - python-version: 3.9
-#            TEST_FILES: tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py
-#            REQUIRES_PYNBODY: true
-#            REQUIRES_ASTROPY: false
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_quantity.py tests/test_coords.py
-#            REQUIRES_PYNBODY: false
-#            # needs to be separate for different config
-#            REQUIRES_ASTROPY: true
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
-#            REQUIRES_PYNBODY: true
-#            REQUIRES_ASTROPY: true
-#            REQUIRES_ASTROQUERY: true
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py
-#            REQUIRES_PYNBODY: false
-#            REQUIRES_ASTROPY: false
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py
-#            REQUIRES_PYNBODY: false
-#            REQUIRES_ASTROPY: false
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_diskdf.py
-#            REQUIRES_PYNBODY: false
-#            REQUIRES_ASTROPY: false
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.9
-#            TEST_FILES: tests/test_streamdf.py
-#            REQUIRES_PYNBODY: false
-#            REQUIRES_ASTROPY: false
-#            REQUIRES_ASTROQUERY: false
-#          - python-version: 3.8
-#            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
-#            REQUIRES_PYNBODY: true
-#            REQUIRES_ASTROPY: true
-#            REQUIRES_ASTROQUERY: true
-#          - python-version: 3.7
-#            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
-#            REQUIRES_PYNBODY: true
-#            REQUIRES_ASTROPY: true
-#            REQUIRES_ASTROQUERY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_diskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_streamdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.8
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.7
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
     env:
       PYTHON_COVREPORTS_VERSION: 3.9      
     steps:
@@ -83,7 +78,7 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
@@ -132,11 +127,11 @@ jobs:
         pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
         pip install pytest-cov
         pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
-#    - name: Generate code coverage
-#      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
-#      run: |
-#        lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
-#        lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
-#    - name: Upload coverage reports to codecov
-#      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
-#      uses: codecov/codecov-action@v1
+    - name: Generate code coverage
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
+      run: |
+        lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
+        lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
+    - name: Upload coverage reports to codecov
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      uses: codecov/codecov-action@v1
