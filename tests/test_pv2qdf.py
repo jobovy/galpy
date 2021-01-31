@@ -262,6 +262,6 @@ def test_pvRvz_staeckel_arrayin():
                            pot=MWPotential,aA=aAS,cutcounter=True)
     R,z= 0.8, 0.1
     pvRvz= qdf.pvRvz(0.1,0.05,R*numpy.ones(2),z*numpy.ones(2))
-    assert numpy.all(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10., 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
+    assert numpy.all(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z)) < 10.**-10.), 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
 
