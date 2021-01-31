@@ -7,11 +7,11 @@ on:
     - cron: '0 20 * * 2'
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7,3.8,3.9]
+        python-version: [3.9,3.8,3.7]
     env:
       REQUIRES_PYNBODY: false
       REQUIRES_ASTROPY: true
@@ -35,15 +35,15 @@ jobs:
       run: |
          pip install numpy scipy matplotlib numexpr setuptools cython pytest
     - name: Install pynbody
-      if: ${{ env.REQUIRES_PYNBODY }}
+      if: ${{ env.REQUIRES_PYNBODY == true }}
       run: |
          pip install h5py pandas pytz
          pip install git+git://github.com/pynbody/pynbody.git
     - name: Install astropy
-      if: ${{ env.REQUIRES_ASTROPY }}
+      if: ${{ env.REQUIRES_ASTROPY == true }}
       run: pip install astropy pyerfa
     - name: Install astroquery
-      if: ${{ env.REQUIRES_ASTROQUERY }}
+      if: ${{ env.REQUIRES_ASTROQUERY == true }}
       run: pip install astroquery
     - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
       run: |
@@ -67,12 +67,21 @@ jobs:
          # - if $REQUIRES_ASTROPY; then python -c "import astropy; print(astropy.__version__)"; fi
          #- if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print(astroquery.__version__)"; fi
          # - if $REQUIRES_PYNBODY; then python -c "import pynbody; print(pynbody.__version__)"; fi
+  test:
+    needs: setup
+    strategy:
+      matrix:
+        include:
+          - TEST_FILES: tests/test_coords.py
+          - TEST_FILES: tests/test_conversion.py
+    steps:
     - name: Test with pytest
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
         pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
         pip install pytest-cov
-        pytest -v tests/test_coords.py --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
-        #pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
+        pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
 #    - name: Generate code coverage
 #      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
 #      run: |
