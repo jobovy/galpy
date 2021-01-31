@@ -90,8 +90,9 @@ jobs:
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
-         pip install h5py pandas pytz
-         pip install git+git://github.com/pynbody/pynbody.git
+         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager wheel
+         pip install pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
