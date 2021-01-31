@@ -35,15 +35,15 @@ jobs:
       run: |
          pip install numpy scipy matplotlib numexpr setuptools cython pytest
     - name: Install pynbody
-      if: ${{ REQUIRES_PYNBODY == true }}
+      if: ${{ $REQUIRES_PYNBODY }}
       run: |
          pip install h5py pandas pytz
          pip install git+git://github.com/pynbody/pynbody.git
     - name: Install astropy
-      if: ${{ REQUIRES_ASTROPY == true }}
+      if: ${{ $REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
     - name: Install astroquery
-      if: ${{ REQUIRES_ASTROQUERY == true }}
+      if: ${{ $REQUIRES_ASTROQUERY }}
       run: pip install astroquery
     - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
       run: |
