@@ -92,7 +92,7 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
-         pip install pynbody
+         pip install git+git://github.com/pynbody/pynbody.git@v1.0.2
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
