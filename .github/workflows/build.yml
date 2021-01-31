@@ -9,6 +9,7 @@ on:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
         include:
@@ -24,7 +25,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py'
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -121,10 +122,10 @@ jobs:
         pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
         pip install pytest-cov
         pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
-#    - name: Generate code coverage
-#      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
-#      run: |
-#        lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
-#    - name: Upload coverage reports to codecov
-#      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
-#      uses: codecov/codecov-action@v1
+    - name: Generate code coverage
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
+      run: |
+        lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
+    - name: Upload coverage reports to codecov
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      uses: codecov/codecov-action@v1
