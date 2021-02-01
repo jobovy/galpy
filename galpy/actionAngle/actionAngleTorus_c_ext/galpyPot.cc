@@ -11,8 +11,7 @@ General interface to galpy potentials
 #include <galpyPot.h>
 #include <galpy_potentials.h>
  // Implementation for completeness, some parts never touched by galpy's use of TM
-// Uncomment relevant functions for complete implementation
-/* // LCOV_EXCL_START
+// LCOV_EXCL_START
 void  galpyPotential::error(const char* msgs) const
 {
   cerr << " Error in class galpyPotential: " << msgs << '\n';
@@ -23,7 +22,7 @@ double galpyPotential::operator() (double R, double z) const
 {
   return evaluatePotentials(R,z,nargs,potentialArgs);
 }
-// LCOV_EXCL_STOP */
+// LCOV_EXCL_STOP
 
 double galpyPotential::operator() (double R, double z,
 				   double& dPdR,double& dPdz) const
@@ -32,14 +31,14 @@ double galpyPotential::operator() (double R, double z,
   dPdz= -calczforce(R,z,0.,0.,nargs,potentialArgs);
   return evaluatePotentials(R,z,nargs,potentialArgs);
 }
-/* // LCOV_EXCL_START
+// LCOV_EXCL_START
 double galpyPotential::LfromRc(const double R, double* dR) const
 {
   double dPR,dPz,P;
   P = (*this)(R,0.,dPR,dPz);
   return sqrt(R*R*R*dPR);  
 }
-// LCOV_EXCL_STOP */
+// LCOV_EXCL_STOP
 double galpyPotential::RfromLc(const double L_in, double* dR) const
 {
   bool more=false;
@@ -64,10 +63,9 @@ double galpyPotential::RfromLc(const double L_in, double* dR) const
   }
   
 }
-/* // LCOV_EXCL_START
+// LCOV_EXCL_START
 Frequencies galpyPotential::KapNuOm(const double R) const {
   Frequencies KNO = -9999.99;
   return KNO;
 }
-// LCOV_EXCL_STOP */
-
+// LCOV_EXCL_STOP
