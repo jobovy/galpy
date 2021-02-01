@@ -40,7 +40,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -80,7 +80,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.8
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -90,7 +90,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.7
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -133,7 +133,7 @@ jobs:
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-         if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then
+         if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then
            git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
            cd galpy/actionAngle/actionAngleTorus_c_ext/torus
            git checkout galpy
@@ -171,7 +171,7 @@ jobs:
       run: |
         pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
         pip install pytest-cov
-        pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
+        pytest -v "$TEST_FILES" --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
       run: |
