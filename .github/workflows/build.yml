@@ -130,7 +130,7 @@ jobs:
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
     - name: Install torus code
-      if: {{ matrix.TEST_FILES }} != 'tests/test_evolveddiskdf.py'
+      if: ${{ matrix.TEST_FILES }} != 'tests/test_evolveddiskdf.py'
       run: |
          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
