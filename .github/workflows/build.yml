@@ -19,12 +19,12 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py tests/test_sphericaldf.py
+            TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py tests/test_sphericaldf.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -171,7 +171,8 @@ jobs:
       run: |
         pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
         pip install pytest-cov
-        pytest -v "$TEST_FILES" --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings
+        # eval necessary for -k 'not ...' in TEST_FILES
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
       run: |
