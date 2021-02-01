@@ -1,0 +1,184 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 20 * * 2'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: 3.9
+            TEST_FILES: tests/test_actionAngle.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py tests/test_sphericaldf.py
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            REQUIRES_PYNBODY: false
+            # needs to be separate for different config
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_streamgapdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_diskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_streamdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.8
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.8
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.7
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.7
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+    env:
+      PYTHON_COVREPORTS_VERSION: 3.9      
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install lcov
+      run: |
+         wget http://downloads.sourceforge.net/ltp/lcov-1.14.tar.gz
+         tar xf lcov-1.14.tar.gz
+         sudo make -C lcov-1.14/ install
+    - name: Install the GSL
+      run: |
+         sudo apt-get install libgsl-dev
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}
+    - name: Install Python dependencies
+      run: |
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
+    - name: Install pynbody
+      if: ${{ matrix.REQUIRES_PYNBODY }}
+      run: |
+         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager wheel
+         pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+    - name: Install astropy
+      if: ${{ matrix.REQUIRES_ASTROPY }}
+      run: pip install astropy pyerfa
+    - name: Install astroquery
+      if: ${{ matrix.REQUIRES_ASTROQUERY }}
+      run: pip install astroquery
+    - name: Install torus code
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
+      run: |
+         if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then
+           git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+           cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+           git checkout galpy
+           cd -
+         fi
+    - name: Download dfcorrections
+      run: |
+         curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
+         tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
+    - name: Install package
+      run: |
+        python setup.py build_ext --coverage --single_ext --inplace
+        python setup.py develop --single_ext
+    - name: Special config
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
+      run: |
+        if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
+        if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
+    - name: Print debug info
+      env:
+         REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
+         REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
+         REQUIRES_PYNBODY : ${{ matrix.REQUIRES_PYNBODY }}
+      run: |
+         python -c "import numpy; print('numpy: {}'.format(numpy.__version__))"
+         python -c "import scipy; print('scipy: {}'.format(scipy.__version__))"
+         python -c "import matplotlib; print('matplotlib: {}'.format(matplotlib.__version__))"
+         if $REQUIRES_ASTROPY; then python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"; fi
+         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"; fi
+         if $REQUIRES_PYNBODY; then python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"; fi
+    - name: Test with pytest
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
+      run: |
+        pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
+        pip install pytest-cov
+        # eval necessary for -k 'not ...' in TEST_FILES
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings"
+    - name: Generate code coverage
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
+      run: |
+        lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
+        lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
+    - name: Upload coverage reports to codecov
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      uses: codecov/codecov-action@v1

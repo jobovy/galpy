@@ -10,7 +10,6 @@ General interface to galpy potentials
 //#include <iostream>
 #include <galpyPot.h>
 #include <galpy_potentials.h>
-
  // Implementation for completeness, some parts never touched by galpy's use of TM
 // LCOV_EXCL_START
 void  galpyPotential::error(const char* msgs) const
@@ -70,5 +69,3 @@ Frequencies galpyPotential::KapNuOm(const double R) const {
   return KNO;
 }
 // LCOV_EXCL_STOP
-
-

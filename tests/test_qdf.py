@@ -648,8 +648,8 @@ def test_pvz_staeckel_arrayin():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     R,z= 0.8, 0.1
-    pvz= qdf.pvz(0.05,R*numpy.ones(2),z*numpy.ones(2))
-    assert numpy.all(numpy.log(pvz)-numpy.log(qdf.pvz(0.05,R,z))) < 10.**-10., 'pvz calculated with R and z array input does not equal to calculated with scalar input'
+    pvz= qdf.pvz(0.05*numpy.ones(2),R*numpy.ones(2),z*numpy.ones(2))
+    assert numpy.all(numpy.fabs(numpy.log(pvz)-numpy.log(qdf.pvz(0.05,R,z))) < 10.**-10.), 'pvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
 
 def test_setup_diffsetups():
