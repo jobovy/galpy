@@ -14,17 +14,17 @@ jobs:
       matrix:
         include:
           - python-version: 3.9
-            TEST_FILES: tests/test_actionAngle.py tests/test_actionAngleTorus.py
+            TEST_FILES: tests/test_actionAngle.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py
+            TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py tests/test_sphericaldf.py tests/test_util.py
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -40,7 +40,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -80,7 +80,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.8
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -90,7 +90,7 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.7
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k "not test_energy_jacobi_conservation"
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -130,12 +130,15 @@ jobs:
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
     - name: Install torus code
-      if: ${{ matrix.TEST_FILES }} != 'tests/test_evolveddiskdf.py'
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-         git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
-         cd galpy/actionAngle/actionAngleTorus_c_ext/torus
-         git checkout galpy
-         cd -
+         if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]; then
+           git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+           cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+           git checkout galpy
+           cd -
+         fi
     - name: Download dfcorrections
       run: |
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
