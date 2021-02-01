@@ -14,7 +14,17 @@ jobs:
       matrix:
         include:
           - python-version: 3.9
-            TEST_FILES: tests/ --ignore=tests/test_qdf.py --ignore=tests/test_pv2qdf.py --ignore=tests/test_diskdf.py --ignore=tests/test_orbit.py --ignore=tests/test_streamdf.py --ignore=tests/test_streamgapdf.py --ignore=tests/test_evolveddiskdf.py --ignore=tests/test_quantity.py --ignore=tests/test_nemo.py --ignore=tests/test_amuse.py --ignore=tests/test_coords.py --ignore=tests/test_jeans.py --ignore=tests/test_orbits.py --ignore=tests/test_dynamfric.py
+            TEST_FILES: tests/test_actionAngle.py tests/test_actionAngleTorus.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py tests/test_sphericaldf.py tests/test_util.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -25,17 +35,32 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.9
-            TEST_FILES: tests/test_evolveddiskdf.py tests/test_jeans.py tests/test_dynamfric.py
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf.py
+            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+          - python-version: 3.9
+            TEST_FILES: tests/test_streamgapdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -50,12 +75,22 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.8
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.8
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
           - python-version: 3.7
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - python-version: 3.7
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
@@ -94,7 +129,8 @@ jobs:
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
-    - name: Install torus code # if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py tests/test_jeans.py' ]]
+    - name: Install torus code
+      if: {{ matrix.TEST_FILES }} != 'tests/test_evolveddiskdf.py'
       run: |
          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
@@ -108,6 +144,12 @@ jobs:
       run: |
         python setup.py build_ext --coverage --single_ext --inplace
         python setup.py develop --single_ext
+    - name: Special config
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
+      run: |
+        if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
+        if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
     - name: Print debug info
       env:
          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}

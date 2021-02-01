@@ -11,8 +11,8 @@ General interface to galpy potentials
 #include <galpyPot.h>
 #include <galpy_potentials.h>
  // Implementation for completeness, some parts never touched by galpy's use of TM
-// LCOV_EXCL_START
-void  galpyPotential::error(const char* msgs) const
+/* LCOV_EXCL_START */
+void  galpyPotential::error(const char* msgs) const // LCOV_EXCL_LINE
 {
   cerr << " Error in class galpyPotential: " << msgs << '\n';
   exit(1);
@@ -22,7 +22,7 @@ double galpyPotential::operator() (double R, double z) const
 {
   return evaluatePotentials(R,z,nargs,potentialArgs);
 }
-// LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 double galpyPotential::operator() (double R, double z,
 				   double& dPdR,double& dPdz) const
