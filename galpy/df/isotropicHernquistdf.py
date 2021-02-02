@@ -19,7 +19,7 @@ class isotropicHernquistdf(eddingtondf):
 
         INPUT:
 
-           pot= (None) Hernquist Potential instance or list thereof
+           pot= (None) Hernquist Potential instance
 
 
            ro=, vo= galpy unit parameters

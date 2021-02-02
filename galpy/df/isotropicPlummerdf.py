@@ -25,7 +25,7 @@ class isotropicPlummerdf(isotropicsphericaldf):
 
         INPUT:
 
-           pot= (None) NFW Potential instance or list thereof
+           pot= (None) Plummer Potential instance
 
            ro=, vo= galpy unit parameters
 

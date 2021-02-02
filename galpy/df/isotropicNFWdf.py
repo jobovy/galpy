@@ -19,7 +19,7 @@ class isotropicNFWdf(isotropicsphericaldf):
 
         INPUT:
 
-           pot= (None) NFW Potential instance or list thereof
+           pot= (None) NFW Potential instance
 
            rmax= (100.) when sampling, maximum radius to consider (can be Quantity)
 
