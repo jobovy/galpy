@@ -8,6 +8,31 @@ from .eddingtondf import eddingtondf
 class isotropicHernquistdf(eddingtondf):
     """Class that implements isotropic spherical Hernquist DF computed using the Eddington formula"""
     def __init__(self,pot=None,ro=None,vo=None):
+        """
+        NAME:
+
+            __init__
+
+        PURPOSE:
+
+            Initialize an isotropic Hernquist distribution function
+
+        INPUT:
+
+           pot= (None) Hernquist Potential instance or list thereof
+
+
+           ro=, vo= galpy unit parameters
+
+        OUTPUT:
+        
+            None
+
+        HISTORY:
+
+            2020-08-09 - Written - Lane (UofT)
+
+        """
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
         eddingtondf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)

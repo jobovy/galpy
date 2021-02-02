@@ -14,6 +14,30 @@ class isotropicPlummerdf(isotropicsphericaldf):
     for :math:`-GM/b \leq E \leq 0` and zero otherwise. The parameter :math:`GM` is the total mass and :math:`b` the Plummer profile's scale parameter.
     """
     def __init__(self,pot=None,ro=None,vo=None):
+        """
+        NAME:
+
+            __init__
+
+        PURPOSE:
+
+            Initialize an isotropic Plummer distribution function
+
+        INPUT:
+
+           pot= (None) NFW Potential instance or list thereof
+
+           ro=, vo= galpy unit parameters
+
+        OUTPUT:
+        
+            None
+
+        HISTORY:
+
+            2020-10-01 - Written - Bovy (UofT)
+
+        """
         assert isinstance(pot,PlummerPotential),'pot= must be potential.PlummerPotential'
         isotropicsphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._Etildemax= pot._amp/pot._b
