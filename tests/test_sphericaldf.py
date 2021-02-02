@@ -4,7 +4,7 @@ import numpy
 from scipy import special
 from galpy import potential
 from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
-    isotropicPlummerdf, osipkovmerrittHernquistdf
+    isotropicPlummerdf, osipkovmerrittHernquistdf, isotropicNFWdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -581,7 +581,103 @@ def test_isotropic_plummer_energyoutofbounds():
     pot= potential.PlummerPotential(amp=2.3,b=1.3)
     dfp= isotropicPlummerdf(pot=pot)
     assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic Plummer DF at E > 0 does not give zero'
-    assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Plummer DF at E < -GM/a does not give zero'
+    assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic Plummer DF at E < Phi(0) does not give zero'
+    return None
+
+############################# ISOTROPIC NFW DF ############################
+def test_isotropic_nfw_dens_spherically_symmetric():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    # Check spherical symmetry for different harmonics l,m
+    tol= 1e-2
+    check_spherical_symmetry(samp,0,0,tol)
+    check_spherical_symmetry(samp,1,0,tol)
+    check_spherical_symmetry(samp,1,-1,tol)
+    check_spherical_symmetry(samp,1,1,tol)
+    check_spherical_symmetry(samp,2,0,tol)
+    check_spherical_symmetry(samp,2,-1,tol)
+    check_spherical_symmetry(samp,2,-2,tol)
+    check_spherical_symmetry(samp,2,1,tol)
+    check_spherical_symmetry(samp,2,2,tol)
+    # and some higher order ones
+    check_spherical_symmetry(samp,3,1,tol)
+    check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_isotropic_nfw_dens_massprofile():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    tol= 5*1e-3
+    check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                /pot.mass(numpy.amax(samp.r())),
+                                tol,skip=1000)
+    return None
+
+def test_isotropic_nfw_sigmar():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=1000000)
+    tol= 0.05
+    check_sigmar_against_jeans(samp,pot,tol,
+                               rmin=pot._scale/10.,rmax=pot._scale*10.,
+                               bins=31)
+    return None
+
+def test_isotropic_nfw_beta():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=1000000)
+    tol= 6*1e-2
+    check_beta(samp,pot,tol,rmin=pot._scale/5.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_nfw_dens_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    tol= 1e-2 # only approx, normally 1e-7
+    check_dens_directint(dfp,pot,tol,
+                         lambda r: pot.dens(r,0), # don't need to divide by mass
+                         rmin=pot._scale/10.,
+                         rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_nfw_meanvr_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    tol= 1e-8
+    check_meanvr_directint(dfp,pot,tol,rmin=pot._scale/10.,
+                           rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_nfw_sigmar_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    tol= 1e-3 # only approx. normally 1e-5
+    check_sigmar_against_jeans_directint(dfp,pot,tol,
+                                         rmin=pot._scale/10.,
+                                         rmax=pot._scale*10.,
+                                         bins=31)
+    return None
+
+def test_isotropic_nfw_beta_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    tol= 1e-8
+    check_beta_directint(dfp,tol,rmin=pot._scale/10.,rmax=pot._scale*10.,
+                         bins=31)
+    return None
+
+def test_isotropic_nfw_energyoutofbounds():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E > 0 does not give zero'
+    assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E < Phi(0) does not give zero'
     return None
 
 ################################# KING DF #####################################

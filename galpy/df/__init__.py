@@ -12,6 +12,7 @@ from . import constantbetaHernquistdf
 from . import osipkovmerrittHernquistdf
 from . import kingdf
 from . import isotropicPlummerdf
+from . import isotropicNFWdf
 #
 # Functions
 #
@@ -46,3 +47,4 @@ constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
 osipkovmerrittHernquistdf= osipkovmerrittHernquistdf.osipkovmerrittHernquistdf
 kingdf= kingdf.kingdf
 isotropicPlummerdf= isotropicPlummerdf.isotropicPlummerdf
+isotropicNFWdf= isotropicNFWdf.isotropicNFWdf

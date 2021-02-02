@@ -62,6 +62,7 @@ The following are isotropic distribution functions
 
    Hernquist DF <dfhernquist.rst>
    King DF <dfking.rst>
+   NFW DF <dfnfw.rst>
    Plummer DF <dfplummer.rst>
 
 Anisotropic versions also exist:
