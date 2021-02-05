@@ -191,6 +191,44 @@ class TwoPowerSphericalPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
 
+    def _ddensdr(self,r,t=0.):
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+           evaluate the radial density for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-02-05 - Written - Bovy (UofT)
+        """
+        return -self._amp*(self.a/r)**(self.alpha-1.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-1.)\
+            *(self.a*self.alpha+r*self.beta)/r**2/4./numpy.pi/self.a**3.
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-02-05 - Written - Bovy (UofT)
+        """
+        return self._amp*(self.a/r)**(self.alpha-2.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-2.)\
+            *(self.alpha*(self.alpha+1.)*self.a**2+
+              2.*self.alpha*self.a*(self.beta+1.)*r
+              +self.beta*(self.beta+1.)*r**2)/r**4/4./numpy.pi/self.a**3.
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
