@@ -8,7 +8,8 @@ from .sphericaldf import anisotropicsphericaldf
 
 class constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
-    def __init__(self,pot=None,beta=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,beta=None,
+                 scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -22,12 +23,15 @@ class constantbetadf(anisotropicsphericaldf):
 
             pot - Spherical potential which determines the DF
 
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot if 
                 available.
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+                                        scale=scale,ro=ro,vo=vo)
         self._beta= beta
         self._potInf= evaluatePotentials(pot,10**12,0)
 

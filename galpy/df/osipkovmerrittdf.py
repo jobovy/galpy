@@ -15,7 +15,7 @@ class osipkovmerrittdf(anisotropicsphericaldf):
     with :math:`r_a` the anistropy radius.
 
     """
-    def __init__(self,pot=None,ra=1.4,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,ra=1.4,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -28,8 +28,9 @@ class osipkovmerrittdf(anisotropicsphericaldf):
         INPUT:
 
             pot - Hernquist potential which determines the DF
+           pot= (None) Potential instance or list thereof
 
-            ra - anisotropy radius (can be a Quantity)
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot 
@@ -44,7 +45,8 @@ class osipkovmerrittdf(anisotropicsphericaldf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+                                        scale=scale,ro=ro,vo=vo)
         self._ra= -conversion.parse_length(ra,ro=self._ro)
         self._ra2= self._ra**2.
 
@@ -104,7 +106,6 @@ class osipkovmerrittdf(anisotropicsphericaldf):
     def _vmomentdensity(self,r,n,m):
          if m%2 == 1 or n%2 == 1:
              return 0.
-         psir= -evaluatePotentials(self._pot,r,0,use_physical=False)
          return 2.*numpy.pi*integrate.quad(lambda v: v**(2.+m+n)
                                     *self.fQ(-evaluatePotentials(self._pot,r,0,
                                                          use_physical=False)

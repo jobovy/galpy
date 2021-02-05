@@ -35,7 +35,7 @@ if conversion._APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,pot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -48,6 +48,8 @@ class sphericaldf(df):
         INPUT:
 
            pot= (None) Potential instance or list thereof
+
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
            scale= (None) length-scale parameter to be used internally
 
@@ -73,6 +75,9 @@ class sphericaldf(df):
         if pot is None: # pragma: no cover
             raise IOError("pot= must be set")
         self._pot = pot
+        self._denspot= self._pot if denspot is None else denspot
+        if not conversion.physical_compatible(self._pot,self._denspot):
+            raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the density potential")
         try:
             self._scale = pot._scale
         except AttributeError:
@@ -396,10 +401,10 @@ class sphericaldf(df):
         # try/except necessary when mass doesn't take arrays, also need to
         # switch to a more general mass method at some point...
         #try: 
-        ms = self._pot.mass(rs,use_physical=False)
+        ms = self._denspot.mass(rs,use_physical=False)
         #except ValueError:
         #    ms= numpy.array([self._pot.mass(r,use_physical=False) for r in rs])
-        ms/= self._pot.mass(rmax,use_physical=False)
+        ms/= self._denspot.mass(rmax,use_physical=False)
         # Add total mass point
         if numpy.isinf(rmax):
             xis = numpy.append(xis,1)
@@ -452,11 +457,11 @@ class sphericaldf(df):
 
         INPUT:
 
-            r_a_start= radius grid start location in units of r/a
+            r_a_start= radius grid start location in units of log10(r/a)
 
-            r_a_end= radius grid end location in units of r/a
+            r_a_end= radius grid end location in units of log10(r/a)
 
-            r_a_interval= radius grid spacing in units of r/a
+            r_a_interval= radius grid spacing in units of log10(r/a)
 
             v_vesc_interval= velocity grid spacing in units of v/vesc
 
@@ -505,7 +510,7 @@ class sphericaldf(df):
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
-    def __init__(self,pot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -518,6 +523,8 @@ class isotropicsphericaldf(sphericaldf):
         INPUT:
 
            pot= (None) Potential instance or list thereof
+
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
            scale= scale parameter to be used internally
 
@@ -532,7 +539,8 @@ class isotropicsphericaldf(sphericaldf):
             2020-09-02 - Written - Bovy (UofT)
 
         """
-        sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
+        sphericaldf.__init__(self,pot=pot,denspot=denspot,
+                             scale=scale,ro=ro,vo=vo)
 
     def _call_internal(self,*args):
         """
@@ -581,7 +589,7 @@ class isotropicsphericaldf(sphericaldf):
     
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,pot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -594,6 +602,8 @@ class anisotropicsphericaldf(sphericaldf):
         INPUT:
 
            pot= (None) Potential instance or list thereof
+
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
            scale= (None) length-scale parameter to be used internally
 
@@ -608,4 +618,5 @@ class anisotropicsphericaldf(sphericaldf):
             2020-07-22 - Written - Lane (UofT)
 
         """
-        sphericaldf.__init__(self,pot=pot,scale=scale,ro=ro,vo=vo)
+        sphericaldf.__init__(self,pot=pot,denspot=denspot,
+                             scale=scale,ro=ro,vo=vo)
