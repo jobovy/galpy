@@ -15,7 +15,8 @@ class osipkovmerrittdf(anisotropicsphericaldf):
     with :math:`r_a` the anistropy radius.
 
     """
-    def __init__(self,pot=None,denspot=None,ra=1.4,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmax=None,
+                 scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -45,7 +46,7 @@ class osipkovmerrittdf(anisotropicsphericaldf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
                                         scale=scale,ro=ro,vo=vo)
         self._ra= -conversion.parse_length(ra,ro=self._ro)
         self._ra2= self._ra**2.

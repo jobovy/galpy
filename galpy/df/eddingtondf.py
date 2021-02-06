@@ -5,11 +5,11 @@ from scipy import interpolate, integrate
 from ..util import conversion
 from ..potential import evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
-from .sphericaldf import isotropicsphericaldf
+from .sphericaldf import isotropicsphericaldf, sphericaldf
 
 class eddingtondf(isotropicsphericaldf):
     """Class that implements isotropic spherical DFs computed using the Eddington formula"""
-    def __init__(self,pot=None,denspot=None,rmax=100.,
+    def __init__(self,pot=None,denspot=None,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -26,7 +26,7 @@ class eddingtondf(isotropicsphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmax= (100.) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 
            ro=, vo= galpy unit parameters
 
@@ -39,13 +39,12 @@ class eddingtondf(isotropicsphericaldf):
             2021-02-04 - Written - Bovy (UofT)
 
         """
-        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
                                       scale=scale,ro=ro,vo=vo)
         self._dnudr= self._denspot._ddensdr
         self._d2nudr2= self._denspot._d2densdr2
-        self._potInf= _evaluatePotentials(pot,numpy.inf,0)
+        self._potInf= _evaluatePotentials(pot,self._rmax,0)
         self._Emin= _evaluatePotentials(pot,0,0)
-        self._rmax= conversion.parse_length(rmax,ro=self._ro)
         # Build interpolator r(pot)
         r_a_values= numpy.concatenate(\
                         (numpy.array([0.]),
@@ -54,6 +53,20 @@ class eddingtondf(isotropicsphericaldf):
                         [_evaluatePotentials(self._pot,r*self._scale,0)
                          for r in r_a_values],r_a_values*self._scale,k=3)
         
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+        # Slight over-write of superclass method to first build f(E) interp
+        # No docstring so superclass' is used
+        if not hasattr(self,'_fE_interp'):
+            Es4interp= numpy.hstack((numpy.linspace(0,0.5,51,endpoint=False),
+                                     sorted(1.-numpy.geomspace(1e-4,0.5,51))))
+            Es4interp= (Es4interp*(self._Emin-self._potInf)+self._potInf)[::-1]
+            fE4interp= self.fE(Es4interp)
+            iindx= True^numpy.isnan(fE4interp)
+            self._fE_interp= interpolate.InterpolatedUnivariateSpline(\
+                                        Es4interp[iindx],fE4interp[iindx],k=3)
+        return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
+                                  return_orbit=return_orbit)
+
     def fE(self,E):
         """
         NAME:

@@ -622,7 +622,7 @@ def test_isotropic_nfw_sigmar():
     dfp= isotropicNFWdf(pot=pot)
     numpy.random.seed(10)
     samp= dfp.sample(n=1000000)
-    tol= 0.05
+    tol= 0.08
     check_sigmar_against_jeans(samp,pot,tol,
                                rmin=pot._scale/10.,rmax=pot._scale*10.,
                                bins=31)
@@ -632,8 +632,8 @@ def test_isotropic_nfw_beta():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     dfp= isotropicNFWdf(pot=pot)
     numpy.random.seed(10)
-    samp= dfp.sample(n=1000000)
-    tol= 6*1e-2
+    samp= dfp.sample(n=3000000)
+    tol= 8*1e-2
     check_beta(samp,pot,tol,rmin=pot._scale/5.,rmax=pot._scale*10.,bins=31)
     return None
 

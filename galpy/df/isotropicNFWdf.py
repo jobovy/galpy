@@ -14,9 +14,9 @@ _COEFFS= numpy.array([-1491.8902622624896139, 11690.6687704701107577,
                       0.0093256420259421, 0.0926700870836157])
 
 class isotropicNFWdf(isotropicsphericaldf):
-    """Class that implements the approximate isotropic spherical NFW DF (`Widrow 2000 <https://ui.adsabs.harvard.edu/abs/2000ApJS..131...39W/abstract>`__).
+    """Class that implements the approximate isotropic spherical NFW DF (either `Widrow 2000 <https://ui.adsabs.harvard.edu/abs/2000ApJS..131...39W/abstract>`__ or an improved fit by Bovy 2022).
     """
-    def __init__(self,pot=None,widrow=False,rmax=100.,ro=None,vo=None):
+    def __init__(self,pot=None,widrow=False,rmax=1e4,ro=None,vo=None):
         """
         NAME:
 
@@ -32,7 +32,7 @@ class isotropicNFWdf(isotropicsphericaldf):
 
            widrow= (False) if True, use the approximate form from Widrow (2000), otherwise use improved fit that has <~1e-5 relative density errors
 
-           rmax= (100.) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (1e4) maximum radius to consider (can be Quantity); set to numpy.inf to evaluate NFW w/o cut-off
 
            ro=, vo= galpy unit parameters
 
@@ -46,12 +46,12 @@ class isotropicNFWdf(isotropicsphericaldf):
 
         """
         assert isinstance(pot,NFWPotential),'pot= must be potential.NFWPotential'
-        isotropicsphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
+        isotropicsphericaldf.__init__(self,pot=pot,rmax=rmax,ro=ro,vo=vo)
         self._Etildemax= pot._amp/pot.a
         self._fEnorm= (9.1968e-2)**widrow/\
             (4.*numpy.pi)/pot.a**1.5/pot._amp**0.5
-        self._rmax= conversion.parse_length(rmax,ro=self._ro)
         self._widrow= widrow
+        self._Etildemin= -pot(self._rmax,0,use_physical=False)/self._Etildemax
 
     def fE(self,E):
         """
@@ -77,7 +77,7 @@ class isotropicNFWdf(isotropicsphericaldf):
         """
         Etilde= -conversion.parse_energy(E,vo=self._vo)/self._Etildemax
         out= numpy.zeros_like(Etilde)
-        indx= (Etilde > 0)*(Etilde <= 1.)
+        indx= (Etilde > self._Etildemin)*(Etilde <= 1.)
         if self._widrow:
             out[indx]= self._fEnorm*Etilde[indx]**1.5*(1-Etilde[indx])**-2.5\
                 *(-numpy.log(Etilde[indx])/(1.-Etilde[indx]))**-2.7419\

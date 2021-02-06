@@ -68,7 +68,8 @@ class kingdf(isotropicsphericaldf):
         pot= KingPotential(W0=self.W0,M=M,rt=rt,_sfkdf=self._scalefree_kdf,
                            ro=ro,vo=vo)
         # Now initialize the isotropic DF
-        isotropicsphericaldf.__init__(self,pot=pot,scale=self.r0,ro=ro,vo=vo)
+        isotropicsphericaldf.__init__(self,pot=pot,scale=self.r0,
+                                      rmax=self.rt,ro=ro,vo=vo)
         self._potInf= self._pot(self.rt,0.,use_physical=False)
         # Setup inverse cumulative mass function for radius sampling
         self._icmf= interpolate.InterpolatedUnivariateSpline(\
@@ -90,10 +91,7 @@ class kingdf(isotropicsphericaldf):
             out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
                 *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
         return out/self.M # number density
-
-    def _vmax_at_r(self,pot,r):
-        return numpy.sqrt(2.*(self._potInf-self._pot(r,0.,use_physical=False)))
-        
+       
 class _scalefreekingdf(object):
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
     def __init__(self,W0):

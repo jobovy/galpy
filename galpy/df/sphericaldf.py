@@ -17,15 +17,12 @@
 #       * _p_v_at_r(self,v,r): whcih returns p(v|r)
 #     constantbetadf is an example of this
 #
-#  Note that we may have to re-think the implementation of anisotropic DFs to
-#  allow more general forms such as Osipkov-Merritt...
-#
 import warnings
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
 from .df import df
-from ..potential import evaluatePotentials, vesc
+from ..potential import evaluatePotentials
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
 from ..util import conversion, galpyWarning
@@ -35,7 +32,8 @@ if conversion._APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,rmax=None,
+                 scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -50,6 +48,8 @@ class sphericaldf(df):
            pot= (None) Potential instance or list thereof
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+
+           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 
            scale= (None) length-scale parameter to be used internally
 
@@ -78,6 +78,8 @@ class sphericaldf(df):
         self._denspot= self._pot if denspot is None else denspot
         if not conversion.physical_compatible(self._pot,self._denspot):
             raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the density potential")
+        self._rmax= numpy.inf if rmax is None \
+            else conversion.parse_length(rmax,ro=self._ro)            
         try:
             self._scale = pot._scale
         except AttributeError:
@@ -394,8 +396,7 @@ class sphericaldf(df):
         
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
-        rmax= self._rmax if hasattr(self,'_rmax') else numpy.inf
-        ximax= (1.-1./rmax)/(1.+1./rmax)
+        ximax= (1.-1./self._rmax)/(1.+1./self._rmax)
         xis = numpy.arange(-1,ximax,1e-4)
         rs = _xiToR(xis,a=self._scale)
         # try/except necessary when mass doesn't take arrays, also need to
@@ -404,9 +405,9 @@ class sphericaldf(df):
         ms = self._denspot.mass(rs,use_physical=False)
         #except ValueError:
         #    ms= numpy.array([self._pot.mass(r,use_physical=False) for r in rs])
-        ms/= self._denspot.mass(rmax,use_physical=False)
+        ms/= self._denspot.mass(self._rmax,use_physical=False)
         # Add total mass point
-        if numpy.isinf(rmax):
+        if numpy.isinf(self._rmax):
             xis = numpy.append(xis,1)
             ms = numpy.append(ms,1)
         return scipy.interpolate.InterpolatedUnivariateSpline(ms,xis,k=3)
@@ -436,10 +437,13 @@ class sphericaldf(df):
         """Function that gives the max velocity in the DF at r; 
         typically equal to vesc, but not necessarily for finite systems 
         such as King"""
-        return vesc(pot,r,use_physical=False)
+        return numpy.sqrt(2.*(\
+                evaluatePotentials(self._pot,self._rmax+1e-10,0,
+                                   use_physical=False)
+                -evaluatePotentials(self._pot,r,0.,use_physical=False)))
     
-    def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, 
-                               r_a_interval=0.05, v_vesc_interval=0.01):
+    def _make_pvr_interpolator(self,r_a_start=-3,r_a_end=3,n_r_a=120, 
+                               n_v_vesc=100):
         """
         NAME:
 
@@ -461,9 +465,9 @@ class sphericaldf(df):
 
             r_a_end= radius grid end location in units of log10(r/a)
 
-            r_a_interval= radius grid spacing in units of log10(r/a)
+            n_r_a= number of radius grid points to use
 
-            v_vesc_interval= velocity grid spacing in units of v/vesc
+            n_v_vesc= number of velocity grid points to use
 
         OUTPUT:
 
@@ -474,8 +478,9 @@ class sphericaldf(df):
             Written 2020-07-24 - James Lane (UofT)
         """
         # Make an array of r/a by v/vesc and then calculate p(v|r)
-        r_a_values = 10.**numpy.arange(r_a_start,r_a_end,r_a_interval)
-        v_vesc_values = numpy.arange(0,1,v_vesc_interval)
+        r_a_end= numpy.amin([numpy.log10((self._rmax-1e-8)/self._scale),r_a_end])
+        r_a_values = 10.**numpy.linspace(r_a_start,r_a_end,n_r_a)
+        v_vesc_values = numpy.linspace(0,1,n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values,v_vesc_values)
         vesc_grid = self._vmax_at_r(self._pot,r_a_grid*self._scale)
         r_grid= r_a_grid*self._scale
@@ -510,7 +515,8 @@ class sphericaldf(df):
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,rmax=None,
+                 scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -526,6 +532,8 @@ class isotropicsphericaldf(sphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
+           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
+
            scale= scale parameter to be used internally
 
            ro=, vo= galpy unit parameters
@@ -539,7 +547,7 @@ class isotropicsphericaldf(sphericaldf):
             2020-09-02 - Written - Bovy (UofT)
 
         """
-        sphericaldf.__init__(self,pot=pot,denspot=denspot,
+        sphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
                              scale=scale,ro=ro,vo=vo)
 
     def _call_internal(self,*args):
@@ -584,12 +592,19 @@ class isotropicsphericaldf(sphericaldf):
         return numpy.arccos(1.-2.*numpy.random.uniform(size=n))
 
     def _p_v_at_r(self,v,r):
-        return self.fE(evaluatePotentials(self._pot,r,0,use_physical=False)\
-                       +0.5*v**2.)*v**2.
+        if hasattr(self,'_fE_interp'):
+            return self._fE_interp(evaluatePotentials(self._pot,r,0,
+                                                      use_physical=False)\
+                                   +0.5*v**2.)*v**2.
+        else:
+            return self.fE(evaluatePotentials(self._pot,r,0,
+                                              use_physical=False)\
+                           +0.5*v**2.)*v**2.
     
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,scale=None,ro=None,vo=None):
+    def __init__(self,pot=None,denspot=None,rmax=None,
+                 scale=None,ro=None,vo=None):
         """
         NAME:
 
@@ -604,6 +619,8 @@ class anisotropicsphericaldf(sphericaldf):
            pot= (None) Potential instance or list thereof
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+
+           rmax= (None) maximum radius to consider (can be Quantity)
 
            scale= (None) length-scale parameter to be used internally
 
