@@ -41,7 +41,8 @@ class isotropicPlummerdf(isotropicsphericaldf):
         assert isinstance(pot,PlummerPotential),'pot= must be potential.PlummerPotential'
         isotropicsphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._Etildemax= pot._amp/pot._b
-        self._fEnorm=24.*numpy.sqrt(2.)/7./numpy.pi**3.*pot._b**2./pot._amp**5.
+        # /amp^4 instead of /amp^5 to make the DF that of mass density
+        self._fEnorm=24.*numpy.sqrt(2.)/7./numpy.pi**3.*pot._b**2./pot._amp**4.
 
     def fE(self,E):
         """

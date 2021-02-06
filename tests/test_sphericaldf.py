@@ -141,7 +141,7 @@ def test_isotropic_hernquist_dens_directint():
     dfh= isotropicHernquistdf(pot=pot)
     tol= 1e-8
     check_dens_directint(dfh,pot,tol,
-                         lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
+                         lambda r: pot.dens(r,0),
                          rmin=pot._scale/10.,
                          rmax=pot._scale*10.,bins=31)
     return None
@@ -291,7 +291,7 @@ def test_anisotropic_hernquist_dens_directint():
         dfh= constantbetaHernquistdf(pot=pot,beta=beta)
         tol= 1e-7
         check_dens_directint(dfh,pot,tol,
-                             lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
+                             lambda r: pot.dens(r,0),
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,bins=31)
     return None
@@ -423,7 +423,7 @@ def test_osipkovmerritt_hernquist_dens_directint():
         dfh= osipkovmerrittHernquistdf(pot=pot,ra=ra)
         tol= 1e-5
         check_dens_directint(dfh,pot,tol,
-                             lambda r: pot.dens(r,0)/(2.3/2.), # need to divide by mass
+                             lambda r: pot.dens(r,0),
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,bins=6)
     return None
@@ -546,7 +546,7 @@ def test_isotropic_plummer_dens_directint():
     dfp= isotropicPlummerdf(pot=pot)
     tol= 1e-7
     check_dens_directint(dfp,pot,tol,
-                         lambda r: pot.dens(r,0)/2.3, # need to divide by mass
+                         lambda r: pot.dens(r,0),
                          rmin=pot._scale/10.,
                          rmax=pot._scale*10.,bins=31)
     return None
@@ -642,7 +642,7 @@ def test_isotropic_nfw_dens_directint():
     dfp= isotropicNFWdf(pot=pot)
     tol= 1e-2 # only approx, normally 1e-7
     check_dens_directint(dfp,pot,tol,
-                         lambda r: pot.dens(r,0), # don't need to divide by mass
+                         lambda r: pot.dens(r,0),
                          rmin=pot._scale/10.,
                          rmax=pot._scale*10.,bins=31)
     return None
@@ -745,7 +745,7 @@ def test_king_dens_directint():
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
     tol= 0.02
     check_dens_directint(dfk,pot,tol,
-                         lambda r: dfk.dens(r)/2.3, # need to divide by mass
+                         lambda r: dfk.dens(r),
                          rmin=dfk._scale/10.,
                          rmax=dfk.rt*0.7,bins=31)
     return None

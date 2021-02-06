@@ -37,7 +37,9 @@ class isotropicHernquistdf(isotropicsphericaldf):
         isotropicsphericaldf.__init__(self,pot=pot,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
-        self._fEnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
+        # first factor = mass to make the DF that of mass density
+        self._fEnorm= self._psi0*self._pot.a\
+            /numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
 
     def fE(self,E):
         """

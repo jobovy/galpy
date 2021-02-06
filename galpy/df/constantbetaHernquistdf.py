@@ -37,11 +37,13 @@ class constantbetaHernquistdf(constantbetadf):
         constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
+        # Final factor is mass to make the DF that of the mass density
         self._fEnorm= (2.**self._beta/(2.*numpy.pi)**2.5)\
             *scipy.special.gamma(5.-2.*self._beta)\
             /scipy.special.gamma(1.-self._beta)\
             /scipy.special.gamma(3.5-self._beta)\
-            /self._GMa**(1.5-self._beta)
+            /self._GMa**(1.5-self._beta)\
+            *self._psi0*self._pot.a
   
     def fE(self,E):
         """
@@ -71,19 +73,20 @@ class constantbetaHernquistdf(constantbetadf):
         if len(Etilde_out)>0:
             # Dummy variable now and 0 later, prevents numerical issues?
             Etilde[Etilde_out]=0.5
-        # First check algebraic solutions
+        # First check algebraic solutions, all adjusted such that DF = mass den
         if self._beta == 0.: # isotropic case
             sqrtEtilde= numpy.sqrt(Etilde)
-            fE= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5\
+            fE= self._psi0*self._pot.a\
+                /numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5\
                 *sqrtEtilde/(1-Etilde)**2.\
                 *((1.-2.*Etilde)*(8.*Etilde**2.-8.*Etilde-3.)\
                   +((3.*numpy.arcsin(sqrtEtilde))\
                     /numpy.sqrt(Etilde*(1.-Etilde))))
         elif self._beta == 0.5:
-            fE= (3.*Etilde**2.)/(4.*numpy.pi**3.*self._GMa)
+            fE= (3.*Etilde**2.)/(4.*numpy.pi**3.*self._pot.a)
         elif self._beta == -0.5:
             fE= ((20.*Etilde**3.-20.*Etilde**4.+6.*Etilde**5.)\
-                 /(1.-Etilde)**4)/(4.*numpy.pi**3.*self._GMa**2.)
+                 /(1.-Etilde)**4)/(4.*numpy.pi**3.*self._GMa*self._pot.a)
         else:
             fE= self._fEnorm*numpy.power(Etilde,2.5-self._beta)*\
                 scipy.special.hyp2f1(5.-2.*self._beta,1.-2.*self._beta,

@@ -45,7 +45,9 @@ class osipkovmerrittHernquistdf(osipkovmerrittdf):
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
         self._a2overra2= self._pot.a**2./self._ra2
-        self._fQnorm= 1./numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
+        # First factor is the mass to make the DF that of the mass density
+        self._fQnorm= self._psi0*self._pot.a\
+            /numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
   
     def fQ(self,Q):
         """

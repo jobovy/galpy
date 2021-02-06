@@ -90,7 +90,7 @@ class kingdf(isotropicsphericaldf):
         if numpy.sum(varE > 0.) > 0:
             out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
                 *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
-        return out/self.M # number density
+        return out# mass density, not /self.M as for number density
        
 class _scalefreekingdf(object):
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
