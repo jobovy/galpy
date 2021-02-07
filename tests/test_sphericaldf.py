@@ -680,9 +680,18 @@ def test_isotropic_nfw_energyoutofbounds():
     assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E < Phi(0) does not give zero'
     return None
 
+def test_isotropic_nfw_widrow_against_improved():
+    # Test that using the Widrow (2000) prescription gives almost the same f(E)
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    dfp= isotropicNFWdf(pot=pot)
+    dfpw= isotropicNFWdf(pot=pot,widrow=True)
+    Es= numpy.linspace(-dfp._Etildemax*0.999,0,101,endpoint=False)
+    assert numpy.all(numpy.fabs(1.-dfp.fE(Es)/dfpw.fE(Es)) < 1e-2), 'isotropic NFW with widrow=True does not agree on f(E) with widrow=False'
+    return None    
+
 ################################# EDDINGTON DF ################################
 # For the following tests, we use a DehnenCoreSphericalPotential
-def test_isotropic_eddington_selfconsist_dens_spherically_symmetric():
+def test_isotropic_eddington_selfconsist_dehnencore_dens_spherically_symmetric():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     numpy.random.seed(10)
@@ -703,7 +712,7 @@ def test_isotropic_eddington_selfconsist_dens_spherically_symmetric():
     check_spherical_symmetry(samp,9,-6,tol)
     return None
     
-def test_isotropic_eddington_selfconsist_dens_massprofile():
+def test_isotropic_eddington_selfconsist_dehnencore_dens_massprofile():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     numpy.random.seed(10)
@@ -714,7 +723,7 @@ def test_isotropic_eddington_selfconsist_dens_massprofile():
                                 tol,skip=1000)
     return None
 
-def test_isotropic_eddington_selfconsist_sigmar():
+def test_isotropic_eddington_selfconsist_dehnencore_sigmar():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     numpy.random.seed(10)
@@ -725,7 +734,7 @@ def test_isotropic_eddington_selfconsist_sigmar():
                                bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_beta():
+def test_isotropic_eddington_selfconsist_dehnencore_beta():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     numpy.random.seed(10)
@@ -734,7 +743,7 @@ def test_isotropic_eddington_selfconsist_beta():
     check_beta(samp,pot,tol,rmin=pot._scale/5.,rmax=pot._scale*10.,bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_dens_directint():
+def test_isotropic_eddington_selfconsist_dehnencore_dens_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     tol= 1e-2 # only approx, normally 1e-7
@@ -744,7 +753,7 @@ def test_isotropic_eddington_selfconsist_dens_directint():
                          rmax=pot._scale*10.,bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_meanvr_directint():
+def test_isotropic_eddington_selfconsist_dehnencore_meanvr_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     tol= 1e-8
@@ -752,7 +761,7 @@ def test_isotropic_eddington_selfconsist_meanvr_directint():
                            rmax=pot._scale*10.,bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_sigmar_directint():
+def test_isotropic_eddington_selfconsist_dehnencore_sigmar_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     tol= 1e-3 # only approx. normally 1e-5
@@ -762,7 +771,7 @@ def test_isotropic_eddington_selfconsist_sigmar_directint():
                                          bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_beta_directint():
+def test_isotropic_eddington_selfconsist_dehnencore_beta_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
     tol= 1e-8
@@ -770,9 +779,117 @@ def test_isotropic_eddington_selfconsist_beta_directint():
                          bins=31)
     return None
 
-def test_isotropic_eddington_selfconsist_energyoutofbounds():
+def test_isotropic_eddington_selfconsist_dehnencore_energyoutofbounds():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the eddington DF at E > 0 does not give zero'
+    assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E < Phi(0) does not give zero'
+    return None
+
+# For the following tests, we use a DehnenCoreSphericalPotential embedded in
+# an NFW halo
+def test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    # Check spherical symmetry for different harmonics l,m
+    tol= 1e-2
+    check_spherical_symmetry(samp,0,0,tol)
+    check_spherical_symmetry(samp,1,0,tol)
+    check_spherical_symmetry(samp,1,-1,tol)
+    check_spherical_symmetry(samp,1,1,tol)
+    check_spherical_symmetry(samp,2,0,tol)
+    check_spherical_symmetry(samp,2,-1,tol)
+    check_spherical_symmetry(samp,2,-2,tol)
+    check_spherical_symmetry(samp,2,1,tol)
+    check_spherical_symmetry(samp,2,2,tol)
+    # and some higher order ones
+    check_spherical_symmetry(samp,3,1,tol)
+    check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=100000)
+    tol= 5*1e-3
+    check_spherical_massprofile(samp,lambda r: denspot.mass(r)\
+                                /denspot.mass(numpy.amax(samp.r())),
+                                tol,skip=1000)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_sigmar():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=1000000)
+    tol= 0.08
+    check_sigmar_against_jeans(samp,pot,tol,
+                               dens=lambda r: denspot.dens(r,0,use_physical=False),
+                               rmin=pot._scale/10.,rmax=pot._scale*10.,
+                               bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_beta():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    numpy.random.seed(10)
+    samp= dfp.sample(n=3000000)
+    tol= 8*1e-2
+    check_beta(samp,pot,tol,rmin=pot._scale/5.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_dens_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    tol= 1e-2 # only approx, normally 1e-7
+    check_dens_directint(dfp,pot,tol,
+                         lambda r: denspot.dens(r,0),
+                         rmin=pot._scale/10.,
+                         rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_meanvr_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    tol= 1e-8
+    check_meanvr_directint(dfp,pot,tol,rmin=pot._scale/10.,
+                           rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    tol= 1e-3 # only approx. normally 1e-5
+    check_sigmar_against_jeans_directint(dfp,pot,tol,
+                                         dens=lambda r: denspot.dens(r,0),
+                                         rmin=pot._scale/10.,
+                                         rmax=pot._scale*10.,
+                                         bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_beta_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
+    tol= 1e-8
+    check_beta_directint(dfp,tol,rmin=pot._scale/10.,rmax=pot._scale*10.,
+                         bins=31)
+    return None
+
+def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    dfp= eddingtondf(pot=pot,denspot=denspot)
     assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E > 0 does not give zero'
     assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E < Phi(0) does not give zero'
     return None
@@ -917,6 +1034,22 @@ def test_isotropic_hernquist_incompatibleunits():
         dfh= isotropicHernquistdf(pot=pot,ro=8.,vo=230.)
     return None
 
+# Test that setting up a DF with unit conversion parameters that are
+# incompatible between the potential and the density fails
+def test_eddington_pot_denspot_incompatibleunits():
+    pot= potential.HernquistPotential(amp=2.,a=1.3,ro=9.,vo=210.)
+    denspot= potential.NFWPotential(amp=2.,a=1.3,ro=8.,vo=200.)
+    with pytest.raises(RuntimeError):
+        denspot= potential.NFWPotential(amp=2.,a=1.3,ro=8.,vo=210.)
+        dfh= eddingtondf(pot=pot,denspot=denspot)
+    with pytest.raises(RuntimeError):
+        denspot= potential.NFWPotential(amp=2.,a=1.3,ro=9.,vo=230.)
+        dfh= eddingtondf(pot=pot,denspot=denspot)
+    with pytest.raises(RuntimeError):
+        denspot= potential.NFWPotential(amp=2.,a=1.3,ro=8.,vo=230.)
+        dfh= eddingtondf(pot=pot,denspot=denspot)
+    return None
+
 # Test that the unit system is correctly transfered
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion
@@ -981,7 +1114,7 @@ def check_spherical_massprofile(samp,mass_profile,tol,skip=100):
         assert numpy.fabs(cumul_mass[indx]-mass_profile(cumul_rs[indx])) < tol, 'Mass profile of samples does not agree with analytical one'
     return None
 
-def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
+def check_sigmar_against_jeans(samp,pot,tol,beta=0.,dens=None,
                                rmin=None,rmax=None,bins=31):
     """Check that sigma_r(r) obtained from a sampling agrees with that coming 
     from the Jeans equation
@@ -997,7 +1130,7 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,
     samp_sigr= numpy.sqrt(mv2/w)
     brs= numpy.exp((numpy.roll(e,-1)+e)[:-1]/2.)
     for ii,br in enumerate(brs):
-        assert numpy.fabs(samp_sigr[ii]/jeans.sigmar(pot,br,beta=beta,
+        assert numpy.fabs(samp_sigr[ii]/jeans.sigmar(pot,br,beta=beta,dens=dens
                                                      )-1.) < tol, \
                                                      "sigma_r(r) from samples does not agree with that obtained from the Jeans equation"
     return None
@@ -1056,12 +1189,13 @@ def check_meanvr_directint(dfi,pot,tol,beta=0.,
     return None
 
 def check_sigmar_against_jeans_directint(dfi,pot,tol,beta=0.,
+                                         dens=None,
                                          rmin=None,rmax=None,bins=31):
     """Check that sigma_r(r) obtained from integrating over the DF agrees 
     with that coming from the Jeans equation"""
     rs= numpy.linspace(rmin,rmax,bins)
     intsr= numpy.array([dfi.sigmar(r,use_physical=False) for r in rs])
-    jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,use_physical=False) for r in rs])
+    jeanssr= numpy.array([jeans.sigmar(pot,r,beta=beta,dens=dens,use_physical=False) for r in rs])
     assert numpy.all(numpy.fabs(intsr/jeanssr-1) < tol), \
                      "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
     return None
