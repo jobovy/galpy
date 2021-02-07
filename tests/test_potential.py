@@ -1512,9 +1512,9 @@ def test_mass_spher():
     pp= potential.PowerSphericalPotential(amp=2.)
     #mass = amp x r^(3-alpha)
     tR= 1.
-    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    assert numpy.fabs(potential.mass(pp,tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
     tR= 2.
-    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    assert numpy.fabs(potential.mass([pp],tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
     tR= 20.
     assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
     #Test that for a cut-off potential, the mass far beyond the cut-off is 
@@ -1605,9 +1605,13 @@ def test_mass_axi():
     #Test that nonAxi raises error
     from galpy.orbit import Orbit
     mop= potential.MovingObjectPotential(Orbit([1.,0.1,1.1,0.1,0.,0.]))
-    try: mop.mass(1.,0.)
-    except NotImplementedError: pass
-    else: raise AssertionError('mass for non-axisymmetric potential should have raised NotImplementedError, but did not')
+    with pytest.raises(NotImplementedError) as excinfo:
+        mop.mass(1.,0.)
+    # also for lists
+    with pytest.raises(NotImplementedError) as excinfo:
+        potential.mass(mop,1.,0.)
+    with pytest.raises(NotImplementedError) as excinfo:
+        potential.mass([mop],1.,0.)
     return None
 
 # Check that toVertical and toPlanar work

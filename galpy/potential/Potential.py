@@ -374,11 +374,9 @@ class Potential(Force):
 
            R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z= (None) vertical height (can be Quantity)
+           z= (None) vertical height up to which to integrate (can be Quantity)
 
            t - time (optional; can be Quantity)
-
-        KEYWORDS:
 
            forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
 
@@ -1747,11 +1745,11 @@ def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     isList= isinstance(Pot,list)
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-        return sum
+                out+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
     else: #pragma: no cover 
@@ -1799,12 +1797,12 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                out+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                                use_physical=False)
-        return sum
+        return out
     elif isinstance(Pot,Potential):
         return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                         use_physical=False)
@@ -1851,17 +1849,68 @@ def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                out+= pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                                    use_physical=False)
-        return sum
+        return out
     elif isinstance(Pot,Potential):
         return Pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                             use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('mass',pop=True)
+def mass(Pot,R,z=None,t=0.,forceint=False):
+    """
+    NAME:
+
+       mass
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of masses
+
+    INPUT:
+
+       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z= (None) vertical height up to which to integrate (can be Quantity) 
+
+       t - time (can be Quantity)
+
+       forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
+
+
+    OUTPUT:
+
+       1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
+
+       2) for axisymmetric potentials: M(<R,<fabs(Z))
+
+    HISTORY:
+
+       2021-02-07 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi:
+        raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
+    if isList:
+        out= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                out+= pot.mass(R,z=z,t=t,forceint=forceint,use_physical=False)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.mass(R,z=z,t=t,forceint=forceint,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'mass' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
@@ -1912,13 +1961,13 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._Rforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -1974,13 +2023,13 @@ def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -2037,13 +2086,13 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._zforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -2094,13 +2143,13 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
+                out+= pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
             else:
-                sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
     elif isinstance(Pot,DissipativeForce):
@@ -2146,11 +2195,11 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2194,11 +2243,11 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2242,11 +2291,11 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2290,11 +2339,11 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2338,11 +2387,11 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2386,11 +2435,11 @@ def evaluater2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 

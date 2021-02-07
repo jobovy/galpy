@@ -92,6 +92,7 @@ Use as ``method(...)``
    flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
+   mass <potentialmasses.rst>
    nemo_accname <potentialnemoaccnames.rst>
    nemo_accpars <potentialnemoaccparss.rst>
    omegac <potentialomegacs.rst>

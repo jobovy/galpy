@@ -59,6 +59,7 @@ from . import AnySphericalPotential
 evaluatePotentials= Potential.evaluatePotentials
 evaluateDensities= Potential.evaluateDensities
 evaluateSurfaceDensities= Potential.evaluateSurfaceDensities
+mass= Potential.mass
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
