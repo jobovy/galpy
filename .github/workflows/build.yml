@@ -56,7 +56,7 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
