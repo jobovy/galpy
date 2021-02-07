@@ -713,13 +713,14 @@ def test_isotropic_eddington_selfconsist_dehnencore_dens_spherically_symmetric()
     return None
     
 def test_isotropic_eddington_selfconsist_dehnencore_dens_massprofile():
-    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    # Do one with pot as list
+    pot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
     dfp= eddingtondf(pot=pot)
     numpy.random.seed(10)
     samp= dfp.sample(n=100000)
     tol= 5*1e-3
-    check_spherical_massprofile(samp,lambda r: pot.mass(r)\
-                                /pot.mass(numpy.amax(samp.r())),
+    check_spherical_massprofile(samp,lambda r: potential.mass(pot,r)\
+                                /potential.mass(pot,numpy.amax(samp.r())),
                                 tol,skip=1000)
     return None
 
@@ -823,7 +824,8 @@ def test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile():
     return None
 
 def test_isotropic_eddington_dehnencore_in_nfw_sigmar():
-    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    # Use list
+    pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     dfp= eddingtondf(pot=pot,denspot=denspot)
     numpy.random.seed(10)
@@ -831,13 +833,14 @@ def test_isotropic_eddington_dehnencore_in_nfw_sigmar():
     tol= 0.08
     check_sigmar_against_jeans(samp,pot,tol,
                                dens=lambda r: denspot.dens(r,0,use_physical=False),
-                               rmin=pot._scale/10.,rmax=pot._scale*10.,
+                               rmin=pot[0]._scale/10.,rmax=pot[0]._scale*10.,
                                bins=31)
     return None
 
 def test_isotropic_eddington_dehnencore_in_nfw_beta():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
-    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    # Use list
+    denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
     dfp= eddingtondf(pot=pot,denspot=denspot)
     numpy.random.seed(10)
     samp= dfp.sample(n=3000000)
@@ -846,14 +849,15 @@ def test_isotropic_eddington_dehnencore_in_nfw_beta():
     return None
 
 def test_isotropic_eddington_dehnencore_in_nfw_dens_directint():
-    pot= potential.NFWPotential(amp=2.3,a=1.3)
-    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    # Lists for all!
+    pot= [potential.NFWPotential(amp=2.3,a=1.3)]
+    denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
     dfp= eddingtondf(pot=pot,denspot=denspot)
     tol= 1e-2 # only approx, normally 1e-7
     check_dens_directint(dfp,pot,tol,
-                         lambda r: denspot.dens(r,0),
-                         rmin=pot._scale/10.,
-                         rmax=pot._scale*10.,bins=31)
+                         lambda r: potential.evaluateDensities(denspot,r,0),
+                         rmin=pot[0]._scale/10.,
+                         rmax=pot[0]._scale*10.,bins=31)
     return None
 
 def test_isotropic_eddington_dehnencore_in_nfw_meanvr_directint():

@@ -22,7 +22,7 @@ import numpy
 import scipy.interpolate
 from scipy import integrate, special
 from .df import df
-from ..potential import evaluatePotentials
+from ..potential import evaluatePotentials, mass
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
 from ..util import conversion, galpyWarning
@@ -402,10 +402,10 @@ class sphericaldf(df):
         # try/except necessary when mass doesn't take arrays, also need to
         # switch to a more general mass method at some point...
         #try: 
-        ms = self._denspot.mass(rs,use_physical=False)
+        ms = mass(self._denspot,rs,use_physical=False)
         #except ValueError:
-        #    ms= numpy.array([self._pot.mass(r,use_physical=False) for r in rs])
-        ms/= self._denspot.mass(self._rmax,use_physical=False)
+        #    ms= numpy.array([mass(self._denspot,r,use_physical=False) for r in rs])
+        ms/= mass(self._denspot,self._rmax,use_physical=False)
         # Add total mass point
         if numpy.isinf(self._rmax):
             xis = numpy.append(xis,1)

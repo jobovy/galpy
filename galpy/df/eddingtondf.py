@@ -41,8 +41,12 @@ class eddingtondf(isotropicsphericaldf):
         """
         isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
                                       scale=scale,ro=ro,vo=vo)
-        self._dnudr= self._denspot._ddensdr
-        self._d2nudr2= self._denspot._d2densdr2
+        self._dnudr= self._denspot._ddensdr \
+            if not isinstance(self._denspot,list) \
+            else lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
+        self._d2nudr2= self._denspot._d2densdr2 \
+            if not isinstance(self._denspot,list) \
+            else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         self._potInf= _evaluatePotentials(pot,self._rmax,0)
         self._Emin= _evaluatePotentials(pot,0,0)
         # Build interpolator r(pot)
