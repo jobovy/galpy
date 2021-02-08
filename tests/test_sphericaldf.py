@@ -989,7 +989,7 @@ def test_king_beta_directint():
 # For the following tests, we use a DehnenCoreSphericalPotential
 def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [0.3,2.3,5.7]
+    ras= [2.3,5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         numpy.random.seed(10)
@@ -1029,8 +1029,8 @@ def test_osipkovmerritt_selfconsist_dehnencore_sigmar():
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         numpy.random.seed(10)
-        samp= dfh.sample(n=1000000)
-        tol= 0.07
+        samp= dfh.sample(n=300000)
+        tol= 0.1
         check_sigmar_against_jeans(samp,pot,tol,
                                    beta=lambda r: 1./(1.+ra**2./r**2.),
                                    rmin=pot._scale/10.,rmax=pot._scale*10.,
@@ -1043,37 +1043,38 @@ def test_osipkovmerritt_selfconsist_dehnencore_beta():
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         numpy.random.seed(10)
-        samp= dfh.sample(n=3000000)
-        tol= 0.07
+        samp= dfh.sample(n=300000)
+        tol= 0.1
+        # rmin larger than usual to avoid low number sampling
         check_beta(samp,pot,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
-                   rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+                   rmin=pot._scale/3.,rmax=pot._scale*10.,bins=31)
     return None
 
 def test_osipkovmerritt_selfconsist_dehnencore_dens_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         tol= 1e-4
         check_dens_directint(dfh,pot,tol,
                              lambda r: pot.dens(r,0),
                              rmin=pot._scale/10.,
-                             rmax=pot._scale*10.,bins=6)
+                             rmax=pot._scale*10.,bins=3)
     return None
 
 def test_osipkovmerritt_selfconsist_dehnencore_meanvr_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         tol= 1e-8
         check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
-                               rmax=pot._scale*10.,bins=6)
+                               rmax=pot._scale*10.,bins=3)
     return None
 
 def test_osipkovmerritt_selfconsist_dehnencore_sigmar_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         tol= 1e-4
@@ -1081,19 +1082,19 @@ def test_osipkovmerritt_selfconsist_dehnencore_sigmar_directint():
                                              beta=lambda r: 1./(1.+ra**2./r**2.),
                                              rmin=pot._scale/10.,
                                              rmax=pot._scale*10.,
-                                             bins=6)
+                                             bins=3)
     return None
 
 def test_osipkovmerritt_selfconsist_dehnencore_beta_directint():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,ra=ra)
         tol= 1e-8
         check_beta_directint(dfh,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,
-                             bins=6)
+                             bins=3)
     return None
 
 def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
@@ -1112,7 +1113,7 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
 def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [0.3,2.3,5.7]
+    ras= [2.3,5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         numpy.random.seed(10)
@@ -1151,16 +1152,17 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar():
     # Use list
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         numpy.random.seed(10)
-        samp= dfh.sample(n=3000000)
+        samp= dfh.sample(n=300000)
         tol= 0.07
+        # rmin larger than usual to avoid low number sampling  
         check_sigmar_against_jeans(samp,pot,tol,
                                    dens=lambda r: denspot.dens(r,0),
                                    beta=lambda r: 1./(1.+ra**2./r**2.),
-                                   rmin=pot[0]._scale/10.,
+                                   rmin=pot[0]._scale/3.,
                                    rmax=pot[0]._scale*10.,
                                    bins=31)
     return None
@@ -1169,45 +1171,46 @@ def test_osipkovmerritt_dehnencore_in_nfw_beta():
     # Use list
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
-    ras= [2.3,5.7]
+    ras= [5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         numpy.random.seed(10)
-        samp= dfh.sample(n=3000000)
+        samp= dfh.sample(n=300000)
         tol= 0.07
+        # rmin larger than usual to avoid low number sampling
         check_beta(samp,pot,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
-                   rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+                   rmin=pot._scale/3.,rmax=pot._scale*10.,bins=31)
     return None
 
 def test_osipkovmerritt_dehnencore_in_nfw_dens_directint():
     # Use list for both
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
-    ras= [2.3,5.7]
+    ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         tol= 1e-4
         check_dens_directint(dfh,pot,tol,
                              lambda r: denspot[0].dens(r,0),
                              rmin=pot[0]._scale/10.,
-                             rmax=pot[0]._scale*10.,bins=6)
+                             rmax=pot[0]._scale*10.,bins=3)
     return None
 
 def test_osipkovmerritt_dehnencore_in_nfw_meanvr_directint():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         tol= 1e-8
         check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
-                               rmax=pot._scale*10.,bins=6)
+                               rmax=pot._scale*10.,bins=3)
     return None
 
 def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         tol= 1e-4
@@ -1216,20 +1219,20 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint():
                                              beta=lambda r: 1./(1.+ra**2./r**2.),
                                              rmin=pot._scale/10.,
                                              rmax=pot._scale*10.,
-                                             bins=6)
+                                             bins=3)
     return None
 
 def test_osipkovmerritt_dehnencore_in_nfw_beta_directint():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    ras= [2.3,5.7]
+    ras= [5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
         tol= 1e-8
         check_beta_directint(dfh,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
                              rmin=pot._scale/10.,
                              rmax=pot._scale*10.,
-                             bins=6)
+                             bins=3)
     return None
 
 def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
