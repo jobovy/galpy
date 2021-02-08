@@ -3,9 +3,9 @@
 import numpy
 from ..util import conversion
 from ..potential import evaluatePotentials, HernquistPotential
-from .osipkovmerrittdf import osipkovmerrittdf
+from .osipkovmerrittdf import _osipkovmerrittdf
 
-class osipkovmerrittHernquistdf(osipkovmerrittdf):
+class osipkovmerrittHernquistdf(_osipkovmerrittdf):
     """Class that implements the anisotropic spherical Hernquist DF with radially varying anisotropy of the Osipkov-Merritt type
     
     .. math::
@@ -41,7 +41,7 @@ class osipkovmerrittHernquistdf(osipkovmerrittdf):
         """
         assert isinstance(pot,HernquistPotential), \
             'pot= must be potential.HernquistPotential'
-        osipkovmerrittdf.__init__(self,pot=pot,ra=ra,ro=ro,vo=vo)
+        _osipkovmerrittdf.__init__(self,pot=pot,ra=ra,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
         self._GMa = self._psi0*self._pot.a**2.
         self._a2overra2= self._pot.a**2./self._ra2

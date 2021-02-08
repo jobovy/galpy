@@ -83,8 +83,10 @@ class sphericaldf(df):
         try:
             self._scale = pot._scale
         except AttributeError:
-            self._scale= conversion.parse_length(scale,ro=self._ro) \
-                if scale is not None else 1.
+            try: self._scale = pot[0]._scale
+            except AttributeError:
+                self._scale= conversion.parse_length(scale,ro=self._ro) \
+                    if scale is not None else 1.
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
