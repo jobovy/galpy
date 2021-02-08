@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - python-version: 3.9
-            TEST_FILES: tests/test_actionAngle.py
+            TEST_FILES: tests/test_actionAngle.py tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -29,7 +29,7 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
           - python-version: 3.9
-            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py tests/test_sphericaldf.py
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
