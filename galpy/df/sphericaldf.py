@@ -84,7 +84,7 @@ class sphericaldf(df):
             self._scale = pot._scale
         except AttributeError:
             try: self._scale = pot[0]._scale
-            except AttributeError:
+            except (TypeError,AttributeError):
                 self._scale= conversion.parse_length(scale,ro=self._ro) \
                     if scale is not None else 1.
 
