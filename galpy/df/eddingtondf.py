@@ -8,7 +8,13 @@ from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from .sphericaldf import isotropicsphericaldf, sphericaldf
 
 class eddingtondf(isotropicsphericaldf):
-    """Class that implements isotropic spherical DFs computed using the Eddington formula"""
+    """Class that implements isotropic spherical DFs computed using the Eddington formula
+
+    .. math::
+
+        f(\\mathcal{E}) = \\frac{1}{\\sqrt{8}\\,\\pi^2}\\,\\left[\\int_0^\\mathcal{E}\\mathrm{d}\\Psi\\,\\frac{1}{\\sqrt{\\mathcal{E}-\\Psi}}\\,\\frac{\\mathrm{d}^2\\rho}{\\mathrm{d}\\Psi^2} +\\frac{1}{\\sqrt{\\mathcal{E}}}\\,\\frac{\\mathrm{d}\\rho}{\\mathrm{d}\\Psi}\\Bigg|_{\\Psi=0}\\right]\\,,
+
+    where :math:`\\Psi = -\\Phi+\\Phi(\\infty)` is the relative potential, :math:`\\mathcal{E} = \\Psi-v^2/2` is the relative (binding) energy, and :math:`\\rho` is the density of the tracer population (not necessarily the density corresponding to :math:`\\Psi` according to the Poisson equation). Note that the second term on the right-hand side is currently assumed to be zero in the code."""
     def __init__(self,pot=None,denspot=None,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """

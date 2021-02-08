@@ -60,6 +60,7 @@ The following are isotropic distribution functions
 .. toctree::
    :maxdepth: 2
 
+   Arbitrary Eddington-inversion DF <dfeddington.rst>
    Hernquist DF <dfhernquist.rst>
    King DF <dfking.rst>
    NFW DF <dfnfw.rst>
