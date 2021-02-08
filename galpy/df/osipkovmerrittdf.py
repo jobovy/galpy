@@ -121,15 +121,13 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             special.gamma(0.5*(m+n+3.))/(1+r**2./self._ra2)**(m/2+1)
     
 class osipkovmerrittdf(_osipkovmerrittdf):
-    """Class that implements anisotropic DFs of the Osipkov-Merritt type with radially varying anisotropy
-    
+    """Class that implements spherical DFs with Osipkov-Merritt-type orbital anisotropy
+
     .. math::
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius.
-
-    """
+    with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile."""
     def __init__(self,pot=None,denspot=None,ra=1.4,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """

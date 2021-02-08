@@ -71,6 +71,7 @@ Anisotropic versions also exist:
 .. toctree::
    :maxdepth: 2
 
+   Arbitrary Osipkov-Merritt DF <dfosipkovmerritt.rst>
    Hernquist DF with constant anisotropy beta <dfhernquistconstantbeta.rst>
    Hernquist DF with Osipkov-Merritt anisotropy <dfhernquistosipkov.rst>
 
