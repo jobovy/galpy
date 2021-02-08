@@ -2,7 +2,11 @@ name: build
 
 on:
   push:
+    paths-ignore:
+      - 'doc/**'
   pull_request:
+    paths-ignore:
+      - 'doc/**'
   schedule:
     - cron: '0 20 * * 2'
 
