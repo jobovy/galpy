@@ -4,17 +4,15 @@ from ..util import conversion
 from ..potential import NFWPotential
 from .sphericaldf import isotropicsphericaldf
 # Coefficients of the improved analytical approximation that JB made
-_COEFFS= numpy.array([-1491.8902622624896139, 11690.6687704701107577,
-                      -41507.5120287257886957, 88327.4966507880599238,
-                      -125579.5629730796063086, 125886.0143554724199930,
-                      -91520.0457568992424058, 48889.6565313585524564,
-                      -19234.8914455144113163, 5535.6739262642768153,
-                      -1146.7675217480441461, 166.4047219881630326,
-                      -16.2119268143120756,0.9071500840024120,
-                      0.0093256420259421, 0.0926700870836157])
+_COEFFS= numpy.array([7.8480631889123114, -41.0268009529575863,
+                      92.5144063082258157,-117.6477872907975382,
+                      92.6397009471828170, -46.6587221550257851,
+                      14.9776586391246376, -2.9784827749197880,
+                      0.2583468299241013,0.0232272797489981,
+                      0.0926081086527954])
 
 class isotropicNFWdf(isotropicsphericaldf):
-    """Class that implements the approximate isotropic spherical NFW DF (either `Widrow 2000 <https://ui.adsabs.harvard.edu/abs/2000ApJS..131...39W/abstract>`__ or an improved fit by Bovy 2022).
+    """Class that implements the approximate isotropic spherical NFW DF (either `Widrow 2000 <https://ui.adsabs.harvard.edu/abs/2000ApJS..131...39W/abstract>`__ or an improved fit by Lane et al. 2021).
     """
     def __init__(self,pot=None,widrow=False,rmax=1e4,ro=None,vo=None):
         """
