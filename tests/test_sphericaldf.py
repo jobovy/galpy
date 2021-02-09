@@ -1189,7 +1189,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_directint():
     ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
-        tol= 1e-4
+        tol= 3e-4
         check_dens_directint(dfh,pot,tol,
                              lambda r: denspot[0].dens(r,0),
                              rmin=pot[0]._scale/10.,
@@ -1213,7 +1213,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint():
     ras= [2.3]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
-        tol= 1e-4
+        tol= 2e-4
         check_sigmar_against_jeans_directint(dfh,pot,tol,
                                              dens=lambda r: denspot.dens(r,0),
                                              beta=lambda r: 1./(1.+ra**2./r**2.),
