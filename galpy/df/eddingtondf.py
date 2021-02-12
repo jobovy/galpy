@@ -67,13 +67,15 @@ class eddingtondf(isotropicsphericaldf):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_fE_interp'):
-            Es4interp= numpy.hstack((numpy.linspace(0,0.5,51,endpoint=False),
-                                     sorted(1.-numpy.geomspace(1e-4,0.5,51))))
+            Es4interp= numpy.hstack((numpy.geomspace(1e-8,0.5,101,
+                                                     endpoint=False),
+                                     sorted(1.-numpy.geomspace(1e-4,0.5,101))))
             Es4interp= (Es4interp*(self._Emin-self._potInf)+self._potInf)[::-1]
             fE4interp= self.fE(Es4interp)
-            iindx= True^numpy.isnan(fE4interp)
+            iindx= numpy.isfinite(fE4interp)
             self._fE_interp= interpolate.InterpolatedUnivariateSpline(\
-                                        Es4interp[iindx],fE4interp[iindx],k=3)
+                                        Es4interp[iindx],fE4interp[iindx],
+                                        k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
                                   return_orbit=return_orbit)
 

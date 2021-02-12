@@ -5,7 +5,7 @@ from scipy import special
 from galpy import potential
 from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
     isotropicPlummerdf, osipkovmerrittHernquistdf, isotropicNFWdf, \
-    eddingtondf, osipkovmerrittdf
+    eddingtondf, osipkovmerrittdf, osipkovmerrittNFWdf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -487,6 +487,127 @@ def test_osipkovmerritt_hernquist_diffcalls():
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the Osipkov-Merritt anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
         # Also as orbit
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+    return None
+
+############################## OSIPKOV-MERRITT NFW DF #########################
+def test_osipkovmerritt_nfw_dens_spherically_symmetric():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        # Check spherical symmetry for different harmonics l,m
+        tol= 1e-2
+        check_spherical_symmetry(samp,0,0,tol)
+        check_spherical_symmetry(samp,1,0,tol)
+        check_spherical_symmetry(samp,1,-1,tol)
+        check_spherical_symmetry(samp,1,1,tol)
+        check_spherical_symmetry(samp,2,0,tol)
+        check_spherical_symmetry(samp,2,-1,tol)
+        check_spherical_symmetry(samp,2,-2,tol)
+        check_spherical_symmetry(samp,2,1,tol)
+        check_spherical_symmetry(samp,2,2,tol)
+        # and some higher order ones
+        check_spherical_symmetry(samp,3,1,tol)
+        check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_osipkovmerritt_nfw_dens_massprofile():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 5*1e-3
+        check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                    /pot.mass(numpy.amax(samp.r())),
+                                    tol,skip=1000)
+    return None
+
+def test_osipkovmerritt_nfw_sigmar():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.17
+        check_sigmar_against_jeans(samp,pot,tol,
+                                   beta=lambda r: 1./(1.+ra**2./r**2.),
+                                   rmin=pot._scale/10.,rmax=pot._scale*10.,
+                                   bins=31)
+    return None
+
+def test_osipkovmerritt_nfw_beta():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=3000000)
+        tol= 0.15
+        check_beta(samp,pot,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
+                   rmin=pot._scale/10.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_osipkovmerritt_nfw_dens_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra,rmax=numpy.inf)
+        tol= 0.01 # 1%
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0),
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,bins=6)
+    return None
+
+def test_osipkovmerritt_nfw_meanvr_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra,rmax=numpy.inf)
+        tol= 1e-8
+        check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
+                               rmax=pot._scale*10.,bins=6)
+    return None
+
+def test_osipkovmerritt_nfw_sigmar_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra,rmax=numpy.inf)
+        tol= 1e-2 # 1%
+        check_sigmar_against_jeans_directint(dfh,pot,tol,
+                                             beta=lambda r: 1./(1.+ra**2./r**2.),
+                                             rmin=pot._scale/10.,
+                                             rmax=pot._scale*10.,
+                                             bins=6)
+    return None
+
+def test_osipkovmerritt_nfw_beta_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra,rmax=numpy.inf)
+        tol= 1e-8
+        check_beta_directint(dfh,tol,beta=lambda r: 1./(1.+ra**2./r**2.),
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,
+                             bins=6)
+    return None
+
+def test_osipkovmerritt_nfw_Qoutofbounds():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    ras= [2.3,5.7]
+    for ra in ras:
+        dfh= osipkovmerrittNFWdf(pot=pot,ra=ra)
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt NFW DF at E > 0 does not give zero'
+        # The next one is not actually a physical orbit...
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt NFW DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt NFW DF at Q < 0 does not give zero'
     return None
 
 ############################# ISOTROPIC PLUMMER DF ############################

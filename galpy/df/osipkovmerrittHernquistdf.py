@@ -31,6 +31,8 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
 
             ra - anisotropy radius (can be a Quantity)
 
+           ro=, vo= galpy unit parameters
+
         OUTPUT:
 
             None

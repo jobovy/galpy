@@ -195,18 +195,18 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_logfQ_interp'):
-            Qs4interp= numpy.hstack((numpy.linspace(1e-5,0.5,101,
+            Qs4interp= numpy.hstack((numpy.geomspace(1e-8,0.5,101,
                                                     endpoint=False),
-                                     sorted(1.-numpy.geomspace(1e-4,0.5,101))))
+                                     sorted(1.-numpy.geomspace(1e-8,0.5,101))))
             Qs4interp= -(Qs4interp*(self._edf._Emin-self._edf._potInf)
                         +self._edf._potInf)
             fQ4interp= numpy.log(self.fQ(Qs4interp))
-            iindx= True^numpy.isnan(fQ4interp)
+            iindx= numpy.isfinite(fQ4interp)
             self._logfQ_interp= interpolate.InterpolatedUnivariateSpline(\
-                                        Qs4interp[iindx],fQ4interp[iindx],k=3)
+                                        Qs4interp[iindx],fQ4interp[iindx],
+                                        k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
                                   return_orbit=return_orbit)
-
    
     def fQ(self,Q):
         """

@@ -637,5 +637,5 @@ class anisotropicsphericaldf(sphericaldf):
             2020-07-22 - Written - Lane (UofT)
 
         """
-        sphericaldf.__init__(self,pot=pot,denspot=denspot,
+        sphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
                              scale=scale,ro=ro,vo=vo)
