@@ -715,7 +715,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         
         return Acos, Asin
     
-def scf_compute_coeffs_nbody(pos,mass,N,L,a=1., radial_order=None, costheta_order=None, phi_order=None):
+def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
         
         """        
         NAME:
@@ -761,35 +761,7 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1., radial_order=None, costheta_orde
         r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
         phi = numpy.arctan2(pos[1],pos[0])
         costheta = pos[2]/r
-        '''
-        Plm= numpy.zeros([len(costheta),1,L,L])
-        for i,ll in enumerate(l):
-            for j,mm in enumerate(m):
-                Plm[:,0,j,i]= lpmv(ll,mm,costheta)
 
-        cosmphi= numpy.cos(phi[:,None]*m[None,:])[:,None,None,:]
-        sinmphi= numpy.sin(phi[:,None]*m[None,:])[:,None,None,:]
-        
-        Ylm= (numpy.sqrt((2.*l[:,None]+1)*gamma(l[:,None]-m[None,:]+1)/gamma(l[:,None]+m[None,:]+1))[None,None,:,:]*Plm)[None,:,:,:,:]*numpy.array([cosmphi,sinmphi])
-        Ylm= numpy.nan_to_num(Ylm)
-
-        C= [[gegenbauer(nn,2.*ll+1.5) for ll in l] for nn in n] 
-        Cn= numpy.zeros((1,len(r),N,L,1))
-        for i in range(N):
-            for j in range(L):
-                Cn[0,:,i,j,0]= C[i][j]((r/a-1)/(r/a+1))
-
-        rl= ((r[:,None]/a)**l[None,:])[None,:,None,:,None]
-        r12l1= ((1+(r[:,None]/a))**(2.*l[None,:]+1))[None,:,None,:,None]
-
-        phinlm= -rl/r12l1*Cn*Ylm
-
-        Sum= numpy.sum(mass[None,:,None,None,None]*phinlm,axis=1)
-        Knl= 0.5*n[:,None]*(n[:,None]+4.*l[None,:]+3.)+(l[None,:]+1)*(2.*l[None,:]+1.)
-
-        Inl= (-Knl*4.*numpy.pi/2.**(8.*l[None,:]+6.)*gamma(n[:,None]+4.*l[None,:]+3.)/gamma(n[:,None]+1)/(n[:,None]+2.*l[None,:]+1.5)/gamma(2.*l[None,:]+1.5)**2)[None,:,:,None]
-
-        Anlm= Inl**(-1)*Sum'''
         Anlm= numpy.zeros([2,L,L,L])
         for i,nn in enumerate(n):
             for j,ll in enumerate(l):
