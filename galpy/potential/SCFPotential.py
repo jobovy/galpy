@@ -1,8 +1,8 @@
 import hashlib
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.special import lpmn
-from scipy.special import gammaln
+from scipy.special import lpmn,lpmv
+from scipy.special import gammaln, gamma, gegenbauer
 from ..util import coords, conversion
 from .Potential import Potential
 
@@ -506,7 +506,10 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
 
         
 def _xiToR(xi, a =1):
-    return a*numpy.divide((1. + xi),(1. - xi))    
+    return a*numpy.divide((1. + xi),(1. - xi))  
+
+def _RToxi(r, a=1):
+    return numpy.divide((r/a-1.),(r/a+1.))
         
         
 def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
@@ -546,7 +549,33 @@ def _dC(xi, N, L):
     CC[0, :] = 0
     CC *= 2*(2*l + 3./2)
     return CC
-     
+
+def scf_compute_coeffs_spherical_nbody(pos,m,N,a=1.):
+
+        '''
+        INPUT:
+            pos - position of particles in your nbody snapshot
+
+            m - masses of particles
+
+            N - size of expansion coefficients                                                                         
+
+            a - parameter used to shift the basis functions 
+
+        '''               
+        Acos = numpy.zeros((N,1,1), float)
+        Asin = None
+        
+        r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+        Cs= numpy.array([_C(_RToxi(ri,a=a),N,1)[:,0] for ri in r])
+        RhoSum= numpy.sum((m/(4.*numpy.pi)/(r/a+1))[:,None]*Cs,axis=0)
+        n = numpy.arange(0,N)
+        K = 16*numpy.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+        Acos[n,0,0] = 2*K*RhoSum
+                       
+        return Acos, Asin 
+
+
 def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
         """
         NAME:
@@ -685,6 +714,80 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
         Acos[:,:,0] = 2*I**-1 * integrated*constants
         
         return Acos, Asin
+    
+def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
+        
+        """        
+        NAME:
+
+           scf_compute_coeffs
+
+        PURPOSE:
+
+           Numerically compute the expansion coefficients for a given triaxial density
+
+        INPUT:
+
+           pos - Positions of particles
+           
+           m - mass of particles
+
+           N - size of the Nth dimension of the expansion coefficients
+
+           L - size of the Lth and Mth dimension of the expansion coefficients
+           
+           a - parameter used to shift the basis functions
+
+           radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
+
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
+
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
+
+        OUTPUT:
+
+           (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
+        HISTORY:
+
+           2020-11-18 - Written - Morgan Bennett
+
+        """ 
+        
+        n = numpy.arange(0,N)
+        l = numpy.arange(0,L)
+        m = numpy.arange(0,L)
+
+        r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+        phi = numpy.arctan2(pos[1],pos[0])
+        costheta = pos[2]/r
+
+        Anlm= numpy.zeros([2,L,L,L])
+        for i,nn in enumerate(n):
+            for j,ll in enumerate(l):
+                for k,mm in enumerate(m[:j+1]):
+
+                    Plm= lpmv(mm,ll,costheta)
+
+                    cosmphi= numpy.cos(phi*mm)
+                    sinmphi= numpy.sin(phi*mm)
+
+                    Ylm= (numpy.sqrt((2.*ll+1)*gamma(ll-mm+1)/gamma(ll+mm+1))*Plm)[None,:]*numpy.array([cosmphi,sinmphi])
+                    Ylm= numpy.nan_to_num(Ylm)
+
+                    C= gegenbauer(nn,2.*ll+1.5)
+                    Cn= C((r/a-1)/(r/a+1))
+
+                    phinlm= (-(r/a)**ll/(r/a+1)**(2.*ll+1)*Cn)[None,:]*Ylm
+
+                    Sum= numpy.sum(mass[None,:]*phinlm,axis=1)
+
+                    Knl= 0.5*nn*(nn+4.*ll+3.)+(ll+1)*(2.*ll+1.)
+                    Inl= (-Knl*4.*numpy.pi/2.**(8.*ll+6.)*gamma(nn+4.*ll+3.)/gamma(nn+1)/(nn+2.*ll+1.5)/gamma(2.*ll+1.5)**2)
+
+                    Anlm[:,i,j,k]= Inl**(-1)*Sum
+        
+        return 2.*Anlm
         
 def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
         """        
