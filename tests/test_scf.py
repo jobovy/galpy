@@ -204,7 +204,7 @@ def test_scf_compute_axi_density2():
     assert numpy.all(numpy.fabs(A[0][2::2,0,0]) < 1e-10), "Acos(n > 1,l = 0,m=0) = 0 fails."
 
 ## Tests how nbody calculation compares to density calculation for scf_compute_coeff_spherical
-def compare_dens_nbody():
+def test_scf_compute_nbody_twopowertriaxial():
     N= int(1e5)
     Mh= 11.
     ah= 50./8.
@@ -233,7 +233,7 @@ def compare_dens_nbody():
     assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
 
 ## Tests how nbody calculation compares to density calculation for scf_compute_coeff
-def compare_dens_nbody_spherical():
+def test_scf_compute_spherical_nbody_hernquist():
     N= int(1e6)
     Mh= 11.
     ah= 50./8.
