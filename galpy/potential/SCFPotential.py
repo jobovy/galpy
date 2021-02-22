@@ -774,7 +774,7 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
     phi = numpy.arctan2(pos[1],pos[0])
     costheta = pos[2]/r
 
-    Anlm= numpy.zeros([2,L,L,L])
+    Anlm= numpy.zeros([2,N,L,L])
     for i,nn in enumerate(n):
         for j,ll in enumerate(l):
             for k,mm in enumerate(m[:j+1]):
