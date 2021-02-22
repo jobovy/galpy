@@ -252,7 +252,7 @@ def test_scf_compute_spherical_nbody_hernquist():
     c= numpy.zeros((nsamp,Norder,1,1))
     s= numpy.zeros((nsamp,Norder,1,1))
     for i in range(nsamp):
-        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(m=m*numpy.ones(N),pos=positions[i],N=Norder,a=ah)
+        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(mass=m*numpy.ones(N),pos=positions[i],N=Norder,a=ah)
     
     cc,ss= potential.scf_compute_coeffs_spherical(N=Norder,a=ah,dens=hern.dens)
     
