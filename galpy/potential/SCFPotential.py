@@ -520,7 +520,7 @@ def _RToxi(r, a=1):
     return numpy.divide((r/a-1.),(r/a+1.))
         
         
-def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
+def _C(xi,N,L,alpha=lambda x: 2*x + 3./2):
     """
     NAME:
        _C
@@ -531,24 +531,32 @@ def _C(xi, N,L, alpha = lambda x: 2*x + 3./2):
        N - Size of the N dimension
        L - Size of the L dimension
        alpha = A lambda function of l. Default alpha = 2l + 3/2 
-       
     OUTPUT:
        An LxN Gegenbauer Polynomial 
     HISTORY:
        2016-05-16 - Written - Aladdin Seaifan (UofT) 
+       2021-02-22 - Upgraded to array xi - Bovy (UofT)
     """
-    CC = numpy.zeros((N,L), float) 
-     
+    floatIn= False
+    if isinstance(xi,(float,int)):
+        floatIn= True
+        xi= numpy.array([xi])
+    CC= numpy.zeros((N,L,len(xi)))
     for l in range(L):
         for n in range(N):
-            a = alpha(l)
+            a= alpha(l)
             if n==0:
-                CC[n][l] = 1.
+                CC[n,l]= 1.
                 continue 
-            elif n==1: CC[n][l] = 2.*a*xi
+            elif n==1:
+                CC[n,l]= 2.*a*xi
             if n + 1 != N:
-                CC[n+1][l] = (n + 1.)**-1. * (2*(n + a)*xi*CC[n][l] - (n + 2*a - 1)*CC[n-1][l])
-    return CC 
+                CC[n+1,l]= (2*(n + a)*xi*CC[n,l]-(n + 2*a - 1)*CC[n-1,l])\
+                    /(n+1.)
+    if floatIn:
+        return CC[:,:,0]
+    else:
+        return CC 
     
 def _dC(xi, N, L):
     l = numpy.arange(0,L)[numpy.newaxis, :]
@@ -570,7 +578,7 @@ def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
 
     INPUT:
 
-       pos - positions of particles with shape [3,N]
+       pos - positions of particles in rectangular coordinates with shape [3,n]
            
        mass - mass of particles
 
@@ -586,15 +594,15 @@ def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
 
        2020-11-18 - Written - Morgan Bennett (UofT)
 
+       2021-02-22 - Sped-up - Bovy (UofT)
+
     """ 
     Acos = numpy.zeros((N,1,1), float)
     Asin = None
-    
     r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
-    Cs= numpy.array([_C(_RToxi(ri,a=a),N,1)[:,0] for ri in r])
-    RhoSum= numpy.sum((mass/(4.*numpy.pi)/(r/a+1))[:,None]*Cs,axis=0)
+    RhoSum= numpy.einsum('j,ij',mass/(1.+r/a),_C(_RToxi(r,a=a),N,1)[:,0])
     n = numpy.arange(0,N)
-    K = 16*numpy.pi*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
+    K = 4*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
     Acos[n,0,0] = 2*K*RhoSum
     
     return Acos, Asin 
