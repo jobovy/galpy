@@ -1,8 +1,8 @@
 import hashlib
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.special import lpmn,lpmv
-from scipy.special import gammaln, gamma, gegenbauer
+from scipy.special import lpmn
+from scipy.special import gammaln, gamma
 from ..util import coords, conversion
 from .Potential import Potential
 
@@ -572,7 +572,7 @@ def _dC(xi, N, L):
     CC *= 2*(2*l + 3./2)
     return CC
 
-def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
+def scf_compute_coeffs_spherical_nbody(pos,N,mass=1.,a=1.):
     """        
     NAME:
 
@@ -586,9 +586,9 @@ def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
 
        pos - positions of particles in rectangular coordinates with shape [3,n]
            
-       mass - mass of particles
-
        N - size of the Nth dimension of the expansion coefficients
+
+       mass= (1.) mass of particles (scalar or array with size n)
 
        a= (1.) parameter used to scale the radius
 
@@ -602,7 +602,7 @@ def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
 
        2021-02-22 - Sped-up - Bovy (UofT)
 
-    """ 
+    """
     Acos = numpy.zeros((N,1,1), float)
     Asin = None
     r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
@@ -673,7 +673,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
     Acos[n,0,0] = 2*K*integrated
     return Acos, Asin    
         
-def scf_compute_coeffs_axi_nbody(pos,mass,N,L,a=1.):
+def scf_compute_coeffs_axi_nbody(pos,N,L,mass=1.,a=1.):
     """        
     NAME:
 
@@ -685,13 +685,13 @@ def scf_compute_coeffs_axi_nbody(pos,mass,N,L,a=1.):
 
     INPUT:
 
-       pos - positions of particles with shape [3,N]
+       pos - positions of particles in rectangular coordinates with shape [3,n]
            
-       mass - mass of particles
-
        N - size of the Nth dimension of the expansion coefficients
 
        L - size of the Lth dimension of the expansion coefficients
+
+       mass= (1.) mass of particles (scalar or array with size n)
 
        a= (1.) parameter used to scale the radius
 
@@ -703,9 +703,10 @@ def scf_compute_coeffs_axi_nbody(pos,mass,N,L,a=1.):
 
        2021-02-22 - Written based on general code - Bovy (UofT)
 
-    """ 
-    r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+    """
+    r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
     costheta = pos[2]/r
+    mass= numpy.atleast_1d(mass)
     Acos, Asin= numpy.zeros([N,L,1]), None
     Pll= numpy.ones(len(r)) # Set up Assoc. Legendre recursion
     # (n,l) dependent constant
@@ -806,7 +807,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=No
     Acos[:,:,0] = 2*I**-1 * integrated*constants
     return Acos, Asin
     
-def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
+def scf_compute_coeffs_nbody(pos,N,L,mass=1.,a=1.):
     """        
     NAME:
 
@@ -818,13 +819,13 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
 
     INPUT:
 
-       pos - positions of particles with shape [3,N]
+       pos - positions of particles in rectangular coordinates with shape [3,n]
            
-       mass - mass of particles
-
        N - size of the Nth dimension of the expansion coefficients
 
        L - size of the Lth and Mth dimension of the expansion coefficients
+
+       mass= (1.) mass of particles (scalar or array with size n)
 
        a= (1.) parameter used to scale the radius
 
@@ -837,10 +838,11 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
        2020-11-18 - Written - Morgan Bennett (UofT)
 
     """ 
-    r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
-    phi = numpy.arctan2(pos[1],pos[0])
-    costheta = pos[2]/r
+    r= numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+    phi= numpy.arctan2(pos[1],pos[0])
+    costheta= pos[2]/r
     sintheta= numpy.sqrt(1.-costheta**2.)
+    mass= numpy.atleast_1d(mass)
     Acos, Asin= numpy.zeros([N,L,L]), numpy.zeros([N,L,L])
     Pll= numpy.ones(len(r)) # Set up Assoc. Legendre recursion
     # (n,l) dependent constant

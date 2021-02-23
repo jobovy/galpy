@@ -223,12 +223,22 @@ def test_scf_compute_spherical_nbody_hernquist():
     c= numpy.zeros((nsamp,Norder,1,1))
     s= numpy.zeros((nsamp,Norder,1,1))
     for i in range(nsamp):
-        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(mass=m*numpy.ones(N),pos=positions[i],N=Norder,a=ah)
+        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(\
+                                positions[i],Norder,mass=m*numpy.ones(N),a=ah)
     
-    cc,ss= potential.scf_compute_coeffs_spherical(N=Norder,a=ah,dens=hern.dens)
+    cc,ss= potential.scf_compute_coeffs_spherical(hern.dens,Norder,a=ah)
     
     # Check that the difference between the coefficients is within the standard deviation
     assert (cc-numpy.mean(c,axis=0)<numpy.std(c,axis=0)).all()
+
+    # Repeat test for single mass
+    c= numpy.zeros((nsamp,Norder,1,1))
+    s= numpy.zeros((nsamp,Norder,1,1))
+    for i in range(nsamp):
+        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(\
+                                positions[i],Norder,mass=m,a=ah)
+    assert (cc-numpy.mean(c,axis=0)<numpy.std(c,axis=0)).all()
+    return None  
 
 ## Tests how nbody calculation compares to density calculation for scf_compute_coeff
 def test_scf_compute_axi_nbody_twopowertriaxial():
@@ -259,11 +269,20 @@ def test_scf_compute_axi_nbody_twopowertriaxial():
     cc, ss= potential.scf_compute_coeffs_axi(tptp.dens,Norder,Lorder,a=ah)
     c,s= numpy.zeros((2, nsamp, Norder, Lorder,1))
     for i,p in enumerate(positions):
-        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,m*numpy.ones(N),
-                                                          Norder,Lorder,a=ah)
+        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,Norder,Lorder,
+                                                          mass=m*numpy.ones(N),
+                                                          a=ah)
     
     # Check that the difference between the coefficients is within two standard deviations
     assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+
+    # Repeat test for single mass
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder,1))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,Norder,Lorder,
+                                                          mass=m,a=ah)
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+    return None
     
 ## Tests how nbody calculation compares to density calculation for scf_compute_coeff
 def test_scf_compute_nbody_twopowertriaxial():
@@ -295,11 +314,20 @@ def test_scf_compute_nbody_twopowertriaxial():
     cc, ss= potential.scf_compute_coeffs(tptp.dens,Norder,Lorder,a=ah)
     c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
     for i,p in enumerate(positions):
-        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,m*numpy.ones(N),
-                                                      Norder,Lorder,a=ah)
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,Norder,Lorder,
+                                                      mass=m*numpy.ones(N),
+                                                      a=ah)
     
     # Check that the difference between the coefficients is within two standard deviations
     assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+
+    # Repeat test for single mass
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,Norder,Lorder,
+                                                  mass=m,a=ah)        
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+    return None
 
 def test_scf_compute_nfw(): 
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
