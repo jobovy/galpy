@@ -121,6 +121,7 @@ In addition to these, the following methods are available to compute expansion c
 
    scf_compute_coeffs <potentialscfcompute.rst>
    scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>
+   scf_compute_coeffs_axi_nbody <potentialscfcomputeaxinbody.rst>
    scf_compute_coeffs_nbody <potentialscfcomputenbody.rst>
    scf_compute_coeffs_spherical <potentialscfcomputesphere.rst>
    scf_compute_coeffs_spherical_nbody <potentialscfcomputespherenbody.rst>

@@ -609,8 +609,7 @@ def scf_compute_coeffs_spherical_nbody(pos,mass,N,a=1.):
     RhoSum= numpy.einsum('j,ij',mass/(1.+r/a),_C(_RToxi(r,a=a),N,1)[:,0])
     n = numpy.arange(0,N)
     K = 4*(n + 3./2)/((n + 2)*(n + 1)*(1 + n*(n + 3.)/2.))
-    Acos[n,0,0] = 2*K*RhoSum
-    
+    Acos[n,0,0] = 2*K*RhoSum   
     return Acos, Asin 
 
 def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
@@ -674,6 +673,64 @@ def scf_compute_coeffs_spherical(dens, N, a=1., radial_order=None):
     Acos[n,0,0] = 2*K*integrated
     return Acos, Asin    
         
+def scf_compute_coeffs_axi_nbody(pos,mass,N,L,a=1.):
+    """        
+    NAME:
+
+       scf_compute_coeffs_axi_nbody
+
+    PURPOSE:
+
+       Numerically compute the expansion coefficients for a given $N$-body set of points assuming that the density is axisymmetric
+
+    INPUT:
+
+       pos - positions of particles with shape [3,N]
+           
+       mass - mass of particles
+
+       N - size of the Nth dimension of the expansion coefficients
+
+       L - size of the Lth dimension of the expansion coefficients
+
+       a= (1.) parameter used to scale the radius
+
+    OUTPUT:
+
+       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
+
+    HISTORY:
+
+       2021-02-22 - Written based on general code - Bovy (UofT)
+
+    """ 
+    r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
+    costheta = pos[2]/r
+    Acos, Asin= numpy.zeros([N,L,1]), None
+    Pll= numpy.ones(len(r)) # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n= numpy.arange(0,N)[:,numpy.newaxis]
+    l= numpy.arange(0,L)[numpy.newaxis,:]
+    Knl= 0.5*n*(n+4.*l+3.)+(l+1)*(2.*l+1.)
+    Inl= -Knl*2.*numpy.pi/2.**(8.*l+6.)*gamma(n+4.*l+3.)\
+        /gamma(n+1)/(n+2.*l+1.5)/gamma(2.*l+1.5)**2/numpy.sqrt(2.*l+1)
+    # Set up Assoc. Legendre recursion
+    Plm= Pll
+    Plmm1= 0.
+    for ll in range(L):
+        # Compute Gegenbauer polys for this l
+        Cn= _C(_RToxi(r,a=a),N,ll,singleL=True)
+        phinlm= -(r/a)**ll/(1.+r/a)**(2.*ll+1)*Cn[:,0]*Plm
+        # Acos
+        Sum= numpy.sum(mass[numpy.newaxis,:]*phinlm,axis=-1)
+        Acos[:,ll,0]= Sum/Inl[:,ll]
+        # Recurse Assoc. Legendre
+        if ll < L:
+            tmp= Plm
+            Plm= ((2*ll+1.)*costheta*Plm-ll*Plmm1)/(ll+1)
+            Plmm1= tmp
+    return Acos,Asin
+
 def scf_compute_coeffs_axi(dens, N, L, a=1.,radial_order=None, costheta_order=None):
     """
     NAME:

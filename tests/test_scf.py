@@ -203,42 +203,7 @@ def test_scf_compute_axi_density2():
     #Checks that A = 0 when n = 2,4,..,2*n and l = 0  
     assert numpy.all(numpy.fabs(A[0][2::2,0,0]) < 1e-10), "Acos(n > 1,l = 0,m=0) = 0 fails."
 
-## Tests how nbody calculation compares to density calculation for scf_compute_coeff_spherical
-def test_scf_compute_nbody_twopowertriaxial():
-    N= int(1e5)
-    Mh= 11.
-    ah= 50./8.
-    m= Mh/N
-    yfactor=1.5
-    zfactor=2.5
-    nsamp=10
-    Norder=10
-    Lorder=10
-
-    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
-    hern.turn_physical_off()
-    hdf= df.isotropicHernquistdf(hern)
-    samp= [hdf.sample(n=N) for i in range(nsamp)]
-
-    positions= numpy.array([[samp[i].x(),
-                             samp[i].y()*yfactor,
-                             samp[i].z()*zfactor] for i in range(nsamp)])
-
-    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/yfactor/zfactor,
-                                              a=ah,alpha=1.,beta=4.,
-                                              b=yfactor,c=zfactor)
-    tptp.turn_physical_off()
-    
-    cc, ss= potential.scf_compute_coeffs(tptp.dens,Norder,Lorder,a=ah)
-    c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
-    for i,p in enumerate(positions):
-        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,m*numpy.ones(N),
-                                                      Norder,Lorder,a=ah)
-    
-    # Check that the difference between the coefficients is within two standard deviations
-    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
-
-## Tests how nbody calculation compares to density calculation for scf_compute_coeff
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff in the spherical case
 def test_scf_compute_spherical_nbody_hernquist():
     N= int(1e6)
     Mh= 11.
@@ -264,7 +229,78 @@ def test_scf_compute_spherical_nbody_hernquist():
     
     # Check that the difference between the coefficients is within the standard deviation
     assert (cc-numpy.mean(c,axis=0)<numpy.std(c,axis=0)).all()
+
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff
+def test_scf_compute_axi_nbody_twopowertriaxial():
+    N= int(1e5)
+    Mh= 11.
+    ah= 50./8.
+    m= Mh/N
+    zfactor=2.5
+    nsamp=10
+    Norder=10
+    Lorder=10
+
+    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hern.turn_physical_off()
+    hdf= df.isotropicHernquistdf(hern)
+    samp= [hdf.sample(n=N) for i in range(nsamp)]
+
+    positions= numpy.array([[samp[i].x(),
+                             samp[i].y(),
+                             samp[i].z()*zfactor] for i in range(nsamp)])
+
+    # This is an axisymmtric Hernquist profile with the same mass as the above
+    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/zfactor,
+                                              a=ah,alpha=1.,beta=4.,
+                                              b=1.,c=zfactor)
+    tptp.turn_physical_off()
     
+    cc, ss= potential.scf_compute_coeffs_axi(tptp.dens,Norder,Lorder,a=ah)
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder,1))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,m*numpy.ones(N),
+                                                          Norder,Lorder,a=ah)
+    
+    # Check that the difference between the coefficients is within two standard deviations
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+    
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff
+def test_scf_compute_nbody_twopowertriaxial():
+    N= int(1e5)
+    Mh= 11.
+    ah= 50./8.
+    m= Mh/N
+    yfactor=1.5
+    zfactor=2.5
+    nsamp=10
+    Norder=10
+    Lorder=10
+
+    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hern.turn_physical_off()
+    hdf= df.isotropicHernquistdf(hern)
+    samp= [hdf.sample(n=N) for i in range(nsamp)]
+
+    positions= numpy.array([[samp[i].x(),
+                             samp[i].y()*yfactor,
+                             samp[i].z()*zfactor] for i in range(nsamp)])
+
+    # This is an triaxial Hernquist profile with the same mass as the above
+    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/yfactor/zfactor,
+                                              a=ah,alpha=1.,beta=4.,
+                                              b=yfactor,c=zfactor)
+    tptp.turn_physical_off()
+    
+    cc, ss= potential.scf_compute_coeffs(tptp.dens,Norder,Lorder,a=ah)
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,m*numpy.ones(N),
+                                                      Norder,Lorder,a=ah)
+    
+    # Check that the difference between the coefficients is within two standard deviations
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+
 def test_scf_compute_nfw(): 
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
