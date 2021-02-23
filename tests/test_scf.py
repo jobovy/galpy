@@ -209,7 +209,8 @@ def test_scf_compute_nbody_twopowertriaxial():
     Mh= 11.
     ah= 50./8.
     m= Mh/N
-    factor=1.
+    yfactor=1.5
+    zfactor=2.5
     nsamp=10
     Norder=10
     Lorder=10
@@ -219,15 +220,20 @@ def test_scf_compute_nbody_twopowertriaxial():
     hdf= df.isotropicHernquistdf(hern)
     samp= [hdf.sample(n=N) for i in range(nsamp)]
 
-    positions= numpy.array([[samp[i].x(),samp[i].y(),samp[i].z()*factor] for i in range(nsamp)])
+    positions= numpy.array([[samp[i].x(),
+                             samp[i].y()*yfactor,
+                             samp[i].z()*zfactor] for i in range(nsamp)])
 
-    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh,a=ah,alpha=1.,beta=4.,b=1.,c=factor)
+    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/yfactor/zfactor,
+                                              a=ah,alpha=1.,beta=4.,
+                                              b=yfactor,c=zfactor)
     tptp.turn_physical_off()
     
     cc, ss= potential.scf_compute_coeffs(tptp.dens,Norder,Lorder,a=ah)
     c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
     for i,p in enumerate(positions):
-        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,m*numpy.ones(N)*factor,Norder,Lorder,a=ah)
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,m*numpy.ones(N),
+                                                      Norder,Lorder,a=ah)
     
     # Check that the difference between the coefficients is within two standard deviations
     assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
