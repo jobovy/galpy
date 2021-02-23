@@ -520,7 +520,7 @@ def _RToxi(r, a=1):
     return numpy.divide((r/a-1.),(r/a+1.))
         
         
-def _C(xi,N,L,alpha=lambda x: 2*x + 3./2):
+def _C(xi,N,L,alpha=lambda x: 2*x + 3./2,singleL=False):
     """
     NAME:
        _C
@@ -531,20 +531,26 @@ def _C(xi,N,L,alpha=lambda x: 2*x + 3./2):
        N - Size of the N dimension
        L - Size of the L dimension
        alpha = A lambda function of l. Default alpha = 2l + 3/2 
+       singleL= (False), if True only compute the L-th polynomial
     OUTPUT:
        An LxN Gegenbauer Polynomial 
     HISTORY:
        2016-05-16 - Written - Aladdin Seaifan (UofT) 
        2021-02-22 - Upgraded to array xi - Bovy (UofT)
+       2021-02-22 - Added singleL for use in compute...nbody - Bovy (UofT)
     """
     floatIn= False
     if isinstance(xi,(float,int)):
         floatIn= True
         xi= numpy.array([xi])
-    CC= numpy.zeros((N,L,len(xi)))
-    for l in range(L):
+    if singleL:
+        Ls= [L]
+    else:
+        Ls= range(L)
+    CC= numpy.zeros((N,len(Ls),len(xi)))
+    for l,ll in enumerate(Ls):
         for n in range(N):
-            a= alpha(l)
+            a= alpha(ll)
             if n==0:
                 CC[n,l]= 1.
                 continue 
@@ -774,33 +780,47 @@ def scf_compute_coeffs_nbody(pos,mass,N,L,a=1.):
        2020-11-18 - Written - Morgan Bennett (UofT)
 
     """ 
-    n = numpy.arange(0,N)
-    l = numpy.arange(0,L)
-    m = numpy.arange(0,L)
-
     r = numpy.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
     phi = numpy.arctan2(pos[1],pos[0])
     costheta = pos[2]/r
-
-    Anlm= numpy.zeros([2,N,L,L])
-    for i,nn in enumerate(n):
-        for j,ll in enumerate(l):
-            for k,mm in enumerate(m[:j+1]):
-                Plm= lpmv(mm,ll,costheta)
-                cosmphi= numpy.cos(phi*mm)
-                sinmphi= numpy.sin(phi*mm)
-                Ylm= (numpy.sqrt((2.*ll+1)*gamma(ll-mm+1)/gamma(ll+mm+1))*Plm)[None,:]*numpy.array([cosmphi,sinmphi])
-                Ylm= numpy.nan_to_num(Ylm)
-                C= gegenbauer(nn,2.*ll+1.5)
-                Cn= C((r/a-1)/(r/a+1))
-                phinlm= (-(r/a)**ll/(r/a+1)**(2.*ll+1)*Cn)[None,:]*Ylm
-                Sum= numpy.sum(mass[None,:]*phinlm,axis=1)
-                Knl= 0.5*nn*(nn+4.*ll+3.)+(ll+1)*(2.*ll+1.)
-                Inl= (-Knl*4.*numpy.pi/2.**(8.*ll+6.)*gamma(nn+4.*ll+3.)/gamma(nn+1)/(nn+2.*ll+1.5)/gamma(2.*ll+1.5)**2)
-                Anlm[:,i,j,k]= Inl**(-1)*Sum
-    return 2.*Anlm
+    sintheta= numpy.sqrt(1.-costheta**2.)
+    Acos, Asin= numpy.zeros([N,L,L]), numpy.zeros([N,L,L])
+    Pll= numpy.ones(len(r)) # Set up Assoc. Legendre recursion
+    # (n,l) dependent constant
+    n= numpy.arange(0,N)[:,numpy.newaxis]
+    l= numpy.arange(0,L)[numpy.newaxis,:]
+    Knl= 0.5*n*(n+4.*l+3.)+(l+1)*(2.*l+1.)
+    Inl= -Knl*2.*numpy.pi/2.**(8.*l+6.)*gamma(n+4.*l+3.)\
+        /gamma(n+1)/(n+2.*l+1.5)/gamma(2.*l+1.5)**2
+    for mm in range(L): # Loop over m
+        cosmphi= numpy.cos(phi*mm)
+        sinmphi= numpy.sin(phi*mm)
+        # Set up Assoc. Legendre recursion
+        Plm= Pll
+        Plmm1= 0.
+        for ll in range(mm,L):
+            # Compute Gegenbauer polys for this l
+            Cn= _C(_RToxi(r,a=a),N,ll,singleL=True)
+            phinlm= -(r/a)**ll/(1.+r/a)**(2.*ll+1)*Cn[:,0]*Plm
+            # Acos
+            Sum= numpy.sqrt((2.*ll+1)*gamma(ll-mm+1)/gamma(ll+mm+1))\
+                *numpy.sum((mass*cosmphi)[numpy.newaxis,:]*phinlm,axis=-1)
+            Acos[:,ll,mm]= Sum/Inl[:,ll]
+            # Asin
+            Sum= numpy.sqrt((2.*ll+1)*gamma(ll-mm+1)/gamma(ll+mm+1))\
+                *numpy.sum((mass*sinmphi)[numpy.newaxis,:]*phinlm,axis=-1)
+            Asin[:,ll,mm]= Sum/Inl[:,ll]
+            # Recurse Assoc. Legendre
+            if ll < L:
+                tmp= Plm
+                Plm= ((2*ll+1.)*costheta*Plm-(ll+mm)*Plmm1)/(ll-mm+1)
+                Plmm1= tmp
+        # Recurse Assoc. Legendre
+        Pll*= -(2*mm+1.)*sintheta        
+    return Acos,Asin
         
-def scf_compute_coeffs(dens, N, L, a=1., radial_order=None, costheta_order=None, phi_order=None):
+def scf_compute_coeffs(dens,N,L,a=1.,
+                       radial_order=None,costheta_order=None,phi_order=None):
     """        
     NAME:
 
