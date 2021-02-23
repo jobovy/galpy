@@ -17,6 +17,10 @@ v1.7 (XXXX-XX-XX)
   sampled, and their velocity moments can be computed. Work started in
   #432 and continued on from there.
 
+- Implemented the calculation of SCF density/potential expansion
+  coefficients based on an N-body representation of the density
+  (#444).
+
 - Added NFWPotential initialization method using rmax and vmax, the
   radius and alue at which the rotation curve peaks; also added rmax
   and vmax methods to NFWPotential to compute these quantities for any
