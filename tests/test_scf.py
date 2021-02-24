@@ -216,6 +216,7 @@ def test_scf_compute_spherical_nbody_hernquist():
     hern= potential.HernquistPotential(amp=2*Mh,a=ah)
     hern.turn_physical_off()
     hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(1)
     samples= [hdf.sample(n=N) for i in range(nsamp)]
 
     positions= numpy.array([[samples[i].x(),samples[i].y(),samples[i].z()*factor] for i in range(nsamp)])
@@ -254,6 +255,7 @@ def test_scf_compute_axi_nbody_twopowertriaxial():
     hern= potential.HernquistPotential(amp=2*Mh,a=ah)
     hern.turn_physical_off()
     hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(1)
     samp= [hdf.sample(n=N) for i in range(nsamp)]
 
     positions= numpy.array([[samp[i].x(),
@@ -299,6 +301,7 @@ def test_scf_compute_nbody_twopowertriaxial():
     hern= potential.HernquistPotential(amp=2*Mh,a=ah)
     hern.turn_physical_off()
     hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(2)
     samp= [hdf.sample(n=N) for i in range(nsamp)]
 
     positions= numpy.array([[samp[i].x(),
