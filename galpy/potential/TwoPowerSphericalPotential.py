@@ -196,7 +196,7 @@ class TwoPowerSphericalPotential(Potential):
         NAME:
            _ddensdr
         PURPOSE:
-           evaluate the radial density for this potential
+s           evaluate the radial density derivative for this potential
         INPUT:
            r - spherical radius
            t= time
@@ -229,6 +229,25 @@ class TwoPowerSphericalPotential(Potential):
               2.*self.alpha*self.a*(self.beta+1.)*r
               +self.beta*(self.beta+1.)*r**2)/r**4/4./numpy.pi/self.a**3.
 
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        return self._amp/4./numpy.pi/self.a**3.\
+            *r**(2.*beta-2.)*(self.a/r)**(self.alpha-1.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-1.)\
+            *(self.a*(2.*beta-self.alpha)+r*(2.*beta-self.beta))
+    
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -865,6 +884,22 @@ class HernquistPotential(DehnenSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp/2./(r+self.a)**2.
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -1353,6 +1388,25 @@ class NFWPotential(TwoPowerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= numpy.sqrt(Rz)
         return z*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        try:
+            import jax.numpy as jnp
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
+        return self._amp*(1./r/(self.a+r)-jnp.log(1.+r/self.a)/r**2.)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
