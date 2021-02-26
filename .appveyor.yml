@@ -34,6 +34,7 @@ install:
   - activate test-environment
   - pip install coverage
   - pip install pytest-cov
+  - pip install jax jaxlib
 
   # Environment variables for GSL linking
   - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%

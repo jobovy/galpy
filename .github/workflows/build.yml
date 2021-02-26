@@ -23,87 +23,104 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: true
           - python-version: 3.9
             TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_PYNBODY: false
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_evolveddiskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_streamgapdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_diskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.9
             TEST_FILES: tests/test_streamdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
           - python-version: 3.8
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
           - python-version: 3.8
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
           - python-version: 3.7
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
           - python-version: 3.7
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
     env:
       PYTHON_COVREPORTS_VERSION: 3.9      
     steps:
@@ -123,7 +140,7 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
@@ -139,6 +156,9 @@ jobs:
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
+    - name: Install JAX
+      if: ${{ matrix.REQUIRES_JAX }}
+      run: pip install jax jaxlib
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
