@@ -668,6 +668,22 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         """
         return -R/numpy.power(numpy.sqrt(R**2.+z**2.)+self.a,3.)/3.
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-25 - Written - Bovy (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp*r/(r+self.a)**3./3.
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
