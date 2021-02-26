@@ -22,7 +22,8 @@ import numpy
 import scipy.interpolate
 from scipy import integrate, special
 from .df import df
-from ..potential import evaluatePotentials, mass
+from ..potential import mass
+from ..potential.Potential import _evaluatePotentials
 from ..potential.SCFPotential import _xiToR
 from ..orbit import Orbit
 from ..util import conversion, galpyWarning
@@ -142,9 +143,7 @@ class sphericaldf(df):
             z= conversion.parse_length(z,ro=self._ro)
             vz= conversion.parse_velocity(vz,vo=self._vo)
             vtotSq = vR**2.+vT**2.+vz**2.
-            E= numpy.atleast_1d(0.5*vtotSq
-                                +evaluatePotentials(self._pot,R,z,
-                                                    use_physical=False))
+            E= numpy.atleast_1d(0.5*vtotSq+_evaluatePotentials(self._pot,R,z))
             Lz = numpy.atleast_1d(R*vT)
             r = numpy.sqrt(R**2.+z**2.)
             vrad = (R*vR+z*vz)/r
@@ -440,9 +439,8 @@ class sphericaldf(df):
         typically equal to vesc, but not necessarily for finite systems 
         such as King"""
         return numpy.sqrt(2.*(\
-                evaluatePotentials(self._pot,self._rmax+1e-10,0,
-                                   use_physical=False)
-                -evaluatePotentials(self._pot,r,0.,use_physical=False)))
+                _evaluatePotentials(self._pot,self._rmax+1e-10,0)
+                -_evaluatePotentials(self._pot,r,0.)))
     
     def _make_pvr_interpolator(self,r_a_start=-3,r_a_end=3,n_r_a=120, 
                                n_v_vesc=100):
@@ -582,8 +580,7 @@ class isotropicsphericaldf(sphericaldf):
              return 0.
          return 2.*numpy.pi\
              *integrate.quad(lambda v: v**(2.+m+n)*
-                             self.fE(evaluatePotentials(self._pot,r,0,
-                                                        use_physical=False)
+                             self.fE(_evaluatePotentials(self._pot,r,0)
                                      +0.5*v**2.),
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m//2+1)*special.gamma(n//2+0.5)\
@@ -595,12 +592,10 @@ class isotropicsphericaldf(sphericaldf):
 
     def _p_v_at_r(self,v,r):
         if hasattr(self,'_fE_interp'):
-            return self._fE_interp(evaluatePotentials(self._pot,r,0,
-                                                      use_physical=False)\
+            return self._fE_interp(_evaluatePotentials(self._pot,r,0)\
                                    +0.5*v**2.)*v**2.
         else:
-            return self.fE(evaluatePotentials(self._pot,r,0,
-                                              use_physical=False)\
+            return self.fE(_evaluatePotentials(self._pot,r,0)\
                            +0.5*v**2.)*v**2.
     
 class anisotropicsphericaldf(sphericaldf):

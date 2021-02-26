@@ -34,6 +34,8 @@ class eddingtondf(isotropicsphericaldf):
 
            rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 
+           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
+
            ro=, vo= galpy unit parameters
 
         OUTPUT:

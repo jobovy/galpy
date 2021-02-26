@@ -2,7 +2,8 @@
 import numpy
 from scipy import integrate, special, interpolate
 from ..util import conversion
-from ..potential import evaluatePotentials, evaluateDensities
+from ..potential import evaluateDensities
+from ..potential.Potential import _evaluatePotentials
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
 from .eddingtondf import eddingtondf
 
@@ -94,12 +95,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling """
         if hasattr(self,'_logfQ_interp'):
             return numpy.exp(\
-                    self._logfQ_interp(-evaluatePotentials(self._pot,r,0,
-                                                       use_physical=False)\
+                    self._logfQ_interp(-_evaluatePotentials(self._pot,r,0)\
                                    -0.5*v**2.))*v**2.
         else:
-            return self.fQ(-evaluatePotentials(self._pot,r,0,
-                                               use_physical=False)\
+            return self.fQ(-_evaluatePotentials(self._pot,r,0)\
                            -0.5*v**2.)*v**2.
 
     def _sample_v(self,r,eta,n=1):
@@ -113,8 +112,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
          if m%2 == 1 or n%2 == 1:
              return 0.
          return 2.*numpy.pi*integrate.quad(lambda v: v**(2.+m+n)
-                                    *self.fQ(-evaluatePotentials(self._pot,r,0,
-                                                         use_physical=False)
+                                *self.fQ(-_evaluatePotentials(self._pot,r,0)
                                              -0.5*v**2.),
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m/2.+1.)*special.gamma((n+1)/2.)/\
@@ -149,9 +147,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
           
            rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 
-            scale - Characteristic scale radius to aid sampling calculations. 
-                Not necessary, and will also be overridden by value from pot 
-                if available.
+           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
            ro=, vo= galpy unit parameters
 
@@ -165,7 +161,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
         """
         _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,
-                                   rmax=rmax,ro=ro,vo=vo)
+                                   rmax=rmax,scale=scale,ro=ro,vo=vo)
         # Because f(Q) is the same integral as the Eddington conversion, but
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density

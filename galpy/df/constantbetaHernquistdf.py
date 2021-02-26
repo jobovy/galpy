@@ -5,9 +5,9 @@ import scipy.special
 import scipy.integrate
 from ..util import conversion
 from ..potential import evaluatePotentials,HernquistPotential
-from .constantbetadf import constantbetadf
+from .constantbetadf import _constantbetadf
 
-class constantbetaHernquistdf(constantbetadf):
+class constantbetaHernquistdf(_constantbetadf):
     """Class that implements the anisotropic spherical Hernquist DF with constant beta parameter"""
     def __init__(self,pot=None,beta=0,ro=None,vo=None):
         """
@@ -34,8 +34,9 @@ class constantbetaHernquistdf(constantbetadf):
             2020-07-22 - Written - Lane (UofT)
         """
         assert isinstance(pot,HernquistPotential),'pot= must be potential.HernquistPotential'
-        constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
+        _constantbetadf.__init__(self,pot=pot,beta=beta,ro=ro,vo=vo)
         self._psi0= -evaluatePotentials(self._pot,0,0,use_physical=False)
+        self._potInf= 0.
         self._GMa = self._psi0*self._pot.a**2.
         # Final factor is mass to make the DF that of the mass density
         self._fEnorm= (2.**self._beta/(2.*numpy.pi)**2.5)\
