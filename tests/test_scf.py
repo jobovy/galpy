@@ -4,6 +4,7 @@ import os
 import sys
 import numpy
 from galpy import potential
+from galpy import df
 from galpy.potential import SCFPotential
 from galpy.util import coords
 from galpy.orbit import Orbit
@@ -202,6 +203,135 @@ def test_scf_compute_axi_density2():
     #Checks that A = 0 when n = 2,4,..,2*n and l = 0  
     assert numpy.all(numpy.fabs(A[0][2::2,0,0]) < 1e-10), "Acos(n > 1,l = 0,m=0) = 0 fails."
 
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff in the spherical case
+def test_scf_compute_spherical_nbody_hernquist():
+    N= int(1e6)
+    Mh= 11.
+    ah= 50./8.
+    m= Mh/N
+    factor=1.
+    nsamp=10
+    Norder=10
+
+    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hern.turn_physical_off()
+    hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(1)
+    samples= [hdf.sample(n=N) for i in range(nsamp)]
+
+    positions= numpy.array([[samples[i].x(),samples[i].y(),samples[i].z()*factor] for i in range(nsamp)])
+    
+    c= numpy.zeros((nsamp,Norder,1,1))
+    s= numpy.zeros((nsamp,Norder,1,1))
+    for i in range(nsamp):
+        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(\
+                                positions[i],Norder,mass=m*numpy.ones(N),a=ah)
+    
+    cc,ss= potential.scf_compute_coeffs_spherical(hern.dens,Norder,a=ah)
+    
+    # Check that the difference between the coefficients is within the standard deviation
+    assert (cc-numpy.mean(c,axis=0)<numpy.std(c,axis=0)).all()
+
+    # Repeat test for single mass
+    c= numpy.zeros((nsamp,Norder,1,1))
+    s= numpy.zeros((nsamp,Norder,1,1))
+    for i in range(nsamp):
+        c[i],s[i]= potential.scf_compute_coeffs_spherical_nbody(\
+                                positions[i],Norder,mass=m,a=ah)
+    assert (cc-numpy.mean(c,axis=0)<numpy.std(c,axis=0)).all()
+    return None  
+
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff
+def test_scf_compute_axi_nbody_twopowertriaxial():
+    N= int(1e5)
+    Mh= 11.
+    ah= 50./8.
+    m= Mh/N
+    zfactor=2.5
+    nsamp=10
+    Norder=10
+    Lorder=10
+
+    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hern.turn_physical_off()
+    hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(1)
+    samp= [hdf.sample(n=N) for i in range(nsamp)]
+
+    positions= numpy.array([[samp[i].x(),
+                             samp[i].y(),
+                             samp[i].z()*zfactor] for i in range(nsamp)])
+
+    # This is an axisymmtric Hernquist profile with the same mass as the above
+    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/zfactor,
+                                              a=ah,alpha=1.,beta=4.,
+                                              b=1.,c=zfactor)
+    tptp.turn_physical_off()
+    
+    cc, ss= potential.scf_compute_coeffs_axi(tptp.dens,Norder,Lorder,a=ah)
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder,1))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,Norder,Lorder,
+                                                          mass=m*numpy.ones(N),
+                                                          a=ah)
+    
+    # Check that the difference between the coefficients is within two standard deviations
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+
+    # Repeat test for single mass
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder,1))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_axi_nbody(p,Norder,Lorder,
+                                                          mass=m,a=ah)
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+    return None
+    
+## Tests how nbody calculation compares to density calculation for scf_compute_coeff
+def test_scf_compute_nbody_twopowertriaxial():
+    N= int(1e5)
+    Mh= 11.
+    ah= 50./8.
+    m= Mh/N
+    yfactor=1.5
+    zfactor=2.5
+    nsamp=10
+    Norder=10
+    Lorder=10
+
+    hern= potential.HernquistPotential(amp=2*Mh,a=ah)
+    hern.turn_physical_off()
+    hdf= df.isotropicHernquistdf(hern)
+    numpy.random.seed(2)
+    samp= [hdf.sample(n=N) for i in range(nsamp)]
+
+    positions= numpy.array([[samp[i].x(),
+                             samp[i].y()*yfactor,
+                             samp[i].z()*zfactor] for i in range(nsamp)])
+
+    # This is an triaxial Hernquist profile with the same mass as the above
+    tptp= potential.TwoPowerTriaxialPotential(amp=2.*Mh/yfactor/zfactor,
+                                              a=ah,alpha=1.,beta=4.,
+                                              b=yfactor,c=zfactor)
+    tptp.turn_physical_off()
+    
+    cc, ss= potential.scf_compute_coeffs(tptp.dens,Norder,Lorder,a=ah)
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,Norder,Lorder,
+                                                      mass=m*numpy.ones(N),
+                                                      a=ah)
+    
+    # Check that the difference between the coefficients is within two standard deviations
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+
+    # Repeat test for single mass
+    c,s= numpy.zeros((2, nsamp, Norder, Lorder, Lorder))
+    for i,p in enumerate(positions):
+        c[i],s[i]= potential.scf_compute_coeffs_nbody(p,Norder,Lorder,
+                                                  mass=m,a=ah)        
+    assert (cc-(numpy.mean(c,axis=0))<=(2.*numpy.std(c,axis=0))).all()
+    return None
+
 def test_scf_compute_nfw(): 
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
@@ -366,6 +496,7 @@ def test_phiforceMatches_nfw():
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
  
+
 ##############GENERIC FUNCTIONS BELOW###############
 
 ##This is used to test whether input as arrays works
@@ -450,7 +581,6 @@ def reducesto_spherical(Aspherical,A,potentialName):
     n = min(Acos_s.shape[0], Acos.shape[0])
     assert numpy.all(numpy.fabs(Acos_s[:n,0,0] - Acos[:n,0,0]) < EPS), \
     "Acos(n,l=0,m=0) as generated by scf_compute_coeffs does not reduce to the spherical Acos(n,l=0,m=0) for {0}".format(potentialName)
-
     
 ## Hernquist potential as a function of r
 def sphericalHernquistDensity(R, z=0, phi=0):
