@@ -1,4 +1,6 @@
 # Tests of spherical distribution functions
+import platform
+WIN32= platform.system() == 'Windows'
 import pytest
 import numpy
 from scipy import special
@@ -1372,6 +1374,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
 # For the following tests, we use a DehnenCoreSphericalPotential
 constantbeta_dfs_selfconsist= None # re-use in other tests
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     global constantbeta_dfs_selfconsist
@@ -1398,6 +1401,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
     return None
     
 def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1410,6 +1414,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_sigmar():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1423,6 +1428,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_beta():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1435,6 +1441,7 @@ def test_constantbeta_selfconsist_dehnencore_beta():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_dens_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1446,6 +1453,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_directint():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1455,6 +1463,7 @@ def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1469,6 +1478,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
 # We don't do this test, because it is trivially satisfied by
 # any f(E,L) = L^(-2beta) f1(E)
 #def test_constantbeta_selfconsist_dehnencore_beta_directint():
+#    if WIN32: return None # skip on appveyor, because no JAX
 #    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
 #    twobetas= [-1]
 #    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1480,6 +1490,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
 #    return None
 
 def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1493,6 +1504,7 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
 # an NFW halo
 constantbeta_dfs_dehnencore_in_nfw= None # re-use in other tests
 def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [0.5]
@@ -1520,6 +1532,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
     return None
     
 def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [0.5]
@@ -1533,6 +1546,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_sigmar():
+    if WIN32: return None # skip on appveyor, because no JAX
     # Use list
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
@@ -1551,6 +1565,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_beta():
+    if WIN32: return None # skip on appveyor, because no JAX
     # Use list
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
@@ -1565,6 +1580,7 @@ def test_constantbeta_dehnencore_in_nfw_beta():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_dens_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     # Use list for both
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
@@ -1578,6 +1594,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_directint():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [0.5]
@@ -1588,6 +1605,7 @@ def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [0.5]
@@ -1602,6 +1620,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
     return None
 
 #def test_constantbeta_dehnencore_in_nfw_beta_directint():
+#    if WIN32: return None # skip on appveyor, because no JAX
 #    pot= potential.NFWPotential(amp=2.3,a=1.3)
 #    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
 #    twobetas= [0.5]
@@ -1614,6 +1633,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
 #    return None
 
 def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [0.5]
