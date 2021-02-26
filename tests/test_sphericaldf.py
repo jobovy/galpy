@@ -5,7 +5,7 @@ from scipy import special
 from galpy import potential
 from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
     isotropicPlummerdf, osipkovmerrittHernquistdf, isotropicNFWdf, \
-    eddingtondf, osipkovmerrittdf, osipkovmerrittNFWdf
+    eddingtondf, osipkovmerrittdf, osipkovmerrittNFWdf, constantbetadf
 from galpy.df import jeans
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -1362,6 +1362,262 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
     ras= [2.3,5.7]
     for ra in ras:
         dfh= osipkovmerrittdf(pot=pot,denspot=denspot,ra=ra)
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E > 0 does not give zero'
+        # The next one is not actually a physical orbit...
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero'
+    return None
+
+################################ CONSTANT-BETA DF #############################
+# For the following tests, we use a DehnenCoreSphericalPotential
+constantbeta_dfs_selfconsist= None # re-use in other tests
+def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    global constantbeta_dfs_selfconsist
+    constantbeta_dfs_selfconsist= []
+    for twobeta in twobetas:
+        dfh= constantbetadf(pot=pot,twobeta=twobeta)
+        constantbeta_dfs_selfconsist.append(dfh)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        # Check spherical symmetry for different harmonics l,m
+        tol= 1e-2
+        check_spherical_symmetry(samp,0,0,tol)
+        check_spherical_symmetry(samp,1,0,tol)
+        check_spherical_symmetry(samp,1,-1,tol)
+        check_spherical_symmetry(samp,1,1,tol)
+        check_spherical_symmetry(samp,2,0,tol)
+        check_spherical_symmetry(samp,2,-1,tol)
+        check_spherical_symmetry(samp,2,-2,tol)
+        check_spherical_symmetry(samp,2,1,tol)
+        check_spherical_symmetry(samp,2,2,tol)
+        # and some higher order ones
+        check_spherical_symmetry(samp,3,1,tol)
+        check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 5*1e-3
+        check_spherical_massprofile(samp,lambda r: pot.mass(r)\
+                                    /pot.mass(numpy.amax(samp.r())),
+                                    tol,skip=1000)
+    return None
+
+def test_constantbeta_selfconsist_dehnencore_sigmar():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.1
+        check_sigmar_against_jeans(samp,pot,tol,
+                                   beta=twobeta/2.,
+                                   rmin=pot._scale/10.,rmax=pot._scale*10.,
+                                   bins=31)
+    return None
+
+def test_constantbeta_selfconsist_dehnencore_beta():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.1
+        # rmin larger than usual to avoid low number sampling
+        check_beta(samp,pot,tol,beta=twobeta/2.,
+                   rmin=pot._scale/3.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_constantbeta_selfconsist_dehnencore_dens_directint():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        tol= 1e-4
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0),
+                             rmin=pot._scale/10.,
+                             rmax=pot._scale*10.,bins=3)
+    return None
+
+def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        tol= 1e-8
+        check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
+                               rmax=pot._scale*10.,bins=3)
+    return None
+
+def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        tol= 1e-4
+        check_sigmar_against_jeans_directint(dfh,pot,tol,
+                                             beta=twobeta/2.,
+                                             rmin=pot._scale/10.,
+                                             rmax=pot._scale*10.,
+                                             bins=3)
+    return None
+
+# We don't do this test, because it is trivially satisfied by
+# any f(E,L) = L^(-2beta) f1(E)
+#def test_constantbeta_selfconsist_dehnencore_beta_directint():
+#    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+#    twobetas= [-1]
+#    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+#        tol= 1e-8
+#        check_beta_directint(dfh,tol,beta=twobeta/2.,
+#                             rmin=pot._scale/10.,
+#                             rmax=pot._scale*10.,
+#                             bins=3)
+#    return None
+
+def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E > 0 does not give zero'
+        # The next one is not actually a physical orbit...
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero'
+    return None
+
+# For the following tests, we use a DehnenCoreSphericalPotential embedded in
+# an NFW halo
+constantbeta_dfs_dehnencore_in_nfw= None # re-use in other tests
+def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    global constantbeta_dfs_dehnencore_in_nfw
+    constantbeta_dfs_dehnencore_in_nfw= []   
+    for twobeta in twobetas:
+        dfh= constantbetadf(pot=pot,denspot=denspot,twobeta=twobeta)
+        constantbeta_dfs_dehnencore_in_nfw.append(dfh)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        # Check spherical symmetry for different harmonics l,m
+        tol= 1e-2
+        check_spherical_symmetry(samp,0,0,tol)
+        check_spherical_symmetry(samp,1,0,tol)
+        check_spherical_symmetry(samp,1,-1,tol)
+        check_spherical_symmetry(samp,1,1,tol)
+        check_spherical_symmetry(samp,2,0,tol)
+        check_spherical_symmetry(samp,2,-1,tol)
+        check_spherical_symmetry(samp,2,-2,tol)
+        check_spherical_symmetry(samp,2,1,tol)
+        check_spherical_symmetry(samp,2,2,tol)
+        # and some higher order ones
+        check_spherical_symmetry(samp,3,1,tol)
+        check_spherical_symmetry(samp,9,-6,tol)
+    return None
+    
+def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=100000)
+        tol= 5*1e-3
+        check_spherical_massprofile(samp,lambda r: denspot.mass(r)\
+                                    /denspot.mass(numpy.amax(samp.r())),
+                                    tol,skip=1000)
+    return None
+
+def test_constantbeta_dehnencore_in_nfw_sigmar():
+    # Use list
+    pot= [potential.NFWPotential(amp=2.3,a=1.3)]
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.07
+        # rmin larger than usual to avoid low number sampling  
+        check_sigmar_against_jeans(samp,pot,tol,
+                                   dens=lambda r: denspot.dens(r,0),
+                                   beta=twobeta/2.,
+                                   rmin=pot[0]._scale/3.,
+                                   rmax=pot[0]._scale*10.,
+                                   bins=31)
+    return None
+
+def test_constantbeta_dehnencore_in_nfw_beta():
+    # Use list
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        tol= 0.07
+        # rmin larger than usual to avoid low number sampling
+        check_beta(samp,pot,tol,beta=twobeta/2.,
+                   rmin=pot._scale/3.,rmax=pot._scale*10.,bins=31)
+    return None
+
+def test_constantbeta_dehnencore_in_nfw_dens_directint():
+    # Use list for both
+    pot= [potential.NFWPotential(amp=2.3,a=1.3)]
+    denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        tol= 3e-4
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: denspot[0].dens(r,0),
+                             rmin=pot[0]._scale/10.,
+                             rmax=pot[0]._scale*10.,bins=3)
+    return None
+
+def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        tol= 1e-8
+        check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
+                               rmax=pot._scale*10.,bins=3)
+    return None
+
+def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+        tol= 2e-4
+        check_sigmar_against_jeans_directint(dfh,pot,tol,
+                                             dens=lambda r: denspot.dens(r,0),
+                                             beta=twobeta/2.,
+                                             rmin=pot._scale/10.,
+                                             rmax=pot._scale*10.,
+                                             bins=3)
+    return None
+
+#def test_constantbeta_dehnencore_in_nfw_beta_directint():
+#    pot= potential.NFWPotential(amp=2.3,a=1.3)
+#    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+#    twobetas= [0.5]
+#    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+#        tol= 1e-8
+#        check_beta_directint(dfh,tol,beta=twobeta/2.,
+#                             rmin=pot._scale/10.,
+#                             rmax=pot._scale*10.,
+#                             bins=3)
+#    return None
+
+def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
+    pot= potential.NFWPotential(amp=2.3,a=1.3)
+    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
         assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E > 0 does not give zero'
         # The next one is not actually a physical orbit...
         assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero'
