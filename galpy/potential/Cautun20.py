@@ -109,6 +109,8 @@ def Baryon_Dens(R,z): #Total baryon profile in array friendly format
     TotalDens = gas_dens(R,z) + stellar_dens(R,z) + bulge_dens(R,z) + cgm_dens(R,z)
     return TotalDens
 
+from scipy import integrate
+
 def enclosedMass( Func, rbins, N=2000 ):  #Gives the enclosed mass in r for (R,z) func
     r1 = np.logspace( np.log10(rbins[0]*1.e-3), np.log10(rbins[-1]*1.1), N+1 )  # the bins used for the enclosed mass calculation
     r  = np.sqrt( r1[1:] * r1[:-1] )
