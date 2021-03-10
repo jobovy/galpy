@@ -333,6 +333,7 @@ and
 from the literature in the ``galpy.potential.mwpotentials`` module
 (which also contains ``MWPotential2014``). Currently, these are:
 
+* ``Cautun20``: the potential model from `Cautun et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C>`_
 * ``McMillan17``: the potential model from `McMillan (2017) <https://ui.adsabs.harvard.edu/abs/2017MNRAS.465...76M>`_
 * ``Irrgang13I``: model I from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_, which is an updated version of the classic `Allen & Santillan (1991) <https://ui.adsabs.harvard.edu/abs/1991RMxAA..22..255A>`_
 * ``Irrgang13II`` and ``Irrgang13III``: model II and III from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_
