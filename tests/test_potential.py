@@ -2405,6 +2405,30 @@ def test_McMillan17():
     # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
     assert numpy.fabs((McMillan17[1].mass(50./8.21,quantity=False))/10.**11.+0.543+0.122-5.1) < 1e-1, 'Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be'
     return None
+
+# Test that the Cautun20 potential is what it's supposed to be
+def test_Cautun20():
+    from galpy.potential.mwpotentials import Cautun20
+    from galpy.util import conversion
+    ro,vo= Cautun20[0]._ro, Cautun20[0]._vo
+    # Check the rotation velocity at a few distances
+    # at the Sun
+    assert numpy.fabs(potential.vcirc(Cautun20,1.,quantity=False)-230.0) < 1e-1, 'Total circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],1.,quantity=False)-157.6) < 1e-1, 'Halo circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[1],1.,quantity=False)-151.2) < 1e-1, 'Disc circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[2],1.,quantity=False)-70.8) < 1e-1, 'Bulge circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    # at 50 kpc
+    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.7) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-167.3) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[1],50./ro,quantity=False)-68.9) < 1e-1, 'Disc circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[2],50./ro,quantity=False)-28.3) < 1e-1, 'Bulge circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    # check the enclosed halo mass
+    assert numpy.fabs((Cautun20[0].mass(50./ro,quantity=False))/10.**11-3.25) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-8.96) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    # Halo density at the Sun
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[0],1.,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.85) < 1e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
+    return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be
 def test_Irrgang13():
