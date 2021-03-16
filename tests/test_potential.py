@@ -2442,8 +2442,12 @@ def test_McMillan17():
                       *conversion.dens_in_msolpc3(vo,ro)-0.0101) < 1e-4, 'Halo density at the Sun in McMillan17 does not agree with what it should be'
     # Halo concentration
     assert numpy.fabs(McMillan17[1].conc(overdens=94.,wrtcrit=True,H=70.4)-15.4) < 1e-1, 'Halo concentration in McMillan17 does not agree with what it is supposed to be'
-    # With the current implementation of DiskSCFPotential, we cannot compute the mass of the disk and bulge components, but let's compute that of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
+    # Let's compute the mass of the NFWPotenial and add the paper's number for the mass in stars and gas. The following is the total mass in units of $10^11\,M_\odot$:
     assert numpy.fabs((McMillan17[1].mass(50./8.21,quantity=False))/10.**11.+0.543+0.122-5.1) < 1e-1, 'Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be'
+    # Mass of the bulge is slightly off
+    assert numpy.fabs((McMillan17[2].mass(50./8.21,quantity=False))/10.**9.-9.23) < 4e-1, 'Bulge mass in McMillan17 does not agree with what it is supposed to be'
+    # Mass in stars, compute bulge+disk and subtract what's supposed to be gas
+    assert numpy.fabs((McMillan17[0].mass(50./8.21,quantity=False)+McMillan17[2].mass(50./8.21,quantity=False))/10.**10.-1.22-5.43) < 1e-1, 'Stellar massi n McMillan17 does not agree with what it is supposed to be'
     return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be

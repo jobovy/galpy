@@ -488,13 +488,13 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,self._Sigma,
                                      self._dSigmadR,self._d2SigmadR2,
                                      self._hz,self._Hz,self._dHzdz):
-            def _integrand(z,R):
-                r= numpy.sqrt(R**2.+z**2.)
-                return a*R*(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
+            def _integrand(theta,r):
+                z= r*numpy.cos(theta)
+                return a*r**2.*numpy.sin(theta)\
+                    *(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
             out+= 2.*numpy.pi\
                 *integrate.dblquad(_integrand,0.,R,
-                               lambda x: -numpy.sqrt(R**2.-x**2.),
-                               lambda x:  numpy.sqrt(R**2.-x**2.))[0]
+                                   lambda x: 0., lambda x: numpy.pi)[0]
         return out
     
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):

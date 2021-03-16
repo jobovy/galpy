@@ -382,7 +382,7 @@ class Potential(Force):
 
         OUTPUT:
 
-           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
+           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z; except: potentials inheriting from EllipsoidalPotential, which if z is None return the mass within the ellipsoidal shell with semi-major axis R
 
         HISTORY:
 
