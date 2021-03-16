@@ -87,3 +87,24 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
     def _mdens_deriv(self,m):
         """Derivative of the density as a function of m"""
         return -4.*m*(self.a2+m**2)**-3
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-08 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 2.*numpy.pi*self._b*self._c/self.a\
+            *(numpy.arctan(R/self.a)-R*self.a/(1.+R**2.))
+
+    

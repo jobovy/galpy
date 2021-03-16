@@ -470,6 +470,25 @@ class EllipsoidalPotential(Potential):
         m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
         return self._mdens(m)
         
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-08 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self._b*self._c\
+            *integrate.quad(lambda m: m**2.*self._mdens(m),0,R)[0]
+
     def OmegaP(self):
         """
         NAME:

@@ -130,6 +130,26 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         """Derivative of the density as a function of m"""
         return -self._mdens(m)*(self.a*self.alpha+self.beta*m)/m/(self.a+m)
 
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-09 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return (R/self.a)**(3.-self.alpha)/(3.-self.alpha)*self._b*self._c\
+            *special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,
+                            4.-self.alpha,-R/self.a)
+
 class TriaxialHernquistPotential(EllipsoidalPotential):
     """Class that implements the triaxial Hernquist potential
 
