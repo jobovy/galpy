@@ -1595,8 +1595,6 @@ def test_mass_axi():
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 5.,1.
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
-    tR,tz= 100.,100.
-    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-5., 'Mass for DoubleExponentialDiskPotential incorrect'
     # Razor thin disk
     rp= potential.RazorThinExponentialDiskPotential(amp=2.)
     def razexpmass(r,z,dp):
@@ -1611,8 +1609,6 @@ def test_mass_axi():
     assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
     tR,tz= 5.,1.
     assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
-    tR,tz= 100.,100.
-    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-5., 'Mass for RazorThinExponentialDiskPotential incorrect'
     # Kuzmin disk, amp = mass
     kp= potential.KuzminDiskPotential(amp=2.,a=3.)
     assert numpy.fabs(kp.mass(1000.,20.)-2.) < 1e-2, 'Mass for KuzminDiskPotential incorrect'
