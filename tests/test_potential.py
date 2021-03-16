@@ -1548,6 +1548,9 @@ def test_mass_spher():
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
+    # Burkert as an example of a SphericalPotential
+    bp= potential.BurkertPotential(amp=2.,a=3.)
+    assert numpy.fabs(bp.mass(4.2,forceint=True)-bp.mass(4.2)) < 1e-6, "Mass computed with SphericalPotential's general implementation incorrect"
     return None
 
 # Check that the masses are implemented correctly for spherical potentials
@@ -1566,6 +1569,7 @@ def test_mass_spher_analytic():
     assert numpy.fabs(hp.mass(tR,forceint=True)-hp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Hernquist potential'
     assert numpy.fabs(np.mass(tR,forceint=True)-np.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for NFW potential'
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
+    assert numpy.fabs(dp.mass(tR,forceint=True)-dp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for DehnenSphericalPotential potential, for not z is None'
     assert numpy.fabs(pp.mass(tR,forceint=True)-pp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Plummer potential'
     return None
 
@@ -1592,7 +1596,7 @@ def test_mass_axi():
     tR,tz= 5.,1.
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 100.,100.
-    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-6., 'Mass for DoubleExponentialDiskPotential incorrect'
+    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-5., 'Mass for DoubleExponentialDiskPotential incorrect'
     # Razor thin disk
     rp= potential.RazorThinExponentialDiskPotential(amp=2.)
     def razexpmass(r,z,dp):
@@ -1608,7 +1612,7 @@ def test_mass_axi():
     tR,tz= 5.,1.
     assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
     tR,tz= 100.,100.
-    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-6., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-5., 'Mass for RazorThinExponentialDiskPotential incorrect'
     # Kuzmin disk, amp = mass
     kp= potential.KuzminDiskPotential(amp=2.,a=3.)
     assert numpy.fabs(kp.mass(1000.,20.)-2.) < 1e-2, 'Mass for KuzminDiskPotential incorrect'
@@ -1625,6 +1629,60 @@ def test_mass_axi():
         potential.mass([mop],1.,0.)
     return None
 
+# Check that the masses are calculated correctly for spheroidal potentials
+def test_mass_spheroidal():
+    # PerfectEllipsoidPotential: total mass is amp, no matter what the axis ratio
+    pep= potential.PerfectEllipsoidPotential(amp=2.,a=3.,b=1.3,c=1.9)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for PerfectEllipsoidPotential is incorrect'
+    pep= potential.PerfectEllipsoidPotential(amp=2.,a=3.,b=1.,c=1.9)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for PerfectEllipsoidPotential is incorrect'
+    pep= potential.PerfectEllipsoidPotential(amp=2.,a=3.,b=1.,c=1.)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for PerfectEllipsoidPotential is incorrect'
+    pep= potential.PerfectEllipsoidPotential(amp=2.,a=3.,b=.7,c=.5)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for PerfectEllipsoidPotential is incorrect'
+    # For TwoPowerTriaxial, the masses should be bxc times that for the spherical version
+    b= 0.7
+    c= 0.5
+    tpp= potential.TriaxialJaffePotential(amp=2.,a=3.,b=b,c=c)
+    sp= potential.JaffePotential(amp=2.,a=3.)
+    assert numpy.fabs(tpp.mass(1.3)/b/c-sp.mass(1.3)) < 1e-6, 'TwoPowerTriaxialPotential mass incorrect'
+    tpp= potential.TriaxialHernquistPotential(amp=2.,a=3.,b=b,c=c)
+    sp= potential.HernquistPotential(amp=2.,a=3.)
+    assert numpy.fabs(tpp.mass(1.3)/b/c-sp.mass(1.3)) < 1e-6, 'TwoPowerTriaxialPotential mass incorrect'
+    tpp= potential.TriaxialNFWPotential(amp=2.,a=3.,b=b,c=c)
+    sp= potential.NFWPotential(amp=2.,a=3.)
+    assert numpy.fabs(tpp.mass(1.3)/b/c-sp.mass(1.3)) < 1e-6, 'TwoPowerTriaxialPotential mass incorrect'
+    # For TriaxialGaussianPotential, total mass is amp, no matter b/c
+    pep= potential.TriaxialGaussianPotential(amp=2.,sigma=3.,b=1.3,c=1.9)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for TriaxialGaussianPotential is incorrect'
+    pep= potential.TriaxialGaussianPotential(amp=2.,sigma=3.,b=1.,c=1.9)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for TriaxialGaussianPotential is incorrect'
+    pep= potential.TriaxialGaussianPotential(amp=2.,sigma=3.,b=1.,c=1.)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for TriaxialGaussianPotential is incorrect'
+    pep= potential.TriaxialGaussianPotential(amp=2.,sigma=3.,b=.7,c=.5)
+    assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for TriaxialGaussianPotential is incorrect'
+    # Dummy EllipsoidalPotential for testing the general approach
+    from galpy.potential.EllipsoidalPotential import EllipsoidalPotential
+    class dummy(EllipsoidalPotential):
+        def __init__(self,amp=1.,b=1.,c=1.,
+                     zvec=None,pa=None,glorder=50,
+                     normalize=False,ro=None,vo=None):
+            EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
+                                          zvec=zvec,pa=pa,
+                                          glorder=glorder,
+                                          ro=ro,vo=vo)
+            return None
+        def _mdens(self,m):
+            return m**-2.
+    b= 1.2
+    c= 1.7
+    dp= dummy(amp=2.,b=b,c=c)
+    r= 1.9
+    assert numpy.fabs(dp.mass(r)/b/c-4.*numpy.pi*2.*r) < 1e-6, 'General potential.EllipsoidalPotential mass incorrect'
+    r= 3.9
+    assert numpy.fabs(dp.mass(r)/b/c-4.*numpy.pi*2.*r) < 1e-6, 'General potential.EllipsoidalPotential mass incorrect'
+    return None
+    
 # Check that toVertical and toPlanar work
 def test_toVertical_toPlanar():
     #Grab all of the potentials
