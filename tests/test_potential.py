@@ -1652,6 +1652,9 @@ def test_mass_spheroidal():
     tpp= potential.TriaxialNFWPotential(amp=2.,a=3.,b=b,c=c)
     sp= potential.NFWPotential(amp=2.,a=3.)
     assert numpy.fabs(tpp.mass(1.3)/b/c-sp.mass(1.3)) < 1e-6, 'TwoPowerTriaxialPotential mass incorrect'
+    tpp= potential.TwoPowerTriaxialPotential(amp=2.,a=3.,b=b,c=c,alpha=1.1,beta=4.1)
+    sp= potential.TwoPowerSphericalPotential(amp=2.,a=3.,alpha=1.1,beta=4.1)
+    assert numpy.fabs(tpp.mass(1.3)/b/c-sp.mass(1.3)) < 1e-6, 'TwoPowerTriaxialPotential mass incorrect'
     # For TriaxialGaussianPotential, total mass is amp, no matter b/c
     pep= potential.TriaxialGaussianPotential(amp=2.,sigma=3.,b=1.3,c=1.9)
     assert numpy.fabs(pep.mass(1000.)-2.) < 1e-2, 'Total mass for TriaxialGaussianPotential is incorrect'
