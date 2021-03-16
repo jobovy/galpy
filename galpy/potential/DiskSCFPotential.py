@@ -12,6 +12,7 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
+from scipy import integrate
 from ..util import conversion
 from .Potential import Potential
 from .SCFPotential import SCFPotential, \
@@ -467,6 +468,35 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             out+= a*(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
         return out
 
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate spherical
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-09 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        out= self._scf.mass(R,z=None,use_physical=False)
+        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,self._Sigma,
+                                     self._dSigmadR,self._d2SigmadR2,
+                                     self._hz,self._Hz,self._dHzdz):
+            def _integrand(z,R):
+                r= numpy.sqrt(R**2.+z**2.)
+                return a*R*(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
+            out+= 2.*numpy.pi\
+                *integrate.dblquad(_integrand,0.,R,
+                               lambda x: -numpy.sqrt(R**2.-x**2.),
+                               lambda x:  numpy.sqrt(R**2.-x**2.))[0]
+        return out
+    
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
     """The density corresponding to phi_ME"""
     r= numpy.sqrt(R**2.+z**2.)

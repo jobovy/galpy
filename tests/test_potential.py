@@ -1516,7 +1516,7 @@ def test_mass_spher():
     tR= 2.
     assert numpy.fabs(potential.mass([pp],tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
     tR= 20.
-    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-10., 'Mass for PowerSphericalPotential not as expected'
+    assert numpy.fabs(pp.mass(tR,forceint=True)-pp._amp*tR**(3.-pp.alpha)) < 10.**-9., 'Mass for PowerSphericalPotential not as expected'
     #Test that for a cut-off potential, the mass far beyond the cut-off is 
     # 2pi rc^(3-alpha) gamma(1.5-alpha/2)
     pp= potential.PowerSphericalPotentialwCutoff(amp=2.)
@@ -1538,7 +1538,7 @@ def test_mass_spher():
     hernmass= hp._amp/2.*(1.-2.*hp.a/tR)
     nfwmass= np._amp*(numpy.log(tR/np.a)-1.+np.a/tR)
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
-    assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Jaffe potential not as expected'
+    assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-3., 'Limit mass for Hernquist potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-2., 'Limit mass for NFW potential not as expected'
     tR= 200.
     # Limiting behavior, add z, to test that too
@@ -1548,15 +1548,6 @@ def test_mass_spher():
     assert numpy.fabs((jp.mass(tR,forceint=True)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((hp.mass(tR,forceint=True)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
     assert numpy.fabs((np.mass(tR,forceint=True)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
-    tR, tz= 200., 10.
-    tr= numpy.sqrt(tR**2.+tz**2.)
-    # Limiting behavior, add z, to test that too
-    jaffemass= jp._amp*(1.-jp.a/tr)
-    hernmass= hp._amp/2.*(1.-2.*hp.a/tr)
-    nfwmass= np._amp*(numpy.log(tr/np.a)-1.+np.a/tr)
-    assert numpy.fabs((jp.mass(tR,z=tz,forceint=False)-jaffemass)/jaffemass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
-    assert numpy.fabs((hp.mass(tR,z=tz,forceint=False)-hernmass)/hernmass) < 10.**-6., 'Limit mass for Jaffe potential not as expected'
-    assert numpy.fabs((np.mass(tR,z=tz,forceint=False)-nfwmass)/nfwmass) < 10.**-4., 'Limit mass for NFW potential not as expected'
     return None
 
 # Check that the masses are implemented correctly for spherical potentials
@@ -1575,8 +1566,6 @@ def test_mass_spher_analytic():
     assert numpy.fabs(hp.mass(tR,forceint=True)-hp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Hernquist potential'
     assert numpy.fabs(np.mass(tR,forceint=True)-np.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for NFW potential'
     assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential'
-    assert numpy.fabs(tp.mass(tR,forceint=True)-tp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for TwoPowerSpherical potential, for not z is None'
-    assert numpy.fabs(dp.mass(tR,forceint=True)-dp.mass(numpy.sqrt(tR**2.-1**2.),z=1.)) < 10.**-10., 'Explicit mass does not agree with integral of the density for DehnenSphericalPotential potential, for not z is None'
     assert numpy.fabs(pp.mass(tR,forceint=True)-pp.mass(tR)) < 10.**-10., 'Explicit mass does not agree with integral of the density for Plummer potential'
     return None
 
@@ -1585,6 +1574,8 @@ def test_mass_axi():
     #For Miyamoto-Nagai, we know that mass integrated over everything should be equal to amp, so
     mp= potential.MiyamotoNagaiPotential(amp=1.)
     assert numpy.fabs(mp.mass(200.,20.)-1.) < 0.01, 'Total mass of Miyamoto-Nagai potential w/ amp=1 is not equal to 1'
+    # Also spherical
+    assert numpy.fabs(mp.mass(200.)-1.) < 0.01, 'Total mass of Miyamoto-Nagai potential w/ amp=1 is not equal to 1'
     #For a double-exponential disk potential, the 
     # mass(R,z) = amp x hR^2 x hz x (1-(1+R/hR)xe^(-R/hR)) x (1-e^(-Z/hz)
     dp= potential.DoubleExponentialDiskPotential(amp=2.)
@@ -1602,6 +1593,26 @@ def test_mass_axi():
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-10., 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 100.,100.
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-6., 'Mass for DoubleExponentialDiskPotential incorrect'
+    # Razor thin disk
+    rp= potential.RazorThinExponentialDiskPotential(amp=2.)
+    def razexpmass(r,z,dp):
+        return 2.*numpy.pi*rp._amp*rp._hr**2.*(1.-(1.+r/rp._hr)*numpy.exp(-r/rp._hr))
+    tR,tz= 0.01,0.01
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    tR,tz= 0.1,0.05
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    tR,tz= 1.,0.1
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    tR,tz= 5.,0.1
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    tR,tz= 5.,1.
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-10., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    tR,tz= 100.,100.
+    assert numpy.fabs((rp.mass(tR,tz)-razexpmass(tR,tz,rp))/razexpmass(tR,tz,rp)) < 10.**-6., 'Mass for RazorThinExponentialDiskPotential incorrect'
+    # Kuzmin disk, amp = mass
+    kp= potential.KuzminDiskPotential(amp=2.,a=3.)
+    assert numpy.fabs(kp.mass(1000.,20.)-2.) < 1e-2, 'Mass for KuzminDiskPotential incorrect'
+    assert numpy.fabs(kp.mass(1000.)-2.) < 1e-2, 'Mass for KuzminDiskPotential incorrect'
     #Test that nonAxi raises error
     from galpy.orbit import Orbit
     mop= potential.MovingObjectPotential(Orbit([1.,0.1,1.1,0.1,0.,0.]))
@@ -2338,35 +2349,6 @@ def test_DehnenSphericalPotentialSpecialSelf():
     assert all(pot._evaluate(Rs, Zs) == comp._evaluate(Rs, Zs))
     assert all(pot._Rforce(Rs, Zs) == comp._Rforce(Rs, Zs))
     assert all(pot._zforce(Rs, Zs) == comp._zforce(Rs, Zs))
-
-    return None
-
-# test methods that accept z=None
-def test_ZisNone_mass():
-    # TODO replace manual additions with an automatic method
-    # that checks the signatures all methods in all potentials
-    kw = dict(amp=1.,a=1.,normalize=False,ro=None,vo=None)
-    Rs= numpy.array([0.5,1.,2.])
-
-    # DehnenSphericalPotential
-    pot = potential.DehnenSphericalPotential(alpha=1, **kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # DehnenCoreSphericalPotential
-    pot = potential.DehnenCoreSphericalPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # HernquistPotential
-    pot = potential.HernquistPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # JaffePotential
-    pot = potential.JaffePotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
-
-    # NFWPotential
-    pot = potential.NFWPotential(**kw)
-    assert all(pot._mass(Rs, z=None) == pot._mass(Rs, z=0.))
 
     return None
 

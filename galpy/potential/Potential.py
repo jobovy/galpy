@@ -382,9 +382,7 @@ class Potential(Force):
 
         OUTPUT:
 
-           1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
-
-           2) for axisymmetric potentials: M(<R,<fabs(Z))
+           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
 
         HISTORY:
 
@@ -392,29 +390,31 @@ class Potential(Force):
 
            2019-08-15 - Added spherical warning - Bovy (UofT)
 
+           2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+
         """
-        if self.isNonAxi:
-            raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
+        from .EllipsoidalPotential import EllipsoidalPotential
+        if self.isNonAxi and not isinstance(self,EllipsoidalPotential):
+            raise NotImplementedError('mass for non-axisymmetric potentials that are not EllipsoidalPotentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
             #Use numerical integration to get the mass
-            if z is None:
-                warnings.warn("Vertical height z not specified for mass "
-                              "calculation...assuming spherical potential"
-                              " (for the mass of axisymmetric potentials"
-                              ", specify z)",galpyWarning)
-                return 4.*numpy.pi\
-                    *integrate.quad(lambda x: x**2.\
-                                        *self.dens(x,0.,t=t,
-                                                  use_physical=False),
-                                    0.,R)[0]
-            else:
-                return 4.*numpy.pi\
+            if z is None: # Within spherical shell
+                def _integrand(theta,r):
+                    tz= r*numpy.cos(theta)
+                    tR= r*numpy.sin(theta)
+                    return self.dens(tR,tz,t=t,use_physical=False)\
+                        *r**2.*numpy.sin(theta)
+                return 2.*numpy.pi\
+                    *integrate.dblquad(_integrand,0.,R,
+                                       lambda x: 0., lambda x: numpy.pi)[0]
+            else: # Within disk at <R, -z --> z
+                return 2.*numpy.pi\
                     *integrate.dblquad(lambda y,x: x\
-                                           *self.dens(x,y,t=t,use_physical=False),
-                                       0.,R,lambda x: 0., lambda x: z)[0]
+                                       *self.dens(x,y,t=t,use_physical=False),
+                                       0.,R,lambda x: -z, lambda x: z)[0]
 
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
@@ -1888,13 +1888,13 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
 
     OUTPUT:
 
-       1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
-
-       2) for axisymmetric potentials: M(<R,<fabs(Z))
+       Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
 
     HISTORY:
 
        2021-02-07 - Written - Bovy (UofT)
+
+       2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
 
     """
     isList= isinstance(Pot,list)
