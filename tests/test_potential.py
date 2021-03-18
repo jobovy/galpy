@@ -2413,21 +2413,26 @@ def test_Cautun20():
     ro,vo= Cautun20[0]._ro, Cautun20[0]._vo
     # Check the rotation velocity at a few distances
     # at the Sun
-    assert numpy.fabs(potential.vcirc(Cautun20,1.,quantity=False)-230.0) < 1e-1, 'Total circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20,1.,quantity=False)-230.1) < 1e-1, 'Total circular velocity at the Sun in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[0],1.,quantity=False)-157.6) < 1e-1, 'Halo circular velocity at the Sun in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[1],1.,quantity=False)-151.2) < 1e-1, 'Disc circular velocity at the Sun in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[2],1.,quantity=False)-70.8) < 1e-1, 'Bulge circular velocity at the Sun in Cautun20 does not agree with what it should be'
     # at 50 kpc
-    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.7) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
-    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-167.3) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.6) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-167.2) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[1],50./ro,quantity=False)-68.9) < 1e-1, 'Disc circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[2],50./ro,quantity=False)-28.3) < 1e-1, 'Bulge circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     # check the enclosed halo mass
     assert numpy.fabs((Cautun20[0].mass(50./ro,quantity=False))/10.**11-3.25) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
-    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-8.96) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-8.91) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    # check the CGM density
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[3],1.,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e5-9.34) < 1e-2, 'CGM density at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[3],50./ro,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e6-6.49) < 1e-2, 'CGM density at 50 kpc in Cautun20 does not agree with what it should be'
     # Halo density at the Sun
     assert numpy.fabs(potential.evaluateDensities(Cautun20[0],1.,0.,use_physical=False)
-                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.85) < 1e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.97) < 1e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
     return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be

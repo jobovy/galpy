@@ -5,6 +5,8 @@ import numpy as np
 from galpy.potential import NFWPotential
 from galpy.potential import DiskSCFPotential
 from galpy.potential import SCFPotential
+from galpy.potential import PowerSphericalPotentialwCutoff
+from galpy.potential import interpSphericalPotential
 from galpy.potential import scf_compute_coeffs_axi
 from galpy.potential import scf_compute_coeffs_spherical
 from galpy.potential import mwpot_helpers
@@ -51,8 +53,9 @@ Sigma0_H2= 2200/sigo
 # Cautun CGM
 A = 0.19
 Beta = -1.46
-critz0 = ((127.5/(1e9))/rhoo)
+critz0 = 127.5e-9/rhoo
 R200   = 219/ro #R200 for cgm
+cgm_amp = 200 * critz0 * A * fb
 
 
 def gas_dens(R,z):
@@ -64,14 +67,6 @@ def stellar_dens(R,z):
 def bulge_dens(R,z):
     return mwpot_helpers.core_pow_dens_with_cut(R,z,1.8,r0_bulge,rcut_bulge,
                                                 rho0_bulge,0.5)
-
-def cgm_dens(R,z):
-    r = np.sqrt(R**2+(z**2))
-    dens_cgm = 200 * critz0 * A * fb * (r/R200)**Beta 
-    if r>R200:
-        dens_cgm*=np.exp(1-r/R200)
-    return dens_cgm
-
 
 
 #dicts used in DiskSCFPotential 
@@ -90,127 +85,68 @@ hzdict = [{'type':'sech2', 'h':zd_HI},
 Cautun_bulge= SCFPotential(\
     Acos=scf_compute_coeffs_axi(bulge_dens,20,10,a=0.1)[0], a=0.1, ro=ro, vo=vo )
 
-Cautun_cgm= SCFPotential(\
-    Acos=scf_compute_coeffs_spherical(cgm_dens,20,a=20)[0], a=20, ro=ro, vo=vo )
+Cautun_cgm= PowerSphericalPotentialwCutoff( amp=cgm_amp, alpha=-Beta,\
+    r1=R200, rc=2.*R200, ro=ro, vo=vo )
 
 Cautun_disk= DiskSCFPotential( dens=lambda R,z: gas_dens(R,z) + stellar_dens(R,z), Sigma=sigmadict, \
                               hz=hzdict, a=2.5, N=30, L=30, ro=ro, vo=vo )
 
 
-Cautun_unContracted = NFWPotential( conc=conc, mvir=m200/1.e12, vo=vo, ro=ro, H=67.77, Om=0.307, overdens=200.0 * (1.-fb), wrtcrit=True )
-
+Cautun_halo_unContracted = NFWPotential( conc=conc, mvir=m200/1.e12, vo=vo, ro=ro, H=67.77, Om=0.307, overdens=200.0 * (1.-fb), wrtcrit=True )
 
 
 # functions for calculating the contraction of the DM halo given the baryonic mass distribution
-def DM_Dens_uncontracted(R,z): 
-    return Cautun_unContracted.dens( R, z, use_physical=False )
+def Baryon_rforce(R,z):
+    return Cautun_bulge.rforce(R,z) + Cautun_disk.rforce(R,z)
 
-def Baryon_Dens(R,z): #Total baryon profile in array friendly format
-    TotalDens = gas_dens(R,z) + stellar_dens(R,z) + bulge_dens(R,z) + cgm_dens(R,z)
-    return TotalDens
-
-from scipy import integrate
-
-def enclosedMass( Func, rbins, N=2000 ):  #Gives the enclosed mass in r for (R,z) func
-    r1 = np.logspace( np.log10(rbins[0]*1.e-3), np.log10(rbins[-1]*1.1), N+1 )  # the bins used for the enclosed mass calculation
-    r  = np.sqrt( r1[1:] * r1[:-1] )
-    dr = r1[1:] - r1[:-1]
-    
-    I = lambda x, xr: Func( R=xr * np.cos(x), z=xr * np.sin(x) ) * 4*np.pi * xr**2 * np.cos(x) 
-    
-    shellMass = np.zeros( r.shape[0] )
-    for i in range( r.shape[0] ):
-        shellMass[i] = integrate.quad( I, 0., np.pi/2, args=( r[i], ) )[0] * dr[i]
-    return np.interp( rbins, r1[1:], shellMass.cumsum() )
-
-def enclosedMass_spherical( Func, rbins ):  #Gives the enclosed mass in r for spherically symmetric (R,z) func
-    I = lambda x: Func(x,0) * 4.* np.pi * x*x
-    r_range = np.column_stack( ( np.hstack( (1.e-3*rbins[0],rbins[:-1]) ), rbins ) )
-    out = np.zeros( len(rbins) )
-    for i in range( len(rbins) ):
-        out[i] = integrate.quad( I, r_range[i,0], r_range[i,1] )[0]
-    return out.cumsum()
-
-def sphericalAverage( Func, rbins ):  #Gives the spherical average in r for (R,z) func
-    I = lambda x, xr: Func( R=xr * np.cos(x), z=xr * np.sin(x) ) * np.cos(x) 
-    meanValue = np.zeros( rbins.shape[0] )
-    for i in range( rbins.shape[0] ):
-        meanValue[i] = integrate.quad( I, 0., np.pi/2, args=( rbins[i], ) )[0]
-    return meanValue
+def Baryon_enclosed_mass(r,G_Newton):
+    from scipy import integrate
+    _mass = np.empty_like(r)
+    _I = lambda theta, ri: Baryon_rforce( ri*np.sin(theta), ri*np.cos(theta) ) * np.sin(theta)
+    for i in range( len(r) ):
+        _mass[i] = integrate.quad( _I, 0., np.pi/2, args=(r[i],), epsabs=0., epsrel=1.e-4 )[0] * r[i]**2 / (-G_Newton)
+    return _mass + Cautun_cgm.mass(r)
 
 
-def contract_density( density_DM, density_bar, mass_DM, mass_bar, f_bar=0.157 ):
-    """ Returns the contracted DM density profile given the 'uncontracted' density and that of the baryonic distribution.
-    It uses the differential (d/dr) form of Eq. (11) from Cautun et al (2020).
+def contract_factor_enclosed_mass( mass_DM, mass_bar, f_bar=0.157 ):
+    """ Returns the contracted DM enclosed mass given the 'uncontracted' profile and that of the baryonic distribution.
    
    Args:
-      density_DM    : array of DM densities. 
-                          It corresponds to '(1-baryon_fraction) * density in
-                          DMO (dark matter only) simulations'.
-      density_bar   : array of baryonic densities.
       mass_DM       : enclosed mass in the DM component in the absence of baryons. 
                           It corresponds to '(1-baryon_fraction) * enclosed mass in
                           DMO (dark matter only) simulations'.
       mass_bar      : enclosed baryonic mass for which to calculate the DM profile.
       f_bar         : optional cosmic baryonic fraction.
    Returns:
-      Array of 'contracted' DM densities.
+      Array of 'contracted' enclosed masses.
    """
-        
     eta_bar = mass_bar / mass_DM * (1.-f_bar) / f_bar  # the last two terms account for transforming the DM mass into the corresponding baryonic mass in DMO simulations
-    first_factor = 0.45 + 0.38 * (eta_bar + 1.16)**0.53
-    temp         = density_bar - eta_bar * density_DM * f_bar / (1.-f_bar)
-    const_term   = 0.38 * 0.53 * (eta_bar + 1.16)**(0.53-1.) * (1.-f_bar) / f_bar * temp
-    
-    return density_DM * first_factor + const_term
+    increase_factor = 0.45 + 0.38 * (eta_bar + 1.16)**0.53
+    return increase_factor
 
 
-def potential_contract_DM_halo( rho_DMO_func, rho_Baryon_func, f_bar=0.157 ):
-    """ Returns the contracted DM density in galpy units for the given baryonic profile.
-   
-   Args:
-      rho_DM_func        : function that gives the 'uncontracted' DM density at coordinates (R,z).
-      rho_Baryon_func    : function that gives the baryonic density at coordinates (R,z).
-      f_bar              : optional cosmic baryonic fraction.
-   Returns:
-      Contracted_rho_dm  : contracted DM density at a set of radial distances.
-      rvals              : array of radial distances for which the density was calculated.
-      MCum_bar           : the enclosed baryonic mass (at a different set of distances from the density).
-      MCum_DM            : the enclosed input DM mass. 
-      MCum_DM_contracted : the enclosed contracted DM mass.
-      rspace             : the radial values for which the enclosed mass was calculated.
-   """
-    # Create logarithmic r grid
-    rspace = np.logspace( -2, 2, 201 )
-    rvals  = np.sqrt( rspace[1:] * rspace[:-1] )
-    
-    # calculate masses and densities on r grid
-    MCum_DM  = enclosedMass_spherical( rho_DMO_func, rspace )      # the enclosed mass in DM
-    MCum_bar = enclosedMass( rho_Baryon_func, rspace )             # the enclosed mass in baryons
-    rho_DM   = rho_DMO_func( rspace, 0 )                           # DM density at each bin position
-    rho_bar  = sphericalAverage( rho_Baryon_func, rspace )         # baryonic density at each bin position
-    
-    # contract the DM density profile
-    rho_dm_contracted = contract_density( rho_DM, rho_bar, MCum_DM, MCum_bar, f_bar=f_bar )
-    
-    return rho_dm_contracted, rspace
+# calculate thee gravitational constant in code units
+halo_rgrid = np.logspace( -1, np.log10(R200), 31 )
+_G_Newton = np.mean( [Cautun_halo_unContracted.rforce(r,0.)*-r**2/Cautun_halo_unContracted.mass(r) for r in halo_rgrid] )
 
+# calculate the enclosed DM and baryonic masses needed for halo contraction
+_Mass_encl_DM = Cautun_halo_unContracted.mass( halo_rgrid )
+_Mass_encl_bar= Baryon_enclosed_mass(halo_rgrid,_G_Newton)
 
-rho_DM_contracted, rspace = \
-        potential_contract_DM_halo( DM_Dens_uncontracted, Baryon_Dens, f_bar=fb )
-
+_contraction_factor = contract_factor_enclosed_mass( _Mass_encl_DM, _Mass_encl_bar, f_bar=fb )
 from scipy import interpolate
-interpolated_rho_DM_contracted = interpolate.interp1d( rspace, rho_DM_contracted, fill_value="extrapolate" )
+halo_contraction_factor = interpolate.interp1d( halo_rgrid, _contraction_factor, fill_value="extrapolate", bounds_error=False )
 
-def Contracted_DM_dens(R,z):
-    r = np.sqrt( (R**2.) + (z**2.) )
-    if r>rspace[-1]: 
-        return rho_DM_contracted[-1] * np.exp( 1 - ((r/rspace[-1])**2) )
-    return interpolated_rho_DM_contracted( r )
 
-Cautun_halo= SCFPotential(\
-    Acos=scf_compute_coeffs_spherical( Contracted_DM_dens,60,a=50 )[0], a=50, ro=ro, vo=vo )
+# find the normalization factor for the "radial force" input to the "interpSphericalPotential" class 
+halo_rgrid = np.logspace( -1, np.log10(R200), 301 )
+halo_rforce = lambda R : Cautun_halo_unContracted.rforce(R,0)
+_temp = interpSphericalPotential(rforce=halo_rforce, rgrid=halo_rgrid, vo=vo, ro=ro)
+_norm_factor = np.mean( [Cautun_halo_unContracted.rforce(R,0)/_temp.rforce(R,0.) for R in halo_rgrid[::10]] )
 
+# calculate the contracted halo profile
+halo_rforce = lambda R : Cautun_halo_unContracted.rforce(R,0) * halo_contraction_factor(R) * _norm_factor
+Cautun_halo = interpSphericalPotential(rforce=halo_rforce, rgrid=halo_rgrid, vo=vo, ro=ro)
 
 Cautun20 = Cautun_halo + Cautun_disk + Cautun_bulge + Cautun_cgm
 
