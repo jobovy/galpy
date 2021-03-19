@@ -332,16 +332,6 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         # when integrating over spherical volume, all non-zero l,m vanish
         N= len(self._Acos)
         return R**2.*numpy.sum(self._Acos[:,0,0]*self._dphiTilde(R,N,1)[:,0])
-
-        
-        Knl= 0.5*numpy.arange(N)*(numpy.arange(N)+3)+1
-        def _integrand(xi):
-            r= _xiToR(xi,a=self._a)
-            return numpy.sum(self._Acos[:,0,0]*Knl
-                             *_C(xi,N,0,singleL=True)[:,0])\
-                *r/(self._a+r)
-        return 2.*numpy.sqrt(numpy.pi)\
-            *integrate.quad(_integrand,-1,_RToxi(R,a=self._a))[0]
         
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
