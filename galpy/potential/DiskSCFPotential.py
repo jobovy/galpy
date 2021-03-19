@@ -485,17 +485,18 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         """
         if not z is None: raise AttributeError # Hack to fall back to general
         out= self._scf.mass(R,z=None,use_physical=False)
-        for a,s,ds,d2s,h,H,dH in zip(self._Sigma_amp,self._Sigma,
-                                     self._dSigmadR,self._d2SigmadR2,
-                                     self._hz,self._Hz,self._dHzdz):
-            def _integrand(theta,r):
-                z= r*numpy.cos(theta)
-                return a*r**2.*numpy.sin(theta)\
-                    *(s(r)*h(z)+d2s(r)*H(z)+2./r*ds(r)*(H(z)+z*dH(z)))
-            out+= 2.*numpy.pi\
-                *integrate.dblquad(_integrand,0.,R,
-                                   lambda x: 0., lambda x: numpy.pi)[0]
-        return out
+        r= R
+        def _integrand(theta):
+            # ~ rforce
+            tz= r*numpy.cos(theta)
+            tR= r*numpy.sin(theta)
+            out= 0.
+            for a,s,ds,H,dH in zip(self._Sigma_amp,self._Sigma,self._dSigmadR,
+                                   self._Hz,self._dHzdz):
+                out+= a*ds(r)*H(tz)*tR**2
+                out+= a*(ds(r)*H(tz)*tz/r+s(r)*dH(tz))*tz*r
+            return out*numpy.sin(theta)
+        return out+2.*numpy.pi*integrate.quad(_integrand,0.,numpy.pi)[0]
     
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
     """The density corresponding to phi_ME"""

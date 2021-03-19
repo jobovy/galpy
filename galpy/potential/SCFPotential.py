@@ -326,10 +326,14 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
            the mass enclosed
         HISTORY:
            2021-03-09 - Written - Bovy (UofT)
+           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
         """
         if not z is None: raise AttributeError # Hack to fall back to general
         # when integrating over spherical volume, all non-zero l,m vanish
         N= len(self._Acos)
+        return R**2.*numpy.sum(self._Acos[:,0,0]*self._dphiTilde(R,N,1)[:,0])
+
+        
         Knl= 0.5*numpy.arange(N)*(numpy.arange(N)+3)+1
         def _integrand(xi):
             r= _xiToR(xi,a=self._a)

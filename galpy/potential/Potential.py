@@ -392,6 +392,8 @@ class Potential(Force):
 
            2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
 
+           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
+
         """
         from .EllipsoidalPotential import EllipsoidalPotential
         if self.isNonAxi and not isinstance(self,EllipsoidalPotential):
@@ -400,21 +402,21 @@ class Potential(Force):
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
-            #Use numerical integration to get the mass
+            #Use numerical integration to get the mass, using Gauss' theorem
             if z is None: # Within spherical shell
-                def _integrand(theta,r):
-                    tz= r*numpy.cos(theta)
-                    tR= r*numpy.sin(theta)
-                    return self.dens(tR,tz,t=t,use_physical=False)\
-                        *r**2.*numpy.sin(theta)
-                return 2.*numpy.pi\
-                    *integrate.dblquad(_integrand,0.,R,
-                                       lambda x: 0., lambda x: numpy.pi)[0]
+                def _integrand(theta):
+                    tz= R*numpy.cos(theta)
+                    tR= R*numpy.sin(theta)
+                    return self.rforce(tR,tz,t=t,use_physical=False)\
+                        *numpy.sin(theta)
+                return -R**2.*integrate.quad(_integrand,0.,numpy.pi)[0]/2.
             else: # Within disk at <R, -z --> z
-                return 2.*numpy.pi\
-                    *integrate.dblquad(lambda y,x: x\
-                                       *self.dens(x,y,t=t,use_physical=False),
-                                       0.,R,lambda x: -z, lambda x: z)[0]
+                return -R*integrate.quad(lambda x: self.Rforce(R,x,t=t,
+                                                        use_physical=False),
+                                         -z,z)[0]/2.\
+                        -integrate.quad(lambda x: x*self.zforce(x,z,t=t,
+                                                        use_physical=False),
+                                        0.,R)[0]
 
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,

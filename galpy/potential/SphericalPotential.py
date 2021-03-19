@@ -201,5 +201,4 @@ Implement a specific spherical density distribution with this form by inheriting
            2021-03-15 - Written - Bovy (UofT)
         """
         if z is not None: raise AttributeError # use general implementation
-        return 4.*numpy.pi*integrate.quad(lambda r: self._rdens(r,t=t)*r**2.,
-                                          0.,R)[0]
+        return -R**2.*self._rforce(R,t=t)
