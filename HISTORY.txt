@@ -38,6 +38,9 @@ v1.7 (XXXX-XX-XX)
   position on the zero-velocity curve for a given radius in this
   range.
 
+- Added potential function and method rhalf to compute the half-mass
+  radius.
+
 - Added TriaxialGaussianPotential, the potential of a Gaussian that is
   stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
   implementing multi-Gaussian expansions of galactic potentials.

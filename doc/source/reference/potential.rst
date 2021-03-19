@@ -38,6 +38,7 @@ Use as ``Potential-instance.method(...)``
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
+   rhalf <potentialrhalf.rst>
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
    surfdens <potentialsurfdens.rst>
@@ -101,6 +102,7 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    plotSurfaceDensities <potentialplotsurfacedensities.rst>
+   rhalf <potentialrhalfs.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
    to_amuse <potentialtoamuses.rst>

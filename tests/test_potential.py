@@ -3648,6 +3648,21 @@ def test_zvc_valueerror():
         potential.zvc(potential.MWPotential2014,0.7,E+100,Lz)
     return None
         
+def test_rhalf():
+    # Test some known cases
+    a= numpy.pi
+    # Hernquist, r12= (1+sqrt(2))a
+    hp= potential.HernquistPotential(amp=1.,a=a)
+    assert numpy.fabs(hp.rhalf()-(1.+numpy.sqrt(2.))*a) < 1e-10, 'Half-mass radius of the Hernquist potential incorrect'
+    # DehnenSpherical, r12= a/(2^(1/(3-alpha)-1)
+    alpha= 1.34
+    hp= potential.DehnenSphericalPotential(amp=1.,a=a,alpha=alpha)
+    assert numpy.fabs(hp.rhalf()-a/(2**(1./(3.-alpha))-1.)) < 1e-10, 'Half-mass radius of the DehnenSpherical potential incorrect'
+    # Plummer, r12= b/sqrt(1/0.5^(2/3)-1)
+    pp= potential.PlummerPotential(amp=1.,b=a)
+    assert numpy.fabs(potential.rhalf(pp)-a/numpy.sqrt(0.5**(-2./3.)-1.)) < 1e-10, 'Half-mass radius of the Plummer potential incorrect'
+    return None
+
 def test_NumericalPotentialDerivativesMixin():
     # Test that the NumericalPotentialDerivativesMixin works as expected
     def get_mixin_first_instance(cls,*args,**kwargs):

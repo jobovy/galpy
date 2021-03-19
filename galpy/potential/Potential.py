@@ -418,6 +418,35 @@ class Potential(Force):
                                                         use_physical=False),
                                         0.,R)[0]
 
+    @physical_conversion('position',pop=True)
+    def rhalf(self,t=0.,INF=numpy.inf):
+        """
+            
+        NAME:
+            
+            rhalf
+            
+        PURPOSE:
+
+            calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+        INPUT:
+
+            t= (0.) time (optional; can be Quantity)
+
+            INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+        OUTPUT:
+
+            half-mass radius
+
+        HISTORY:
+
+            2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return rhalf(self,t=t,INF=INF,use_physical=False)
+
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
              forceint=False,ro=None,vo=None,
@@ -3673,3 +3702,53 @@ def zvc_range(Pot,E,Lz,phi=0.,t=0.):
                           +Lz2over2/R**2.-E,RLz,Rstart)
     return numpy.array([Rmin,Rmax])
     
+@physical_conversion('position',pop=True)
+def rhalf(Pot,t=0.,INF=numpy.inf):
+    """
+    NAME:
+
+       rhalf
+
+    PURPOSE:
+
+       calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       t= (0.) time (optional; can be Quantity)
+
+       INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+    OUTPUT:
+
+       half-mass radius
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    Pot= flatten(Pot)
+    tot_mass= mass(Pot,INF,t=t)
+    #Find interval
+    rhi= _rhalfFindStart(1.,Pot,tot_mass,t=t)
+    rlo= _rhalfFindStart(1.,Pot,tot_mass,t=t,lower=True)
+    return optimize.brentq(_rhalffunc,rlo,rhi,
+                           args=(Pot,tot_mass,t),
+                           maxiter=200,disp=False)
+
+def _rhalffunc(rh,pot,tot_mass,t=0.):
+    return mass(pot,rh,t=t)/tot_mass-0.5
+
+def _rhalfFindStart(rh,pot,tot_mass,t=0.,lower=False):
+    """find a starting interval for rhalf"""
+    rtry= 2.*rh
+    while (2.*lower-1.)*_rhalffunc(rtry,pot,tot_mass,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
