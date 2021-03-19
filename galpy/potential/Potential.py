@@ -447,6 +447,35 @@ class Potential(Force):
         """
         return rhalf(self,t=t,INF=INF,use_physical=False)
 
+    @potential_physical_input
+    @physical_conversion('time',pop=True)
+    def tdyn(self,R,t=0.):
+        """
+        NAME:
+        
+           tdyn
+
+        PURPOSE:
+
+           calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           t= (0.) time (optional; can be Quantity)
+        
+        OUTPUT:
+
+           Dynamical time
+
+        HISTORY:
+
+           2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return 2.*numpy.pi*R*numpy.sqrt(R/self.mass(R,use_physical=False))
+
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
              forceint=False,ro=None,vo=None,
@@ -1928,6 +1957,7 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
        2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
 
     """
+    Pot= flatten(Pot)
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
     if nonAxi:
@@ -3752,3 +3782,33 @@ def _rhalfFindStart(rh,pot,tot_mass,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@potential_physical_input
+@physical_conversion('time',pop=True)
+def tdyn(Pot,R,t=0.):
+    """
+    NAME:
+
+       tdyn
+
+    PURPOSE:
+
+       calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       R - Galactocentric radius (can be Quantity)
+
+       t= (0.) time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Dynamical time
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    return 2.*numpy.pi*R*numpy.sqrt(R/mass(Pot,R,use_physical=False))

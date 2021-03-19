@@ -42,6 +42,7 @@ Use as ``Potential-instance.method(...)``
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
    surfdens <potentialsurfdens.rst>
+   tdyn <potentialtdyn.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    ttensor <potentialttensor.rst>
@@ -105,6 +106,7 @@ Use as ``method(...)``
    rhalf <potentialrhalfs.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
+   tdyn <potentialtdyns.rst>
    to_amuse <potentialtoamuses.rst>
    ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>

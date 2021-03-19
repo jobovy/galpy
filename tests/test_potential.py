@@ -3663,6 +3663,23 @@ def test_rhalf():
     assert numpy.fabs(potential.rhalf(pp)-a/numpy.sqrt(0.5**(-2./3.)-1.)) < 1e-10, 'Half-mass radius of the Plummer potential incorrect'
     return None
 
+def test_tdyn():
+    # Spherical: tdyn = 2piR/vc
+    a= numpy.pi
+    # Hernquist
+    hp= potential.HernquistPotential(amp=1.,a=a)
+    R= 1.4
+    assert numpy.fabs(hp.tdyn(R)-2.*numpy.pi*R/hp.vcirc(R)) < 1e-10, 'Dynamical time of the Hernquist potential incorrect'
+    # DehnenSpherical
+    alpha= 1.34
+    hp= potential.DehnenSphericalPotential(amp=1.,a=a,alpha=alpha)
+    assert numpy.fabs(potential.tdyn(hp,R)-2.*numpy.pi*R/hp.vcirc(R)) < 1e-10, 'Dynamical time of the DehnenSpherical potential incorrect'
+    # Axi, this approx. holds
+    hp= potential.MiyamotoNagaiPotential(amp=1.,a=a,b=a/5.)
+    R= 3.4
+    assert numpy.fabs(hp.tdyn(R)/(2.*numpy.pi*R/hp.vcirc(R))-1.) < 0.03, 'Dynamical time of the Miyamoto-Nagai potential incorrect'
+    return None
+
 def test_NumericalPotentialDerivativesMixin():
     # Test that the NumericalPotentialDerivativesMixin works as expected
     def get_mixin_first_instance(cls,*args,**kwargs):

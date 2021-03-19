@@ -41,6 +41,9 @@ v1.7 (XXXX-XX-XX)
 - Added potential function and method rhalf to compute the half-mass
   radius.
 
+- Added potential function and member tdyn to compute the dynamical
+  time from the average density.
+
 - Added TriaxialGaussianPotential, the potential of a Gaussian that is
   stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
   implementing multi-Gaussian expansions of galactic potentials.
