@@ -1,6 +1,7 @@
 import hashlib
 import numpy
 from numpy.polynomial.legendre import leggauss
+from scipy import integrate
 from scipy.special import lpmn
 from scipy.special import gammaln, gamma
 from ..util import coords, conversion
@@ -311,6 +312,27 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
             phi= 0.
         return self._computeArray(self._rhoTilde, R,z,phi)
               
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate spherical
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-09 - Written - Bovy (UofT)
+           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        # when integrating over spherical volume, all non-zero l,m vanish
+        N= len(self._Acos)
+        return R**2.*numpy.sum(self._Acos[:,0,0]*self._dphiTilde(R,N,1)[:,0])
+        
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:

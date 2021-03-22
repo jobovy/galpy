@@ -38,6 +38,12 @@ v1.7 (XXXX-XX-XX)
   position on the zero-velocity curve for a given radius in this
   range.
 
+- Added potential function and method rhalf to compute the half-mass
+  radius.
+
+- Added potential function and member tdyn to compute the dynamical
+  time from the average density.
+
 - Added TriaxialGaussianPotential, the potential of a Gaussian that is
   stratified on triaxial ellipsoids (Emsellem et al. 1994). Useful for
   implementing multi-Gaussian expansions of galactic potentials.
@@ -47,6 +53,11 @@ v1.7 (XXXX-XX-XX)
 
 - Added AnySphericalPotential, the potential of an arbitrary spherical
   density distribution.
+
+- Updated the definition of a Potential's mass to always return the
+  mass within a spherical shell if only one argument is
+  specified. Also implemented faster implementations of the masses of
+  SCF and diskSCF potentials.
 
 - Added inverse action-angle transformations for the isochrone
   potential (actionAngleIsochroneInverse) and for a one-dimensional

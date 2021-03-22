@@ -331,7 +331,7 @@ s           evaluate the radial density derivative for this potential
         """
         return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -346,8 +346,10 @@ s           evaluate the radial density derivative for this potential
         HISTORY:
            2014-04-01 - Written - Erkal (IoA)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
+        if z is not None: raise AttributeError # use general implementation
+        return (R/self.a)**(3.-self.alpha)/(3.-self.alpha)\
+            *special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,
+                            4.-self.alpha,-R/self.a)
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_
@@ -565,7 +567,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(4.-self.alpha)/4./numpy.pi/self.a**3.
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -580,8 +582,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-11-20 - Written - Starkman (UofT)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return 1./(1.+self.a/r)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf 
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf 
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
@@ -779,7 +781,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         r= numpy.sqrt(R**2.+z**2.)
         return 1./(1.+r/self.a)**4./4./numpy.pi/self.a**3.
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -794,8 +796,8 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         HISTORY:
            2019-11-20 - Written - Starkman (UofT)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return 1./(1.+self.a/r)**3./3. # written so it works for r=numpy.inf 
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**3./3. # written so it works for r=numpy.inf 
 
 class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
@@ -987,7 +989,7 @@ class HernquistPotential(DehnenSphericalPotential):
                            /(self.a**2.-R**2.)**2.
                            /(r**2-self.a**2.)**2.).real/4./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -1001,8 +1003,8 @@ class HernquistPotential(DehnenSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return 1./(1.+self.a/r)**2./2. # written so it works for r=numpy.inf
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**2./2. # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
@@ -1213,7 +1215,7 @@ class JaffePotential(DehnenSphericalPotential):
                     -self.a*z/(R**2-self.a**2)/(r+self.a)).real\
                     /self.a/2./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -1227,8 +1229,8 @@ class JaffePotential(DehnenSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return 1./(1.+self.a/r) # written so it works for r=numpy.inf 
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R) # written so it works for r=numpy.inf 
 
 class NFWPotential(TwoPowerSphericalPotential):
     """Class that implements the NFW potential
@@ -1494,7 +1496,7 @@ class NFWPotential(TwoPowerSphericalPotential):
                         *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
                     +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -1508,8 +1510,8 @@ class NFWPotential(TwoPowerSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
+        if z is not None: raise AttributeError # use general implementation
+        return numpy.log(1+R/self.a)-R/self.a/(1.+R/self.a)
 
     @conversion.physical_conversion('position',pop=False)
     def rvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,ro=None,vo=None,

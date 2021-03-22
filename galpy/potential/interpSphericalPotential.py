@@ -105,3 +105,6 @@ Class that interpolates a spherical potential on a grid"""
         out[r < self._rmax]= SphericalPotential._rdens(self,r[r < self._rmax])
         return out
     
+    def _mass(self,R,z=None,t=0.):
+        if z is not None: raise AttributeError # use general implementation
+        return -self._rforce(R,t=t)*R**2.

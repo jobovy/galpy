@@ -227,3 +227,22 @@ class RazorThinExponentialDiskPotential(Potential):
            2018-08-19 - Written - Bovy (UofT)
         """
         return numpy.exp(-self._alpha*R)
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-04 - Written - Bovy (UofT)
+        """
+        return 2.*numpy.pi*(1.-numpy.exp(-self._alpha*R)*(1.+self._alpha*R))\
+            /self._alpha**2.
+    
