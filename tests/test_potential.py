@@ -165,6 +165,8 @@ def test_forceAsDeriv_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -336,6 +338,8 @@ def test_2ndDeriv_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -562,6 +566,8 @@ def test_poisson_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -669,6 +675,8 @@ def test_poisson_surfdens_potential():
     """
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -796,6 +804,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1006,6 +1016,8 @@ def test_amp_mult_divide():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1055,6 +1067,8 @@ def test_potential_array_input():
                and not 'toVertical' in p)]
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
@@ -1268,6 +1282,8 @@ def test_potential_at_zero():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1374,6 +1390,8 @@ def test_potential_at_infinity():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -3448,6 +3466,20 @@ def test_DehnenSmoothWrapper_decay():
     assert numpy.amax(numpy.fabs(lp.Rforce(2.,0.,ts)-[pot_grow.Rforce(2.,0.,t=t)+pot_decay.Rforce(2.,0.,t=t) for t in ts])) < 1e-10, 'DehnenSmoothWrapper with decay=True is not the opposite of the same with decay=False'
     return None
 
+def test_AdiabaticContractionWrapper():
+    # Some basic tests of adiabatic contraction
+    dm= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],
+                                baryonpot=potential.MWPotential2014[:2],
+                                             method='cautun')
+    # at large r, the contraction should be almost negligible (1% for Cautun)
+    assert numpy.fabs(dm.vcirc(50.)-potential.MWPotential2014[2].vcirc(50.)) < 2e-2, 'Adiabatic contraction does not tend to ~1'
+    # For MWPotential2014, contraction at 1 kpc should be about 4 in mass for
+    # Cautun (their Fig. 2; Mstar ~ 7e10 Msun)
+    assert numpy.fabs(dm.mass(1./8.)/potential.MWPotential2014[2].mass(1./8.)-4.) < 8e-1, 'Adiabatic contraction does not agree at R ~ 1 kpc'
+    # At 10 kpc, it should be more like 2
+    assert numpy.fabs(dm.mass(10./8.)/potential.MWPotential2014[2].mass(10./8.)-2.) < 3e-1, 'Adiabatic contraction does not agree at R ~ 10 kpc'
+    return None
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp= potential.RazorThinExponentialDiskPotential(normalize=1.,hr=3./8.)
@@ -4768,7 +4800,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
-    GaussianAmplitudeWrapperPotential
+    GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -4979,3 +5011,15 @@ class nestedListPotential(testMWPotential):
                                  potlist=[potential.MWPotential2014,potential.SpiralArmsPotential()])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+class mockAdiabaticContractionMWP14WrapperPotential(AdiabaticContractionWrapperPotential):
+    def __init__(self):
+        AdiabaticContractionWrapperPotential.__init__(self,\
+                                pot=potential.MWPotential2014[2],
+                                baryonpot=potential.MWPotential2014[:2])
+class mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential(AdiabaticContractionWrapperPotential):
+    def __init__(self):
+        AdiabaticContractionWrapperPotential.__init__(self,\
+                                pot=potential.MWPotential2014[2],
+                                baryonpot=potential.MWPotential2014[:2],
+                                f_bar=0.1)
+        

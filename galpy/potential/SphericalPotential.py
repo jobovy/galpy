@@ -201,4 +201,5 @@ Implement a specific spherical density distribution with this form by inheriting
            2021-03-15 - Written - Bovy (UofT)
         """
         if z is not None: raise AttributeError # use general implementation
+        R= numpy.float64(R) # Avoid indexing issues
         return -R**2.*self._rforce(R,t=t)
