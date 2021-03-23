@@ -569,6 +569,7 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialadiabaticcontractwrapper.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst
