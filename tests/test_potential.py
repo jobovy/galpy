@@ -2493,7 +2493,7 @@ def test_Cautun20():
                       *conversion.dens_in_msolpc3(vo,ro)*1.e6-6.49) < 1e-2, 'CGM density at 50 kpc in Cautun20 does not agree with what it should be'
     # Halo density at the Sun
     assert numpy.fabs(potential.evaluateDensities(Cautun20[0],1.,0.,use_physical=False)
-                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.97) < 1e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.8) < 7e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
     return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be

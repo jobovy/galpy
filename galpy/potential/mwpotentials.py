@@ -45,9 +45,9 @@ class _ExpensivePotentials(object):
 
     # For tab completion
     def __dir__(self):  # pragma: no cover
-        return ['Cautun20','McMillan17','Irrgang13I','Irrgang13II','Irrgang13III',
-                'DehnenBinney98I','DehnenBinney98II','DehnenBinney98III',
-                'DehnenBinney98IV']
+        return ['McMillan17','Irrgang13I','Irrgang13II','Irrgang13III',
+                'Cautun20','DehnenBinney98I','DehnenBinney98II',
+                'DehnenBinney98III','DehnenBinney98IV']
 
     @property
     def McMillan17(self):
