@@ -38,9 +38,11 @@ Use as ``Potential-instance.method(...)``
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
+   rhalf <potentialrhalf.rst>
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
    surfdens <potentialsurfdens.rst>
+   tdyn <potentialtdyn.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    ttensor <potentialttensor.rst>
@@ -101,8 +103,10 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    plotSurfaceDensities <potentialplotsurfacedensities.rst>
+   rhalf <potentialrhalfs.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
+   tdyn <potentialtdyns.rst>
    to_amuse <potentialtoamuses.rst>
    ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
@@ -566,6 +570,7 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialadiabaticcontractwrapper.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst

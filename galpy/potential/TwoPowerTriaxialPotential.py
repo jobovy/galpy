@@ -130,6 +130,27 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         """Derivative of the density as a function of m"""
         return -self._mdens(m)*(self.a*self.alpha+self.beta*m)/m/(self.a+m)
 
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-09 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self.a**self.alpha\
+            *R**(3.-self.alpha)/(3.-self.alpha)*self._b*self._c\
+            *special.hyp2f1(3.-self.alpha,self.betaminusalpha,
+                            4.-self.alpha,-R/self.a)
+
 class TriaxialHernquistPotential(EllipsoidalPotential):
     """Class that implements the triaxial Hernquist potential
 
@@ -218,6 +239,24 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         """Derivative of the density as a function of m"""
         return -self.a4*(self.a+4.*m)/m**2/(self.a+m)**4
 
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-16 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self.a4/self.a/(1.+self.a/R)**2./2.*self._b*self._c
+    
 class TriaxialJaffePotential(EllipsoidalPotential):
     """Class that implements the Jaffe potential
 
@@ -306,6 +345,24 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         """Derivative of the density as a function of m"""
         return -2.*self.a2**2*(self.a+2.*m)/m**3/(self.a+m)**3
   
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-16 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self.a*self.a2/(1.+self.a/R)*self._b*self._c
+    
 class TriaxialNFWPotential(EllipsoidalPotential):
     """Class that implements the triaxial NFW potential
 
@@ -420,3 +477,23 @@ class TriaxialNFWPotential(EllipsoidalPotential):
     def _mdens_deriv(self,m):
         """Derivative of the density as a function of m"""
         return -self.a3*(self.a+3.*m)/m**2/(self.a+m)**3
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-16 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self.a3*self._b*self._c\
+            *(numpy.log(1+R/self.a)-R/self.a/(1.+R/self.a))
+    

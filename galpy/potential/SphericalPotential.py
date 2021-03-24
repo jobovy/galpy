@@ -3,6 +3,7 @@
 #                          spherical density profiles
 ###############################################################################
 import numpy
+from scipy import integrate
 from .Potential import Potential
 class SphericalPotential(Potential):
     """Base class for spherical potentials.
@@ -183,3 +184,22 @@ Implement a specific spherical density distribution with this form by inheriting
         """
         r= numpy.sqrt(R**2.+z**2.)
         return self._rdens(r,t=t)
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-15 - Written - Bovy (UofT)
+        """
+        if z is not None: raise AttributeError # use general implementation
+        R= numpy.float64(R) # Avoid indexing issues
+        return -R**2.*self._rforce(R,t=t)

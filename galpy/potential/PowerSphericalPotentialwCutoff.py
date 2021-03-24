@@ -213,7 +213,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return 1./r**self.alpha*numpy.exp(-(r/self.rc)**2.)
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -228,9 +228,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-XX-XX - Written - Bovy (IAS)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return 2.*numpy.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+        if z is not None: raise AttributeError # use general implementation
+        return 2.*numpy.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(R/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

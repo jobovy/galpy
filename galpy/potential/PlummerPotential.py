@@ -206,7 +206,7 @@ class PlummerPotential(Potential):
         """
         return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -221,7 +221,8 @@ class PlummerPotential(Potential):
         HISTORY:
            2020-10-02 - Written - Bovy (UofT)
         """
-        r2= R**2. if z is None else R**2.+z**2.
+        if z is not None: raise AttributeError # use general implementation
+        r2= R**2.
         return (1.+self._b2/r2)**-1.5 # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator

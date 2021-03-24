@@ -53,6 +53,7 @@ from . import TriaxialGaussianPotential
 from . import KingPotential
 from . import AnyAxisymmetricRazorThinDiskPotential
 from . import AnySphericalPotential
+from . import AdiabaticContractionWrapperPotential
 #
 # Functions
 #
@@ -119,6 +120,8 @@ flatten= Potential.flatten
 to_amuse= Potential.to_amuse
 zvc= Potential.zvc
 zvc_range= Potential.zvc_range
+rhalf= Potential.rhalf
+tdyn= Potential.tdyn
 #
 # Classes
 #
@@ -186,6 +189,7 @@ DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPo
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
+AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience

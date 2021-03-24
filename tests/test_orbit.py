@@ -68,7 +68,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockFlatTrulyGaussianAmplitudeBarPotential, \
     testorbitHenonHeilesPotential, \
     nestedListPotential, \
-    mockInterpSphericalPotential
+    mockInterpSphericalPotential, \
+    mockAdiabaticContractionMWP14WrapperPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -143,6 +144,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockFlatGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -509,6 +511,7 @@ def test_energy_conservation_linear():
     pots.append('triaxialLogarithmicHaloPotential')   
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -676,6 +679,7 @@ def test_liouville_planar():
     pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',

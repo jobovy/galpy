@@ -184,6 +184,23 @@ class KuzminDiskPotential(Potential):
         """
         return self._a*(R**2+self._a**2)**-1.5/2./numpy.pi
 
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-04 - Written - Bovy (UofT)
+        """
+        return 1.-self._a/numpy.sqrt(R**2.+self._a**2.)
+
     def _denom(self, R, z):
         """
         NAME:

@@ -382,9 +382,7 @@ class Potential(Force):
 
         OUTPUT:
 
-           1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
-
-           2) for axisymmetric potentials: M(<R,<fabs(Z))
+           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z; except: potentials inheriting from EllipsoidalPotential, which if z is None return the mass within the ellipsoidal shell with semi-major axis R
 
         HISTORY:
 
@@ -392,29 +390,91 @@ class Potential(Force):
 
            2019-08-15 - Added spherical warning - Bovy (UofT)
 
+           2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+
+           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
+
         """
-        if self.isNonAxi:
-            raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
+        from .EllipsoidalPotential import EllipsoidalPotential
+        if self.isNonAxi and not isinstance(self,EllipsoidalPotential):
+            raise NotImplementedError('mass for non-axisymmetric potentials that are not EllipsoidalPotentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
-            #Use numerical integration to get the mass
-            if z is None:
-                warnings.warn("Vertical height z not specified for mass "
-                              "calculation...assuming spherical potential"
-                              " (for the mass of axisymmetric potentials"
-                              ", specify z)",galpyWarning)
-                return 4.*numpy.pi\
-                    *integrate.quad(lambda x: x**2.\
-                                        *self.dens(x,0.,t=t,
-                                                  use_physical=False),
-                                    0.,R)[0]
-            else:
-                return 4.*numpy.pi\
-                    *integrate.dblquad(lambda y,x: x\
-                                           *self.dens(x,y,t=t,use_physical=False),
-                                       0.,R,lambda x: 0., lambda x: z)[0]
+            #Use numerical integration to get the mass, using Gauss' theorem
+            if z is None: # Within spherical shell
+                def _integrand(theta):
+                    tz= R*numpy.cos(theta)
+                    tR= R*numpy.sin(theta)
+                    return self.rforce(tR,tz,t=t,use_physical=False)\
+                        *numpy.sin(theta)
+                return -R**2.*integrate.quad(_integrand,0.,numpy.pi)[0]/2.
+            else: # Within disk at <R, -z --> z
+                return -R*integrate.quad(lambda x: self.Rforce(R,x,t=t,
+                                                        use_physical=False),
+                                         -z,z)[0]/2.\
+                        -integrate.quad(lambda x: x*self.zforce(x,z,t=t,
+                                                        use_physical=False),
+                                        0.,R)[0]
+
+    @physical_conversion('position',pop=True)
+    def rhalf(self,t=0.,INF=numpy.inf):
+        """
+            
+        NAME:
+            
+            rhalf
+            
+        PURPOSE:
+
+            calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+        INPUT:
+
+            t= (0.) time (optional; can be Quantity)
+
+            INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+        OUTPUT:
+
+            half-mass radius
+
+        HISTORY:
+
+            2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return rhalf(self,t=t,INF=INF,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('time',pop=True)
+    def tdyn(self,R,t=0.):
+        """
+        NAME:
+        
+           tdyn
+
+        PURPOSE:
+
+           calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           t= (0.) time (optional; can be Quantity)
+        
+        OUTPUT:
+
+           Dynamical time
+
+        HISTORY:
+
+           2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return 2.*numpy.pi*R*numpy.sqrt(R/self.mass(R,use_physical=False))
 
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
@@ -1038,7 +1098,7 @@ class Potential(Force):
         
             2011-10-09 - Written - Bovy (IAS)
         
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+            2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """  
         return numpy.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
@@ -1888,15 +1948,16 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
 
     OUTPUT:
 
-       1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
-
-       2) for axisymmetric potentials: M(<R,<fabs(Z))
+       Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
 
     HISTORY:
 
        2021-02-07 - Written - Bovy (UofT)
 
+       2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+
     """
+    Pot= flatten(Pot)
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
     if nonAxi:
@@ -3671,3 +3732,83 @@ def zvc_range(Pot,E,Lz,phi=0.,t=0.):
                           +Lz2over2/R**2.-E,RLz,Rstart)
     return numpy.array([Rmin,Rmax])
     
+@physical_conversion('position',pop=True)
+def rhalf(Pot,t=0.,INF=numpy.inf):
+    """
+    NAME:
+
+       rhalf
+
+    PURPOSE:
+
+       calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       t= (0.) time (optional; can be Quantity)
+
+       INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+    OUTPUT:
+
+       half-mass radius
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    Pot= flatten(Pot)
+    tot_mass= mass(Pot,INF,t=t)
+    #Find interval
+    rhi= _rhalfFindStart(1.,Pot,tot_mass,t=t)
+    rlo= _rhalfFindStart(1.,Pot,tot_mass,t=t,lower=True)
+    return optimize.brentq(_rhalffunc,rlo,rhi,
+                           args=(Pot,tot_mass,t),
+                           maxiter=200,disp=False)
+
+def _rhalffunc(rh,pot,tot_mass,t=0.):
+    return mass(pot,rh,t=t)/tot_mass-0.5
+
+def _rhalfFindStart(rh,pot,tot_mass,t=0.,lower=False):
+    """find a starting interval for rhalf"""
+    rtry= 2.*rh
+    while (2.*lower-1.)*_rhalffunc(rtry,pot,tot_mass,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
+@potential_physical_input
+@physical_conversion('time',pop=True)
+def tdyn(Pot,R,t=0.):
+    """
+    NAME:
+
+       tdyn
+
+    PURPOSE:
+
+       calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       R - Galactocentric radius (can be Quantity)
+
+       t= (0.) time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Dynamical time
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    return 2.*numpy.pi*R*numpy.sqrt(R/mass(Pot,R,use_physical=False))
