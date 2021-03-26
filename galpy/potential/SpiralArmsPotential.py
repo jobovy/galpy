@@ -11,7 +11,7 @@ from .Potential import Potential
 from ..util import conversion
 import numpy
 class SpiralArmsPotential(Potential):
-    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside).
+    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside; note that because of this, a contour plot of this potential will appear to have twice as many arms, where half are the underdense regions).
     
     .. math::
     
