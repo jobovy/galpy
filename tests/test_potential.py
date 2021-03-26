@@ -2479,13 +2479,13 @@ def test_Cautun20():
     assert numpy.fabs(potential.vcirc(Cautun20[1],1.,quantity=False)-151.2) < 1e-1, 'Disc circular velocity at the Sun in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[2],1.,quantity=False)-70.8) < 1e-1, 'Bulge circular velocity at the Sun in Cautun20 does not agree with what it should be'
     # at 50 kpc
-    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.6) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
-    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-167.2) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.3) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-166.9) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[1],50./ro,quantity=False)-68.9) < 1e-1, 'Disc circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     assert numpy.fabs(potential.vcirc(Cautun20[2],50./ro,quantity=False)-28.3) < 1e-1, 'Bulge circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
     # check the enclosed halo mass
-    assert numpy.fabs((Cautun20[0].mass(50./ro,quantity=False))/10.**11-3.25) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
-    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-8.91) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    assert numpy.fabs((Cautun20[0].mass(50./ro,quantity=False))/10.**11-3.23) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-9.03) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
     # check the CGM density
     assert numpy.fabs(potential.evaluateDensities(Cautun20[3],1.,0.,use_physical=False)
                       *conversion.dens_in_msolpc3(vo,ro)*1.e5-9.34) < 1e-2, 'CGM density at the Sun in Cautun20 does not agree with what it should be'
@@ -2493,7 +2493,7 @@ def test_Cautun20():
                       *conversion.dens_in_msolpc3(vo,ro)*1.e6-6.49) < 1e-2, 'CGM density at 50 kpc in Cautun20 does not agree with what it should be'
     # Halo density at the Sun
     assert numpy.fabs(potential.evaluateDensities(Cautun20[0],1.,0.,use_physical=False)
-                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.8) < 7e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.8) < 5e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
     return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be
@@ -3497,16 +3497,33 @@ def test_DehnenSmoothWrapper_decay():
 
 def test_AdiabaticContractionWrapper():
     # Some basic tests of adiabatic contraction
-    dm= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],
-                                baryonpot=potential.MWPotential2014[:2],
-                                             method='cautun')
+    dm1= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
+                                             f_bar=None,method='cautun')
+    dm2= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
+                                             f_bar=0.157,method='cautun')
+    dm3= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
+                                             f_bar=0.157,method='blumenthal')
+    dm4= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
+                                             f_bar=0.157,method='gnedin')
     # at large r, the contraction should be almost negligible (1% for Cautun)
-    assert numpy.fabs(dm.vcirc(50.)-potential.MWPotential2014[2].vcirc(50.)) < 2e-2, 'Adiabatic contraction does not tend to ~1'
+    r = 50.
+    assert numpy.fabs(dm1.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-1.02) < 1e-2, '"cautun" adiabatic contraction at large distances'
+    assert numpy.fabs(dm2.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.97) < 1e-2, '"cautun" adiabatic contraction at large distances'
+    assert numpy.fabs(dm3.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.98) < 1e-2, '"blumenthal" adiabatic contraction at large distances'
+    assert numpy.fabs(dm4.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.98) < 1e-2, '"gnedin" adiabatic contraction at large distances'
     # For MWPotential2014, contraction at 1 kpc should be about 4 in mass for
     # Cautun (their Fig. 2; Mstar ~ 7e10 Msun)
-    assert numpy.fabs(dm.mass(1./8.)/potential.MWPotential2014[2].mass(1./8.)-4.) < 8e-1, 'Adiabatic contraction does not agree at R ~ 1 kpc'
+    r = 1./dm1._ro
+    assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-3.40) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-3.18) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-4.22) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm4.mass(r)/potential.MWPotential2014[2].mass(r)-4.04) < 1e-2, '"gnedin" adiabatic contraction does not agree at R ~ 1 kpc'
     # At 10 kpc, it should be more like 2
-    assert numpy.fabs(dm.mass(10./8.)/potential.MWPotential2014[2].mass(10./8.)-2.) < 3e-1, 'Adiabatic contraction does not agree at R ~ 10 kpc'
+    r = 10./dm1._ro
+    assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-1.78) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-1.64) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-1.67) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm4.mass(r)/potential.MWPotential2014[2].mass(r)-1.43) < 1e-2, '"gnedin" adiabatic contraction does not agree at R ~ 10 kpc'
     return None
 
 def test_vtermnegl_issue314():
