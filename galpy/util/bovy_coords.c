@@ -14,6 +14,10 @@ void cyl_to_rect(double R, double phi,double *x, double *y){
   *x= R * cos ( phi );
   *y= R * sin ( phi );
 }
+void rect_to_cyl(double x, double y,double *R, double *phi){
+  *R = sqrt (x*x+y*y);
+  *phi = atan2 ( y , x );
+}
 /*
 NAME: polar_to_rect_galpy
 PURPOSE: convert (R,vR,vT,phi) to (x,y,vx,vy)
