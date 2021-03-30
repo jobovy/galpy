@@ -37,7 +37,7 @@ def _parse_pot(pot):
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
-        if (isinstance(p,planarPotentialFromRZPotential) 
+        if (isinstance(p,planarPotentialFromRZPotential)
             or isinstance(p,planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
@@ -321,6 +321,18 @@ def _parse_pot(pot):
             pot_args.extend(p._orb.y(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
+        elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.zvecAdjustmentWrapperPotential)) \
+              or isinstance(p,potential.zvecAdjustmentWrapperPotential):
+            if not isinstance(p,potential.zvecAdjustmentWrapperPotential):
+                p= p._Pot
+            pot_type.append(-8)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp])
+            pot_args.extend(list(p._rot.flatten()))
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -343,7 +355,7 @@ def _parse_integrator(int_method):
     else:
         int_method_c= 0
     return int_method_c
-            
+
 def _parse_tol(rtol,atol):
     """Parse the tolerance keywords"""
     #Process atol and rtol
@@ -369,7 +381,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        yo - initial condition [q,p], can be [N,4] or [4]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
-       rtol, atol 
+       rtol, atol
        dt= (None) force integrator to use this stepsize (default is to automatically determine one)
    OUTPUT:
        (y,err)
@@ -388,7 +400,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
 
     #Set up result array
@@ -400,7 +412,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     integrationFunc= _lib.integratePlanarOrbit
     integrationFunc.argtypes= [ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -428,7 +440,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
-                    ctypes.c_double(dt),                    
+                    ctypes.c_double(dt),
                     ctypes.c_double(rtol),
                     ctypes.c_double(atol),
                     result,
@@ -472,7 +484,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
     yo= numpy.concatenate((yo,dyo))
 
@@ -484,7 +496,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integratePlanarOrbit_dxdv
     integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -510,7 +522,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
-                    ctypes.c_double(dt),                    
+                    ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),
@@ -737,8 +749,8 @@ def _planarREOM(y,t,pot,l2):
     NAME:
        _planarREOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
-       equation, for integrating a planar Orbit assuming angular momentum 
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for integrating a planar Orbit assuming angular momentum
        conservation
     INPUT:
        y - current phase-space position
@@ -758,7 +770,7 @@ def _planarEOM(y,t,pot):
     NAME:
        _planarEOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for integrating a general planar Orbit
     INPUT:
        y - current phase-space position
@@ -781,7 +793,7 @@ def _planarEOM_dxdv(x,t,pot):
     NAME:
        _planarEOM_dxdv
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for integrating phase space differences, rectangular
     INPUT:
        x - current phase-space position
@@ -858,4 +870,3 @@ def _planarRectForce(x,pot,t=0.):
     phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
     return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
-

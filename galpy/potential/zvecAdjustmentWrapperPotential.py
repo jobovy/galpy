@@ -9,7 +9,7 @@ from ..util import coords
 class zvecAdjustmentWrapperPotential(parentWrapperPotential):
     """ Potential wrapper class that implements an adjustment to the z-axis vector of a given Potential. This can be used, for example, to tilt a disc to a desired inclination angle
     """
-    def __init__(self,zvec=None,pot=None,
+    def __init__(self,amp=1.,zvec=None,pot=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -34,8 +34,8 @@ class zvecAdjustmentWrapperPotential(parentWrapperPotential):
 
         """
         self._setup_zvec(zvec)
-        self.hasC= False
-        self.hasC_dxdv= False
+        self.hasC= True
+        self.hasC_dxdv= True
         self.isNonAxi = True
 
     def _setup_zvec(self,zvec):
