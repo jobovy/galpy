@@ -64,8 +64,6 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
             new_rforce *= _contraction_ratio_Gnedin2004(rgrid, dm_mass, baryon_mass, pot.rvir(overdens=180.,wrtcrit=False), f_bar )
         elif method.lower() == 'blumenthal':
             new_rforce *= _contraction_ratio_Blumenthal1986(rgrid, dm_mass, baryon_mass, f_bar )
-        else:
-            print( "Add galpy warning. Invalid choice for dark matter halo contraction!" )
 #         new_rforce[0]= 0.
 #         new_rforce_func= lambda r: -numpy.interp(r,rgrid,new_rforce)
         new_rforce_func= lambda r: -interp1d(rgrid,new_rforce,bounds_error=False,fill_value=(new_rforce[0],0.))(r)
