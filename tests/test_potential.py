@@ -3497,14 +3497,22 @@ def test_DehnenSmoothWrapper_decay():
 
 def test_AdiabaticContractionWrapper():
     # Some basic tests of adiabatic contraction
-    dm1= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
-                                             f_bar=None,method='cautun')
-    dm2= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
-                                             f_bar=0.157,method='cautun')
-    dm3= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
-                                             f_bar=0.157,method='blumenthal')
-    dm4= AdiabaticContractionWrapperPotential(pot=potential.MWPotential2014[2],baryonpot=potential.MWPotential2014[:2],
-                                             f_bar=0.157,method='gnedin')
+    dm1= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=None,method='cautun')
+    dm2= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='cautun')
+    dm3= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='blumenthal')
+    dm4= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='gnedin')
     # at large r, the contraction should be almost negligible (1% for Cautun)
     r = 50.
     assert numpy.fabs(dm1.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-1.02) < 1e-2, '"cautun" adiabatic contraction at large distances'
@@ -3513,13 +3521,13 @@ def test_AdiabaticContractionWrapper():
     assert numpy.fabs(dm4.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.98) < 1e-2, '"gnedin" adiabatic contraction at large distances'
     # For MWPotential2014, contraction at 1 kpc should be about 4 in mass for
     # Cautun (their Fig. 2; Mstar ~ 7e10 Msun)
-    r = 1./dm1._ro
+    r= 1./dm1._ro
     assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-3.40) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
     assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-3.18) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
     assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-4.22) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 1 kpc'
     assert numpy.fabs(dm4.mass(r)/potential.MWPotential2014[2].mass(r)-4.04) < 1e-2, '"gnedin" adiabatic contraction does not agree at R ~ 1 kpc'
     # At 10 kpc, it should be more like 2
-    r = 10./dm1._ro
+    r= 10./dm1._ro
     assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-1.78) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
     assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-1.64) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
     assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-1.67) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 10 kpc'
@@ -5061,7 +5069,8 @@ class mockAdiabaticContractionMWP14WrapperPotential(AdiabaticContractionWrapperP
     def __init__(self):
         AdiabaticContractionWrapperPotential.__init__(self,\
                                 pot=potential.MWPotential2014[2],
-                                baryonpot=potential.MWPotential2014[:2])
+                                baryonpot=potential.MWPotential2014[:2],
+                                f_bar=None)
 class mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential(AdiabaticContractionWrapperPotential):
     def __init__(self):
         AdiabaticContractionWrapperPotential.__init__(self,\
