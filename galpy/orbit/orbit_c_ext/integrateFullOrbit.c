@@ -503,10 +503,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 16;
       potentialArgs->requiresVelocity= true;
       break;
-    case -8: //zvecAdjustmentWrapperPotential
-      potentialArgs->Rforce= &zvecAdjustmentWrapperPotentialRforce;
-      potentialArgs->zforce= &zvecAdjustmentWrapperPotentialzforce;
-      potentialArgs->phiforce= &zvecAdjustmentWrapperPotentialphiforce;
+    case -8: //RotateAndTiltWrapperPotential
+      potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
+      potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
+      potentialArgs->phiforce= &RotateAndTiltWrapperPotentialphiforce;
       potentialArgs->nargs= (int) 2;
       potentialArgs->requiresVelocity= false;
       break;

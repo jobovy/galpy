@@ -424,12 +424,12 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphiforce= &MovingObjectPotentialPlanarphiforce;
       potentialArgs->nargs= (int) 3;
       break;
-		case -8: //zvecAdjustmentWrapperPotential
-      potentialArgs->planarRforce= &zvecAdjustmentWrapperPotentialPlanarRforce;
-      potentialArgs->planarphiforce= &zvecAdjustmentWrapperPotentialPlanarphiforce;
-      potentialArgs->planarR2deriv= &zvecAdjustmentWrapperPotentialPlanarR2deriv;
-      potentialArgs->planarphi2deriv= &zvecAdjustmentWrapperPotentialPlanarphi2deriv;
-      potentialArgs->planarRphideriv= &zvecAdjustmentWrapperPotentialPlanarRphideriv;
+		case -8: //RotateAndTiltWrapperPotential
+      potentialArgs->planarRforce= &RotateAndTiltWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &RotateAndTiltWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &RotateAndTiltWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &RotateAndTiltWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &RotateAndTiltWrapperPotentialPlanarRphideriv;
       potentialArgs->nargs= (int) 2;
       break;
     }

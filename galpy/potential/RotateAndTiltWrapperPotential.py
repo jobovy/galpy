@@ -1,12 +1,12 @@
 ###############################################################################
-#   zvecAdjustmentWrapperPotential.py: Wrapper to tilt the z-axis of a potential
+#   RotateAndTiltWrapperPotential.py: Wrapper to tilt the z-axis of a potential
 ###############################################################################
 import numpy
 from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
 from ..util import _rotate_to_arbitrary_vector
 from ..util import coords
-class zvecAdjustmentWrapperPotential(parentWrapperPotential):
+class RotateAndTiltWrapperPotential(parentWrapperPotential):
     """ Potential wrapper class that implements an adjustment to the z-axis vector of a given Potential. This can be used, for example, to tilt a disc to a desired inclination angle
     """
     def __init__(self,amp=1.,zvec=None,pot=None,
@@ -18,7 +18,7 @@ class zvecAdjustmentWrapperPotential(parentWrapperPotential):
 
         PURPOSE:
 
-           initialize a zvecAdjustmentWrapper Potential
+           initialize a RotateAndTiltWrapper Potential
 
         INPUT:
 

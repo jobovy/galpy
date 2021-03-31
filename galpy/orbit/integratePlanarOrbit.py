@@ -322,9 +322,9 @@ def _parse_pot(pot):
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
-              and isinstance(p._Pot,potential.zvecAdjustmentWrapperPotential)) \
-              or isinstance(p,potential.zvecAdjustmentWrapperPotential):
-            if not isinstance(p,potential.zvecAdjustmentWrapperPotential):
+              and isinstance(p._Pot,potential.RotateAndTiltWrapperPotential)) \
+              or isinstance(p,potential.RotateAndTiltWrapperPotential):
+            if not isinstance(p,potential.RotateAndTiltWrapperPotential):
                 p= p._Pot
             pot_type.append(-8)
             # wrap_pot_type, args, and npot obtained before this horrible if

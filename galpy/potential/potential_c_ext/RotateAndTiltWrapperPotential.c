@@ -2,7 +2,7 @@
 #include <math.h>
 #include <bovy_coords.h>
 #include <galpy_potentials.h>
-//zvecAdjustmentWrapperPotential
+//RotateAndTiltWrapperPotential
 static inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
   xp= *(rot)   * *x + *(rot+1) * *y + *(rot+2) * *z;
@@ -22,7 +22,7 @@ static inline void rotate_force(double *Fx, double *Fy, double *Fz,
   *Fy= Fyp;
   *Fz= Fzp;
 }
-double zvecAdjustmentWrapperPotentialRforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialRforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
    double * args = potentialArgs->args;
@@ -36,7 +36,7 @@ double zvecAdjustmentWrapperPotentialRforce(double R, double z, double phi,
    return *args * calcRforce(R,z,phi,t, potentialArgs->nwrapped,
       potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialphiforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialphiforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -49,7 +49,7 @@ double zvecAdjustmentWrapperPotentialphiforce(double R, double z, double phi,
     return *args * calcPhiforce(R,z,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialzforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -62,7 +62,7 @@ double zvecAdjustmentWrapperPotentialzforce(double R, double z, double phi,
     return *args * calczforce(R,z,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialPlanarRforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarRforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -75,7 +75,7 @@ double zvecAdjustmentWrapperPotentialPlanarRforce(double R, double z, double phi
     return *args * calcPlanarRforce(R,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialPlanarphiforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarphiforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -88,7 +88,7 @@ double zvecAdjustmentWrapperPotentialPlanarphiforce(double R, double z, double p
     return *args * calcPlanarphiforce(R,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialPlanarR2deriv(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarR2deriv(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -101,7 +101,7 @@ double zvecAdjustmentWrapperPotentialPlanarR2deriv(double R, double z, double ph
     return *args * calcPlanarR2deriv(R,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialPlanarphi2deriv(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarphi2deriv(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
@@ -114,7 +114,7 @@ double zvecAdjustmentWrapperPotentialPlanarphi2deriv(double R, double z, double 
     return *args * calcPlanarphi2deriv(R,phi,t, potentialArgs->nwrapped,
        potentialArgs->wrappedPotentialArg);
 }
-double zvecAdjustmentWrapperPotentialPlanarRphideriv(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarRphideriv(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;

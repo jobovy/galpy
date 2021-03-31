@@ -682,23 +682,23 @@ double MovingObjectPotentialPlanarRforce(double,double,double,
 					struct potentialArg *);
 double MovingObjectPotentialPlanarphiforce(double,double,double,
 					    struct potentialArg *);
-//zvecAdjustmentWrapperPotential
-double zvecAdjustmentWrapperPotentialRforce(double,double,double,double,
+//RotateAndTiltWrapperPotential
+double RotateAndTiltWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
-double zvecAdjustmentWrapperPotentialphiforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialphiforce(double,double,double,double,
 					    struct potentialArg *);
-double zvecAdjustmentWrapperPotentialzforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
-double zvecAdjustmentWrapperPotentialPlanarRforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialPlanarRforce(double,double,double,double,
 						struct potentialArg *);
-double zvecAdjustmentWrapperPotentialPlanarphiforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialPlanarphiforce(double,double,double,double,
 						  struct potentialArg *);
-double zvecAdjustmentWrapperPotentialPlanarR2deriv(double,double,double,double,
+double RotateAndTiltWrapperPotentialPlanarR2deriv(double,double,double,double,
 						 struct potentialArg *);
-double zvecAdjustmentWrapperPotentialPlanarphi2deriv(double,double,double,
+double RotateAndTiltWrapperPotentialPlanarphi2deriv(double,double,double,
                double,
 						   struct potentialArg *);
-double zvecAdjustmentWrapperPotentialPlanarRphideriv(double,double,double,
+double RotateAndTiltWrapperPotentialPlanarRphideriv(double,double,double,
                double,
 						   struct potentialArg *);
 //ChandrasekharDynamicalFrictionForce, takes vR,vT,vZ
