@@ -165,6 +165,8 @@ def test_forceAsDeriv_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -336,6 +338,8 @@ def test_2ndDeriv_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -562,6 +566,8 @@ def test_poisson_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')   
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -669,6 +675,8 @@ def test_poisson_surfdens_potential():
     """
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -796,6 +804,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1006,6 +1016,8 @@ def test_amp_mult_divide():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1055,6 +1067,8 @@ def test_potential_array_input():
                and not 'toVertical' in p)]
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
              'planarPotential', 'verticalPotential','PotentialError',
@@ -1268,6 +1282,8 @@ def test_potential_at_zero():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1374,6 +1390,8 @@ def test_potential_at_infinity():
     pots.append('nonaxiDiskSCFPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockInterpSphericalPotentialwForce')
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -2448,6 +2466,35 @@ def test_McMillan17():
     # Mass in stars, compute bulge+disk and subtract what's supposed to be gas
     assert numpy.fabs((McMillan17[0].mass(50./8.21,quantity=False)+McMillan17[2].mass(50./8.21,quantity=False))/10.**10.-1.22-5.43) < 1e-1, 'Stellar massi n McMillan17 does not agree with what it is supposed to be'
     return None
+
+# Test that the Cautun20 potential is what it's supposed to be
+def test_Cautun20():
+    from galpy.potential.mwpotentials import Cautun20
+    from galpy.util import conversion
+    ro,vo= Cautun20[0]._ro, Cautun20[0]._vo
+    # Check the rotation velocity at a few distances
+    # at the Sun
+    assert numpy.fabs(potential.vcirc(Cautun20,1.,quantity=False)-230.1) < 1e-1, 'Total circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],1.,quantity=False)-157.6) < 1e-1, 'Halo circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[1],1.,quantity=False)-151.2) < 1e-1, 'Disc circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[2],1.,quantity=False)-70.8) < 1e-1, 'Bulge circular velocity at the Sun in Cautun20 does not agree with what it should be'
+    # at 50 kpc
+    assert numpy.fabs(potential.vcirc(Cautun20,50./ro,quantity=False)-184.3) < 1e-1, 'Total circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[0],50./ro,quantity=False)-166.9) < 1e-1, 'Halo circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[1],50./ro,quantity=False)-68.9) < 1e-1, 'Disc circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.vcirc(Cautun20[2],50./ro,quantity=False)-28.3) < 1e-1, 'Bulge circular velocity at 50 kpc in Cautun20 does not agree with what it should be'
+    # check the enclosed halo mass
+    assert numpy.fabs((Cautun20[0].mass(50./ro,quantity=False))/10.**11-3.23) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    assert numpy.fabs((Cautun20[0].mass(200./ro,quantity=False))/10.**11-9.03) < 1e-2, 'DM halo mass within 50 kpc in Cautun20 does not agree with what it is supposed to be'
+    # check the CGM density
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[3],1.,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e5-9.34) < 1e-2, 'CGM density at the Sun in Cautun20 does not agree with what it should be'
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[3],50./ro,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e6-6.49) < 1e-2, 'CGM density at 50 kpc in Cautun20 does not agree with what it should be'
+    # Halo density at the Sun
+    assert numpy.fabs(potential.evaluateDensities(Cautun20[0],1.,0.,use_physical=False)
+                      *conversion.dens_in_msolpc3(vo,ro)*1.e3-8.8) < 5e-2, 'Halo density at the Sun in Cautun20 does not agree with what it should be'
+    return None
     
 # Test that the Irrgang13 potentials are what they are supposed to be
 def test_Irrgang13():
@@ -3446,6 +3493,45 @@ def test_DehnenSmoothWrapper_decay():
     ts= numpy.linspace(0.,10.,1001)
     assert numpy.amax(numpy.fabs(lp(2.,0.,ts)-[pot_grow(2.,0.,t=t)+pot_decay(2.,0.,t=t) for t in ts])) < 1e-10, 'DehnenSmoothWrapper with decay=True is not the opposite of the same with decay=False'
     assert numpy.amax(numpy.fabs(lp.Rforce(2.,0.,ts)-[pot_grow.Rforce(2.,0.,t=t)+pot_decay.Rforce(2.,0.,t=t) for t in ts])) < 1e-10, 'DehnenSmoothWrapper with decay=True is not the opposite of the same with decay=False'
+    return None
+
+def test_AdiabaticContractionWrapper():
+    # Some basic tests of adiabatic contraction
+    dm1= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=None,method='cautun')
+    dm2= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='cautun')
+    dm3= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='blumenthal')
+    dm4= AdiabaticContractionWrapperPotential(\
+            pot=potential.MWPotential2014[2],
+            baryonpot=potential.MWPotential2014[:2],
+            f_bar=0.157,method='gnedin')
+    # at large r, the contraction should be almost negligible (1% for Cautun)
+    r = 50.
+    assert numpy.fabs(dm1.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-1.02) < 1e-2, '"cautun" adiabatic contraction at large distances'
+    assert numpy.fabs(dm2.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.97) < 1e-2, '"cautun" adiabatic contraction at large distances'
+    assert numpy.fabs(dm3.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.98) < 1e-2, '"blumenthal" adiabatic contraction at large distances'
+    assert numpy.fabs(dm4.vcirc(r)/potential.MWPotential2014[2].vcirc(r)-0.98) < 1e-2, '"gnedin" adiabatic contraction at large distances'
+    # For MWPotential2014, contraction at 1 kpc should be about 4 in mass for
+    # Cautun (their Fig. 2; Mstar ~ 7e10 Msun)
+    r= 1./dm1._ro
+    assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-3.40) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-3.18) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-4.22) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 1 kpc'
+    assert numpy.fabs(dm4.mass(r)/potential.MWPotential2014[2].mass(r)-4.04) < 1e-2, '"gnedin" adiabatic contraction does not agree at R ~ 1 kpc'
+    # At 10 kpc, it should be more like 2
+    r= 10./dm1._ro
+    assert numpy.fabs(dm1.mass(r)/potential.MWPotential2014[2].mass(r)-1.78) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm2.mass(r)/potential.MWPotential2014[2].mass(r)-1.64) < 1e-2, '"cautun" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm3.mass(r)/potential.MWPotential2014[2].mass(r)-1.67) < 1e-2, '"blumenthal" adiabatic contraction does not agree at R ~ 10 kpc'
+    assert numpy.fabs(dm4.mass(r)/potential.MWPotential2014[2].mass(r)-1.43) < 1e-2, '"gnedin" adiabatic contraction does not agree at R ~ 10 kpc'
     return None
 
 def test_vtermnegl_issue314():
@@ -4768,7 +4854,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
-    GaussianAmplitudeWrapperPotential
+    GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -4979,3 +5065,16 @@ class nestedListPotential(testMWPotential):
                                  potlist=[potential.MWPotential2014,potential.SpiralArmsPotential()])
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+class mockAdiabaticContractionMWP14WrapperPotential(AdiabaticContractionWrapperPotential):
+    def __init__(self):
+        AdiabaticContractionWrapperPotential.__init__(self,\
+                                pot=potential.MWPotential2014[2],
+                                baryonpot=potential.MWPotential2014[:2],
+                                f_bar=None)
+class mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential(AdiabaticContractionWrapperPotential):
+    def __init__(self):
+        AdiabaticContractionWrapperPotential.__init__(self,\
+                                pot=potential.MWPotential2014[2],
+                                baryonpot=potential.MWPotential2014[:2],
+                                f_bar=0.1)
+        

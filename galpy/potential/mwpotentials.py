@@ -31,6 +31,7 @@ class _ExpensivePotentials(object):
     def __init__(self):
         # Initialize all expensive potentials as None, filled in when loaded
         self._mcmillan17= None
+        self._cautun20= None
         self._irrgang13i= None
         self._irrgang13ii= None
         self._irrgang13iii= None
@@ -45,8 +46,8 @@ class _ExpensivePotentials(object):
     # For tab completion
     def __dir__(self):  # pragma: no cover
         return ['McMillan17','Irrgang13I','Irrgang13II','Irrgang13III',
-                'DehnenBinney98I','DehnenBinney98II','DehnenBinney98III',
-                'DehnenBinney98IV']
+                'Cautun20','DehnenBinney98I','DehnenBinney98II',
+                'DehnenBinney98III','DehnenBinney98IV']
 
     @property
     def McMillan17(self):
@@ -56,6 +57,15 @@ class _ExpensivePotentials(object):
             from galpy.potential.McMillan17 import McMillan17 as _McMillan17
             self._mcmillan17= _McMillan17
         return self._mcmillan17
+    
+    @property
+    def Cautun20(self):
+        if not self._cautun20:
+            # In python 3 this can be a relative import, but for some reason
+            # in python 2 it cannot
+            from galpy.potential.Cautun20 import Cautun20 as _Cautun20
+            self._cautun20= _Cautun20
+        return self._cautun20
 
     @property
     def Irrgang13I(self):

@@ -1098,7 +1098,7 @@ class Potential(Force):
         
             2011-10-09 - Written - Bovy (IAS)
         
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+            2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """  
         return numpy.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))

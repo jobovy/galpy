@@ -32,6 +32,10 @@ v1.7 (XXXX-XX-XX)
 - Added interpSphericalPotential class to build interpolated versions
   of spherical potentials (#424).
 
+- Added AdiabaticContractionWrapperPotential, a wrapper potential to
+  adiabatically contract a spherical dark-matter halo in response to
+  the adiabatic growth of a baryonic component.
+
 - Added potential functions to compute the zero-velocity curve: zvc
   and zvc_range; the latter computes the range in R over which the
   zero-velocity curve is defined, the former gives the positive z
