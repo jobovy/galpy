@@ -9,7 +9,7 @@ from ..util import coords
 class RotateAndTiltWrapperPotential(parentWrapperPotential):
     """ Potential wrapper class that implements an adjustment to the z-axis vector of a given Potential. This can be used, for example, to tilt a disc to a desired inclination angle
     """
-    def __init__(self,amp=1.,zvec=None,pot=None,
+    def __init__(self,amp=1.,zvec=None,pa=None,pot=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -33,23 +33,28 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
            2020-03-29 - Started - Mackereth (UofT)
 
         """
-        self._setup_zvec(zvec)
+        self._setup_zvec_pa(zvec)
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi = True
 
-    def _setup_zvec(self,zvec):
+    def _setup_zvec_pa(self,zvec,pa):
         """ taken from EllipsoidalPotential """
+        if not pa is None:
+            pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
+                                 [-numpy.sin(pa),numpy.cos(pa),0.],
+                                 [0.,0.,1.]])
+        else:
+            pa_rot = numpy.eye(3)
         if not zvec is None:
             if not isinstance(zvec,numpy.ndarray):
                 zvec= numpy.array(zvec)
             zvec/= numpy.sqrt(numpy.sum(zvec**2.))
             zvec_rot= _rotate_to_arbitrary_vector(\
                 numpy.array([[0.,0.,1.]]),zvec,inv=True)[0]
-            self._rot = zvec_rot
         else:
-            self._rot = numpy.eye(3)
-
+            zvec_rot = numpy.eye(3)
+        self._rot = numpy.dot(pa_rot,zvec_rot)
         return None
 
     def _wrap(self,attribute,*args,**kwargs):
