@@ -58,7 +58,7 @@ class WrapperPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1.)
 
-           pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
+           pot - Potential instance or list thereof
 
         OUTPUT:
 

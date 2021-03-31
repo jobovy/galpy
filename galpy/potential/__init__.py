@@ -54,6 +54,7 @@ from . import TriaxialGaussianPotential
 from . import KingPotential
 from . import AnyAxisymmetricRazorThinDiskPotential
 from . import AnySphericalPotential
+from . import AdiabaticContractionWrapperPotential
 #
 # Functions
 #
@@ -190,6 +191,7 @@ SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRo
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
 RotateAndTiltWrapperPotential = RotateAndTiltWrapperPotential.RotateAndTiltWrapperPotential
+AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience
