@@ -22,108 +22,67 @@ static inline void rotate_force(double *Fx, double *Fy, double *Fz,
   *Fy= Fyp;
   *Fz= Fzp;
 }
+void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
+                 double t, double * Fx, double * Fy, double * Fz,
+                 struct potentialArg * potentialArgs){
+    double * args = potentialArgs->args;
+    double * rot = args+1;
+    double x, y, t_z;
+    double t_R, t_phi;
+    cyl_to_rect(R, phi, &x, &y);
+    rotate(&x,&y,&t_z,rot);
+    rect_to_cyl(x,y,&t_R,&t_phi);
+    //now get the forces in R, phi, z
+    double Rforce, phiforce;
+    Rforce = calcRforce(t_R, t_z, t_phi, t, potentialArgs->nwrapped,
+                        potentialArgs->wrappedPotentialArg);
+    phiforce = calcPhiforce(t_R, t_z, t_phi, t, potentialArgs->nwrapped,
+                        potentialArgs->wrappedPotentialArg);
+    *Fz = calczforce(t_R, t_z, t_phi, t, potentialArgs->nwrapped,
+                        potentialArgs->wrappedPotentialArg);
+    //back to rectangular
+    *Fx = cos( t_phi )*Rforce - sin( t_phi )*phiforce;
+    *Fy = sin( t_phi )*Rforce + cos( t_phi )*phiforce;
+    //rotate back
+    rotate_force(Fx,Fy,Fz,rot);
+}
 double RotateAndTiltWrapperPotentialRforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
    double * args = potentialArgs->args;
    // change the zvector, calculate Rforce
-
-   double * rot = args+1;
-   double x, y;
-   cyl_to_rect(R,phi,&x, &y);
-   rotate(&x,&y,&z,rot);
-   rect_to_cyl(x,y,&R, &phi);
-   return *args * calcRforce(R,z,phi,t, potentialArgs->nwrapped,
-      potentialArgs->wrappedPotentialArg);
+   double Fx, Fy, Fz;
+   RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
+                                          potentialArgs);
+   return *args * ( cos ( phi ) * Fx + sin ( phi ) * Fy );
 }
 double RotateAndTiltWrapperPotentialphiforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate phiforce
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPhiforce(R,z,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
+    double * args = potentialArgs->args;
+    // change the zvector, calculate Rforce
+    double Fx, Fy, Fz;
+    RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
+                                           potentialArgs);
+    return *args * ( -sin ( phi ) * Fx + cos ( phi ) * Fy );
 }
 double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate zforce
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calczforce(R,z,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
+    double * args = potentialArgs->args;
+    // change the zvector, calculate Rforce
+    double Fx, Fy, Fz;
+    RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
+                                           potentialArgs);
+    return *args * Fz;
 }
-double RotateAndTiltWrapperPotentialPlanarRforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarRforce(double R, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate Rforce
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPlanarRforce(R,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
+    return EllipsoidalPotentialRforce(R, 0., phi, t, potentialArgs);
 }
-double RotateAndTiltWrapperPotentialPlanarphiforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialPlanarphiforce(double R, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate phiforce
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPlanarphiforce(R,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
-}
-double RotateAndTiltWrapperPotentialPlanarR2deriv(double R, double z, double phi,
-        double t,
-        struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate R2deriv
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPlanarR2deriv(R,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
-}
-double RotateAndTiltWrapperPotentialPlanarphi2deriv(double R, double z, double phi,
-        double t,
-        struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate phi2deriv
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPlanarphi2deriv(R,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
-}
-double RotateAndTiltWrapperPotentialPlanarRphideriv(double R, double z, double phi,
-        double t,
-        struct potentialArg * potentialArgs){
-    double * args= potentialArgs->args;
-    //calculate Rphideriv
-    double * rot = args+1;
-    double x, y;
-    cyl_to_rect(R,phi,&x, &y);
-    rotate(&x,&y,&z,rot);
-    rect_to_cyl(x,y,&R, &phi);
-    return *args * calcPlanarRphideriv(R,phi,t, potentialArgs->nwrapped,
-       potentialArgs->wrappedPotentialArg);
+    return EllipsoidalPotentialphiforce(R, 0., phi, t, potentialArgs);
 }
