@@ -284,7 +284,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._minr**2.])
             pot_args.extend([p._sigmar_rs_4interp[0],
                              p._sigmar_rs_4interp[-1]]) #r_0, r_f
-        elif isinstance(p,potential.zvecAdjustmentWrapperPotential):
+        elif isinstance(p,potential.RotateAndTiltWrapperPotential):
             pot_type.append(-8)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args= \

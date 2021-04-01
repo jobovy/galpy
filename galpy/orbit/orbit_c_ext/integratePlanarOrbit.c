@@ -427,10 +427,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 		case -8: //RotateAndTiltWrapperPotential
       potentialArgs->planarRforce= &RotateAndTiltWrapperPotentialPlanarRforce;
       potentialArgs->planarphiforce= &RotateAndTiltWrapperPotentialPlanarphiforce;
-      potentialArgs->planarR2deriv= &RotateAndTiltWrapperPotentialPlanarR2deriv;
-      potentialArgs->planarphi2deriv= &RotateAndTiltWrapperPotentialPlanarphi2deriv;
-      potentialArgs->planarRphideriv= &RotateAndTiltWrapperPotentialPlanarRphideriv;
-      potentialArgs->nargs= (int) 2;
+      potentialArgs->nargs= (int) 10;
       break;
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;

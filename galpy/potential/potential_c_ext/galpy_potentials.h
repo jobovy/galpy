@@ -689,18 +689,10 @@ double RotateAndTiltWrapperPotentialphiforce(double,double,double,double,
 					    struct potentialArg *);
 double RotateAndTiltWrapperPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
-double RotateAndTiltWrapperPotentialPlanarRforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
-double RotateAndTiltWrapperPotentialPlanarphiforce(double,double,double,double,
+double RotateAndTiltWrapperPotentialPlanarphiforce(double,double,double,
 						  struct potentialArg *);
-double RotateAndTiltWrapperPotentialPlanarR2deriv(double,double,double,double,
-						 struct potentialArg *);
-double RotateAndTiltWrapperPotentialPlanarphi2deriv(double,double,double,
-               double,
-						   struct potentialArg *);
-double RotateAndTiltWrapperPotentialPlanarRphideriv(double,double,double,
-               double,
-						   struct potentialArg *);
 //ChandrasekharDynamicalFrictionForce, takes vR,vT,vZ
 double ChandrasekharDynamicalFrictionForceRforce(double,double,double,double,
 						 struct potentialArg *,
