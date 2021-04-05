@@ -168,7 +168,6 @@ def test_forceAsDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -342,7 +341,6 @@ def test_2ndDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -571,7 +569,6 @@ def test_poisson_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
