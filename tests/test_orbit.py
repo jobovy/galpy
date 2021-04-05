@@ -69,7 +69,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     testorbitHenonHeilesPotential, \
     nestedListPotential, \
     mockInterpSphericalPotential, \
-    mockAdiabaticContractionMWP14WrapperPotential
+    mockAdiabaticContractionMWP14WrapperPotential, \
+    mockRotatedAndTiltedMWP14WrapperPotential
 _TRAVIS= bool(os.getenv('TRAVIS'))
 if not _TRAVIS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -94,9 +95,9 @@ def test_energy_jacobi_conservation():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'toPlanar' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
+               and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     pots.append('mockFlatEllipticalDiskPotential')
@@ -138,13 +139,14 @@ def test_energy_jacobi_conservation():
     pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential')
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
     pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
-    pots.append('triaxialLogarithmicHaloPotential')   
-    pots.append('testorbitHenonHeilesPotential')   
+    pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('testorbitHenonHeilesPotential')
     pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
-    pots.append('mockAdiabaticContractionMWP14WrapperPotential')   
+    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -483,9 +485,9 @@ def test_energy_conservation_linear():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
-               and not 'FullTo' in p and not 'toPlanar' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
+               and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
     pots.append('specialMiyamotoNagaiPotential')
@@ -508,7 +510,7 @@ def test_energy_conservation_linear():
     pots.append('sech2DiskSCFPotential')
     pots.append('expwholeDiskSCFPotential')
     pots.append('altExpwholeDiskSCFPotential')
-    pots.append('triaxialLogarithmicHaloPotential')   
+    pots.append('triaxialLogarithmicHaloPotential')
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
@@ -605,7 +607,7 @@ def test_energy_symplec_longterm():
     #tolerances in log10
     tol= {}
     tol['default']= -20.
-    tol['leapfrog_c']= -16. 
+    tol['leapfrog_c']= -16.
     tol['leapfrog']= -16.
     for p in pots:
         #Setup instance of potential
@@ -633,7 +635,7 @@ def test_energy_symplec_longterm():
                 "Absence of secular trend in energy conservation fails for potential %s and symplectic integrator %s" %(p,integrator)
     #raise AssertionError
     return None
-   
+
 def test_liouville_planar():
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
@@ -643,8 +645,8 @@ def test_liouville_planar():
                   'odeint', #direct python solver
                   'rk4_c','rk6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -670,16 +672,17 @@ def test_liouville_planar():
     #pots.append('mockFlatSteadyLogSpiralPotential')
     #pots.append('mockFlatTransientLogSpiralPotential')
     pots.append('mockFlatDehnenSmoothBarPotential')
-    pots.append('mockSlowFlatDehnenSmoothBarPotential') 
-    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential') 
+    pots.append('mockSlowFlatDehnenSmoothBarPotential')
+    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential')
     pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
-    pots.append('triaxialLogarithmicHaloPotential')   
-    pots.append('testorbitHenonHeilesPotential')   
+    pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('testorbitHenonHeilesPotential')
     pots.append('mockFlatTrulyCorotatingRotationSpiralArmsPotential')
     pots.append('mockFlatTrulyGaussianAmplitudeBarPotential')
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -809,8 +812,8 @@ def test_eccentricity():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -923,7 +926,7 @@ def test_eccentricity():
             if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
-    
+
 # Test that the pericenter of orbits launched with vR=0 and vT > vc is the starting radius
 def test_pericenter():
     #return None
@@ -936,8 +939,8 @@ def test_pericenter():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -1189,8 +1192,8 @@ def test_zmax():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -1303,8 +1306,8 @@ def test_analytic_ecc_rperi_rap():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -1572,7 +1575,7 @@ def test_analytic_ecc_rperi_rap():
             if _QUICKTEST and (not 'NFW' in p or tp.isNonAxi): break
     #raise AssertionError
     return None
-    
+
 def test_orbit_rguiding():
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
         TriaxialNFWPotential, rl
@@ -1630,8 +1633,8 @@ def test_analytic_zmax():
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
     #Grab all of the potentials
-    pots= [p for p in dir(potential) 
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p 
+    pots= [p for p in dir(potential)
+           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
                and not 'FullTo' in p and not 'toPlanar' in p
                and not 'evaluate' in p and not 'Wrapper' in p
                and not 'toVertical' in p)]
@@ -1915,7 +1918,7 @@ def test_angularmomentum():
     o= Orbit([1.,0.1,1.1])
     assert numpy.ndim(o.L()) == 0, "planarOrbit's angular momentum isn't 1D"
     assert o.L() == 1.1, "planarOrbit's angular momentum isn't correct"
-    if False: 
+    if False:
         #JB 5/23/2019 isn'tn sure why he ever implemented the Omega
         # keyword for L, so decided not to support this in new Orbits
         # If Omega is given, then it should be subtracted
@@ -4403,7 +4406,7 @@ def test_orbit_sun_setup():
 def test_integrate_dxdv_errors():
     from galpy.orbit import Orbit
     ts= numpy.linspace(0.,10.,1001)
-    # Test that attempting to use integrate_dxdv with a non-phasedim==4 orbit 
+    # Test that attempting to use integrate_dxdv with a non-phasedim==4 orbit
     # raises error
     o= Orbit([1.,0.1])
     with pytest.raises(AttributeError) as excinfo:
@@ -4868,10 +4871,10 @@ def test_from_name_named():
             else:
                 assert numpy.isclose(getattr(o,'{:s}'.format(attr))(),
                                      named_data[obj][attr])
-    return None    
+    return None
 
 def test_from_name_collections():
-    # Test that the values from the JSON file are correctly transferred, 
+    # Test that the values from the JSON file are correctly transferred,
     # for collections of objects
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import _known_objects_collections_original_keys
@@ -4897,7 +4900,7 @@ def test_from_name_collections():
                 else:
                     assert numpy.isclose(getattr(o,'{:s}'.format(attr))()[ii],
                                          named_data[individual_obj][attr])
-    return None    
+    return None
 
 def test_from_name_solarsystem():
     # Test that the solar system matches Bovy et al. (2010)'s input data
@@ -4937,7 +4940,7 @@ def test_rguiding_errors():
     return None
 
 def test_phi_range():
-    # Test that the range returned by Orbit.phi is [-pi,pi], 
+    # Test that the range returned by Orbit.phi is [-pi,pi],
     # example from Jeremy Webb
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
@@ -5049,7 +5052,7 @@ def test_SkyCoord_init_with_radecisTrue():
     assert numpy.fabs(o_sky.vlos()-o_radec.vlos()) < 1e-8, 'Orbit setup with SkyCoord and lb=True does not agree with Orbit setup directly with lb'
     return None
 
-# Test related to issue #415: calling an Orbit with a single int time does not 
+# Test related to issue #415: calling an Orbit with a single int time does not
 # work properly
 # Test from @jamesmlane
 def test_orbit_call_single_time_as_int():
@@ -5067,7 +5070,7 @@ def test_orbit_call_single_time_as_int():
     assert numpy.fabs(o.x(times[0])-o.x()) < 1e-10
     return None
 
-# Test related to issue #415: calling an Orbit with a single Quantity time 
+# Test related to issue #415: calling an Orbit with a single Quantity time
 # does not work properly
 # Test from @jamesmlane
 def test_orbit_call_single_time_as_Quantity():
@@ -5355,4 +5358,3 @@ def test_MovingObjectPotential_planar_orbit():
     assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     return None
-

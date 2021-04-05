@@ -168,6 +168,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -341,6 +342,7 @@ def test_2ndDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -569,6 +571,7 @@ def test_poisson_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -807,6 +810,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1019,6 +1023,7 @@ def test_amp_mult_divide():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1285,6 +1290,7 @@ def test_potential_at_zero():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -4877,7 +4883,8 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 # Classes to test wrappers
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
-    GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential
+    GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential, \
+    RotateAndTiltWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -5100,3 +5107,13 @@ class mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential(AdiabaticContrac
                                 pot=potential.MWPotential2014[2],
                                 baryonpot=potential.MWPotential2014[:2],
                                 f_bar=0.1)
+
+class mockRotatedAndTiltedMWP14WrapperPotential(RotateAndTiltWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        mwpot = potential.MWPotential2014
+        return RotateAndTiltWrapperPotential.__new__(cls,\
+                                                     pot=mwpot,
+                                                     zvec=[numpy.sqrt(1/3.),numpy.sqrt(1/3.),numpy.sqrt(1/3.)],
+                                                     pa=0.4)
