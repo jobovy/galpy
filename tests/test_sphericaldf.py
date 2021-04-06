@@ -1673,6 +1673,21 @@ def test_constantbeta_dehnencore_rmin_rmax_dens_massprofile():
                                     tol,skip=1000)
     return None
 
+def test_constantbeta_dehnencore_rmin_rmax_beta():
+    if WIN32: return None # skip on appveyor, because no JAX
+    # Use list
+    pot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
+    twobetas= [0.5]
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_rmin_rmax):
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        rmin,rmax = 0.5,5.
+        tol= 0.07
+        # rmin larger than usual to avoid low number sampling
+        check_beta(samp,pot,tol,beta=twobeta/2.,
+                   rmin=rmin,rmax=rmax,bins=31)
+    return None
+
 ########################### TESTS OF ERRORS AND WARNINGS#######################
 
 def test_isotropic_hernquist_nopot():
