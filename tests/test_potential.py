@@ -5105,12 +5105,15 @@ class mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential(AdiabaticContrac
                                 baryonpot=potential.MWPotential2014[:2],
                                 f_bar=0.1)
 
-class mockRotatedAndTiltedMWP14WrapperPotential(RotateAndTiltWrapperPotential):
-    def __new__(cls,*args,**kwargs):
-        if kwargs.get('_init',False):
-            return parentWrapperPotential.__new__(cls,*args,**kwargs)
-        mwpot = potential.MWPotential2014
-        return RotateAndTiltWrapperPotential.__new__(cls,\
-                                                     pot=mwpot,
-                                                     zvec=[numpy.sqrt(1/3.),numpy.sqrt(1/3.),numpy.sqrt(1/3.)],
-                                                     pa=0.4)
+    def normalize(self,norm):
+        self._amp*= norm/numpy.fabs(self.Rforce(1.,0.,use_physical=False))
+class mockRotatedAndTiltedMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=[numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.)],
+                                              pa=0.4)])
+    def OmegaP(self):
+        return 0.

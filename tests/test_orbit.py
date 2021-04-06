@@ -195,6 +195,7 @@ def test_energy_jacobi_conservation():
             ptp= tp.toPlanar()
         else:
             ptp= None
+        print(p)
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \
@@ -226,6 +227,7 @@ def test_energy_jacobi_conservation():
                     or 'GaussianAmplitudeBar' in p  \
                     or p == 'mockMovingObjectLongIntPotential' \
                     or 'Cosmphi' in p or 'triaxialLog' in p \
+                    or 'RotatedAndTilted' in p \
                     or 'Henon' in p:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
@@ -323,6 +325,7 @@ def test_energy_jacobi_conservation():
                                            or ('Burkert' in p and not tp.hasC)): break
                 else: continue
             #Same for a planarPotential
+            if p == 'mockRotatedAndTiltedMWP14WrapperPotential': break
 #            print integrator
             if not ptp is None and not ptp.isNonAxi:
                 o= setup_orbit_energy(ptp,axi=True)
@@ -514,6 +517,7 @@ def test_energy_conservation_linear():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -682,7 +686,6 @@ def test_liouville_planar():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
