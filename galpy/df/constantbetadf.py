@@ -10,7 +10,7 @@ from .sphericaldf import anisotropicsphericaldf, sphericaldf
 # formula can be found following this class
 class _constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
-    def __init__(self,pot=None,denspot=None,beta=None,rmin=None,rmax=None,
+    def __init__(self,pot=None,denspot=None,beta=None,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -27,7 +27,7 @@ class _constantbetadf(anisotropicsphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 
@@ -103,7 +103,7 @@ class _constantbetadf(anisotropicsphericaldf):
 
 class constantbetadf(_constantbetadf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter for a given density profile"""
-    def __init__(self,pot=None,denspot=None,beta=0.,twobeta=None,rmin=None,
+    def __init__(self,pot=None,denspot=None,beta=0.,twobeta=None,rmin=0.,
                  rmax=None,scale=None,ro=None,vo=None):
         """
         NAME:
@@ -124,7 +124,7 @@ class constantbetadf(_constantbetadf):
 
            twobeta= (None) twice the anisotropy parameter (useful for \beta = half-integer, which is a special case); has priority over beta
 
-           rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+           rmin= (0.) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 

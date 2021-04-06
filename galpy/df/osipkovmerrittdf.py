@@ -11,7 +11,7 @@ from .eddingtondf import eddingtondf
 # formula can be found following this class
 class _osipkovmerrittdf(anisotropicsphericaldf):
     """General Osipkov-Merritt superclass with useful functions for any DF of the Osipkov-Merritt type."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=None,rmax=None,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -30,7 +30,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
             ra - anisotropy radius (can be a Quantity)
 
-           rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 
@@ -130,7 +130,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
     with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=None,rmax=1e4,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -149,7 +149,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
             ra - anisotropy radius (can be a Quantity)
 
-            rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+            rmin= (0) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 

@@ -33,7 +33,7 @@ if conversion._APY_LOADED:
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,rmin=None,rmax=None,
+    def __init__(self,pot=None,denspot=None,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -50,7 +50,7 @@ class sphericaldf(df):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 
@@ -81,8 +81,7 @@ class sphericaldf(df):
         self._denspot= self._pot if denspot is None else denspot
         if not conversion.physical_compatible(self._pot,self._denspot):
             raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the density potential")
-        self._rmin= 0. if rmin is None \
-            else conversion.parse_length(rmin,ro=self._ro)
+        conversion.parse_length(rmin,ro=self._ro)
         self._rmax= numpy.inf if rmax is None \
             else conversion.parse_length(rmax,ro=self._ro)            
         try:
@@ -525,7 +524,7 @@ class sphericaldf(df):
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,rmin=None,rmax=None,
+    def __init__(self,pot=None,denspot=None,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -542,7 +541,7 @@ class isotropicsphericaldf(sphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (None) when sampling, minimum radius to consider (can be Quantity)
+           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
 
            rmax= (None) when sampling, maximum radius to consider (can be Quantity)
 
@@ -612,7 +611,7 @@ class isotropicsphericaldf(sphericaldf):
     
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
-    def __init__(self,pot=None,denspot=None,rmin=None,rmax=None,
+    def __init__(self,pot=None,denspot=None,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -629,7 +628,7 @@ class anisotropicsphericaldf(sphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (None) minimum radius to consider (can be Quantity)
+           rmin= (0) minimum radius to consider (can be Quantity)
 
            rmax= (None) maximum radius to consider (can be Quantity)
 
