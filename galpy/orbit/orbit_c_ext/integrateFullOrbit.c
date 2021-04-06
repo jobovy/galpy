@@ -507,7 +507,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
       potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
       potentialArgs->phiforce= &RotateAndTiltWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 10;
+      potentialArgs->nargs= (int) 16;
       potentialArgs->requiresVelocity= false;
       break;
     }

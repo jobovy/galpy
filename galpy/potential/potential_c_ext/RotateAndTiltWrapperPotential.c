@@ -25,50 +25,50 @@ static inline void rotate_force(double *Fx, double *Fy, double *Fz,
 void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  double t, double * Fx, double * Fy, double * Fz,
                  struct potentialArg * potentialArgs){
-    double * args = potentialArgs->args;
-    double * rot = args+1;
+    double * args= potentialArgs->args;
+    double * rot= args+7;
     double x, y;
+    double Rforce, phiforce;
     cyl_to_rect(R, phi, &x, &y);
     //caching
-    *(args + 11) = x;
-    *(args + 12) = y;
-    *(args + 13) = z;
+    *(args + 1)= x;
+    *(args + 2)= y;
+    *(args + 3)= z;
+    //now get the forces in R, phi, z in the aligned frame
     rotate(&x,&y,&z,rot);
     rect_to_cyl(x,y,&R,&phi);
-    //now get the forces in R, phi, z
-    double Rforce, phiforce;
-    Rforce = calcRforce(R, z, phi, t, potentialArgs->nwrapped,
-                        potentialArgs->wrappedPotentialArg);
-    phiforce = calcPhiforce(R, z, phi, t, potentialArgs->nwrapped,
-                        potentialArgs->wrappedPotentialArg);
-    *Fz = calczforce(R, z, phi, t, potentialArgs->nwrapped,
-                        potentialArgs->wrappedPotentialArg);
+    Rforce= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
+		       potentialArgs->wrappedPotentialArg);
+    phiforce= calcPhiforce(R, z, phi, t, potentialArgs->nwrapped,
+			   potentialArgs->wrappedPotentialArg);
+    *Fz= calczforce(R, z, phi, t, potentialArgs->nwrapped,
+		    potentialArgs->wrappedPotentialArg);
     //back to rectangular
-    *Fx = cos( phi )*Rforce - sin( phi )*phiforce;
-    *Fy = sin( phi )*Rforce + cos( phi )*phiforce;
+    *Fx= cos( phi )*Rforce - sin( phi )*phiforce / R;
+    *Fy= sin( phi )*Rforce + cos( phi )*phiforce / R;
     //rotate back
     rotate_force(Fx,Fy,Fz,rot);
     //cache
-    *(args + 14) = *Fx;
-    *(args + 15) = *Fy;
-    *(args + 16) = *Fz;
+    *(args + 4)= *Fx;
+    *(args + 5)= *Fy;
+    *(args + 6)= *Fz;
 }
 double RotateAndTiltWrapperPotentialRforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
    double * args = potentialArgs->args;
    //get cached xyz
-   double cached_x = *(args + 11);
-   double cached_y = *(args + 12);
-   double cached_z = *(args + 13);
+   double cached_x = *(args + 1);
+   double cached_y = *(args + 2);
+   double cached_z = *(args + 3);
    // change the zvector, calculate Rforce
    double Fx, Fy, Fz;
    double x, y;
    cyl_to_rect(R, phi, &x, &y);
    if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx = *(args + 14);
-    Fy = *(args + 15);
-    Fz = *(args + 16);
+    Fx = *(args + 4);
+    Fy = *(args + 5);
+    Fz = *(args + 6);
    }
    else
     RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
@@ -80,39 +80,39 @@ double RotateAndTiltWrapperPotentialphiforce(double R, double z, double phi,
         struct potentialArg * potentialArgs){
     double * args = potentialArgs->args;
     //get cached xyz
-    double cached_x = *(args + 11);
-    double cached_y = *(args + 12);
-    double cached_z = *(args + 13);
+    double cached_x = *(args + 1);
+    double cached_y = *(args + 2);
+    double cached_z = *(args + 3);
     // change the zvector, calculate Rforce
     double Fx, Fy, Fz;
     double x, y;
     cyl_to_rect(R, phi, &x, &y);
     if ( x == cached_x && y == cached_y && z == cached_z ){
-     Fx = *(args + 14);
-     Fy = *(args + 15);
-     Fz = *(args + 16);
+     Fx = *(args + 4);
+     Fy = *(args + 5);
+     Fz = *(args + 6);
     }
     else
      RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
                                             potentialArgs);
-    return *args * ( -sin ( phi ) * Fx + cos ( phi ) * Fy );
+    return *args * R * ( -sin ( phi ) * Fx + cos ( phi ) * Fy );
 }
 double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args = potentialArgs->args;
     //get cached xyz
-    double cached_x = *(args + 11);
-    double cached_y = *(args + 12);
-    double cached_z = *(args + 13);
+    double cached_x = *(args + 1);
+    double cached_y = *(args + 2);
+    double cached_z = *(args + 3);
     // change the zvector, calculate Rforce
     double Fx, Fy, Fz;
     double x, y;
     cyl_to_rect(R, phi, &x, &y);
     if ( x == cached_x && y == cached_y && z == cached_z ){
-     Fx = *(args + 14);
-     Fy = *(args + 15);
-     Fz = *(args + 16);
+     Fx = *(args + 4);
+     Fy = *(args + 5);
+     Fz = *(args + 6);
     }
     else
      RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
@@ -122,10 +122,10 @@ double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
 double RotateAndTiltWrapperPotentialPlanarRforce(double R, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    return EllipsoidalPotentialRforce(R, 0., phi, t, potentialArgs);
+  return RotateAndTiltWrapperPotentialRforce(R, 0., phi, t, potentialArgs);
 }
 double RotateAndTiltWrapperPotentialPlanarphiforce(double R, double phi,
         double t,
         struct potentialArg * potentialArgs){
-    return EllipsoidalPotentialphiforce(R, 0., phi, t, potentialArgs);
+  return RotateAndTiltWrapperPotentialphiforce(R, 0., phi, t, potentialArgs);
 }

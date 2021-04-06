@@ -93,25 +93,25 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
         phiforce_a = self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)
         zforce_a = self._wrap_pot_func('_zforce')(self._pot,*args,**kwargs)
         #get the forces in x,y
-        xforce_a = numpy.cos(t_phi)*Rforce_a - numpy.sin(t_phi)*phiforce_a
-        yforce_a = numpy.sin(t_phi)*Rforce_a + numpy.cos(t_phi)*phiforce_a
+        xforce_a = numpy.cos(t_phi)*Rforce_a - numpy.sin(t_phi)*phiforce_a/t_R
+        yforce_a = numpy.sin(t_phi)*Rforce_a + numpy.cos(t_phi)*phiforce_a/t_R
         #rotate back
         Fxyz = numpy.dot(self._inv_rot, numpy.array([xforce_a,yforce_a,zforce_a]))
         return Fxyz
 
     def _Rforce(self,*args,**kwargs):
         Fxyz = self._force_xyz(*args,**kwargs)
-        o_R,o_phi,o_z = args[0],kwargs.get('phi',0.),0 if len(args) == 1 else args[1]
-        if o_phi is None:
-            o_phi = 0.
-        return numpy.cos(o_phi)*Fxyz[0] + numpy.sin(o_phi)*Fxyz[1]
+        phi= kwargs.get('phi',0.)
+        if phi is None:
+            phi= 0.
+        return numpy.cos(phi)*Fxyz[0] + numpy.sin(phi)*Fxyz[1]
 
     def _phiforce(self,*args,**kwargs):
         Fxyz = self._force_xyz(*args,**kwargs)
-        o_R,o_phi,o_z = args[0],kwargs.get('phi',0.),0 if len(args) == 1 else args[1]
-        if o_phi is None:
-            o_phi = 0.
-        return -numpy.sin(o_phi)*Fxyz[0] + numpy.cos(o_phi)*Fxyz[1]
+        R,phi= args[0],kwargs.get('phi',0.)
+        if phi is None:
+            phi= 0.
+        return R*(-numpy.sin(phi)*Fxyz[0] + numpy.cos(phi)*Fxyz[1])
 
     def _zforce(self,*args,**kwargs):
         Fxyz = self._force_xyz(*args,**kwargs)
