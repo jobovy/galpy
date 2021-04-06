@@ -81,7 +81,7 @@ class sphericaldf(df):
         self._denspot= self._pot if denspot is None else denspot
         if not conversion.physical_compatible(self._pot,self._denspot):
             raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the density potential")
-        rmin= conversion.parse_length(rmin,ro=self._ro)
+        self._rmin= conversion.parse_length(rmin,ro=self._ro)
         self._rmax= numpy.inf if rmax is None \
             else conversion.parse_length(rmax,ro=self._ro)            
         try:
