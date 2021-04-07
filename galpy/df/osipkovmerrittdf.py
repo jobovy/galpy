@@ -11,7 +11,7 @@ from .eddingtondf import eddingtondf
 # formula can be found following this class
 class _osipkovmerrittdf(anisotropicsphericaldf):
     """General Osipkov-Merritt superclass with useful functions for any DF of the Osipkov-Merritt type."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmax=None,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -29,7 +29,11 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
             ra - anisotropy radius (can be a Quantity)
-          
+
+           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
+
+           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
+
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot 
                 if available.
@@ -45,8 +49,8 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
-                                        scale=scale,ro=ro,vo=vo)
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmin=rmin,
+                                        rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._ra= conversion.parse_length(ra,ro=self._ro)
         self._ra2= self._ra**2.
 
@@ -126,7 +130,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
     with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmax=1e4,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -144,7 +148,9 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
             ra - anisotropy radius (can be a Quantity)
-          
+
+            rmin= (0) when sampling, minimum radius to consider (can be Quantity)
+
            rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 
            scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
@@ -160,13 +166,13 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             2021-02-07 - Written - Bovy (UofT)
 
         """
-        _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,
+        _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,rmin=rmin,
                                    rmax=rmax,scale=scale,ro=ro,vo=vo)
         # Because f(Q) is the same integral as the Eddington conversion, but
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density
         self._edf= eddingtondf(pot=self._pot,denspot=self._denspot,scale=scale,
-                               rmax=rmax,ro=ro,vo=vo)
+                               rmin=rmin,rmax=rmax,ro=ro,vo=vo)
         self._edf._dnudr= \
            (lambda r: self._denspot._ddensdr(r)*(1.+r**2./self._ra2) \
                    +2.*self._denspot.dens(r,0,use_physical=False)*r/self._ra2)\
