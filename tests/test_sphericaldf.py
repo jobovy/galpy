@@ -1492,6 +1492,20 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
         assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero'
     return None
 
+# Also some tests with rmin in sampling
+def test_constantbeta_selfconsist_dehnencore_rmin_inbounds():
+    if WIN32: return None # skip on appveyor, because no JAX
+    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
+    twobetas= [-1]
+    rmin = 0.5
+    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
+        samp= dfh.sample(n=1000000,rmin=rmin)
+        assert numpy.min(samp.r()) >= rmin, 'Sample minimum r less than rmin'
+        # Change rmin
+        samp= dfh.sample(n=1000000,rmin=rmin+1.)
+        assert numpy.min(samp.r()) >= rmin+1., 'Sample minimum r less than rmin'
+    return None
+
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
 constantbeta_dfs_dehnencore_in_nfw= None # re-use in other tests
@@ -1640,53 +1654,6 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
 #                             rmax=pot._scale*10.,
 #                             bins=3)
 #    return None
-
-# For the following tests, we use a DehnenCoreSphericalPotential with 
-# both rmin and rmax set
-constantbeta_dfs_dehnencore_rmin_rmax= None # re-use in other tests
-def test_constantbeta_dehnencore_rmin_rmax_inbounds():
-    if WIN32: return None # skip on appveyor, because no JAX
-    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    rmin,rmax = 0.5,5.
-    global constantbeta_dfs_dehnencore_rmin_rmax
-    constantbeta_dfs_dehnencore_rmin_rmax= []
-    for twobeta in twobetas:
-        dfh= constantbetadf(pot=pot,twobeta=twobeta,rmin=rmin,rmax=rmax)
-        constantbeta_dfs_dehnencore_rmin_rmax.append(dfh)
-        samp= dfh.sample(n=1000000)
-        assert numpy.max(samp.r()) <= rmax, 'Sample maximum r greater than rmax'
-        assert numpy.min(samp.r()) >= rmin, 'Sample minimum r less than rmin'
-        return None
-
-def test_constantbeta_dehnencore_rmin_rmax_dens_massprofile():
-    if WIN32: return None # skip on appveyor, because no JAX
-    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    rmin,rmax = 0.5,5.
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_rmin_rmax):
-        numpy.random.seed(10)
-        samp= dfh.sample(n=100000)
-        tol= 5*1e-3
-        check_spherical_massprofile(samp,lambda r: (pot.mass(r)-pot.mass(rmin))\
-                                    /(pot.mass(rmax)-pot.mass(rmin)),
-                                    tol,skip=1000)
-    return None
-
-def test_constantbeta_dehnencore_rmin_rmax_beta():
-    if WIN32: return None # skip on appveyor, because no JAX
-    # Use list
-    pot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_rmin_rmax):
-        numpy.random.seed(10)
-        samp= dfh.sample(n=1000000)
-        rmin,rmax = 0.5,5.
-        tol= 0.07
-        # rmin larger than usual to avoid low number sampling
-        check_beta(samp,pot,tol,beta=twobeta/2.,
-                   rmin=rmin,rmax=rmax,bins=31)
-    return None
 
 ########################### TESTS OF ERRORS AND WARNINGS#######################
 

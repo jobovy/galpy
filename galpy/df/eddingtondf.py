@@ -15,7 +15,7 @@ class eddingtondf(isotropicsphericaldf):
         f(\\mathcal{E}) = \\frac{1}{\\sqrt{8}\\,\\pi^2}\\,\\left[\\int_0^\\mathcal{E}\\mathrm{d}\\Psi\\,\\frac{1}{\\sqrt{\\mathcal{E}-\\Psi}}\\,\\frac{\\mathrm{d}^2\\rho}{\\mathrm{d}\\Psi^2} +\\frac{1}{\\sqrt{\\mathcal{E}}}\\,\\frac{\\mathrm{d}\\rho}{\\mathrm{d}\\Psi}\\Bigg|_{\\Psi=0}\\right]\\,,
 
     where :math:`\\Psi = -\\Phi+\\Phi(\\infty)` is the relative potential, :math:`\\mathcal{E} = \\Psi-v^2/2` is the relative (binding) energy, and :math:`\\rho` is the density of the tracer population (not necessarily the density corresponding to :math:`\\Psi` according to the Poisson equation). Note that the second term on the right-hand side is currently assumed to be zero in the code."""
-    def __init__(self,pot=None,denspot=None,rmin=0.,rmax=1e4,
+    def __init__(self,pot=None,denspot=None,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -32,11 +32,9 @@ class eddingtondf(isotropicsphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
-           rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
-
-           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
+           scale= Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
            ro=, vo= galpy unit parameters
 
@@ -49,7 +47,7 @@ class eddingtondf(isotropicsphericaldf):
             2021-02-04 - Written - Bovy (UofT)
 
         """
-        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmin=rmin,
+        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
                                       rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._dnudr= self._denspot._ddensdr \
             if not isinstance(self._denspot,list) \
@@ -58,7 +56,7 @@ class eddingtondf(isotropicsphericaldf):
             if not isinstance(self._denspot,list) \
             else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         self._potInf= _evaluatePotentials(pot,self._rmax,0)
-        self._Emin= _evaluatePotentials(pot,self._rmin,0)
+        self._Emin= _evaluatePotentials(pot,0.,0)
         # Build interpolator r(pot)
         r_a_values= numpy.concatenate(\
                         (numpy.array([0.]),
@@ -67,7 +65,7 @@ class eddingtondf(isotropicsphericaldf):
                         [_evaluatePotentials(self._pot,r*self._scale,0)
                          for r in r_a_values],r_a_values*self._scale,k=3)
         
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_fE_interp'):
@@ -81,7 +79,7 @@ class eddingtondf(isotropicsphericaldf):
                                         Es4interp[iindx],fE4interp[iindx],
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
-                                  return_orbit=return_orbit)
+                                  return_orbit=return_orbit,rmin=rmin)
 
     def fE(self,E):
         """

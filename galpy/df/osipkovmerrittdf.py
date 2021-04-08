@@ -11,7 +11,7 @@ from .eddingtondf import eddingtondf
 # formula can be found following this class
 class _osipkovmerrittdf(anisotropicsphericaldf):
     """General Osipkov-Merritt superclass with useful functions for any DF of the Osipkov-Merritt type."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=None,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -30,9 +30,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
             ra - anisotropy radius (can be a Quantity)
 
-           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
-
-           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot 
@@ -49,7 +47,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmin=rmin,
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
                                         rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._ra= conversion.parse_length(ra,ro=self._ro)
         self._ra2= self._ra**2.
@@ -130,7 +128,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
     with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile."""
-    def __init__(self,pot=None,denspot=None,ra=1.4,rmin=0.,rmax=1e4,
+    def __init__(self,pot=None,denspot=None,ra=1.4,rmax=1e4,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -149,9 +147,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
             ra - anisotropy radius (can be a Quantity)
 
-            rmin= (0) when sampling, minimum radius to consider (can be Quantity)
-
-           rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (1e4) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
            scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
@@ -166,13 +162,13 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             2021-02-07 - Written - Bovy (UofT)
 
         """
-        _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,rmin=rmin,
+        _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,
                                    rmax=rmax,scale=scale,ro=ro,vo=vo)
         # Because f(Q) is the same integral as the Eddington conversion, but
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density
         self._edf= eddingtondf(pot=self._pot,denspot=self._denspot,scale=scale,
-                               rmin=rmin,rmax=rmax,ro=ro,vo=vo)
+                               rmax=rmax,ro=ro,vo=vo)
         self._edf._dnudr= \
            (lambda r: self._denspot._ddensdr(r)*(1.+r**2./self._ra2) \
                    +2.*self._denspot.dens(r,0,use_physical=False)*r/self._ra2)\
@@ -193,7 +189,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                 +2.*evaluateDensities(self._denspot,r,0,use_physical=False)\
                 /self._ra2)
 
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_logfQ_interp'):
@@ -208,7 +204,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                                         Qs4interp[iindx],fQ4interp[iindx],
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
-                                  return_orbit=return_orbit)
+                                  return_orbit=return_orbit,rmin=rmin)
    
     def fQ(self,Q):
         """

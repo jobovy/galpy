@@ -10,7 +10,7 @@ from .sphericaldf import anisotropicsphericaldf, sphericaldf
 # formula can be found following this class
 class _constantbetadf(anisotropicsphericaldf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter"""
-    def __init__(self,pot=None,denspot=None,beta=None,rmin=0.,rmax=None,
+    def __init__(self,pot=None,denspot=None,beta=None,rmax=None,
                  scale=None,ro=None,vo=None):
         """
         NAME:
@@ -27,16 +27,14 @@ class _constantbetadf(anisotropicsphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmin= (0) when sampling, minimum radius to consider (can be Quantity)
-
-           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot if 
                 available.
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmin=rmin,
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
                                         rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._beta= beta
 
@@ -103,7 +101,7 @@ class _constantbetadf(anisotropicsphericaldf):
 
 class constantbetadf(_constantbetadf):
     """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter for a given density profile"""
-    def __init__(self,pot=None,denspot=None,beta=0.,twobeta=None,rmin=0.,
+    def __init__(self,pot=None,denspot=None,beta=0.,twobeta=None,
                  rmax=None,scale=None,ro=None,vo=None):
         """
         NAME:
@@ -124,9 +122,7 @@ class constantbetadf(_constantbetadf):
 
            twobeta= (None) twice the anisotropy parameter (useful for \beta = half-integer, which is a special case); has priority over beta
 
-           rmin= (0.) when sampling, minimum radius to consider (can be Quantity)
-
-           rmax= (None) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
            scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
@@ -150,7 +146,7 @@ class constantbetadf(_constantbetadf):
             beta= twobeta/2.
         else:
             twobeta= 2.*beta
-        _constantbetadf.__init__(self,pot=pot,denspot=denspot,beta=beta,rmin=rmin,
+        _constantbetadf.__init__(self,pot=pot,denspot=denspot,beta=beta,
                                  rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._twobeta= twobeta
         self._halfint= False
@@ -192,7 +188,7 @@ class constantbetadf(_constantbetadf):
         self._gradfunc= vmap(func)
         # Min and max energy
         self._potInf= _evaluatePotentials(self._pot,self._rmax,0)
-        self._Emin= _evaluatePotentials(self._pot,self._rmin,0)
+        self._Emin= _evaluatePotentials(self._pot,0.,0)
         # Build interpolator r(pot)
         r_a_values= numpy.concatenate(\
                         (numpy.array([0.]),
@@ -223,7 +219,7 @@ class constantbetadf(_constantbetadf):
             self._logstartt= interpolate.InterpolatedUnivariateSpline(\
                             Es,numpy.log10(startt)+10./3.*(1.-self._alpha),k=3)
         
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_fE_interp'):
@@ -237,7 +233,7 @@ class constantbetadf(_constantbetadf):
                                         Es4interp[iindx],fE4interp[iindx],
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
-                                  return_orbit=return_orbit)
+                                  return_orbit=return_orbit,rmin=rmin)
 
     def fE(self,E):
         """
