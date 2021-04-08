@@ -106,17 +106,17 @@ class constantbetadf(_constantbetadf):
         """
         NAME:
 
-            __init__
+           __init__
 
         PURPOSE:
 
-            Initialize a spherical DF with constant anisotropy parameter
+           Initialize a spherical DF with constant anisotropy parameter
 
         INPUT:
 
-            pot= (None) Potential instance or list thereof
+           pot= (None) Potential instance or list thereof
 
-            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
            beta= (0.) anisotropy parameter
 
@@ -130,11 +130,11 @@ class constantbetadf(_constantbetadf):
 
         OUTPUT:
 
-            None
+           None
 
         HISTORY:
 
-            2021-02-14 - Written - Bovy (UofT)
+           2021-02-14 - Written - Bovy (UofT)
 
         """
         try:
