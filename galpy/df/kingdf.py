@@ -77,6 +77,7 @@ class kingdf(isotropicsphericaldf):
                         self._radius_scale*self._scalefree_kdf._r,
                         k=3)
         # Setup velocity DF interpolator for velocity sampling here
+        self._rmin_sampling= 0.
         self._v_vesc_pvr_interpolator= self._make_pvr_interpolator(\
                                     r_a_end=numpy.log10(self.rt/self._scale))
         
