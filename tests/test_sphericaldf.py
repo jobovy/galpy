@@ -1,6 +1,9 @@
 # Tests of spherical distribution functions
 import platform
 WIN32= platform.system() == 'Windows'
+if not WIN32: # Enable 64bit for JAX
+    from jax.config import config
+    config.update("jax_enable_x64", True)
 import pytest
 import numpy
 from scipy import special
@@ -1022,6 +1025,26 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
     assert numpy.all(numpy.fabs(dfp((pot(0,0)-1e-4,1.1))) < 1e-8), 'Evaluating the isotropic NFW DF at E < Phi(0) does not give zero'
     return None
 
+############# FURTHER TESTS OF EDDINGTONDF FOR DIFFERENT POTENTIALS############
+# If you implement the required potential derivatives _ddensdr and the 2nd;
+# add your potential to the tests here
+def test_eddington_differentpotentials_dens_directint():
+    # Combinations of potentials and betas
+    pots= [potential.PowerSphericalPotential(amp=1.3,alpha=1.9)]
+    tols= [1e-3]
+    for pot,tol in zip(pots,tols):
+        dfh= eddingtondf(pot=pot)
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0),
+                             rmin=pot._scale/10.
+                                if hasattr(pot,'_scale')
+                                else 0.1,
+                             rmax=pot._scale*10.
+                                if hasattr(pot,'_scale')
+                                else 10.,
+                             bins=11)
+    return None
+
 ################################# KING DF #####################################
 def test_king_dens_spherically_symmetric():
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -1363,6 +1386,18 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
     return None
 
 ################################ CONSTANT-BETA DF #############################
+# Test against the known analytical solution for Hernquist
+def test_constantbetadf_against_hernquist():
+    pot= potential.HernquistPotential(amp=2.3,a=1.3)
+    betas= [-1.7,-0.7,-0.5,-0.4,0.,0.3,0.52]
+    for beta in betas:
+        dfh= constantbetaHernquistdf(pot=pot,beta=beta)
+        cdfh= constantbetadf(pot=pot,beta=beta,rmax=numpy.inf)
+        # Check that both give the same answer for a given position
+        R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-cdfh(R,vR,vT,z,vz,phi)) < 1e-5, 'constantbetadf version of Hernquist does not agree with constantbetaHernquistdf'
+    return None
+        
 # For the following tests, we use a DehnenCoreSphericalPotential
 constantbeta_dfs_selfconsist= None # re-use in other tests
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
@@ -1489,7 +1524,7 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
         assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the constant-beta DF at E > 0 does not give zero'
         # The next one is not actually a physical orbit...
         assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the constant-beta DF at E < -GM/a does not give zero'
-        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the constantbeta DF at Q < 0 does not give zero'
     return None
 
 # Also some tests with rmin in sampling
@@ -1513,11 +1548,11 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
+    betas= [0.25]
     global constantbeta_dfs_dehnencore_in_nfw
     constantbeta_dfs_dehnencore_in_nfw= []   
-    for twobeta in twobetas:
-        dfh= constantbetadf(pot=pot,denspot=denspot,twobeta=twobeta)
+    for beta in betas:
+        dfh= constantbetadf(pot=pot,denspot=denspot,beta=beta)
         constantbeta_dfs_dehnencore_in_nfw.append(dfh)
         numpy.random.seed(10)
         samp= dfh.sample(n=100000)
@@ -1541,8 +1576,8 @@ def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         numpy.random.seed(10)
         samp= dfh.sample(n=100000)
         tol= 5*1e-3
@@ -1556,15 +1591,15 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
     # Use list
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         numpy.random.seed(10)
         samp= dfh.sample(n=1000000)
         tol= 0.07
         # rmin larger than usual to avoid low number sampling  
         check_sigmar_against_jeans(samp,pot,tol,
                                    dens=lambda r: denspot.dens(r,0),
-                                   beta=twobeta/2.,
+                                   beta=beta,
                                    rmin=pot[0]._scale/3.,
                                    rmax=pot[0]._scale*10.,
                                    bins=31)
@@ -1575,13 +1610,13 @@ def test_constantbeta_dehnencore_in_nfw_beta():
     # Use list
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         numpy.random.seed(10)
         samp= dfh.sample(n=1000000)
         tol= 0.07
         # rmin larger than usual to avoid low number sampling
-        check_beta(samp,pot,tol,beta=twobeta/2.,
+        check_beta(samp,pot,tol,beta=beta,
                    rmin=pot._scale/3.,rmax=pot._scale*10.,bins=31)
     return None
 
@@ -1590,12 +1625,12 @@ def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E > 0 does not give zero'
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1,10.,0.1),1.1))) < 1e-8), 'Evaluating the constantbeta DF at E > 0 does not give zero'
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero'
-        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero'
+        assert numpy.all(numpy.fabs(dfh((pot(0,0)-1e-1,0.1))) < 1e-8), 'Evaluating the constantbeta DF at E < -GM/a does not give zero'
+        assert numpy.all(numpy.fabs(dfh((-1e-4,1.1))) < 1e-8), 'Evaluating the constantbeta DF at Q < 0 does not give zero'
     return None
 
 def test_constantbeta_dehnencore_in_nfw_dens_directint():
@@ -1603,8 +1638,8 @@ def test_constantbeta_dehnencore_in_nfw_dens_directint():
     # Use list for both
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         dfh.fE= lambda x: dfh._fE_interp(x)
         tol= 3e-4
         check_dens_directint(dfh,pot,tol,
@@ -1617,8 +1652,8 @@ def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         dfh.fE= lambda x: dfh._fE_interp(x)
         tol= 1e-8
         check_meanvr_directint(dfh,pot,tol,rmin=pot._scale/10.,
@@ -1629,13 +1664,13 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-    twobetas= [0.5]
-    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+    betas= [0.25]
+    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
         dfh.fE= lambda x: dfh._fE_interp(x)
         tol= 2e-4
         check_sigmar_against_jeans_directint(dfh,pot,tol,
                                              dens=lambda r: denspot.dens(r,0),
-                                             beta=twobeta/2.,
+                                             beta=beta,
                                              rmin=pot._scale/10.,
                                              rmax=pot._scale*10.,
                                              bins=3)
@@ -1645,15 +1680,38 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
 #    if WIN32: return None # skip on appveyor, because no JAX
 #    pot= potential.NFWPotential(amp=2.3,a=1.3)
 #    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
-#    twobetas= [0.5]
-#    for twobeta,dfh in zip(twobetas,constantbeta_dfs_dehnencore_in_nfw):
+#    betas= [0.25]
+#    for beta,dfh in zip(betas,constantbeta_dfs_dehnencore_in_nfw):
 #        dfh.fE= lambda x: dfh._fE_interp(x)
 #        tol= 1e-8
-#        check_beta_directint(dfh,tol,beta=twobeta/2.,
+#        check_beta_directint(dfh,tol,beta=beta,
 #                             rmin=pot._scale/10.,
 #                             rmax=pot._scale*10.,
 #                             bins=3)
 #    return None
+
+############ FURTHER TESTS OF CONSTANTBETADF FOR DIFFERENT POTENTIALS##########
+# If you implement the required potential derivatives and force in JAX,
+# add your potential to the tests here; use a quick twobeta (odd int)!
+def test_constantbeta_differentpotentials_dens_directint():
+    if WIN32: return None # skip on appveyor, because no JAX
+    # Combinations of potentials and betas
+    pots= [potential.HernquistPotential(amp=2.3,a=1.3),
+           potential.PowerSphericalPotential(amp=1.3,alpha=1.9)]
+    twobetas= [-1,-1]
+    tols= [1e-3,1e-3]
+    for pot,twobeta,tol in zip(pots,twobetas,tols):
+        dfh= constantbetadf(pot=pot,twobeta=twobeta)
+        check_dens_directint(dfh,pot,tol,
+                             lambda r: pot.dens(r,0),
+                             rmin=pot._scale/10.
+                                if hasattr(pot,'_scale')
+                                else 0.1,
+                             rmax=pot._scale*10.
+                                if hasattr(pot,'_scale')
+                                else 10.,
+                             bins=11)
+    return None
 
 ########################### TESTS OF ERRORS AND WARNINGS#######################
 
