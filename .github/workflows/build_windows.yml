@@ -113,22 +113,27 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     # Windows installation: Install Miniconda, as specificed by this repository's environment.yml for Windows
+    # Cache both conda and pip
+    - uses: actions/cache@v2
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+    - uses: actions/cache@v2
+      with:
+        path: ~\AppData\Local\pip\Cache
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
     - uses: conda-incubator/setup-miniconda@v2
       with:
          activate-environment: galpywheels
          environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
-         python-version: ${{ matrix.python-version }}  
+         python-version: ${{ matrix.python-version }}
+         use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
     - name: Set environment variables on Windows
       shell: bash -l {0}
       run: |
         echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-    - uses: actions/cache@v2
-      if: matrix.os == 'windows-latest'
-      with:
-        path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
