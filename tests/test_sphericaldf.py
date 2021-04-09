@@ -1388,6 +1388,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
 ################################ CONSTANT-BETA DF #############################
 # Test against the known analytical solution for Hernquist
 def test_constantbetadf_against_hernquist():
+    if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-1.7,-0.7,-0.5,-0.4,0.,0.3,0.52]
     for beta in betas:
