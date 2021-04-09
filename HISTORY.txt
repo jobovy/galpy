@@ -103,7 +103,9 @@ v1.7 (XXXX-XX-XX)
 
 - Added Python 3.9 support.
 
-- Switched Linux CI from Travis to GitHub Actions.
+- Switched Linux CI from Travis to GitHub Actions. Also added Windows
+  CI to GitHub Actions covering almost all tests. Appveyor CI for
+  Windows also still running.
 
 v1.6 (2020-04-24)
 =================
