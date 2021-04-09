@@ -12,135 +12,268 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     if: "!contains(github.event.head_commit.message, 'ci skip')"
     strategy:
       fail-fast: false
       matrix:
         include:
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_actionAngle.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: true
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_PYNBODY: false
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_evolveddiskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_streamgapdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_diskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.9
+          - os: ubuntu-latest
+            python-version: 3.9
             TEST_FILES: tests/test_streamdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_JAX: false
-          - python-version: 3.8
+          - os: ubuntu-latest
+            python-version: 3.8
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
-          - python-version: 3.8
+          - os: ubuntu-latest
+            python-version: 3.8
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
-          - python-version: 3.7
+          - os: ubuntu-latest
+            python-version: 3.7
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
-          - python-version: 3.7
+          - os: ubuntu-latest
+            python-version: 3.7
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_actionAngle.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_sphericaldf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            REQUIRES_PYNBODY: false
+            # needs to be separate for different config
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_streamgapdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_diskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_streamdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false            
     env:
       PYTHON_COVREPORTS_VERSION: 3.9      
     steps:
     - uses: actions/checkout@v2
+    # Linux installation
     - name: Set up Python ${{ matrix.python-version }}
+      if: matrix.os == 'ubuntu-latest'
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install lcov
+      if: matrix.os == 'ubuntu-latest'
       run: |
          wget https://github.com/linux-test-project/lcov/releases/download/v1.15/lcov-1.15.tar.gz
          tar xf lcov-1.15.tar.gz
          sudo make -C lcov-1.15/ install
-    - name: Install the GSL
+    - name: Install the GSL on Linux
+      if: matrix.os == 'ubuntu-latest'
       run: |
          sudo apt-get install libgsl-dev
+    # Windows installation: Install Miniconda, as specificed by this repository's environment.yml for Windows
+    - uses: conda-incubator/setup-miniconda@v2
+      if: matrix.os == 'windows-latest'
+      with:
+         activate-environment: galpywheels
+         environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
+         python-version: ${{ matrix.python-version }}  
+    - name: Set environment variables on Windows
+      if: matrix.os == 'windows-latest'
+      shell: bash -l {0}
+      run: |
+        echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
+        echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+        echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
     - uses: actions/cache@v2
+      if: matrix.os == 'ubuntu-latest'
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+    - uses: actions/cache@v2
+      if: matrix.os == 'windows-latest'
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
@@ -160,6 +293,7 @@ jobs:
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib
     - name: Install torus code
+      if: matrix.os == 'ubuntu-latest'
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
@@ -178,6 +312,7 @@ jobs:
         python setup.py build_ext --no-openmp --coverage --single_ext --inplace
         python setup.py develop --single_ext
     - name: Special config
+      if: matrix.os == 'ubuntu-latest'
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
@@ -204,10 +339,10 @@ jobs:
         # eval necessary for -k 'not ...' in TEST_FILES
         eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
     - name: Generate code coverage
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} 
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} && ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
         lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
     - name: Upload coverage reports to codecov
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} && ${{ matrix.os == 'ubuntu-latest' }}
       uses: codecov/codecov-action@v1
