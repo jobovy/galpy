@@ -1,0 +1,176 @@
+name: Windows build
+
+on:
+  push:
+    paths-ignore:
+      - 'doc/**'
+  pull_request:
+    paths-ignore:
+      - 'doc/**'
+  schedule:
+    - cron: '0 20 * * 2'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_actionAngle.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_sphericaldf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            REQUIRES_PYNBODY: false
+            # needs to be separate for different config
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_evolveddiskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_streamgapdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_diskdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false
+          - os: windows-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_streamdf.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_JAX: false            
+    steps:
+    - uses: actions/checkout@v2
+    # Windows installation: Install Miniconda, as specificed by this repository's environment.yml for Windows
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+         activate-environment: galpywheels
+         environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
+         python-version: ${{ matrix.python-version }}  
+    - name: Set environment variables on Windows
+      shell: bash -l {0}
+      run: |
+        echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
+        echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+        echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+    - uses: actions/cache@v2
+      if: matrix.os == 'windows-latest'
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+    - name: Install Python dependencies
+      run: |
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
+    - name: Install pynbody
+      if: ${{ matrix.REQUIRES_PYNBODY }}
+      run: |
+         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager wheel
+         pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+    - name: Install astropy
+      if: ${{ matrix.REQUIRES_ASTROPY }}
+      run: pip install astropy pyerfa
+    - name: Install astroquery
+      if: ${{ matrix.REQUIRES_ASTROQUERY }}
+      run: pip install astroquery
+    - name: Install JAX
+      if: ${{ matrix.REQUIRES_JAX }}
+      run: pip install jax jaxlib
+    - name: Download dfcorrections
+      run: |
+         curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
+         tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
+    - name: Install package
+      run: |
+        python setup.py build_ext --no-openmp --single_ext --inplace
+        python setup.py develop --single_ext
+    - name: Print debug info
+      env:
+         REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
+         REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
+         REQUIRES_PYNBODY : ${{ matrix.REQUIRES_PYNBODY }}
+      run: |
+         python -c "import numpy; print('numpy: {}'.format(numpy.__version__))"
+         python -c "import scipy; print('scipy: {}'.format(scipy.__version__))"
+         python -c "import matplotlib; print('matplotlib: {}'.format(matplotlib.__version__))"
+         if ( $REQUIRES_ASTROPY ) {python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"}
+         if ( $REQUIRES_ASTROQUERY ){python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
+         if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
+    - name: Test with pytest
+      env:
+          TEST_FILES: ${{ matrix.TEST_FILES }}
+      run: |
+        pip install pytest-cov
+        # Invoke-Expression -Command necessary for -k 'not ...' in TEST_FILES
+        Invoke-Expression -Command "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
