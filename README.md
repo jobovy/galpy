@@ -59,12 +59,16 @@ This package requires [Numpy](https://numpy.org/),
 [Matplotlib](http://matplotlib.sourceforge.net/). Certain advanced
 features require the GNU Scientific Library
 ([GSL](http://www.gnu.org/software/gsl/)), with action calculations
-requiring version 1.14 or higher. Use of `SnapshotRZPotential` and
-`InterpSnapshotRZPotential` requires
-[pynbody](https://github.com/pynbody/pynbody). Support for providing
-inputs and getting outputs as Quantities with units is provided through
-[astropy](http://www.astropy.org/). Certain parts of the code require 
-additional packages and you will be alerted by the code if they are
+requiring version 1.14 or higher. Other optional dependencies include:
+
+* Support for providing inputs and getting outputs as Quantities with units is provided through
+[`astropy`](http://www.astropy.org/).
+* Querying SIMBAD for the coordinates of an object in the `Orbit.from_name` initialization method requires [`astroquery`](https://astroquery.readthedocs.io/en/latest/).
+* Plotting arbitrary functions of Orbit attributes requires [`numexpr`](https://github.com/pydata/numexpr).
+* Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).
+* Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody). 
+
+Other parts of the code may require additional packages and you will be alerted by the code if they are
 not installed.
 
 CONTRIBUTING TO GALPY
