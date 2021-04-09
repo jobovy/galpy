@@ -23,10 +23,11 @@ Ted Mackereth (addition to estimateDeltaStaeckel function, and fast orbit charac
 Jeremy Webb (rtide and ttensor Potentials methods/functions)
 Mathew Bub (from_name class method of Orbit)
 Samuel Wong (sampleV_interpolate method of quasiisothermaldf)
-James Lane (General mass distributions in MovingObjectPotential)
+James Lane (General mass distributions in MovingObjectPotential, many contributions to the spherical distribution functions)
 Henry Leung (addition of Python and C implementation of Dormand-Prince 8(5,3) integrator)
 Nathaniel Starkman (custom coordinates in bovy_coords, DehnenSphericalPotential, time dependences in potential, amuse-astropy Potential compatibility)
 Morgan Bennett (scf_compute_.._nbody functions for computing SCF expansions for N-body sims)
+Marius Cautun (Cautun20 potential and help with implementing the AdiabaticContractionWrapperPotential)
 
 General help:
 ==============
