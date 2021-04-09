@@ -5,7 +5,7 @@
 
 [galpy](http://www.galpy.org) is a Python package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials. `galpy` is an [astropy](http://www.astropy.org/) [affiliated package](http://www.astropy.org/affiliated/) and provides full support for astropy’s [Quantity](http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html) framework for variables with units.
 
-[![image](https://github.com/jobovy/galpy/workflows/build/badge.svg?branch=master)](https://github.com/jobovy/galpy/actions?query=workflow%3Abuild) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master)](http://codecov.io/github/jobovy/galpy?branch=master) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/) [![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/master/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://slackin-galpy.herokuapp.com/badge.svg)](https://galpy.slack.com/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://slackin-galpy.herokuapp.com)
+[![image](https://github.com/jobovy/galpy/workflows/build/badge.svg?branch=master)](https://github.com/jobovy/galpy/actions/workflows/build.yml) [![image]([![Windows build](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml/badge.svg?branch=master)](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master)](http://codecov.io/github/jobovy/galpy?branch=master) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/) [![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/master/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://slackin-galpy.herokuapp.com/badge.svg)](https://galpy.slack.com/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://slackin-galpy.herokuapp.com)
 
 AUTHOR
 ======
@@ -49,10 +49,10 @@ this is not extensively tested on an ongoing basis and because
 libraries that `galpy` depends on are dropping earlier Python 3.\*
 versions, `galpy` itself likely doesn't fully work on them.  GitHub
 Actions CI builds regularly check support for Python 3.9 (and of 3.7,
-and 3.8 using a more limited, core set of tests) and Appveyor builds
-regularly check support for Python 3.9 on Windows. While most of
-`galpy` likely works in Python 2.7, this is no longer tested and
-Python 2.7 is no longer officially supported.
+and 3.8 using a more limited, core set of tests) on Linux and Windows;
+Appveyor builds regularly check support for Python 3.9 on
+Windows. While most of `galpy` likely works in Python 2.7, this is no
+longer tested and Python 2.7 is no longer officially supported.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
