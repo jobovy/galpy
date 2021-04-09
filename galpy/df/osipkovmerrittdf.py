@@ -2,7 +2,8 @@
 import numpy
 from scipy import integrate, special, interpolate
 from ..util import conversion
-from ..potential import evaluatePotentials, evaluateDensities
+from ..potential import evaluateDensities
+from ..potential.Potential import _evaluatePotentials
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
 from .eddingtondf import eddingtondf
 
@@ -28,7 +29,9 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
             ra - anisotropy radius (can be a Quantity)
-          
+
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
+
             scale - Characteristic scale radius to aid sampling calculations. 
                 Not necessary, and will also be overridden by value from pot 
                 if available.
@@ -44,8 +47,8 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
-                                        scale=scale,ro=ro,vo=vo)
+        anisotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+                                        rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._ra= conversion.parse_length(ra,ro=self._ro)
         self._ra2= self._ra**2.
 
@@ -94,12 +97,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling """
         if hasattr(self,'_logfQ_interp'):
             return numpy.exp(\
-                    self._logfQ_interp(-evaluatePotentials(self._pot,r,0,
-                                                       use_physical=False)\
+                    self._logfQ_interp(-_evaluatePotentials(self._pot,r,0)\
                                    -0.5*v**2.))*v**2.
         else:
-            return self.fQ(-evaluatePotentials(self._pot,r,0,
-                                               use_physical=False)\
+            return self.fQ(-_evaluatePotentials(self._pot,r,0)\
                            -0.5*v**2.)*v**2.
 
     def _sample_v(self,r,eta,n=1):
@@ -113,8 +114,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
          if m%2 == 1 or n%2 == 1:
              return 0.
          return 2.*numpy.pi*integrate.quad(lambda v: v**(2.+m+n)
-                                    *self.fQ(-evaluatePotentials(self._pot,r,0,
-                                                         use_physical=False)
+                                *self.fQ(-_evaluatePotentials(self._pot,r,0)
                                              -0.5*v**2.),
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m/2.+1.)*special.gamma((n+1)/2.)/\
@@ -146,12 +146,10 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
             ra - anisotropy radius (can be a Quantity)
-          
-           rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
 
-            scale - Characteristic scale radius to aid sampling calculations. 
-                Not necessary, and will also be overridden by value from pot 
-                if available.
+           rmax= (1e4) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
+
+           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
            ro=, vo= galpy unit parameters
 
@@ -165,7 +163,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
         """
         _osipkovmerrittdf.__init__(self,pot=pot,denspot=denspot,ra=ra,
-                                   rmax=rmax,ro=ro,vo=vo)
+                                   rmax=rmax,scale=scale,ro=ro,vo=vo)
         # Because f(Q) is the same integral as the Eddington conversion, but
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density
@@ -191,7 +189,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                 +2.*evaluateDensities(self._denspot,r,0,use_physical=False)\
                 /self._ra2)
 
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_logfQ_interp'):
@@ -206,7 +204,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                                         Qs4interp[iindx],fQ4interp[iindx],
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
-                                  return_orbit=return_orbit)
+                                  return_orbit=return_orbit,rmin=rmin)
    
     def fQ(self,Q):
         """

@@ -227,9 +227,12 @@ class PowerSphericalPotentialwCutoff(Potential):
            the mass enclosed
         HISTORY:
            2013-XX-XX - Written - Bovy (IAS)
+           2021-04-07 - Switched to hypergeometric function equivalent to incomplete gamma function for better behavior at alpha < -3 - Bovy (UofT)
         """
         if z is not None: raise AttributeError # use general implementation
-        return 2.*numpy.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(R/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+        return 2.*numpy.pi*R**(3.-self.alpha)/(1.5-self.alpha/2.)\
+            *special.hyp1f1(1.5-self.alpha/2.,2.5-self.alpha/2.,
+                            -(R/self.rc)**2.)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

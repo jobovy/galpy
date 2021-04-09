@@ -6049,6 +6049,13 @@ def test_sphericaldf_sample():
                         n=len(arr))
     assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units'
     assert numpy.all(numpy.fabs(sam.vr(use_physical=False)-sam_nou.vr(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units'
+    # rmin
+    numpy.random.seed(10)
+    sam= dfh.sample(n=2,rmin=1.1*units.kpc)
+    numpy.random.seed(10)
+    sam_nou= dfh.sample(n=2,rmin=1.1/ro)
+    assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units'
+    
     return None
 
 def test_kingdf_setup_wunits():

@@ -15,6 +15,7 @@ from . import isotropicPlummerdf
 from . import isotropicNFWdf
 from . import osipkovmerrittdf
 from . import osipkovmerrittNFWdf
+from . import constantbetadf
 #
 # Functions
 #
@@ -52,3 +53,4 @@ isotropicPlummerdf= isotropicPlummerdf.isotropicPlummerdf
 isotropicNFWdf= isotropicNFWdf.isotropicNFWdf
 osipkovmerrittdf= osipkovmerrittdf.osipkovmerrittdf
 osipkovmerrittNFWdf= osipkovmerrittNFWdf.osipkovmerrittNFWdf
+constantbetadf= constantbetadf.constantbetadf

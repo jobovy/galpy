@@ -32,7 +32,9 @@ class eddingtondf(isotropicsphericaldf):
 
            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
 
-           rmax= (1e4) when sampling, maximum radius to consider (can be Quantity)
+           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
+
+           scale= Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
 
            ro=, vo= galpy unit parameters
 
@@ -45,8 +47,8 @@ class eddingtondf(isotropicsphericaldf):
             2021-02-04 - Written - Bovy (UofT)
 
         """
-        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,rmax=rmax,
-                                      scale=scale,ro=ro,vo=vo)
+        isotropicsphericaldf.__init__(self,pot=pot,denspot=denspot,
+                                      rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._dnudr= self._denspot._ddensdr \
             if not isinstance(self._denspot,list) \
             else lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
@@ -54,7 +56,7 @@ class eddingtondf(isotropicsphericaldf):
             if not isinstance(self._denspot,list) \
             else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         self._potInf= _evaluatePotentials(pot,self._rmax,0)
-        self._Emin= _evaluatePotentials(pot,0,0)
+        self._Emin= _evaluatePotentials(pot,0.,0)
         # Build interpolator r(pot)
         r_a_values= numpy.concatenate(\
                         (numpy.array([0.]),
@@ -63,7 +65,7 @@ class eddingtondf(isotropicsphericaldf):
                         [_evaluatePotentials(self._pot,r*self._scale,0)
                          for r in r_a_values],r_a_values*self._scale,k=3)
         
-    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True):
+    def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         if not hasattr(self,'_fE_interp'):
@@ -77,7 +79,7 @@ class eddingtondf(isotropicsphericaldf):
                                         Es4interp[iindx],fE4interp[iindx],
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
-                                  return_orbit=return_orbit)
+                                  return_orbit=return_orbit,rmin=rmin)
 
     def fE(self,E):
         """
