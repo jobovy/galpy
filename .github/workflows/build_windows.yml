@@ -57,14 +57,14 @@ jobs:
           - os: windows-latest
             python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
-            REQUIRES_PYNBODY: true
+            REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
-            REQUIRES_PYNBODY: true
+            REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
@@ -156,6 +156,7 @@ jobs:
         python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Print debug info
+      shell: bash -l {0}
       env:
          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
          REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
@@ -168,9 +169,10 @@ jobs:
          if ( $REQUIRES_ASTROQUERY ){python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
          if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
     - name: Test with pytest
+      shell: bash -l {0}
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
         pip install pytest-cov
-        # Invoke-Expression -Command necessary for -k 'not ...' in TEST_FILES
-        Invoke-Expression -Command "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
+        # eval necessary for -k 'not ...' in TEST_FILES
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
