@@ -9,14 +9,13 @@ Dependencies
 galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
 these must be installed or the code will not be able to be imported.
 
-Optional dependencies are: ``astropy`` for `Quantity
-<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
-support (used throughout galpy when installed), ``astroquery`` for the
-``Orbit.from_name`` initialization method (to initialize using a
-celestial object's name), ``numexpr`` for plotting arbitrary
-expressions of ``Orbit`` quantities, and `pynbody
-<https://github.com/pynbody/pynbody>`__ for use of
-``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
+Optional dependencies are:
+
+  * ``astropy`` for `Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ support (used throughout galpy when installed),
+  * ``astroquery`` for the ``Orbit.from_name`` initialization method (to initialize using a celestial object's name),
+  * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
+  * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
+  * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 To be able to use the fast C extensions for orbit integration and
 action-angle calculations, the GNU Scientific Library (GSL) needs to
