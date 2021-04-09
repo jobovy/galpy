@@ -151,11 +151,10 @@ jobs:
          wget https://github.com/linux-test-project/lcov/releases/download/v1.15/lcov-1.15.tar.gz
          tar xf lcov-1.15.tar.gz
          sudo make -C lcov-1.15/ install
-    - name: Install the GSL on Linux
+    - name: Install the GSL
       run: |
          sudo apt-get install libgsl-dev
     - uses: actions/cache@v2
-      if: matrix.os == 'ubuntu-latest'
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
