@@ -165,9 +165,9 @@ jobs:
          python -c "import numpy; print('numpy: {}'.format(numpy.__version__))"
          python -c "import scipy; print('scipy: {}'.format(scipy.__version__))"
          python -c "import matplotlib; print('matplotlib: {}'.format(matplotlib.__version__))"
-         if ( $REQUIRES_ASTROPY ) {python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"}
-         if ( $REQUIRES_ASTROQUERY ){python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
-         if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
+         if $REQUIRES_ASTROPY; then python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"; fi
+         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"; fi
+         if $REQUIRES_PYNBODY; then python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"; fi
     - name: Test with pytest
       shell: bash -l {0}
       env:
