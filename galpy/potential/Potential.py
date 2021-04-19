@@ -961,7 +961,7 @@ class Potential(Force):
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     phi=None,xy=False,
                     ncontours=21,savefilename=None,aspect=None,log=False,
-                    justcontours=False):
+                    justcontours=False,**kwargs):
         """
         NAME:
 
@@ -1012,12 +1012,12 @@ class Potential(Force):
                              zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,t=t,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
-                             aspect=aspect,log=log)
+                             aspect=aspect,log=log,**kwargs)
 
     def plotSurfaceDensity(self,t=0.,z=numpy.inf,
                            xmin=0.,xmax=1.5,nxs=21,ymin=-0.5,ymax=0.5,nys=21,
                            ncontours=21,savefilename=None,aspect=None,
-                           log=False,justcontours=False):
+                           log=False,justcontours=False,**kwargs):
         """
         NAME:
 
@@ -1067,7 +1067,7 @@ class Potential(Force):
                                     ncontours=ncontours,
                                     savefilename=savefilename,
                                     justcontours=justcontours,
-                                    aspect=aspect,log=log)
+                                    aspect=aspect,log=log,**kwargs)
     
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
@@ -2624,7 +2624,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
                   ncontours=21,savefilename=None,aspect=None,log=False,
-                  justcontours=False):
+                  justcontours=False,**kwargs):
         """
         NAME:
 
@@ -2721,16 +2721,17 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                            aspect=aspect,
                            xrange=[rmin,rmax],
                            yrange=[zmin,zmax],
-                           cntrls='-',
+                           cntrls=kwargs.pop('cntrls','-'),
                            justcontours=justcontours,
                            levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
-                                                 ncontours))
+                                                 ncontours),
+                           **kwargs)
 
 def plotSurfaceDensities(Pot,
                          xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
                          z=numpy.inf,t=0.,
                          ncontours=21,savefilename=None,aspect=None,
-                         log=False,justcontours=False):
+                         log=False,justcontours=False,**kwargs):
         """
         NAME:
 
@@ -2820,11 +2821,12 @@ def plotSurfaceDensities(Pot,
                            aspect=aspect,
                            xrange=[xmin,xmax],
                            yrange=[ymin,ymax],
-                           cntrls='-',
+                           cntrls=kwargs.pop('cntrls','-'),
                            justcontours=justcontours,
                            levels=numpy.linspace(numpy.nanmin(surfxy),
                                                  numpy.nanmax(surfxy),
-                                                 ncontours))
+                                                 ncontours),
+                           **kwargs)
     
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
