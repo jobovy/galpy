@@ -12,7 +12,8 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
         and z-axis vector (tilt) of a given Potential. This can be used,
         for example, to tilt a disc to a desired inclination angle
     """
-    def __init__(self,amp=1.,zvec=None,pa=None,pot=None,
+    def __init__(self,amp=1.,inclination=None,galaxy_pa=None,sky_pa=None,
+                 zvec=None,pot=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -33,17 +34,40 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
 
         HISTORY:
 
-           2020-03-29 - Started - Mackereth (UofT)
+           2021-03-29 - Started - Mackereth (UofT)
+
+           2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
 
         """
-        self._setup_zvec_pa(zvec, pa)
-        self._inv_rot = numpy.linalg.inv(self._rot)
+        inclination= conversion.parse_angle(inclination)
+        sky_pa= conversion.parse_angle(sky_pa)
+        galaxy_pa= conversion.parse_angle(galaxy_pa)
+        zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
+                                                 zvec,galaxy_pa)
+        self._setup_zvec_pa(zvec,galaxy_pa)
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi = True
 
+    def _parse_inclination(self,inclination,sky_pa,zvec,galaxy_pa):
+        if inclination is None:
+            return zvec
+        if sky_pa is None:
+            sky_pa= 0.
+        zvec_rot= numpy.dot(\
+            numpy.array([[numpy.sin(sky_pa),numpy.cos(sky_pa),0.],
+                         [-numpy.cos(sky_pa),numpy.sin(sky_pa),0.],
+                         [0.,0.,1]]),
+            numpy.array([[1.,0.,0.],
+                         [0.,-numpy.cos(inclination),-numpy.sin(inclination)],
+                         [0.,-numpy.sin(inclination),numpy.cos(inclination)]]))
+        zvec= numpy.dot(zvec_rot,numpy.array([0.,0.,1.]))
+        int_rot= _rotate_to_arbitrary_vector(numpy.array([[0.,0.,1.]]),
+                                             zvec,inv=False)[0]
+        pa= numpy.dot(int_rot,numpy.dot(zvec_rot,[1.,0.,0.]))
+        return (zvec,galaxy_pa+numpy.arctan2(pa[1],pa[0]))
+        
     def _setup_zvec_pa(self,zvec,pa):
-        """ taken from EllipsoidalPotential """
         if not pa is None:
             pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
                                  [-numpy.sin(pa),numpy.cos(pa),0.],
@@ -59,6 +83,7 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
         else:
             zvec_rot = numpy.eye(3)
         self._rot = numpy.dot(pa_rot,zvec_rot)
+        self._inv_rot = numpy.linalg.inv(self._rot)
         return None
 
     def _wrap(self,attribute,*args,**kwargs):
