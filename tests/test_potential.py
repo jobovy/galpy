@@ -1333,6 +1333,7 @@ def test_potential_at_zero():
            or p == 'SphericalShellPotential' \
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or p == 'AnySphericalPotential' \
+           or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1396,6 +1397,7 @@ def test_potential_at_infinity():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1438,6 +1440,7 @@ def test_potential_at_infinity():
            or p == 'SphericalShellPotential' \
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or p == 'AnySphericalPotential' \
+           or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:

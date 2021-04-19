@@ -3,11 +3,15 @@
 #   of a potential
 ###############################################################################
 import numpy
-from .WrapperPotential import parentWrapperPotential
+from .Potential import check_potential_inputs_not_arrays, \
+    _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
+    _evaluatephiforces, evaluateDensities
+from .WrapperPotential import WrapperPotential
 from ..util import conversion
 from ..util import _rotate_to_arbitrary_vector
 from ..util import coords
-class RotateAndTiltWrapperPotential(parentWrapperPotential):
+# Only implement 3D wrapper
+class RotateAndTiltWrapperPotential(WrapperPotential):
     """ Potential wrapper class that implements an adjustment to the rotation
         and z-axis vector (tilt) of a given Potential. This can be used,
         for example, to tilt a disc to a desired inclination angle
@@ -39,6 +43,8 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
            2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
 
         """
+        WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo,
+                                  _init=True)
         inclination= conversion.parse_angle(inclination)
         sky_pa= conversion.parse_angle(sky_pa)
         galaxy_pa= conversion.parse_angle(galaxy_pa)
@@ -47,7 +53,7 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
         self._setup_zvec_pa(zvec,galaxy_pa)
         self.hasC= True
         self.hasC_dxdv= True
-        self.isNonAxi = True
+        self.isNonAxi= True
 
     def _parse_inclination(self,inclination,sky_pa,zvec,galaxy_pa):
         if inclination is None:
@@ -86,58 +92,132 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
         self._inv_rot = numpy.linalg.inv(self._rot)
         return None
 
-    def _wrap(self,attribute,*args,**kwargs):
-        #need to convert input R,phi,z to x,y,z for rotation
-        R,phi,z = args[0],kwargs.get('phi',0.),0 if len(args) == 1 else args[1]
-        if phi is None:
-            phi = 0.
-        x,y,z= coords.cyl_to_rect(R, phi, z)
-        #apply rotation matrix
+    def __getattr__(self,attribute):
+        if attribute == '_R2deriv' or attribute == '_z2deriv' \
+           or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
+           or attribute == '_Rphideriv':
+            raise AttributeError
+        else:
+            return super(RotateAndTiltWrapperPotential,self)\
+                .__getattr__(attribute)
+
+    @check_potential_inputs_not_arrays
+    def _evaluate(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _evaluate
+        PURPOSE:
+           evaluate the potential at R,z
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           Phi(R,z)
+        HISTORY:
+           2021-04-18 - Written - Bovy (UofT)
+        """
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        if numpy.isinf(R): y= 0.
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        #back to R,phi,z
-        R, phi, z = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
-        args = (R, z)
-        kwargs['phi'] = phi
-        return self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+        Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
+        return _evaluatePotentials(self._pot,Rp,zp,phi=phip,t=t)
 
-    def _force_xyz(self,*args,**kwargs):
-        """ get the rectangular forces in the transformed frame """
-        #first figure out the R,phi,z force in the aligned frame...
-        o_R,o_phi,o_z = args[0],kwargs.get('phi',0.),0 if len(args) == 1 else args[1]
-        if o_phi is None:
-            o_phi = 0.
-        x,y,z= coords.cyl_to_rect(o_R, o_phi, o_z)
-        #apply rotation matrix
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        #back to R,phi,z
-        t_R, t_phi, t_z = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
-        args = (t_R, t_z)
-        kwargs['phi'] = t_phi
-        #get the forces
-        Rforce_a = self._wrap_pot_func('_Rforce')(self._pot,*args,**kwargs)
-        phiforce_a = self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)
-        zforce_a = self._wrap_pot_func('_zforce')(self._pot,*args,**kwargs)
-        #get the forces in x,y
-        xforce_a = numpy.cos(t_phi)*Rforce_a - numpy.sin(t_phi)*phiforce_a/t_R
-        yforce_a = numpy.sin(t_phi)*Rforce_a + numpy.cos(t_phi)*phiforce_a/t_R
-        #rotate back
-        Fxyz = numpy.dot(self._inv_rot, numpy.array([xforce_a,yforce_a,zforce_a]))
-        return Fxyz
+    @check_potential_inputs_not_arrays
+    def _Rforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rforce
+        PURPOSE:
+           evaluate the radial force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-04-18 - Written - Bovy (UofT)
+        """
+        Fxyz= self._force_xyz(R,z,phi,t)
+        return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
-    def _Rforce(self,*args,**kwargs):
-        Fxyz = self._force_xyz(*args,**kwargs)
-        phi= kwargs.get('phi',0.)
-        if phi is None:
-            phi= 0.
-        return numpy.cos(phi)*Fxyz[0] + numpy.sin(phi)*Fxyz[1]
-
-    def _phiforce(self,*args,**kwargs):
-        Fxyz = self._force_xyz(*args,**kwargs)
-        R,phi= args[0],kwargs.get('phi',0.)
-        if phi is None:
-            phi= 0.
+    @check_potential_inputs_not_arrays
+    def _phiforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phiforce
+        PURPOSE:
+           evaluate the azimuthal force (torque) for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the azimuthal force (torque)
+        HISTORY:
+           2021-04-18 - Written - Bovy (UofT)
+        """
+        Fxyz= self._force_xyz(R,z,phi,t)
         return R*(-numpy.sin(phi)*Fxyz[0] + numpy.cos(phi)*Fxyz[1])
 
-    def _zforce(self,*args,**kwargs):
-        Fxyz = self._force_xyz(*args,**kwargs)
-        return Fxyz[2]
+    @check_potential_inputs_not_arrays
+    def _zforce(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _zforce
+        PURPOSE:
+           evaluate the vertical force for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the vertical force
+        HISTORY:
+           2021-04-18 - Written - Bovy (UofT)
+        """
+        return self._force_xyz(R,z,phi,t)[2]
+
+    def _force_xyz(self,R,z,phi=0.,t=0.):
+        """Get the rectangular forces in the transformed frame"""
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
+        Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
+        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
+        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
+        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
+        return numpy.dot(self._inv_rot,
+                         numpy.array([xforcep,yforcep,zforcep]))   
+
+    @check_potential_inputs_not_arrays
+    def _dens(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _dens
+        PURPOSE:
+           evaluate the density for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the density
+        HISTORY:
+           2021-04-18 - Written - Bovy (UofT)
+        """
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        if numpy.isinf(R): y= 0.
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
+        return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,
+                                 use_physical=False)
+
+   
