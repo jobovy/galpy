@@ -51,7 +51,7 @@ class RotateAndTiltWrapperPotential(parentWrapperPotential):
 
     def _parse_inclination(self,inclination,sky_pa,zvec,galaxy_pa):
         if inclination is None:
-            return zvec
+            return (zvec,galaxy_pa)
         if sky_pa is None:
             sky_pa= 0.
         zvec_rot= numpy.dot(\

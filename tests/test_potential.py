@@ -3543,20 +3543,20 @@ def test_RotateAndTiltWrapper():
     zvec = numpy.array([numpy.sqrt(1/3.),numpy.sqrt(1/3.),numpy.sqrt(1/3.)])
     zvec/= numpy.sqrt(numpy.sum(zvec**2))
     rot = _rotate_to_arbitrary_vector(numpy.array([[0.,0.,1.]]), zvec, inv=True)[0]
-    pa = 0.3
-    pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
-                                     [-numpy.sin(pa),numpy.cos(pa),0.],
-                                     [0.,0.,1.]])
+    galaxy_pa = 0.3
+    pa_rot= numpy.array([[numpy.cos(galaxy_pa),numpy.sin(galaxy_pa),0.],
+                         [-numpy.sin(galaxy_pa),numpy.cos(galaxy_pa),0.],
+                         [0.,0.,1.]])
     rot = numpy.dot(pa_rot, rot)
     xyz_test= numpy.array([0.5,0.5,0.5])
     Rphiz_test = coords.rect_to_cyl(xyz_test[0], xyz_test[1], xyz_test[2])
     txyz_test = numpy.dot(rot, xyz_test)
     tRphiz_test = coords.rect_to_cyl(txyz_test[0], txyz_test[1], txyz_test[2])
-    testpot = potential.RotateAndTiltWrapperPotential(zvec=zvec, pa=pa, pot=potential.MWPotential2014)
+    testpot = potential.RotateAndTiltWrapperPotential(zvec=zvec,galaxy_pa=galaxy_pa,pot=potential.MWPotential2014)
     #test against the transformed potential and a MWPotential evaluated at the transformed coords
     assert (evaluatePotentials(testpot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(potential.MWPotential2014, tRphiz_test[0], tRphiz_test[2], phi=tRphiz_test[1])) < 1e-6, 'Evaluating potential at same relative position in a Rotated and tilted MWPotential2014 and non-Rotated does not give same result'
-    NFW_wrapped = potential.RotateAndTiltWrapperPotential(zvec=zvec, pa=pa, pot=potential.TriaxialNFWPotential(amp=1.))
-    NFW_rot = potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=pa)
+    NFW_wrapped = potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
+    NFW_rot = potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
     return None
 
@@ -5114,6 +5114,6 @@ class mockRotatedAndTiltedMWP14WrapperPotential(testMWPotential):
                                               zvec=[numpy.sqrt(1/3.),
                                                     numpy.sqrt(1/3.),
                                                     numpy.sqrt(1/3.)],
-                                              pa=0.4)])
+                                              galaxy_pa=0.4)])
     def OmegaP(self):
         return 0.
