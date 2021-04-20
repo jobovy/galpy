@@ -327,6 +327,8 @@ class Potential(Force):
 
            2018-08-19 - Written - Bovy (UofT)
 
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
+
         """
         try:
             if forcepoisson: raise AttributeError #Hack!
@@ -334,11 +336,12 @@ class Potential(Force):
         except AttributeError:
             #Use the Poisson equation to get the surface density
             return (-self.zforce(R,numpy.fabs(z),phi=phi,t=t,use_physical=False)
+                    +self.zforce(R,-numpy.fabs(z),phi=phi,t=t,use_physical=False)
                     +integrate.quad(\
                 lambda x: -self.Rforce(R,x,phi=phi,t=t,use_physical=False)/R
                 +self.R2deriv(R,x,phi=phi,t=t,use_physical=False)
                 +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
-                0.,numpy.fabs(z))[0])/2./numpy.pi
+                -numpy.fabs(z),numpy.fabs(z))[0])/4./numpy.pi
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -355,8 +358,10 @@ class Potential(Force):
            the surface density
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
         """
-        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
+        return integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),
+                              -numpy.fabs(z),numpy.fabs(z))[0]
 
     @potential_physical_input
     @physical_conversion('mass',pop=True)
