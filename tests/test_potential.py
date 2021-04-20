@@ -3555,23 +3555,32 @@ def test_AdiabaticContractionWrapper():
 
 def test_RotateAndTiltWrapper():
     # some tests of the rotate and tilt wrapper
-    zvec = numpy.array([numpy.sqrt(1/3.),numpy.sqrt(1/3.),numpy.sqrt(1/3.)])
+    zvec= numpy.array([numpy.sqrt(1/3.),numpy.sqrt(1/3.),numpy.sqrt(1/3.)])
     zvec/= numpy.sqrt(numpy.sum(zvec**2))
-    rot = _rotate_to_arbitrary_vector(numpy.array([[0.,0.,1.]]), zvec, inv=True)[0]
-    galaxy_pa = 0.3
+    rot= _rotate_to_arbitrary_vector(numpy.array([[0.,0.,1.]]), zvec, inv=True)[0]
+    galaxy_pa= 0.3
     pa_rot= numpy.array([[numpy.cos(galaxy_pa),numpy.sin(galaxy_pa),0.],
                          [-numpy.sin(galaxy_pa),numpy.cos(galaxy_pa),0.],
                          [0.,0.,1.]])
-    rot = numpy.dot(pa_rot, rot)
+    rot= numpy.dot(pa_rot, rot)
     xyz_test= numpy.array([0.5,0.5,0.5])
-    Rphiz_test = coords.rect_to_cyl(xyz_test[0], xyz_test[1], xyz_test[2])
-    txyz_test = numpy.dot(rot, xyz_test)
-    tRphiz_test = coords.rect_to_cyl(txyz_test[0], txyz_test[1], txyz_test[2])
-    testpot = potential.RotateAndTiltWrapperPotential(zvec=zvec,galaxy_pa=galaxy_pa,pot=potential.MWPotential2014)
+    Rphiz_test= coords.rect_to_cyl(xyz_test[0], xyz_test[1], xyz_test[2])
+    txyz_test= numpy.dot(rot, xyz_test)
+    tRphiz_test= coords.rect_to_cyl(txyz_test[0], txyz_test[1], txyz_test[2])
+    testpot= potential.RotateAndTiltWrapperPotential(zvec=zvec,galaxy_pa=galaxy_pa,pot=potential.MWPotential2014)
     #test against the transformed potential and a MWPotential evaluated at the transformed coords
     assert (evaluatePotentials(testpot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(potential.MWPotential2014, tRphiz_test[0], tRphiz_test[2], phi=tRphiz_test[1])) < 1e-6, 'Evaluating potential at same relative position in a Rotated and tilted MWPotential2014 and non-Rotated does not give same result'
-    NFW_wrapped = potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
-    NFW_rot = potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa)
+    # Also a triaxial NFW
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa)
+    assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    # Try not specifying galaxy_pa, shouldn be =0
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec,pot=potential.TriaxialNFWPotential(amp=1.))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec,pa=0.)
+    assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    # Try not specifying zvec, should be =[0,0,1]
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
     return None
 
@@ -5138,6 +5147,6 @@ class mockRotatedAndTiltedMWP14WrapperPotentialwInclination(testMWPotential):
                 RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
                                               inclination=2.,
                                               galaxy_pa=0.3,
-                                              sky_pa=-3.)])
+                                              sky_pa=None)])
     def OmegaP(self):
         return 0.

@@ -3379,6 +3379,25 @@ def test_potential_paramunits():
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
+    # RotateAndTiltWrapperPotential, zvec, pa
+    wrappot= potential.TriaxialNFWPotential(amp=1.,a=3.,b=0.7,c=0.5)
+    pot= potential.RotateAndTiltWrapperPotential(pot=wrappot,zvec=[0,1.,0],galaxy_pa=30.*units.deg,
+                                                 ro=ro,vo=vo)
+    pot_nounits= potential.RotateAndTiltWrapperPotential(pot=wrappot,zvec=[0,1.,0],galaxy_pa=numpy.pi/6.,
+                                                         ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"   
+    # RotateAndTiltWrapperPotential, inclination, galaxy_pa, sky_pa
+    wrappot= potential.TriaxialNFWPotential(amp=1.,a=3.,b=0.7,c=0.5)
+    pot= potential.RotateAndTiltWrapperPotential(pot=wrappot,galaxy_pa=30.*units.deg,
+                                                 inclination=60.*units.deg,sky_pa=-45.*units.deg,
+                                                 ro=ro,vo=vo)
+    pot_nounits= potential.RotateAndTiltWrapperPotential(pot=wrappot,galaxy_pa=numpy.pi/6.,
+                                                         inclination=numpy.pi/3.,sky_pa=-numpy.pi/4.,
+                                                         ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"   
+    # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
 def test_potential_paramunits_2d():
