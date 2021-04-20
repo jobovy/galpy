@@ -323,18 +323,9 @@ def _parse_pot(pot):
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.RotateAndTiltWrapperPotential)) \
-              or isinstance(p,potential.RotateAndTiltWrapperPotential):
+              or isinstance(p,potential.RotateAndTiltWrapperPotential): # pragma: no cover
             raise NotImplementedError('Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead')
-            if not isinstance(p,potential.RotateAndTiltWrapperPotential):
-                p= p._Pot
-            pot_type.append(-8)
-            # wrap_pot_type, args, and npot obtained before this horrible if
-            pot_args.append(wrap_npot)
-            pot_type.extend(wrap_pot_type)
-            pot_args.extend(wrap_pot_args)
-            pot_args.extend([p._amp])
-            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
-            pot_args.extend(list(p._rot.flatten()))
+            # Note that potential.RotateAndTiltWrapperPotential would be -8
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)

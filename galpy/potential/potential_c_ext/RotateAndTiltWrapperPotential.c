@@ -93,8 +93,10 @@ double RotateAndTiltWrapperPotentialphiforce(double R, double z, double phi,
      Fz = *(args + 6);
     }
     else
+    // LCOV_EXCL_START
      RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
                                             potentialArgs);
+    // LCOV_EXCL_STOP
     return *args * R * ( -sin ( phi ) * Fx + cos ( phi ) * Fy );
 }
 double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
@@ -115,17 +117,9 @@ double RotateAndTiltWrapperPotentialzforce(double R, double z, double phi,
      Fz = *(args + 6);
     }
     else
+    // LCOV_EXCL_START
      RotateAndTiltWrapperPotentialxyzforces(R, z, phi, t, &Fx, &Fy, &Fz,
                                             potentialArgs);
+    // LCOV_EXCL_STOP
     return *args * Fz;
-}
-double RotateAndTiltWrapperPotentialPlanarRforce(double R, double phi,
-        double t,
-        struct potentialArg * potentialArgs){
-  return RotateAndTiltWrapperPotentialRforce(R, 0., phi, t, potentialArgs);
-}
-double RotateAndTiltWrapperPotentialPlanarphiforce(double R, double phi,
-        double t,
-        struct potentialArg * potentialArgs){
-  return RotateAndTiltWrapperPotentialphiforce(R, 0., phi, t, potentialArgs);
 }
