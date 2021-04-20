@@ -341,6 +341,8 @@ def test_2ndDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -569,6 +571,8 @@ def test_poisson_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -678,6 +682,8 @@ def test_poisson_surfdens_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -808,6 +814,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1021,6 +1028,7 @@ def test_amp_mult_divide():
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1288,6 +1296,7 @@ def test_potential_at_zero():
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1334,6 +1343,7 @@ def test_potential_at_zero():
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or p == 'AnySphericalPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
+           or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1398,6 +1408,7 @@ def test_potential_at_infinity():
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1441,6 +1452,7 @@ def test_potential_at_infinity():
            or p == 'AnyAxisymmetricRazorThinDiskPotential' \
            or p == 'AnySphericalPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
+           or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -5118,5 +5130,14 @@ class mockRotatedAndTiltedMWP14WrapperPotential(testMWPotential):
                                                     numpy.sqrt(1/3.),
                                                     numpy.sqrt(1/3.)],
                                               galaxy_pa=0.4)])
+    def OmegaP(self):
+        return 0.
+class mockRotatedAndTiltedMWP14WrapperPotentialwInclination(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              inclination=2.,
+                                              galaxy_pa=0.3,
+                                              sky_pa=-3.)])
     def OmegaP(self):
         return 0.

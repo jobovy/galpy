@@ -5,7 +5,9 @@
 import numpy
 from .Potential import check_potential_inputs_not_arrays, \
     _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
-    _evaluatephiforces, evaluateDensities
+    _evaluatephiforces, evaluateDensities, evaluateR2derivs, \
+    evaluatez2derivs, evaluatephi2derivs, evaluateRzderivs, \
+    evaluateRphiderivs
 from .WrapperPotential import WrapperPotential
 from ..util import conversion
 from ..util import _rotate_to_arbitrary_vector
@@ -141,7 +143,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
-        Fxyz= self._force_xyz(R,z,phi,t)
+        Fxyz= self._force_xyz(R,z,phi=phi,t=t)
         return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
     @check_potential_inputs_not_arrays
@@ -161,7 +163,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
-        Fxyz= self._force_xyz(R,z,phi,t)
+        Fxyz= self._force_xyz(R,z,phi=phi,t=t)
         return R*(-numpy.sin(phi)*Fxyz[0] + numpy.cos(phi)*Fxyz[1])
 
     @check_potential_inputs_not_arrays
@@ -181,7 +183,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
-        return self._force_xyz(R,z,phi,t)[2]
+        return self._force_xyz(R,z,phi=phi,t=t)[2]
 
     def _force_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
@@ -195,6 +197,151 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
         return numpy.dot(self._inv_rot,
                          numpy.array([xforcep,yforcep,zforcep]))   
+
+    @check_potential_inputs_not_arrays
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second radial derivative
+        HISTORY:
+           2021-04-19 - Written - Bovy (UofT)
+        """
+        phi2= self._2ndderiv_xyz(R,z,phi=phi,t=t)
+        return numpy.cos(phi)**2.*phi2[0,0]+numpy.sin(phi)**2.*phi2[1,1]\
+            +2.*numpy.cos(phi)*numpy.sin(phi)*phi2[0,1]
+
+    @check_potential_inputs_not_arrays
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed radial, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, vertical derivative
+        HISTORY:
+           2021-04-19 - Written - Bovy (UofT)
+        """
+        phi2= self._2ndderiv_xyz(R,z,phi=phi,t=t)
+        return numpy.cos(phi)*phi2[0,2]+numpy.sin(phi)*phi2[1,2]
+
+    @check_potential_inputs_not_arrays
+    def _z2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the second vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second vertical derivative
+        HISTORY:
+           2021-04-19 - Written - Bovy (UofT)
+        """
+        return self._2ndderiv_xyz(R,z,phi=phi,t=t)[2,2]
+
+    @check_potential_inputs_not_arrays
+    def _phi2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phi2deriv
+        PURPOSE:
+           evaluate the second azimuthal derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the second azimuthal derivative
+        HISTORY:
+           2021-04-19 - Written - Bovy (UofT)
+        """
+        Fxyz= self._force_xyz(R,z,phi=phi,t=t)
+        phi2= self._2ndderiv_xyz(R,z,phi=phi,t=t)
+        return R**2.*(numpy.sin(phi)**2.*phi2[0,0]
+                      +numpy.cos(phi)**2.*phi2[1,1]\
+                      -2.*numpy.cos(phi)*numpy.sin(phi)*phi2[0,1])\
+                      +R*(numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1])
+
+    @check_potential_inputs_not_arrays
+    def _Rphideriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _Rphideriv
+        PURPOSE:
+           evaluate the mixed radial, azimuthal derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, azimuthal derivative
+        HISTORY:
+           2021-04-19 - Written - Bovy (UofT)
+        """
+        Fxyz= self._force_xyz(R,z,phi=phi,t=t)
+        phi2= self._2ndderiv_xyz(R,z,phi=phi,t=t)
+        return R*numpy.cos(phi)*numpy.sin(phi)*\
+            (phi2[1,1]-phi2[0,0])+R*numpy.cos(2.*phi)*phi2[0,1]\
+            +numpy.sin(phi)*Fxyz[0]-numpy.cos(phi)*Fxyz[1]
+
+    def _2ndderiv_xyz(self,R,z,phi=0.,t=0.):
+        from .Potential import _isNonAxi
+        if _isNonAxi(self._pot):
+            raise AttributeError('2nd derivatives for rotated, non-axisymmetric potentials not implemented yet')
+        """Get the rectangular forces in the transformed frame"""
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
+        Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
+        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        R2derivp= evaluateR2derivs(self._pot,Rp,zp,phi=phip,t=t,
+                                   use_physical=False)
+        phi2derivp= evaluatephi2derivs(self._pot,Rp,zp,phi=phip,t=t,
+                                       use_physical=False)
+        z2derivp= evaluatez2derivs(self._pot,Rp,zp,phi=phip,t=t,
+                                   use_physical=False)
+        Rzderivp= evaluateRzderivs(self._pot,Rp,zp,phi=phip,t=t,
+                                   use_physical=False)
+        Rphiderivp= evaluateRphiderivs(self._pot,Rp,zp,phi=phip,t=t,
+                                       use_physical=False)
+        phizderivp= 0. # EDIT THIS FOR NON-AXI
+        cp, sp= numpy.cos(phip), numpy.sin(phip)
+        cp2, sp2, cpsp= cp**2., sp**2., cp*sp
+        Rp2= Rp*Rp
+        x2derivp= R2derivp*cp2-2.*Rphiderivp*cpsp+phi2derivp*sp2/Rp2\
+            -Rforcep*sp2/Rp-2.*phiforcep*cpsp/Rp2
+        y2derivp= R2derivp*sp2+2.*Rphiderivp*cpsp+phi2derivp*cp2/Rp2\
+            -Rforcep*cp2/Rp+2.*phiforcep*cpsp/Rp2
+        xyderivp= R2derivp*cpsp+Rphiderivp*(cp2-sp2)/Rp-phi2derivp*cpsp/Rp2\
+            +Rforcep*cpsp/Rp+phiforcep*(cp2-sp2)/Rp2
+        xzderivp= Rzderivp*cp-phizderivp*sp/Rp
+        yzderivp= Rzderivp*sp+phizderivp*cp/Rp
+        return numpy.dot(self._inv_rot,numpy.dot(\
+                                numpy.array([[x2derivp,xyderivp,xzderivp],
+                                             [xyderivp,y2derivp,yzderivp],
+                                             [xzderivp,yzderivp,z2derivp]]),
+                                self._inv_rot.T))
 
     @check_potential_inputs_not_arrays
     def _dens(self,R,z,phi=0.,t=0.):
