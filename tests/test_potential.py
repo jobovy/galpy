@@ -3571,17 +3571,20 @@ def test_RotateAndTiltWrapper():
     #test against the transformed potential and a MWPotential evaluated at the transformed coords
     assert (evaluatePotentials(testpot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(potential.MWPotential2014, tRphiz_test[0], tRphiz_test[2], phi=tRphiz_test[1])) < 1e-6, 'Evaluating potential at same relative position in a Rotated and tilted MWPotential2014 and non-Rotated does not give same result'
     # Also a triaxial NFW
-    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
-    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa)
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
     # Try not specifying galaxy_pa, shouldn be =0
-    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec,pot=potential.TriaxialNFWPotential(amp=1.))
-    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec,pa=0.)
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec,pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec,pa=0.,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
     # Try not specifying zvec, should be =[0,0,1]
-    NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.))
-    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa)
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    # Quickly test attributeerror for non-axi 2nd derivs
+    with pytest.raises(potential.PotentialError) as excinfo:
+        NFW_wrapped.R2deriv(1.,0.1,phi=0.3)
     return None
 
 def test_vtermnegl_issue314():

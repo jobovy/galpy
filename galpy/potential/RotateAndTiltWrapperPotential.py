@@ -95,13 +95,8 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         return None
 
     def __getattr__(self,attribute):
-        if attribute == '_R2deriv' or attribute == '_z2deriv' \
-           or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
-           or attribute == '_Rphideriv':
-            raise AttributeError
-        else:
-            return super(RotateAndTiltWrapperPotential,self)\
-                .__getattr__(attribute)
+        return super(RotateAndTiltWrapperPotential,self)\
+            .__getattr__(attribute)
 
     @check_potential_inputs_not_arrays
     def _evaluate(self,R,z,phi=0.,t=0.):
