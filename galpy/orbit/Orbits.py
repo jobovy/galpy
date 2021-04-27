@@ -229,7 +229,7 @@ class Orbit(object):
         if vxvv is None: # Assume one wants the Sun
             vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
             radec= True
-        elif isinstance(vxvv,list):
+        elif isinstance(vxvv,(list, tuple)):
             if None in vxvv:
                 vxvv= [[0.,0.,0.,0.,0.,0.] 
                        if tvxvv is None else tvxvv
@@ -246,7 +246,7 @@ class Orbit(object):
             input_shape= vxvv.shape[:-1]
             vxvv= numpy.atleast_2d(vxvv)
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
-        elif isinstance(vxvv,list):
+        elif isinstance(vxvv,(list, tuple)):
             if isinstance(vxvv[0],Orbit):
                 vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
                 input_shape= (len(vxvv),)
@@ -447,7 +447,7 @@ class Orbit(object):
             # Make sure radec and lb are False (issue #402)
             radec= False
             lb= False
-        elif not isinstance(vxvv,list):
+        elif not isinstance(vxvv,(list, tuple)):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
         if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
