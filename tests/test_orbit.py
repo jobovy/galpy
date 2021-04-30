@@ -2086,7 +2086,7 @@ def test_orbit_setup():
         assert numpy.fabs(o.phi()-3.) < 10.**-16., 'Orbit setphi does not agree with o.phi()'
         # FullOrbit no longer exists after switch to Orbits
         #assert isinstance(o._orb,FullOrbit), 'After applying setphi, RZOrbit did not become FullOrbit'
-    o= Orbit([1.,0.1,1.1,0.2,0.3,2.])
+    o= Orbit((1.,0.1,1.1,0.2,0.3,2.))  # also testing tuple input
     assert o.dim() == 3, 'FullOrbit does not have dim == 3'
     assert numpy.fabs(o.R()-1.) < 10.**-16., 'Orbit R setup does not agree with o.R()'
     assert numpy.fabs(o.vR()-0.1) < 10.**-16., 'Orbit vR setup does not agree with o.vR()'
