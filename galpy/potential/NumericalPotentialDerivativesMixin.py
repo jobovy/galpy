@@ -119,3 +119,18 @@ class NumericalPotentialDerivativesMixin(object):
                    +0.5*self._evaluate(Rplus2dR,z,phi=phiminusdphi,t=t))\
                    /dR/dphi
 
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        if not self.isNonAxi: return 0.
+        # Central derivative
+        phiplusdphi= phi+self._dphi2
+        phiminusdphi= phi-self._dphi2
+        dphi= (phiplusdphi-phiminusdphi)/2.
+        zplusdz= z+self._dz2
+        zminusdz= z-self._dz2
+        dz= zplusdz-zminusdz
+        return (self._evaluate(R,zplusdz,phi=phiplusdphi,t=t)
+                -self._evaluate(R,zplusdz,phi=phiminusdphi,t=t)
+                -self._evaluate(R,zminusdz,phi=phiplusdphi,t=t)
+                +self._evaluate(R,zminusdz,phi=phiminusdphi,t=t))\
+                /dz/dphi/2.
+    

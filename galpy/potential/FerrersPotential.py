@@ -358,6 +358,31 @@ class FerrersPotential(Potential):
             (phiyy-phixx)+R*numpy.cos(2.*(phi))*phixy\
             +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
 
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed azimuthal, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed azimuthal, vertical derivative
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        if not self.isNonAxi:
+            phi= 0.
+        x,y,z= self._compute_xyz(R,phi,z,t)
+        phixza= self._2ndderiv_xyz(x,y,z,0,2)
+        phiyza= self._2ndderiv_xyz(x,y,z,1,2)
+        phixz, phiyz= numpy.dot(self.rot(t,transposed=True),
+                                numpy.array([phixza,phiyza]))
+        return R*(numpy.cos(phi)*phiyz-numpy.sin(phi)*phixz)
+
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""

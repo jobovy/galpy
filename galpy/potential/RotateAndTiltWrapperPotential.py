@@ -7,7 +7,7 @@ from .Potential import check_potential_inputs_not_arrays, \
     _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
     _evaluatephiforces, evaluateDensities, evaluateR2derivs, \
     evaluatez2derivs, evaluatephi2derivs, evaluateRzderivs, \
-    evaluateRphiderivs
+    evaluateRphiderivs, evaluatephizderivs
 from .WrapperPotential import WrapperPotential
 from ..util import conversion
 from ..util import _rotate_to_arbitrary_vector
@@ -300,10 +300,27 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             (phi2[1,1]-phi2[0,0])+R*numpy.cos(2.*phi)*phi2[0,1]\
             +numpy.sin(phi)*Fxyz[0]-numpy.cos(phi)*Fxyz[1]
 
+    @check_potential_inputs_not_arrays
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed azimuthal, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed azimuthal, vertical derivative
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        phi2= self._2ndderiv_xyz(R,z,phi=phi,t=t)
+        return R*(numpy.cos(phi)*phi2[1,2]-numpy.sin(phi)*phi2[0,2])
+
     def _2ndderiv_xyz(self,R,z,phi=0.,t=0.):
-        from .Potential import _isNonAxi
-        if _isNonAxi(self._pot):
-            raise AttributeError('2nd derivatives for rotated, non-axisymmetric potentials not implemented yet')
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
@@ -320,13 +337,14 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
                                    use_physical=False)
         Rphiderivp= evaluateRphiderivs(self._pot,Rp,zp,phi=phip,t=t,
                                        use_physical=False)
-        phizderivp= 0. # EDIT THIS FOR NON-AXI
+        phizderivp= evaluatephizderivs(self._pot,Rp,zp,phi=phip,t=t,
+                                       use_physical=False)
         cp, sp= numpy.cos(phip), numpy.sin(phip)
         cp2, sp2, cpsp= cp**2., sp**2., cp*sp
         Rp2= Rp*Rp
-        x2derivp= R2derivp*cp2-2.*Rphiderivp*cpsp+phi2derivp*sp2/Rp2\
+        x2derivp= R2derivp*cp2-2.*Rphiderivp*cpsp/Rp+phi2derivp*sp2/Rp2\
             -Rforcep*sp2/Rp-2.*phiforcep*cpsp/Rp2
-        y2derivp= R2derivp*sp2+2.*Rphiderivp*cpsp+phi2derivp*cp2/Rp2\
+        y2derivp= R2derivp*sp2+2.*Rphiderivp*cpsp/Rp+phi2derivp*cp2/Rp2\
             -Rforcep*cp2/Rp+2.*phiforcep*cpsp/Rp2
         xyderivp= R2derivp*cpsp+Rphiderivp*(cp2-sp2)/Rp-phi2derivp*cpsp/Rp2\
             +Rforcep*cpsp/Rp+phiforcep*(cp2-sp2)/Rp2

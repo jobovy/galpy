@@ -168,6 +168,9 @@ def test_forceAsDeriv_potential():
     pots.append('mockInterpSphericalPotentialwForce')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -343,6 +346,7 @@ def test_2ndDeriv_potential():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -524,6 +528,25 @@ def test_2ndDeriv_potential():
                     else:
                         assert (tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol, \
 "Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
+        #mixed azimuthal, vertical
+        if not isinstance(tp,potential.planarPotential) \
+                and not isinstance(tp,potential.linearPotential) \
+                and hasattr(tp,'_phizderiv'):
+            for ii in range(len(Rs)):
+                for jj in range(len(phis)):
+#                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
+                    dphi= 10.**-8.
+                    newphi= phis[jj]+dphi
+                    dphi= newphi-phis[jj] #Representable number
+                    mzforcederivphi= (tp.zforce(Rs[ii],0.1,phi=phis[jj])\
+                                              -tp.zforce(Rs[ii],0.1,phi=phis[jj]+dphi))/dphi
+                    tphizderiv= potential.evaluatephizderivs(tp,Rs[ii],0.1,phi=phis[jj]) 
+                    if tphizderiv**2. < 10.**ttol:
+                        assert mzforcederivphi**2. < 10.**ttol, \
+                            "Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the %s vertical force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
+                    else:
+                        assert (tphizderiv-mzforcederivphi)**2./tphizderiv**2. < 10.**ttol, \
+"Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the %s vertical force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
 
 #Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
 def test_poisson_potential():
@@ -573,6 +596,7 @@ def test_poisson_potential():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -684,6 +708,7 @@ def test_poisson_surfdens_potential():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -733,8 +758,8 @@ def test_poisson_surfdens_potential():
                 or (tclass._surfdens == potential.Potential._surfdens and not p == 'FlattenedPowerPotential'): # make sure _surfdens is explicitly implemented
             continue
         for ii in range(len(Rs)):
-            for jj in range(len(Zs)):
-                for kk in range(len(phis)):
+            for kk in range(len(phis)):
+                for jj in range(len(Zs)):
                     tpoissondens= tp.surfdens(Rs[ii],Zs[jj],phi=phis[kk],
                                                  forcepoisson=True)
                     tdens= potential.evaluateSurfaceDensities(tp,Rs[ii],Zs[jj],
@@ -746,6 +771,7 @@ def test_poisson_surfdens_potential():
                     else:
                         assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
                             "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                if p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination': continue # takes a long time otherwise... skip after all z at one (R,phi)
     return None
 
 #Test whether the _evaluate function is correctly implemented in specifying derivatives
@@ -815,6 +841,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1029,6 +1056,7 @@ def test_amp_mult_divide():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1168,6 +1196,11 @@ def test_potential_array_input():
             tpevals= numpy.array([tp.Rphideriv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
             assert numpy.all(numpy.fabs(tp.Rphideriv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
                 '{} Rphideriv evaluation does not work as expected for array inputs'.format(p)
+        #phizderiv
+        if hasattr(tp,'_phizderiv'):
+            tpevals= numpy.array([tp.phizderiv(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+            assert numpy.all(numpy.fabs(tp.phizderiv(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+                '{} phizderiv evaluation does not work as expected for array inputs'.format(p)
         #dens
         tpevals= numpy.array([tp.dens(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
         assert numpy.all(numpy.fabs(tp.dens(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
@@ -1297,6 +1330,7 @@ def test_potential_at_zero():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1344,6 +1378,7 @@ def test_potential_at_zero():
            or p == 'AnySphericalPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
+           or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1409,6 +1444,7 @@ def test_potential_at_infinity():
     pots.append('mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
+    pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1453,6 +1489,7 @@ def test_potential_at_infinity():
            or p == 'AnySphericalPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
+           or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -2316,7 +2353,7 @@ def test_DehnenBar_special():
     #Rphideriv
     dpevals= numpy.array([dp.Rphideriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.Rphideriv(rs,zs,phis)-dpevals) < 10.**-10.), \
-        'DehnenBarPotential Rzderiv evaluation does not work as expected for array inputs'
+        'DehnenBarPotential Rphideriv evaluation does not work as expected for array inputs'
     # R array, z not an array
     dpevals= numpy.array([dp.Rphideriv(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
     assert numpy.all(numpy.fabs(dp.Rphideriv(rs,zs[0],phis)-dpevals) < 10.**-10.), \
@@ -2325,6 +2362,18 @@ def test_DehnenBar_special():
     dpevals= numpy.array([dp.Rphideriv(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
     assert numpy.all(numpy.fabs(dp.Rphideriv(rs[0],zs,phis)-dpevals) < 10.**-10.), \
         'DehnenBarPotential Rphideriv does not work as expected for array inputs'
+    #phizderiv
+    dpevals= numpy.array([dp.phizderiv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phizderiv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phizderiv evaluation does not work as expected for array inputs'
+    # R array, z not an array
+    dpevals= numpy.array([dp.phizderiv(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
+    assert numpy.all(numpy.fabs(dp.phizderiv(rs,zs[0],phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phizderiv does not work as expected for array inputs'
+    # z array, R not an array
+    dpevals= numpy.array([dp.phizderiv(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phizderiv(rs[0],zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phizderiv does not work as expected for array inputs'
     return None
 
 def test_SpiralArm_special():
@@ -2370,6 +2419,10 @@ def test_SpiralArm_special():
     #Rphideriv
     dpevals= numpy.array([dp.Rphideriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.Rphideriv(rs,zs,phis)-dpevals) < 10.**-10.), \
+        'SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs'
+    #phizderiv
+    dpevals= numpy.array([dp.phizderiv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phizderiv(rs,zs,phis)-dpevals) < 10.**-10.), \
         'SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs'
     #dens
     dpevals= numpy.array([dp.dens(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
@@ -3198,6 +3251,8 @@ def test_nonaxierror_function():
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateRphiderivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
+        potential.evaluatephizderivs(tnp,1.,0.)
+    with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluaterforces(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluater2derivs(tnp,1.,0.)
@@ -3465,6 +3520,7 @@ def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     assert numpy.fabs(potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRzderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRzderivs'
     assert numpy.fabs(potential.evaluatephi2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluatephi2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatephi2derivs'
     assert numpy.fabs(potential.evaluateRphiderivs([lp,cdfc],R,z,phi=1.)-potential.evaluateRphiderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluateRphiderivs'
+    assert numpy.fabs(potential.evaluatephizderivs([lp,cdfc],R,z,phi=1.)-potential.evaluatephizderivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluatephizderivs'
     assert numpy.fabs(potential.evaluater2derivs([lp,cdfc],R,z,phi=1.)-potential.evaluater2derivs([lp,cdfc],R,z,phi=1.)) < 1e-10, 'Dissipative forces not ignored in evaluater2derivs'
     return None
 
@@ -3582,9 +3638,6 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
-    # Quickly test attributeerror for non-axi 2nd derivs
-    with pytest.raises(potential.PotentialError) as excinfo:
-        NFW_wrapped.R2deriv(1.,0.1,phi=0.3)
     return None
 
 def test_vtermnegl_issue314():
@@ -3861,6 +3914,8 @@ def test_NumericalPotentialDerivativesMixin():
                               -NumPot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rzderiv(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rzderiv'.format(Pot.__class__.__name__)
                     assert numpy.fabs((Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])
                               -NumPot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rphideriv(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rphideriv'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phizderiv(Rs[ii],Zs[jj],phi=phis[kk])
+                                       -NumPot.phizderiv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phizderiv(Rs[ii],Zs[jj],phi=phis[kk])**(Pot.isNonAxi*(Zs[jj] != 0.))) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phizderiv'.format(Pot.__class__.__name__)
         return None
     # Now check some potentials
     # potential.MiyamotoNagaiPotential
@@ -4668,7 +4723,8 @@ class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
 from galpy.potential import Potential, \
     evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
-    evaluateDensities, _isNonAxi, evaluateSurfaceDensities
+    evaluateDensities, _isNonAxi, evaluateSurfaceDensities, \
+    evaluatephizderivs
 from galpy.potential import planarPotential, \
     evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
     evaluateplanarR2derivs
@@ -4699,6 +4755,8 @@ class testMWPotential(Potential):
     def _Rphideriv(self,R,z,phi=0.,t=0.):
         return evaluatePotentials(self._potlist,R,z,phi=phi,t=t,dR=1,
                                   dphi=1)
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        return evaluatephizderivs(self._potlist,R,z,phi=phi,t=t)
     def _dens(self,R,z,phi=0.,t=0.,forcepoisson=False):
         return evaluateDensities(self._potlist,R,z,phi=phi,t=t,
                                  forcepoisson=forcepoisson)
@@ -5148,6 +5206,16 @@ class mockRotatedAndTiltedMWP14WrapperPotentialwInclination(testMWPotential):
     def __init__(self):
         testMWPotential.__init__(self,potlist=[\
                 RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              inclination=2.,
+                                              galaxy_pa=0.3,
+                                              sky_pa=None)])
+    def OmegaP(self):
+        return 0.
+class mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(\
+            pot=potential.LogarithmicHaloPotential(normalize=1.,b=0.7,q=0.5),
                                               inclination=2.,
                                               galaxy_pa=0.3,
                                               sky_pa=None)])

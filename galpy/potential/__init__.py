@@ -71,6 +71,7 @@ evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 evaluatephi2derivs= Potential.evaluatephi2derivs
 evaluateRphiderivs= Potential.evaluateRphiderivs
+evaluatephizderivs= Potential.evaluatephizderivs
 evaluater2derivs= Potential.evaluater2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 toPlanarPotential= planarPotential.toPlanarPotential

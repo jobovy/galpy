@@ -26,6 +26,7 @@ Use as ``Potential-instance.method(...)``
    nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
+   phizderiv <potentialphizderiv.rst>
    phi2deriv <potentialphi2deriv.rst>
    plot <potentialplot.rst>
    plotDensity <potentialplotdensity.rst>
@@ -81,6 +82,7 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephizderivs <potentialphizderivs.rst>
    evaluatephi2derivs <potentialphi2derivs.rst>
    evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>

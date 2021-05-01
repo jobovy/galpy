@@ -784,6 +784,44 @@ class Potential(Force):
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
             return 0.
 
+    @potential_physical_input
+    @physical_conversion('forcederivative',pop=True)
+    def phizderiv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           phizderiv
+
+        PURPOSE:
+
+           evaluate the mixed azimuthal,vertical derivative
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           Z - vertical height (can be Quantity)
+
+           phi - Galactocentric azimuth (can be Quantity)
+
+           t - time (can be Quantity)
+
+        OUTPUT:
+
+           d2Phi/dphidz
+
+        HISTORY:
+
+           2021-04-30 - Written - Bovy (UofT)
+
+        """
+        try:
+            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")
+            return 0.
+
     def toPlanar(self):
         """
         NAME:
@@ -2441,11 +2479,11 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
 
     OUTPUT:
 
-       d2Phi/d2R(R,z,phi,t)
+       d2Phi/dRdphi(R,z,phi,t)
 
     HISTORY:
 
-       2012-07-25 - Written - Bovy (IAS)
+       2014-06-30 - Written - Bovy (IAS)
 
     """
     isList= isinstance(Pot,list)
@@ -2462,6 +2500,54 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
         return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('forcederivative',pop=True)
+def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluatephizderivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2Phi/dphi/dz(R,z,phi,t)
+
+    HISTORY:
+
+       2021-04-30 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        out= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                out+= pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)

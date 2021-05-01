@@ -316,7 +316,7 @@ class EllipsoidalPotential(Potential):
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead")
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
         phixy= self._2ndderiv_xyz(x,y,z,0,1)
         phiyy= self._2ndderiv_xyz(x,y,z,1,1)
@@ -344,7 +344,7 @@ class EllipsoidalPotential(Potential):
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         phixz= self._2ndderiv_xyz(x,y,z,0,2)
         phiyz= self._2ndderiv_xyz(x,y,z,1,2)
         return numpy.cos(phi)*phixz+numpy.sin(phi)*phiyz
@@ -370,7 +370,7 @@ class EllipsoidalPotential(Potential):
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         return self._2ndderiv_xyz(x,y,z,2,2)
 
     @check_potential_inputs_not_arrays
@@ -394,7 +394,7 @@ class EllipsoidalPotential(Potential):
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         Fx= self._force_xyz(x,y,z,0)
         Fy= self._force_xyz(x,y,z,1)
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
@@ -425,7 +425,7 @@ class EllipsoidalPotential(Potential):
             phi= 0.
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         Fx= self._force_xyz(x,y,z,0)
         Fy= self._force_xyz(x,y,z,1)
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
@@ -434,6 +434,32 @@ class EllipsoidalPotential(Potential):
         return R*numpy.cos(phi)*numpy.sin(phi)*\
             (phiyy-phixx)+R*numpy.cos(2.*phi)*phixy\
             +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
+
+    @check_potential_inputs_not_arrays
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed azimuthal, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, azimuthal derivative
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        if not self.isNonAxi:
+            phi= 0.
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
+        phixz= self._2ndderiv_xyz(x,y,z,0,2)
+        phiyz= self._2ndderiv_xyz(x,y,z,1,2)
+        return R*(numpy.cos(phi)*phiyz-numpy.sin(phi)*phixz)
 
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
