@@ -14,10 +14,15 @@ from ..util import _rotate_to_arbitrary_vector
 from ..util import coords
 # Only implement 3D wrapper
 class RotateAndTiltWrapperPotential(WrapperPotential):
-    """ Potential wrapper class that implements an adjustment to the rotation
-        and z-axis vector (tilt) of a given Potential. This can be used,
-        for example, to tilt a disc to a desired inclination angle
-    """
+    """Potential wrapper that allows a potential to be rotated in 3D
+according to three orientation angles. These angles can either be
+specified using:
+
+* A rotation around the original z-axis (`galaxy_pa`) and the new direction of the z-axis (`zvec`) or
+
+* A rotation around the original z-axis (`galaxy_pa`), the `inclination`, and a rotation around the new z axis (`sky_pa`).
+
+The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations."""
     def __init__(self,amp=1.,inclination=None,galaxy_pa=None,sky_pa=None,
                  zvec=None,pot=None,
                  ro=None,vo=None):
@@ -32,7 +37,22 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
         INPUT:
 
-           zvec - the vector along the required final z-axis
+           amp= (1.) overall amplitude to apply to the potential
+
+           pot= Potential instance or list thereof for the potential to rotate and tilt
+
+           Orientation angles as
+        
+              galaxy_pa= rotation angle of the original potential around the original z axis (can be a Quantity)
+
+           and either
+
+
+              1) zvec= 3D vector specifying the direction of the rotated z axis
+
+              2) inclination= usual inclination angle (with the line-of-sight being the z axis)
+
+                 sky_pa= rotation angle around the inclined z axis (usual sky position angle measured from North)
 
         OUTPUT:
 
