@@ -312,6 +312,30 @@ class LogarithmicHaloPotential(Potential):
         else:
             return 0.
 
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed phi,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2Phi/dz/dphi
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        if self.isNonAxi:
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
+            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
+            return 2*R**2*z*numpy.sin(phi)*numpy.cos(phi)*self._1m1overb2\
+                *denom**2/self._q**2
+        else:
+            return 0.
+
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
         """

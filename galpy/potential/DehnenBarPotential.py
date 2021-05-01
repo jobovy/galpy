@@ -468,6 +468,48 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r)**3.*R*z/r**6.*(2.*r**2.-7.*R**2.)
 
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed azimuthal, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed azimuthal, vertical derivative
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        #Calculate relevant time
+        smooth=self._smooth(t)
+        r= numpy.sqrt(R**2.+z**2.)
+        if isinstance(r,numpy.ndarray):
+            if not isinstance(R,numpy.ndarray):
+                R=numpy.repeat(R,len(r))
+            if not isinstance(z,numpy.ndarray):
+                z=numpy.repeat(z,len(r))
+            out=numpy.empty(len(r))
+            indx= r <= self._rb  
+            out[indx]= -((r[indx]/self._rb)**3.+4.)*R[indx]**2.*z[indx]/r[indx]**4.
+            indx=numpy.invert(indx)
+            out[indx]= -5.*(self._rb/r[indx])**3.*R[indx]**2.*z[indx]/r[indx]**4.
+
+            out*=self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-self._barphi))
+            return 2.*out
+        else:
+            if r <= self._rb:
+                return -2*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t
+                                                      -self._barphi))\
+                       *((r/self._rb)**3.+4.)*R**2.*z/r**4.
+            else:
+                return -10.*self._af*smooth*numpy.sin(2.*(phi-self._omegab*t-
+                                                      self._barphi))\
+                                *(self._rb/r)**3.*R**2.*z/r**4.
+
     def tform(self): #pragma: no cover
         """
         NAME:

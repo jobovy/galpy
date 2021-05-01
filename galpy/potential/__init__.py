@@ -41,6 +41,7 @@ from . import DehnenSmoothWrapperPotential
 from . import SolidBodyRotationWrapperPotential
 from . import CorotatingRotationWrapperPotential
 from . import GaussianAmplitudeWrapperPotential
+from . import RotateAndTiltWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
 from . import RingPotential
@@ -70,6 +71,7 @@ evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 evaluatephi2derivs= Potential.evaluatephi2derivs
 evaluateRphiderivs= Potential.evaluateRphiderivs
+evaluatephizderivs= Potential.evaluatephizderivs
 evaluater2derivs= Potential.evaluater2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 toPlanarPotential= planarPotential.toPlanarPotential
@@ -189,6 +191,7 @@ DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPo
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
+RotateAndTiltWrapperPotential = RotateAndTiltWrapperPotential.RotateAndTiltWrapperPotential
 AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two

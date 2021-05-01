@@ -284,6 +284,18 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._minr**2.])
             pot_args.extend([p._sigmar_rs_4interp[0],
                              p._sigmar_rs_4interp[-1]]) #r_0, r_f
+        elif isinstance(p,potential.RotateAndTiltWrapperPotential):
+            pot_type.append(-8)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp])
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend(list(p._rot.flatten()))
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -295,8 +307,8 @@ def _parse_scf_pot(p,extra_amp=1.):
     pot_args.extend(p._Acos.shape)
     pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
     if isNonAxi:
-        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))   
-    pot_args.extend([-1.,0,0,0,0,0,0])    
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
+    pot_args.extend([-1.,0,0,0,0,0,0])
     return (24,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
@@ -329,7 +341,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
 
     #Set up result array
@@ -341,7 +353,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     integrationFunc= _lib.integrateFullOrbit
     integrationFunc.argtypes= [ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -375,7 +387,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     result,
                     err,
                     ctypes.c_int(int_method_c))
-    
+
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
@@ -421,7 +433,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateFullOrbit_dxdv
     integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -578,7 +590,7 @@ def _RZEOM(y,t,pot,l2):
     NAME:
        _RZEOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for a 3D orbit assuming conservation of angular momentum
     INPUT:
        y - current phase-space position
@@ -600,7 +612,7 @@ def _EOM(y,t,pot):
     NAME:
        _EOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for a 3D orbit
     INPUT:
        y - current phase-space position
@@ -650,4 +662,3 @@ def _rectForce(x,pot,t=0.):
     return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
-

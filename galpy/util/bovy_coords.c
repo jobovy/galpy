@@ -15,6 +15,20 @@ void cyl_to_rect(double R, double phi,double *x, double *y){
   *y= R * sin ( phi );
 }
 /*
+NAME: rect_to_cyl
+PURPOSE: convert 2D (x,y) to (R,phi) [mainly used in the context of cylindrical coordinates, hence the name)
+INPUT:
+   double x - x
+   double y - y
+OUTPUT (as arguments):
+   double *R - cylindrical radius
+   double *phi - azimuth (rad)
+ */
+void rect_to_cyl(double x, double y,double *R, double *phi){
+  *R = sqrt (x*x+y*y);
+  *phi = atan2 ( y , x );
+}
+/*
 NAME: polar_to_rect_galpy
 PURPOSE: convert (R,vR,vT,phi) to (x,y,vx,vy)
 INPUT:

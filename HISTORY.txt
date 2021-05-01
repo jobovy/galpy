@@ -61,10 +61,18 @@ v1.7 (XXXX-XX-XX)
 - Added AnySphericalPotential, the potential of an arbitrary spherical
   density distribution.
 
+- Added RotateAndTiltWrapperPotential, a wrapper potential to
+  re-orient a potential arbitrarily in three dimensions using three
+  angles.
+
 - Updated the definition of a Potential's mass to always return the
   mass within a spherical shell if only one argument is
   specified. Also implemented faster implementations of the masses of
   SCF and diskSCF potentials.
+
+- Added mixed azimuthal,vertical second derivative for all
+  non-axisymmetric potentials: potential function evaluatephizderivs
+  and Potential method phizderiv.
 
 - Added inverse action-angle transformations for the isochrone
   potential (actionAngleIsochroneInverse) and for a one-dimensional

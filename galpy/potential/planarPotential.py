@@ -341,7 +341,7 @@ class planarPotential(object):
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('energy',pop=True)
     def phi2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -375,7 +375,7 @@ class planarPotential(object):
             raise PotentialError("'_phi2deriv' function not implemented for this potential")      
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('force',pop=True)
     def Rphideriv(self,R,phi=0.,t=0.):
         """
         NAME:

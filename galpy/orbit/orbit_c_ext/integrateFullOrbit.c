@@ -184,7 +184,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->accx= gsl_interp_accel_alloc ();
       potentialArgs->accy= gsl_interp_accel_alloc ();
       for (kk=0; kk < nR; kk++)
-	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz); 
+	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
       *pot_args+= nR*nz;
       potentialArgs->i2drforce= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2drforce,Rgrid,zgrid,potGrid_splinecoeffs,
@@ -192,8 +192,8 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->accxrforce= gsl_interp_accel_alloc ();
       potentialArgs->accyrforce= gsl_interp_accel_alloc ();
       for (kk=0; kk < nR; kk++)
-	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz); 
-      *pot_args+= nR*nz;    
+	put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+      *pot_args+= nR*nz;
       potentialArgs->i2dzforce= interp_2d_alloc(nR,nz);
       interp_2d_init(potentialArgs->i2dzforce,Rgrid,zgrid,potGrid_splinecoeffs,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
@@ -287,7 +287,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
@@ -301,7 +301,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
@@ -315,7 +315,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
@@ -335,7 +335,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phiforce= &SoftenedNeedleBarPotentialphiforce;
       potentialArgs->nargs= (int) 13;
       potentialArgs->requiresVelocity= false;
-      break;      
+      break;
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->Rforce= &DiskSCFPotentialRforce;
@@ -356,7 +356,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
       potentialArgs->nargs = (int) 10 + **pot_args;
       potentialArgs->requiresVelocity= false;
-      break;    
+      break;
     case 30: // PerfectEllipsoidPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
@@ -372,7 +372,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
@@ -454,7 +454,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
@@ -503,6 +503,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= (int) 16;
       potentialArgs->requiresVelocity= true;
       break;
+    case -8: //RotateAndTiltWrapperPotential
+      potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
+      potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
+      potentialArgs->phiforce= &RotateAndTiltWrapperPotentialphiforce;
+      potentialArgs->nargs= (int) 16;
+      potentialArgs->requiresVelocity= false;
+      break;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;
@@ -531,7 +538,7 @@ void parse_leapFuncArgs_Full(int npot,
 }
 EXPORT void integrateFullOrbit(int nobj,
 			       double *yo,
-			       int nt, 
+			       int nt,
 			       double *t,
 			       int npot,
 			       int * pot_type,
@@ -551,7 +558,7 @@ EXPORT void integrateFullOrbit(int nobj,
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads)
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
@@ -624,7 +631,7 @@ EXPORT void integrateFullOrbit(int nobj,
 }
 // LCOV_EXCL_START
 void integrateOrbit_dxdv(double *yo,
-			 int nt, 
+			 int nt,
 			 double *t,
 			 int npot,
 			 int * pot_type,

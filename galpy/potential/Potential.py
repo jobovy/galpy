@@ -327,6 +327,8 @@ class Potential(Force):
 
            2018-08-19 - Written - Bovy (UofT)
 
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
+
         """
         try:
             if forcepoisson: raise AttributeError #Hack!
@@ -334,11 +336,12 @@ class Potential(Force):
         except AttributeError:
             #Use the Poisson equation to get the surface density
             return (-self.zforce(R,numpy.fabs(z),phi=phi,t=t,use_physical=False)
+                    +self.zforce(R,-numpy.fabs(z),phi=phi,t=t,use_physical=False)
                     +integrate.quad(\
                 lambda x: -self.Rforce(R,x,phi=phi,t=t,use_physical=False)/R
                 +self.R2deriv(R,x,phi=phi,t=t,use_physical=False)
                 +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
-                0.,numpy.fabs(z))[0])/2./numpy.pi
+                -numpy.fabs(z),numpy.fabs(z))[0])/4./numpy.pi
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -355,8 +358,10 @@ class Potential(Force):
            the surface density
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
         """
-        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
+        return integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),
+                              -numpy.fabs(z),numpy.fabs(z))[0]
 
     @potential_physical_input
     @physical_conversion('mass',pop=True)
@@ -704,7 +709,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('energy',pop=True)
     def phi2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -742,7 +747,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('force',pop=True)
     def Rphideriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -777,6 +782,44 @@ class Potential(Force):
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
+            return 0.
+
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
+    def phizderiv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           phizderiv
+
+        PURPOSE:
+
+           evaluate the mixed azimuthal,vertical derivative
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           Z - vertical height (can be Quantity)
+
+           phi - Galactocentric azimuth (can be Quantity)
+
+           t - time (can be Quantity)
+
+        OUTPUT:
+
+           d2Phi/dphidz
+
+        HISTORY:
+
+           2021-04-30 - Written - Bovy (UofT)
+
+        """
+        try:
+            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     def toPlanar(self):
@@ -961,7 +1004,7 @@ class Potential(Force):
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     phi=None,xy=False,
                     ncontours=21,savefilename=None,aspect=None,log=False,
-                    justcontours=False):
+                    justcontours=False,**kwargs):
         """
         NAME:
 
@@ -1012,12 +1055,12 @@ class Potential(Force):
                              zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,t=t,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
-                             aspect=aspect,log=log)
+                             aspect=aspect,log=log,**kwargs)
 
     def plotSurfaceDensity(self,t=0.,z=numpy.inf,
                            xmin=0.,xmax=1.5,nxs=21,ymin=-0.5,ymax=0.5,nys=21,
                            ncontours=21,savefilename=None,aspect=None,
-                           log=False,justcontours=False):
+                           log=False,justcontours=False,**kwargs):
         """
         NAME:
 
@@ -1067,7 +1110,7 @@ class Potential(Force):
                                     ncontours=ncontours,
                                     savefilename=savefilename,
                                     justcontours=justcontours,
-                                    aspect=aspect,log=log)
+                                    aspect=aspect,log=log,**kwargs)
     
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
@@ -2363,7 +2406,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2411,7 +2454,7 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('force',pop=True)
 def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2436,11 +2479,11 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
 
     OUTPUT:
 
-       d2Phi/d2R(R,z,phi,t)
+       d2Phi/dRdphi(R,z,phi,t)
 
     HISTORY:
 
-       2012-07-25 - Written - Bovy (IAS)
+       2014-06-30 - Written - Bovy (IAS)
 
     """
     isList= isinstance(Pot,list)
@@ -2457,6 +2500,54 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
         return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('force',pop=True)
+def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluatephizderivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2Phi/dphi/dz(R,z,phi,t)
+
+    HISTORY:
+
+       2021-04-30 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        out= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                out+= pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
@@ -2624,7 +2715,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
                   ncontours=21,savefilename=None,aspect=None,log=False,
-                  justcontours=False):
+                  justcontours=False,**kwargs):
         """
         NAME:
 
@@ -2721,16 +2812,17 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                            aspect=aspect,
                            xrange=[rmin,rmax],
                            yrange=[zmin,zmax],
-                           cntrls='-',
+                           cntrls=kwargs.pop('cntrls','-'),
                            justcontours=justcontours,
                            levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
-                                                 ncontours))
+                                                 ncontours),
+                           **kwargs)
 
 def plotSurfaceDensities(Pot,
                          xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
                          z=numpy.inf,t=0.,
                          ncontours=21,savefilename=None,aspect=None,
-                         log=False,justcontours=False):
+                         log=False,justcontours=False,**kwargs):
         """
         NAME:
 
@@ -2820,11 +2912,12 @@ def plotSurfaceDensities(Pot,
                            aspect=aspect,
                            xrange=[xmin,xmax],
                            yrange=[ymin,ymax],
-                           cntrls='-',
+                           cntrls=kwargs.pop('cntrls','-'),
                            justcontours=justcontours,
                            levels=numpy.linspace(numpy.nanmin(surfxy),
                                                  numpy.nanmax(surfxy),
-                                                 ncontours))
+                                                 ncontours),
+                           **kwargs)
     
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
