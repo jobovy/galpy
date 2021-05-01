@@ -709,7 +709,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('energy',pop=True)
     def phi2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -747,7 +747,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('force',pop=True)
     def Rphideriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -785,7 +785,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('force',pop=True)
     def phizderiv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -2406,7 +2406,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2454,7 +2454,7 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('force',pop=True)
 def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2502,7 +2502,7 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('force',pop=True)
 def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
