@@ -8,12 +8,14 @@ from galpy.util import bovy_coords, bovy_conversion, \
 _APY_LOADED= bovy_conversion._APY_LOADED
 if _APY_LOADED:
     from astropy import units
+
+
 class streamspraydf(df):
     def __init__(self,progenitor_mass,progenitor=None,pot=None,rtpot=None,
                  tdisrupt=None,leading=True,
                  meankvec=[2.,0.,0.3,0.,0.,0.],
                  sigkvec=[0.4,0.,0.4,0.5,0.5,0.],
-                 ro=None,vo=None):
+                 ro=None,vo=None, rel = None):
         """
         NAME:
         
@@ -40,6 +42,8 @@ class streamspraydf(df):
            pot = (None) potential for integrating orbits
            
            rtpot = (pot) potential for calculating tidal radius and circular velocity
+           
+           rel = (None) orbit for calculating direction of star velocity (need integration backwards)
 
         OUTPUT:
         
@@ -71,7 +75,10 @@ class streamspraydf(df):
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
         self._progenitor.integrate(self._progenitor_times,self._pot)
         self._meankvec= numpy.array(meankvec)
-        self._sigkvec= numpy.array(sigkvec)
+        self._sigkvec= numpy.array(sigkvec)  
+        
+        self._rel = rel
+        
         if leading: self._meankvec*= -1.
         return None
     
@@ -113,19 +120,37 @@ class streamspraydf(df):
         # Build all rotation matrices
         rot, rot_inv= self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame
+        
+        # condider rel orbit is None
+        if self._rel == None:
+            relx = self._progenitor.x(-dt)
+            rely = self._progenitor.y(-dt)
+            relz = self._progenitor.z(-dt)
+            relvx = self._progenitor.vx(-dt)
+            relvy = self._progenitor.vy(-dt)
+            relvz = self._progenitor.vz(-dt)
+        else:           
+            relx = (self._progenitor.x(-dt) - self._rel.x(-dt))
+            rely = (self._progenitor.y(-dt) - self._rel.y(-dt))
+            relz = (self._progenitor.z(-dt) - self._rel.z(-dt))
+            relvx = (self._progenitor.vx(-dt) - self._rel.vx(-dt))
+            relvy = (self._progenitor.vy(-dt) - self._rel.vy(-dt))
+            relvz = (self._progenitor.vz(-dt) - self._rel.vz(-dt))
+
+        
         xyzpt= numpy.einsum('ijk,ik->ij',rot,
-                            numpy.array([self._progenitor.x(-dt),
-                                         self._progenitor.y(-dt),
-                                         self._progenitor.z(-dt)]).T)
+                            numpy.array([relx,
+                                         rely,
+                                         relz]).T)
         vxyzpt= numpy.einsum('ijk,ik->ij',rot,
-                             numpy.array([self._progenitor.vx(-dt),
-                                          self._progenitor.vy(-dt),
-                                          self._progenitor.vz(-dt)]).T)
+                             numpy.array([relvx,
+                                          relvy,
+                                          relvz]).T)
         Rpt,phipt,Zpt= bovy_coords.rect_to_cyl(xyzpt[:,0],xyzpt[:,1],xyzpt[:,2])
         vRpt,vTpt,vZpt= bovy_coords.rect_to_cyl_vec(vxyzpt[:,0],vxyzpt[:,1],vxyzpt[:,2],
                                                     Rpt,phipt,Zpt,cyl=True)
         # Sample positions and velocities in the instantaneous frame
-        k= self._meankvec+numpy.random.normal(size=n)[:,numpy.newaxis]*self._sigkvec
+        k= self._meankvec+numpy.random.normal(size=n)[:,numpy.newaxis]*self._sigkvec ###
         try:
             rtides= rtide(self._rtpot,Rpt,Zpt,phi=phipt,
                           t=-dt,M=self._progenitor_mass,use_physical=False)
@@ -152,8 +177,26 @@ class streamspraydf(df):
         vxst,vyst,vzst= bovy_coords.cyl_to_rect_vec(vRTZst[:,0],vRTZst[:,1],vRTZst[:,2],RpZst[:,1])
         xyzs= numpy.einsum('ijk,ik->ij',rot_inv,numpy.array([xst,yst,zst]).T)
         vxyzs= numpy.einsum('ijk,ik->ij',rot_inv,numpy.array([vxst,vyst,vzst]).T)
-        Rs,phis,Zs= bovy_coords.rect_to_cyl(xyzs[:,0],xyzs[:,1],xyzs[:,2])
-        vRs,vTs,vZs= bovy_coords.rect_to_cyl_vec(vxyzs[:,0],vxyzs[:,1],vxyzs[:,2],
+        
+        
+        # condider rel orbit is None
+        if self._rel == None:
+            absx = xyzs[:,0]
+            absy = xyzs[:,1]
+            absz = xyzs[:,2]
+            absvx = vxyzs[:,0]
+            absvy = vxyzs[:,1]
+            absvz = vxyzs[:,2]
+        else:           
+            absx = xyzs[:,0] + self._rel.x(-dt)
+            absy = xyzs[:,1] + self._rel.y(-dt)
+            absz = xyzs[:,2] + self._rel.z(-dt)
+            absvx = vxyzs[:,0] + self._rel.vx(-dt)
+            absvy = vxyzs[:,1] + self._rel.vy(-dt)
+            absvz = vxyzs[:,2] + self._rel.vz(-dt)
+        
+        Rs,phis,Zs= bovy_coords.rect_to_cyl(absx,absy,absz)
+        vRs,vTs,vZs= bovy_coords.rect_to_cyl_vec(absvx,absvy,absvz,
                                                  Rs,phis,Zs,cyl=True)
         out= numpy.empty((6,n))
         if integrate:
@@ -177,14 +220,44 @@ class streamspraydf(df):
 
     def _setup_rot(self,dt):
         n= len(dt)
-        L= self._progenitor.L(-dt)
+        
+        if self._rel == None:
+            L= self._progenitor.L(-dt)
+            relx = self._progenitor.x(-dt)
+            rely = self._progenitor.y(-dt)
+            relz = self._progenitor.z(-dt)
+        # relative L
+        else:
+            
+            relx = (self._progenitor.x(-dt) - self._rel.x(-dt))
+            rely = (self._progenitor.y(-dt) - self._rel.y(-dt))
+            relz = (self._progenitor.z(-dt) - self._rel.z(-dt))
+            relvx = (self._progenitor.vx(-dt) - self._rel.vx(-dt))
+            relvy = (self._progenitor.vy(-dt) - self._rel.vy(-dt))
+            relvz = (self._progenitor.vz(-dt) - self._rel.vz(-dt))
+            
+            
+            L = numpy.array([rely*relvz
+                            -relz*relvy,
+                            relz*relvx
+                            -relx*relvz,
+                            relx*relvy
+                            -rely*relvx]).T
+            '''
+            R, phi, z = rect_to_cyl(relx, rely, relz)
+            vR, vT, vz = rect_to_cyl_vec(relvx, relvy, relvz, relx, rely, relz)
+            
+            relpoint = Orbit(vxvv = numpy.array([R, vR, vT, z, vz,phi]).T)
+            L = relpoint.L()
+            '''
+            
         Lnorm= L/numpy.tile(numpy.sqrt(numpy.sum(L**2.,axis=1)),(3,1)).T
         z_rot= numpy.swapaxes(_rotate_to_arbitrary_vector(numpy.atleast_2d(Lnorm),[0.,0.,1],inv=True),1,2)
         z_rot_inv= numpy.swapaxes(_rotate_to_arbitrary_vector(numpy.atleast_2d(Lnorm),[0.,0.,1],inv=False),1,2)
         xyzt= numpy.einsum('ijk,ik->ij',z_rot,
-                           numpy.array([self._progenitor.x(-dt),
-                                        self._progenitor.y(-dt),
-                                        self._progenitor.z(-dt)]).T)
+                           numpy.array([relx,
+                                        rely,
+                                        relz]).T)
         Rt= numpy.sqrt(xyzt[:,0]**2.+xyzt[:,1]**2.)
         cosphi, sinphi= xyzt[:,0]/Rt,xyzt[:,1]/Rt
         pa_rot= numpy.array([[cosphi,-sinphi,numpy.zeros(n)],
@@ -196,3 +269,5 @@ class streamspraydf(df):
         rot= numpy.einsum('ijk,ikl->ijl',pa_rot,z_rot)
         rot_inv= numpy.einsum('ijk,ikl->ijl',z_rot_inv,pa_rot_inv)
         return (rot,rot_inv)
+    
+ 
