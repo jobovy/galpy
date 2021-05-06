@@ -3943,6 +3943,36 @@ def test_scf_tupleindexwarning():
         p.Rforce(numpy.atleast_1d(1.),numpy.atleast_1d(0.))
     return None
 
+# Test that conversion between xi and R works as expected
+def test_scf_xiToR():
+    from galpy.potential.SCFPotential import _RToxi, _xiToR
+    a= numpy.pi
+    r= 1.4
+    assert numpy.fabs(_xiToR(_RToxi(r,a=a),a=a)-r) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    xi= 1.3
+    assert numpy.fabs(_RToxi(_xiToR(xi,a=a),a=a)-xi) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    # Also for arrays
+    r= numpy.linspace(0.1,5.3,21)
+    assert numpy.all(numpy.fabs(_xiToR(_RToxi(r,a=a),a=a)-r) < 1e-10), "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    xi= numpy.linspace(-0.9,0.9,21)
+    assert numpy.all(numpy.fabs(_RToxi(_xiToR(xi,a=a),a=a)-xi) < 1e-10), "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    # Check 0 and inf
+    r= 0
+    assert numpy.fabs(_RToxi(r,a=a)+1) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    xi= -1.
+    assert numpy.fabs(_xiToR(xi,a=a)) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    r= numpy.inf
+    assert numpy.fabs(_RToxi(r,a=a)-1) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    xi= 1.
+    assert numpy.isinf(_xiToR(xi,a=a)), "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    # Also for arrays with zero and inf
+    r= numpy.concatenate((numpy.linspace(0.,5.3,21),[numpy.inf]))
+    assert numpy.all(numpy.fabs(_xiToR(_RToxi(r,a=a),a=a)[:-1]-r[:-1]) < 1e-10), "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    assert numpy.fabs(_RToxi(r,a=a)[-1]-1.) < 1e-10, "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    xi= numpy.linspace(-1,1,21)
+    assert numpy.all(numpy.fabs(_RToxi(_xiToR(xi,a=a),a=a)-xi) < 1e-10), "_RToxi and _xiToR aren't each other's inverse in  r <-> xi conversion used in SCF potential"
+    return None
+
 # Test that attempting to multiply or divide a potential by something other than a number raises an error
 def test_mult_divide_error():
     # 3D
