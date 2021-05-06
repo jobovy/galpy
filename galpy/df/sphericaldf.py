@@ -24,7 +24,7 @@ from scipy import integrate, special
 from .df import df
 from ..potential import mass
 from ..potential.Potential import _evaluatePotentials
-from ..potential.SCFPotential import _xiToR
+from ..potential.SCFPotential import _xiToR, _RToxi
 from ..orbit import Orbit
 from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion
@@ -407,8 +407,8 @@ class sphericaldf(df):
         
         so that xi is in the range [-1,1], which corresponds to an r range of 
         [0,infinity)"""
-        ximin= (self._rmin_sampling-1.)/(self._rmin_sampling+1.)
-        ximax= (1.-1./self._rmax)/(1.+1./self._rmax)
+        ximin= _RToxi(self._rmin_sampling,a=self._scale)
+        ximax= _RToxi(self._rmax,a=self._scale)
         xis= numpy.arange(ximin,ximax,1e-4)
         rs= _xiToR(xis,a=self._scale)
         # try/except necessary when mass doesn't take arrays, also need to

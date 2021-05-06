@@ -539,8 +539,13 @@ def _xiToR(xi, a =1):
     return a*numpy.divide((1. + xi),(1. - xi))  
 
 def _RToxi(r, a=1):
-    return numpy.divide((r/a-1.),(r/a+1.))
-        
+    out= numpy.divide((r/a-1.),(r/a+1.),where=True^numpy.isinf(r))
+    if numpy.any(numpy.isinf(r)):
+        if hasattr(r,'__len__'):
+            out[numpy.isinf(r)]= 1.
+        else:
+            return 1.
+    return out
         
 def _C(xi,N,L,alpha=lambda x: 2*x + 3./2,singleL=False):
     """
