@@ -1126,6 +1126,7 @@ def test_potential_array_input():
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
+    rmpots.append('PowerTriaxialPotential')
     # These cannot be setup without arguments
     rmpots.append('MovingObjectPotential')
     rmpots.append('SnapshotRZPotential')
@@ -1236,6 +1237,7 @@ def test_toVertical_array():
     rmpots.append('SphericalShellPotential')
     rmpots.append('HomogeneousSpherePotential')
     rmpots.append('TriaxialGaussianPotential')
+    rmpots.append('PowerTriaxialPotential')
     # These cannot be setup without arguments
     rmpots.append('MovingObjectPotential')
     rmpots.append('SnapshotRZPotential')

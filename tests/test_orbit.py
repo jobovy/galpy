@@ -714,6 +714,7 @@ def test_liouville_planar():
     rmpots.append('RingPotential')
     rmpots.append('PerfectEllipsoidPotential')
     rmpots.append('TriaxialGaussianPotential')
+    rmpots.append('PowerTriaxialPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -1357,6 +1358,7 @@ def test_analytic_ecc_rperi_rap():
     tol['PseudoIsothermalPotential']= -7. #these are more difficult
     tol['KuzminDiskPotential'] = -8.  #these are more difficult
     tol['DiskSCFPotential'] = -8.  #these are more difficult
+    tol['PowerTriaxialPotential'] = -8.  #these are more difficult
     for p in pots:
         #Setup instance of potential
         if p in list(tol.keys()): ttol= tol[p]
