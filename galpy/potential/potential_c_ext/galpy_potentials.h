@@ -575,6 +575,10 @@ double interpSphericalPotentialrdens(double,double,struct potentialArg *);
 double TriaxialGaussianPotentialpsi(double,double *);
 double TriaxialGaussianPotentialmdens(double,double *);
 double TriaxialGaussianPotentialmdensDeriv(double,double *);
+//PowerTriaxial: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double PowerTriaxialPotentialpsi(double,double *);
+double PowerTriaxialPotentialmdens(double,double *);
+double PowerTriaxialPotentialmdensDeriv(double,double *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential

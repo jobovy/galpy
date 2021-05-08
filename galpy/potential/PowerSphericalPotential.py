@@ -33,7 +33,7 @@ class PowerSphericalPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           alpha - inner power
+           alpha - power-law exponent
 
            r1= (1.) reference radius for amplitude (can be Quantity)
 

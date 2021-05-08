@@ -222,8 +222,9 @@ respectively. For adding a C implementation, follow similar steps (use
 .. toctree::
    :maxdepth: 2
 
-   potentialperfectellipsoid.rst
    potentialdoublepowertriaxial.rst
+   potentialperfectellipsoid.rst
+   potentialpowertriax.rst
    potentialtriaxialgaussian.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
@@ -231,7 +232,12 @@ respectively. For adding a C implementation, follow similar steps (use
 
 Note that the Ferrers potential listed below is a potential of this
 type, but it is currently not implemented using the
-``EllipsoidalPotential`` class.
+``EllipsoidalPotential`` class. Further note that these potentials can
+all be rotated in 3D using the ``zvec`` and ``pa`` keywords; however,
+more general support for the same behavior is available through the
+``RotateAndTiltWrapperPotential`` discussed below and the internal
+``zvec``/``pa`` keywords will likely be deprecated in a future
+version.
 
 Spiral, bar, other triaxial, and miscellaneous potentials
 **********************************************************

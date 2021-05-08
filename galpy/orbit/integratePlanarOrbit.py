@@ -168,6 +168,9 @@ def _parse_pot(pot):
             elif isinstance(p._Pot,potential.TriaxialGaussianPotential):
                 pot_type.append(37)
                 pot_args.extend([1,-p._Pot._twosigma2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p._Pot,potential.PowerTriaxialPotential):
+                pot_type.append(38)
+                pot_args.extend([1,p._Pot.alpha]) # for psi, mdens, mdens_deriv
             pot_args.extend([p._Pot._b2,p._Pot._c2,
                              int(p._Pot._aligned)]) # Reg. Ellipsoidal
             if not p._Pot._aligned:
@@ -259,6 +262,7 @@ def _parse_pot(pot):
             pot_args.extend([p._Pot._amp,p._Pot._rmin,p._Pot._rmax,
                              p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
         # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
+        # 30: PowerTriaxialPotential, done with other EllipsoidalPotentials above
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
