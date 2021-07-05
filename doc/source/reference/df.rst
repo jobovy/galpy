@@ -26,8 +26,10 @@ General instance routines for all df classes
    turn_physical_off <dfturnphysicaloff.rst>
    turn_physical_on <dfturnphysicalon.rst>
 
-Spherical distribution functions
---------------------------------
+.. _api_sphericaldfs:
+
+**NEW in v1.7** Spherical distribution functions
+------------------------------------------------
 
 Isotropic and anisotropic distribution functions for spherical
 systems. Documentation of these is limited at this point, but

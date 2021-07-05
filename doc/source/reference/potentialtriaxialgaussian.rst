@@ -1,3 +1,5 @@
+.. _api_pot_triaxgauss:
+
 Triaxial Gaussian potential
 ============================
 

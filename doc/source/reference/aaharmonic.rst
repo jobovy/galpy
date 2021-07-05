@@ -1,3 +1,5 @@
+.. _api_aa_harm:
+
 actionAngleHarmonic
 ===================
 

@@ -1,3 +1,5 @@
+.. _api_potwrap_rotatetilt:
+
 Rotate-and-tilt wrapper potential
 =====================================
 

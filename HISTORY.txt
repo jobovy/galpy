@@ -1,4 +1,4 @@
-v1.7 (XXXX-XX-XX)
+v1.7 (2021-07-04)
 =================
 
 - Added a general framework for spherical distribution function as

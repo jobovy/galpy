@@ -1,3 +1,5 @@
+.. _api_potwrap_adiabaticcontract:
+
 Adiabatic contraction wrapper potential
 =======================================
 

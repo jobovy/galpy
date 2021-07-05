@@ -415,8 +415,8 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-General density/potential pairs with basis-function expansions
---------------------------------------------------------------
+**UPDATED IN v1.7** General density/potential pairs with basis-function expansions
+------------------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the
@@ -436,8 +436,8 @@ The basis-function approach in the SCF method is implemented in the
 :ref:`SCFPotential <scf_potential>` class, which is also implemented
 in C for fast orbit integration. The coefficients of the
 basis-function expansion can be computed using the
-:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>`
-(for spherically-symmetric density distribution),
+:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
+spherically-symmetric density distribution),
 :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
 axisymmetric densities), and :ref:`scf_compute_coeffs
 <scf_compute_coeffs>` (for the general case). The coefficients
@@ -446,7 +446,12 @@ obtained from these functions can be directly fed into the
 expansion has a free scale parameter ``a``, which can be specified for
 the ``scf_compute_coeffs_XX`` functions and for the ``SCFPotential``
 itself. Make sure that you use the same ``a``! Note that the general
-functions are quite slow.
+functions are quite slow. Equivalent functions for computing the
+coefficients based on an N-body snapshot are also available:
+:ref:`scf_compute_coeffs_spherical_nbody
+<scf_compute_coeffs_sphere_nbody>`, :ref:`scf_compute_coeffs_axi_nbody
+<scf_compute_coeffs_axi_nbody>`, and :ref:`scf_compute_coeffs_nbody
+<scf_compute_coeffs_nbody>`.
 
 The simplest example is that of the Hernquist potential, which is the
 lowest-order basis function. When we compute the first ten radial

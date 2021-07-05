@@ -1,3 +1,5 @@
+.. _api_pot_triaxpower:
+
 Triaxial power-law-density potential
 ====================================
 

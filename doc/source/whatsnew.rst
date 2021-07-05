@@ -5,6 +5,140 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.7
++++++
+
+Version 1.7 adds many new features, mainly in the ``galpy.potential`` and
+``galpy.df`` modules. The biggest new additions are:
+
+* A general framework for spherical distribution functions defined
+  using :math:`f(E,L)` models. Specifically, general solutions for (a)
+  isotropic :math:`f(E)` models, (b) :math:`f(E,L)` models with
+  constant anisotropy :math:`\beta`, and (c) :math:`f(E,L)` models
+  with Osipkov-Merritt-type anisotropy are implemented for any
+  potential/density pair (not necessarily self-consistent). These
+  distribution functions can be evaluated, sampled exactly, and any
+  moment of the distribution function can be calculated. Documentation
+  of this is currently available at
+  :ref:`api_sphericaldfs`. Distribution functions with constant
+  anisotropy require the `JAX <https://github.com/google/jax>`__.
+
+* In addition to the general solution, the distribution function of a
+  few well-known distribution functions was added, including (a)
+  Hernquist distribution functions that are isotropic, have constant
+  anisotropy, or have Osipkov-Merritt type anisotropy; (b) an
+  isotropic Plummer profile; (c) the isotropic NFW profile (either
+  using the approx. from Widrow 2000 or using an improved
+  approximation) and the Osipkov-Merritt NFW profile (new approximate
+  form); (d) the King model (also added as a potential as
+  KingPotential).
+
+Other new additions include:
+
+* New or improved potentials and :ref:`potential wrappers
+  <potwrappers>`:
+
+  * :ref:`interpSphericalPotential <interpsphere>`: general
+    class to build interpolated versions of spherical potentials.
+
+  * :ref:`AdiabaticContractionWrapperPotential
+    <api_potwrap_adiabaticcontract>`: wrapper potential to
+    adiabatically contract a spherical dark-matter halo in response to
+    the adiabatic growth of a baryonic component.
+
+  * :ref:`TriaxialGaussianPotential <api_pot_triaxgauss>`: potential
+    of a Gaussian stratified on triaxial ellipsoids (`Emsellem et
+    al. 1994
+    <https://ui.adsabs.harvard.edu/abs/1994A%26A...285..723E/abstract>`__).
+
+  * :ref:`PowerTriaxialPotential <api_pot_triaxpower>`: potential of a
+    triaxial power-law density (like ``PowerSphericalPotential``, but
+    triaxial).
+
+  * :ref:`AnyAxisymmetricRazorThinDiskPotential
+    <api_pot_arbitraryrazorthin>`: potential of an arbitrary
+    razor-thin axisymmetric disk (not in C, mainly useful for
+    rotation-curve modeling).
+
+  * :ref:`AnySphericalPotential <api_pot_arbitraryspherical>`:
+    potential of an arbitrary spherical density distribution (not in
+    C, mainly useful for rotation-curve modeling).
+
+  * :ref:`RotateAndTiltWrapperPotential <api_potwrap_rotatetilt>`:
+    wrapper potential to re-orient a potential arbitrarily in three
+    dimensions.
+
+* Other changes to Potential classes, methods, and functions:
+
+  * Functions to compute the SCF density/potential expansion
+    coefficients based on an N-body representation of the density
+    (:ref:`scf_compute_coeffs_spherical_nbody
+    <scf_compute_coeffs_sphere_nbody>`,
+    :ref:`scf_compute_coeffs_axi_nbody
+    <scf_compute_coeffs_axi_nbody>`, and
+    :ref:`scf_compute_coeffs_nbody <scf_compute_coeffs_nbody>`).
+
+  * An :ref:`NFWPotential <api_pot_nfw>` can now be initialized using
+    ``rmax/vmax``, the radius and value of the maximum circular
+    velocity.
+
+  * Potential functions and methods to compute the zero-velocity
+    curve: ``zvc`` and ``zvc_range``. The latter computes the range in
+    R over which the zero-velocity curve is defined, the former gives
+    the positive z position on the zero-velocity curve for a given
+    radius in this range.
+
+  * ``rhalf`` Potential function/method for computing the half-mass
+    radius.
+
+  * ``tdyn`` Potential function/method for computing the dynamical time
+    using the average density.
+
+  * ``Potential.mass`` now always returns the mass within a spherical
+    shell if only one argument is given. Implemented faster versions
+    of many mass implementations using Gauss' theorem (including
+    :ref:`SCFPotential <scf_potential>` and :ref:`DiskSCFPotential
+    <disk_scf_potential>`).
+
+  * Mixed azimuthal,vertical 2nd derivatives for all non-axisymmetric
+    potentials in function ``evaluatephizderivs`` and method
+    ``phizderiv``. Now all second derivatives in cylindrical coordinates
+    are implemented.
+
+  * Function/method ``plotSurfaceDensities/plotSurfaceDensity`` for
+    plotting, you'll never guess, the surface density of a potential.
+
+  * Re-implementation of ``DoubleExponentialDiskPotential`` using the
+    double-exponential formula for integrating Bessel functions,
+    resulting in a simpler, more accurate, and more stable
+    implementation. This potential is now accurate to ~machine
+    precision.
+
+  * Potentials are now as much as possible numerically stable at ``r=0``
+    and ``r=inf``, meaning that they can be evaluated there.
+
+Other additiona and changes include:
+
+  * Added the inverse action-angle transformations for the isochrone
+    potential (in :ref:`actionAngleIsochroneInverse
+    <api_aa_isochroneinv>`) and for the one-dimensional harmonic
+    oscillator (in :ref:`actionAngleHarmonicInverse
+    <api_aa_harminv>`). Also added the action-angle calculation for
+    the harmonic oscilator in :ref:`actionAngleHarmonic
+    <api_aa_harm>`. Why yes, I have been playing around with the
+    TorusMapper a bit!
+
+  * Renamed ``galpy.util.bovy_coords`` to ``galpy.util.coords``,
+    ``galpy.util.bovy_conversion`` to ``galpy.util.conversion``, and
+    ``galpy.util.bovy_plot`` to ``galpy.util.plot`` (but old ``from
+    galpy.util import bovy_X`` will keep working for now). Also
+    renamed some other internal utility modules in the same way
+    (``bovy_symplecticode``, ``bovy_quadpack``, and ``bovy_ars``;
+    these are not kept backwards-compatible). Trying to make the code
+    a bit less egotistical!
+
+  * Support for Python 3.9.
+
 v1.6
 +++++
 
