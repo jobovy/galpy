@@ -117,7 +117,7 @@ Other new additions include:
   * Potentials are now as much as possible numerically stable at ``r=0``
     and ``r=inf``, meaning that they can be evaluated there.
 
-Other additiona and changes include:
+Other additions and changes include:
 
   * Added the inverse action-angle transformations for the isochrone
     potential (in :ref:`actionAngleIsochroneInverse
