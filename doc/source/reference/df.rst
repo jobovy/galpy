@@ -29,7 +29,39 @@ General instance routines for all df classes
 Spherical distribution functions
 --------------------------------
 
-Isotropic and anisotropic distribution functions for spherical systems.
+Isotropic and anisotropic distribution functions for spherical
+systems. Documentation of these is limited at this point, but
+generally, one can use them as::
+
+  from galpy import potential
+  from galpy.df import isotropicNFWdf
+  np= potential.NFWPotential(amp=1.2,a=2.3)
+  ndf= isotropicNFWdf(pot=np)
+  # sample
+  sam= ndf.sample(n=int(1e6))
+  print(numpy.std(sam[numpy.fabs(sam.r()-1.2) < 0.1].vr()))
+  # 0.2156787374302913
+  # Compute vel. dispersion
+  print(ndf.sigmar(1.2))
+  # 0.21985277878647172
+
+or::
+
+  from galpy.df import kingdf
+  kdf= kingdf(M=2.3,rt=1.4,W0=3.)
+  sam= kdf.sample(n=int(1e6))
+  print(numpy.amax(sam.r()))
+  # 1.3883460662897116
+  print(numpy.std(sam[numpy.fabs(sam.r()-0.2) < 0.01].vr()))
+  # 1.081298923132113
+  print(kdf.sigmar(0.2))
+  # 1.0939934290993467
+
+Various spherical DFs are explicitly implemented (e.g., Hernquist, NFW
+using a new approximation, King, Plummer) in isotropic and various
+anisotropic forms. General methods for computing isotropic,
+constant-beta anisotropic, and Osipkov-Merritt anisotropic for any
+potential/density pair are also included.
 
 General instance routines
 +++++++++++++++++++++++++
