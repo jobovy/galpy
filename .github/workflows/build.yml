@@ -1,4 +1,4 @@
-name: Linux build
+name: Linux/Mac build
 
 on:
   push:
@@ -133,6 +133,20 @@ jobs:
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.7
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: macos-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: macos-latest
+            python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
