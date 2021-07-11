@@ -247,10 +247,10 @@ jobs:
         # eval necessary for -k 'not ...' in TEST_FILES
         eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
     - name: Generate code coverage
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} && matrix.os == 'ubuntu-latest'
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |
         lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
         lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
     - name: Upload coverage reports to codecov
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }} && matrix.os == 'ubuntu-latest'
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       uses: codecov/codecov-action@v1
