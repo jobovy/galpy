@@ -1,4 +1,4 @@
-name: Linux build
+name: Linux/Mac build
 
 on:
   push:
@@ -138,6 +138,20 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_JAX: false
+          - os: macos-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
+          - os: macos-latest
+            python-version: 3.9
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_JAX: false
     env:
       PYTHON_COVREPORTS_VERSION: 3.9      
     steps:
@@ -147,13 +161,19 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install lcov
+      if: matrix.os == 'ubuntu-latest'
       run: |
          wget https://github.com/linux-test-project/lcov/releases/download/v1.15/lcov-1.15.tar.gz
          tar xf lcov-1.15.tar.gz
          sudo make -C lcov-1.15/ install
     - name: Install the GSL
+      if: matrix.os == 'ubuntu-latest'
       run: |
          sudo apt-get install libgsl-dev
+    - name: Install the GSL
+      if: matrix.os == 'macos-latest'
+      run: |
+         brew install gsl
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
@@ -191,8 +211,14 @@ jobs:
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
          tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
     - name: Install package
+      if: matrix.os == 'ubuntu-latest'
       run: |
         python setup.py build_ext --no-openmp --coverage --single_ext --inplace
+        python setup.py develop --single_ext
+    - name: Install package
+      if: matrix.os == 'macos-latest'
+      run: |
+        python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Special config
       env:
@@ -221,10 +247,10 @@ jobs:
         # eval necessary for -k 'not ...' in TEST_FILES
         eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
     - name: Generate code coverage
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |
         lcov --capture --base-directory . --directory build/temp.linux-x86_64-$PYTHON_COVREPORTS_VERSION/galpy/ --no-external --output-file coverage_full.info
         lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
     - name: Upload coverage reports to codecov
-      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION }}
+      if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       uses: codecov/codecov-action@v1
